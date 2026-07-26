@@ -88,6 +88,7 @@ graph BT
   compose --> redstone
   compose --> ui
   compose --> multiplayer
+  compose --> render
 ```
 
 この表は `scripts/check-dependency-whitelist.ts` の `REPOSITORY_POLICY.dependencyGraph` に転記されており、
@@ -172,6 +173,13 @@ kernel に標準順序表を置くと、順序を変えるたびに kernel を b
 
 `after` は「その stage が存在すること」への依存ではない。存在しない stage を名指しした場合はエッジが無いものとして扱う。
 これにより「input があるなら input の後で走らせてほしい」を、input リポジトリへの依存なしに表現できる。
+落ちたエッジは**拒否せず報告する**: `mc-compose` の `StageOrderPlan` が `dangling` と、
+骨格のどの phase にも属さなかった stage を表す `unmatchedPhase` の両方を運ぶ。
+
+`GameModule.frameStages` は配列ではなく `Effect` である。モジュールが stage を**組み立てる**ために
+サービスを取得できる瞬間がそこにしか無く、それが無いと「どれか 1 つの stage が触るサービス」が
+全部 `FrameServices` に入ってしまい、kernel が `mc-sim` / `mc-render` を名指しせざるを得なくなる。
+経緯は [freeze-checklist.md](./freeze-checklist.md) (b)。
 
 ## 5. リポジトリ / パッケージ / プレビューを混同しない（plan.md §2.4）
 

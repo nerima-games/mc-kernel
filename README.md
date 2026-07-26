@@ -112,8 +112,10 @@ Nix を使わない場合は Node.js 22 以上と pnpm 9.15.0（`corepack` 推�
   そのコンテンツを所有するリポジトリの資産である（[docs/responsibility.md](./docs/responsibility.md) §3-2）。
 - **`BlockType` は代表的な少数のみ**（17 / 参照実装は 120）。埋めるのは加算的な作業。
 - **`Chunk` データ構造とコーデックは未着手。** plan.md §3.1 の主要 API だが未実装。
-- **`FrameServices` はプレースホルダ。** 縦切りスパイクで決める。
-  [docs/freeze-checklist.md](./docs/freeze-checklist.md) を参照。
+- **`FrameServices` は確定した — `ClockPort` だけ。** 縦切りスパイクを通した結果であり、プレースホルダではない。
+  同じスパイクで `GameModule.frameStages` が配列から Effect になり、`RRegister` パラメータが増えた。
+  [docs/freeze-checklist.md](./docs/freeze-checklist.md) (b) と
+  [docs/public-api.md](./docs/public-api.md) §7 を参照。
 - **ビルド／publish はまだない。** `exports` は TypeScript ソースを直接指している。
   GitHub Packages への publish パイプラインは完成条件到達時に追加し、それまで `version` は `0.x` に留める
   （[docs/versioning.md](./docs/versioning.md)）。

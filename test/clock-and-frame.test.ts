@@ -1,10 +1,10 @@
 import { describe, expect, it } from '@effect/vitest'
-import { Effect, Layer, Ref } from 'effect'
+import { Context, Effect, Layer, Ref } from 'effect'
 import { snapshotAgeSecs, type CameraPoseSnapshot } from '../domain/camera'
 import { ClockPort, FixedClockLayer, monotonicSecs, wallClockEpochMillis } from '../domain/clock'
 import { position } from '../domain/coordinates'
 import { StageId } from '../domain/identifiers'
-import type { GameModule, StageRegistration } from '../domain/frame'
+import type { FrameServices, GameModule, StageRegistration } from '../domain/frame'
 import { DeltaTimeSecs, EpochMillis, MonotonicTimeSecs } from '../domain/quantities'
 
 const FIXED_AT = {
@@ -100,14 +100,15 @@ describe('GameModule / StageRegistration contract', () => {
 
       const module: GameModule<never, never, never> = {
         layers: Layer.empty,
-        frameStages: [tick],
+        frameStages: Effect.succeed([tick]),
       }
 
-      const [stage] = module.frameStages
+      const stages = yield* module.frameStages
+      const [stage] = stages
       expect(stage).toBeDefined()
-      expect(module.frameStages).toHaveLength(1)
+      expect(stages).toHaveLength(1)
 
-      yield* Effect.forEach(module.frameStages, (registration) =>
+      yield* Effect.forEach(stages, (registration) =>
         registration.run(DeltaTimeSecs(0.5)),
       ).pipe(Effect.provide(FixedClockLayer(FIXED_AT)))
 
@@ -124,6 +125,85 @@ describe('GameModule / StageRegistration contract', () => {
 
       expect(standalone.after).toBeUndefined()
       yield* standalone.run(DeltaTimeSecs(0)).pipe(Effect.provide(FixedClockLayer(FIXED_AT)))
+    }),
+  )
+
+  // REGRESSION — THE reason `frameStages` stopped being an array (see
+  // domain/frame.ts). A module must be able to ACQUIRE a service in order to
+  // BUILD a stage. With a value there was no context in which to do that, so
+  // every service any stage touched had to be reachable from `run`, i.e. had to
+  // live in `FrameServices` — which would have forced kernel to name mc-sim's
+  // and mc-render's services and broken the tier model.
+  it.effect('a module can acquire a service at REGISTRATION time and close over it', () =>
+    Effect.gen(function* () {
+      // Stands in for mc-sim's PlayerService: acquired once, then called every
+      // frame. Note the shape of `cameraPose` — the ClockPort requirement is on
+      // the METHOD, which is precisely why FrameServices collapses to ClockPort.
+      class PoseSource extends Context.Tag('test/PoseSource')<
+        PoseSource,
+        { readonly cameraPose: Effect.Effect<number, never, ClockPort> }
+      >() {}
+
+      const seen = yield* Ref.make<ReadonlyArray<number>>([])
+
+      const module: GameModule<never, never, never, PoseSource> = {
+        layers: Layer.empty,
+        frameStages: Effect.gen(function* () {
+          const poses = yield* PoseSource
+          return [
+            {
+              id: StageId('camera-mirror'),
+              run: () =>
+                Effect.flatMap(poses.cameraPose, (pose) =>
+                  Ref.update(seen, (previous) => [...previous, pose]),
+                ),
+            },
+          ]
+        }),
+      }
+
+      const stages = yield* module.frameStages.pipe(
+        Effect.provideService(PoseSource, {
+          cameraPose: Effect.map(monotonicSecs, (now) => now * 2),
+        }),
+      )
+
+      yield* Effect.forEach(stages, (registration) => registration.run(DeltaTimeSecs(0))).pipe(
+        Effect.provide(FixedClockLayer(FIXED_AT)),
+      )
+
+      expect(yield* Ref.get(seen)).toStrictEqual([2_469])
+    }),
+  )
+
+  // REGRESSION: `RRegister` is a SEPARATE parameter from `RIn`, and defaults to
+  // `never`. A module whose stages need nothing to be constructed still reads as
+  // three parameters — if the default were removed, every mirror in the roster
+  // would have to be edited in the same commit.
+  it.effect('RRegister defaults to never, so the common module still writes three parameters', () =>
+    Effect.sync(() => {
+      const threeParams: GameModule<never, never, never> = {
+        layers: Layer.empty,
+        frameStages: Effect.succeed([]),
+      }
+      const fourParams: GameModule<never, never, never, never> = threeParams
+      expect(fourParams.layers).toBe(Layer.empty)
+    }),
+  )
+
+  // REGRESSION: FrameServices is ClockPort and nothing else. The spike's answer,
+  // pinned so that widening it — a MAJOR change for every stage PROVIDER — has
+  // to be an explicit edit here. `Exclude` in both directions is what makes the
+  // assertion an equality rather than a containment.
+  it.effect('FrameServices is exactly ClockPort — the frozen answer, not a placeholder', () =>
+    Effect.sync(() => {
+      type NoWider = Exclude<FrameServices, ClockPort>
+      type NoNarrower = Exclude<ClockPort, FrameServices>
+      const widerIsEmpty: NoWider extends never ? true : false = true
+      const narrowerIsEmpty: NoNarrower extends never ? true : false = true
+
+      expect(widerIsEmpty).toBe(true)
+      expect(narrowerIsEmpty).toBe(true)
     }),
   )
 })

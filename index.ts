@@ -4,8 +4,9 @@
  * Documentation index: docs/README.md. The block capability model is
  * reconciled with docs/capability-flag-audit.md (24 of its 28 capabilities
  * implemented, 4 pending with recorded reasons — see PENDING_CAPABILITIES).
- * Still outstanding: the Chunk codec, the full 120-literal block roster, and
- * FrameServices. See README.md 現状 and docs/freeze-checklist.md.
+ * `FrameServices` is SETTLED (`ClockPort`, and nothing else) — see
+ * docs/freeze-checklist.md (b). Still outstanding: the Chunk codec and the full
+ * 120-literal block roster. See README.md 現状.
  *
  * Kernel sits at the bottom of the four-tier architecture. It depends on
  * `effect` and on nothing else, and every one of the other 15 repositories may

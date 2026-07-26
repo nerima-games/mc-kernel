@@ -91,9 +91,9 @@ mc-kernel が「完成」と言えるのは以下が全て満たされたとき�
 | 3 | 監査の 28 能力が実装済み、または保留理由が記録されている | ✅（24 実装 / 4 保留、`PENDING_CAPABILITIES`） |
 | 4 | `BlockType` 語彙が参照実装の 120 リテラルに追いついている | ❌（現在 17） |
 | 5 | `Chunk` データ構造とコーデック + ラウンドトリップテスト | ❌（未着手） |
-| 6 | `FrameServices` が縦切りスパイクで確定している | ❌（[freeze-checklist.md](./freeze-checklist.md)） |
+| 6 | `FrameServices` が縦切りスパイクで確定している | ✅（`ClockPort` のみ。[freeze-checklist.md](./freeze-checklist.md) (b)） |
 | 7 | 99% カバレッジゲートが有効 | ❌（完成時に有効化） |
 | 8 | API ロックファイル（公開 API のレポートを diff レビュー） | ❌（ツール未選定、plan.md §9 の未決事項） |
 
 4 と 5 が終われば「下流が実際に使える kernel」になる。6 と 8 は 1.0.0 の前提であって完成の前提ではない
-（区別は [freeze-checklist.md](./freeze-checklist.md) を参照）。
+（区別は [freeze-checklist.md](./freeze-checklist.md) を参照）。6 は完了したので、1.0.0 側に残るのは 8 だけである。

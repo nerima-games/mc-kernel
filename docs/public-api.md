@@ -275,7 +275,7 @@ Port を実装するアダプタだけは実クロックを読む必要がある
 ## 7. `GameModule` / `StageRegistration`（frame）
 
 ```typescript
-type FrameServices = ClockPort   // ← PLACEHOLDER
+type FrameServices = ClockPort   // ← 確定（縦切りスパイク済み）
 
 interface StageRegistration {
   readonly id: StageId
@@ -283,14 +283,16 @@ interface StageRegistration {
   readonly run: (dt: DeltaTimeSecs) => Effect.Effect<void, never, FrameServices>
 }
 
-interface GameModule<ROut, E, RIn> {
+interface GameModule<ROut, E, RIn, RRegister = never> {
   readonly layers: Layer.Layer<ROut, E, RIn>
-  readonly frameStages: ReadonlyArray<StageRegistration>
+  readonly frameStages: Effect.Effect<ReadonlyArray<StageRegistration>, never, RRegister>
 }
 ```
 
-plan.md §4.1 から**逐語的に**転記してある（`type` ではなく `interface` である点も含む）。
+`StageRegistration` は plan.md §4.1 から**逐語的に**転記してある（`type` ではなく `interface` である点も含む）。
 このリポジトリの lint 設定は `type` を推奨しているが、契約は仕様と文字単位で一致しているほうが価値が高いので例外扱いにしてある。
+
+`GameModule` は §4.1 から **2 点だけ意図的に離れている**。どちらもスパイクの結果である（下記）。
 
 **なぜ kernel か**: `mc-compose` が全モジュールを束ねるためには、各モジュールが同じ契約型を実装している必要がある。
 契約型を `mc-compose` に置くと全モジュールが `mc-compose` に依存し、依存グラフが完全に反転する。
@@ -298,15 +300,68 @@ plan.md §4.1 から**逐語的に**転記してある（`type` ではなく `in
 エラーチャネルが `run` ではなく Layer 側にあるのは、「physics がフレーム 12048 で失敗した」に対するフレームレベルの回復策が存在しないから。
 実行時に失敗しうる stage は自分で握るか defect にする。
 
-### `FrameServices` はプレースホルダである
+### `frameStages` は Effect である（§4.1 との差分 1）
 
-**現在 `ClockPort` の別名にすぎない。中身は未決。**
-縦切りスパイク（kernel → physics → worldgen → sim → render → gameplay を 1 本通す使い捨て実装）で決める。
-詳細は [freeze-checklist.md](./freeze-checklist.md)。
+§4.1 は `ReadonlyArray<StageRegistration>` — **値** — と書いていた。値には文脈が無いので、
+モジュールが stage を**組み立てる**ためにサービスを取得できる瞬間が存在しない。
+残る唯一の経路は `run` であり、結果として「どれか 1 つの stage が触るサービス」は全部
+`FrameServices` に入らざるを得なくなる。スパイクで実測したその和は
 
-`never` ではなく `ClockPort` から始めている理由: 「全 stage が必ず必要とするサービス」として時計だけは既に分かっており、
-`never` から始めると今日は型が通るが最初の実サービス追加で全 stage のシグネチャが壊れる。
-既知の最小から始めれば、広げる回数を「予見できなかった 1 回」に減らせる。
+```
+ClockPort | PlayerService | InventoryService | InputService | FrameInput | BlockStore | RenderTarget
+```
+
+であり、これを別名にすると kernel が `mc-sim` と `mc-render` を import しなければ名前を書けない。
+tier モデル（plan.md §2.2）が明確に禁じている。**配列そのものが原因だった。**
+
+徴候はスパイク以前からロスターに出ていた。`mx-gameplay/stages/registration.ts` は
+`makeGameplayStages: Effect.Effect<ReadonlyArray<StageRegistration>>` を公開し、
+「サービス集合 `RIn` に名前が付けられないので、これはまだ `GameModule` ではない」とコメントしていた。
+形は最初から正しく、契約の型のほうが追いついていなかった。
+
+### `RRegister` は `RIn` とは別のパラメータである（§4.1 との差分 2）
+
+登録時に必要な文脈と Layer 構築時に必要な文脈は、実測すると別の集合だった。両方向に例がある:
+
+- `mc-render` は `render:input` を登録するために `InputService` を取得する。
+  しかし `InputService` は mc-render が**提供する**側（`ROut`）であって、与えられる側ではない。
+  `RIn` に畳むと「自分が出荷するものを他人が供給するまでこのモジュールは組み立てられない」と言うことになる。
+- 逆に、Layer を組むためだけに必要でどの stage も触らないプラットフォームハンドル（キャンバス、保存ディレクトリ）がある。
+  登録文脈に畳むと、ホストが同じものを 2 回供給することになる。
+
+1 つに潰すのは簡略化ではなく**誤った等式**であり、しかも壊れる向きが悪い。
+自前提供のサービスが外部依存に見える — plan.md §3.8 が参照実装の最悪の構造バグとして記録している逆転そのものである。
+
+既定値 `never` を置いてあるので、「stage の構築に何も要らない」通常のモジュールは今までどおり 3 パラメータで書ける。
+
+`frameStages` の**エラーチャネルは `never`** のままである（Layer 側とは違う）。
+起動に失敗しうるモジュールは `E` で表明すればよく、ホストはそこを既に見ている。
+「このモジュールは使えない」を意味するチャネルが 2 本あると、ホストは見る場所が 2 つになり、区別する手段が無い。
+
+### `FrameServices` は確定した — `ClockPort` だけ
+
+**プレースホルダではなくなった。** 縦切りスパイク
+（kernel → physics → worldgen → sim → render → gameplay を 1 本通す使い捨て実装）を通した結果、
+`run` まで生き残った要求は `ClockPort` だけだった。
+
+決め手は `mc-sim` の `PlayerServiceApi.cameraPose`（`mc-sim/application/player-service.ts:35`）である:
+
+```typescript
+readonly cameraPose: Effect.Effect<CameraPoseSnapshot, never, ClockPort>
+```
+
+要求は**メソッド側**に付いていて、`PlayerService` の取得側には付いていない。
+登録時にサービスを掴んだ stage は、1 フレーム後にそのメソッドを呼ぶ時点で `ClockPort` を必要とし、
+そしてそれ以外は必要としない。上に挙げた他の候補はすべて逆の性質だった — 一度取得すれば残余要求は無い。
+
+stage は時間を読まずに進めず、かつグローバルから読んではならない（plan.md §5.1-3）ので、`never` も候補ではなかった。
 
 **この別名を広げるのは stage の *提供者*（ランタイムを組む人）にとって破壊的変更である**（stage の *著者* にとってはそうではない）。
-スパイクで 1 度だけ広げ、そこで凍結する。
+1.0.0 で凍結され、広げるのは MAJOR である。
+
+### `after` が存在しない stage を指したとき
+
+スパイクの判断: **何も強制せず、両方を報告する。**
+ダングリングエッジは「input があるなら input の後」を表明する正規の手段なので、拒否するとその語法が消える。
+一方で、落ちたエッジも、フレーム骨格が知らない stage も、失敗地点では誤字と区別がつかない。
+そこで `mc-compose` の `StageOrderPlan` が `dangling` と `unmatchedPhase` の両方を運び、ホストがそれを表示する。
