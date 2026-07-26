@@ -92,6 +92,37 @@ export const ITEM_TYPES = [
   'stick',
   'glowstone_dust',
   'wooden_pickaxe',
+
+  // Requested by mc-sim, with the cost written down, after its recipe table was
+  // repointed onto this union and seven rows had nothing to name. The request
+  // was accepted rather than the rows being restored locally, because a mirror
+  // that runs ahead of this file typechecks locally, ships a table this union
+  // rejects, and breaks on the one day the mirror is deleted — which is the day
+  // the whole mirror discipline promises will be uneventful.
+  //
+  // These are NOT here on the strength of a recipe table alone. Growing tier-1
+  // vocabulary from tier-2 evidence is the guessed-roster failure, one direction
+  // over. Each has a kernel-side reason that arrives with it:
+  //
+  //   `coal` / `iron_ingot` / `flint`   what ore blocks and gravel drop, so they
+  //                                     belong in `BlockDropRule.item` before any
+  //                                     recipe names them
+  //   `gunpowder` / `blaze_powder`      mob drops (plan.md §3.11 gives the rules
+  //                                     to mx-gameplay; the vocabulary is kernel's)
+  //   `flint_and_steel` / `fire_charge` the two ignition items §3.11 names for the
+  //                                     flammable capability this registry already
+  //                                     carries
+  //
+  // `crafting_table` was requested and is deliberately ABSENT: its recipe row was
+  // replaced by a vanilla one of identical shape, so nothing needs the literal
+  // and adding it would be vocabulary with no reason of its own.
+  'coal',
+  'iron_ingot',
+  'flint',
+  'gunpowder',
+  'blaze_powder',
+  'flint_and_steel',
+  'fire_charge',
 ] as const
 
 export type ItemType = (typeof ITEM_TYPES)[number]

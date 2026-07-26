@@ -108,7 +108,24 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
       expect(blocksRemain).toBe(true)
 
       // ...and the same fact as data, so the reason is legible in a failure.
-      expect([...NON_PLACEABLE_ITEM_TYPES]).toStrictEqual(['stick', 'glowstone_dust', 'wooden_pickaxe'])
+      //
+      // Pinned as a literal list rather than a count. The seven after
+      // `wooden_pickaxe` arrived together when mc-sim's recipe table was
+      // repointed onto `ItemType` and seven rows had nothing to name; each has a
+      // kernel-side reason recorded beside it in `domain/item-type.ts`, and a
+      // list is what makes an eighth arriving without one visible in review.
+      expect([...NON_PLACEABLE_ITEM_TYPES]).toStrictEqual([
+        'stick',
+        'glowstone_dust',
+        'wooden_pickaxe',
+        'coal',
+        'iron_ingot',
+        'flint',
+        'gunpowder',
+        'blaze_powder',
+        'flint_and_steel',
+        'fire_charge',
+      ])
       expect([...UNITEMISED_BLOCK_TYPES]).toStrictEqual(['air', 'water', 'lava', 'bedrock', 'snow'])
     }),
   )
