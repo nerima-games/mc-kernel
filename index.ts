@@ -8,6 +8,14 @@
  * docs/freeze-checklist.md (b). Still outstanding: the Chunk codec and the full
  * 120-literal block roster. See README.md 現状.
  *
+ * It now carries BOTH vocabularies plan.md §3.1 asked for. `ItemType`
+ * (`domain/item-type.ts`) was the missing half; while it was missing, mc-sim,
+ * mc-playground-kit and mx-ui each grew a provisional `type ItemId = string`.
+ * `domain/block-item.ts` bridges the two — by derivation, which is audit §6-8's
+ * instruction — and `dropOfBlockId` joins a broken chunk-buffer byte to the
+ * item that lands in the inventory, which is the seam mc-compose's cross-module
+ * E2E suite could not express.
+ *
  * Kernel sits at the bottom of the four-tier architecture. It depends on
  * `effect` and on nothing else, and every one of the other 15 repositories may
  * import it. It therefore contains only things that are true regardless of
@@ -29,6 +37,7 @@
 export * from './domain/block-capabilities'
 export * from './domain/block-definition'
 export * from './domain/block-harvest'
+export * from './domain/block-item'
 export * from './domain/block-properties'
 export * from './domain/block-registry'
 export * from './domain/block-type'
@@ -37,4 +46,5 @@ export * from './domain/clock'
 export * from './domain/coordinates'
 export * from './domain/frame'
 export * from './domain/identifiers'
+export * from './domain/item-type'
 export * from './domain/quantities'

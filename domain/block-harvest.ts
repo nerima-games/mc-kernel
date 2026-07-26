@@ -17,7 +17,9 @@
  * or must come with a default in `BLOCK_PROPERTY_DEFAULTS`. Never both required
  * and defaultless.
  */
+import { itemOfBlock } from './block-item'
 import type { BlockType } from './block-type'
+import type { ItemType } from './item-type'
 
 // ---------------------------------------------------------------------------
 // harvestTool (audit §4.5)
@@ -93,8 +95,16 @@ export const satisfiesHarvestTier = (requirement: HarvestToolRequirement, heldTi
  * a `drops` field cannot express it and should not try.
  */
 export type BlockDropRule = {
-  /** `'self'` = an item of this block; otherwise the block type actually dropped. */
-  readonly item: BlockType | 'self'
+  /**
+   * `'self'` = the item form of this block; otherwise the item actually
+   * dropped.
+   *
+   * This was `BlockType | 'self'` until `ItemType` existed, which was wrong in
+   * the direction that matters: `glowstone` yields `glowstone_dust`, and there
+   * is no block called `glowstone_dust`. The old spelling could express
+   * "different block", never "not a block".
+   */
+  readonly item: ItemType | 'self'
   /** Base count before fortune. `0` = drops nothing (audit: ICE, `NEVER_DROPPED_BLOCK_TYPES`). */
   readonly count: number
   /** Only drops at all when mined with a silk-touch tool. */
@@ -111,6 +121,105 @@ export const DEFAULT_BLOCK_DROP: BlockDropRule = {
   affectedByFortune: false,
 }
 
-/** Resolve the `'self'` sentinel against the block that is actually being broken. */
-export const resolveDropItem = (rule: BlockDropRule, brokenBlock: BlockType): BlockType =>
-  rule.item === 'self' ? brokenBlock : rule.item
+/**
+ * Resolve the `'self'` sentinel against the block that is actually being broken.
+ *
+ * PARTIAL, and this is the change `ItemType` forced. The old signature returned
+ * `BlockType` and was total, because "the block itself" is always a block. Once
+ * the answer is an ITEM, "the block itself" can fail to exist: `air` is a
+ * sentinel rather than a thing (audit §6-6), and `water` / `lava` / `bedrock` /
+ * `snow` have no item form in this build. `undefined` is that answer, and it
+ * means the same thing as `count: 0` — nothing lands in the inventory.
+ *
+ * Note that this deliberately does NOT consult the tool gate or silk touch. It
+ * answers "which item", not "does anything drop"; `resolveDrop` below is the
+ * function that answers both, and is what mining should call.
+ */
+export const resolveDropItem = (rule: BlockDropRule, brokenBlock: BlockType): ItemType | undefined =>
+  rule.item === 'self' ? itemOfBlock(brokenBlock) : rule.item
+
+// ---------------------------------------------------------------------------
+// The gate: harvestTool x drops -> what actually lands in the inventory
+// ---------------------------------------------------------------------------
+
+/**
+ * What the player is swinging, as far as the drop is concerned.
+ *
+ * Every member is OPTIONAL, and the omission of one means the boring answer
+ * ("bare hands", "no silk touch"). That is the same override-plus-default shape
+ * as `BlockCapabilityOverrides` and for the same reason
+ * (`docs/versioning.md` §5-2): this struct is a PARAMETER, so a new REQUIRED
+ * member here would break every call site in 14 repositories, whereas a new
+ * optional one breaks none. Enchantments are the obvious growth direction.
+ */
+export type HarvestContext = {
+  /** Tier of the held tool. Gates the drop; see `satisfiesHarvestTier`. */
+  readonly heldTier?: HarvestTier
+  /** Whether the held tool carries silk touch. */
+  readonly silkTouch?: boolean
+}
+
+/** The empty context, spelled. Bare hands, no enchantments. */
+export const BARE_HANDED: HarvestContext = {}
+
+/**
+ * What breaking a block actually yields.
+ *
+ * `affectedByFortune` is carried OUT rather than applied here on purpose.
+ * Fortune multiplies the count through a random function, and audit §6-9 puts
+ * random drop rules in mx-gameplay ("`drops` では表現できない"). Kernel is
+ * pure and deterministic — `StageRegistration.run` has error channel `never`
+ * and no source of randomness — so it reports the base count and the fact that
+ * fortune applies, and lets the rule that owns the RNG do the multiplication.
+ */
+export type BlockDrop = {
+  readonly item: ItemType
+  /** Base count, before fortune. Always >= 1; "nothing" is `undefined`, not zero. */
+  readonly count: number
+  readonly affectedByFortune: boolean
+}
+
+/**
+ * The whole drop decision for one broken block. TOTAL, returning `undefined`
+ * for "nothing drops".
+ *
+ * The three ways to get nothing, in the order checked:
+ *
+ *   1. `count <= 0` — the block yields nothing to anyone (audit §4.5 records
+ *      `NEVER_DROPPED_BLOCK_TYPES` and `blockDropsBaseItem`).
+ *   2. The tool tier is below `harvestTool.minTier` — mining stone bare-handed.
+ *      Note that the CATEGORY is not consulted, per `satisfiesHarvestTier`:
+ *      the wrong family of tool is slow, not fruitless.
+ *   3. `requiresSilkTouch` and the tool has none — breaking glass.
+ *
+ * ...and a fourth that is not a denial but an absence: the rule says `'self'`
+ * and the block has no item form.
+ *
+ * KNOWN LIMITATION, recorded rather than faked: silk touch is modelled as a
+ * GATE, not as a SUBSTITUTION. Vanilla's "stone drops itself instead of
+ * cobblestone under silk touch" needs a second item on the rule. The additive
+ * fix is one optional member (`silkTouchItem?: ItemType`), which is exactly
+ * what this file's own change rule permits; it is left out until a consumer
+ * needs it, because a member nobody reads is the cheapest way to get a freeze
+ * wrong (`./block-definition`, on `properties.solid`).
+ */
+export const resolveDrop = (
+  requirement: HarvestToolRequirement,
+  rule: BlockDropRule,
+  brokenBlock: BlockType,
+  context: HarvestContext = BARE_HANDED,
+): BlockDrop | undefined => {
+  if (rule.count <= 0) {
+    return undefined
+  }
+  if (!satisfiesHarvestTier(requirement, context.heldTier ?? 'none')) {
+    return undefined
+  }
+  if (rule.requiresSilkTouch && context.silkTouch !== true) {
+    return undefined
+  }
+
+  const item = resolveDropItem(rule, brokenBlock)
+
+  return item === undefined ? undefined : { item, count: rule.count, affectedByFortune: rule.affectedByFortune }
+}

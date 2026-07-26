@@ -2,7 +2,7 @@
 
 ## 1. 現状
 
-- **バージョン: `0.1.0`。**
+- **バージョン: `0.2.0`。**（`0.1.0` からの bump 理由は §6-1）
 - **publish パイプラインは無い。** `package.json` の `exports` は TypeScript ソースを直接指しており、ビルド成果物は存在しない。
 - 開発中は `mc-dev-meta` workspace（16 リポジトリを `repos/` に clone して 1 つの pnpm workspace として束ねる）による
   `workspace:*` 解決でモノレポ同等の DX を得る（plan.md §6 Step 0-2）。
@@ -165,6 +165,26 @@ plan.md §3.1 が boolean と書いていた 3 つ（`emissive` / `transparent` 
 
 **既定値の変更が MAJOR である点に注意。** 加算安全性は「書かなかったものは既定に解決される」ことに立脚しているので、
 既定を変えると「何も書いていない全ブロックの挙動が変わる」。追加より危険である。
+
+### 6-1. 実例: `0.1.0` → `0.2.0`（アイテム語彙の投入）
+
+`domain/item-type.ts` / `domain/block-item.ts` の追加そのものは MINOR（新しい型・関数の公開）だが、
+同じ変更に **MAJOR 分類の項目が 2 つ**含まれている:
+
+| 変更 | 分類 | なぜ必要だったか |
+| --- | --- | --- |
+| `BlockDropRule.item`: `BlockType \| 'self'` → `ItemType \| 'self'` | MAJOR（能力の型の変更） | `glowstone` は `glowstone_dust` を落とす。旧綴りは「別のブロック」しか言えず「ブロックでないもの」を言えない |
+| `resolveDropItem`: `BlockType` → `ItemType \| undefined` | MAJOR（全域から部分へ） | 答えがアイテムになると「自分自身」は存在しないことがありうる（`air` / `water` / `lava` / `bedrock` / `snow`） |
+
+どちらも §5-4 と同じ話である —— **今なら 0 円で、あとでは 5 段のカスケード**。
+実際この時点で**下流のどの `package.json` も mc-kernel を依存に持っていない**
+（各リポジトリはまだ `domain/kernel-vocabulary.ts` でミラーしている段階なので、ピン留めが存在しない）。
+
+上の読み替え表に従い、MAJOR 分類 → `0.x` では minor bump、すなわち `0.1.0` → `0.2.0`。
+
+**`api-lock.md` が変わるので、plan.md §6 Step 3 の「4 週間無変更」の計測は
+このコミットから振り出しに戻る**（[freeze-checklist.md](./freeze-checklist.md)）。
+それが払った代価であり、払う判断の根拠は「凍結後に同じ変更をすると深さ 5 の republish になる」ことである。
 
 ## 7. API ロックファイル
 

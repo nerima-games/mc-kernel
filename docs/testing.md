@@ -89,7 +89,8 @@ mc-kernel が「完成」と言えるのは以下が全て満たされたとき�
 | 1 | `pnpm verify` が green | ✅ |
 | 2 | 能力フラグ監査が完了している | ✅（`docs/capability-flag-audit.md`） |
 | 3 | 監査の 28 能力が実装済み、または保留理由が記録されている | ✅（24 実装 / 4 保留、`PENDING_CAPABILITIES`） |
-| 4 | `BlockType` 語彙が参照実装の 120 リテラルに追いついている | ❌（現在 17） |
+| 4 | `BlockType` 語彙が参照実装の 120 リテラルに追いついている | ❌（現在 18） |
+| 4' | `ItemType` 語彙が存在する（plan.md §3.1） | ✅（`domain/item-type.ts`、16 種。埋めるのは加算的） |
 | 5 | `Chunk` データ構造とコーデック + ラウンドトリップテスト | ❌（未着手） |
 | 6 | `FrameServices` が縦切りスパイクで確定している | ✅（`ClockPort` のみ。[freeze-checklist.md](./freeze-checklist.md) (b)） |
 | 7 | 99% カバレッジゲートが有効 | ❌（完成時に有効化） |

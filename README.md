@@ -108,9 +108,16 @@ Nix を使わない場合は Node.js 22 以上と pnpm 9.15.0（`corepack` 推�
   plan.md §3.1 が boolean としていた 3 つ（`emissive` / `transparent` / `fluid`）は監査に従って
   `lightEmission: 0..15` / `opacity: 3 値` / `fluid: 'none'|'water'|'lava'` に修正済み。
   詳細は [docs/public-api.md](./docs/public-api.md) §4。
-- **ブロックテーブルは意図的に同梱していない。** どのブロックがどの能力を持つかはコンテンツであり、
-  そのコンテンツを所有するリポジトリの資産である（[docs/responsibility.md](./docs/responsibility.md) §3-2）。
-- **`BlockType` は代表的な少数のみ**（17 / 参照実装は 120）。埋めるのは加算的な作業。
+- **ブロックテーブルは同梱している**（`domain/block-registry.ts`）。もともとは「コンテンツなので持たない」方針だったが、
+  チャンクバッファの 1 バイトから能力を引きたいリポジトリが依存グラフ上で互いに届かない 3 箇所に現れた時点で成立しなくなった。
+  経緯と論拠は [docs/responsibility.md](./docs/responsibility.md) §3-2 と当該ファイルのヘッダにある。
+- **`BlockType` は代表的な少数のみ**（18 / 参照実装は 120）。埋めるのは加算的な作業。
+- **`ItemType` を公開した**（`domain/item-type.ts`、16 種）。plan.md §3.1 が挙げていながら
+  書かれていなかった語彙で、欠落のあいだに mc-sim / mc-playground-kit / mx-ui がそれぞれ暫定の
+  `type ItemId = string` を置いていた。`domain/block-item.ts` がブロック↔アイテムの橋
+  （監査 §6-8 の `ItemType ∩ BlockType` を導出で解く）を、`dropOfBlockId` が
+  「壊したブロックのバイト → インベントリに入るアイテム」を担う。
+  詳細は [docs/public-api.md](./docs/public-api.md) §3-bis と §4-3。
 - **`Chunk` データ構造とコーデックは未着手。** plan.md §3.1 の主要 API だが未実装。
 - **`FrameServices` は確定した — `ClockPort` だけ。** 縦切りスパイクを通した結果であり、プレースホルダではない。
   同じスパイクで `GameModule.frameStages` が配列から Effect になり、`RRegister` パラメータが増えた。

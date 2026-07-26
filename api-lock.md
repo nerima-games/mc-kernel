@@ -13,7 +13,7 @@
 <!-- ------------------------------------------------------------------------- -->
 
 format: 1
-exported declarations: 113
+exported declarations: 128
 supporting declarations: 1
 
 ## Exported
@@ -37,6 +37,12 @@ const AIR_BLOCK_ID: BlockId;
 
 ```ts
 const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string>;
+```
+
+### BARE_HANDED  `const`
+
+```ts
+const BARE_HANDED: HarvestContext;
 ```
 
 ### BLOCK_CAPABILITY_DEFAULTS  `const`
@@ -102,7 +108,7 @@ const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry>;
 ### BLOCK_TYPES  `const`
 
 ```ts
-const BLOCK_TYPES: readonly ["air", "stone", "dirt", "grass_block", "sand", "gravel", "water", "lava", "oak_log", "oak_planks", "oak_leaves", "glass", "torch", "glowstone", "bedrock", "piston", "snow"];
+const BLOCK_TYPES: readonly ["air", "stone", "cobblestone", "dirt", "grass_block", "sand", "gravel", "water", "lava", "oak_log", "oak_planks", "oak_leaves", "glass", "torch", "glowstone", "bedrock", "piston", "snow"];
 ```
 
 ### BlockAxis  `const`
@@ -149,11 +155,21 @@ type BlockDefinition = {
 };
 ```
 
+### BlockDrop  `type`
+
+```ts
+type BlockDrop = {
+    readonly item: ItemType;
+    readonly count: number;
+    readonly affectedByFortune: boolean;
+};
+```
+
 ### BlockDropRule  `type`
 
 ```ts
 type BlockDropRule = {
-    readonly item: BlockType | 'self';
+    readonly item: ItemType | 'self';
     readonly count: number;
     readonly requiresSilkTouch: boolean;
     readonly affectedByFortune: boolean;
@@ -387,6 +403,15 @@ const HARVEST_TIERS: readonly ["none", "wooden", "stone", "iron", "diamond"];
 const HARVEST_TOOL_CATEGORIES: readonly ["none", "pickaxe", "axe", "shovel", "hoe", "shears", "sword"];
 ```
 
+### HarvestContext  `type`
+
+```ts
+type HarvestContext = {
+    readonly heldTier?: HarvestTier;
+    readonly silkTouch?: boolean;
+};
+```
+
 ### HarvestTier  `type`
 
 ```ts
@@ -406,6 +431,18 @@ type HarvestToolRequirement = {
     readonly category: HarvestToolCategory;
     readonly minTier: HarvestTier;
 };
+```
+
+### ITEM_TYPES  `const`
+
+```ts
+const ITEM_TYPES: readonly ["stone", "cobblestone", "dirt", "grass_block", "sand", "gravel", "oak_log", "oak_planks", "oak_leaves", "glass", "torch", "glowstone", "piston", "stick", "glowstone_dust", "wooden_pickaxe"];
+```
+
+### ItemType  `type`
+
+```ts
+type ItemType = (typeof ITEM_TYPES)[number];
 ```
 
 ### LIGHT_LEVEL_MAX  `const`
@@ -460,6 +497,12 @@ const MonotonicTimeSecs: Brand.Brand.Constructor<MonotonicTimeSecs>;
 type MonotonicTimeSecs = number & Brand.Brand<'MonotonicTimeSecs'>;
 ```
 
+### NON_PLACEABLE_ITEM_TYPES  `const`
+
+```ts
+const NON_PLACEABLE_ITEM_TYPES: ReadonlyArray<ItemType>;
+```
+
 ### PENDING_CAPABILITIES  `const`
 
 ```ts
@@ -468,6 +511,18 @@ const PENDING_CAPABILITIES: ReadonlyArray<{
     readonly kind: 'flag' | 'property';
     readonly why: string;
 }>;
+```
+
+### PLACEABLE_ITEM_TYPES  `const`
+
+```ts
+const PLACEABLE_ITEM_TYPES: ReadonlyArray<PlaceableItemType>;
+```
+
+### PlaceableItemType  `type`
+
+```ts
+type PlaceableItemType = ItemType & BlockType;
 ```
 
 ### Position  `type`
@@ -554,6 +609,12 @@ interface StageRegistration {
 const TRUE_BY_DEFAULT_CAPABILITY_FLAGS: ReadonlyArray<BlockCapabilityFlag>;
 ```
 
+### UNITEMISED_BLOCK_TYPES  `const`
+
+```ts
+const UNITEMISED_BLOCK_TYPES: ReadonlyArray<BlockType>;
+```
+
 ### UNREGISTERED_BLOCK_TYPES  `const`
 
 ```ts
@@ -618,6 +679,12 @@ const blockIdsWithCapability: (flag: BlockCapabilityFlag) => ReadonlySet<number>
 
 ```ts
 const blockIdsWithOpacity: (opacity: BlockOpacity) => ReadonlySet<number>;
+```
+
+### blockOfPlaceableItem  `const`
+
+```ts
+const blockOfPlaceableItem: (item: PlaceableItemType) => BlockType;
 ```
 
 ### blockPosition  `const`
@@ -686,6 +753,12 @@ const chunkCoordOfBlock: (value: BlockPosition) => ChunkCoord;
 const clampLightLevel: (value: number) => number;
 ```
 
+### dropOfBlockId  `const`
+
+```ts
+const dropOfBlockId: (id: number, context?: HarvestContext) => BlockDrop | undefined;
+```
+
 ### fixedClock  `const`
 
 ```ts
@@ -701,6 +774,12 @@ const fixedClock: (at: {
 const isBlockType: (value: string) => value is BlockType;
 ```
 
+### isItemType  `const`
+
+```ts
+const isItemType: (value: string) => value is ItemType;
+```
+
 ### isKnownBlockId  `const`
 
 ```ts
@@ -711,6 +790,18 @@ const isKnownBlockId: (id: number) => boolean;
 
 ```ts
 const isLightLevel: (value: number) => boolean;
+```
+
+### isPlaceableItem  `const`
+
+```ts
+const isPlaceableItem: (item: ItemType) => item is PlaceableItemType;
+```
+
+### itemOfBlock  `const`
+
+```ts
+const itemOfBlock: (block: BlockType) => PlaceableItemType | undefined;
 ```
 
 ### localCoordOfBlock  `const`
@@ -761,10 +852,16 @@ const resolveBlockCapabilities: (overrides: BlockCapabilityOverrides) => BlockCa
 const resolveBlockProperties: (overrides: BlockPropertyOverrides) => BlockProperties;
 ```
 
+### resolveDrop  `const`
+
+```ts
+const resolveDrop: (requirement: HarvestToolRequirement, rule: BlockDropRule, brokenBlock: BlockType, context?: HarvestContext) => BlockDrop | undefined;
+```
+
 ### resolveDropItem  `const`
 
 ```ts
-const resolveDropItem: (rule: BlockDropRule, brokenBlock: BlockType) => BlockType;
+const resolveDropItem: (rule: BlockDropRule, brokenBlock: BlockType) => ItemType | undefined;
 ```
 
 ### resolvedBlockOfId  `const`

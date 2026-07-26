@@ -65,6 +65,16 @@ describe('public API surface', () => {
         // block types
         'BLOCK_TYPES',
         'isBlockType',
+        // item types — plan.md §3.1's other literal vocabulary
+        'ITEM_TYPES',
+        'isItemType',
+        // the block -> item bridge (audit §6-8's intersection, derived)
+        'PLACEABLE_ITEM_TYPES',
+        'NON_PLACEABLE_ITEM_TYPES',
+        'UNITEMISED_BLOCK_TYPES',
+        'isPlaceableItem',
+        'itemOfBlock',
+        'blockOfPlaceableItem',
         // block capability flags (booleans)
         'BLOCK_CAPABILITY_DEFAULTS',
         'BLOCK_CAPABILITY_FLAGS',
@@ -92,6 +102,8 @@ describe('public API surface', () => {
         'DEFAULT_BLOCK_DROP',
         'satisfiesHarvestTier',
         'resolveDropItem',
+        'BARE_HANDED',
+        'resolveDrop',
         // block definitions
         'blockCapabilitiesOf',
         'blockPropertiesOf',
@@ -113,6 +125,7 @@ describe('public API surface', () => {
         'capabilitiesOfBlockId',
         'blockIdsWithCapability',
         'blockIdsWithOpacity',
+        'dropOfBlockId',
         'UNREGISTERED_BLOCK_TYPES',
         // camera
         'snapshotAgeSecs',

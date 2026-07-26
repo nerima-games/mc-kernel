@@ -15,6 +15,8 @@
 | 座標系 | `Position`（連続）/ `BlockPosition`（格子）/ `ChunkCoord` / `LocalBlockCoord`、およびそれらの変換 |
 | 幾何 | `AABB` と交差判定 |
 | ブロック語彙 | `BlockType` リテラル型と網羅性チェック |
+| アイテム語彙 | `ItemType` リテラル型と網羅性チェック |
+| ブロック↔アイテム橋渡し | `PlaceableItemType`（= `ItemType ∩ BlockType`、監査 §6-8）と `drops` の解決 |
 | ブロック能力モデル | 能力フラグ表（boolean）+ プロパティ表（型付き値）+ `BlockDefinition` |
 | 横断 Port | `ClockPort` |
 | 横断スナップショット | `CameraPoseSnapshot` |
@@ -33,10 +35,13 @@ domain/
   quantities.ts               # StackCount / DeltaTimeSecs / MonotonicTimeSecs / EpochMillis
   coordinates.ts              # Position / BlockPosition / ChunkCoord / LocalBlockCoord / AABB
   block-type.ts               # BlockType 語彙
+  item-type.ts                # ItemType 語彙（block-type.ts と同形）
+  block-item.ts               # ブロック↔アイテムの橋（監査 §6-8 の交差を導出で解く）
   block-capabilities.ts       # boolean 能力フラグ表
   block-properties.ts         # 型付きプロパティ表
-  block-harvest.ts            # harvestTool / drops（struct 2 種を隔離）
+  block-harvest.ts            # harvestTool / drops（struct 2 種を隔離）+ ドロップ解決
   block-definition.ts         # BlockDefinition と解決関数、実装/保留の台帳
+  block-registry.ts           # 数値 id ↔ BlockType、ブロック表、id キーの引き
   camera.ts                   # CameraPoseSnapshot
   clock.ts                    # ClockPort
   frame.ts                    # GameModule / StageRegistration / FrameServices
@@ -106,11 +111,36 @@ plan.md §2.3-5 により**依存は推移しない**ので、「下流のどこ
 （`BLOCK.SAND === 5`）を kernel が**採用した**ものである。逆にしなかったのは、
 あちらの golden fixture がその番号で生成済みだからである。
 
-#### 依然として持たないもの
+#### ~~依然として持たないもの~~ → `drops` / `harvestTool` は**埋まった**
 
-`drops` / `harvestTool` の実データ、`textureTiles`、`supportRule`。
-どれもアイテム名簿かテクスチャアトラスと同時に決まるもので、
-`PENDING_CAPABILITIES`（`domain/block-definition.ts`）に理由つきで記録されている。
+この節はもともとこう書かれていた:
+
+> `drops` / `harvestTool` の実データ、`textureTiles`、`supportRule`。
+> どれもアイテム名簿かテクスチャアトラスと同時に決まるもので、
+> `PENDING_CAPABILITIES`（`domain/block-definition.ts`）に理由つきで記録されている。
+
+**アイテム名簿が来た**（`domain/item-type.ts`）ので、前半 2 つの保留理由は消えた。
+`BLOCK_REGISTRY` の各行が自分のドロップと道具要件を宣言している。
+
+**なぜ別テーブルにしなかったか。** 監査 §3 は `drops` / `harvestTool` を
+`opacity` / `hardness` と同じ 28 行の表に**能力として**並べている。能力表の外にある能力は能力ではない。
+加えて監査 §7 の「定義テーブルは差分のみ記述する」が効いていて、既定が「自分自身 1 個」である以上
+大半の行は drops について何も書かない —— `BlockType` をキーにした別表はその性質を持てず、
+「退屈な答え」を書くためだけに全ブロック分の行が要る。
+そして監査 §4.9 の一般形（同じ集合が 5 箇所で別メンバーシップになる）がそのまま当てはまる。
+何より、別表にすると plan.md §3.1 の「ブロック追加 = 定義テーブル 1 行」が
+**2 ファイル 2 行**になる。不変条件が壊れる。
+
+`textureTiles` / `supportRule` は保留のまま（`PENDING_CAPABILITIES`）。
+どちらもテクスチャアトラスか block roster の完成が条件で、アイテム名簿では解けない。
+
+**`drops` が表現しないと決めたもの**（いずれも監査が置き場所を決めている）:
+
+| 事象 | 置き場所 | 理由 |
+| --- | --- | --- |
+| 乱数ドロップ（gravel → flint 10%、oak_leaves → sapling） | `mx-gameplay` | 監査 §6-9。kernel は純粋で RNG を持たない |
+| 幸運の倍率適用 | `mx-gameplay` | 同上。kernel は `affectedByFortune` を**運ぶ**だけ |
+| シルクタッチの**置換**（stone → stone） | 未実装 | 現状の `requiresSilkTouch` は gate であって substitution ではない。加算的な直し方（`silkTouchItem?: ItemType`）を `domain/block-harvest.ts` に記録済み |
 
 ### 3-3. stage 全順序表を持たない
 

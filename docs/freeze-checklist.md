@@ -30,7 +30,7 @@ kernel での対応状況: **24 実装 / 4 保留**。保留 4 件は `PENDING_C
 `test/block-definition.test.ts` が「実装済み + 保留 = 監査の 28」を機械的に検査している。
 
 なお、監査が完了したことは「能力集合が凍結できる」を意味するが、
-**「ブロックテーブルが完成した」は意味しない**。`BlockType` 語彙は 120 中 17 しか埋まっておらず、
+**「ブロックテーブルが完成した」は意味しない**。`BlockType` 語彙は 120 中 18 しか埋まっておらず、
 これは完成条件（[testing.md](./testing.md) §5）の側の話である。
 
 ### (b) 縦切りスパイクによる契約形状の検証 — ✅ 完了
@@ -180,6 +180,22 @@ TypeScript 自身の declaration emit をメモリ上で走らせ、非 export �
 `pnpm verify` と CI が「気付かないうちに変わっていた」を構造的に不可能にしている。
 契約形状が確定し計測も始まった以上、**クリティカルパスは「時間の経過」そのものに移った** ——
 残る 2 つ（完成条件・下流実消費）はこの 4 週間と並行して進められる。
+
+> **⚠ 計測は一度リセットされている。** アイテム語彙の投入（`domain/item-type.ts` /
+> `domain/block-item.ts`、`BlockDropRule.item` の型変更、`dropOfBlockId` の追加）で
+> `api-lock.md` が動いた。**4 週間はそのコミットから数え直しである。**
+>
+> それを承知でやった理由は 3 つある。
+>
+> 1. plan.md §3.1 は kernel の公開 API に 「`BlockType` / `ItemType`（リテラル型）」 を挙げている。
+>    **`ItemType` を欠いたまま凍結すると、凍結した API が仕様を満たしていない。**
+> 2. 欠落は既に 3 リポジトリに暫定 `type ItemId = string` を生んでおり
+>    （mc-sim / mc-playground-kit / mx-ui）、放置するほど repoint のコストが上がる。
+> 3. `BlockDropRule.item` の型変更は凍結後には MAJOR、つまり深さ 5 の republish カスケードである
+>    （[versioning.md](./versioning.md) §6-1）。**リセット 4 週間はカスケードより安い。**
+>
+> なお下流実消費（下記 3 つ目の未達項目）はこの変更で**近づいた**。mc-compose の横断 E2E が
+> 書けなかった「採掘がインベントリに反映される」は `dropOfBlockId` で書けるようになっている。
 
 #### (b) 完了時点で残っている作業
 

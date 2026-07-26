@@ -68,7 +68,7 @@ type BlockType = (typeof BLOCK_TYPES)[number]
 const isBlockType = (value: string): value is BlockType
 ```
 
-**現状は暫定で 17 種。** 参照実装は監査 §2 の実測で **120 リテラル**（`packages/core/domain/block-type.ts:3-132`）。
+**現状は暫定で 18 種。** 参照実装は監査 §2 の実測で **120 リテラル**（`packages/core/domain/block-type.ts:3-132`）。
 plan.md の「約 119」は同じ数の概数。
 
 現在の subset は「監査 §4.9 が『非固体は 5 つの独立概念だ』を証明するのに使ったブロック（`glass` / `oak_leaves` / `snow`）を含むこと」を基準に選んである。
@@ -80,6 +80,59 @@ plan.md の「約 119」は同じ数の概数。
 メッシュ（`mc-meshing`）・物理（`mc-physics`）・ルール（`mx-gameplay`）が同じ集合を指す必要がある。
 plan.md §5.3 は「core と block の分離」を「ブロック追加が必ず両方を共変更する」という理由で棄却しており、
 語彙と能力モデルが同じリポジトリにあることは意図的である。
+
+## 3-bis. アイテム語彙とブロック↔アイテムの橋（item-type / block-item）
+
+```typescript
+const ITEM_TYPES = ['stone', 'cobblestone', ..., 'wooden_pickaxe'] as const
+type ItemType = (typeof ITEM_TYPES)[number]
+const isItemType = (value: string): value is ItemType
+
+type PlaceableItemType = ItemType & BlockType          // 監査 §6-8 の交差を型で解く
+const PLACEABLE_ITEM_TYPES / NON_PLACEABLE_ITEM_TYPES / UNITEMISED_BLOCK_TYPES
+const isPlaceableItem(item: ItemType): item is PlaceableItemType
+const itemOfBlock(block: BlockType): PlaceableItemType | undefined   // 部分関数
+const blockOfPlaceableItem(item: PlaceableItemType): BlockType       // 全域、ただし交差の上でだけ
+```
+
+plan.md §3.1 は kernel の公開 API に 「`BlockType` / `ItemType`（リテラル型）」 を挙げていたが、
+**アイテム側は書かれていなかった。** その結果、必要になったリポジトリがそれぞれ暫定の
+`type ItemId = string` を置いた（`mc-sim/domain/inventory.ts`、`mc-playground-kit/domain/launch-options.ts`、
+`mx-ui/domain/inventory-view-model.ts`）。同じ欠落型の暫定エイリアスが 3 つある状態である。
+
+**なぜリテラル union か（ブランデッド文字列ではなく）**: `BlockType` と同じ理由。
+plan.md §3.1 の主張は「挙動は名前比較ではなく能力から読む」であり、それを機械検査可能にしているのは
+**閉じたリテラル集合**である。ブランドは外部からの侵入は塞ぐが綴り間違いは塞がない（`ItemId('stik')` は通る）。
+だから `domain/item-type.ts` は `domain/block-type.ts` を差分で読めるように、ガードの形まで揃えてある。
+
+**`ItemType` は `BlockType` の部分集合ではない。両方向で。**
+
+| 向き | 落ちる例 |
+| --- | --- |
+| `ItemType` → `BlockType` | `stick` / `glowstone_dust` / `wooden_pickaxe` |
+| `BlockType` → `ItemType` | `air` / `water` / `lava` / `bedrock` / `snow` |
+
+`air` が入らないのは監査 §6-6（「`AIR` は『ブロックが無い』ことを表す番兵であり能力ではない」）の帰結である。
+2 つの union は**交差**するのであって入れ子ではない。
+`test/item-drops.test.ts` が `Exclude` で両方向をピン留めしている
+（`test/clock-and-frame.test.ts` の `FrameServices` と同じ手法）。片方の roster がもう片方を
+飲み込んだ瞬間に区別が飾りになるので、等式としてではなく**両方が空でないこと**として固定してある。
+
+**交差そのものが有用な型である。** 監査 §6-8 は参照実装の手書きリスト `BLOCK_ITEMS`
+（`first-person-held-item.ts:58-76`、監査時点で KELP / SEAGRASS / AMETHYST_* / RAIL が既に漏れていた）を見て
+「これは `ItemType ∩ BlockType` の導出であり、フラグではなく型レベルで解決すべき」と結論している。
+`PLACEABLE_ITEM_TYPES` は 2 つの roster から**計算**されるので、第 3 の名簿が存在せず、陳腐化しようがない。
+
+**橋は名前一致で、例外は `drops` に置く。** ブロックのアイテム形はブロックと同じ名前を持つ
+（`dirt` ブロック → `dirt` アイテム）。同名でないブロックは自分の行でそう言う
+（`stone` → `cobblestone`、`grass_block` → `dirt`、`glowstone` → `glowstone_dust`）。
+つまりブロック個別の例外は、他のブロック個別の例外が既にいる場所（レジストリの行）にいる。
+第 2 の block→item 対応表は作らない。
+
+**`ITEM_TYPES` は 16 個。**「自分自身を落とす / 別のものを落とす / 何も落とさない / 道具で門番される」の
+4 形すべてに実データを与えるのに必要な最小限であり、埋めるのは `BLOCK_TYPES` と同じく加算的である。
+綴りは `BLOCK_TYPES` に合わせた `lower_snake_case`。**mc-sim の暫定文字列は `UPPER_SNAKE`**
+（`'OAK_PLANKS'` / `'STICK'`）なので、repoint は型の付け替えであると同時に**大小文字の付け替え**でもある。
 
 ## 4. ブロック能力モデル
 
@@ -161,12 +214,16 @@ const propertyOf<K>(overrides, name: K): BlockProperties[K]
 
 ```typescript
 type HarvestToolRequirement = { readonly category: HarvestToolCategory; readonly minTier: HarvestTier }
-type BlockDropRule = { readonly item: BlockType | 'self'; readonly count: number
+type BlockDropRule = { readonly item: ItemType | 'self'; readonly count: number
                        readonly requiresSilkTouch: boolean; readonly affectedByFortune: boolean }
 
-const DEFAULT_HARVEST_TOOL / DEFAULT_BLOCK_DROP
+type HarvestContext = { readonly heldTier?: HarvestTier; readonly silkTouch?: boolean }
+type BlockDrop      = { readonly item: ItemType; readonly count: number; readonly affectedByFortune: boolean }
+
+const DEFAULT_HARVEST_TOOL / DEFAULT_BLOCK_DROP / BARE_HANDED
 const satisfiesHarvestTier(requirement, heldTier): boolean
-const resolveDropItem(rule, brokenBlock): BlockType
+const resolveDropItem(rule, brokenBlock): ItemType | undefined
+const resolveDrop(requirement, rule, brokenBlock, context?): BlockDrop | undefined
 ```
 
 監査 §7 の指示に従い**別ファイルに切り出してある**。
@@ -180,6 +237,55 @@ const resolveDropItem(rule, brokenBlock): BlockType
 
 `item: 'self'` は「自分自身のアイテム」を表す番兵。既定値は自分が何のブロックかを知り得ないため、
 リテラルではなく番兵でなければならない。
+
+**`item` の型が `BlockType | 'self'` から `ItemType | 'self'` になった。**
+効く向きは「別のブロックを落とす」ではなく「**ブロックでないものを落とす**」である。
+`glowstone` は `glowstone_dust` を落とすが、`glowstone_dust` というブロックは存在しない。
+旧綴りではこの行が書けなかった。
+
+同じ理由で `resolveDropItem` は**部分関数になった**。旧版は `BlockType` を返して全域だった
+（「自分自身」は必ずブロックだから）。答えがアイテムになると「自分自身」は存在しないことがありうる
+（`air` / `water` / `lava` / `bedrock` / `snow`）。`undefined` がその答えで、意味は `count: 0` と同じ
+——インベントリに何も入らない。
+
+**`resolveDrop` が採掘の入口。** `resolveDropItem` は「どのアイテムか」だけを答え、道具もシルクタッチも見ない。
+「そもそも落ちるか」まで含めて答えるのは `resolveDrop` のほうで、落ちない経路は 3 つ + 1 つある:
+
+1. `count <= 0` —— 誰に対しても何も落とさない（監査 §4.5 の `NEVER_DROPPED_BLOCK_TYPES`）
+2. 道具のティアが `harvestTool.minTier` に届かない —— 素手で石を殴る。**カテゴリは見ない**
+3. `requiresSilkTouch` なのにシルクタッチが無い —— ガラスを割る
+4. （拒否ではなく不在）`'self'` なのにそのブロックにアイテム形が無い
+
+`HarvestContext` の**全メンバが optional** なのは、これが**引数**の struct だからである。
+`BlockCapabilityOverrides` と同じ形にしてある: 必須メンバを後から足すと 14 リポジトリの
+全呼び出し側が壊れるが、optional なら 1 つも壊れない（[versioning.md](./versioning.md) §5-2）。
+エンチャントが成長方向として明らかにある。
+
+**幸運は kernel で適用しない。** `BlockDrop.affectedByFortune` を**運び出す**だけで、倍率は掛けない。
+幸運は乱数関数であり、監査 §6-9 が乱数を伴うドロップ規則を `mx-gameplay` に置いている。
+kernel は純粋で決定的（`StageRegistration.run` のエラーチャネルは `never`、乱数源も持たない）なので、
+基準個数と「幸運が効く」という事実を返し、RNG を所有するルールに掛け算をさせる。
+
+### 4-3-bis. `dropOfBlockId` —— 採掘がインベントリに届く 1 本の線
+
+```typescript
+const dropOfBlockId(id: number, context?: HarvestContext): BlockDrop | undefined
+```
+
+**mc-compose の横断 E2E が書けなかった関数がこれである。**
+`mx-gameplay` の `breakBlock` は `BlockId`（`Uint8Array` から出てきた**数値**）を返し、
+`mc-sim` の `InventoryService.add` は**アイテム**を取る。kernel はこの 2 つを繋いでいなかったので、
+plan.md §3.15 が mc-compose の存在理由として挙げる「採掘がインベントリに反映される」が表現できなかった。
+
+呼び出しは 1 回、読み出し側にブロック名は現れない —— 落下ブロック規則に対する
+`capabilityOfBlockId` と同じ形である。
+
+**未知の id は `undefined` を返す。** これは `capabilityOfBlockId`（既定値=石に落とす）と**違う規則**であり、
+違ってよい。共通しているのは仕組みではなく原則で、「不活性な読み」が安全側だという点である。
+能力にとっての不活性は「何もしない普通の立方体」だが、ドロップにとっての「普通の立方体」は
+**このビルドが名前を知らないバイトからアイテムを鋳造すること**を意味する。
+壊れたチャンクや新しいビルドのセーブが、静かにインベントリへアイテムを刷る。
+何も落とさないのが唯一まともな答えである。
 
 ### 4-4. `BlockDefinition` — `domain/block-definition.ts`
 

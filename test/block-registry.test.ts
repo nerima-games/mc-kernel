@@ -62,6 +62,9 @@ describe('id assignment is permanent', () => {
     ['torch', 14],
     ['glowstone', 15],
     ['piston', 16],
+    // Appended when `drops` gained real data: `stone` yields cobblestone, and
+    // an item you cannot place back is not a drop anyone can use.
+    ['cobblestone', 17],
   ]
 
   it.effect('assigns exactly the pinned ids', () =>
@@ -252,12 +255,17 @@ describe('unknown ids', () => {
 describe('the table states differences only', () => {
   it.effect('leaves an ordinary cube with no overrides at all', () =>
     Effect.sync(() => {
-      const stone = BLOCK_REGISTRY.find((entry) => entry.definition.type === 'stone')
-      expect(stone?.definition.capabilities).toBeUndefined()
-      expect(stone?.definition.properties).toBeUndefined()
+      // The exemplar was `stone` until `drops` and `harvestTool` carried real
+      // data — stone yields cobblestone to a pickaxe, which is a difference and
+      // belongs in its row. `piston` is now the row that says nothing but a
+      // name, and the claim being pinned is unchanged: an empty row means
+      // "ordinary opaque solid cube", not "we forgot".
+      const piston = BLOCK_REGISTRY.find((entry) => entry.definition.type === 'piston')
+      expect(piston?.definition.capabilities).toBeUndefined()
+      expect(piston?.definition.properties).toBeUndefined()
 
       // ...and resolves it to the documented defaults regardless.
-      expect(capabilitiesOfBlockId(blockIdOf('stone'))).toStrictEqual({ ...BLOCK_CAPABILITY_DEFAULTS })
+      expect(capabilitiesOfBlockId(blockIdOf('piston'))).toStrictEqual({ ...BLOCK_CAPABILITY_DEFAULTS })
     }),
   )
 

@@ -20,6 +20,12 @@
 export const BLOCK_TYPES = [
   'air',
   'stone',
+  // The drop of `stone`, and therefore not optional once `drops` carries real
+  // data: without it, `stone` would have to yield an item that no block in this
+  // build can be built back out of. Audit §6-3 already names COBBLESTONE
+  // (`fluid-contact.ts:9-11`, flowing lava + water), so the literal is the
+  // reference's, not an invention.
+  'cobblestone',
   'dirt',
   'grass_block',
   'sand',
