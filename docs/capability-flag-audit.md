@@ -2,8 +2,8 @@
 
 - 作成日: 2026-07-26
 - 対象: `mc-kernel` の `BlockDefinition` テーブル凍結の前提調査
-- 参照実装: `/Users/take/ghq/github.com/takeokunn/ts-minecraft`(以下、パスはこのリポジトリルート相対)
-- 上位仕様: `/Users/take/Documents/plan.md` §3.1 / §3.12
+- 参照実装: `<reference-impl>`(以下、パスはこのリポジトリルート相対)
+- 上位仕様: plan.md（**非公開**）§3.1 / §3.12
 
 ## 1. 目的
 
