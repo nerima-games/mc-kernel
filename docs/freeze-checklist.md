@@ -1,7 +1,8 @@
 # API 凍結チェックリスト（1.0.0 の前提条件）
 
 mc-kernel の公開 API を `1.0.0` として凍結する前に満たすべき条件。
-**(a) (b) (b') は満たした。残る阻害要因は API ロックファイル・完成条件・下流実消費の 3 つである。**
+**(a) (b) (b') は満たし、API ロックファイルも導入された（ツール選定は決着済み。[versioning.md](./versioning.md) §7）。
+残る阻害要因は「ロックの 4 週間無変更」の経過待ち・完成条件・下流実消費の 3 つである。**
 
 凍結が特別扱いされる理由は [versioning.md](./versioning.md) §5 にある。
 kernel は 14 リポジトリからピン留めされ、破壊的変更は深さ 5 の republish カスケードを起こす。
@@ -55,7 +56,27 @@ mc-kernel → mc-physics → mc-worldgen → mc-sim → mc-render → mx-gamepla
 | 3 | `run` のエラーチャネルが `never` で足りるか | **足りる。** フレームレベルの回復策が存在しないため変更なし |
 | 4 | `GameModule<ROut, E, RIn>` の 3 パラメータで足りるか | **足りない。** `RRegister` を追加した。下記 |
 | 5 | stage が「今フレームの入力」をどう受け取るか | **登録時に `InputService` を取得して閉じ込める。** `FrameServices` にも `run` の引数にも入れない |
-| 6 | チャンクダーティ通知が stage 契約に必要か | **不要。** plan.md §3.8 どおり `mc-sim` の API のまま。`mc-render` の `render:chunk-sync` stage がそれを読む |
+| 6 | チャンクダーティ通知が stage 契約に必要か | **不要。ただし所有者は `mc-sim` ではなく `mc-worldgen` になった。** 下記 |
+
+#### 質問 6 の補足 —— plan.md §3.8 の記述は成立しない
+
+本書の初版は「plan.md §3.8 どおり `mc-sim` の API のまま」と書いていた。**それは実装できない。**
+
+§3.8 はチャンクダーティ通知を mc-sim の公開 API に挙げているが、§3.7 は
+チャンクのライフサイクル管理・ライトグリッド・チャンクのセーブ形式を mc-worldgen に
+与えている。フラグを持つのは worldgen、公開するのは sim、という分担にすると:
+
+- worldgen は sim を呼べない（§2.1 のエッジは `sim → worldgen`。逆向きは循環）
+- したがって sim は毎フレーム全ロード済みチャンクをポーリングするしかない
+- それは §3.11 が落下ブロックについて記録した O(chunks × blocks) の失敗そのもので、
+  `mc-render/docs/public-api.md` §3.3 が名指しで棄却している設計である
+
+そこで**チャンネルはフラグと同じ場所に置いた** —— `mc-worldgen` の `ChunkStore` が
+`subscribeDirty` を公開し、`mc-render` は §2.1 に既にある `render → worldgen` の
+エッジ越しに購読する。stage 契約は変わらないので、この表の答え（不要）は変わらない。
+
+**ここは人間が追認してよい箇所である。** 根拠と代替案の対照表は
+`mc-worldgen/docs/public-api.md` §6-2 にある。
 
 #### `FrameServices` は確定した — `ClockPort` だけ
 
@@ -142,13 +163,23 @@ kernel 内のテストは kernel の想定どおりの stage しか書かない�
 - [x] (a) 能力フラグ監査が完了している
 - [x] (b) 縦切りスパイクが `GameModule` / `StageRegistration` / `FrameServices` を実消費者で検証している
 - [x] (b') その結果 `FrameServices` が確定し、プレースホルダである旨のコメントが消えている
-- [ ] API ロックファイルが導入され、**4 週間無変更**である（plan.md §6 Step 3）
+- [x] API ロックファイルが**導入されている**（`api-lock.md` / `scripts/api-lock.ts` / `pnpm api:check`）
+- [ ] その API ロックファイルが **4 週間無変更**である（plan.md §6 Step 3）
 - [ ] 完成条件（[testing.md](./testing.md) §5）を満たしている
 - [ ] 下流リポジトリが少なくとも 1 つ、実際に kernel を消費して契約を確認している（[versioning.md](./versioning.md) §2）
 
-**API ロックファイルのツールは未選定**（plan.md §9 の未決事項:「api-extractor 相当の Effect-TS 互換手段」）。
-4 週間の計測はツールが決まらないと始まらないので、これがクリティカルパス上にある。
-契約形状が確定した以上、**これがいま唯一のクリティカルパス**である。
+**plan.md §9 の未決事項「API ロックファイルのツール選定（api-extractor 相当の Effect-TS 互換手段）」は決着した。**
+`@microsoft/api-extractor` は mc-kernel の実コードで試したうえで却下してある。理由と実測は
+[versioning.md](./versioning.md) §7-1。要点だけ再掲すると、api-extractor は `ClockPort` の Tag 識別子文字列を
+レポートに載せない —— つまり**下のリストが名指ししている当の値**（`'@nerima-games/mc-kernel/ClockPort'`）を
+改名しても、そのレポートはバイト単位で同一のままだった。採用したのは自前の `scripts/api-lock.ts` で、
+TypeScript 自身の declaration emit をメモリ上で走らせ、非 export の `ClockPort_base` まで含めて記録する。
+新規依存はゼロ（`typescript` は既に devDependency）。
+
+**4 週間の計測はこれで始められる。** 起点は `api-lock.md` が最後に変わったコミットであり、
+`pnpm verify` と CI が「気付かないうちに変わっていた」を構造的に不可能にしている。
+契約形状が確定し計測も始まった以上、**クリティカルパスは「時間の経過」そのものに移った** ——
+残る 2 つ（完成条件・下流実消費）はこの 4 週間と並行して進められる。
 
 #### (b) 完了時点で残っている作業
 

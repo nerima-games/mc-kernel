@@ -51,24 +51,66 @@ kernel に**置いてはならない**もの。ここを守らないと「共有
 ### 3-1. サービス実装を持たない
 
 `domain/` しか無いのは省略ではなく制約である。
-`InventoryService` / `ChunkManager` / `WorldRenderer` のような**状態を持つサービス**は基盤層（`mc-sim` / `mc-worldgen` / `mc-render`）の資産であり、
+`InventoryService`（`mc-sim`）/ `ChunkStore`（`mc-worldgen`）/ `WorldRenderer`（`mc-render`）のような**状態を持つサービス**は基盤層の資産であり、
 kernel に置くと全リポジトリがそのサービスの都合に巻き込まれる。
 
 kernel が持ってよい「サービスらしきもの」は **Port（インターフェース）だけ**である。
 `ClockPort` は Context.Tag と型と、テスト用の固定実装（`fixedClock` / `FixedClockLayer`）を持つが、
 実クロックを読むアダプタは持たない。実装は利用側が注入する。
 
-### 3-2. ブロックテーブルを持たない
+### 3-2. ~~ブロックテーブルを持たない~~ → **持つことになった**（`domain/block-registry.ts`）
 
-**どのブロックが存在し、どの能力を持つかは kernel の管轄外。** kernel が持つのは
-「ブロックとはどういう属性の集合か」という**仕組み**と、`BlockType` という**語彙**だけである。
+この節はもともとこう書かれていた:
 
-理由は 2 つ。
+> **どのブロックが存在し、どの能力を持つかは kernel の管轄外。** kernel が持つのは
+> 「ブロックとはどういう属性の集合か」という**仕組み**と、`BlockType` という**語彙**だけである。
+>
+> 理由は 2 つ。
+>
+> 1. どのブロックがどう振る舞うかは**コンテンツ**であり、そのコンテンツを所有するリポジトリが持つべきもの。
+>    kernel が推測でテーブルを置くと、下流の各テーブルが「推測のフォーク」になる。
+> 2. `docs/capability-flag-audit.md` はまさにその答えを出すための調査であり、
+>    先に当て推量の表を置くと監査がそれに引きずられる。
 
-1. どのブロックがどう振る舞うかは**コンテンツ**であり、そのコンテンツを所有するリポジトリが持つべきもの。
-   kernel が推測でテーブルを置くと、下流の各テーブルが「推測のフォーク」になる。
-2. `docs/capability-flag-audit.md` はまさにその答えを出すための調査であり、
-   先に当て推量の表を置くと監査がそれに引きずられる。
+理由 2 は満たされた（監査は完了している。[freeze-checklist.md](./freeze-checklist.md) (a)）。
+理由 1 は**消費者が現れた時点で成立しなくなった。**
+
+チャンクバッファの 1 バイトから能力を引きたいリポジトリは 3 つあり、
+依存グラフ上で互いに届かない:
+
+| リポジトリ | 何を引くか | 依存 |
+| --- | --- | --- |
+| `mc-meshing` | 数値 id ごとの `opacity`（`transparentBlockIds`、plan.md §3.3） | kernel のみ |
+| `mc-physics` | 数値 id ごとの `passable` / `collisionShape`（plan.md §3.4 は id 名指しを禁じている） | kernel のみ |
+| `mx-gameplay` | 数値 id ごとの `fallsWhenUnsupported`（plan.md §3.11） | sim / worldgen / audio |
+
+plan.md §2.3-5 により**依存は推移しない**ので、「下流のどこか」は選択肢ではない。
+3 者から見えるリポジトリは mc-kernel しかなく、他に置けば表は 3 つになる。
+表が 3 つあるのは、plan.md §3.1 が参照実装の失敗として記録している
+「挙動判定が 51 ファイル 229 箇所に散った」状態そのものである。
+
+**理由 1 の懸念（推測のフォーク）は、場所ではなく仕組みが答えている。**
+表の各行は「普通の不透明立方体との差分」しか書けないので
+（`domain/block-definition.ts`）、間違った行は 1 行の間違いであってフォークではない。
+
+もう半分の議論は独立に成立し、それだけで十分でもある。plan.md §3.1 は kernel に
+「`Chunk` データ構造と**コーデック**」を与えている。数値 id は
+`BlockType` が `Uint8Array` の中でどう綴られるかそのものであり、
+**両端が別リポジトリにあるコーデックはコーデックではない。**
+
+#### id は永久である
+
+セーブファイルは id を保存するので、id はワイヤフォーマットであって配列添字ではない。
+`BLOCK_REGISTRY` は全 id を**リテラルで**書き、`test/block-registry.test.ts` が
+1 つずつピン留めしている。id 0-10 は mc-worldgen / mc-meshing が既に出荷している番号
+（`BLOCK.SAND === 5`）を kernel が**採用した**ものである。逆にしなかったのは、
+あちらの golden fixture がその番号で生成済みだからである。
+
+#### 依然として持たないもの
+
+`drops` / `harvestTool` の実データ、`textureTiles`、`supportRule`。
+どれもアイテム名簿かテクスチャアトラスと同時に決まるもので、
+`PENDING_CAPABILITIES`（`domain/block-definition.ts`）に理由つきで記録されている。
 
 ### 3-3. stage 全順序表を持たない
 

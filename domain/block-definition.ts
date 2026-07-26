@@ -19,13 +19,25 @@
  * plan.md's quoted 51/229), which made engine/content separation impossible.
  *
  * ---------------------------------------------------------------------------
- * Kernel deliberately ships NO block table
+ * Where the table lives — this used to say "not here"
  * ---------------------------------------------------------------------------
  *
- * Which blocks exist and what their capabilities are is content. Kernel owns
- * the vocabulary and the mechanism; the table itself belongs to whichever
- * repository owns that content. Kernel shipping a guessed table would make
- * every downstream repository's table a fork of a guess.
+ * The previous text read: *which blocks exist and what their capabilities are
+ * is content, and content belongs to whichever repository owns that content.
+ * Kernel shipping a guessed table would make every downstream table a fork of a
+ * guess.*
+ *
+ * That argument held while nothing consumed a table. It stopped holding when
+ * the vertical-slice spike found three consumers — mc-meshing (`opacity` per
+ * numeric id), mc-physics (`passable` per numeric id) and mx-gameplay
+ * (`fallsWhenUnsupported` per numeric id) — sitting in three parts of the
+ * dependency graph with no common repository except mc-kernel. Under plan.md
+ * §2.3-5 dependencies do not transit, so "somewhere downstream" was not an
+ * available location: it meant three tables.
+ *
+ * The table is therefore `./block-registry`, and the fear behind the old text
+ * is answered by the mechanism rather than by the location — the table states
+ * OVERRIDES only, so a wrong row is one wrong line rather than a fork.
  */
 import type { BlockCapabilities, BlockCapabilityOverrides } from './block-capabilities'
 import { resolveBlockCapabilities } from './block-capabilities'

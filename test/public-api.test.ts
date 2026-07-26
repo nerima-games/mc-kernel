@@ -98,6 +98,22 @@ describe('public API surface', () => {
         'resolveBlock',
         'AUDITED_CAPABILITY_NAMES',
         'PENDING_CAPABILITIES',
+        // block registry — the numeric-id codec and the table
+        'BlockId',
+        'BLOCK_ID_MAX',
+        'AIR_BLOCK_ID',
+        'BLOCK_REGISTRY',
+        'BLOCK_IDS',
+        'isKnownBlockId',
+        'blockIdOf',
+        'blockTypeOfId',
+        'resolvedBlockOfId',
+        'capabilityOfBlockId',
+        'propertyOfBlockId',
+        'capabilitiesOfBlockId',
+        'blockIdsWithCapability',
+        'blockIdsWithOpacity',
+        'UNREGISTERED_BLOCK_TYPES',
         // camera
         'snapshotAgeSecs',
         // clock

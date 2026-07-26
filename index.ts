@@ -14,14 +14,23 @@
  * platform, renderer or game rules: identifiers, quantities, coordinates, the
  * block capability mechanism, and the contracts by which modules compose.
  *
- * It contains no block table, no registry and no adapter, on purpose — anything
- * with a policy in it belongs to the repository that owns that policy.
+ * It contains no adapter, on purpose — anything with a platform in it belongs
+ * to the repository that owns that platform.
+ *
+ * It DOES now contain a block table and the numeric-id registry
+ * (`domain/block-registry.ts`). That reverses an earlier position, and the
+ * argument is in that file's header: the three repositories that need to read a
+ * capability off a chunk buffer byte (mc-meshing, mc-physics, mx-gameplay) sit
+ * in disjoint parts of the dependency graph, so mc-kernel is the only place all
+ * three can see. The mechanism/content separation is unchanged — the table
+ * states overrides only, and adding a block is still one row.
  */
 
 export * from './domain/block-capabilities'
 export * from './domain/block-definition'
 export * from './domain/block-harvest'
 export * from './domain/block-properties'
+export * from './domain/block-registry'
 export * from './domain/block-type'
 export * from './domain/camera'
 export * from './domain/clock'

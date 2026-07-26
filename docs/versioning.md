@@ -165,3 +165,105 @@ plan.md §3.1 が boolean と書いていた 3 つ（`emissive` / `transparent` 
 
 **既定値の変更が MAJOR である点に注意。** 加算安全性は「書かなかったものは既定に解決される」ことに立脚しているので、
 既定を変えると「何も書いていない全ブロックの挙動が変わる」。追加より危険である。
+
+## 7. API ロックファイル
+
+plan.md §6 Step 0-3 が初回コミットに求める「公開 API のレポートを diff レビュー」の実装。
+§9 の未決事項「API ロックファイルのツール選定（api-extractor 相当の Effect-TS 互換手段）」は**これで解決済み**。
+
+| 項目 | 内容 |
+| --- | --- |
+| 生成物 | リポジトリ直下の `api-lock.md`（コミット対象） |
+| 生成器 | `scripts/api-lock.ts`（16 リポジトリに byte-identical で vendor。`check-dependency-whitelist.ts` と同じ方式） |
+| 検査 | `pnpm api:check` — `api-lock.md` が実際の公開 API と食い違えば非ゼロ終了 |
+| 更新 | `pnpm api:update` |
+| 配線 | `pnpm verify` の `check:deps` と `test` の間、および CI の独立ステップ |
+| 追加依存 | **なし**（`typescript` は既に全 16 リポジトリの devDependency） |
+
+### 7-1. なぜ api-extractor ではないのか
+
+plan.md §9 が名指ししている `@microsoft/api-extractor` を最初に、mc-kernel の実コードで試した。**却下した。**
+
+決め手は `ClockPort` である。TypeScript 自身の declaration emit はこの Tag を 2 つに分けて忠実に出す:
+
+```ts
+declare const ClockPort_base: Context.TagClass<ClockPort, "@nerima-games/mc-kernel/ClockPort", ClockService>
+export declare class ClockPort extends ClockPort_base {}
+```
+
+api-extractor は**前半を捨てる**。`ClockPort_base` は barrel から export されていないので
+「forgotten export」と分類し、`ae-forgotten-export` を**警告**として出したうえでレポートには
+
+```ts
+export class ClockPort extends ClockPort_base {}
+```
+
+としか書かない。自分のレポートに存在しないシンボルを指す空の殻である。
+`Context.Tag` を契約たらしめているものは全部、捨てられた前半にある —— **Tag 識別子文字列**と**束ねられた service 型**。
+Tag 識別子は Effect がリポジトリ境界を越えて Layer を解決する鍵であり、
+これを変えると各リポジトリは単体では型検査を通ったまま、実行時に全消費者の配線が黙って壊れる。
+
+実測: `'@nerima-games/mc-kernel/ClockPort'` → `'@nerima-games/mc-kernel/ClockPortRENAMED'` に改名して
+api-extractor のレポートを再生成したところ、**バイト単位で同一**だった。
+この変更を見られないロックファイルは、無いよりも悪い。「何も起きていない」と証明してしまうからである。
+
+しかもこれは辺縁事例ではない。`Context.Tag` は 16 リポジトリの**全サービスの宣言方法**であり、
+[freeze-checklist.md](./freeze-checklist.md) の「凍結後に変えられなくなるもの」は
+`ClockPort` の Tag 文字列そのものを名指ししている。ロックすべき当のものが写らない。
+
+副次的なコスト（上記より軽いが実在する）:
+
+- api-extractor は `.d.ts` を食う。本リポジトリ群にビルド段はない（`tsconfig.build.json` は `noEmit: true`、
+  `exports` は TypeScript ソースを直指し）ので、まず declaration emit をディスクに配線する必要がある。
+- 16 の公開リポジトリに 47 パッケージの推移的依存と、リポジトリごとの `api-extractor.json` が増える。
+- `ae-missing-release-tag` が `@public` タグの無い export 全部で発火する。mc-kernel だけで警告 70 件、
+  実行結果は "completed with errors"。設定 1 行で黙らせられるが、満たすには全リポジトリの全 export にタグが要る。
+
+api-extractor が**正しくやっていたこと**は採用した: 名前でソートする（barrel の並べ替えが diff にならない）、
+ハッシュではなくシグネチャを出す（レビュアが読める）。ノイズ耐性テスト（本体編集・非公開ヘルパ追加・
+barrel 並べ替え・devDependency bump）は api-extractor も**全部通っている**。差が出たのは検出側だけである。
+
+### 7-2. 仕組み
+
+1. `tsconfig.build.json`（typecheck ゲートと同じ出荷ソース）から Program を作る。
+2. declaration emit を**メモリ上で**走らせる。ディスクには何も書かないので「ビルド段が無い」性質は保たれる。
+   `dist/` も `.d.ts` も `.gitignore` の追加行も発生しない。
+3. その仮想 `.d.ts` 群でもう一度 Program を作り、`index.d.ts` の export を型検査器に問う。
+   これが公開面の正本である（`export *` を辿り、`export type` を尊重し、barrel が出していないものを除く）。
+4. 各 export を tsc が出した通りのテキストで、名前順にレンダリングする。
+5. 公開面が参照している**非 export の宣言**（上記 `ClockPort_base`）を第 2 節に取り込む。
+   api-extractor が警告にして飛ばす工程はここである。
+
+`checker.typeToString` を使っていないのは意図的。あれは表示用関数で、
+`import("...")` の絶対パスを埋め込み、`FrameServices` を `ClockPort` に潰し、
+`GameModule<ROut, E, RIn, RRegister = never>` の既定値を落とす。declaration emit は直列化用関数で、
+「別のファイルで同じ意味になるテキスト」を出す義務があるため 3 つとも保たれる。
+`assertPortable`（`scripts/api-lock.ts`）がこれを毎回の実行時不変条件として強制する。
+
+### 7-3. 決定性
+
+スナップショットは公開 API の関数であり、それ以外の何の関数でもない。
+タイムスタンプ・バージョン番号・絶対パス・ファイルパス・依存バージョン・ハッシュを含まない。
+並びは `localeCompare` ではなくコード単位比較（ロケール依存を避ける）。ドキュメントコメントは落とす
+（export の上の文章を書き直すのは API 変更ではないし、mc-kernel ではコメントの方がコードより長い）。
+
+**diff がゼロであることを実測した編集**: 関数本体の変更、非 export ヘルパの追加、barrel の並べ替え、
+ソースファイルの改名・移動、devDependency の bump、公開 export のコメント全面書き換え。
+
+### 7-4. 捕まえないもの
+
+- **挙動**。`resolveDropItem` の返り値が変わってもこのファイルは動かない。それはテストの仕事である。
+- **interface / 型リテラルのメンバ順**。tsc の emit 順（＝ソース順）を保つので、
+  メンバの並べ替えは API 変更でないのに diff になる。ロックがソースと同じ順で読めることを優先した。
+  承認は 1 行で済む。
+- **`typescript` の major bump**。declaration emit の書式が変わればレポート全体が動く。
+  これは「まさに見るべきとき」なので許容し、TypeScript のバージョンはファイルに記録していない
+  （記録すると、何も変えない bump のたびに API diff が出る）。
+
+### 7-5. 運用
+
+- 公開面を変える PR は `pnpm api:update` の結果を**同じ PR に**含める。差分がレビュー対象そのものである。
+- plan.md §6 Step 3 の「**4 週間無変更**」の計測は、`api-lock.md` が最後に変わったコミットから数える。
+  これで計測の起点が客観的な事実になった（[freeze-checklist.md](./freeze-checklist.md)）。
+- `pnpm api:check` は CI の独立ステップでもある。`verify` 経由だけにすると、
+  ステップ名を見ただけでは落ちた理由が分からない。

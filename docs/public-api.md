@@ -314,6 +314,13 @@ ClockPort | PlayerService | InventoryService | InputService | FrameInput | Block
 であり、これを別名にすると kernel が `mc-sim` と `mc-render` を import しなければ名前を書けない。
 tier モデル（plan.md §2.2）が明確に禁じている。**配列そのものが原因だった。**
 
+> **後日談**: この和に現れる `BlockStore` はスパイクが使い捨てコードで発明した仮の名前で、
+> 当時どのリポジトリも所有していなかった。現在は `mc-worldgen` の `ChunkStore`
+> （`@nerima-games/mc-worldgen/ChunkStore`）として実在する。所有者を §3.7 と §3.8 の間で
+> 決めた根拠は `mc-worldgen/docs/public-api.md` §6-0。
+> `FrameServices` の結論はこれに影響されない — 上の和が崩れたのは `frameStages` が
+> Effect になったからであって、`BlockStore` の置き場によってではない。
+
 徴候はスパイク以前からロスターに出ていた。`mx-gameplay/stages/registration.ts` は
 `makeGameplayStages: Effect.Effect<ReadonlyArray<StageRegistration>>` を公開し、
 「サービス集合 `RIn` に名前が付けられないので、これはまだ `GameModule` ではない」とコメントしていた。
