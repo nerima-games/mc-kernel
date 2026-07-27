@@ -158,6 +158,74 @@ kernel 内のテストは kernel の想定どおりの stage しか書かない�
 「THREE カメラが正でシミュレーションが描画から視線を読む逆転構造」は、
 どちらのモジュールも単体では正しく見え、束ねて初めて逆転が見える種類の欠陥だった。
 
+### (c) 下流実消費 — ⚠ 測定した。**まだ通っていない**
+
+**要件**: 下流リポジトリが少なくとも 1 つ、実際に kernel を消費して契約を確認していること
+([versioning.md](./versioning.md) §2)。
+
+これは 2026-07-27 に**初めて機械的に測定された**。
+測定手段は mc-dev-meta の `pnpm check:repoint` で、各ミラーのヘッダが約束している当の操作 —
+**ミラーファイルを消し、import を `@nerima-games/mc-kernel` に張り替え、`tsc` を走らせる** —
+を使い捨てコピーに対して実行する
+(`mc-dev-meta/docs/testing.md` §6.1、`mc-dev-meta/domain/repoint-plan.ts`)。
+
+**結果: 3 リポジトリすべてで張り替えがコンパイルを通らなかった。** 合計 17 件。
+
+| 下流 | shipped source (`tsconfig.build.json`) | test / preview |
+| --- | --- | --- |
+| mx-gameplay | **0 件 — 通る** | 11 件 |
+| mx-ui | **0 件 — 通る** | 3 件 |
+| mx-redstone | **0 件 — 通る** | 3 件 |
+
+原因は 1 つで、17 件はその 1 つが 3 リポジトリに転記されたものである。
+各ミラーの `domain/frame-contract.ts` は
+
+```typescript
+export type FrameServices = never
+```
+
+と宣言していて、kernel は `ClockPort` である。
+各ミラーのヘッダはこの差異を「前方互換な意図的乖離」と説明していて、**その説明は正しい** ——
+stage の**著者**については。実際 shipped source は 3 つとも 0 件で通る。
+
+正しくないのは、そこで話が終わると読めることである。
+`StageRegistration` を受け取って `run(dt)` を**実行する**側では代入可能性が逆に働き、
+caller が用意していない `ClockPort` を要求されるようになる。
+3 リポジトリともそういうコードを自前のテストハーネスとプレビューアプリに持っており、
+17 件はすべてそこに出た。
+
+**本書は既にこれを散文で予告していた** —— 上の `FrameServices` 節の
+「この別名を広げるのは stage の *提供者*(ランタイムを組む人)にとって破壊的変更である」。
+予告されていたが誰もコンパイラを走らせていなかったので、**規模が分かっていなかった**。
+そして `pnpm check:mirrors` は 3 つとも「一致」と報告し続けていた ——
+形としては実際に一致しているからである。形の一致は張り替えが通る必要条件であって十分条件ではない。
+
+#### この項目を ✅ にするために必要なこと
+
+**ミラーを直すのではない。** `FrameServices = never` は kernel が未公開である限り正しい選択である
+(`ClockPort` をローカルに再宣言すると kernel と同じ識別子文字列を持つ 2 つ目の `Context.Tag` ができ、
+それは狭すぎる型よりはるかに悪い欠陥になる)。必要なのは下流側の**stage 実行コード**が
+`ClockPort` を供給するようになることで、対象は各リポジトリのテストハーネスとプレビューアプリだけ、
+shipped source は 1 行も要らない。作業内容は
+`mc-dev-meta/domain/repoint-plan.ts` の `KNOWN_REPOINT_FINDINGS` に
+所有者と修正内容つきで 8 エントリとして記録されている。
+
+それが landing したあと `pnpm check:repoint` が緑になった時点で、この項目は ✅ にできる。
+**その時点でも、下記の但し書きつきである。**
+
+#### ✅ になったときに、それが主張しないこと
+
+`check:repoint` が緑であることは、**publish されたパッケージを install した検証ではない**。
+
+- 検証される: モジュール解決、`package.json#exports` マップ、`types` フィールド、
+  バレルの再 export 形状、そして**全消費箇所での型の同一性**。
+  張り替え先は `repos/` 内の実ディレクトリで、`exports` 経由で解決される。
+- 検証されない: **`files` と tarball の中身。** tarball は作られないので、
+  `domain/` を丸ごと落としたまま publish されるパッケージもこのゲートは通る。
+  mc-render は実際にそれを publish する一歩手前まで行っている。
+- 検証されない: **振る舞い。** これは typecheck である。
+  互いに型が付いたまま、関数の意味について食い違う 2 つのモジュールはありうる。
+
 ## 凍結してよいと判断できる状態
 
 - [x] (a) 能力フラグ監査が完了している
@@ -167,6 +235,9 @@ kernel 内のテストは kernel の想定どおりの stage しか書かない�
 - [ ] その API ロックファイルが **4 週間無変更**である（plan.md §6 Step 3）
 - [ ] 完成条件（[testing.md](./testing.md) §5）を満たしている
 - [ ] 下流リポジトリが少なくとも 1 つ、実際に kernel を消費して契約を確認している（[versioning.md](./versioning.md) §2）
+      — **(c) で初めて機械的に測定した。3 リポジトリすべてで張り替えが通らない（計 17 件）。**
+      shipped source は 3 つとも 0 件で通り、落ちているのは stage を*実行する*側だけである。
+      再現とゲートは mc-dev-meta の `pnpm check:repoint`
 
 **plan.md §9 の未決事項「API ロックファイルのツール選定（api-extractor 相当の Effect-TS 互換手段）」は決着した。**
 `@microsoft/api-extractor` は mc-kernel の実コードで試したうえで却下してある。理由と実測は
@@ -205,6 +276,10 @@ TypeScript 自身の declaration emit をメモリ上で走らせ、非 export �
 - `mx-gameplay` / `mx-redstone` / `mx-ui` の `domain/frame-contract.ts` と
   `mc-render` / `mc-sim` / `mc-playground-kit` の `domain/kernel-vocabulary.ts` は
   kernel が公開された時点で**削除**される。それぞれの mirror テストが形の一致を守っている。
+  **ただし形の一致は削除して張り替えられることを意味しない。** `frame-contract.ts` の 3 つは
+  形が一致したまま張り替えがコンパイルを通らない状態にあり、それが下記 (c) である。
+  `kernel-vocabulary.ts` の 5 つはまだ同じ測定にかけていない
+  (`mc-dev-meta` の `REPOINT_SPECS` に行を足せば同じゲートが答える)。
 - `mc-playground-kit/domain/kernel-vocabulary.ts` は本改訂の時点でまだ旧形状
   （`frameStages` が配列）を持っている可能性がある。kit の所有者が追随する必要がある。
 - `mc-compose` は `FrameServices` を運んで discharge する側に変わった。
