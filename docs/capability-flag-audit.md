@@ -12,6 +12,12 @@ plan.md §3.1 は能力フラグとして `passable` / `fallsWhenUnsupported` / 
 ## 2. 方法と計数
 
 1. `packages/core/domain/block-type.ts:3-132` の `BlockTypeSchema` から語彙を取得。**リテラル数 120**(plan.md の記述は概数)。
+   - **2026-07-27 追記: この 120 は再計数して確認済み。**`Schema.Literal(...)`(`block-type.ts:4-131`)は
+     コメント 8 行を除いて **120 リテラル / distinct 120 / 重複なし**。独立した手書き配列である
+     `INDEX_TO_BLOCK_TYPE`(`block-codec.ts:8-83`)も **120 / distinct 120** で、**両者の集合は完全に一致**する
+     (対称差が空)。コメント行を除外せずに行数で数えると 128 になるので、その混同だけは避けること。
+     重複を確認したのは、閉じたリテラル union では**メンバー集合が型そのもの**であり、重複があれば
+     行数が型の大きさを過大に言うため。詳細は [testing.md](./testing.md) §5.2。
 2. `packages/` と `src/` を ripgrep で走査。除外: `node_modules` / `*.test.ts` / `*.spec.ts` / `**/test/**` / `dist*` / `coverage`。
 3. 検出パターンと実測値:
    - ブロック名リテラルの生出現(`=== 'X'` / `!== 'X'` / `case 'X':` / `blockTypeToIndex('X')`): **335 箇所 / 80 ファイル**。うち多数は `packages/world/domain/terrain/*` の地形生成 **書き込み**であり挙動判定ではない。
@@ -95,6 +101,44 @@ plan.md §3.1 は能力フラグとして `passable` / `fallsWhenUnsupported` / 
 
 - 既定値: `hardness=8`(`blocks.config.terrain.ts:9-14` の `defaultBlockProperties` に一致) / `friction=0.6`(同、`DEFAULT_BLOCK_FRICTION` と一致) / `harvestTool=undefined`(素手可) / `drops={item: 自身, count: 1}` / `xpOnBreak=0`。
 
+#### 4.5.1 未解決(2026-07-27 記録): `hardness` 列に尺度が 2 つ混ざっている
+
+**`domain/block-registry.ts` の `hardness` 列は、現状 2 つの異なる尺度の値が混在している。**
+これは今回の語彙拡張で見つかったが、**今回の変更で直していない** —— 既存 8 行の値を書き換える判断は
+この作業の範囲外であり、単独でレビューされるべきだから。
+
+参照実装の `hardness` は **0-100 の相対尺度**である(`blocks.config.terrain.ts:4-8` が明示:
+「Hardness uses a 0-100 scale」)。実際の値:
+
+| ブロック | 参照実装(0-100 尺度) | kernel の現在値 |
+| --- | --- | --- |
+| 既定値 | 8 | 8 ✅ |
+| `bedrock` | 100 | 100 ✅ |
+| `stone` | **25** | 既定の 8（未指定） ❌ |
+| `oak_log` (`WOOD`) | **35** | 2 ❌ |
+| `oak_planks` (`PLANKS`) | **35** | 2 ❌ |
+| `glass` | 4 | 0.3 ❌ |
+| `oak_leaves` | 3 | 0.2 ❌ |
+| `snow` | 2 | 0.1 ❌ |
+| `sand` | 8 | 0.5 ❌ |
+| `gravel` | 10 | 0.6 ❌ |
+
+kernel の既定値(8)と `bedrock`(100)は 0-100 尺度、それ以外は**vanilla の float 値**(sand 0.5, wood 2.0 …)を
+使っている。参照実装のコメントは vanilla float を「相対順序の由来」として挙げているだけで、値としては採用していない。
+
+**順序が反転している行が 2 つある。** `oak_log` / `oak_planks` は kernel では 2 であり、既定の 8 より**柔らかい**。
+参照実装では 35 であり、既定の 8 より遥かに**硬い**。`break-speed.ts:29-43` は hardness を採掘時間の基数に使うので、
+これは「丸太が土より速く掘れる」という実際の振る舞いの差になる。
+
+**今回追加した 18 行は参照実装の 0-100 尺度で書いた**(`ladder` 4 / `rail` 7 / `pressure_plate` 5 /
+`stone_slab` 25 / `cactus` 8 / 植物 0)。既定値と `bedrock` という 2 つのアンカーがその尺度であり、
+出典を引ける唯一の尺度でもあるため。**結果として表の不整合は残っている。**
+
+決めるべきこと: 既存 8 行を 0-100 尺度に揃えるか、既定値ごと vanilla float に揃えるか。
+前者を推奨する —— 監査 §4.5 が引いている既定値 8 が 0-100 尺度であり、`hardness` の値域を
+「0-100」と述べている `domain/block-properties.ts` の記述もそちらに一致する。
+どちらにせよ**片方に統一するまで、この列の値どうしを比較してはいけない**。
+
 ### 4.6 `supportRule` / `canSupportAttachments` / `brokenByWaterFlow`
 
 `packages/world/domain/block-support.ts` に集中。:22-32 `SUPPORT_SENSITIVE_BLOCK_TYPES`(TORCH/REDSTONE_*/PRESSURE_PLATE/RAIL/作物/草花)、:75-91 `SUPPORT_RULES`(作物→FARMLAND、SUGAR_CANE→DIRT/GRASS/SAND/自身、CACTUS→SAND/自身、LILY_PAD→WATER、草花→DIRT/GRASS/FARMLAND)、:47-61 `NON_SUPPORTING_BLOCK_TYPES`、:34-45 `WATER_BREAKABLE_BLOCK_TYPES` → :103 `isWaterBreakableBlockIndex`(`fluid-service-helpers.ts:30` から利用)。
@@ -124,6 +168,54 @@ plan.md §3.1 は能力フラグとして `passable` / `fallsWhenUnsupported` / 
 - SNOW: `NON_SUPPORTING` には含まれるが `PASSABLE` には含まれない
 
 これらを 1 つの `solid` フラグに統合すると必ず退行する。**`passable` / `suffocates` / `canSupportAttachments` / `validSpawnSurface` は独立したフラグとして持つこと**が本監査の最重要結論のひとつ。
+
+#### 4.9.1 追記(2026-07-27): 同じ欠陥をさらに 11 件見つけた
+
+`BLOCK_TYPES` を 18 → 36 に広げ、`PASSABLE_BLOCK_IDS` の 19 メンバーを全て kernel の表に載せる作業の中で、
+**同じ「集合ごとにメンバーシップが違う」欠陥が新たに 11 件見つかった**。本節が 3 件挙げていたものと同じ形である。
+
+**(a) `NON_SUFFOCATING_BLOCKS` が漏らしている 6 件**
+
+`PASSABLE_BLOCK_IDS`(`block-collision-predicates.ts:22-42`)には入っているが
+`NON_SUFFOCATING_BLOCKS`(`environment-hazard.config.ts:39-85`)に無いもの:
+
+`SUGAR_CANE` / `LILY_PAD` / `KELP` / `SEAGRASS` / `RAIL` / `POWERED_RAIL`
+
+字義どおり読むと**レールの中に立っているプレイヤーが窒息する**。これは §4.7 が既に述べた
+「`passable=true` なら常に false を導出する方が安全」という一方向の含意が要る理由の実例である。
+
+**(b) `NON_SPAWN_SURFACE_BLOCK_IDS` が漏らしている 5 件**
+
+`RAIL` / `POWERED_RAIL` / `KELP` / `SEAGRASS` / `STONE_SLAB` は
+`NON_SPAWN_SURFACE_BLOCK_IDS`(`spawn-selection-search.ts:41-84`)に無い。
+
+**(c) kernel 側の対処 —— この 2 つを別扱いにした理由**
+
+- `suffocates` は **推論した**。§4.7 に明示の含意があり、「すり抜けられるのに窒息する」は
+  未記載ではなく**非整合**だから。該当行にはその旨を書いてある。
+- `validSpawnSurface` は **推論しなかった**。本節の結論そのものが「5 つの概念は独立」であり、
+  `snow`(非支持だが passable でない)と `glass`(固体だがスポーン面でない)が
+  「passable であること」から何も導けないことの証拠になっている。参照実装の沈黙をそのまま転記し、
+  漏れとして記録した。**ここで推論すると、それはコンテンツの捏造になる。**
+
+`KELP` / `SEAGRASS` が 3 つの表(上記 2 つと `NON_SUPPORTING_BLOCK_TYPES`)から同時に漏れているのは、
+両者が `INDEX_TO_BLOCK_TYPE` の append-only 末尾にある最新の型だからである。
+§6-8 が `BLOCK_ITEMS` について記録した漏れと**同じ 2 つのブロック**であり、
+手書きの membership set は名簿が伸びるたびにこうなる、という一般則の追加証拠になる。
+
+**(d) kernel 自身にも同じ欠陥が 1 件あった(修正済み)**
+
+`oak_log` の行は `validSpawnSurface` を書いておらず、既定の `true` に落ちていた。
+しかし参照実装は `WOOD` を `NON_SPAWN_SURFACE_BLOCK_IDS`(:45、コメント「log — semi-solid / tree」)と
+`VILLAGE_NON_GROUND_IDS`(`village-placement-surface.ts:11`)の**両方**に挙げている。
+本節が「互いに食い違う」として挙げた 2 つの重複リストが、ここでは一致していた —— 逃げ場がない。
+
+**既定値が `true` のフラグは、書き忘れが「振る舞いへのオプトイン」になる**という点で危険度が違う。
+`mx-gameplay/domain/chunk-store-port.ts` の転記にも同じ穴があり、
+`mc-dev-meta` の `pnpm check:mirrors` は `MIRROR_SPECS` が `fallsWhenUnsupported` と `replaceable` の
+2 つしか probe していなかったため**両者が同じ間違いで一致していた**。
+`validSpawnSurface` の probe を追加した。教訓は id 1 個の話ではなく probe 配列の形の話である:
+**ミラーが転記している能力の数より probe が少なければ、そのチェックは検査していない成功を報告する。**
 
 ## 5. plan.md に無いフラグ(ギャップリスト)
 

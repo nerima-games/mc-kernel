@@ -19,7 +19,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../domain/block-capabilities'
-import { BLOCK_PROPERTY_DEFAULTS } from '../domain/block-properties'
+import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS, COLLISION_SHAPES } from '../domain/block-properties'
 import {
   AIR_BLOCK_ID,
   BLOCK_ID_MAX,
@@ -65,6 +65,28 @@ describe('id assignment is permanent', () => {
     // Appended when `drops` gained real data: `stone` yields cobblestone, and
     // an item you cannot place back is not a drop anyone can use.
     ['cobblestone', 17],
+    // Appended together: the rest of the reference's `PASSABLE_BLOCK_IDS`
+    // (`block-collision-predicates.ts:22-42`). Appended and not inserted — ids
+    // 0-17 were already spent, and an id is a wire format.
+    ['ladder', 18],
+    ['cobweb', 19],
+    ['sapling', 20],
+    ['dandelion', 21],
+    ['poppy', 22],
+    ['brown_mushroom', 23],
+    ['red_mushroom', 24],
+    ['tall_grass', 25],
+    ['fern', 26],
+    ['sugar_cane', 27],
+    ['lily_pad', 28],
+    ['kelp', 29],
+    ['seagrass', 30],
+    ['rail', 31],
+    ['powered_rail', 32],
+    // The three non-`full` collision shapes.
+    ['cactus', 33],
+    ['pressure_plate', 34],
+    ['stone_slab', 35],
   ]
 
   it.effect('assigns exactly the pinned ids', () =>
@@ -73,6 +95,19 @@ describe('id assignment is permanent', () => {
         expect(blockIdOf(type)).toBe(id)
         expect(blockTypeOfId(id)).toBe(type)
       }
+    }),
+  )
+
+  it.effect('pins EVERY row, so a new block cannot enter the wire format unpinned', () =>
+    Effect.sync(() => {
+      // Without this, `PINNED_IDS` protects only the rows somebody remembered
+      // to add to it, and the id of a block added later is pinned by nothing —
+      // which is the same as not being pinned at all, discovered later.
+      const pinned = PINNED_IDS.map(([type]) => type)
+      const registered = BLOCK_REGISTRY.map((entry) => entry.definition.type)
+
+      expect(new Set(pinned).size).toBe(pinned.length)
+      expect([...pinned].sort()).toStrictEqual([...registered].sort())
     }),
   )
 
@@ -194,6 +229,33 @@ describe('reading behaviour off a chunk buffer byte', () => {
     }),
   )
 
+  it.effect('has a bucket for every opacity and every flag, inhabited or not', () =>
+    Effect.sync(() => {
+      // Both tables are seeded from their enums rather than discovered from the
+      // rows. That distinction is the point: bucketing rows alone gives keys
+      // for the values blocks HAPPEN to have, and the roster is deliberately
+      // partial (`./block-type`), so an opacity nothing currently uses is an
+      // ordinary state rather than a corrupt one. Meshing must get an empty
+      // `Set` for it and not `undefined`. Asserting it here is what stops the
+      // seeding from being "simplified" back into a `?? new Set()` in the
+      // reader — a fallback that cannot run while all three opacities are
+      // inhabited, and would start running the day one is not.
+      for (const opacity of BLOCK_OPACITIES) {
+        expect(blockIdsWithOpacity(opacity)).toBeInstanceOf(Set)
+      }
+      for (const flag of BLOCK_CAPABILITY_FLAGS) {
+        expect(blockIdsWithCapability(flag)).toBeInstanceOf(Set)
+      }
+
+      // The opacity buckets PARTITION the registry: every id lands in exactly
+      // one, and no bucket invents an id. A block reachable through no bucket
+      // is a block meshing never draws.
+      const bucketed = BLOCK_OPACITIES.flatMap((opacity) => [...blockIdsWithOpacity(opacity)])
+      expect(bucketed.length).toBe(BLOCK_IDS.length)
+      expect(new Set(bucketed)).toStrictEqual(new Set(BLOCK_IDS))
+    }),
+  )
+
   it.effect('reports light emission as a level and not as a boolean', () =>
     Effect.sync(() => {
       // The one-level gap is why `emissive: boolean` was the wrong type.
@@ -226,6 +288,43 @@ describe('unknown ids', () => {
         expect(capabilityOfBlockId(unknown, flag)).toBe(BLOCK_CAPABILITY_DEFAULTS[flag])
       }
       expect(propertyOfBlockId(unknown, 'opacity')).toBe(BLOCK_PROPERTY_DEFAULTS.opacity)
+    }),
+  )
+
+  it.effect('yield a COMPLETE capability set, so no flag on a corrupt byte reads as undefined', () =>
+    Effect.sync(() => {
+      // The singular reader is covered above; the plural one is what a caller
+      // uses when it wants several answers about one byte, and it is the one
+      // that can go wrong quietly. `capabilitiesOfBlockId(byte).passable` must
+      // be `false` for an unrecognised byte, never `undefined` — both are
+      // falsy, so physics would agree with the right answer for the wrong
+      // reason and keep agreeing until someone asked a flag whose default is
+      // `true`.
+      const unknown = 200
+      const capabilities = capabilitiesOfBlockId(unknown)
+
+      expect(capabilities).toStrictEqual({ ...BLOCK_CAPABILITY_DEFAULTS })
+      for (const flag of BLOCK_CAPABILITY_FLAGS) {
+        expect(capabilities[flag]).toBeTypeOf('boolean')
+        expect(capabilities[flag]).toBe(capabilityOfBlockId(unknown, flag))
+      }
+    }),
+  )
+
+  it.effect('read as unknown from isKnownBlockId and resolvedBlockOfId alike, over the whole id space', () =>
+    Effect.sync(() => {
+      // These two spelled the range test separately until they were made one
+      // function, and this sweep is what holds them together. The case they
+      // could disagree about is a HOLE — an id below the table length with no
+      // row, which a removed block leaves behind forever — and a caller that
+      // checks with one and reads with the other would then see a block that
+      // exists and has no properties.
+      for (let id = -2; id <= BLOCK_ID_MAX + 2; id += 1) {
+        expect(isKnownBlockId(id)).toBe(resolvedBlockOfId(id) !== undefined)
+      }
+      for (const id of BLOCK_IDS) {
+        expect(isKnownBlockId(id)).toBe(true)
+      }
     }),
   )
 
@@ -278,6 +377,188 @@ describe('the table states differences only', () => {
           expect(typeof resolved?.capabilities[flag]).toBe('boolean')
         }
       }
+    }),
+  )
+})
+
+describe('the reference tables this roster transcribes', () => {
+  /**
+   * ORACLE TESTS, in the sense plan.md §6 Step 2 means: the expectation is a
+   * transcription of the reference implementation's own data, so a failure says
+   * "kernel and the reference disagree" rather than "someone changed a value".
+   *
+   * Spelling differs between the two — the reference's `WOOD` / `LEAVES` /
+   * `PLANKS` / `GRASS` are kernel's `oak_log` / `oak_leaves` / `oak_planks` /
+   * `grass_block` — so these lists are re-spelled, which is exactly the step
+   * where a transcription usually goes wrong. That is why they are asserted as
+   * whole SETS rather than block by block: a set comparison catches the member
+   * that was dropped in translation, and a per-block loop does not.
+   */
+
+  /**
+   * `block-collision-predicates.ts:22-42`, the closed 19-member set audit §4.1
+   * calls the centre of the physics side.
+   */
+  const REFERENCE_PASSABLE_BLOCKS: ReadonlyArray<BlockType> = [
+    'air',
+    'water',
+    'lava',
+    'torch',
+    'ladder',
+    'cobweb',
+    'sapling',
+    'dandelion',
+    'poppy',
+    'brown_mushroom',
+    'red_mushroom',
+    'tall_grass',
+    'fern',
+    'sugar_cane',
+    'lily_pad',
+    'kelp',
+    'seagrass',
+    'rail',
+    'powered_rail',
+  ]
+
+  it.effect('reproduces PASSABLE_BLOCK_IDS exactly — every member, and no extras', () =>
+    Effect.sync(() => {
+      // Both directions matter and they fail differently. A MISSING member means
+      // a player walks into a flower; an EXTRA member means a player falls
+      // through it. The reference records the second failure in a comment at
+      // `block-collision-predicates.ts:18-21` — listing LEAVES there let players
+      // drop through tree canopies — so the extras half of this assertion is
+      // guarding a bug that has actually happened.
+      const passableIds = blockIdsWithCapability('passable')
+      const passableTypes = [...passableIds].map((id) => blockTypeOfId(id))
+
+      expect([...passableTypes].sort()).toStrictEqual([...REFERENCE_PASSABLE_BLOCKS].sort())
+      expect(passableIds.size).toBe(19)
+    }),
+  )
+
+  it.effect('keeps oak_leaves OUT of the passable set, which is the canopy bug itself', () =>
+    Effect.sync(() => {
+      // Named separately from the set comparison above because this is the one
+      // membership the reference explicitly warns about, and a test that only
+      // compares sorted arrays reports it as an unremarkable diff.
+      expect(capabilityOfBlockId(blockIdOf('oak_leaves'), 'passable')).toBe(false)
+      expect(blockIdsWithCapability('passable').has(blockIdOf('oak_leaves'))).toBe(false)
+    }),
+  )
+
+  it.effect('gives every collision shape at least one block to be', () =>
+    Effect.sync(() => {
+      // `COLLISION_SHAPES` was enumerated from the audit before any row could
+      // produce three of its five members. An uninhabited enum member is one
+      // mc-physics must branch on and can never test against
+      // (`getBlockCollisionShapeAt` :135-140 is that branch), so this asserts
+      // the vocabulary and the data have met.
+      const shapes = new Set(BLOCK_IDS.map((id) => propertyOfBlockId(id, 'collisionShape')))
+      for (const shape of COLLISION_SHAPES) {
+        expect(shapes.has(shape)).toBe(true)
+      }
+
+      // ...and the three that arrived with the roster are on the blocks the
+      // reference branches to, not merely on SOME block.
+      expect(propertyOfBlockId(blockIdOf('cactus'), 'collisionShape')).toBe('cactus')
+      expect(propertyOfBlockId(blockIdOf('pressure_plate'), 'collisionShape')).toBe('pressurePlate')
+      expect(propertyOfBlockId(blockIdOf('stone_slab'), 'collisionShape')).toBe('slab')
+    }),
+  )
+
+  it.effect('separates rail from powered_rail, because the reference has two predicates', () =>
+    Effect.sync(() => {
+      // `isOnRail` (:184-195) accepts both; `isOnPoweredRail` (:197-201) accepts
+      // only one. Collapsing `railKind` to a boolean would lose the speed tier
+      // that `minecart-mount.ts:45` reads.
+      expect(propertyOfBlockId(blockIdOf('rail'), 'railKind')).toBe('normal')
+      expect(propertyOfBlockId(blockIdOf('powered_rail'), 'railKind')).toBe('powered')
+      expect(propertyOfBlockId(blockIdOf('stone'), 'railKind')).toBe('none')
+
+      // The two rails agree on everything a rail is EXCEPT the tier, which is
+      // what makes the tier the only reason to keep them apart.
+      expect(propertyOfBlockId(blockIdOf('rail'), 'renderKind')).toBe(
+        propertyOfBlockId(blockIdOf('powered_rail'), 'renderKind'),
+      )
+      expect(capabilitiesOfBlockId(blockIdOf('rail'))).toStrictEqual(
+        capabilitiesOfBlockId(blockIdOf('powered_rail')),
+      )
+    }),
+  )
+
+  it.effect('does NOT break lily_pad in water, though it breaks the other waterside plants', () =>
+    Effect.sync(() => {
+      // `WATER_BREAKABLE_BLOCK_TYPES` (`block-support.ts:34-44`) names
+      // SUGAR_CANE and CACTUS individually and pointedly omits LILY_PAD, whose
+      // support rule IS water (:83). A "plants break in water" generalisation
+      // deletes every lily pad on contact with the thing it floats on.
+      expect(capabilityOfBlockId(blockIdOf('lily_pad'), 'brokenByWaterFlow')).toBe(false)
+      expect(capabilityOfBlockId(blockIdOf('sugar_cane'), 'brokenByWaterFlow')).toBe(true)
+      expect(capabilityOfBlockId(blockIdOf('cactus'), 'brokenByWaterFlow')).toBe(true)
+    }),
+  )
+
+  it.effect('keeps oak_log off the spawn surface, which the default silently got wrong', () =>
+    Effect.sync(() => {
+      // REGRESSION. This row carried no `validSpawnSurface` override and so
+      // resolved to the default `true`, while the reference lists WOOD in
+      // `NON_SPAWN_SURFACE_BLOCK_IDS` (`spawn-selection-search.ts:45`) AND in
+      // `VILLAGE_NON_GROUND_IDS` (`village-placement-surface.ts:11`) — the two
+      // near-duplicate lists that audit §4.9 cites for DISAGREEING happen to
+      // agree here, so there was no ambiguity to hide behind.
+      //
+      // A true-by-default flag is the dangerous kind: omitting it opts the block
+      // INTO the behaviour, and nothing about the row looked wrong.
+      expect(capabilityOfBlockId(blockIdOf('oak_log'), 'validSpawnSurface')).toBe(false)
+      expect(capabilityOfBlockId(blockIdOf('oak_leaves'), 'validSpawnSurface')).toBe(false)
+
+      // ...while an ordinary cube still is one, so this did not become a blanket
+      // negative.
+      expect(capabilityOfBlockId(blockIdOf('stone'), 'validSpawnSurface')).toBe(true)
+      expect(capabilityOfBlockId(blockIdOf('snow'), 'validSpawnSurface')).toBe(true)
+    }),
+  )
+
+  it.effect('carries the plant friction of 0, which is NOT the default 0.6', () =>
+    Effect.sync(() => {
+      // `plantBlockProperties` (`blocks.config.terrain.ts:29-35`) sets friction
+      // 0, and `getBlockFrictionAt` (`block-collision-predicates.ts:152-161`)
+      // reads it for whatever a player stands on. A row that omitted it would
+      // resolve to 0.6 and be indistinguishable from stone — the omission would
+      // look like agreement.
+      for (const plant of ['sapling', 'dandelion', 'tall_grass', 'lily_pad', 'kelp'] as const) {
+        expect(propertyOfBlockId(blockIdOf(plant), 'friction')).toBe(0)
+      }
+      expect(BLOCK_PROPERTY_DEFAULTS.friction).toBe(0.6)
+      expect(propertyOfBlockId(blockIdOf('stone'), 'friction')).toBe(0.6)
+    }),
+  )
+
+  it.effect('slows an entity in a cobweb, and in nothing else', () =>
+    Effect.sync(() => {
+      // `movementDrag` had no inhabitant before this roster, so nothing checked
+      // that the field survived resolution at all.
+      const dragging = BLOCK_IDS.filter((id) => propertyOfBlockId(id, 'movementDrag') > 0)
+      expect(dragging.map((id) => blockTypeOfId(id))).toStrictEqual(['cobweb'])
+
+      // 1 - COBWEB_HORIZONTAL_MULTIPLIER (0.25, `player-physics.ts:19`). The
+      // vertical multiplier (0.05, :20) has nowhere to go in a one-number field;
+      // that loss is recorded at the registry row rather than rounded away here.
+      expect(propertyOfBlockId(blockIdOf('cobweb'), 'movementDrag')).toBe(0.75)
+    }),
+  )
+
+  it.effect('lets exactly one block hurt on contact, at the reference amount', () =>
+    Effect.sync(() => {
+      // CACTUS_DAMAGE = 1 and LAVA_DAMAGE = 4 (`environment-hazard.config.ts:7,26`).
+      // Two damaging blocks with DIFFERENT amounts is what makes `contactDamage`
+      // a number rather than a `hurts: boolean`.
+      const damaging = BLOCK_IDS.filter((id) => propertyOfBlockId(id, 'contactDamage') > 0)
+      expect(damaging.map((id) => blockTypeOfId(id)).sort()).toStrictEqual(['cactus', 'lava'])
+
+      expect(propertyOfBlockId(blockIdOf('cactus'), 'contactDamage')).toBe(1)
+      expect(propertyOfBlockId(blockIdOf('lava'), 'contactDamage')).toBe(4)
     }),
   )
 })

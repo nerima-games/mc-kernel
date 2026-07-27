@@ -114,7 +114,7 @@ import { resolveBlock } from './block-definition'
 import type { BlockDrop, HarvestContext } from './block-harvest'
 import { BARE_HANDED, DEFAULT_BLOCK_DROP, DEFAULT_HARVEST_TOOL, resolveDrop } from './block-harvest'
 import type { BlockOpacity, BlockProperties, BlockPropertyName } from './block-properties'
-import { BLOCK_PROPERTY_DEFAULTS } from './block-properties'
+import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS } from './block-properties'
 import type { BlockType } from './block-type'
 import { BLOCK_TYPES } from './block-type'
 
@@ -143,6 +143,70 @@ const NEEDS_WOODEN_PICKAXE = { ...DEFAULT_HARVEST_TOOL, category: 'pickaxe', min
 const FASTER_WITH_SHOVEL = { ...DEFAULT_HARVEST_TOOL, category: 'shovel' } as const
 const FASTER_WITH_AXE = { ...DEFAULT_HARVEST_TOOL, category: 'axe' } as const
 const FASTER_WITH_SHEARS = { ...DEFAULT_HARVEST_TOOL, category: 'shears' } as const
+
+// ---------------------------------------------------------------------------
+// Shared plant rows, because the REFERENCE shares them
+// ---------------------------------------------------------------------------
+//
+// These two constants are not a shortcut for typing the same override five
+// times. They exist because `block-support.ts:4-12` defines exactly one set,
+// `SURFACE_PLANT_BLOCK_TYPES`, and then feeds that one set into
+// `SUPPORT_SENSITIVE_BLOCK_TYPES` (:22), `WATER_BREAKABLE_BLOCK_TYPES` (:34)
+// and `NON_SUPPORTING_BLOCK_TYPES` (:47) — while `environment-hazard.config.ts`
+// and `spawn-selection-search.ts` list the same seven names individually and
+// happen to agree. Writing the seven rows out separately would be a claim that
+// they were decided separately, which is not what the source says.
+//
+// The membership was checked name-by-name across all five tables rather than
+// assumed from the grouping; see the block comment on the plant rows below.
+
+/**
+ * `sapling` / `dandelion` / `poppy` / `brown_mushroom` / `red_mushroom` /
+ * `tall_grass` / `fern` — identical in every capability table the reference has.
+ *
+ *   passable              `block-collision-predicates.ts:29-35` (`PASSABLE_BLOCK_IDS`)
+ *   brokenByWaterFlow     `block-support.ts:34-44` (via `SURFACE_PLANT_BLOCK_TYPES`)
+ *   canSupportAttachments `block-support.ts:47-60` (`NON_SUPPORTING_BLOCK_TYPES`)
+ *   suffocates            `environment-hazard.config.ts:66-72` (`NON_SUFFOCATING_BLOCKS`)
+ *   validSpawnSurface     `spawn-selection-search.ts:47-54` (`NON_SPAWN_SURFACE_BLOCK_IDS`)
+ *
+ * `supportRule` is the one capability these blocks need and kernel does not
+ * have: `block-support.ts:75-91` gives all seven the rule "DIRT | GRASS |
+ * FARMLAND below". It is `PENDING_CAPABILITIES` (`./block-definition`), and the
+ * gap is recorded here rather than papered over with a flag that exists.
+ */
+const SURFACE_PLANT_CAPABILITIES = {
+  passable: true,
+  brokenByWaterFlow: true,
+  canSupportAttachments: false,
+  suffocates: false,
+  validSpawnSurface: false,
+} as const
+
+/**
+ * The reference's `plantBlockProperties` (`blocks.config.terrain.ts:29-35`),
+ * shared by `blocks.config.flora.ts` across every small plant.
+ *
+ * `friction: 0` is transcribed rather than defaulted, and it is a real value:
+ * `getBlockFrictionAt` (`block-collision-predicates.ts:152-161`) reads
+ * `BLOCK_FRICTION_BY_ID` for whatever block a player is standing on, and every
+ * plant is 0 there while kernel's default is 0.6.
+ *
+ * `opacity: 'transparentSolid'` follows the `torch` row's precedent rather than
+ * `meshing-worker-config.ts:7-13`, whose `TRANSPARENT_SOLID_IDS_ARRAY` holds
+ * only GLASS and LEAVES. Plants never reach greedy meshing at all — they are
+ * diverted by `isPlantMeshBlockId` (`plant-mesh.ts:45`) — so the meshing bucket
+ * does not decide their value, and the OTHER thing `opacity` governs does:
+ * `light.ts:14-17` builds the light-attenuation table from
+ * `properties.transparency`, which is `true` for every plant. Opaque would make
+ * a flower cast a shadow.
+ */
+const PLANT_PROPERTIES = {
+  opacity: 'transparentSolid',
+  collisionShape: 'none',
+  hardness: 0,
+  friction: 0,
+} as const
 
 /**
  * The storage encoding of a block inside a chunk buffer.
@@ -325,7 +389,24 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     id: BlockId(9),
     definition: {
       type: 'oak_log',
-      capabilities: { flammable: true },
+      capabilities: {
+        flammable: true, // fire-lifecycle.ts:20 (`WOOD`)
+        // CORRECTED. This row said nothing about `validSpawnSurface` and so
+        // resolved to the default `true`, but the reference lists `WOOD` in
+        // `NON_SPAWN_SURFACE_BLOCK_IDS` (`spawn-selection-search.ts:45`,
+        // commented "log — semi-solid / tree") and again in
+        // `VILLAGE_NON_GROUND_IDS` (`village-placement-surface.ts:11`). Both
+        // near-duplicate lists agree, which is rare enough in this family of
+        // tables to be worth noting — the disagreement audit §4.9 measures is
+        // between the lists, and here there is none to hide behind.
+        //
+        // The default was doing the damage silently: mobs and village placement
+        // would treat the top of a tree trunk as ground. `mx-gameplay`'s
+        // transcription (`chunk-store-port.ts`, `NON_SPAWN_SURFACE_IDS`) had the
+        // same hole, and `pnpm check:mirrors` could not see it because
+        // `validSpawnSurface` had no probe in `MIRROR_SPECS`. It has one now.
+        validSpawnSurface: false,
+      },
       properties: { hardness: 2, harvestTool: FASTER_WITH_AXE },
     },
   },
@@ -460,6 +541,375 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       properties: { harvestTool: NEEDS_WOODEN_PICKAXE },
     },
   },
+
+  // -------------------------------------------------------------------------
+  // ids 18-32: the rest of `PASSABLE_BLOCK_IDS`
+  // -------------------------------------------------------------------------
+  //
+  // READ THIS BEFORE ADDING A ROW BELOW. Two of the reference's five "non-solid"
+  // tables (audit §4.9) turn out to omit members the other three contain, and
+  // the omissions are load-bearing for these rows specifically:
+  //
+  //   - `NON_SUFFOCATING_BLOCKS` (`environment-hazard.config.ts:39-85`) does NOT
+  //     contain `SUGAR_CANE`, `LILY_PAD`, `KELP`, `SEAGRASS`, `RAIL` or
+  //     `POWERED_RAIL`, although `PASSABLE_BLOCK_IDS` does. Read literally, the
+  //     reference suffocates a player standing inside a rail.
+  //   - `NON_SPAWN_SURFACE_BLOCK_IDS` (`spawn-selection-search.ts:41-84`) does
+  //     NOT contain `RAIL`, `POWERED_RAIL`, `KELP`, `SEAGRASS` or `STONE_SLAB`.
+  //
+  // These are SIX and FIVE new instances of the disagreement audit §4.9 found
+  // three of, and they are handled differently from each other on purpose:
+  //
+  //   `suffocates` IS inferred to `false` for the six, because audit §4.7 states
+  //   the one-way implication — 「`passable=true` なら常に false を導出する方が
+  //   安全」 — and a passable block that suffocates is incoherent rather than
+  //   merely unlisted. Each such row says so at the row.
+  //
+  //   `validSpawnSurface` is NOT inferred. No implication licenses it: audit
+  //   §4.9's whole finding is that these five concepts are independent, and it
+  //   cites `snow` (non-supporting, not passable) and `glass` (solid, not a
+  //   spawn surface) as proof that "passable" predicts neither. Those rows
+  //   therefore transcribe the reference's silence and default to `true`, with
+  //   the omission recorded. Guessing here would be inventing content.
+  {
+    // Exercises `climbable`, which no row could reach before — kernel had the
+    // flag from audit §4.1 and nothing to hang it on.
+    //
+    // Also the counter-example to "passable implies non-supporting": `ladder` is
+    // in `PASSABLE_BLOCK_IDS` (:29) yet is absent from
+    // `NON_SUPPORTING_BLOCK_TYPES` (`block-support.ts:47-60`), so a torch may be
+    // attached to it. That is the reference's answer, not a default falling
+    // through, and it is why `canSupportAttachments` is left unsaid here.
+    id: BlockId(18),
+    definition: {
+      type: 'ladder',
+      capabilities: {
+        passable: true, // block-collision-predicates.ts:29
+        climbable: true, // block-collision-predicates.ts:177-182 (`isInLadder`)
+        flammable: true, // fire-lifecycle.ts:26 (`FLAMMABLE_BLOCK_TYPES`)
+        suffocates: false, // environment-hazard.config.ts:63 (`NON_SUFFOCATING_BLOCKS`)
+        validSpawnSurface: false, // spawn-selection-search.ts:46
+      },
+      // hardness 4 / friction 0.6: blocks.config.crafted.ts (`block:ladder`).
+      properties: { opacity: 'transparentSolid', collisionShape: 'none', hardness: 4 },
+    },
+  },
+  {
+    // Exercises `movementDrag`, the other flag that had no inhabitant.
+    //
+    // INFERRED VALUE, and the inference is lossy. The reference slows an entity
+    // in a cobweb with TWO multipliers — `COBWEB_HORIZONTAL_MULTIPLIER = 0.25`
+    // and `COBWEB_VERTICAL_MULTIPLIER = 0.05` (`player-physics.ts:19-20`,
+    // applied at :123-125) — and `movementDrag` is one number. 0.75 is the
+    // horizontal figure expressed as drag (`1 - 0.25`), chosen because kernel's
+    // default is 0 = "no slowdown", so the field must count drag and not
+    // survival.
+    //
+    // The vertical component is LOST. Recorded rather than silently dropped: a
+    // second field (`verticalMovementDrag`) is the additive fix if mc-physics
+    // ever needs the fall-through-a-cobweb behaviour, and until then this row
+    // is the only place that says the model is lossy here.
+    id: BlockId(19),
+    definition: {
+      type: 'cobweb',
+      capabilities: {
+        passable: true, // block-collision-predicates.ts:30
+        suffocates: false, // environment-hazard.config.ts:64
+        validSpawnSurface: false, // spawn-selection-search.ts:47
+      },
+      properties: {
+        opacity: 'transparentSolid',
+        collisionShape: 'none',
+        movementDrag: 0.75,
+        // hardness 4 / friction 0.2: blocks.config.crafted.ts (`block:cobweb`).
+        hardness: 4,
+        friction: 0.2,
+      },
+    },
+  },
+  {
+    // The one surface plant that is NOT a cross-mesh plant. `CROSS_PLANT_IDS`
+    // (`plant-mesh.ts:18-28`) lists the other six and omits `SAPLING`, so
+    // `isPlantMeshBlockId` (:45) sends a sapling down the greedy-meshing path
+    // and it meshes as a cube.
+    //
+    // Transcribed rather than corrected. It looks like a reference defect — a
+    // sapling is a cross-quad in every version of the game — but "looks like a
+    // bug" is not a citation, and kernel's job here is to state what the
+    // reference does. The row is flagged so that whoever ports the mesher
+    // decides it deliberately instead of discovering it.
+    id: BlockId(20),
+    definition: {
+      type: 'sapling',
+      capabilities: SURFACE_PLANT_CAPABILITIES,
+      properties: PLANT_PROPERTIES,
+    },
+  },
+  {
+    id: BlockId(21),
+    definition: {
+      type: 'dandelion',
+      capabilities: SURFACE_PLANT_CAPABILITIES,
+      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:19
+    },
+  },
+  {
+    id: BlockId(22),
+    definition: {
+      type: 'poppy',
+      capabilities: SURFACE_PLANT_CAPABILITIES,
+      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:20
+    },
+  },
+  {
+    id: BlockId(23),
+    definition: {
+      type: 'brown_mushroom',
+      capabilities: SURFACE_PLANT_CAPABILITIES,
+      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:21
+    },
+  },
+  {
+    id: BlockId(24),
+    definition: {
+      type: 'red_mushroom',
+      capabilities: SURFACE_PLANT_CAPABILITIES,
+      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:22
+    },
+  },
+  {
+    id: BlockId(25),
+    definition: {
+      type: 'tall_grass',
+      capabilities: SURFACE_PLANT_CAPABILITIES,
+      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:23
+    },
+  },
+  {
+    id: BlockId(26),
+    definition: {
+      type: 'fern',
+      capabilities: SURFACE_PLANT_CAPABILITIES,
+      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:24
+    },
+  },
+  {
+    // A WATERSIDE plant, not a surface plant: `block-support.ts:14-18` puts it
+    // in a different set with a different support rule (DIRT | GRASS | SAND |
+    // itself, :81) — so it does NOT get `SURFACE_PLANT_CAPABILITIES` even
+    // though the resolved flags come out close.
+    //
+    // `suffocates: false` is INFERRED (audit §4.7): `SUGAR_CANE` is passable
+    // (`block-collision-predicates.ts:36`) but absent from
+    // `NON_SUFFOCATING_BLOCKS`.
+    id: BlockId(27),
+    definition: {
+      type: 'sugar_cane',
+      capabilities: {
+        passable: true,
+        brokenByWaterFlow: true, // block-support.ts:43 (named individually, not via the plant set)
+        canSupportAttachments: false, // block-support.ts:47-60 (via WATERSIDE_PLANT_BLOCK_TYPES)
+        suffocates: false, // INFERRED — audit §4.7
+        validSpawnSurface: false, // spawn-selection-search.ts:55
+      },
+      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:25
+    },
+  },
+  {
+    // `brokenByWaterFlow` is deliberately ABSENT, and this is the row where that
+    // absence is a statement. `WATER_BREAKABLE_BLOCK_TYPES` (`block-support.ts:
+    // 34-44`) names `SUGAR_CANE` and `CACTUS` individually right next to the
+    // plant set, and does NOT name `LILY_PAD` — which is correct, since a lily
+    // pad's support rule IS water (:83). A blanket "plants break in water" would
+    // have deleted every lily pad on contact with the thing it floats on.
+    id: BlockId(28),
+    definition: {
+      type: 'lily_pad',
+      capabilities: {
+        passable: true, // block-collision-predicates.ts:37
+        canSupportAttachments: false, // block-support.ts:47-60
+        suffocates: false, // INFERRED — audit §4.7
+        validSpawnSurface: false, // spawn-selection-search.ts:57
+      },
+      properties: { ...PLANT_PROPERTIES, renderKind: 'lilyPad' }, // plant-mesh.ts:34
+    },
+  },
+  {
+    // `kelp` and `seagrass` are the reference's newest block types — the
+    // append-only tail of `INDEX_TO_BLOCK_TYPE` (`block-codec.ts:74-82`) — and
+    // they are missing from THREE of the five membership tables:
+    // `NON_SUFFOCATING_BLOCKS`, `NON_SPAWN_SURFACE_BLOCK_IDS` and
+    // `NON_SUPPORTING_BLOCK_TYPES`. Audit §6-8 already caught the same pair
+    // missing from `BLOCK_ITEMS`.
+    //
+    // That is what a hand-maintained membership set does when the roster grows,
+    // and it is the argument for this registry existing at all: here the roster
+    // and the capabilities are the same table, so a new literal cannot be added
+    // to one and forgotten in the other (`test/block-registry.test.ts` asserts
+    // `UNREGISTERED_BLOCK_TYPES` is empty).
+    //
+    // Only `suffocates` is inferred. `validSpawnSurface` and
+    // `canSupportAttachments` transcribe the silence — see the block comment
+    // above on why the two are treated differently.
+    id: BlockId(29),
+    definition: {
+      type: 'kelp',
+      capabilities: {
+        passable: true, // block-collision-predicates.ts:38
+        suffocates: false, // INFERRED — audit §4.7
+      },
+      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:26
+    },
+  },
+  {
+    id: BlockId(30),
+    definition: {
+      type: 'seagrass',
+      capabilities: {
+        passable: true, // block-collision-predicates.ts:39
+        suffocates: false, // INFERRED — audit §4.7
+      },
+      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:27
+    },
+  },
+  {
+    // Exercises `railKind`, the third flag audit §4.1 defined with no inhabitant.
+    id: BlockId(31),
+    definition: {
+      type: 'rail',
+      capabilities: {
+        passable: true, // block-collision-predicates.ts:40
+        brokenByWaterFlow: true, // block-support.ts:38
+        canSupportAttachments: false, // block-support.ts:53
+        suffocates: false, // INFERRED — audit §4.7
+      },
+      properties: {
+        opacity: 'transparentSolid',
+        collisionShape: 'none',
+        renderKind: 'rail', // plant-mesh.ts:32
+        railKind: 'normal', // block-collision-predicates.ts:184-195 (`isOnRail`)
+        // hardness 7 / friction 0.6: blocks.config.crafted.ts (`block:rail`).
+        hardness: 7,
+      },
+    },
+  },
+  {
+    // The `railKind` distinction is not decorative: `isOnPoweredRail`
+    // (`block-collision-predicates.ts:197-201`) is a SEPARATE predicate from
+    // `isOnRail` (:184), and `minecart-mount.ts:45` names both. A boolean
+    // `isRail` would collapse the speed tier.
+    id: BlockId(32),
+    definition: {
+      type: 'powered_rail',
+      capabilities: {
+        passable: true, // block-collision-predicates.ts:41
+        brokenByWaterFlow: true, // block-support.ts:39
+        canSupportAttachments: false, // block-support.ts:54
+        suffocates: false, // INFERRED — audit §4.7
+      },
+      properties: {
+        opacity: 'transparentSolid',
+        collisionShape: 'none',
+        renderKind: 'rail', // plant-mesh.ts:33
+        railKind: 'powered', // block-collision-predicates.ts:197-201
+        hardness: 7,
+      },
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // ids 33-35: the three non-`full` collision shapes
+  // -------------------------------------------------------------------------
+  {
+    // THE row that most repays audit §4.9, and the reason it is worth having.
+    // `cactus` disagrees with itself four ways in a single row:
+    //
+    //   passable              false  — absent from `PASSABLE_BLOCK_IDS`; it collides
+    //   suffocates            false  — `NON_SUFFOCATING_BLOCKS` (:65)
+    //   canSupportAttachments false  — `NON_SUPPORTING_BLOCK_TYPES` (:47-60)
+    //   validSpawnSurface     false  — `NON_SPAWN_SURFACE_BLOCK_IDS` (:56)
+    //
+    // A single `solid` boolean would have to be true (you cannot walk through a
+    // cactus) and false (it neither suffocates you nor holds a torch nor spawns
+    // a mob) at the same time. `glass` and `oak_leaves` make that argument with
+    // two disagreements each; this row makes it with three, and adds contact
+    // damage on top.
+    id: BlockId(33),
+    definition: {
+      type: 'cactus',
+      capabilities: {
+        suffocates: false,
+        canSupportAttachments: false,
+        validSpawnSurface: false,
+        brokenByWaterFlow: true, // block-support.ts:44 — named individually
+      },
+      properties: {
+        // `cactusBlockProperties` (`blocks.config.flora.ts:9-15`): solid AND
+        // transparent, hardness 8, friction 0.6 — the only block in the flora
+        // config that is not `plantBlockProperties`.
+        opacity: 'transparentSolid',
+        collisionShape: 'cactus', // block-collision-predicates.ts:136
+        renderKind: 'cactus', // plant-mesh.ts:30
+        contactDamage: 1, // environment-hazard.config.ts:26 (`CACTUS_DAMAGE`)
+      },
+    },
+  },
+  {
+    // Not passable — `PRESSURE_PLATE` is absent from `PASSABLE_BLOCK_IDS`, and
+    // `getBlockCollisionShapeAt` (:137) returns a shape for it rather than
+    // `null`. The plate is a very short box you stand ON, which is exactly the
+    // distinction `collisionShape` exists to carry and `passable` cannot.
+    id: BlockId(34),
+    definition: {
+      type: 'pressure_plate',
+      capabilities: {
+        brokenByWaterFlow: true, // block-support.ts:37
+        canSupportAttachments: false, // block-support.ts:52
+        suffocates: false, // environment-hazard.config.ts:55
+        validSpawnSurface: false, // spawn-selection-search.ts:66
+      },
+      properties: {
+        opacity: 'transparentSolid',
+        collisionShape: 'pressurePlate', // block-collision-predicates.ts:137
+        // harvestable-blocks.ts:16-17 lists PRESSURE_PLATE in
+        // WOODEN_PICKAXE_HARVESTABLE_BLOCKS — a tier GATE, so bare hands yield
+        // nothing. hardness 5: blocks.config.crafted.ts.
+        harvestTool: NEEDS_WOODEN_PICKAXE,
+        hardness: 5,
+      },
+    },
+  },
+  {
+    // `SLAB_BLOCK_IDS` (`block-collision-predicates.ts:56-59`) holds two
+    // members, `PURPUR_SLAB` and `STONE_SLAB`; only the second is in this
+    // roster, so `collisionShape: 'slab'` is inhabited but its reference table
+    // is not yet complete. Recorded so the next roster pass knows the shape is
+    // already exercised and `purpur_slab` is about the End dimension, not about
+    // collision.
+    //
+    // `validSpawnSurface` is left at the default `true`: `STONE_SLAB` is one of
+    // the five blocks `NON_SPAWN_SURFACE_BLOCK_IDS` omits (see the block comment
+    // on ids 18-32). A mob standing on a slab is at least physically coherent,
+    // unlike one standing on a rail, but the reason it is `true` here is that
+    // the reference does not say otherwise — not that it seems reasonable.
+    id: BlockId(35),
+    definition: {
+      type: 'stone_slab',
+      capabilities: {
+        // `NON_SUFFOCATING_BLOCKS` (:56) contains STONE_SLAB, and audit §4.7
+        // names it as one of the three entries (with GLASS and OAK_STAIRS) that
+        // make `suffocates` underivable from `passable && opacity`. This row is
+        // that argument's evidence: not passable, and still does not suffocate.
+        suffocates: false,
+      },
+      properties: {
+        opacity: 'transparentSolid', // transparency: true in blocks.config.crafted.ts
+        collisionShape: 'slab', // block-collision-predicates.ts:56-59, applied at :138
+        harvestTool: NEEDS_WOODEN_PICKAXE, // harvestable-blocks.ts:18
+        hardness: 25,
+      },
+    },
+  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -500,16 +950,44 @@ const ID_BY_TYPE = buildIdByType()
  */
 export const BLOCK_IDS: ReadonlyArray<BlockId> = BLOCK_REGISTRY.map((entry) => entry.id)
 
-/** Does this number name a block this build knows about? */
-export const isKnownBlockId = (id: number): boolean =>
-  Number.isInteger(id) && id >= 0 && id < REGISTRY_LENGTH && RESOLVED_BY_ID[id] !== undefined
+/**
+ * Does this number name a block this build knows about?
+ *
+ * Delegates instead of repeating the range test. The two were spelled
+ * separately, which made "this id is known" and "this id resolves to a row"
+ * two independent claims that happened to agree; the case where they could
+ * come apart is a HOLE — an id below `REGISTRY_LENGTH` with no entry, which
+ * `BLOCK_IDS` above says a removed block leaves behind forever. Answering the
+ * question by asking the resolver makes the agreement structural, so there is
+ * no longer a version of this predicate that can drift from the table it
+ * describes.
+ */
+export const isKnownBlockId = (id: number): boolean => resolvedBlockOfId(id) !== undefined
 
 /**
  * `BlockType` -> id. Total over `BLOCK_TYPES`, which
  * `test/block-registry.test.ts` checks by sweeping the whole vocabulary — the
  * check that makes "the roster and the table cannot drift apart" mechanical
  * rather than aspirational.
+ *
+ * COVERAGE: the `?? AIR_BLOCK_ID` arm is excluded, and is the only exclusion in
+ * this file. It fires only for a `BlockType` with no registry row, and two
+ * independent assertions in `test/block-registry.test.ts` forbid that state
+ * from ever landing: `UNREGISTERED_BLOCK_TYPES` must be empty, and every member
+ * of `BLOCK_TYPES` must round-trip through `blockIdOf` -> `blockTypeOfId` (a
+ * type that fell back to air would come back as `'air'` and fail). No input
+ * reaches the arm in any tree that passes CI, so the only way to "cover" it is
+ * to cast a bogus string past `isBlockType` — which would document the arm as
+ * reachable and quietly bless bypassing the very guard `./block-type` provides
+ * for untrusted strings.
+ *
+ * It is kept rather than deleted because deleting it means returning
+ * `undefined` from a function typed `BlockId`. Note what it costs, though: an
+ * unregistered type silently becomes AIR, so the block does not merely misread,
+ * it VANISHES. That is why the state is fenced off by tests instead of being
+ * handled here — this fallback is a last resort nobody should be relying on.
  */
+/* v8 ignore next 2 -- see COVERAGE note above */
 export const blockIdOf = (type: BlockType): BlockId => ID_BY_TYPE[type] ?? AIR_BLOCK_ID
 
 /** id -> `BlockType`. `undefined` for a byte this build does not recognise. */
@@ -570,8 +1048,17 @@ export const dropOfBlockId = (id: number, context: HarvestContext = BARE_HANDED)
     : resolveDrop(resolved.properties.harvestTool, resolved.properties.drops, resolved.type, context)
 }
 
-const buildIdsByCapability = (): ReadonlyMap<BlockCapabilityFlag, ReadonlySet<number>> => {
-  const table = new Map<BlockCapabilityFlag, ReadonlySet<number>>()
+/**
+ * Keyed by a `Record` and not a `Map`, because the key set here IS
+ * `BlockCapabilityFlag` — the loop below visits every flag, so every flag has a
+ * bucket. Spelled as a `Map`, that totality was invisible to the type system
+ * and `blockIdsWithCapability` had to end in `?? new Set()`, an arm no
+ * well-typed caller could reach. A `Record` states the same fact where the
+ * compiler can use it, and the empty bucket for a flag no block carries is
+ * produced by the loop rather than conjured by a fallback.
+ */
+const buildIdsByCapability = (): Readonly<Record<BlockCapabilityFlag, ReadonlySet<number>>> => {
+  const table: Partial<Record<BlockCapabilityFlag, ReadonlySet<number>>> = {}
 
   for (const flag of BLOCK_CAPABILITY_FLAGS) {
     const members = new Set<number>()
@@ -580,10 +1067,10 @@ const buildIdsByCapability = (): ReadonlyMap<BlockCapabilityFlag, ReadonlySet<nu
         members.add(entry.id)
       }
     }
-    table.set(flag, members)
+    table[flag] = members
   }
 
-  return table
+  return table as Readonly<Record<BlockCapabilityFlag, ReadonlySet<number>>>
 }
 
 const IDS_BY_CAPABILITY = buildIdsByCapability()
@@ -602,17 +1089,31 @@ const IDS_BY_CAPABILITY = buildIdsByCapability()
  * holds raw buffer bytes, and forcing a brand at 400k calls per chunk would
  * mean either a cast or a validation on the hot path.
  */
-export const blockIdsWithCapability = (flag: BlockCapabilityFlag): ReadonlySet<number> =>
-  IDS_BY_CAPABILITY.get(flag) ?? new Set<number>()
+export const blockIdsWithCapability = (flag: BlockCapabilityFlag): ReadonlySet<number> => IDS_BY_CAPABILITY[flag]
 
-const buildIdsByOpacity = (): ReadonlyMap<BlockOpacity, ReadonlySet<number>> => {
-  const table = new Map<BlockOpacity, Set<number>>()
+/**
+ * Every bucket is SEEDED before the rows are walked, which is the difference
+ * that matters and the reason this is not simply the shape above.
+ *
+ * Bucketing the registry rows alone gives a table whose keys are the opacities
+ * some block happens to HAVE, not the opacities that exist. `BlockOpacity` has
+ * three members and the roster is deliberately partial (`./block-type`), so an
+ * opacity with no blocks in it is an ordinary state, not a corrupt one — and it
+ * used to be served by a `?? new Set()` in the reader, i.e. by an arm that
+ * could not run while all three were inhabited and would have started running
+ * the day one was not. Seeding turns that into a guarantee: the empty bucket
+ * exists because it was created, so `blockIdsWithOpacity` is total for reasons
+ * a reader can see, and meshing cannot be handed an `undefined` where it
+ * expects a set.
+ */
+const buildIdsByOpacity = (): Readonly<Record<BlockOpacity, ReadonlySet<number>>> => {
+  const table = Object.fromEntries(BLOCK_OPACITIES.map((opacity) => [opacity, new Set<number>()])) as Record<
+    BlockOpacity,
+    Set<number>
+  >
 
   for (const entry of BLOCK_REGISTRY) {
-    const opacity = propertyOfBlockId(entry.id, 'opacity')
-    const members = table.get(opacity) ?? new Set<number>()
-    members.add(entry.id)
-    table.set(opacity, members)
+    table[propertyOfBlockId(entry.id, 'opacity')].add(entry.id)
   }
 
   return table
@@ -629,16 +1130,21 @@ const IDS_BY_OPACITY = buildIdsByOpacity()
  * config — so meshing still receives the sets rather than importing this
  * module on its hot path.
  */
-export const blockIdsWithOpacity = (opacity: BlockOpacity): ReadonlySet<number> =>
-  IDS_BY_OPACITY.get(opacity) ?? new Set<number>()
+export const blockIdsWithOpacity = (opacity: BlockOpacity): ReadonlySet<number> => IDS_BY_OPACITY[opacity]
 
 /**
  * Block types in the vocabulary that the table does not yet cover.
  *
- * `BLOCK_TYPES` is deliberately incomplete (17 of the reference's 120, see
- * `./block-type`), and the table is allowed to lag it — but silently is not
- * allowed. This constant makes the gap data a test can assert on, in the same
- * spirit as `PENDING_CAPABILITIES` in `./block-definition`.
+ * `BLOCK_TYPES` is deliberately incomplete (36 of the reference's 120, a figure
+ * re-derived in `./block-type`), and the table is allowed to lag it — but
+ * silently is not allowed. This constant makes the gap data a test can assert
+ * on, in the same spirit as `PENDING_CAPABILITIES` in `./block-definition`.
+ *
+ * In practice it is always empty, because `test/block-registry.test.ts` asserts
+ * exactly that: a literal added to the vocabulary without a row here fails the
+ * suite. That is the mechanism which keeps "adding a block is one row" honest in
+ * the direction that actually goes wrong — a name with no capabilities behind
+ * it, which every consumer would then read as an ordinary opaque cube.
  */
 export const UNREGISTERED_BLOCK_TYPES: ReadonlyArray<BlockType> = BLOCK_TYPES.filter(
   (type) => ID_BY_TYPE[type] === undefined,

@@ -58,10 +58,26 @@ export const DEFAULT_HARVEST_TOOL: HarvestToolRequirement = {
   minTier: 'none',
 }
 
-/** Ordering used by the tier gate. Higher index satisfies every lower one. */
-const TIER_ORDER: ReadonlyMap<HarvestTier, number> = new Map(
-  HARVEST_TIERS.map((tier, index) => [tier, index] as const),
-)
+/**
+ * Ordering used by the tier gate. Higher index satisfies every lower one.
+ *
+ * A `Record` rather than a `Map` so that the lookup is TOTAL at the type level.
+ * The `Map` spelling forced a `?? 0` on both reads, and that fallback was not a
+ * safety net but a hazard pointing the wrong way: index 0 is `'none'`, so an
+ * unrecognised HELD tier would have read as bare hands (drop denied, tolerable)
+ * while an unrecognised REQUIRED `minTier` would have read as "no tool needed"
+ * and OPENED the gate. A guard that fails open on the side that grants access
+ * is worse than no guard — and neither arm was reachable in the first place,
+ * because the keys of this table are exactly the members of `HarvestTier`.
+ *
+ * The cast is what the derivation cannot say: `Object.fromEntries` is typed
+ * `Record<string, T>`. That every tier gets an entry, and that the values are
+ * the declaration order, is asserted over all pairs by
+ * `test/block-properties.test.ts`.
+ */
+const TIER_ORDER = Object.fromEntries(HARVEST_TIERS.map((tier, index) => [tier, index])) as Readonly<
+  Record<HarvestTier, number>
+>
 
 /**
  * Does a held tool of `heldTier` satisfy `requirement.minTier`?
@@ -72,7 +88,7 @@ const TIER_ORDER: ReadonlyMap<HarvestTier, number> = new Map(
  * (`block-service-break-helpers.ts:65,158` gates on tier alone).
  */
 export const satisfiesHarvestTier = (requirement: HarvestToolRequirement, heldTier: HarvestTier): boolean =>
-  (TIER_ORDER.get(heldTier) ?? 0) >= (TIER_ORDER.get(requirement.minTier) ?? 0)
+  TIER_ORDER[heldTier] >= TIER_ORDER[requirement.minTier]
 
 // ---------------------------------------------------------------------------
 // drops (audit §4.5)

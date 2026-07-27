@@ -216,6 +216,31 @@ describe('harvestTool and drops (the two struct fields, audit §7)', () => {
     }),
   )
 
+  it.effect('the gate is exactly the material ladder, pinned literally, over every pair', () =>
+    Effect.sync(() => {
+      // The ladder is written out rather than read from `HARVEST_TIERS`, and
+      // that is the whole point of this test. Deriving the expectation from the
+      // array under test makes the assertion tautological: swapping `wooden`
+      // and `stone` in the declaration moves the expectation with it and every
+      // sampled case above still passes, because those samples only ever ask
+      // about `iron`. The order IS the contract — it comes from the four-stage
+      // ladder at `harvestable-blocks.ts:14-67` — so it is pinned as data here,
+      // exactly as `test/block-registry.test.ts` pins the block ids.
+      const LADDER = ['none', 'wooden', 'stone', 'iron', 'diamond'] as const
+      expect(HARVEST_TIERS).toStrictEqual(LADDER)
+
+      // With the ladder pinned, the sweep closes the gate over all 5x5 pairs:
+      // a tool satisfies a requirement precisely when it sits no lower on it.
+      // This also covers what the `Record` cast in `./block-harvest` asserts
+      // and the type system cannot — that every tier has an entry at all.
+      LADDER.forEach((minTier, required) => {
+        LADDER.forEach((heldTier, held) => {
+          expect(satisfiesHarvestTier({ category: 'pickaxe', minTier }, heldTier)).toBe(held >= required)
+        })
+      })
+    }),
+  )
+
   it.effect('the tier gate ignores the category, because the reference gates on tier alone', () =>
     Effect.sync(() => {
       // Wrong category = slower, still drops. Conflating the two axes is the

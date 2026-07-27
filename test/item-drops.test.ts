@@ -126,7 +126,47 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'flint_and_steel',
         'fire_charge',
       ])
-      expect([...UNITEMISED_BLOCK_TYPES]).toStrictEqual(['air', 'water', 'lava', 'bedrock', 'snow'])
+      // The block half of the same ledger, and it grew by eighteen when the
+      // roster completed `PASSABLE_BLOCK_IDS` and the collision shapes.
+      //
+      // NONE of the eighteen was given an item, and that is a decision rather
+      // than an oversight. Their reference drops are STRING (cobweb), SNOWBALL,
+      // WHEAT_SEEDS and so on (`block-service.config.ts:151-187`) — items that
+      // do not exist in `ITEM_TYPES`. Inventing them to fill the cells would
+      // grow the item vocabulary from block-side evidence, which is the
+      // guessed-roster failure `domain/item-type.ts` argues against at length,
+      // and it would break mc-sim's mirror of `ITEM_TYPES` for names no recipe
+      // asked for.
+      //
+      // So each of the eighteen currently yields nothing, `resolveDrop` returns
+      // `undefined` through the `'self'` sentinel finding no item form, and the
+      // gap is HERE where a reviewer sees it — exactly as `snow` has been since
+      // the item roster landed.
+      expect([...UNITEMISED_BLOCK_TYPES]).toStrictEqual([
+        'air',
+        'water',
+        'lava',
+        'bedrock',
+        'snow',
+        'ladder',
+        'cobweb',
+        'sapling',
+        'dandelion',
+        'poppy',
+        'brown_mushroom',
+        'red_mushroom',
+        'tall_grass',
+        'fern',
+        'sugar_cane',
+        'lily_pad',
+        'kelp',
+        'seagrass',
+        'rail',
+        'powered_rail',
+        'cactus',
+        'pressure_plate',
+        'stone_slab',
+      ])
     }),
   )
 
@@ -197,6 +237,35 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
     ['torch', 'torch', 'torch'],
     ['glowstone', 'glowstone_dust', 'glowstone_dust'], // not a block
     ['piston', 'piston', 'piston'],
+
+    // The eighteen roster additions. Every one answers 'nothing' in BOTH
+    // contexts, and the uniformity is the point rather than a smell: none of
+    // them has an item form yet (`UNITEMISED_BLOCK_TYPES` above lists them and
+    // says why), so `resolveDrop` fails at the `'self'` sentinel regardless of
+    // what tool is swung.
+    //
+    // Two of them would answer 'nothing' bare-handed even WITH an item, because
+    // `harvestable-blocks.ts:14-27` gates them behind a wooden pickaxe; that
+    // gate is asserted directly in `the tool gate` below rather than being
+    // invisible here behind the roster gap.
+    ['ladder', 'nothing', 'nothing'],
+    ['cobweb', 'nothing', 'nothing'], // reference drops STRING
+    ['sapling', 'nothing', 'nothing'],
+    ['dandelion', 'nothing', 'nothing'],
+    ['poppy', 'nothing', 'nothing'],
+    ['brown_mushroom', 'nothing', 'nothing'],
+    ['red_mushroom', 'nothing', 'nothing'],
+    ['tall_grass', 'nothing', 'nothing'], // random seed drops -> mx-gameplay
+    ['fern', 'nothing', 'nothing'], // random seed drops -> mx-gameplay
+    ['sugar_cane', 'nothing', 'nothing'],
+    ['lily_pad', 'nothing', 'nothing'],
+    ['kelp', 'nothing', 'nothing'],
+    ['seagrass', 'nothing', 'nothing'],
+    ['rail', 'nothing', 'nothing'],
+    ['powered_rail', 'nothing', 'nothing'],
+    ['cactus', 'nothing', 'nothing'],
+    ['pressure_plate', 'nothing', 'nothing'], // also tool-gated
+    ['stone_slab', 'nothing', 'nothing'], // also tool-gated
   ]
 
   it.effect('covers the registry exactly, so a new block without a decision fails here', () =>

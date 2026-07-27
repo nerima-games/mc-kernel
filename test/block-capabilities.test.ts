@@ -11,6 +11,13 @@ import {
 } from '../domain/block-capabilities'
 import { blockCapabilitiesOf, type BlockDefinition } from '../domain/block-definition'
 import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../domain/block-properties'
+import {
+  BLOCK_IDS,
+  blockIdOf,
+  blockTypeOfId,
+  capabilitiesOfBlockId,
+  capabilityOfBlockId,
+} from '../domain/block-registry'
 
 describe('block capability flags — the additive-safety guarantee', () => {
   it.effect(
@@ -315,6 +322,123 @@ describe('the two mechanisms do not overlap', () => {
       const flags = new Set<string>(BLOCK_CAPABILITY_FLAGS)
       for (const name of BLOCK_PROPERTY_NAMES) {
         expect(flags.has(name)).toBe(false)
+      }
+    }),
+  )
+})
+
+describe('audit §4.9, continued — the roster additions that make the argument harder', () => {
+  /**
+   * The GLASS / LEAVES / SNOW block above argues from hand-built definitions,
+   * which was the only option while those three were most of the roster. These
+   * assert the REAL registry rows instead, so they fail if the shipped table
+   * disagrees with the reference rather than only if a fixture does.
+   */
+
+  it.effect('CACTUS disagrees with itself three ways in one row, which glass and leaves do twice', () =>
+    Effect.sync(() => {
+      // The strongest single counter-example to a `solid` boolean in the whole
+      // table. From the reference:
+      //   NOT in PASSABLE_BLOCK_IDS            -> collides, so `solid` must be true
+      //   IS  in NON_SUFFOCATING_BLOCKS (:65)  -> so `solid` must be false
+      //   IS  in NON_SUPPORTING_BLOCK_TYPES    -> so `solid` must be false
+      //   IS  in NON_SPAWN_SURFACE_BLOCK_IDS   -> so `solid` must be false
+      const cactus = capabilitiesOfBlockId(blockIdOf('cactus'))
+      const solidForCollision = !cactus.passable
+
+      expect(solidForCollision).toBe(true)
+      expect(cactus.suffocates).toBe(false)
+      expect(cactus.canSupportAttachments).toBe(false)
+      expect(cactus.validSpawnSurface).toBe(false)
+
+      // One boolean would have to be simultaneously true and false three times
+      // over. Stated as the impossibility rather than as four values, so that
+      // the test still means something if the values are ever re-sourced.
+      for (const collapsed of [cactus.suffocates, cactus.canSupportAttachments, cactus.validSpawnSurface]) {
+        expect(solidForCollision).not.toBe(collapsed)
+      }
+    }),
+  )
+
+  it.effect('LADDER is passable and STILL supports attachments, so passability implies nothing', () =>
+    Effect.sync(() => {
+      // The disagreement in the other direction, and the one a tidy-up would
+      // most likely erase: everything else in `PASSABLE_BLOCK_IDS` that is also
+      // in `NON_SUPPORTING_BLOCK_TYPES` makes "passable therefore non-
+      // supporting" look like a rule. `ladder` is in the first
+      // (`block-collision-predicates.ts:29`) and absent from the second
+      // (`block-support.ts:47-60`), which is what a ladder being climbable and
+      // wall-mounted actually requires.
+      const ladder = capabilitiesOfBlockId(blockIdOf('ladder'))
+
+      expect(ladder.passable).toBe(true)
+      expect(ladder.climbable).toBe(true)
+      expect(ladder.canSupportAttachments).toBe(true)
+
+      // ...and it is a genuine split within the passable set, not a lone
+      // exception that could be re-read as an oversight: the plants next to it
+      // in the same reference list answer the other way.
+      expect(capabilitiesOfBlockId(blockIdOf('dandelion')).canSupportAttachments).toBe(false)
+      expect(capabilitiesOfBlockId(blockIdOf('rail')).canSupportAttachments).toBe(false)
+    }),
+  )
+
+  it.effect('EVERY pair of the four solidity concepts disagrees on some row of the real table', () =>
+    Effect.sync(() => {
+      // The generalisation of the GLASS/LEAVES/SNOW tests, and the assertion
+      // that actually forbids the merge. Those three rows show that the four
+      // concepts are not ALL one concept; this shows that no TWO of them are
+      // one concept, which is the claim audit §4.9 makes and the weaker test
+      // does not reach.
+      //
+      // If someone were to redefine any of these four in terms of another, the
+      // pair would agree on every row and this fails naming the pair.
+      const READINGS = {
+        solidForCollision: (id: number) => !capabilityOfBlockId(id, 'passable'),
+        suffocates: (id: number) => capabilityOfBlockId(id, 'suffocates'),
+        canSupportAttachments: (id: number) => capabilityOfBlockId(id, 'canSupportAttachments'),
+        validSpawnSurface: (id: number) => capabilityOfBlockId(id, 'validSpawnSurface'),
+      } as const
+      const names = Object.keys(READINGS) as ReadonlyArray<keyof typeof READINGS>
+
+      for (const left of names) {
+        for (const right of names) {
+          if (left >= right) {
+            continue
+          }
+          const witness = BLOCK_IDS.find((id) => READINGS[left](id) !== READINGS[right](id))
+          // The block name is in the failure message on purpose: when this
+          // breaks, the useful question is "which row stopped disagreeing".
+          expect(witness === undefined ? `${left} never disagrees with ${right}` : 'ok').toBe('ok')
+        }
+      }
+    }),
+  )
+
+  it.effect('a passable block never also suffocates, which audit §4.7 licenses and the reference violates', () =>
+    Effect.sync(() => {
+      // Audit §4.7: 「`passable=true` なら常に false を導出する方が安全」. Kernel
+      // does not COERCE this (see `domain/block-capabilities.ts` on why a row
+      // stating both should be a reviewable mistake), so it has to be checked.
+      //
+      // It is checked because the reference's own tables break it:
+      // `NON_SUFFOCATING_BLOCKS` omits SUGAR_CANE, LILY_PAD, KELP, SEAGRASS,
+      // RAIL and POWERED_RAIL, all six of which `PASSABLE_BLOCK_IDS` contains.
+      // Those rows are the ones where kernel deliberately departs from a literal
+      // transcription, and this is the test that says so out loud.
+      for (const id of BLOCK_IDS) {
+        if (capabilityOfBlockId(id, 'passable')) {
+          expect({ block: blockTypeOfId(id), suffocates: capabilityOfBlockId(id, 'suffocates') }).toStrictEqual({
+            block: blockTypeOfId(id),
+            suffocates: false,
+          })
+        }
+      }
+
+      // Named individually so the six inferences cannot be quietly dropped back
+      // to the default by a later edit.
+      for (const inferred of ['sugar_cane', 'lily_pad', 'kelp', 'seagrass', 'rail', 'powered_rail'] as const) {
+        expect(capabilityOfBlockId(blockIdOf(inferred), 'suffocates')).toBe(false)
       }
     }),
   )

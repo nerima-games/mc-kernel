@@ -43,18 +43,35 @@ export default defineConfig({
       all: true,
       reporter: ['text', 'json', 'html', 'lcov'],
       reportsDirectory: './coverage',
-      // NO THRESHOLD YET — deliberate.
+      // THE 99% GATE, ON. `docs/testing.md` §5 row 7.
       //
-      // The reference repository (takeokunn/ts-minecraft) enforces 99% on
-      // branches/functions/lines/statements. A threshold on a skeleton would be
-      // meaningless: it would be trivially satisfied by a handful of type-only
-      // modules and would say nothing about the real implementation.
+      // This block used to explain why there was NO threshold: a number imposed
+      // on a skeleton is satisfied by type-only modules and says nothing about
+      // the implementation. That argument was about the skeleton, and it has
+      // expired — `domain/` now carries the registry, the capability and
+      // property resolvers, the harvest gate and the drop bridge, so the
+      // percentage is finally a statement about behaviour.
       //
-      // Coverage is collected and reported (`pnpm test:coverage`) so the number
-      // is always visible. The 99% gate is turned on — here and in the CI
-      // workflow — when this repository reaches its completion criteria.
+      // It is set at 99 rather than at the measured 100 for the reason the
+      // reference repository (takeokunn/ts-minecraft) uses 99: the gate exists
+      // to catch a REGRESSION, and a threshold pinned to the exact current
+      // number turns every unrelated refactor into a red build, which trains
+      // people to raise the number instead of writing the test. One percent of
+      // this package is under two branch arms — enough to land a commit, not
+      // enough to land a feature untested.
       //
-      //   thresholds: { branches: 99, functions: 99, lines: 99, statements: 99 },
+      // What it took to get here is the part worth knowing, because it is what
+      // the gate protects. Branches sat at 95.07%, and NOT ONE of the seven
+      // uncovered arms wanted a test: five were fallbacks against inputs their
+      // own types exclude (`?? 0` over a closed tier union, `?? new Set()` over
+      // a table keyed by the enum it was built from) and were deleted by making
+      // the lookups total; one was a duplicated range check, removed by having
+      // `isKnownBlockId` ask the resolver; one is excluded, in `./domain/
+      // block-registry`, with its reason written at the call site. Reaching a
+      // coverage number by contriving inputs to unreachable arms is the failure
+      // this gate is supposed to make visible, so it would be a poor start to
+      // have switched it on by doing exactly that.
+      thresholds: { branches: 99, functions: 99, lines: 99, statements: 99 },
     },
   },
   esbuild: {
