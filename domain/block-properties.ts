@@ -53,6 +53,8 @@
  */
 import type { BlockDropRule, HarvestToolRequirement } from './block-harvest'
 import { DEFAULT_BLOCK_DROP, DEFAULT_HARVEST_TOOL } from './block-harvest'
+import type { SupportRule } from './block-support'
+import { NEEDS_NO_SUPPORT } from './block-support'
 
 // ---------------------------------------------------------------------------
 // Value vocabularies
@@ -132,6 +134,8 @@ export type BlockProperties = {
   readonly harvestTool: HarvestToolRequirement
   /** What breaking it yields. Audit §4.5. See `./block-harvest`. */
   readonly drops: BlockDropRule
+  /** What must be in the cell below. Audit §4.6. See `./block-support`. */
+  readonly supportRule: SupportRule
 }
 
 /**
@@ -161,6 +165,8 @@ export const BLOCK_PROPERTY_DEFAULTS: BlockProperties = {
   railKind: 'none',
   harvestTool: DEFAULT_HARVEST_TOOL,
   drops: DEFAULT_BLOCK_DROP,
+  /** Audit §4.6: 既定値 `supportRule='none'`. An ordinary cube needs no floor. */
+  supportRule: NEEDS_NO_SUPPORT,
 }
 
 /** Derived from the defaults table, exactly as `BlockCapabilityFlag` is. */

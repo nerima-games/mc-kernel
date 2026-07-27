@@ -19,6 +19,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../domain/block-capabilities'
+import { blockCapabilitiesOf, resolveBlock } from '../domain/block-definition'
 import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS, COLLISION_SHAPES } from '../domain/block-properties'
 import {
   AIR_BLOCK_ID,
@@ -90,6 +91,95 @@ describe('id assignment is permanent', () => {
     ['cactus', 33],
     ['pressure_plate', 34],
     ['stone_slab', 35],
+
+    // ids 36-119: the remaining 84, appended in ONE change so that the four-week
+    // API-lock window restarts once rather than seven times (`./block-type`
+    // explains the trade). Grouped by the reference file the properties came
+    // from, in `BLOCK_REGISTRY` order.
+    ['granite', 36],
+    ['diorite', 37],
+    ['andesite', 38],
+    ['deepslate', 39],
+    ['obsidian', 40],
+    ['smooth_basalt', 41],
+    ['calcite', 42],
+    ['amethyst_block', 43],
+    ['amethyst_cluster', 44],
+    ['sandstone', 45],
+    ['prismarine', 46],
+    ['soul_sand', 47],
+    ['ice', 48],
+    ['farmland', 49],
+    ['coal_ore', 50],
+    ['iron_ore', 51],
+    ['gold_ore', 52],
+    ['diamond_ore', 53],
+    ['redstone_ore', 54],
+    ['lapis_ore', 55],
+    ['emerald_ore', 56],
+    ['deepslate_coal_ore', 57],
+    ['deepslate_iron_ore', 58],
+    ['deepslate_gold_ore', 59],
+    ['deepslate_diamond_ore', 60],
+    ['deepslate_redstone_ore', 61],
+    ['deepslate_lapis_ore', 62],
+    ['deepslate_emerald_ore', 63],
+    ['coal_block', 64],
+    ['iron_block', 65],
+    ['gold_block', 66],
+    ['diamond_block', 67],
+    ['redstone_block', 68],
+    ['lapis_block', 69],
+    ['emerald_block', 70],
+    ['wheat_crop', 71],
+    ['potato_crop', 72],
+    ['nether_wart_crop', 73],
+    ['redstone_wire', 74],
+    ['redstone_torch', 75],
+    ['lever', 76],
+    ['stone_button', 77],
+    ['repeater', 78],
+    ['redstone_lamp', 79],
+    ['redstone_lamp_lit', 80],
+    ['observer', 81],
+    ['comparator', 82],
+    ['dispenser', 83],
+    ['hopper', 84],
+    ['piston_head', 85],
+    ['end_stone', 86],
+    ['end_portal_frame', 87],
+    ['end_portal_frame_filled', 88],
+    ['end_portal', 89],
+    ['chorus_flower', 90],
+    ['chorus_plant', 91],
+    ['dragon_egg', 92],
+    ['end_crystal', 93],
+    ['end_gateway', 94],
+    ['end_rod', 95],
+    ['end_stone_bricks', 96],
+    ['ender_chest', 97],
+    ['purpur_block', 98],
+    ['purpur_pillar', 99],
+    ['purpur_slab', 100],
+    ['purpur_stairs', 101],
+    ['shulker_box', 102],
+    ['crafting_table', 103],
+    ['furnace', 104],
+    ['chest', 105],
+    ['door', 106],
+    ['door_open', 107],
+    ['oak_stairs', 108],
+    ['anvil', 109],
+    ['cauldron', 110],
+    ['water_cauldron', 111],
+    ['bed', 112],
+    ['enchanting_table', 113],
+    ['brewing_stand', 114],
+    ['tnt', 115],
+    ['nether_brick', 116],
+    ['netherrack', 117],
+    ['nether_portal', 118],
+    ['fire', 119],
   ]
 
   it.effect('assigns exactly the pinned ids', () =>
@@ -324,10 +414,45 @@ describe('the named light readings', () => {
     Effect.sync(() => {
       const emitting = BLOCK_IDS.filter((id) => lightEmissionOfBlockId(id) > 0)
 
-      expect(emitting.map((id) => blockTypeOfId(id))).toStrictEqual(['lava', 'torch', 'glowstone'])
+      // Every emitter, with its level, in registry order. `EMISSIVE_TABLE`
+      // (`light.ts:38-46`) is built from `properties.emissive` and then
+      // OVERRIDDEN per block by `EMISSIVE_LEVEL_OVERRIDES` (:24-35), so a row is
+      // wrong here if either half was transcribed without the other.
+      expect(emitting.map((id) => [blockTypeOfId(id), lightEmissionOfBlockId(id)])).toStrictEqual([
+        ['lava', 15],
+        ['torch', 14],
+        ['glowstone', 15],
+        ['amethyst_cluster', 15],
+        ['redstone_ore', 9],
+        ['deepslate_redstone_ore', 9],
+        ['redstone_block', 15],
+        ['redstone_torch', 7],
+        ['redstone_lamp_lit', 15],
+        ['end_portal_frame', 1],
+        ['end_portal_frame_filled', 3],
+        ['end_portal', 15],
+        ['end_gateway', 15],
+        ['end_rod', 15],
+        ['ender_chest', 15],
+        ['nether_portal', 11],
+        ['fire', 15],
+      ])
+
+      // SIX DISTINCT LEVELS now, which is what retires the last of the
+      // `emissive: boolean` argument for good. A boolean could not tell a
+      // redstone torch (7) from a redstone ore (9) from a torch (14) from lava
+      // (15), and could not say anything at all about a portal frame at 1
+      // rising to 3 when its eye is socketed.
+      expect(new Set(emitting.map((id) => lightEmissionOfBlockId(id)))).toStrictEqual(new Set([1, 3, 7, 9, 11, 14, 15]))
+
       expect(lightEmissionOfBlockId(blockIdOf('lava'))).toBe(15)
       expect(lightEmissionOfBlockId(blockIdOf('torch'))).toBe(14)
       expect(lightEmissionOfBlockId(blockIdOf('glowstone'))).toBe(15)
+
+      // `redstone_lamp` and `redstone_lamp_lit` are the pair that shows why the
+      // two states are two literals: same block, same hardness, 0 vs 15.
+      expect(lightEmissionOfBlockId(blockIdOf('redstone_lamp'))).toBe(0)
+      expect(lightEmissionOfBlockId(blockIdOf('redstone_lamp_lit'))).toBe(15)
 
       // `light.ts:24-46` `EMISSIVE_LEVEL_OVERRIDES` puts TORCH at 14 and not 15.
       // The one-level gap is the entire argument for the column being a number,
@@ -359,8 +484,16 @@ describe('the named light readings', () => {
       expect(transmitsLight(glass)).toBe(true)
       expect(capabilityOfBlockId(glass, 'passable')).toBe(false)
 
-      // Five rows transmit light while colliding, so the disagreement is a
-      // property of the table rather than of one hand-picked block.
+      // THIRTY rows transmit light while colliding, so the disagreement is a
+      // property of the table rather than of one hand-picked block. It was five
+      // on the 36-row roster; the full roster makes it a quarter of the table.
+      //
+      // Most of the new ones come from one place: `blocks.config.crafted.ts`
+      // marks levers, buttons, wire, doors, beds and repeaters `transparency:
+      // true, solid: false`, and NONE of them is in `PASSABLE_BLOCK_IDS`. The
+      // reference therefore renders them as see-through and collides with them
+      // as full cubes, which is precisely the pair of answers a single
+      // `transparent`/`solid` boolean cannot hold at once.
       const solidAndTransmitting = BLOCK_IDS.filter(
         (id) => transmitsLight(id) && !capabilityOfBlockId(id, 'passable'),
       )
@@ -370,7 +503,40 @@ describe('the named light readings', () => {
         'cactus',
         'pressure_plate',
         'stone_slab',
+        'ice',
+        'wheat_crop',
+        'potato_crop',
+        'nether_wart_crop',
+        'redstone_wire',
+        'redstone_torch',
+        'lever',
+        'stone_button',
+        'repeater',
+        'end_portal',
+        'chorus_flower',
+        'chorus_plant',
+        'dragon_egg',
+        'end_crystal',
+        'end_gateway',
+        'end_rod',
+        'purpur_slab',
+        'purpur_stairs',
+        'door',
+        'door_open',
+        'oak_stairs',
+        'bed',
+        'brewing_stand',
+        'nether_portal',
+        'fire',
       ])
+
+      // The three crops are in this list, and that is the fact most likely to be
+      // "fixed" by someone who has not read `block-support.ts`. A crop is not
+      // passable in the reference — `PASSABLE_BLOCK_IDS` contains no crop — so a
+      // player walks into wheat rather than through it.
+      for (const crop of ['wheat_crop', 'potato_crop', 'nether_wart_crop'] as const) {
+        expect(capabilityOfBlockId(blockIdOf(crop), 'passable')).toBe(false)
+      }
     }),
   )
 
@@ -397,29 +563,61 @@ describe('the named light readings', () => {
     }),
   )
 
-  it.effect('COINCIDES with !suffocates on today’s roster, which is recorded and not relied on', () =>
+  it.effect('is NOT a synonym for !suffocates either — the coincidence that used to hold is over', () =>
     Effect.sync(() => {
-      // An honest negative result. On all 36 rows `transmitsLight(id)` happens
-      // to equal `!suffocates`, so — unlike the three flags above — no row of
-      // this roster separates them.
+      // THIS TEST REPLACES A TRIPWIRE, AND THE TRIPWIRE FIRED AS DESIGNED.
       //
-      // It is pinned rather than left implicit BECAUSE it looks like a licence
-      // to derive one from the other, and audit §4.7 says it is not: it names
-      // GLASS, STONE_SLAB and OAK_STAIRS as the entries that make `suffocates`
-      // underivable from `passable && opacity`, and OAK_STAIRS IS NOT IN THIS
-      // ROSTER (`./block-type` ships 36 of the reference's 120). The row that
-      // would break the coincidence simply has not been added yet.
+      // On the 36-row roster `transmitsLight(id)` happened to equal
+      // `!suffocates` for every row, and the previous test pinned that
+      // coincidence to `[]` with an instruction attached: when the row that
+      // breaks it lands, DELETE this rather than making the two agree again.
+      // The full roster broke it, so the instruction has been followed.
       //
-      // So this assertion is a tripwire pointing the other way from the ones
-      // above. When `oak_stairs` lands — opaque, and in `NON_SUFFOCATING_BLOCKS`
-      // — this test fails, and the correct response is to DELETE it rather than
-      // to make the two agree again.
+      // One detail is worth keeping because it is the interesting kind of
+      // wrong. The old comment predicted the breaking row would be `oak_stairs`,
+      // "opaque, and in `NON_SUFFOCATING_BLOCKS`". `oak_stairs` is in that set,
+      // but it is `transparency: true` in `blocks.config.crafted.ts:17-21`, so it
+      // still COINCIDES and was not the cause at all. The prediction reached the
+      // right conclusion through a fact that is not true — which is exactly why
+      // the tripwire was written as an assertion over the whole table instead of
+      // as a note about one block.
       const separating = BLOCK_IDS.filter((id) => transmitsLight(id) === capabilityOfBlockId(id, 'suffocates'))
-      expect(separating).toStrictEqual([])
 
-      // The two are decided by different reference tables even where they
-      // agree: opacity by `meshing-worker-config.ts:7-13`, suffocation by
-      // `environment-hazard.config.ts:39-85`. Agreement is not derivation.
+      expect(separating.map((id) => blockTypeOfId(id))).toStrictEqual([
+        'ice',
+        'farmland',
+        'potato_crop',
+        'end_portal_frame',
+        'end_portal_frame_filled',
+        'ender_chest',
+        'shulker_box',
+        'enchanting_table',
+        'brewing_stand',
+        'fire',
+      ])
+
+      // The list separates in BOTH directions, which is what makes it evidence
+      // of independence rather than of an offset.
+      //
+      //   opaque and yet does NOT suffocate — `farmland`, `ender_chest`,
+      //   `shulker_box`, `enchanting_table` and both portal frames are all in
+      //   `NON_SUFFOCATING_BLOCKS` (`environment-hazard.config.ts:39-85`) while
+      //   being `transparency: false` in their config rows.
+      expect(transmitsLight(blockIdOf('farmland'))).toBe(false)
+      expect(capabilityOfBlockId(blockIdOf('farmland'), 'suffocates')).toBe(false)
+
+      //   transparent and yet DOES suffocate — `ice`, `potato_crop`,
+      //   `brewing_stand` and `fire` are absent from that set. Read literally,
+      //   the reference suffocates a player standing inside a fire, which is
+      //   transcribed rather than repaired for the reason given at the crops
+      //   group in `domain/block-registry.ts`.
+      expect(transmitsLight(blockIdOf('ice'))).toBe(true)
+      expect(capabilityOfBlockId(blockIdOf('ice'), 'suffocates')).toBe(true)
+
+      // The two are decided by different reference tables: opacity by
+      // `blocks.config.*` `transparency` plus `meshing-worker-config.ts:7-13`,
+      // suffocation by `environment-hazard.config.ts:39-85`. They were never
+      // derivable from each other; now the table shows it instead of asserting it.
       expect(transmitsLight(blockIdOf('glass'))).toBe(true)
       expect(capabilityOfBlockId(blockIdOf('glass'), 'suffocates')).toBe(false)
     }),
@@ -520,19 +718,38 @@ describe('unknown ids', () => {
 })
 
 describe('the table states differences only', () => {
-  it.effect('leaves an ordinary cube with no overrides at all', () =>
+  it.effect('resolves a definition with no overrides to the documented defaults', () =>
     Effect.sync(() => {
-      // The exemplar was `stone` until `drops` and `harvestTool` carried real
-      // data — stone yields cobblestone to a pickaxe, which is a difference and
-      // belongs in its row. `piston` is now the row that says nothing but a
-      // name, and the claim being pinned is unchanged: an empty row means
-      // "ordinary opaque solid cube", not "we forgot".
-      const piston = BLOCK_REGISTRY.find((entry) => entry.definition.type === 'piston')
-      expect(piston?.definition.capabilities).toBeUndefined()
-      expect(piston?.definition.properties).toBeUndefined()
+      // NO ROW IN THE TABLE IS BARE ANY MORE, and that is a deliberate reversal.
+      //
+      // The exemplar was `stone`, then `piston`. `piston` lost the job by being
+      // WRONG: it stated nothing, so it resolved to `validSpawnSurface: true`
+      // while `NON_SPAWN_SURFACE_BLOCK_IDS` lists it, and mobs could spawn on a
+      // piston for as long as the row was empty. The row is annotated in
+      // `domain/block-registry.ts` with the whole story.
+      //
+      // The lesson is that a bare row cannot distinguish "checked, nothing to
+      // say" from "not checked" — the two are spelled identically — and a flag
+      // that defaults to `true` turns the second into a silent behaviour change.
+      // So the invariant is now tested on the MECHANISM, where it actually
+      // lives, rather than on whichever row happened to look boring.
+      expect(resolveBlock({ type: 'stone' })).toStrictEqual({
+        type: 'stone',
+        capabilities: { ...BLOCK_CAPABILITY_DEFAULTS },
+        properties: { ...BLOCK_PROPERTY_DEFAULTS },
+      })
 
-      // ...and resolves it to the documented defaults regardless.
-      expect(capabilitiesOfBlockId(blockIdOf('piston'))).toStrictEqual({ ...BLOCK_CAPABILITY_DEFAULTS })
+      // plan.md §3.1's "adding a block = one table row + flag settings" is
+      // unaffected: a definition may still be nothing but a name, and this is
+      // what it means when it is.
+      expect(blockCapabilitiesOf({ type: 'stone' })).toStrictEqual({ ...BLOCK_CAPABILITY_DEFAULTS })
+
+      // And the table no longer contains such a row, asserted so that adding one
+      // back is a decision rather than an accident.
+      const bare = BLOCK_REGISTRY.filter(
+        (entry) => entry.definition.capabilities === undefined && entry.definition.properties === undefined,
+      )
+      expect(bare).toStrictEqual([])
     }),
   )
 
@@ -699,7 +916,69 @@ describe('the reference tables this roster transcribes', () => {
         expect(propertyOfBlockId(blockIdOf(plant), 'friction')).toBe(0)
       }
       expect(BLOCK_PROPERTY_DEFAULTS.friction).toBe(0.6)
-      expect(propertyOfBlockId(blockIdOf('stone'), 'friction')).toBe(0.6)
+
+      // CHANGED WITH THE ROSTER, and the change is the point. `stone` used to be
+      // the "ordinary" anchor at the default 0.6; it is 0.8 in the reference
+      // (`blocks.config.terrain.ts`, the whole stone family), and this row was
+      // one of ten that omitted `friction` and silently took the default.
+      // `getBlockFrictionAt` reads it for whatever the player stands on, so each
+      // omission was a movement difference nobody had written down.
+      expect(propertyOfBlockId(blockIdOf('stone'), 'friction')).toBe(0.8)
+
+      // Four distinct values across the table, which is what a column that was
+      // actually transcribed looks like. `ice` at 0.98 is the extreme the
+      // default could never have approximated.
+      expect(propertyOfBlockId(blockIdOf('ice'), 'friction')).toBe(0.98)
+      expect(propertyOfBlockId(blockIdOf('snow'), 'friction')).toBe(0.3)
+      expect(propertyOfBlockId(blockIdOf('sand'), 'friction')).toBe(0.5)
+      expect(propertyOfBlockId(blockIdOf('dirt'), 'friction')).toBe(0.6)
+    }),
+  )
+
+  it.effect('puts hardness on the reference’s 0-100 scale, so the column can be compared to itself', () =>
+    Effect.sync(() => {
+      // `docs/capability-flag-audit.md` §4.5.1 recorded that this column held two
+      // scales at once and left the choice open; §4.5.2 records how it was
+      // closed. The scale is the reference's, stated at
+      // `blocks.config.terrain.ts:4-8`, and these are its anchors.
+      expect(BLOCK_PROPERTY_DEFAULTS.hardness).toBe(8)
+      expect(propertyOfBlockId(blockIdOf('dirt'), 'hardness')).toBe(8)
+      expect(propertyOfBlockId(blockIdOf('bedrock'), 'hardness')).toBe(100)
+
+      // THE ORDERING THAT WAS INVERTED. `oak_log` and `oak_planks` were 2 —
+      // vanilla's float — which put a tree trunk BELOW dirt. `break-speed.ts`
+      // scales mining time linearly in hardness, so this was a real difference
+      // in play and not a cosmetic one.
+      expect(propertyOfBlockId(blockIdOf('oak_log'), 'hardness')).toBe(35)
+      expect(propertyOfBlockId(blockIdOf('oak_planks'), 'hardness')).toBe(35)
+      expect(propertyOfBlockId(blockIdOf('oak_log'), 'hardness')).toBeGreaterThan(
+        propertyOfBlockId(blockIdOf('dirt'), 'hardness'),
+      )
+      expect(propertyOfBlockId(blockIdOf('stone'), 'hardness')).toBe(25)
+      expect(propertyOfBlockId(blockIdOf('deepslate'), 'hardness')).toBe(50)
+      expect(propertyOfBlockId(blockIdOf('obsidian'), 'hardness')).toBe(90)
+
+      // THE ONE GROUP THAT IS NOT ON THIS SCALE, transcribed rather than
+      // converted. `blocks.config.end.ts` passes vanilla floats to its helper,
+      // so purpur reads as softer than dirt. Pinned so that the inconsistency is
+      // a checked fact with a citation rather than something a reader has to
+      // notice; see audit §4.5.2 for why converting would be inventing content.
+      expect(propertyOfBlockId(blockIdOf('purpur_block'), 'hardness')).toBe(1.5)
+      expect(propertyOfBlockId(blockIdOf('purpur_block'), 'hardness')).toBeLessThan(
+        propertyOfBlockId(blockIdOf('dirt'), 'hardness'),
+      )
+      // ...while its sibling in the SAME reference file is on the 0-100 scale,
+      // which is what makes this the reference's inconsistency and not kernel's.
+      expect(propertyOfBlockId(blockIdOf('end_stone_bricks'), 'hardness')).toBe(45)
+
+      // `end_gateway` is -1 in the reference. Kept as 0, which is behaviourally
+      // identical under `computeBreakTicks` (`hardness <= 0` -> 0 ticks) and is
+      // inside the range this column claims. A negative would have travelled to
+      // consumers as a number smaller than "instant".
+      expect(propertyOfBlockId(blockIdOf('end_gateway'), 'hardness')).toBe(0)
+      for (const id of BLOCK_IDS) {
+        expect(propertyOfBlockId(id, 'hardness')).toBeGreaterThanOrEqual(0)
+      }
     }),
   )
 
@@ -727,6 +1006,163 @@ describe('the reference tables this roster transcribes', () => {
 
       expect(propertyOfBlockId(blockIdOf('cactus'), 'contactDamage')).toBe(1)
       expect(propertyOfBlockId(blockIdOf('lava'), 'contactDamage')).toBe(4)
+    }),
+  )
+})
+
+describe('the completed roster — 120 literals, and the columns that had to stay independent', () => {
+  it.effect('is exactly the reference’s 120, distinct, and every one has a registry row', () =>
+    Effect.sync(() => {
+      // `docs/testing.md` §5.2 re-derived the 120 from two hand-maintained
+      // arrays in the reference that agree as sets (`BlockTypeSchema` and
+      // `INDEX_TO_BLOCK_TYPE`). The number is pinned here rather than only in
+      // prose because prose is what gets re-quoted without being re-checked, and
+      // this repository's most-repeated defect is a figure justified by the
+      // wrong measurement.
+      //
+      // Counting LINES of the reference schema gives 128; eight are comments.
+      // That is the trap, and 120 is the answer.
+      expect(BLOCK_TYPES.length).toBe(120)
+      expect(new Set(BLOCK_TYPES).size).toBe(120)
+      expect(BLOCK_REGISTRY.length).toBe(120)
+
+      // The bijection, both ways, over the whole roster. `UNREGISTERED_BLOCK_TYPES`
+      // asserts one direction elsewhere; this is the round trip.
+      for (const type of BLOCK_TYPES) {
+        expect(blockTypeOfId(blockIdOf(type))).toBe(type)
+      }
+      expect(new Set(BLOCK_IDS).size).toBe(120)
+    }),
+  )
+
+  it.effect('fits the chunk byte, which is what makes the ids a wire format at all', () =>
+    Effect.sync(() => {
+      // 120 rows in a 256-value space. Worth an assertion rather than a comment:
+      // the ceiling is a property of the `Uint8Array` chunk buffer, and the day
+      // the roster crosses it the fix is a chunk-format migration in mc-save,
+      // not a bigger number here.
+      for (const id of BLOCK_IDS) {
+        expect(id).toBeLessThanOrEqual(BLOCK_ID_MAX)
+      }
+      expect(Math.max(...BLOCK_IDS)).toBe(119)
+    }),
+  )
+
+  it.effect('keeps the four ore columns independent, which no single flag could', () =>
+    Effect.sync(() => {
+      // The ore group is where four capabilities that LOOK correlated are
+      // decided by four different reference tables. If any pair were derived
+      // from another, one of these would be impossible to write.
+      //
+      // iron ore: gated at STONE tier, yields RAW_IRON, ZERO xp, NO fortune.
+      // coal ore: gated at WOODEN tier, yields COAL, 5 xp, fortune applies.
+      // Same shape of block, four columns, and every column differs.
+      const iron = blockIdOf('iron_ore')
+      const coal = blockIdOf('coal_ore')
+
+      expect(propertyOfBlockId(iron, 'harvestTool').minTier).toBe('stone')
+      expect(propertyOfBlockId(coal, 'harvestTool').minTier).toBe('wooden')
+      expect(propertyOfBlockId(iron, 'drops').item).toBe('raw_iron')
+      expect(propertyOfBlockId(coal, 'drops').item).toBe('coal')
+      expect(propertyOfBlockId(iron, 'xpOnBreak')).toBe(0)
+      expect(propertyOfBlockId(coal, 'xpOnBreak')).toBe(5)
+      expect(propertyOfBlockId(iron, 'drops').affectedByFortune).toBe(false)
+      expect(propertyOfBlockId(coal, 'drops').affectedByFortune).toBe(true)
+
+      // THE TRAP IN THIS GROUP: "gives no XP" and "no fortune" hold of the same
+      // four blocks today (iron and gold, stone and deepslate), so it is easy to
+      // treat them as one fact. They come from `ORE_XP_TABLE`
+      // (`blocks.config.ores.ts:29-37`) and `FORTUNE_ORE_BLOCKS`
+      // (`block-service.config.ts:270-276`) — two lists, written apart, that
+      // happen to agree. Recorded as a coincidence so that a later edit deriving
+      // one from the other is a visible decision.
+      const noXp = BLOCK_IDS.filter((id) => propertyOfBlockId(id, 'xpOnBreak') === 0)
+      const noFortune = BLOCK_IDS.filter((id) => !propertyOfBlockId(id, 'drops').affectedByFortune)
+      expect(noXp.length).not.toBe(noFortune.length)
+
+      // Deepslate is HARDER than its stone twin while being gated at the SAME
+      // tier — the clearest single case for hardness and minTier being two axes.
+      expect(propertyOfBlockId(blockIdOf('deepslate_iron_ore'), 'hardness')).toBe(60)
+      expect(propertyOfBlockId(iron, 'hardness')).toBe(50)
+      expect(propertyOfBlockId(blockIdOf('deepslate_iron_ore'), 'harvestTool').minTier).toBe('stone')
+    }),
+  )
+
+  it.effect('inhabits all four harvest tiers, so the ladder is a ladder and not a boolean', () =>
+    Effect.sync(() => {
+      const tiers = new Set(BLOCK_IDS.map((id) => propertyOfBlockId(id, 'harvestTool').minTier))
+      expect(tiers).toStrictEqual(new Set(['none', 'wooden', 'stone', 'iron', 'diamond']))
+
+      // `obsidian` is the sole member of the top tier in the reference
+      // (`harvestable-blocks.ts:53-56`), which is worth pinning: a fifth tier or
+      // a second diamond block would be a content decision, not a transcription.
+      const diamondTier = BLOCK_IDS.filter((id) => propertyOfBlockId(id, 'harvestTool').minTier === 'diamond')
+      expect(diamondTier.map((id) => blockTypeOfId(id))).toStrictEqual(['obsidian'])
+    }),
+  )
+
+  it.effect('transcribes the crop suffocation split instead of smoothing it', () =>
+    Effect.sync(() => {
+      // The sharpest disagreement in the reference, and the one most likely to
+      // be "fixed" by a well-meaning edit. `block-support.ts:20` defines the
+      // three crops as ONE set and every rule there treats them identically;
+      // `NON_SUFFOCATING_BLOCKS` lists two of the three.
+      expect(capabilityOfBlockId(blockIdOf('wheat_crop'), 'suffocates')).toBe(false)
+      expect(capabilityOfBlockId(blockIdOf('nether_wart_crop'), 'suffocates')).toBe(false)
+      expect(capabilityOfBlockId(blockIdOf('potato_crop'), 'suffocates')).toBe(true)
+
+      // The audit §4.7 implication that WOULD have licensed inferring `false`
+      // does not apply, and this is why: it is licensed by `passable`, and no
+      // crop is passable. Pinned so that anyone reaching for the inference finds
+      // the reason it is unavailable rather than rediscovering it.
+      for (const crop of ['wheat_crop', 'potato_crop', 'nether_wart_crop'] as const) {
+        expect(capabilityOfBlockId(blockIdOf(crop), 'passable')).toBe(false)
+        // ...while the three agree on everything `block-support.ts` decides,
+        // which is what makes the suffocation split a split rather than a
+        // difference between blocks.
+        expect(capabilityOfBlockId(blockIdOf(crop), 'canSupportAttachments')).toBe(false)
+        expect(capabilityOfBlockId(blockIdOf(crop), 'brokenByWaterFlow')).toBe(true)
+        expect(capabilityOfBlockId(blockIdOf(crop), 'validSpawnSurface')).toBe(false)
+      }
+    }),
+  )
+
+  it.effect('completes the closed reference tables it set out to complete', () =>
+    Effect.sync(() => {
+      // The roster grew by CLOSED TABLES rather than by count (`domain/block-type.ts`).
+      // These are the ones the last 84 finished, asserted as membership so that
+      // "the table is complete" is checked rather than claimed.
+
+      // `FLAMMABLE_BLOCK_TYPES` (`fire-lifecycle.ts:19-30`), 11 members.
+      const flammable = BLOCK_IDS.filter((id) => capabilityOfBlockId(id, 'flammable')).map((id) => blockTypeOfId(id))
+      expect(flammable).toStrictEqual([
+        'oak_log',
+        'oak_leaves',
+        'oak_planks',
+        'ladder',
+        'crafting_table',
+        'chest',
+        'door',
+        'door_open',
+        'oak_stairs',
+        'bed',
+        'tnt',
+      ])
+
+      // `isFireSourceIndex` (`fire-lifecycle.ts:80-81`) is exactly two, and they
+      // are what shows `fireSource` is not a synonym for `flammable`: neither of
+      // these is flammable, and no flammable block is a fire source.
+      const sources = BLOCK_IDS.filter((id) => capabilityOfBlockId(id, 'fireSource')).map((id) => blockTypeOfId(id))
+      expect(sources).toStrictEqual(['lava', 'netherrack'])
+      for (const source of ['lava', 'netherrack'] as const) {
+        expect(capabilityOfBlockId(blockIdOf(source), 'flammable')).toBe(false)
+      }
+
+      // `SLAB_BLOCK_IDS` (`block-collision-predicates.ts:56-59`), 2 members. It
+      // had one until `purpur_slab` landed, so `collisionShape: 'slab'` now has
+      // the whole reference table behind it rather than a single case.
+      const slabs = BLOCK_IDS.filter((id) => propertyOfBlockId(id, 'collisionShape') === 'slab')
+      expect(slabs.map((id) => blockTypeOfId(id))).toStrictEqual(['stone_slab', 'purpur_slab'])
     }),
   )
 })

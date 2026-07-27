@@ -317,16 +317,18 @@ const PENDING_CAPABILITIES: ReadonlyArray<{ name, kind, why }> // 未実装 4 �
    完全なレコードは能力が増えるたびに必須キーが増え、まさにこの設計が避けようとしている破壊が起きる。
 2. `BlockCapabilityFlag` に対する `default` 節なしの網羅 `switch` を書かない。`BLOCK_CAPABILITY_FLAGS` を回す。
 
-### 4-5. 未実装 4 件（`PENDING_CAPABILITIES`）
+### 4-5. 未実装 3 件（`PENDING_CAPABILITIES`）
+
+`supportRule` はここにあったが**実装済み**になった（`domain/block-support.ts`、監査 §4.6.1）。
+保留理由は「block roster が無いと既定値を決められない」で、roster が 120 で完成した時点で消滅した。
 
 | 能力 | 種別 | 保留理由 |
 | --- | --- | --- |
-| `supportRule` | property | 値が「直下に許される block のリスト」であり、block roster が無いと既定値を決められない（監査 §4.6） |
 | `footstepMaterial` | property | 純粋に音響分類。`mc-audio` のキュー語彙と同時に入れる（監査 §4.8） |
 | `tillable` | flag | production 2 ヒットの農業専用（監査 §4.8） |
 | `textureTiles` | property | 監査 §4.8 が「既定なし」と明記。実 block roster と同時にしか入れられない |
 
-`test/block-definition.test.ts` が「実装済み 24 + 保留 4 = 監査の 28」を機械的に検査している。
+`test/block-definition.test.ts` が「実装済み 25 + 保留 3 = 監査の 28」を機械的に検査している。
 監査にあるものを黙って落とすことも、監査にないものを勝手に足すこともできない。
 
 ## 5. `CameraPoseSnapshot`（camera）

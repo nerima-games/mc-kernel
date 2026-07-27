@@ -2,7 +2,7 @@
 
 mc-kernel の公開 API を `1.0.0` として凍結する前に満たすべき条件。
 **(a) (b) (b') は満たし、API ロックファイルも導入された（ツール選定は決着済み。[versioning.md](./versioning.md) §7）。
-残る阻害要因は「ロックの 4 週間無変更」の経過待ち・完成条件・下流実消費の 3 つである。**
+下流実消費も `pnpm check:repoint` で通った。**残る阻害要因は「ロックの 4 週間無変更」の経過待ちだけである。**
 
 凍結が特別扱いされる理由は [versioning.md](./versioning.md) §5 にある。
 kernel は 14 リポジトリからピン留めされ、破壊的変更は深さ 5 の republish カスケードを起こす。
@@ -26,12 +26,15 @@ kernel は 14 リポジトリからピン留めされ、破壊的変更は深さ
 - `properties.solid` と `faces` は production で **0 回**しか読まれていない。移植しない。
 - フラグに還元できない残余が 10 種類ある（監査 §6）。kernel には置かず体験モジュールに残す。
 
-kernel での対応状況: **24 実装 / 4 保留**。保留 4 件は `PENDING_CAPABILITIES` に理由つきで記録され、
+kernel での対応状況: **25 実装 / 3 保留**。保留 3 件は `PENDING_CAPABILITIES` に理由つきで記録され、
 `test/block-definition.test.ts` が「実装済み + 保留 = 監査の 28」を機械的に検査している。
+（`supportRule` は保留から実装へ移った —— 監査 §4.6.1、`domain/block-support.ts`）
 
 なお、監査が完了したことは「能力集合が凍結できる」を意味するが、
-**「ブロックテーブルが完成した」は意味しない**。`BlockType` 語彙は 120 中 18 しか埋まっておらず、
-これは完成条件（[testing.md](./testing.md) §5）の側の話である。
+**「ブロックテーブルが完成した」は意味しない**。……と本書は長らく書いていたが、
+`BlockType` 語彙は **120 / 120** に達した（[testing.md](./testing.md) §5 条件 4）。
+この段落が「120 中 18」と言い続けていたのは、状態を 2 箇所に書いた文書の常で、
+片方だけが更新されたためである。
 
 ### (b) 縦切りスパイクによる契約形状の検証 — ✅ 完了
 
@@ -158,7 +161,7 @@ kernel 内のテストは kernel の想定どおりの stage しか書かない�
 「THREE カメラが正でシミュレーションが描画から視線を読む逆転構造」は、
 どちらのモジュールも単体では正しく見え、束ねて初めて逆転が見える種類の欠陥だった。
 
-### (c) 下流実消費 — ⚠ 測定した。**まだ通っていない**
+### (c) 下流実消費 — ✅ 通った（経緯は残す）
 
 **要件**: 下流リポジトリが少なくとも 1 つ、実際に kernel を消費して契約を確認していること
 ([versioning.md](./versioning.md) §2)。
@@ -169,7 +172,9 @@ kernel 内のテストは kernel の想定どおりの stage しか書かない�
 を使い捨てコピーに対して実行する
 (`mc-dev-meta/docs/testing.md` §6.1、`mc-dev-meta/domain/repoint-plan.ts`)。
 
-**結果: 3 リポジトリすべてで張り替えがコンパイルを通らなかった。** 合計 17 件。
+**初回の結果: 3 リポジトリすべてで張り替えがコンパイルを通らなかった。** 合計 17 件。
+**現在は 17 件すべて修正済みで、`pnpm check:repoint` は緑、`KNOWN_REPOINT_FINDINGS` は空である。**
+以下の分析は、何が起きたかの記録として残す —— 結論より経路のほうが再利用できるからである。
 
 | 下流 | shipped source (`tsconfig.build.json`) | test / preview |
 | --- | --- | --- |
@@ -210,8 +215,9 @@ shipped source は 1 行も要らない。作業内容は
 `mc-dev-meta/domain/repoint-plan.ts` の `KNOWN_REPOINT_FINDINGS` に
 所有者と修正内容つきで 8 エントリとして記録されている。
 
-それが landing したあと `pnpm check:repoint` が緑になった時点で、この項目は ✅ にできる。
-**その時点でも、下記の但し書きつきである。**
+**それは landing し、`pnpm check:repoint` は緑になった。** 修正は 3 リポジトリの
+テストコンテキストが `ClockPort` を供給するようにしたもので、shipped source は 1 行も変わっていない。
+**ただし下記の但し書きつきである。**
 
 #### ✅ になったときに、それが主張しないこと
 
@@ -234,10 +240,24 @@ shipped source は 1 行も要らない。作業内容は
 - [x] API ロックファイルが**導入されている**（`api-lock.md` / `scripts/api-lock.ts` / `pnpm api:check`）
 - [ ] その API ロックファイルが **4 週間無変更**である（plan.md §6 Step 3）
 - [ ] 完成条件（[testing.md](./testing.md) §5）を満たしている
-- [ ] 下流リポジトリが少なくとも 1 つ、実際に kernel を消費して契約を確認している（[versioning.md](./versioning.md) §2）
-      — **(c) で初めて機械的に測定した。3 リポジトリすべてで張り替えが通らない（計 17 件）。**
-      shipped source は 3 つとも 0 件で通り、落ちているのは stage を*実行する*側だけである。
-      再現とゲートは mc-dev-meta の `pnpm check:repoint`
+- [x] 下流リポジトリが少なくとも 1 つ、実際に kernel を消費して契約を確認している（[versioning.md](./versioning.md) §2）
+      — **3 リポジトリ（mx-gameplay / mx-ui / mx-redstone）で、ミラーを削除し import を
+      `@nerima-games/mc-kernel` に張り替え、各リポジトリが宣言する全プロジェクトを実際に
+      `tsc` に通してある。** ゲートは mc-dev-meta の `pnpm check:repoint`。(c) の 17 件は
+      すべて修正済みで、`KNOWN_REPOINT_FINDINGS` は空である。
+
+      **このチェックが主張していないこと**（過大なチェックは未チェックより悪い。
+      1.0.0 を切る日に読まれるのはこの行だからである）:
+
+      | 検証済み | 未検証 |
+      | --- | --- |
+      | ミラー削除後に import が解決すること | publish 済みパッケージの **install** |
+      | `exports` / `types` フィールド | `files` と tarball の中身 |
+      | 3 リポジトリの build / test / preview 全プロジェクトの型検査 | 実行時の挙動（`tsc` であって `vitest` ではない） |
+
+      workspace の張り替えは publish の**リハーサルであって publish ではない**。
+      mc-render は一度、`files` が丸ごと 1 ディレクトリを落としたパッケージを
+      出荷しかけている —— このゲートはそれを捕まえない。
 
 **plan.md §9 の未決事項「API ロックファイルのツール選定（api-extractor 相当の Effect-TS 互換手段）」は決着した。**
 `@microsoft/api-extractor` は mc-kernel の実コードで試したうえで却下してある。理由と実測は

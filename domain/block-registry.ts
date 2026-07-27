@@ -115,6 +115,8 @@ import type { BlockDrop, HarvestContext } from './block-harvest'
 import { BARE_HANDED, DEFAULT_BLOCK_DROP, DEFAULT_HARVEST_TOOL, resolveDrop } from './block-harvest'
 import type { BlockOpacity, BlockProperties, BlockPropertyName } from './block-properties'
 import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS } from './block-properties'
+import type { SupportRule } from './block-support'
+import { NEEDS_ANY_SUPPORT, isSupportSensitive, needsOneOf, satisfiesSupportRule } from './block-support'
 import type { BlockType } from './block-type'
 import { BLOCK_TYPES } from './block-type'
 
@@ -129,8 +131,29 @@ import { BLOCK_TYPES } from './block-type'
  */
 const DROPS_NOTHING = { ...DEFAULT_BLOCK_DROP, count: 0 } as const
 
-/** The tier gate that separates "mined stone" from "wasted a swing". */
+/**
+ * The tier gate that separates "mined stone" from "wasted a swing".
+ *
+ * The four constants are the four stages of the reference's HashSet ladder
+ * (`harvestable-blocks.ts:14-67`), which is built by UNION — each tier contains
+ * every block the tier below it can mine. A block therefore belongs to exactly
+ * one of these four by the tier at which it FIRST appears, and that is the value
+ * transcribed into its row:
+ *
+ *   wooden   `WOODEN_PICKAXE_HARVESTABLE_BLOCKS` (:16-29), 12 blocks
+ *   stone    the four added at :31-38 (iron and lapis ores)
+ *   iron     the eight added at :40-51 (gold, redstone, diamond, emerald ores)
+ *   diamond  the one added at :53-56 (`OBSIDIAN`)
+ *
+ * `GOLD_PICKAXE` is deliberately mapped to the WOODEN set by the reference
+ * (`PICKAXE_HARVEST_SETS`, :58-64) — gold is fast and weak, exactly as in
+ * vanilla. That is a property of the TOOL, not of any block, so it does not
+ * appear here; it belongs to whichever repository models the tool.
+ */
 const NEEDS_WOODEN_PICKAXE = { ...DEFAULT_HARVEST_TOOL, category: 'pickaxe', minTier: 'wooden' } as const
+const NEEDS_STONE_PICKAXE = { ...DEFAULT_HARVEST_TOOL, category: 'pickaxe', minTier: 'stone' } as const
+const NEEDS_IRON_PICKAXE = { ...DEFAULT_HARVEST_TOOL, category: 'pickaxe', minTier: 'iron' } as const
+const NEEDS_DIAMOND_PICKAXE = { ...DEFAULT_HARVEST_TOOL, category: 'pickaxe', minTier: 'diamond' } as const
 
 /**
  * Category-only requirements: faster with the named tool, but NOT gated.
@@ -170,10 +193,15 @@ const FASTER_WITH_SHEARS = { ...DEFAULT_HARVEST_TOOL, category: 'shears' } as co
  *   suffocates            `environment-hazard.config.ts:66-72` (`NON_SUFFOCATING_BLOCKS`)
  *   validSpawnSurface     `spawn-selection-search.ts:47-54` (`NON_SPAWN_SURFACE_BLOCK_IDS`)
  *
- * `supportRule` is the one capability these blocks need and kernel does not
- * have: `block-support.ts:75-91` gives all seven the rule "DIRT | GRASS |
- * FARMLAND below". It is `PENDING_CAPABILITIES` (`./block-definition`), and the
- * gap is recorded here rather than papered over with a flag that exists.
+ * `supportRule` USED TO BE the one capability these blocks needed and kernel did
+ * not have. It exists now (`./block-support`), and `block-support.ts:85-88`
+ * gives all seven the same rule — "DIRT | GRASS | FARMLAND below" — so it is
+ * `NEEDS_PLANTABLE_GROUND` on each of the seven rows.
+ *
+ * It is NOT in this constant, and that is the one asymmetry worth stating: this
+ * is a CAPABILITY block and `supportRule` is a PROPERTY, so it cannot go here
+ * even though its membership is the same seven rows. The rows spell it
+ * individually and `NEEDS_PLANTABLE_GROUND` carries the shared-ness instead.
  */
 const SURFACE_PLANT_CAPABILITIES = {
   passable: true,
@@ -207,6 +235,58 @@ const PLANT_PROPERTIES = {
   hardness: 0,
   friction: 0,
 } as const
+
+// ---------------------------------------------------------------------------
+// supportRule: the five per-block lists, and the fallback (audit §4.6)
+// ---------------------------------------------------------------------------
+//
+// `SUPPORT_RULE_ENTRIES` (`block-support.ts:75-89`) has exactly five distinct
+// values across thirteen blocks, and they are named here rather than repeated
+// per row so that the seven surface plants demonstrably share ONE rule instead
+// of seven rules that happen to agree — the same argument
+// `SURFACE_PLANT_CAPABILITIES` above makes about capabilities.
+//
+// `supportRule` is NOT part of `PLANT_PROPERTIES`, and that is the whole shape
+// of this column: `PLANT_PROPERTIES` is shared by fourteen rows that take FOUR
+// different support rules (surface plants, sugar cane, cactus, lily pad) and by
+// `kelp` / `seagrass`, which take none at all. A support rule folded into the
+// shared plant block would have given a kelp the floor requirements of a fern.
+//
+// SIX BLOCKS FALL THROUGH TO THE FALLBACK, and they are named where they sit:
+// `torch`, `redstone_torch`, `redstone_wire`, `pressure_plate`, `rail` and
+// `powered_rail`. The reference gives them no `SUPPORT_RULES` entry — an
+// ABSENCE, so their rows cite `block-support.ts:23-28` (their membership of the
+// sensitive set) and the absence of a line between :75 and :89. They get
+// `NEEDS_ANY_SUPPORT`, which is that absence written down.
+
+/** `block-support.ts:78-81` — all three crops, and nothing but farmland. */
+const NEEDS_FARMLAND: SupportRule = needsOneOf('farmland')
+
+/**
+ * `SURFACE_PLANT_SUPPORT_BLOCK_TYPES` (`block-support.ts:63-67`), for the seven
+ * members of `SURFACE_PLANT_BLOCK_TYPES` (:4-12).
+ *
+ * The reference's `GRASS` is the grass BLOCK and is `grass_block` here; its
+ * `TALL_GRASS` is a different literal and is one of the seven plants this rule
+ * applies TO, not one of the three it names.
+ */
+const NEEDS_PLANTABLE_GROUND: SupportRule = needsOneOf('dirt', 'grass_block', 'farmland')
+
+/** `SUGAR_CANE_SUPPORT_BLOCK_TYPES` (`block-support.ts:68`). Stacks on itself. */
+const NEEDS_SUGAR_CANE_GROUND: SupportRule = needsOneOf('dirt', 'grass_block', 'sand', 'sugar_cane')
+
+/** `CACTUS_SUPPORT_BLOCK_TYPES` (`block-support.ts:69`). Stacks on itself. */
+const NEEDS_SAND_OR_CACTUS: SupportRule = needsOneOf('sand', 'cactus')
+
+/**
+ * `block-support.ts:84`. THE row that makes this column worth having.
+ *
+ * `water` is in `NON_SUPPORTING_BLOCK_TYPES` (:49), so the fallback arm refuses
+ * a lily pad on water and allows it on stone — wrong in both directions at once,
+ * on the only cell a lily pad belongs on. mx-gameplay's F7 measured exactly that
+ * and could not fix it without this column.
+ */
+const NEEDS_WATER: SupportRule = needsOneOf('water')
 
 /**
  * The storage encoding of a block inside a chunk buffer.
@@ -256,6 +336,47 @@ export type BlockRegistryEntry = {
  *
  * Ids 0-10 reproduce `mc-worldgen/domain/biome.ts`'s `BLOCK` constant exactly.
  * Ids 11+ are new and are appended in the order the blocks were needed.
+ *
+ * ---------------------------------------------------------------------------
+ * The `hardness` and `friction` columns were RE-DERIVED, and both were wrong
+ * ---------------------------------------------------------------------------
+ *
+ * `docs/capability-flag-audit.md` §4.5.1 recorded, and left open, that this
+ * table's `hardness` column held values on two different scales. Completing the
+ * roster forced the decision, because 84 new rows on one scale beside 13 old
+ * ones on another is a column whose values cannot be compared to each other at
+ * all — which is what §4.5.1 says must not be allowed to persist.
+ *
+ * THE SCALE IS THE REFERENCE'S 0-100 RELATIVE SCALE, stated in so many words at
+ * `blocks.config.terrain.ts:4-8` ("Hardness uses a 0-100 scale"). It was chosen
+ * over vanilla's floats because it is the only scale with a citation, and
+ * because kernel's own two anchors were already on it: the default 8 is
+ * `defaultBlockProperties.hardness` and `bedrock` is 100.
+ *
+ * Thirteen existing rows were corrected. The correction that matters most is
+ * `oak_log` and `oak_planks`, which were 2 — BELOW the default 8, making a tree
+ * trunk softer than dirt, where the reference has 35. `break-speed.ts:29-43`
+ * multiplies hardness into mining time linearly, so the ordering was not
+ * cosmetic; it was inverted.
+ *
+ * `friction` had a quieter version of the same problem: ten rows omitted it and
+ * took the 0.6 default where the reference states a value — stone-family 0.8,
+ * sand and gravel 0.5, snow 0.3, the fluids and torch lower still.
+ * `getBlockFrictionAt` (`block-collision-predicates.ts:152-161`) reads it for
+ * whatever a player is standing on, so every one of those was a movement
+ * difference. `test/block-registry.test.ts` now pins both columns against the
+ * reference values block by block.
+ *
+ * ONE SCALE INCONSISTENCY SURVIVES, AND IT IS THE REFERENCE'S. The seventeen
+ * End rows come from `blocks.config.end.ts`, which is itself mixed: twelve of
+ * its thirteen entries are vanilla floats (`PURPUR_BLOCK` 1.5, `DRAGON_EGG` 3,
+ * `SHULKER_BOX` 2, `ENDER_CHEST` 22.5) while `END_STONE_BRICKS` is 45 on the
+ * 0-100 scale. Those values are TRANSCRIBED rather than converted, because the
+ * reference's own mapping from vanilla floats to the scale is not a formula
+ * (0.5->8, 1.5->25, 2.0->35, 3.0->50, 50->90) and inventing one would be
+ * manufacturing content. The consequence is written at the End group below and
+ * in audit §4.5.2: purpur reads as softer than dirt, and that is what the
+ * source says.
  */
 export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
   {
@@ -283,6 +404,11 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         collisionShape: 'none',
         renderKind: 'cube',
         hardness: 0,
+        // `blocks.config.terrain.ts` `block:air`. Nothing stands on air, so this
+        // is transcription for the column's sake rather than a value with a
+        // consequence — but a column that is right except where nobody looks is
+        // a column nobody can check.
+        friction: 0,
         // Swinging at empty space must not manufacture an item. mx-gameplay's
         // `breakBlock` already refuses to reach here (`Unchanged` ->
         // `NothingThere`), but the table must not depend on the caller getting
@@ -298,7 +424,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'bedrock',
       capabilities: { pistonImmovable: true },
-      properties: { hardness: 100, drops: DROPS_NOTHING },
+      properties: { hardness: 100, friction: 0.8, drops: DROPS_NOTHING },
     },
   },
   {
@@ -309,6 +435,11 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'stone',
       properties: {
+        // CORRECTED, with the whole `hardness` column — see the block comment
+        // above `BLOCK_REGISTRY`. This row said nothing and so resolved to the
+        // default 8, which claimed stone is exactly as hard as dirt.
+        hardness: 25,
+        friction: 0.8,
         harvestTool: NEEDS_WOODEN_PICKAXE,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'cobblestone' },
       },
@@ -322,6 +453,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'grass_block',
       properties: {
+        hardness: 10,
         harvestTool: FASTER_WITH_SHOVEL,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'dirt' },
       },
@@ -335,7 +467,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'sand',
       capabilities: { fallsWhenUnsupported: true },
-      properties: { hardness: 0.5, harvestTool: FASTER_WITH_SHOVEL },
+      properties: { hardness: 8, friction: 0.5, harvestTool: FASTER_WITH_SHOVEL },
     },
   },
   {
@@ -355,6 +487,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         collisionShape: 'none',
         renderKind: 'fluid',
         hardness: 0,
+        friction: 0,
         drops: DROPS_NOTHING,
       },
     },
@@ -366,12 +499,22 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'snow',
       capabilities: { canSupportAttachments: false },
-      // Vanilla yields snowballs to a shovel. `snowball` is not in `ITEM_TYPES`
-      // yet, and inventing it to fill this cell would be exactly the "guessed
-      // roster" this repository has argued against twice. Recorded as a roster
-      // gap instead: `UNITEMISED_BLOCK_TYPES` lists `snow`, and the day the
-      // item exists this becomes a one-line change to this row.
-      properties: { hardness: 0.1, harvestTool: FASTER_WITH_SHOVEL, drops: DROPS_NOTHING },
+      // THE DAY ARRIVED, AND THIS IS THE ONE-LINE CHANGE. This row used to say
+      // `DROPS_NOTHING` with a note that vanilla yields snowballs, that
+      // `snowball` was not in `ITEM_TYPES`, and that inventing it would be the
+      // guessed-roster failure. The item now exists on the same evidence every
+      // other drop target rests on — `INVENTORY_DROP_OVERRIDES` maps
+      // SNOW -> SNOWBALL (`block-service.config.ts:183`) — so the gap is closed
+      // by transcription rather than by invention.
+      //
+      // `count: 4` is `BLOCK_BASE_DROP_COUNT` (:204-215), which lists SNOW with
+      // the ores. A shovelled snow layer yields four snowballs.
+      properties: {
+        hardness: 2,
+        friction: 0.3,
+        harvestTool: FASTER_WITH_SHOVEL,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'snowball', count: 4 },
+      },
     },
   },
   {
@@ -382,7 +525,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       // Vanilla's 10% flint is a RANDOM drop, and audit §6-9 places random drop
       // rules in mx-gameplay ("`drops` では表現できない"). The deterministic
       // half — gravel yields gravel — is what belongs here.
-      properties: { hardness: 0.6, harvestTool: FASTER_WITH_SHOVEL },
+      properties: { hardness: 10, friction: 0.5, harvestTool: FASTER_WITH_SHOVEL },
     },
   },
   {
@@ -407,7 +550,11 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         // `validSpawnSurface` had no probe in `MIRROR_SPECS`. It has one now.
         validSpawnSurface: false,
       },
-      properties: { hardness: 2, harvestTool: FASTER_WITH_AXE },
+      // CORRECTED. hardness was 2 — vanilla's float — which put a tree trunk
+      // BELOW the default 8 and so made a log softer than dirt. The reference
+      // has 35, above cobblestone. The direction of the error is the reason the
+      // whole column was re-derived rather than spot-fixed.
+      properties: { hardness: 35, harvestTool: FASTER_WITH_AXE },
     },
   },
   {
@@ -427,7 +574,14 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       // RNG adds the saplings.
       properties: {
         opacity: 'transparentSolid',
-        hardness: 0.2,
+        hardness: 3,
+        // DECLARED DIVERGENCE, kept. `shears` is not a category the reference's
+        // `isEffectiveTool` (`block-utils.ts:32-63`) knows — it has only
+        // axe/shovel/pickaxe sets, and LEAVES is in none of them. The category
+        // is kernel's, is speed-only (`satisfiesHarvestTier` never reads it, so
+        // it gates nothing), and exists so the table has a row exercising a
+        // category with no tier. Recorded here because a value with no citation
+        // must say that it has none.
         harvestTool: FASTER_WITH_SHEARS,
         drops: DROPS_NOTHING,
       },
@@ -453,6 +607,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         lightEmission: 15,
         contactDamage: 4,
         hardness: 0,
+        friction: 0,
         drops: DROPS_NOTHING,
       },
     },
@@ -462,7 +617,10 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'oak_planks',
       capabilities: { flammable: true },
-      properties: { hardness: 2, harvestTool: FASTER_WITH_AXE },
+      // `PLANKS` is 35 in the reference with the comment "Vanilla planks 2.0 =
+      // wood (35 on this scale), not stone-soft" — the reference wrote down the
+      // exact mistake this row used to make.
+      properties: { hardness: 35, harvestTool: FASTER_WITH_AXE },
     },
   },
   {
@@ -477,7 +635,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       // See `./block-harvest` on why substitution is left unmodelled.
       properties: {
         opacity: 'transparentSolid',
-        hardness: 0.3,
+        hardness: 4,
         drops: { ...DEFAULT_BLOCK_DROP, requiresSilkTouch: true },
       },
     },
@@ -496,12 +654,21 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         opacity: 'transparentSolid',
         collisionShape: 'none',
+        // DECLARED DIVERGENCE, kept. `TORCH` is absent from `CROSS_PLANT_IDS`
+        // and from `plantMeshLookup` (`plant-mesh.ts:19-44`), so the reference
+        // meshes it as a cube. `'cross'` is kernel's reading of what a torch
+        // looks like, is not transcribed from anywhere, and says so here.
         renderKind: 'cross',
         // `light.ts:24-46` `EMISSIVE_LEVEL_OVERRIDES`: TORCH is 14, not 15. The
         // one-level gap from glowstone is the reason `lightEmission` is a number
         // and not the `emissive: boolean` plan.md §3.1 asked for.
         lightEmission: 14,
-        hardness: 0,
+        hardness: 1,
+        friction: 0.1,
+        // `block-support.ts:23` puts TORCH in the sensitive set and :75-89 gives
+        // it NO entry, so the reference answers it with the negative list. The
+        // fallback arm is that absence, written down.
+        supportRule: NEEDS_ANY_SUPPORT,
       },
     },
   },
@@ -517,19 +684,46 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       type: 'glowstone',
       properties: {
         lightEmission: 15,
-        hardness: 0.3,
+        hardness: 4,
+        // NOTE: `count: 2` is kernel's and diverges from the reference's
+        // `BLOCK_BASE_DROP_COUNT` (`block-service.config.ts:204-215`), which
+        // gives `GLOWSTONE` 4. Left as it is rather than corrected in passing:
+        // it is a content value, not a transcription error, and changing a drop
+        // count is a gameplay change that should be reviewed on its own.
         drops: { ...DEFAULT_BLOCK_DROP, item: 'glowstone_dust', count: 2, affectedByFortune: true },
       },
     },
   },
-  // Left deliberately BARE, and it is now the only row that is. Vanilla breaks
-  // a piston fastest with an axe, but that is flavour with no citation in the
-  // audit, and this file's central claim needs at least one row that says
-  // nothing but a name: an empty row is not an omission, it is the statement
-  // that the block IS an ordinary opaque solid cube. `piston` is in the roster
-  // for plan.md §3.12's `pistonImmovable` argument rather than for mining, so
-  // it is the row that can afford to carry the demonstration.
-  { id: BlockId(16), definition: { type: 'piston' } },
+  {
+    // THIS ROW WAS BARE, AND BEING BARE IS WHAT MADE IT WRONG. It used to be
+    // the file's worked example of "an empty row is not an omission, it is the
+    // statement that the block IS an ordinary opaque solid cube". The statement
+    // was false in two columns at once, and both were found by re-deriving the
+    // whole table from the reference rather than by reading this row.
+    //
+    //   `validSpawnSurface` — `PISTON` is listed in `NON_SPAWN_SURFACE_BLOCK_IDS`
+    //   (`spawn-selection-search.ts:68`, under "Redstone / interactive"). The
+    //   default is `true`, so silence here meant mobs and village placement
+    //   treated the top of a piston as ground. This is the SECOND time this
+    //   exact defect has been found in this file — `oak_log` had it, and the
+    //   note on that row already says the damage is done silently because the
+    //   flag defaults the wrong way for anything that is not a plain cube.
+    //
+    //   `hardness` — 55 in the reference, not the default 8. A piston is
+    //   furnace-tier, and 8 made it as soft as dirt.
+    //
+    // The lesson recorded rather than the fix: a row that states nothing is
+    // only honest when the block really is a plain cube, and "I did not check"
+    // and "I checked and there was nothing to say" are written identically.
+    // Every one of the 84 rows below states its values explicitly for that
+    // reason, including where they equal the default.
+    id: BlockId(16),
+    definition: {
+      type: 'piston',
+      capabilities: { validSpawnSurface: false },
+      properties: { hardness: 55 },
+    },
+  },
   {
     // Appended, not inserted: ids 0-16 were already assigned when this block was
     // added, and an id is a wire format. This row is also the worked example of
@@ -538,7 +732,16 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     id: BlockId(17),
     definition: {
       type: 'cobblestone',
-      properties: { harvestTool: NEEDS_WOODEN_PICKAXE },
+      // DECLARED DIVERGENCE on the tool gate, kept and now written down.
+      // `COBBLESTONE` is NOT in `WOODEN_PICKAXE_HARVESTABLE_BLOCKS`
+      // (`harvestable-blocks.ts:16-29`), so the reference lets you collect
+      // cobblestone bare-handed while requiring a pickaxe for the `stone` it
+      // came from. That is almost certainly a hole in the reference's set
+      // rather than a design; kernel keeps the gate, because the alternative is
+      // an infinite bare-handed cobblestone supply from any stone wall. Flagged
+      // rather than silently matched, since it is the one row in this file
+      // where kernel is deliberately STRICTER than its source.
+      properties: { hardness: 35, friction: 0.8, harvestTool: NEEDS_WOODEN_PICKAXE },
     },
   },
 
@@ -624,6 +827,12 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         // hardness 4 / friction 0.2: blocks.config.crafted.ts (`block:cobweb`).
         hardness: 4,
         friction: 0.2,
+        // `INVENTORY_DROP_OVERRIDES` maps COBWEB -> STRING
+        // (`block-service.config.ts:170`). This row previously carried the
+        // DEFAULT rule — "yields itself" — while `cobweb` had no item form, so
+        // it resolved to nothing through the `'self'` sentinel and looked like a
+        // deliberate no-drop. It was neither: it was an untranscribed override.
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'string' },
       },
     },
   },
@@ -642,7 +851,18 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'sapling',
       capabilities: SURFACE_PLANT_CAPABILITIES,
-      properties: PLANT_PROPERTIES,
+      properties: {
+        ...PLANT_PROPERTIES,
+        // HELD BACK, not transcribed. The reference drops this block as itself
+        // (`getInventoryDropForBlock` has no override for it), and the item form is
+        // deliberately absent from `ITEM_TYPES` — see the block comment there on
+        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
+        // would make it placeable and wake a placement rule that is known wrong.
+        // Stated as nothing rather than inheriting "yields itself" and producing
+        // nothing silently.
+        drops: DROPS_NOTHING,
+        supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:5)
+      },
     },
   },
   {
@@ -650,7 +870,19 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'dandelion',
       capabilities: SURFACE_PLANT_CAPABILITIES,
-      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:19
+      properties: {
+        ...PLANT_PROPERTIES,
+        renderKind: 'cross',
+        // HELD BACK, not transcribed. The reference drops this block as itself
+        // (`getInventoryDropForBlock` has no override for it), and the item form is
+        // deliberately absent from `ITEM_TYPES` — see the block comment there on
+        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
+        // would make it placeable and wake a placement rule that is known wrong.
+        // Stated as nothing rather than inheriting "yields itself" and producing
+        // nothing silently.
+        drops: DROPS_NOTHING,
+        supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:6)
+      }, // plant-mesh.ts:19
     },
   },
   {
@@ -658,7 +890,19 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'poppy',
       capabilities: SURFACE_PLANT_CAPABILITIES,
-      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:20
+      properties: {
+        ...PLANT_PROPERTIES,
+        renderKind: 'cross',
+        // HELD BACK, not transcribed. The reference drops this block as itself
+        // (`getInventoryDropForBlock` has no override for it), and the item form is
+        // deliberately absent from `ITEM_TYPES` — see the block comment there on
+        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
+        // would make it placeable and wake a placement rule that is known wrong.
+        // Stated as nothing rather than inheriting "yields itself" and producing
+        // nothing silently.
+        drops: DROPS_NOTHING,
+        supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:7)
+      }, // plant-mesh.ts:20
     },
   },
   {
@@ -666,7 +910,19 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'brown_mushroom',
       capabilities: SURFACE_PLANT_CAPABILITIES,
-      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:21
+      properties: {
+        ...PLANT_PROPERTIES,
+        renderKind: 'cross',
+        // HELD BACK, not transcribed. The reference drops this block as itself
+        // (`getInventoryDropForBlock` has no override for it), and the item form is
+        // deliberately absent from `ITEM_TYPES` — see the block comment there on
+        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
+        // would make it placeable and wake a placement rule that is known wrong.
+        // Stated as nothing rather than inheriting "yields itself" and producing
+        // nothing silently.
+        drops: DROPS_NOTHING,
+        supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:8)
+      }, // plant-mesh.ts:21
     },
   },
   {
@@ -674,7 +930,19 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'red_mushroom',
       capabilities: SURFACE_PLANT_CAPABILITIES,
-      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:22
+      properties: {
+        ...PLANT_PROPERTIES,
+        renderKind: 'cross',
+        // HELD BACK, not transcribed. The reference drops this block as itself
+        // (`getInventoryDropForBlock` has no override for it), and the item form is
+        // deliberately absent from `ITEM_TYPES` — see the block comment there on
+        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
+        // would make it placeable and wake a placement rule that is known wrong.
+        // Stated as nothing rather than inheriting "yields itself" and producing
+        // nothing silently.
+        drops: DROPS_NOTHING,
+        supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:9)
+      }, // plant-mesh.ts:22
     },
   },
   {
@@ -682,7 +950,19 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'tall_grass',
       capabilities: SURFACE_PLANT_CAPABILITIES,
-      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:23
+      properties: {
+        ...PLANT_PROPERTIES,
+        renderKind: 'cross',
+        // HELD BACK, not transcribed. The reference drops this block as itself
+        // (`getInventoryDropForBlock` has no override for it), and the item form is
+        // deliberately absent from `ITEM_TYPES` — see the block comment there on
+        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
+        // would make it placeable and wake a placement rule that is known wrong.
+        // Stated as nothing rather than inheriting "yields itself" and producing
+        // nothing silently.
+        drops: DROPS_NOTHING,
+        supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:10)
+      }, // plant-mesh.ts:23
     },
   },
   {
@@ -690,7 +970,19 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'fern',
       capabilities: SURFACE_PLANT_CAPABILITIES,
-      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:24
+      properties: {
+        ...PLANT_PROPERTIES,
+        renderKind: 'cross',
+        // HELD BACK, not transcribed. The reference drops this block as itself
+        // (`getInventoryDropForBlock` has no override for it), and the item form is
+        // deliberately absent from `ITEM_TYPES` — see the block comment there on
+        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
+        // would make it placeable and wake a placement rule that is known wrong.
+        // Stated as nothing rather than inheriting "yields itself" and producing
+        // nothing silently.
+        drops: DROPS_NOTHING,
+        supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:11)
+      }, // plant-mesh.ts:24
     },
   },
   {
@@ -712,7 +1004,19 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         suffocates: false, // INFERRED — audit §4.7
         validSpawnSurface: false, // spawn-selection-search.ts:55
       },
-      properties: { ...PLANT_PROPERTIES, renderKind: 'cross' }, // plant-mesh.ts:25
+      properties: {
+        ...PLANT_PROPERTIES,
+        renderKind: 'cross',
+        // HELD BACK, not transcribed. The reference drops this block as itself
+        // (`getInventoryDropForBlock` has no override for it), and the item form is
+        // deliberately absent from `ITEM_TYPES` — see the block comment there on
+        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
+        // would make it placeable and wake a placement rule that is known wrong.
+        // Stated as nothing rather than inheriting "yields itself" and producing
+        // nothing silently.
+        drops: DROPS_NOTHING,
+        supportRule: NEEDS_SUGAR_CANE_GROUND, // block-support.ts:82
+      }, // plant-mesh.ts:25
     },
   },
   {
@@ -731,7 +1035,19 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         suffocates: false, // INFERRED — audit §4.7
         validSpawnSurface: false, // spawn-selection-search.ts:57
       },
-      properties: { ...PLANT_PROPERTIES, renderKind: 'lilyPad' }, // plant-mesh.ts:34
+      properties: {
+        ...PLANT_PROPERTIES,
+        renderKind: 'lilyPad',
+        // HELD BACK, not transcribed. The reference drops this block as itself
+        // (`getInventoryDropForBlock` has no override for it), and the item form is
+        // deliberately absent from `ITEM_TYPES` — see the block comment there on
+        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
+        // would make it placeable and wake a placement rule that is known wrong.
+        // Stated as nothing rather than inheriting "yields itself" and producing
+        // nothing silently.
+        drops: DROPS_NOTHING,
+        supportRule: NEEDS_WATER, // block-support.ts:84
+      }, // plant-mesh.ts:34
     },
   },
   {
@@ -790,6 +1106,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         railKind: 'normal', // block-collision-predicates.ts:184-195 (`isOnRail`)
         // hardness 7 / friction 0.6: blocks.config.crafted.ts (`block:rail`).
         hardness: 7,
+        supportRule: NEEDS_ANY_SUPPORT, // block-support.ts:27, no entry at :75-89
       },
     },
   },
@@ -813,6 +1130,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         renderKind: 'rail', // plant-mesh.ts:33
         railKind: 'powered', // block-collision-predicates.ts:197-201
         hardness: 7,
+        supportRule: NEEDS_ANY_SUPPORT, // block-support.ts:28, no entry at :75-89
       },
     },
   },
@@ -851,6 +1169,15 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         collisionShape: 'cactus', // block-collision-predicates.ts:136
         renderKind: 'cactus', // plant-mesh.ts:30
         contactDamage: 1, // environment-hazard.config.ts:26 (`CACTUS_DAMAGE`)
+        // HELD BACK, not transcribed. The reference drops this block as itself
+        // (`getInventoryDropForBlock` has no override for it), and the item form is
+        // deliberately absent from `ITEM_TYPES` — see the block comment there on
+        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
+        // would make it placeable and wake a placement rule that is known wrong.
+        // Stated as nothing rather than inheriting "yields itself" and producing
+        // nothing silently.
+        drops: DROPS_NOTHING,
+        supportRule: NEEDS_SAND_OR_CACTUS, // block-support.ts:83
       },
     },
   },
@@ -876,6 +1203,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         // nothing. hardness 5: blocks.config.crafted.ts.
         harvestTool: NEEDS_WOODEN_PICKAXE,
         hardness: 5,
+        supportRule: NEEDS_ANY_SUPPORT, // block-support.ts:26, no entry at :75-89
       },
     },
   },
@@ -907,6 +1235,856 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         collisionShape: 'slab', // block-collision-predicates.ts:56-59, applied at :138
         harvestTool: NEEDS_WOODEN_PICKAXE, // harvestable-blocks.ts:18
         hardness: 25,
+      },
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // ids 36-49: terrain and mineral stone (`blocks.config.terrain.ts`)
+  // ---------------------------------------------------------------------------
+  //
+  // The plainest group in the table, and useful precisely for that: fourteen
+  // rows whose only overrides are `hardness` and `friction`, which is what a
+  // table of differences looks like when a block really is an ordinary opaque
+  // solid cube that happens to be hard. None of them appears in ANY of the six
+  // membership tables (`PASSABLE_BLOCK_IDS`, `NON_SUFFOCATING_BLOCKS`,
+  // `NON_SUPPORTING_BLOCK_TYPES`, `NON_SPAWN_SURFACE_BLOCK_IDS`,
+  // `FLAMMABLE_BLOCK_TYPES`, `WATER_BREAKABLE_BLOCK_TYPES`), so every capability
+  // resolves to its default and that ABSENCE is the citation.
+  //
+  // Three rows do have something to say:
+  //
+  //   `obsidian` is the sole member of the diamond tier (`harvestable-blocks.ts:53-56`).
+  //   `ice` drops nothing: `NO_BASE_DROP_BLOCK_TYPES` (`block-service.config.ts:199`)
+  //     contains ICE and nothing else, which is what `blockDropsBaseItem` reads.
+  //     It is therefore the only block in the roster whose drop is refused by
+  //     name rather than by a tool gate or a silk-touch gate.
+  //   `farmland` yields `dirt`, not itself, so it gets NO item form — see the
+  //     rule at the top of the `ITEM_TYPES` additions.
+  { id: BlockId(36), definition: { type: 'granite', properties: { hardness: 25, friction: 0.8 } } },
+  { id: BlockId(37), definition: { type: 'diorite', properties: { hardness: 25, friction: 0.8 } } },
+  { id: BlockId(38), definition: { type: 'andesite', properties: { hardness: 25, friction: 0.8 } } },
+  { id: BlockId(39), definition: { type: 'deepslate', properties: { hardness: 50, friction: 0.8 } } },
+  {
+    id: BlockId(40),
+    definition: {
+      type: 'obsidian',
+      properties: { hardness: 90, friction: 0.8, harvestTool: NEEDS_DIAMOND_PICKAXE },
+    },
+  },
+  {
+    id: BlockId(41),
+    definition: {
+      type: 'smooth_basalt',
+      properties: { hardness: 30, friction: 0.8, harvestTool: NEEDS_WOODEN_PICKAXE },
+    },
+  },
+  {
+    id: BlockId(42),
+    definition: {
+      type: 'calcite',
+      properties: { hardness: 20, friction: 0.8, harvestTool: NEEDS_WOODEN_PICKAXE },
+    },
+  },
+  {
+    id: BlockId(43),
+    definition: {
+      type: 'amethyst_block',
+      properties: { hardness: 30, friction: 0.8, harvestTool: NEEDS_WOODEN_PICKAXE },
+    },
+  },
+  {
+    id: BlockId(44),
+    definition: {
+      type: 'amethyst_cluster',
+      properties: {
+        lightEmission: 15,
+        hardness: 15,
+        friction: 0.8,
+        harvestTool: NEEDS_WOODEN_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'amethyst_shard', count: 4 },
+      },
+    },
+  },
+  { id: BlockId(45), definition: { type: 'sandstone', properties: { hardness: 10 } } },
+  { id: BlockId(46), definition: { type: 'prismarine', properties: { hardness: 25, friction: 0.8 } } },
+  { id: BlockId(47), definition: { type: 'soul_sand', properties: { friction: 0.5 } } },
+  {
+    id: BlockId(48),
+    definition: {
+      type: 'ice',
+      properties: { opacity: 'transparentSolid', hardness: 3, friction: 0.98, drops: DROPS_NOTHING },
+    },
+  },
+  {
+    id: BlockId(49),
+    definition: {
+      type: 'farmland',
+      capabilities: { suffocates: false },
+      properties: { harvestTool: FASTER_WITH_SHOVEL, drops: { ...DEFAULT_BLOCK_DROP, item: 'dirt' } },
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // ids 50-63: ores (`blocks.config.ores.ts`, `harvestable-blocks.ts`)
+  // ---------------------------------------------------------------------------
+  //
+  // Fourteen rows in seven stone/deepslate pairs, and the group that finally
+  // makes four separate capabilities carry different information at once.
+  //
+  //   `harvestTool.minTier`  the reference's four-stage union ladder. Coal is
+  //     wooden; iron and lapis are stone; gold, redstone, diamond and emerald
+  //     are iron. Deepslate variants sit at the SAME tier as their stone twins —
+  //     the ladder pairs them explicitly — so deepslate is harder (60 vs 50) but
+  //     not gated higher. Two axes, one of which moves and one of which does not.
+  //
+  //   `drops.item`   `INVENTORY_DROP_OVERRIDES`. Not one ore drops itself, and
+  //     iron and gold drop RAW ore rather than an ingot.
+  //
+  //   `xpOnBreak`    `ORE_XP_TABLE` (`blocks.config.ores.ts:29-37`). Coal 5,
+  //     lapis 5, redstone 5, diamond 7, emerald 7 — and IRON AND GOLD ZERO,
+  //     with the reference's reason written at :8-10: they drop raw ore and the
+  //     experience is paid at the furnace. A row here that quietly gave iron ore
+  //     5 would be indistinguishable from a typo and would pay the player twice.
+  //
+  //   `drops.count`  `BLOCK_BASE_DROP_COUNT` (:204-215) gives redstone and lapis
+  //     4 and everything else 1. The reference's note explains the choice: vanilla
+  //     rolls 4-5 and 4-9, and it takes the deterministic MINIMUM so that breaking
+  //     a block stays replayable. Kernel needs that property even more than the
+  //     reference does — `StageRegistration.run` has no source of randomness.
+  //
+  //   `affectedByFortune`  `FORTUNE_ORE_BLOCKS` (:270-276), which holds ten of
+  //     the fourteen. IRON AND GOLD ORE ARE ABSENT, and that is not the same set
+  //     as "the ores with zero XP" even though it happens to contain the same
+  //     four. Transcribed as two independent facts, because they are two lists.
+  //
+  // `redstone_ore` and `deepslate_redstone_ore` also emit light: 9, from
+  // `EMISSIVE_LEVEL_OVERRIDES` (`light.ts:24-35`). Nine, not fifteen — an ore
+  // that glows dimly is exactly the case a boolean `emissive` could not express.
+  {
+    id: BlockId(50),
+    definition: {
+      type: 'coal_ore',
+      properties: {
+        hardness: 50,
+        friction: 0.8,
+        xpOnBreak: 5,
+        harvestTool: NEEDS_WOODEN_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'coal', affectedByFortune: true },
+      },
+    },
+  },
+  {
+    id: BlockId(51),
+    definition: {
+      type: 'iron_ore',
+      properties: {
+        hardness: 50,
+        friction: 0.8,
+        harvestTool: NEEDS_STONE_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_iron' },
+      },
+    },
+  },
+  {
+    id: BlockId(52),
+    definition: {
+      type: 'gold_ore',
+      properties: {
+        hardness: 50,
+        friction: 0.8,
+        harvestTool: NEEDS_IRON_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_gold' },
+      },
+    },
+  },
+  {
+    id: BlockId(53),
+    definition: {
+      type: 'diamond_ore',
+      properties: {
+        hardness: 50,
+        friction: 0.8,
+        xpOnBreak: 7,
+        harvestTool: NEEDS_IRON_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'diamond', affectedByFortune: true },
+      },
+    },
+  },
+  {
+    id: BlockId(54),
+    definition: {
+      type: 'redstone_ore',
+      properties: {
+        lightEmission: 9,
+        hardness: 50,
+        friction: 0.8,
+        xpOnBreak: 5,
+        harvestTool: NEEDS_IRON_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'redstone_dust', count: 4, affectedByFortune: true },
+      },
+    },
+  },
+  {
+    id: BlockId(55),
+    definition: {
+      type: 'lapis_ore',
+      properties: {
+        hardness: 50,
+        friction: 0.8,
+        xpOnBreak: 5,
+        harvestTool: NEEDS_STONE_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'lapis_lazuli', count: 4, affectedByFortune: true },
+      },
+    },
+  },
+  {
+    id: BlockId(56),
+    definition: {
+      type: 'emerald_ore',
+      properties: {
+        hardness: 50,
+        friction: 0.8,
+        xpOnBreak: 7,
+        harvestTool: NEEDS_IRON_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'emerald', affectedByFortune: true },
+      },
+    },
+  },
+  {
+    id: BlockId(57),
+    definition: {
+      type: 'deepslate_coal_ore',
+      properties: {
+        hardness: 60,
+        friction: 0.8,
+        xpOnBreak: 5,
+        harvestTool: NEEDS_WOODEN_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'coal', affectedByFortune: true },
+      },
+    },
+  },
+  {
+    id: BlockId(58),
+    definition: {
+      type: 'deepslate_iron_ore',
+      properties: {
+        hardness: 60,
+        friction: 0.8,
+        harvestTool: NEEDS_STONE_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_iron' },
+      },
+    },
+  },
+  {
+    id: BlockId(59),
+    definition: {
+      type: 'deepslate_gold_ore',
+      properties: {
+        hardness: 60,
+        friction: 0.8,
+        harvestTool: NEEDS_IRON_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_gold' },
+      },
+    },
+  },
+  {
+    id: BlockId(60),
+    definition: {
+      type: 'deepslate_diamond_ore',
+      properties: {
+        hardness: 60,
+        friction: 0.8,
+        xpOnBreak: 7,
+        harvestTool: NEEDS_IRON_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'diamond', affectedByFortune: true },
+      },
+    },
+  },
+  {
+    id: BlockId(61),
+    definition: {
+      type: 'deepslate_redstone_ore',
+      properties: {
+        lightEmission: 9,
+        hardness: 60,
+        friction: 0.8,
+        xpOnBreak: 5,
+        harvestTool: NEEDS_IRON_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'redstone_dust', count: 4, affectedByFortune: true },
+      },
+    },
+  },
+  {
+    id: BlockId(62),
+    definition: {
+      type: 'deepslate_lapis_ore',
+      properties: {
+        hardness: 60,
+        friction: 0.8,
+        xpOnBreak: 5,
+        harvestTool: NEEDS_STONE_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'lapis_lazuli', count: 4, affectedByFortune: true },
+      },
+    },
+  },
+  {
+    id: BlockId(63),
+    definition: {
+      type: 'deepslate_emerald_ore',
+      properties: {
+        hardness: 60,
+        friction: 0.8,
+        xpOnBreak: 7,
+        harvestTool: NEEDS_IRON_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'emerald', affectedByFortune: true },
+      },
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // ids 64-70: the mineral blocks (`blocks.config.ores.ts`)
+  // ---------------------------------------------------------------------------
+  //
+  // Storage blocks, and — unlike the ores they are crafted from — NOT tool-gated
+  // anywhere in `harvestable-blocks.ts`. That reads oddly beside `stone`
+  // requiring a pickaxe, and it is transcribed rather than repaired: the sets in
+  // that file are the only statement the reference makes about tier gating, and
+  // inventing a gate for seven blocks would be inventing content.
+  //
+  // `redstone_block` emits light 15 (`EMISSIVE_LEVEL_OVERRIDES`, `light.ts:27`),
+  // which makes it the third distinct emission level in the roster after
+  // `torch` 14 and `redstone_ore` 9.
+  { id: BlockId(64), definition: { type: 'coal_block', properties: { hardness: 65, friction: 0.8 } } },
+  { id: BlockId(65), definition: { type: 'iron_block', properties: { hardness: 65, friction: 0.8 } } },
+  { id: BlockId(66), definition: { type: 'gold_block', properties: { hardness: 50, friction: 0.8 } } },
+  { id: BlockId(67), definition: { type: 'diamond_block', properties: { hardness: 65, friction: 0.8 } } },
+  {
+    id: BlockId(68),
+    definition: {
+      type: 'redstone_block',
+      properties: { lightEmission: 15, hardness: 65, friction: 0.8 },
+    },
+  },
+  { id: BlockId(69), definition: { type: 'lapis_block', properties: { hardness: 50, friction: 0.8 } } },
+  { id: BlockId(70), definition: { type: 'emerald_block', properties: { hardness: 65, friction: 0.8 } } },
+
+  // ---------------------------------------------------------------------------
+  // ids 71-73: crops (`CROP_BLOCK_TYPES`, `block-support.ts:20`)
+  // ---------------------------------------------------------------------------
+  //
+  // READ THE `suffocates` COLUMN BEFORE COPYING THESE ROWS. The three crops are
+  // ONE set everywhere in `block-support.ts` and are treated identically by every
+  // rule there — and `NON_SUFFOCATING_BLOCKS` splits them:
+  //
+  //   WHEAT_CROP        listed (`environment-hazard.config.ts:48`)
+  //   NETHER_WART_CROP  listed (:49)
+  //   POTATO_CROP       *** NOT LISTED ***
+  //
+  // So the reference suffocates a player standing inside a potato and not inside
+  // wheat. This row TRANSCRIBES that, and does not infer the missing entry, for
+  // the reason the `PASSABLE_BLOCK_IDS` group above already gives: audit §4.7
+  // licenses inferring `suffocates: false` from `passable: true`, and CROPS ARE
+  // NOT PASSABLE — none of the three is in `PASSABLE_BLOCK_IDS`, so a crop is a
+  // solid full cube for collision and the implication does not apply. There is
+  // no rule that lets kernel fill this in, only a hunch, and a hunch that
+  // silently makes three rows agree is how a table stops being a transcription.
+  //
+  // This is a NEW instance of the disagreement audit §4.9 measured, and it is
+  // the sharpest one yet: the other cases disagree between tables about blocks
+  // that differ, whereas this splits a set the source itself defines as a set.
+  //
+  // `supportRule` is what these rows actually wanted, and they have it:
+  // `block-support.ts:78-81` gives all three "FARMLAND below", and `farmland`
+  // being in the roster is what made that writable. All three rows carry
+  // `NEEDS_FARMLAND` — the one column on which `CROP_BLOCK_TYPES` is a closed
+  // set of three that this table agrees is a closed set of three, unlike
+  // `suffocates` directly above.
+  {
+    id: BlockId(71),
+    definition: {
+      type: 'wheat_crop',
+      capabilities: {
+        brokenByWaterFlow: true,
+        suffocates: false,
+        canSupportAttachments: false,
+        validSpawnSurface: false,
+      },
+      properties: {
+        opacity: 'transparentSolid',
+        hardness: 0,
+        friction: 0,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'wheat_seeds' },
+        supportRule: NEEDS_FARMLAND, // block-support.ts:78-81 via CROP_BLOCK_TYPES (:20)
+      },
+    },
+  },
+  {
+    id: BlockId(72),
+    definition: {
+      type: 'potato_crop',
+      capabilities: { brokenByWaterFlow: true, canSupportAttachments: false, validSpawnSurface: false },
+      properties: {
+        opacity: 'transparentSolid',
+        hardness: 0,
+        friction: 0,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'potato' },
+        supportRule: NEEDS_FARMLAND, // block-support.ts:78-81 via CROP_BLOCK_TYPES (:20)
+      },
+    },
+  },
+  {
+    id: BlockId(73),
+    definition: {
+      type: 'nether_wart_crop',
+      capabilities: {
+        brokenByWaterFlow: true,
+        suffocates: false,
+        canSupportAttachments: false,
+        validSpawnSurface: false,
+      },
+      properties: {
+        opacity: 'transparentSolid',
+        hardness: 0,
+        friction: 0,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'nether_wart' },
+        supportRule: NEEDS_FARMLAND, // block-support.ts:78-81 via CROP_BLOCK_TYPES (:20)
+      },
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // ids 74-85: redstone components (`blocks.config.crafted.ts`)
+  // ---------------------------------------------------------------------------
+  //
+  // VOCABULARY AND ORDINARY CAPABILITIES ONLY. Audit §6-7 assigns
+  // `REDSTONE_CLEANUP_BLOCK_TYPES` and every propagation rule to mx-redstone,
+  // and nothing here encodes power, signal strength or scheduling. The line is
+  // easy to state and worth stating: a block's LIGHT is a property of the block
+  // (`redstone_lamp_lit` emits 15), whereas what makes a lamp become lit is a
+  // rule, and rules are not in this file.
+  //
+  // Four of these are in `SUPPORT_SENSITIVE_BLOCK_TYPES` / `WATER_BREAKABLE`
+  // (`block-support.ts:22-45`): `redstone_wire`, `redstone_torch`, and — already
+  // in the table — `torch`, `pressure_plate`, `rail`, `powered_rail`. The rest
+  // are ordinary blocks that happen to be redstone-flavoured.
+  //
+  // `piston_head` is the extended arm, is in `NEVER_DROPPED_BLOCK_TYPES`
+  // (`interaction-break-handler.shared.ts:9`, with AIR / WATER / LAVA), and is
+  // the only NON-fluid member of that set. It gets no item form.
+  //
+  // NOTE the `collisionShape` of this group. `redstone_wire`, `lever`,
+  // `stone_button` and `repeater` are `solid: false` in `blocks.config.crafted.ts`
+  // and yet are NOT in `PASSABLE_BLOCK_IDS`, so `getBlockCollisionShapeAt`
+  // (`block-collision-predicates.ts:135-141`) returns a FULL block hull for all
+  // four. `full` is therefore transcribed. Audit §7 already established that
+  // `properties.solid` is read nowhere in the reference (`rg '\.solid\b'` -> 0
+  // production hits) and kernel rejected the field for that reason; this group is
+  // where that decision pays, because believing `solid: false` here would have
+  // let the player walk through a wall of repeaters.
+  {
+    id: BlockId(74),
+    definition: {
+      type: 'redstone_wire',
+      capabilities: {
+        brokenByWaterFlow: true,
+        suffocates: false,
+        canSupportAttachments: false,
+        validSpawnSurface: false,
+      },
+      properties: {
+        opacity: 'transparentSolid',
+        hardness: 0,
+        friction: 0,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'redstone_dust' },
+        supportRule: NEEDS_ANY_SUPPORT, // block-support.ts:25, no entry at :75-89
+      },
+    },
+  },
+  {
+    id: BlockId(75),
+    definition: {
+      type: 'redstone_torch',
+      capabilities: {
+        brokenByWaterFlow: true,
+        suffocates: false,
+        canSupportAttachments: false,
+        validSpawnSurface: false,
+      },
+      properties: {
+        opacity: 'transparentSolid',
+        lightEmission: 7,
+        hardness: 1,
+        friction: 0.1,
+        supportRule: NEEDS_ANY_SUPPORT, // block-support.ts:24, no entry at :75-89
+      },
+    },
+  },
+  {
+    id: BlockId(76),
+    definition: {
+      type: 'lever',
+      capabilities: { suffocates: false, validSpawnSurface: false },
+      properties: { opacity: 'transparentSolid', hardness: 5 },
+    },
+  },
+  {
+    id: BlockId(77),
+    definition: {
+      type: 'stone_button',
+      capabilities: { suffocates: false, validSpawnSurface: false },
+      properties: { opacity: 'transparentSolid', hardness: 5 },
+    },
+  },
+  {
+    id: BlockId(78),
+    definition: {
+      type: 'repeater',
+      capabilities: { suffocates: false, validSpawnSurface: false },
+      properties: { opacity: 'transparentSolid', hardness: 35 },
+    },
+  },
+  { id: BlockId(79), definition: { type: 'redstone_lamp', properties: { hardness: 10 } } },
+  {
+    id: BlockId(80),
+    definition: {
+      type: 'redstone_lamp_lit',
+      properties: { lightEmission: 15, hardness: 10, drops: { ...DEFAULT_BLOCK_DROP, item: 'redstone_lamp' } },
+    },
+  },
+  { id: BlockId(81), definition: { type: 'observer', properties: { hardness: 55 } } },
+  { id: BlockId(82), definition: { type: 'comparator', properties: { hardness: 5 } } },
+  { id: BlockId(83), definition: { type: 'dispenser', properties: { hardness: 60 } } },
+  { id: BlockId(84), definition: { type: 'hopper', properties: { hardness: 55 } } },
+  { id: BlockId(85), definition: { type: 'piston_head', properties: { hardness: 1, drops: DROPS_NOTHING } } },
+
+  // ---------------------------------------------------------------------------
+  // ids 86-102: The End (`blocks.config.end.ts`)
+  // ---------------------------------------------------------------------------
+  //
+  // THE HARDNESS VALUES IN THIS GROUP ARE ON A DIFFERENT SCALE FROM EVERY OTHER
+  // GROUP, AND THAT IS THE REFERENCE'S DOING. `blocks.config.end.ts` builds its
+  // rows through one helper and passes vanilla floats to it — `PURPUR_BLOCK` 1.5,
+  // `SHULKER_BOX` 2, `DRAGON_EGG` 3, `ENDER_CHEST` 22.5, `CHORUS_FLOWER` 0.4 —
+  // while `END_STONE_BRICKS` in the same array is 45, which is the 0-100 scale.
+  // Twelve of thirteen on one scale, one on the other, in one file.
+  //
+  // Transcribed, not converted. The reference's own float-to-scale mapping is a
+  // hand-made ordering (0.5->8, 1.5->25, 2.0->35, 3.0->50, 50->90), not a
+  // formula, so "converting" would mean choosing numbers — content invented to
+  // make a column look tidy. The visible consequence: purpur reads as SOFTER
+  // than dirt. That is what the source says, it is recorded in audit §4.5.2, and
+  // it is the reason `docs/capability-flag-audit.md` says this column may not be
+  // compared across group boundaries.
+  //
+  // TWO VALUES ARE OUTSIDE THE DOCUMENTED 0-100 RANGE, in opposite directions:
+  //
+  //   `end_portal_frame` / `_filled` are 9000. The reference's spelling of
+  //     "unbreakable", above `bedrock`'s 100. Kept verbatim: it is monotone with
+  //     the rest of the column (bigger is harder), so it is comparable even
+  //     though it is off the end of the stated range.
+  //
+  //   `end_gateway` is -1 in the reference, and that one is NOT kept. A negative
+  //     hardness is not "very hard": `computeBreakTicks` (`break-speed.ts:29-31`)
+  //     returns 0 for `hardness <= 0`, so -1 means INSTANT, which is the exact
+  //     opposite of the intent and is a bug in the reference. This row says 0,
+  //     which is behaviourally identical to -1 under that function and is inside
+  //     the range the column claims. The bug is recorded rather than inherited,
+  //     and `end_gateway` drops nothing anyway (`endBlockDrops` maps it to AIR).
+  //
+  // `purpur_slab` is the second member of `SLAB_BLOCK_IDS`
+  // (`block-collision-predicates.ts:56-59`). `collisionShape: 'slab'` now has
+  // the complete two-member set behind it that the reference has.
+  //
+  // Ten of the seventeen are in `NON_SUFFOCATING_BLOCKS` and seven of those are
+  // also in `NON_SPAWN_SURFACE_BLOCK_IDS`, but the two sets are NOT nested here:
+  // `dragon_egg`, `ender_chest`, `purpur_slab`, `purpur_stairs` and `shulker_box`
+  // are non-suffocating and ARE valid spawn surfaces. Another five rows where
+  // collapsing the two flags into one would change behaviour.
+  { id: BlockId(86), definition: { type: 'end_stone', properties: { hardness: 45 } } },
+  {
+    id: BlockId(87),
+    definition: {
+      type: 'end_portal_frame',
+      capabilities: { suffocates: false },
+      properties: { lightEmission: 1, hardness: 9000 },
+    },
+  },
+  {
+    id: BlockId(88),
+    definition: {
+      type: 'end_portal_frame_filled',
+      capabilities: { suffocates: false },
+      properties: { lightEmission: 3, hardness: 9000 },
+    },
+  },
+  {
+    id: BlockId(89),
+    definition: {
+      type: 'end_portal',
+      capabilities: { suffocates: false, validSpawnSurface: false },
+      properties: {
+        opacity: 'transparentSolid',
+        lightEmission: 15,
+        hardness: 0,
+        friction: 0,
+        // See `nether_portal`: world state, never carried, and the "nothing" is
+        // written down rather than arrived at by having no item form.
+        drops: DROPS_NOTHING,
+      },
+    },
+  },
+  {
+    id: BlockId(90),
+    definition: {
+      type: 'chorus_flower',
+      capabilities: { suffocates: false, validSpawnSurface: false },
+      properties: { opacity: 'transparentSolid', hardness: 0.4, friction: 0 },
+    },
+  },
+  {
+    id: BlockId(91),
+    definition: {
+      type: 'chorus_plant',
+      capabilities: { suffocates: false, validSpawnSurface: false },
+      properties: { opacity: 'transparentSolid', hardness: 0.4, friction: 0 },
+    },
+  },
+  {
+    id: BlockId(92),
+    definition: {
+      type: 'dragon_egg',
+      capabilities: { suffocates: false },
+      properties: { opacity: 'transparentSolid', hardness: 3 },
+    },
+  },
+  {
+    id: BlockId(93),
+    definition: {
+      type: 'end_crystal',
+      capabilities: { suffocates: false, validSpawnSurface: false },
+      properties: { opacity: 'transparentSolid', hardness: 0, friction: 0 },
+    },
+  },
+  {
+    id: BlockId(94),
+    definition: {
+      type: 'end_gateway',
+      capabilities: { suffocates: false, validSpawnSurface: false },
+      properties: { opacity: 'transparentSolid', lightEmission: 15, hardness: 0, friction: 0, drops: DROPS_NOTHING },
+    },
+  },
+  {
+    id: BlockId(95),
+    definition: {
+      type: 'end_rod',
+      capabilities: { suffocates: false, validSpawnSurface: false },
+      properties: { opacity: 'transparentSolid', lightEmission: 15, hardness: 0, friction: 0 },
+    },
+  },
+  { id: BlockId(96), definition: { type: 'end_stone_bricks', properties: { hardness: 45 } } },
+  {
+    id: BlockId(97),
+    definition: {
+      type: 'ender_chest',
+      capabilities: { suffocates: false },
+      properties: { lightEmission: 15, hardness: 22.5 },
+    },
+  },
+  { id: BlockId(98), definition: { type: 'purpur_block', properties: { hardness: 1.5 } } },
+  { id: BlockId(99), definition: { type: 'purpur_pillar', properties: { hardness: 1.5 } } },
+  {
+    id: BlockId(100),
+    definition: {
+      type: 'purpur_slab',
+      capabilities: { suffocates: false },
+      properties: { opacity: 'transparentSolid', collisionShape: 'slab', hardness: 1.5 },
+    },
+  },
+  {
+    id: BlockId(101),
+    definition: {
+      type: 'purpur_stairs',
+      capabilities: { suffocates: false },
+      properties: { opacity: 'transparentSolid', hardness: 1.5 },
+    },
+  },
+  {
+    id: BlockId(102),
+    definition: {
+      type: 'shulker_box',
+      capabilities: { suffocates: false },
+      properties: { hardness: 2 },
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // ids 103-119: crafted blocks, furniture, and the Nether
+  // ---------------------------------------------------------------------------
+  //
+  // The remainder, and the group with the most `flammable` in it:
+  // `FLAMMABLE_BLOCK_TYPES` (`fire-lifecycle.ts:19-30`) has eleven members and
+  // seven of them land here — `crafting_table`, `chest`, `door`, `door_open`,
+  // `oak_stairs`, `bed`, `tnt` — completing that closed table (the other four,
+  // `oak_log`, `oak_leaves`, `oak_planks` and `ladder`, were already in place).
+  //
+  // `netherrack` is a `fireSource`, which until now only `lava` was.
+  // `isFireSourceIndex` (`fire-lifecycle.ts:80-81`) is exactly those two, so the
+  // capability finally has the pair that shows it is not a synonym for
+  // `flammable`: netherrack sustains a fire without itself burning away.
+  //
+  // THREE ROWS GET NO ITEM FORM, and the reason is kernel's own judgement rather
+  // than a transcription — say so plainly. `fire`, `nether_portal` and (in the
+  // End group) `end_portal` are world STATE: created by a rule, never carried,
+  // never placed from a hotbar. The reference cannot express that, because its
+  // `InventoryItem` is the UNION of block and item names, so it hands an item
+  // form to `AIR` as well. Kernel already rejected that union for `air`
+  // (audit §6-6) and for the fluids; these three are the same argument applied
+  // to the same kind of thing. They surface in `UNITEMISED_BLOCK_TYPES`, where a
+  // reviewer can disagree with the decision, rather than in silence.
+  //
+  // `door`/`door_open` and `cauldron`/`water_cauldron` are the two state pairs.
+  // `INVENTORY_DROP_OVERRIDES` maps the second of each to the first, so both
+  // pairs drop the item you can actually hold, and neither `door_open` nor
+  // `water_cauldron` has an item of its own.
+  //
+  // `fire` is worth one more line. It is not in `FLAMMABLE_BLOCK_TYPES` — fire
+  // does not catch fire — and not in `isFireSourceIndex` either, which is the
+  // reference distinguishing "the thing that burns" from "the thing that keeps
+  // burning" from "the burning itself". Three concepts, three answers, one row
+  // that says `false` to two flags it looks like it should say `true` to.
+  {
+    id: BlockId(103),
+    definition: {
+      type: 'crafting_table',
+      capabilities: { flammable: true },
+      properties: { hardness: 40, harvestTool: FASTER_WITH_AXE },
+    },
+  },
+  { id: BlockId(104), definition: { type: 'furnace', properties: { hardness: 55, friction: 0.8 } } },
+  {
+    id: BlockId(105),
+    definition: {
+      type: 'chest',
+      capabilities: { flammable: true },
+      properties: { hardness: 35 },
+    },
+  },
+  {
+    id: BlockId(106),
+    definition: {
+      type: 'door',
+      capabilities: { flammable: true, suffocates: false, validSpawnSurface: false },
+      properties: { opacity: 'transparentSolid', hardness: 15 },
+    },
+  },
+  {
+    id: BlockId(107),
+    definition: {
+      type: 'door_open',
+      capabilities: { flammable: true, suffocates: false, validSpawnSurface: false },
+      properties: { opacity: 'transparentSolid', hardness: 15, drops: { ...DEFAULT_BLOCK_DROP, item: 'door' } },
+    },
+  },
+  {
+    id: BlockId(108),
+    definition: {
+      type: 'oak_stairs',
+      capabilities: { flammable: true, suffocates: false },
+      properties: { opacity: 'transparentSolid', hardness: 35 },
+    },
+  },
+  {
+    id: BlockId(109),
+    definition: {
+      type: 'anvil',
+      properties: { hardness: 75, harvestTool: NEEDS_WOODEN_PICKAXE },
+    },
+  },
+  {
+    id: BlockId(110),
+    definition: {
+      type: 'cauldron',
+      properties: { hardness: 35, harvestTool: NEEDS_WOODEN_PICKAXE },
+    },
+  },
+  {
+    id: BlockId(111),
+    definition: {
+      type: 'water_cauldron',
+      properties: {
+        hardness: 35,
+        harvestTool: NEEDS_WOODEN_PICKAXE,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'cauldron' },
+      },
+    },
+  },
+  {
+    id: BlockId(112),
+    definition: {
+      type: 'bed',
+      capabilities: { flammable: true, suffocates: false, validSpawnSurface: false },
+      properties: { opacity: 'transparentSolid', hardness: 10 },
+    },
+  },
+  {
+    id: BlockId(113),
+    definition: {
+      type: 'enchanting_table',
+      capabilities: { suffocates: false },
+      properties: { hardness: 30 },
+    },
+  },
+  {
+    id: BlockId(114),
+    definition: {
+      type: 'brewing_stand',
+      properties: { opacity: 'transparentSolid', hardness: 15 },
+    },
+  },
+  { id: BlockId(115), definition: { type: 'tnt', capabilities: { flammable: true }, properties: { hardness: 0 } } },
+  { id: BlockId(116), definition: { type: 'nether_brick', properties: { hardness: 40 } } },
+  {
+    id: BlockId(117),
+    definition: {
+      type: 'netherrack',
+      capabilities: { fireSource: true },
+      properties: { hardness: 5 },
+    },
+  },
+  {
+    id: BlockId(118),
+    definition: {
+      type: 'nether_portal',
+      capabilities: { suffocates: false, validSpawnSurface: false },
+      properties: {
+        opacity: 'transparentSolid',
+        lightEmission: 11,
+        hardness: 0,
+        friction: 0,
+        // STATED, not left to the missing item form. Without this the row would
+        // carry the default "yields itself", resolve to nothing because
+        // `nether_portal` has no item, and be indistinguishable from an
+        // oversight — which is the failure `test/item-drops.test.ts` now
+        // forbids. A portal is lit by a rule and is never carried.
+        drops: DROPS_NOTHING,
+      },
+    },
+  },
+  {
+    id: BlockId(119),
+    definition: {
+      type: 'fire',
+      properties: {
+        opacity: 'transparentSolid',
+        lightEmission: 15,
+        hardness: 0,
+        friction: 0,
+        // Fire is the third of the three world-state rows. It is also the row
+        // that says `flammable: false` and `fireSource: false` by saying nothing
+        // — fire neither catches fire (`FLAMMABLE_BLOCK_TYPES` omits it) nor
+        // sustains one (`isFireSourceIndex` is NETHERRACK and LAVA only).
+        drops: DROPS_NOTHING,
       },
     },
   },
@@ -1219,6 +2397,66 @@ export const lightEmissionOfBlockId = (id: number): number => propertyOfBlockId(
  * every row would not be a capability.
  */
 export const transmitsLight = (id: number): boolean => opacityOfBlockId(id) !== 'opaque'
+
+// ---------------------------------------------------------------------------
+// Support: one named property reading and the JOIN that reads two bytes
+// ---------------------------------------------------------------------------
+//
+// `supportRuleOfBlockId` is a fourth named property reading, and the paragraph
+// above says the light pair are deliberately the only ones — so this needs the
+// same kind of reason rather than a shrug. It has one, and it is stronger than
+// mc-worldgen's: the reading is not the point, `canBlockStaySupported` is, and
+// that function needs the rule of ONE byte and a capability of ANOTHER. Naming
+// the reading is what lets the join below be four lines that a reader can check
+// against `block-support.ts:96-101` line for line.
+//
+// The other half is the caller's: a placement rule reads the cell BELOW only
+// when the held block is support-sensitive, which is a store call it skips on
+// the stone a player spends a session stacking. Deciding that needs the rule
+// before the second read exists, so the join cannot answer it.
+
+/**
+ * The support rule of a chunk buffer byte.
+ *
+ * TOTAL, by delegation: an id this build cannot name requires nothing below,
+ * because that is `BLOCK_PROPERTY_DEFAULTS.supportRule`. The inert reading
+ * again — an unknown block sits where it was put rather than popping off.
+ */
+export const supportRuleOfBlockId = (id: number): SupportRule => propertyOfBlockId(id, 'supportRule')
+
+/**
+ * Does this byte care what is under it?
+ *
+ * `SUPPORT_SENSITIVE_BLOCK_TYPES` (`block-support.ts:22-32`) as a question about
+ * a byte. `false` for an unknown id, which is the permissive direction and is
+ * chosen: the alternative refuses to place an unnameable block for a reason
+ * nobody can state, and `capabilityOfBlockId` has already settled that an
+ * unknown byte reads as an ordinary cube.
+ */
+export const isSupportSensitiveBlockId = (id: number): boolean =>
+  isSupportSensitive(supportRuleOfBlockId(id))
+
+/**
+ * `canBlockStaySupported` (`block-support.ts:96-101`), on two chunk buffer
+ * bytes: the block being held up, and the block under it.
+ *
+ * THE function this column exists for, and the shape is `dropOfBlockId`'s — a
+ * JOIN of two columns that no single accessor can express, offered so that a
+ * consumer does not reassemble it and get the precedence backwards. The
+ * precedence is the part that goes wrong: the per-block list wins over the
+ * negative set, and a caller that checks `canSupportAttachments` FIRST refuses
+ * a lily pad on water before the rule that permits it ever runs.
+ *
+ * TOTAL in both arguments. Note that this answers PLACEMENT and would equally
+ * answer a maintenance sweep ("should this block pop off now?"); kernel has no
+ * opinion about which, because it holds no world.
+ */
+export const canBlockStaySupported = (id: number, supportBelow: number): boolean =>
+  satisfiesSupportRule(
+    supportRuleOfBlockId(id),
+    blockTypeOfId(supportBelow),
+    capabilityOfBlockId(supportBelow, 'canSupportAttachments'),
+  )
 
 /**
  * Block types in the vocabulary that the table does not yet cover.

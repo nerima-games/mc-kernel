@@ -84,6 +84,10 @@ describe('block properties — the additive-safety guarantee, extended to non-bo
         railKind: 'none',
         harvestTool: { category: 'none', minTier: 'none' },
         drops: { item: 'self', count: 1, requiresSilkTouch: false, affectedByFortune: false },
+        // Audit §4.6 states this default in as many words: `supportRule='none'`.
+        // An ordinary cube requires nothing beneath it, so a block that says
+        // nothing about support is not "unsupported" — it is uninterested.
+        supportRule: { kind: 'none' },
       }
       expect({ ...BLOCK_PROPERTY_DEFAULTS }).toStrictEqual(expected)
     }),

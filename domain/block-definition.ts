@@ -130,6 +130,48 @@ export const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string> = [
  * (one row in the flag table or two lines in the property table) precisely
  * because the mechanism was built first.
  *
+ * ---------------------------------------------------------------------------
+ * ONE OF THE FOUR HAS LANDED; TWO MORE ARE UNBLOCKED. The roster arrived.
+ * ---------------------------------------------------------------------------
+ *
+ * Three of these entries said, in one form or another, that the capability
+ * could not be given a meaningful default 「until the block roster exists」.
+ * `./block-type` is now the reference's full 120 and `./block-registry` has a
+ * row for every one, so that sentence has stopped being true. Recorded here
+ * because a blocker that has silently expired is worse than a live one: it
+ * keeps deterring work that nothing is actually preventing.
+ *
+ * What changed, capability by capability:
+ *
+ *   `supportRule`       IMPLEMENTED, and no longer on this list.
+ *     `./block-support` carries the column and `./block-registry` fills in all
+ *     nineteen non-default rows. Every block `block-support.ts:75-91` needs to
+ *     name was in the roster — `farmland` (which all three crops require),
+ *     `dirt`, `grass_block`, `sand`, `water`, `sugar_cane`, `cactus`,
+ *     `lily_pad`. `farmland` was the last missing one, and its absence was what
+ *     had made the rule unwritable.
+ *
+ *   `textureTiles`      UNBLOCKED as to the roster, but a design question
+ *     survives it. Audit §4.8's objection — that the reference keeps a
+ *     positional array indexed by storage index, double-managed against the
+ *     definition table — is about the SHAPE and is untouched by the roster.
+ *     "There is no block table yet" is no longer among the reasons to wait.
+ *
+ *   `footstepMaterial`  PARTIALLY unblocked. Re-reading it, the roster was
+ *     never its blocker: the entry says it belongs to the same change as the
+ *     mc-audio cue vocabulary, and that is still true. Listed among the three
+ *     because `docs/testing.md` had recorded it as roster-blocked; it was not.
+ *
+ *   `tillable`          Unchanged, and never roster-blocked.
+ *     `TILLABLE_BLOCK_TYPES` is DIRT and GRASS, both of which were in the
+ *     roster from the start.
+ *
+ * Implementing any of them was deliberately NOT part of the change that
+ * completed the roster. A capability is a semver-MINOR addition to a package
+ * fourteen repositories pin, and it should arrive as its own reviewable diff
+ * rather than buried in an 84-row table. `supportRule` did arrive that way, as
+ * its own change, and the other three are still waiting for the same courtesy.
+ *
  * Separately REJECTED, and therefore absent from both this list and the tables:
  * `properties.solid` and `faces`, which the reference's `BlockPropertiesSchema`
  * carries but which audit §7 verified are never read in production (`rg
@@ -141,14 +183,6 @@ export const PENDING_CAPABILITIES: ReadonlyArray<{
   readonly kind: 'flag' | 'property'
   readonly why: string
 }> = [
-  {
-    name: 'supportRule',
-    kind: 'property',
-    why:
-      'audit §4.6 (block-support.ts:75-91). Its value is a per-block list of ' +
-      'permitted blocks below (crops->FARMLAND, CACTUS->SAND|self, LILY_PAD->WATER), ' +
-      'so it cannot be given a meaningful default until the block roster exists.',
-  },
   {
     name: 'footstepMaterial',
     kind: 'property',
@@ -167,7 +201,8 @@ export const PENDING_CAPABILITIES: ReadonlyArray<{
     why:
       'audit §4.8 (block-texture-map.config.ts:18). The audit records that this ' +
       'is currently a positional array indexed by storage index, double-managed ' +
-      'against the definition table. Audit §4.8 says it has no default at all, so ' +
-      'it must land together with the real block roster, not before it.',
+      'against the definition table, and that it has no default at all. The ' +
+      'roster half of that is UNBLOCKED — the real block roster exists now — but ' +
+      'the double-management objection is about the shape and still stands.',
   },
 ]

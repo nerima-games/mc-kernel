@@ -101,49 +101,140 @@ plan.md §3.1 は能力フラグとして `passable` / `fallsWhenUnsupported` / 
 
 - 既定値: `hardness=8`(`blocks.config.terrain.ts:9-14` の `defaultBlockProperties` に一致) / `friction=0.6`(同、`DEFAULT_BLOCK_FRICTION` と一致) / `harvestTool=undefined`(素手可) / `drops={item: 自身, count: 1}` / `xpOnBreak=0`。
 
-#### 4.5.1 未解決(2026-07-27 記録): `hardness` 列に尺度が 2 つ混ざっている
+#### 4.5.1 解決済み(2026-07-27): `hardness` 列の尺度混在
 
-**`domain/block-registry.ts` の `hardness` 列は、現状 2 つの異なる尺度の値が混在している。**
-これは今回の語彙拡張で見つかったが、**今回の変更で直していない** —— 既存 8 行の値を書き換える判断は
-この作業の範囲外であり、単独でレビューされるべきだから。
+**この節は「未解決」として記録され、語彙を 120 に完成させる作業で決着した。**
+決着させざるを得なかった理由は、84 行を新しく足す側にあった —— 一方の尺度で 84 行、
+もう一方で 13 行という表は、列の値どうしを一切比較できない表である。
 
-参照実装の `hardness` は **0-100 の相対尺度**である(`blocks.config.terrain.ts:4-8` が明示:
-「Hardness uses a 0-100 scale」)。実際の値:
+**採用したのは参照実装の 0-100 相対尺度**（`blocks.config.terrain.ts:4-8` が明示している）。
+この節が当初推奨していた方であり、理由も当初のまま: 監査 §4.5 が引く既定値 8 が
+`defaultBlockProperties.hardness` そのものであり、kernel の `bedrock` = 100 も同じ尺度で、
+**出典を引ける尺度はこれしかない**。vanilla float 側には「相対順序の由来」以上の地位が無い。
 
-| ブロック | 参照実装(0-100 尺度) | kernel の現在値 |
+修正した行（当初 8 行として記録したが、機械的に導出し直したところ **13 行**あった）:
+
+| ブロック | 修正前 | 修正後（参照実装） |
 | --- | --- | --- |
-| 既定値 | 8 | 8 ✅ |
-| `bedrock` | 100 | 100 ✅ |
-| `stone` | **25** | 既定の 8（未指定） ❌ |
-| `oak_log` (`WOOD`) | **35** | 2 ❌ |
-| `oak_planks` (`PLANKS`) | **35** | 2 ❌ |
-| `glass` | 4 | 0.3 ❌ |
-| `oak_leaves` | 3 | 0.2 ❌ |
-| `snow` | 2 | 0.1 ❌ |
-| `sand` | 8 | 0.5 ❌ |
-| `gravel` | 10 | 0.6 ❌ |
+| `stone` | 8（未指定） | **25** |
+| `grass_block` | 8（未指定） | **10** |
+| `cobblestone` | 8（未指定） | **35** |
+| `piston` | 8（未指定） | **55** |
+| `sand` | 0.5 | **8** |
+| `gravel` | 0.6 | **10** |
+| `snow` | 0.1 | **2** |
+| `glass` | 0.3 | **4** |
+| `glowstone` | 0.3 | **4** |
+| `oak_leaves` | 0.2 | **3** |
+| `torch` | 0 | **1** |
+| `oak_log` | 2 | **35** |
+| `oak_planks` | 2 | **35** |
 
-kernel の既定値(8)と `bedrock`(100)は 0-100 尺度、それ以外は**vanilla の float 値**(sand 0.5, wood 2.0 …)を
-使っている。参照実装のコメントは vanilla float を「相対順序の由来」として挙げているだけで、値としては採用していない。
+**当初の記録が 8 行としていたのは、目視で拾ったからである。**
+`grass_block` / `cobblestone` / `piston` / `torch` / `glowstone` の 5 行は
+「値が書いていない」形の誤りだったので、値を見比べる読み方では見えなかった。
+**未指定は既定値の主張であり、既定値が正しくなければ未指定は誤りである** ——
+この形の誤りを数え落とした事実の方が、13 という数より重要である。
 
-**順序が反転している行が 2 つある。** `oak_log` / `oak_planks` は kernel では 2 であり、既定の 8 より**柔らかい**。
-参照実装では 35 であり、既定の 8 より遥かに**硬い**。`break-speed.ts:29-43` は hardness を採掘時間の基数に使うので、
-これは「丸太が土より速く掘れる」という実際の振る舞いの差になる。
+`oak_log` / `oak_planks` の順序反転（既定 8 より柔らかい 2 → 参照実装は 35）は
+当初の記録どおり実挙動の差だった。`break-speed.ts:29-43` は hardness を採掘時間の基数に
+線形に使うので、丸太が土より速く掘れていた。
 
-**今回追加した 18 行は参照実装の 0-100 尺度で書いた**(`ladder` 4 / `rail` 7 / `pressure_plate` 5 /
-`stone_slab` 25 / `cactus` 8 / 植物 0)。既定値と `bedrock` という 2 つのアンカーがその尺度であり、
-出典を引ける唯一の尺度でもあるため。**結果として表の不整合は残っている。**
+**ついでに `friction` 列にも同じ形の誤りが 10 行あった**（`air` / `bedrock` / `stone` /
+`sand` / `water` / `snow` / `gravel` / `lava` / `torch` / `cobblestone`）。
+いずれも参照実装が値を持つ行で kernel が既定 0.6 を取っていたもので、
+`getBlockFrictionAt`（`block-collision-predicates.ts:152-161`）は
+プレイヤーが立っているブロックの値を読むため、全て挙動の差である。
+石の 0.8 / 砂の 0.5 / 雪の 0.3 / 氷の 0.98 が全て 0.6 になっていた。
 
-決めるべきこと: 既存 8 行を 0-100 尺度に揃えるか、既定値ごと vanilla float に揃えるか。
-前者を推奨する —— 監査 §4.5 が引いている既定値 8 が 0-100 尺度であり、`hardness` の値域を
-「0-100」と述べている `domain/block-properties.ts` の記述もそちらに一致する。
-どちらにせよ**片方に統一するまで、この列の値どうしを比較してはいけない**。
+両列とも `test/block-registry.test.ts` がブロックごとに参照実装の値で固定した。
+
+#### 4.5.2 未解決(2026-07-27 記録): 参照実装の `hardness` 列自体に尺度が 2 つある
+
+§4.5.1 を解決した際に、**同じ欠陥が参照実装の側にもあることが分かった**。
+kernel はこれを転記しており、**変換していない**。
+
+`packages/block/domain/blocks.config.end.ts` は 13 エントリを 1 つのヘルパー経由で作るが、
+そのうち **12 個は vanilla の float**、1 個だけが 0-100 尺度である:
+
+| ブロック | 参照実装の値 | どちらの尺度か |
+| --- | --- | --- |
+| `PURPUR_BLOCK` / `PURPUR_PILLAR` / `PURPUR_SLAB` / `PURPUR_STAIRS` | 1.5 | vanilla float |
+| `SHULKER_BOX` | 2 | vanilla float |
+| `DRAGON_EGG` | 3 | vanilla float |
+| `ENDER_CHEST` | 22.5 | vanilla float |
+| `CHORUS_FLOWER` / `CHORUS_PLANT` | 0.4 | vanilla float |
+| `END_CRYSTAL` / `END_ROD` | 0 | どちらでも同じ |
+| `END_GATEWAY` | **-1** | どちらでもない（下記） |
+| `END_STONE_BRICKS` | 45 | **0-100 尺度** |
+
+**変換せず転記した理由**: 参照実装自身の float → 尺度の対応は式ではなく手作りの順序である
+（0.5→8, 1.5→25, 2.0→35, 3.0→50, 50→90）。変換するとは数値を選ぶことであり、
+それは「列の見た目を整えるために内容を捏造する」ことになる。
+**目に見える帰結**: purpur は土（8）より柔らかく読める。これは出典がそう言っている。
+
+**したがって `hardness` 列はグループ境界を越えて比較してはならない。**
+0-100 尺度に乗っているのは The End 以外の 103 行であり、The End の 17 行は別尺度である。
+
+##### 範囲外の 2 値
+
+`domain/block-properties.ts` は `hardness` を「0..100」と述べているが、
+参照実装には両側にはみ出す値がある。扱いを分けた:
+
+- **`END_PORTAL_FRAME` / `_FILLED` = 9000**: そのまま転記した。
+  参照実装の「破壊不能」の綴りで、`bedrock` の 100 より上。
+  **列の単調性（大きいほど硬い）を保つので、範囲外でも比較可能**である。
+- **`END_GATEWAY` = -1**: **転記しなかった。0 にした。**
+  負の hardness は「とても硬い」ではない。`computeBreakTicks`（`break-speed.ts:29-31`）は
+  `hardness <= 0` で 0 を返すので、**-1 は「即座に壊れる」を意味し、意図の正反対**である。
+  これは参照実装のバグである。0 は同関数の下で -1 と挙動が同一かつ範囲内なので、
+  バグを継承せずに挙動を転記できる。なお `end_gateway` は `endBlockDrops` が
+  `AIR` に写すのでいずれにせよ何も落とさない。
+
+#### 4.5.3 `INVENTORY_DROP_OVERRIDES` は 24 エントリではなく 29 エントリ
+
+§4.5 の本文は「`block-service.config.ts:151-187` `INVENTORY_DROP_OVERRIDES`(24 エントリ)」と
+書いているが、**現在の参照実装では 29 ある**（機械的に数えた）。
+24 はおそらく監査時点の値で、その後 5 行増えたものである。
+
+実害は無かった（kernel は個々の行を名指しで転記しており、総数に依存していない）が、
+**この文書がこの組織で 7 例目の「間違った測り方で正当化された数字」になるところだった**
+という点で記録する価値がある。§2-1 の「リテラル数 120」は再計数して正しいことが
+確認されている（`docs/testing.md` §5.2）—— 同じ文書の中で片方は正しく片方は古い。
 
 ### 4.6 `supportRule` / `canSupportAttachments` / `brokenByWaterFlow`
 
 `packages/world/domain/block-support.ts` に集中。:22-32 `SUPPORT_SENSITIVE_BLOCK_TYPES`(TORCH/REDSTONE_*/PRESSURE_PLATE/RAIL/作物/草花)、:75-91 `SUPPORT_RULES`(作物→FARMLAND、SUGAR_CANE→DIRT/GRASS/SAND/自身、CACTUS→SAND/自身、LILY_PAD→WATER、草花→DIRT/GRASS/FARMLAND)、:47-61 `NON_SUPPORTING_BLOCK_TYPES`、:34-45 `WATER_BREAKABLE_BLOCK_TYPES` → :103 `isWaterBreakableBlockIndex`(`fluid-service-helpers.ts:30` から利用)。
 
 - 既定値: `supportRule='none'` / `canSupportAttachments=true` / `brokenByWaterFlow=false`。
+
+#### 4.6.1 追記: `supportRule` を実装した（3 テーブルを 1 列に畳んだ）
+
+`domain/block-support.ts` に `SupportRule` として実装済み。**参照実装の 3 テーブルを 1 列にしてある**:
+
+| 参照実装 | kernel |
+| --- | --- |
+| `SUPPORT_SENSITIVE_BLOCK_TYPES`（:22-32） | `kind !== 'none'`（導出。集合を持たない） |
+| `SUPPORT_RULES`（:75-91） | `{ kind: 'oneOf', blocks }` |
+| `NON_SUPPORTING_BLOCK_TYPES`（:47-61） | `{ kind: 'anySupporting' }` → 既存の `canSupportAttachments` を読む |
+
+**感度集合を別に持たなかったのは §4.9 の結論の直接の適用である。**
+同じ概念を 2 箇所に持てば 2 つのメンバーシップになる。`supportSensitive` フラグと
+`supportRule` 表を両方持てば、「感度があるが規則が無い」（実在する状態）と
+「規則があるが感度が無い」（誰も読まない規則）が別々に表現でき、後者は黙って壊れる。
+
+**値は述語ではなくデータである。** 参照実装の `SUPPORT_RULES` は
+`Map<BlockType, (blockBelow) => boolean>` でありクロージャを値に持つ。クロージャは
+`api-lock.md` に差分として出せず、ミラーに転記して比較もできない。`'oneOf'` はリストを持つ。
+参照実装の 5 エントリはすべて `Set.has` か `===` なので、表現力は失われていない。
+
+**規則を持たない 6 種**（`torch` / `redstone_torch` / `redstone_wire` / `pressure_plate` /
+`rail` / `powered_rail`）は `:75-89` に**行が無い**ことが根拠なので、
+`NEEDS_ANY_SUPPORT` を「その不在を書き下したもの」として持つ。ここで
+「土か石の上」などと**推論しなかった**ことが重要である（§4.9.1(c) の
+「ここで推論すると、それはコンテンツの捏造になる」と同じ理由）。
+
+19 行が非既定値（6 + 作物 3 + 草花 7 + 水辺 3）、残り 101 行は `'none'`。
 
 ### 4.7 `suffocates` / `contactDamage`
 
@@ -216,6 +307,69 @@ kernel の既定値(8)と `bedrock`(100)は 0-100 尺度、それ以外は**vani
 2 つしか probe していなかったため**両者が同じ間違いで一致していた**。
 `validSpawnSurface` の probe を追加した。教訓は id 1 個の話ではなく probe 配列の形の話である:
 **ミラーが転記している能力の数より probe が少なければ、そのチェックは検査していない成功を報告する。**
+
+### 4.10 追記(2026-07-27): 語彙を 120 に完成させて見つかった §4.9 の追加事例
+
+§4.9 は参照実装の「非固体」概念の重複を 5 例挙げた。**残り 84 リテラルを転記した際に、
+同じ形の不一致がさらに見つかった。**いずれも kernel は転記しており、推測で埋めていない。
+
+#### 4.10.1 作物 3 種の `suffocates` が割れている（最も鋭い事例）
+
+`block-support.ts:20` の `CROP_BLOCK_TYPES` は 3 メンバーの**閉じた集合**であり、
+同ファイルのすべての規則がこの 3 つを同一に扱う。ところが
+`NON_SUFFOCATING_BLOCKS`（`environment-hazard.config.ts:39-85`）は **2 つしか挙げていない**:
+
+| ブロック | `NON_SUFFOCATING_BLOCKS` |
+| --- | --- |
+| `WHEAT_CROP` | 記載あり（:48） |
+| `NETHER_WART_CROP` | 記載あり（:49） |
+| `POTATO_CROP` | **記載なし** |
+
+**これまでの 5 例は「別々のテーブルが別々のブロックについて食い違う」形だったが、
+これは出典自身が集合として定義しているものを割っている。**
+
+**kernel は補完していない。** 監査 §4.7 の「`passable=true` なら `suffocates=false` を
+導出してよい」という含意は使えない —— **作物は passable ではない**。
+`PASSABLE_BLOCK_IDS` に作物は 1 つも入っていないので、参照実装において作物は
+衝突上は完全な立方体である。導出を許す規則が存在しない以上、埋めれば勘である。
+
+#### 4.10.2 「作物は非固体」は `properties.solid` を読めば真、実際の挙動では偽
+
+上と同じ根の話で、§7 が `properties.solid` を「production では読まれていない」として
+**却下した判断を裏づける最良の事例**なので独立させる。
+
+`plantBlockProperties` は作物に `solid: false` を与える。しかし衝突を決めるのは
+`PASSABLE_BLOCK_IDS` だけであり（`getBlockCollisionShapeAt`、`:135-141`）、
+作物はそこに無い。**`solid` を信じて実装すると、プレイヤーは小麦畑をすり抜ける。**
+レッドストーン部品（`REDSTONE_WIRE` / `LEVER` / `STONE_BUTTON` / `REPEATER`）と
+`DOOR` / `BED` も同じ形で、いずれも `solid: false` かつ衝突は完全な立方体である。
+
+#### 4.10.3 `transmitsLight` と `!suffocates` の一致は崩れた
+
+36 行時点では全行で `opacity !== 'opaque'` と `!suffocates` が一致しており、
+`test/block-registry.test.ts` が「一致しているが依存してはならない」として空集合を固定していた。
+**120 行では 10 行が分離する**（両方向に）:
+
+- **不透明なのに窒息しない**: `farmland` / `ender_chest` / `shulker_box` /
+  `enchanting_table` / `end_portal_frame` / `_filled`
+- **透明なのに窒息する**: `ice` / `potato_crop` / `brewing_stand` / `fire`
+
+当時の注記は「`oak_stairs` が入ったら崩れる」と予測していたが、
+`OAK_STAIRS` は `transparency: true` なので実際には一致側に留まった —— **予測は結論が当たり、
+理由が外れていた**。テーブル全体に対する表明として書いてあったので、それでも機能した。
+
+#### 4.10.4 空のレジストリ行という欠陥の形（`piston`、`oak_log` に次ぐ 2 例目）
+
+不一致は参照実装側だけではなかった。kernel の `piston` 行は**オーバーライドを 1 つも
+書かない行**で、「普通の不透明立方体である」という主張の実例として置かれていた。
+その主張は 2 列で偽だった —— `PISTON` は `NON_SPAWN_SURFACE_BLOCK_IDS` に記載があり
+（`spawn-selection-search.ts:68`）、`hardness` も 55 である。
+
+**`validSpawnSurface` のような既定 `true` のフラグでは、「何も書かない」が
+「その挙動を選ぶ」になる。** `oak_log` で一度直したのと同じ欠陥であり、
+今回は「述べることが無い行」という設計上の飾りが原因だった。
+**表から空の行は無くした** —— 「確認して述べることが無い」と「確認していない」が
+同じ綴りになる限り、この欠陥は再発する。
 
 ## 5. plan.md に無いフラグ(ギャップリスト)
 

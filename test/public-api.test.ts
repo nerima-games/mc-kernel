@@ -104,6 +104,14 @@ describe('public API surface', () => {
         'resolveDropItem',
         'BARE_HANDED',
         'resolveDrop',
+        // supportRule (audit §4.6), in its own module for the same reason: its
+        // value is a list of BLOCK NAMES, so it is the one property that can go
+        // stale when a different block's row changes.
+        'NEEDS_NO_SUPPORT',
+        'NEEDS_ANY_SUPPORT',
+        'needsOneOf',
+        'isSupportSensitive',
+        'satisfiesSupportRule',
         // block definitions
         'blockCapabilitiesOf',
         'blockPropertiesOf',
@@ -132,6 +140,12 @@ describe('public API surface', () => {
         'opacityOfBlockId',
         'lightEmissionOfBlockId',
         'transmitsLight',
+        // the support readings and the two-byte join. `canBlockStaySupported` is
+        // `dropOfBlockId`'s shape — a join no single accessor can express — and
+        // mx-gameplay is its consumer.
+        'supportRuleOfBlockId',
+        'isSupportSensitiveBlockId',
+        'canBlockStaySupported',
         'dropOfBlockId',
         'UNREGISTERED_BLOCK_TYPES',
         // camera

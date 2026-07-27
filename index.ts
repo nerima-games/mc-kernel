@@ -2,8 +2,8 @@
  * @nerima-games/mc-kernel — the vocabulary every other repository shares.
  *
  * Documentation index: docs/README.md. The block capability model is
- * reconciled with docs/capability-flag-audit.md (24 of its 28 capabilities
- * implemented, 4 pending with recorded reasons — see PENDING_CAPABILITIES).
+ * reconciled with docs/capability-flag-audit.md (25 of its 28 capabilities
+ * implemented, 3 pending with recorded reasons — see PENDING_CAPABILITIES).
  * `FrameServices` is SETTLED (`ClockPort`, and nothing else) — see
  * docs/freeze-checklist.md (b). Still outstanding: the Chunk codec and the full
  * 120-literal block roster. See README.md 現状.
@@ -40,6 +40,7 @@ export * from './domain/block-harvest'
 export * from './domain/block-item'
 export * from './domain/block-properties'
 export * from './domain/block-registry'
+export * from './domain/block-support'
 export * from './domain/block-type'
 export * from './domain/camera'
 export * from './domain/clock'

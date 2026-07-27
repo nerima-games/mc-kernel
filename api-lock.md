@@ -13,7 +13,7 @@
 <!-- ------------------------------------------------------------------------- -->
 
 format: 1
-exported declarations: 131
+exported declarations: 140
 supporting declarations: 1
 
 ## Exported
@@ -108,7 +108,7 @@ const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry>;
 ### BLOCK_TYPES  `const`
 
 ```ts
-const BLOCK_TYPES: readonly ["air", "stone", "cobblestone", "dirt", "grass_block", "sand", "gravel", "water", "lava", "oak_log", "oak_planks", "oak_leaves", "glass", "torch", "glowstone", "bedrock", "piston", "snow", "ladder", "cobweb", "sapling", "dandelion", "poppy", "brown_mushroom", "red_mushroom", "tall_grass", "fern", "sugar_cane", "lily_pad", "kelp", "seagrass", "rail", "powered_rail", "cactus", "pressure_plate", "stone_slab"];
+const BLOCK_TYPES: readonly ["air", "stone", "cobblestone", "dirt", "grass_block", "sand", "gravel", "water", "lava", "oak_log", "oak_planks", "oak_leaves", "glass", "torch", "glowstone", "bedrock", "piston", "snow", "ladder", "cobweb", "sapling", "dandelion", "poppy", "brown_mushroom", "red_mushroom", "tall_grass", "fern", "sugar_cane", "lily_pad", "kelp", "seagrass", "rail", "powered_rail", "cactus", "pressure_plate", "stone_slab", "granite", "diorite", "andesite", "deepslate", "obsidian", "smooth_basalt", "calcite", "amethyst_block", "amethyst_cluster", "sandstone", "prismarine", "soul_sand", "ice", "farmland", "coal_ore", "iron_ore", "gold_ore", "diamond_ore", "redstone_ore", "lapis_ore", "emerald_ore", "deepslate_coal_ore", "deepslate_iron_ore", "deepslate_gold_ore", "deepslate_diamond_ore", "deepslate_redstone_ore", "deepslate_lapis_ore", "deepslate_emerald_ore", "coal_block", "iron_block", "gold_block", "diamond_block", "redstone_block", "lapis_block", "emerald_block", "wheat_crop", "potato_crop", "nether_wart_crop", "redstone_wire", "redstone_torch", "lever", "stone_button", "repeater", "redstone_lamp", "redstone_lamp_lit", "observer", "comparator", "dispenser", "hopper", "piston_head", "end_stone", "end_portal_frame", "end_portal_frame_filled", "end_portal", "chorus_flower", "chorus_plant", "dragon_egg", "end_crystal", "end_gateway", "end_rod", "end_stone_bricks", "ender_chest", "purpur_block", "purpur_pillar", "purpur_slab", "purpur_stairs", "shulker_box", "crafting_table", "furnace", "chest", "door", "door_open", "oak_stairs", "anvil", "cauldron", "water_cauldron", "bed", "enchanting_table", "brewing_stand", "tnt", "nether_brick", "netherrack", "nether_portal", "fire"];
 ```
 
 ### BlockAxis  `const`
@@ -221,6 +221,7 @@ type BlockProperties = {
     readonly railKind: RailKind;
     readonly harvestTool: HarvestToolRequirement;
     readonly drops: BlockDropRule;
+    readonly supportRule: SupportRule;
 };
 ```
 
@@ -436,7 +437,7 @@ type HarvestToolRequirement = {
 ### ITEM_TYPES  `const`
 
 ```ts
-const ITEM_TYPES: readonly ["stone", "cobblestone", "dirt", "grass_block", "sand", "gravel", "oak_log", "oak_planks", "oak_leaves", "glass", "torch", "glowstone", "piston", "stick", "glowstone_dust", "wooden_pickaxe", "coal", "iron_ingot", "flint", "gunpowder", "blaze_powder", "flint_and_steel", "fire_charge"];
+const ITEM_TYPES: readonly ["stone", "cobblestone", "dirt", "grass_block", "sand", "gravel", "oak_log", "oak_planks", "oak_leaves", "glass", "torch", "glowstone", "piston", "stick", "glowstone_dust", "wooden_pickaxe", "coal", "iron_ingot", "flint", "gunpowder", "blaze_powder", "flint_and_steel", "fire_charge", "granite", "diorite", "andesite", "deepslate", "obsidian", "smooth_basalt", "calcite", "amethyst_block", "sandstone", "prismarine", "soul_sand", "coal_block", "iron_block", "gold_block", "diamond_block", "redstone_block", "lapis_block", "emerald_block", "redstone_torch", "lever", "stone_button", "repeater", "redstone_lamp", "observer", "comparator", "dispenser", "hopper", "end_stone", "end_portal_frame", "end_portal_frame_filled", "chorus_flower", "chorus_plant", "dragon_egg", "end_crystal", "end_rod", "end_stone_bricks", "ender_chest", "purpur_block", "purpur_pillar", "purpur_slab", "purpur_stairs", "shulker_box", "crafting_table", "furnace", "chest", "door", "oak_stairs", "anvil", "cauldron", "bed", "enchanting_table", "brewing_stand", "tnt", "nether_brick", "netherrack", "raw_iron", "raw_gold", "diamond", "emerald", "lapis_lazuli", "redstone_dust", "amethyst_shard", "wheat_seeds", "potato", "nether_wart", "ladder", "kelp", "seagrass", "rail", "powered_rail", "pressure_plate", "stone_slab", "string", "snowball"];
 ```
 
 ### ItemType  `type`
@@ -495,6 +496,18 @@ const MonotonicTimeSecs: Brand.Brand.Constructor<MonotonicTimeSecs>;
 
 ```ts
 type MonotonicTimeSecs = number & Brand.Brand<'MonotonicTimeSecs'>;
+```
+
+### NEEDS_ANY_SUPPORT  `const`
+
+```ts
+const NEEDS_ANY_SUPPORT: SupportRule;
+```
+
+### NEEDS_NO_SUPPORT  `const`
+
+```ts
+const NEEDS_NO_SUPPORT: SupportRule;
 ```
 
 ### NON_PLACEABLE_ITEM_TYPES  `const`
@@ -601,6 +614,19 @@ interface StageRegistration {
     readonly after?: ReadonlyArray<StageId>;
     readonly run: (dt: DeltaTimeSecs) => Effect.Effect<void, never, FrameServices>;
 }
+```
+
+### SupportRule  `type`
+
+```ts
+type SupportRule = {
+    readonly kind: 'none';
+} | {
+    readonly kind: 'anySupporting';
+} | {
+    readonly kind: 'oneOf';
+    readonly blocks: ReadonlyArray<BlockType>;
+};
 ```
 
 ### TRUE_BY_DEFAULT_CAPABILITY_FLAGS  `const`
@@ -717,6 +743,12 @@ const blockPropertiesOf: (definition: BlockDefinition) => BlockProperties;
 const blockTypeOfId: (id: number) => BlockType | undefined;
 ```
 
+### canBlockStaySupported  `const`
+
+```ts
+const canBlockStaySupported: (id: number, supportBelow: number) => boolean;
+```
+
 ### capabilitiesOfBlockId  `const`
 
 ```ts
@@ -798,6 +830,18 @@ const isLightLevel: (value: number) => boolean;
 const isPlaceableItem: (item: ItemType) => item is PlaceableItemType;
 ```
 
+### isSupportSensitive  `const`
+
+```ts
+const isSupportSensitive: (rule: SupportRule) => boolean;
+```
+
+### isSupportSensitiveBlockId  `const`
+
+```ts
+const isSupportSensitiveBlockId: (id: number) => boolean;
+```
+
 ### itemOfBlock  `const`
 
 ```ts
@@ -820,6 +864,12 @@ const localCoordOfBlock: (value: BlockPosition) => LocalBlockCoord;
 
 ```ts
 const monotonicSecs: Effect.Effect<MonotonicTimeSecs, never, ClockPort>;
+```
+
+### needsOneOf  `const`
+
+```ts
+const needsOneOf: (...blocks: ReadonlyArray<BlockType>) => SupportRule;
 ```
 
 ### opacityOfBlockId  `const`
@@ -888,10 +938,22 @@ const resolvedBlockOfId: (id: number) => ResolvedBlock | undefined;
 const satisfiesHarvestTier: (requirement: HarvestToolRequirement, heldTier: HarvestTier) => boolean;
 ```
 
+### satisfiesSupportRule  `const`
+
+```ts
+const satisfiesSupportRule: (rule: SupportRule, blockBelow: BlockType | undefined, belowSupportsAttachments: boolean) => boolean;
+```
+
 ### snapshotAgeSecs  `const`
 
 ```ts
 const snapshotAgeSecs: (snapshot: CameraPoseSnapshot, now: MonotonicTimeSecs) => number;
+```
+
+### supportRuleOfBlockId  `const`
+
+```ts
+const supportRuleOfBlockId: (id: number) => SupportRule;
 ```
 
 ### transmitsLight  `const`

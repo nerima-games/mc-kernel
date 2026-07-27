@@ -44,19 +44,31 @@
  * derivation, so the list cannot go stale.
  *
  * ---------------------------------------------------------------------------
- * The roster is small on purpose
+ * The roster grew with the block roster, and only as far as it had to
  * ---------------------------------------------------------------------------
  *
- * Sixteen entries, chosen so that every shape of drop rule has a real case
- * behind it rather than a placeholder: an item identical to its block
+ * It began at sixteen entries, chosen so that every shape of drop rule had a
+ * real case behind it rather than a placeholder: an item identical to its block
  * (`dirt`), an item a *different* block yields (`cobblestone` from `stone`,
  * `dirt` from `grass_block`), an item that is not a block at all
  * (`glowstone_dust`, `stick`, `wooden_pickaxe`), and blocks that yield nothing
  * (`oak_leaves`, `bedrock`).
  *
- * Filling it out is additive, exactly as it is for `BLOCK_TYPES`: consumers
- * read behaviour from the registry rather than from the name, so a new literal
- * changes nobody's code. `docs/versioning.md` §6 classifies it MINOR.
+ * It reached 23 when mc-sim's recipe table was repointed, and it is 97 now.
+ * The jump is not enthusiasm: `BLOCK_TYPES` reached the reference's full 120,
+ * and 55 of those new rows would otherwise have been LIES — a row stating that
+ * a block drops itself, with no item of that name for it to drop. See the rule
+ * stated above the additions, which is the whole of the reasoning.
+ *
+ * The roster is still not a catalogue of everything nameable: there is no
+ * armour, no food and no tool beyond `wooden_pickaxe`, because no block drops
+ * any of those and no rule in this repository reads them. Ten literals that the
+ * rule WOULD admit are also deliberately absent; that argument is at the end of
+ * the list, and it is the only place the rule is knowingly not applied.
+ *
+ * Filling it out further is additive, exactly as it is for `BLOCK_TYPES`:
+ * consumers read behaviour from the registry rather than from the name, so a
+ * new literal changes nobody's code. `docs/versioning.md` §6 classifies it MINOR.
  *
  * Spelling is `lower_snake_case`, matching `BLOCK_TYPES`. Note that mc-sim's
  * provisional strings are UPPER_SNAKE (`'OAK_PLANKS'`, `'STICK'`): repointing
@@ -123,6 +135,221 @@ export const ITEM_TYPES = [
   'blaze_powder',
   'flint_and_steel',
   'fire_charge',
+
+  // ---------------------------------------------------------------------------
+  // Grown with `BLOCK_TYPES`, under ONE rule stated before it was applied.
+  // ---------------------------------------------------------------------------
+  //
+  // THE RULE: a block gets an item form here if and only if its registry row's
+  // `drops` rule resolves to ITSELF and yields something. Nothing else about a
+  // block earns it an item.
+  //
+  // The rule is not a convention picked to keep the diff tidy — it is forced by
+  // `resolveDropItem` (`./block-harvest`). A row that says `item: 'self'` looks
+  // up `itemOfBlock`, which answers `undefined` when the name is absent from
+  // this roster. So a block whose drop is `'self'` and whose name is NOT here
+  // does not drop nothing LOUDLY; it drops nothing SILENTLY, and the registry
+  // row that promised a drop is a row the type system agrees with and the
+  // player never sees. Adding the literal is what makes the row true.
+  //
+  // The converse is why the rule has an "only if" as well. A block whose drop is
+  // an OVERRIDE needs no item of its own: `farmland` yields `dirt`, every ore
+  // yields its mineral, `door_open` yields `door`. Adding `farmland` as an item
+  // because it happens to be a block would be the guessed roster this file
+  // already refused once, and `getInventoryDropForBlock`
+  // (`block-service.config.ts:189-190`) is the reference's own statement that a
+  // block's drop is its own name only WHEN NOT OVERRIDDEN.
+  //
+  // Note that the reference cannot make this distinction and does not try:
+  // `InventoryItemSchema = Schema.Union(BlockTypeSchema, ItemTypeSchema)`
+  // (`inventory-item.ts:7`) makes EVERY block an inventory item, including
+  // `AIR`, `FIRE` and `END_PORTAL`. That union is exactly what this file's
+  // header rejects, and the six blocks it would have handed an item form to
+  // with nothing behind it are listed in `UNITEMISED_BLOCK_TYPES` instead.
+
+  // ---------------------------------------------------------------------------
+  // Items that are also blocks (55). Same name as their `BlockType`.
+  // ---------------------------------------------------------------------------
+  'granite',
+  'diorite',
+  'andesite',
+  'deepslate',
+  'obsidian',
+  'smooth_basalt',
+  'calcite',
+  'amethyst_block',
+  'sandstone',
+  'prismarine',
+  'soul_sand',
+  'coal_block',
+  'iron_block',
+  'gold_block',
+  'diamond_block',
+  'redstone_block',
+  'lapis_block',
+  'emerald_block',
+  'redstone_torch',
+  'lever',
+  'stone_button',
+  'repeater',
+  'redstone_lamp',
+  'observer',
+  'comparator',
+  'dispenser',
+  'hopper',
+  'end_stone',
+  'end_portal_frame',
+  'end_portal_frame_filled',
+  'chorus_flower',
+  'chorus_plant',
+  'dragon_egg',
+  'end_crystal',
+  'end_rod',
+  'end_stone_bricks',
+  'ender_chest',
+  'purpur_block',
+  'purpur_pillar',
+  'purpur_slab',
+  'purpur_stairs',
+  'shulker_box',
+  'crafting_table',
+  'furnace',
+  'chest',
+  'door',
+  'oak_stairs',
+  'anvil',
+  'cauldron',
+  'bed',
+  'enchanting_table',
+  'brewing_stand',
+  'tnt',
+  'nether_brick',
+  'netherrack',
+
+  // ---------------------------------------------------------------------------
+  // Items that are NOT blocks (10), each named by `INVENTORY_DROP_OVERRIDES`
+  // ---------------------------------------------------------------------------
+  //
+  // Every one of these is the right-hand side of a row in
+  // `block-service.config.ts:151-187`, which is the same standard the earlier
+  // `coal` / `iron_ingot` / `flint` entries were held to: the item exists
+  // because a block in THIS registry drops it, not because a recipe mentions it.
+  //
+  // `raw_iron` and `raw_gold` rather than `iron_ingot` and `gold_ingot` is the
+  // reference's answer and not a slip — `IRON_ORE` maps to `RAW_IRON`, and that
+  // is also why `ORE_XP_TABLE` gives iron and gold zero experience: the ore
+  // yields raw material and the furnace pays the XP. `iron_ingot` was already
+  // here for mc-sim's recipes and is a different item from `raw_iron`.
+  'raw_iron',
+  'raw_gold',
+  'diamond',
+  'emerald',
+  'lapis_lazuli',
+  'redstone_dust',
+  'amethyst_shard',
+  'wheat_seeds',
+  'potato',
+  'nether_wart',
+
+  // ---------------------------------------------------------------------------
+  // Seventeen older rows that had been promising a drop they could not make
+  // ---------------------------------------------------------------------------
+  //
+  // These were NOT part of completing the block roster. They were found by the
+  // test that the roster work made necessary — `every row whose drop is 'self'
+  // has an item form` in `test/item-drops.test.ts` — which reported 21 rows in
+  // breach, and eighteen of them predated this change.
+  //
+  // Each of the seventeen below is a block already in the registry whose row
+  // carries the DEFAULT drop rule, meaning "yields itself, one of them". None of
+  // them had an item form, so `resolveDropItem` hit the `'self'` sentinel,
+  // found nothing, and returned `undefined`. Breaking a ladder gave you nothing.
+  //
+  // The previous decision was to leave them, on the grounds that growing the
+  // item vocabulary from block-side evidence is the guessed-roster failure this
+  // file argues against. That reasoning was right about `string` and `snowball`
+  // — names that appear nowhere else — and wrong about these, because the item
+  // a block drops WHEN NOT OVERRIDDEN is its own name, stated by
+  // `getInventoryDropForBlock` (`block-service.config.ts:189-190`) and confirmed
+  // block by block: none of the eighteen appears in `INVENTORY_DROP_OVERRIDES`.
+  // There is no guess here; there was a missing transcription.
+  //
+  // SEVEN OF THE EIGHTEEN ARE HERE. The other ten are held back on purpose and
+  // the reason is in the block comment directly below, which is worth reading
+  // before "finishing the job".
+  'ladder',
+  'kelp',
+  'seagrass',
+  'rail',
+  'powered_rail',
+  'pressure_plate',
+  'stone_slab',
+
+  // ---------------------------------------------------------------------------
+  // The two the earlier decision was right about, added now with their citation
+  // ---------------------------------------------------------------------------
+  //
+  // `cobweb` -> STRING and `snow` -> SNOWBALL are rows of
+  // `INVENTORY_DROP_OVERRIDES` (:170, :183), which is the same evidence every
+  // other override target here rests on. They were held back while they were the
+  // only two of their kind; they are not any more, and holding them back was
+  // costing two more rows that silently dropped nothing (`cobweb`) or that
+  // recorded a gap where the reference had an answer (`snow`).
+  'string',
+  'snowball',
+
+  // ---------------------------------------------------------------------------
+  // TEN DELIBERATELY ABSENT: the support-sensitive plants.
+  // ---------------------------------------------------------------------------
+  //
+  // `sapling`, `dandelion`, `poppy`, `brown_mushroom`, `red_mushroom`,
+  // `tall_grass`, `fern`, `sugar_cane`, `cactus` and `lily_pad` all satisfy the
+  // rule above — the reference drops each of them as itself — and are still NOT
+  // in this roster. This is the one place the rule is knowingly not applied, so
+  // it is the one that needs the argument.
+  //
+  // THE BLOCKER IS GONE AND THIS HOLD IS NOW THE LAST STEP, NOT A WAIT.
+  // `supportRule` landed (`./block-support`, `./block-registry`), mx-gameplay
+  // reads it instead of the fallback, and F7 is closed — so the code path these
+  // ten would activate is no longer known-wrong. What survives is only the
+  // mechanical work of itemising them: ten literals here, ten registry rows
+  // whose `DROPS_NOTHING` becomes the default rule, and the drop tests on both
+  // sides. That is its own change for the reason every roster change is
+  // (`./block-definition`: a literal moves `api-lock.md` and restarts the
+  // four-week window), and it is now unblocked in the ordinary sense rather
+  // than blocked on a decision.
+  //
+  // The paragraphs below are kept as the RECORD of why they were held, because
+  // the argument is what makes the hold legible rather than arbitrary.
+  //
+  // GIVING THEM AN ITEM FORM WOULD ACTIVATE A KNOWN-WRONG CODE PATH IN ANOTHER
+  // REPOSITORY. `PlaceableItemType` is `ItemType & BlockType` (`./block-item`),
+  // so an item form is not merely a name — it is what makes a block reachable by
+  // `placeBlock`. mx-gameplay's `test/place-block.test.ts` carries a finding it
+  // calls F7: `block-support.ts:75-91` gives exactly these ten a PER-BLOCK
+  // `SUPPORT_RULES` entry (lily pad -> water, cactus -> sand|self, sugar cane ->
+  // dirt|grass|sand|self, the seven surface plants -> dirt|grass|farmland), and
+  // mx-gameplay answers all ten with the fallback arm instead — kernel's
+  // `canSupportAttachments`. Water is non-supporting, and water is the only
+  // thing a lily pad may sit on, so under that rule A LILY PAD IS REFUSED ON THE
+  // ONE CELL IT BELONGS ON AND ALLOWED ON STONE.
+  //
+  // That finding is dormant TODAY for exactly one reason: none of the ten is a
+  // `PlaceableItemType`, so no call can reach the wrong answer. Its own text
+  // predicts how it will stop being dormant — 「the roster row that wakes it will
+  // be added by somebody who is not reading this file」. Adding these ten here
+  // would have been that row.
+  //
+  // THE FIX WAS `supportRule`, AND IT HAS LANDED. `PENDING_CAPABILITIES`
+  // (`./block-definition`) held it back because the rule needs to name blocks
+  // and the roster did not exist; the roster arrived, `farmland` included, and
+  // the column was written. These ten literals are now the same one-line-each
+  // addition `snow` had.
+  //
+  // Until they are added their registry rows say `DROPS_NOTHING` explicitly
+  // rather than inheriting "yields itself" and silently producing nothing — so
+  // the cost of the remaining gap is a stated divergence from the reference in
+  // one column, not a lie in two.
 ] as const
 
 export type ItemType = (typeof ITEM_TYPES)[number]

@@ -131,8 +131,12 @@ plan.md §2.3-5 により**依存は推移しない**ので、「下流のどこ
 何より、別表にすると plan.md §3.1 の「ブロック追加 = 定義テーブル 1 行」が
 **2 ファイル 2 行**になる。不変条件が壊れる。
 
-`textureTiles` / `supportRule` は保留のまま（`PENDING_CAPABILITIES`）。
-どちらもテクスチャアトラスか block roster の完成が条件で、アイテム名簿では解けない。
+**`supportRule` も埋まった** —— block roster の完成が条件だったので、120 リテラルが揃った時点で
+書けるようになり、`domain/block-support.ts` として入った。`canBlockStaySupported(id, below)` が
+その消費口で、mx-gameplay がフォールバックで代用していた per-block 規則をこれで置き換えた。
+
+`textureTiles` は保留のまま（`PENDING_CAPABILITIES`）。テクスチャアトラスの完成が条件で、
+アイテム名簿でも block roster でも解けない —— 残っているのは監査 §4.8 の「二重管理」という形の問題である。
 
 **`drops` が表現しないと決めたもの**（いずれも監査が置き場所を決めている）:
 
