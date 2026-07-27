@@ -125,6 +125,13 @@ describe('public API surface', () => {
         'capabilitiesOfBlockId',
         'blockIdsWithCapability',
         'blockIdsWithOpacity',
+        // the named light readings — mc-worldgen mirrors these three by name,
+        // because it cannot restate the generic property machinery to ask two
+        // questions. See `domain/block-registry.ts` on why they are the only
+        // named property readings kernel exports.
+        'opacityOfBlockId',
+        'lightEmissionOfBlockId',
+        'transmitsLight',
         'dropOfBlockId',
         'UNREGISTERED_BLOCK_TYPES',
         // camera

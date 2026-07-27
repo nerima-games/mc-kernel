@@ -13,7 +13,7 @@
 <!-- ------------------------------------------------------------------------- -->
 
 format: 1
-exported declarations: 128
+exported declarations: 131
 supporting declarations: 1
 
 ## Exported
@@ -804,6 +804,12 @@ const isPlaceableItem: (item: ItemType) => item is PlaceableItemType;
 const itemOfBlock: (block: BlockType) => PlaceableItemType | undefined;
 ```
 
+### lightEmissionOfBlockId  `const`
+
+```ts
+const lightEmissionOfBlockId: (id: number) => number;
+```
+
 ### localCoordOfBlock  `const`
 
 ```ts
@@ -814,6 +820,12 @@ const localCoordOfBlock: (value: BlockPosition) => LocalBlockCoord;
 
 ```ts
 const monotonicSecs: Effect.Effect<MonotonicTimeSecs, never, ClockPort>;
+```
+
+### opacityOfBlockId  `const`
+
+```ts
+const opacityOfBlockId: (id: number) => BlockOpacity;
 ```
 
 ### position  `const`
@@ -880,6 +892,12 @@ const satisfiesHarvestTier: (requirement: HarvestToolRequirement, heldTier: Harv
 
 ```ts
 const snapshotAgeSecs: (snapshot: CameraPoseSnapshot, now: MonotonicTimeSecs) => number;
+```
+
+### transmitsLight  `const`
+
+```ts
+const transmitsLight: (id: number) => boolean;
 ```
 
 ### wallClockEpochMillis  `const`

@@ -33,8 +33,11 @@ import {
   capabilitiesOfBlockId,
   capabilityOfBlockId,
   isKnownBlockId,
+  lightEmissionOfBlockId,
+  opacityOfBlockId,
   propertyOfBlockId,
   resolvedBlockOfId,
+  transmitsLight,
   UNREGISTERED_BLOCK_TYPES,
 } from '../domain/block-registry'
 import { BLOCK_TYPES, type BlockType } from '../domain/block-type'
@@ -271,6 +274,171 @@ describe('reading behaviour off a chunk buffer byte', () => {
       expect(propertyOfBlockId(blockIdOf('water'), 'fluid')).toBe('water')
       expect(propertyOfBlockId(blockIdOf('lava'), 'fluid')).toBe('lava')
       expect(propertyOfBlockId(blockIdOf('stone'), 'fluid')).toBe('none')
+    }),
+  )
+})
+
+/**
+ * The three named light readings, and the one property they must have: they are
+ * READINGS of the property table, not a second copy of it.
+ *
+ * mc-worldgen mirrors these three rather than importing them (it cannot import
+ * kernel yet — plan.md §6 Step 3 publishes bottom-up). A named accessor that
+ * drifted from `propertyOfBlockId` would put kernel itself in the position the
+ * mirror discipline exists to prevent: two answers to one question, agreeing
+ * until the day they do not.
+ */
+describe('the named light readings', () => {
+  it.effect('are exactly the generic accessor, on every id in the byte range', () =>
+    Effect.sync(() => {
+      // THE load-bearing assertion of this describe. It sweeps the whole
+      // `Uint8Array` domain — registered rows, holes and unknown bytes alike —
+      // so there is no id at which a named reading and the generic one can
+      // differ. Everything else below is a worked example of a consequence.
+      for (let id = 0; id <= BLOCK_ID_MAX; id += 1) {
+        expect(opacityOfBlockId(id)).toBe(propertyOfBlockId(id, 'opacity'))
+        expect(lightEmissionOfBlockId(id)).toBe(propertyOfBlockId(id, 'lightEmission'))
+        expect(transmitsLight(id)).toBe(propertyOfBlockId(id, 'opacity') !== 'opaque')
+      }
+    }),
+  )
+
+  it.effect('are TOTAL, so a corrupt or newer-build byte reads as an unlit opaque cube', () =>
+    Effect.sync(() => {
+      const unknown = 200
+      expect(isKnownBlockId(unknown)).toBe(false)
+
+      expect(opacityOfBlockId(unknown)).toBe('opaque')
+      expect(transmitsLight(unknown)).toBe(false)
+      expect(lightEmissionOfBlockId(unknown)).toBe(BLOCK_PROPERTY_DEFAULTS.lightEmission)
+
+      // Non-integers and out-of-range bytes take the same arm rather than
+      // throwing: `StageRegistration`'s `run` has error channel `never`, so a
+      // rule reading light out of a chunk buffer has nowhere to put a failure.
+      expect(opacityOfBlockId(-1)).toBe('opaque')
+      expect(lightEmissionOfBlockId(1.5)).toBe(0)
+    }),
+  )
+
+  it.effect('name every emitting row and no others', () =>
+    Effect.sync(() => {
+      const emitting = BLOCK_IDS.filter((id) => lightEmissionOfBlockId(id) > 0)
+
+      expect(emitting.map((id) => blockTypeOfId(id))).toStrictEqual(['lava', 'torch', 'glowstone'])
+      expect(lightEmissionOfBlockId(blockIdOf('lava'))).toBe(15)
+      expect(lightEmissionOfBlockId(blockIdOf('torch'))).toBe(14)
+      expect(lightEmissionOfBlockId(blockIdOf('glowstone'))).toBe(15)
+
+      // `light.ts:24-46` `EMISSIVE_LEVEL_OVERRIDES` puts TORCH at 14 and not 15.
+      // The one-level gap is the entire argument for the column being a number,
+      // and a flattening edit has to fail somewhere.
+      expect(lightEmissionOfBlockId(blockIdOf('torch'))).not.toBe(lightEmissionOfBlockId(blockIdOf('glowstone')))
+    }),
+  )
+
+  it.effect('keep the two columns independent — GLOWSTONE is opaque and emits 15', () =>
+    Effect.sync(() => {
+      // The row that forbids inferring either column from the other. A
+      // transcription that assumed "emitters are transparent" or "opaque blocks
+      // are dark" gets this wrong in whichever direction it guessed.
+      expect(opacityOfBlockId(blockIdOf('glowstone'))).toBe('opaque')
+      expect(transmitsLight(blockIdOf('glowstone'))).toBe(false)
+      expect(lightEmissionOfBlockId(blockIdOf('glowstone'))).toBe(15)
+
+      // And the mirror image: air transmits and emits nothing.
+      expect(transmitsLight(AIR_BLOCK_ID)).toBe(true)
+      expect(lightEmissionOfBlockId(AIR_BLOCK_ID)).toBe(0)
+    }),
+  )
+
+  it.effect('is NOT a synonym for passable — GLASS is the row that says so', () =>
+    Effect.sync(() => {
+      // Audit §4.9. If `opacity` agreed with an existing flag on every row it
+      // would not be a capability, it would be a spelling.
+      const glass = blockIdOf('glass')
+      expect(transmitsLight(glass)).toBe(true)
+      expect(capabilityOfBlockId(glass, 'passable')).toBe(false)
+
+      // Five rows transmit light while colliding, so the disagreement is a
+      // property of the table rather than of one hand-picked block.
+      const solidAndTransmitting = BLOCK_IDS.filter(
+        (id) => transmitsLight(id) && !capabilityOfBlockId(id, 'passable'),
+      )
+      expect(solidAndTransmitting.map((id) => blockTypeOfId(id))).toStrictEqual([
+        'oak_leaves',
+        'glass',
+        'cactus',
+        'pressure_plate',
+        'stone_slab',
+      ])
+    }),
+  )
+
+  it.effect('is NOT a synonym for canSupportAttachments or validSpawnSurface either', () =>
+    Effect.sync(() => {
+      // Both flags take BOTH values among the light-transmitting rows, which is
+      // the shape of "independent" that a single example cannot show.
+      const transmitting = BLOCK_IDS.filter((id) => transmitsLight(id))
+
+      const supports = new Set(transmitting.map((id) => capabilityOfBlockId(id, 'canSupportAttachments')))
+      expect(supports).toStrictEqual(new Set([true, false]))
+
+      const spawns = new Set(transmitting.map((id) => capabilityOfBlockId(id, 'validSpawnSurface')))
+      expect(spawns).toStrictEqual(new Set([true, false]))
+
+      // The named rows behind those sets, so a reviewer need not re-derive them.
+      // `ladder` is passable AND transmits AND still holds a torch
+      // (`block-support.ts:47-60` omits it); `torch` does not.
+      expect(capabilityOfBlockId(blockIdOf('ladder'), 'canSupportAttachments')).toBe(true)
+      expect(capabilityOfBlockId(blockIdOf('torch'), 'canSupportAttachments')).toBe(false)
+      // `stone_slab` transmits and is a spawn surface; `glass` transmits and is not.
+      expect(capabilityOfBlockId(blockIdOf('stone_slab'), 'validSpawnSurface')).toBe(true)
+      expect(capabilityOfBlockId(blockIdOf('glass'), 'validSpawnSurface')).toBe(false)
+    }),
+  )
+
+  it.effect('COINCIDES with !suffocates on today’s roster, which is recorded and not relied on', () =>
+    Effect.sync(() => {
+      // An honest negative result. On all 36 rows `transmitsLight(id)` happens
+      // to equal `!suffocates`, so — unlike the three flags above — no row of
+      // this roster separates them.
+      //
+      // It is pinned rather than left implicit BECAUSE it looks like a licence
+      // to derive one from the other, and audit §4.7 says it is not: it names
+      // GLASS, STONE_SLAB and OAK_STAIRS as the entries that make `suffocates`
+      // underivable from `passable && opacity`, and OAK_STAIRS IS NOT IN THIS
+      // ROSTER (`./block-type` ships 36 of the reference's 120). The row that
+      // would break the coincidence simply has not been added yet.
+      //
+      // So this assertion is a tripwire pointing the other way from the ones
+      // above. When `oak_stairs` lands — opaque, and in `NON_SUFFOCATING_BLOCKS`
+      // — this test fails, and the correct response is to DELETE it rather than
+      // to make the two agree again.
+      const separating = BLOCK_IDS.filter((id) => transmitsLight(id) === capabilityOfBlockId(id, 'suffocates'))
+      expect(separating).toStrictEqual([])
+
+      // The two are decided by different reference tables even where they
+      // agree: opacity by `meshing-worker-config.ts:7-13`, suffocation by
+      // `environment-hazard.config.ts:39-85`. Agreement is not derivation.
+      expect(transmitsLight(blockIdOf('glass'))).toBe(true)
+      expect(capabilityOfBlockId(blockIdOf('glass'), 'suffocates')).toBe(false)
+    }),
+  )
+
+  it.effect('agrees with the meshing buckets, which are built from the same column', () =>
+    Effect.sync(() => {
+      // `blockIdsWithOpacity` pre-expands what `opacityOfBlockId` answers one id
+      // at a time. mc-meshing takes the sets, mc-worldgen's light grid takes the
+      // predicate, and the two must not be able to disagree about one block.
+      for (const opacity of BLOCK_OPACITIES) {
+        for (const id of blockIdsWithOpacity(opacity)) {
+          expect(opacityOfBlockId(id)).toBe(opacity)
+        }
+      }
+
+      const transmitting = new Set(BLOCK_IDS.filter((id) => transmitsLight(id)))
+      const nonOpaque = new Set([...blockIdsWithOpacity('transparentSolid'), ...blockIdsWithOpacity('fluid')])
+      expect(transmitting).toStrictEqual(nonOpaque)
     }),
   )
 })

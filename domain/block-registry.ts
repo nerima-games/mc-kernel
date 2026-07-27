@@ -1132,6 +1132,94 @@ const IDS_BY_OPACITY = buildIdsByOpacity()
  */
 export const blockIdsWithOpacity = (opacity: BlockOpacity): ReadonlySet<number> => IDS_BY_OPACITY[opacity]
 
+// ---------------------------------------------------------------------------
+// The light pair, named. Not new capabilities — named readings of two existing
+// property columns.
+// ---------------------------------------------------------------------------
+//
+// `opacity` and `lightEmission` have been real kernel properties since
+// `./block-properties` was written (audit §4.4 settles both: three classes, and
+// a 0..15 level rather than the `emissive: boolean` plan.md §3.1 asked for).
+// They were readable only through the GENERIC accessor, `propertyOfBlockId(id,
+// 'opacity')`, and that is the whole of what was missing here.
+//
+// The generic accessor is the right shape for a caller that already knows the
+// property model. It is the wrong shape for the one caller that cannot import
+// the property model at all: mc-worldgen mirrors kernel rather than depending on
+// it (plan.md §6 Step 3 publishes bottom-up, and nothing is published yet), so
+// its `domain/kernel-vocabulary.ts` must restate whatever it uses. Restating
+// `propertyOfBlockId` means restating `BlockPropertyName`, `BlockProperties` and
+// the generic index that ties them together — the entire property mechanism —
+// in order to ask two questions. It reasonably declined, declared the two
+// readings it needed as named functions, and thereby ran ahead of its source.
+//
+// Kernel grants the names, for kernel's own reason rather than as a courtesy:
+// a mirror that runs ahead of its source typechecks locally, ships a table the
+// source rejects, and breaks on the one day the mirror discipline promises will
+// be uneventful. `./item-type`'s header records the same argument at length for
+// the seven `ItemType` literals mc-sim needed, and the answer there was the same
+// — grant them, each with a reason of its own.
+//
+// These three are deliberately the ONLY named property readings kernel exports.
+// A named accessor per property would be thirteen functions restating the table
+// they read, which is the double-management `./block-properties` exists to
+// avoid. The light pair earns the exception because it has an off-repository
+// consumer that cannot express the generic form.
+
+/**
+ * The meshing bucket and light-attenuation class of a chunk buffer byte.
+ *
+ * TOTAL, by delegation: an id this build cannot name reads as `'opaque'`,
+ * because that is `BLOCK_PROPERTY_DEFAULTS.opacity` and audit §7 settles every
+ * default at 「普通の不透明立方体」.
+ */
+export const opacityOfBlockId = (id: number): BlockOpacity => propertyOfBlockId(id, 'opacity')
+
+/**
+ * The light a chunk buffer byte emits, 0..15.
+ *
+ * TOTAL, same rule: an unrecognised byte emits `LIGHT_LEVEL_MIN`. That is the
+ * inert reading — an unknown block sitting in the dark, rather than an unknown
+ * block lighting a cave it has no business lighting.
+ */
+export const lightEmissionOfBlockId = (id: number): number => propertyOfBlockId(id, 'lightEmission')
+
+/**
+ * May light cross this cell at all?
+ *
+ * DELIBERATELY BINARY, and the binary is a transcription rather than a
+ * simplification. Vanilla attenuates sky light by more than one level through
+ * water and through leaves; the REFERENCE does not. Audit §4.4 records that
+ * `light.ts:14-17` builds its attenuation table from `properties.transparency`,
+ * which is a BOOLEAN — so the reference's own attenuation is two-valued, and
+ * `BlockOpacity` carries three CLASSES with no attenuation amount attached to
+ * any of them.
+ *
+ * A per-class number invented here would therefore be content with no source,
+ * which is the failure audit §4.9.1(c) names when it explains why
+ * `validSpawnSurface` was transcribed rather than inferred: 「ここで推論すると、
+ * それはコンテンツの捏造になる」. The same reasoning forbids deciding here that
+ * water costs 3 and leaves cost 2.
+ *
+ * The additive fix is already identified on both sides. When the reference
+ * yields a real per-class attenuation, it lands as a `lightAttenuation`
+ * property — one line in `BlockProperties`, one in `BLOCK_PROPERTY_DEFAULTS` —
+ * and this function becomes a lookup of it. mc-worldgen's
+ * `docs/design-notes.md` DN-7 records the divergence and its visible
+ * consequence from the consumer side: a canopy of oak leaves does not dim the
+ * ground beneath it, so a hostile cannot spawn under a tree in daylight that
+ * vanilla would allow. That is the BRIGHT direction, which is the conservative
+ * one for the single rule reading that grid.
+ *
+ * Note what this is NOT: `!passable`, `!suffocates`, or any other solidity
+ * flag. Audit §4.9 spends a section on the five "non-solid" concepts that
+ * disagree row by row, and `opacity` disagrees with all of them — `glass` is
+ * `transparentSolid` AND collides AND is not a spawn surface; `glowstone` is
+ * `'opaque'` and emits 15. A capability that agreed with an existing flag on
+ * every row would not be a capability.
+ */
+export const transmitsLight = (id: number): boolean => opacityOfBlockId(id) !== 'opaque'
+
 /**
  * Block types in the vocabulary that the table does not yet cover.
  *
