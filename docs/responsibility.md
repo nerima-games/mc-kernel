@@ -144,7 +144,50 @@ plan.md §2.3-5 により**依存は推移しない**ので、「下流のどこ
 | --- | --- | --- |
 | 乱数ドロップ（gravel → flint 10%、oak_leaves → sapling） | `mx-gameplay` | 監査 §6-9。kernel は純粋で RNG を持たない |
 | 幸運の倍率適用 | `mx-gameplay` | 同上。kernel は `affectedByFortune` を**運ぶ**だけ |
-| シルクタッチの**置換**（stone → stone） | 未実装 | 現状の `requiresSilkTouch` は gate であって substitution ではない。加算的な直し方（`silkTouchItem?: ItemType`）を `domain/block-harvest.ts` に記録済み |
+| シルクタッチの**置換**（stone → stone） | **未実装（保留。決定待ち）** | 現状の `requiresSilkTouch` は gate であって substitution ではない。加算的な直し方（`silkTouchItem?: ItemType`）を `domain/block-harvest.ts` に記録済み。**保留の理由は設計ではなく凍結クロックである** — §3-2-1 |
+
+#### 3-2-1. シルクタッチ置換が「保留」である理由（2026-07-28 実測）
+
+**これは設計上の未決ではない。** 直し方は決まっており、`domain/block-harvest.ts` の
+`resolveDrop` のヘッダに書いてある通り**加算的**である:
+
+```
+readonly silkTouchItem?: ItemType   // BlockDropRule に 1 メンバ
+```
+
+そして同ファイルの変更規則（「新メンバは optional であるか、`BLOCK_PROPERTY_DEFAULTS` に
+既定値を持つこと」）を**満たしている**。14 の固定済み消費者のどれも壊さない。
+
+**保留しているのは公開面の凍結クロックのほうである。**
+[versioning.md](./versioning.md) の 4 週間ロックの起点は `git log -1 -- api-lock.md` であり、
+`BlockDropRule` はその `api-lock.md` に**型本体が丸ごと転記されている**（現在 141 エントリ中の 1 つ）:
+
+```ts
+type BlockDropRule = {
+    readonly item: ItemType | 'self';
+    readonly count: number;
+    readonly requiresSilkTouch: boolean;
+    readonly affectedByFortune: boolean;
+};
+```
+
+optional メンバを足せばこのブロックが変わり、**クロックが振り出しに戻る。**
+
+**そのうえで、コストは今もっとも安い。** 2026-07-28 時点で `api-lock.md` が最後に動いたのは
+**2026-07-27**、つまりクロックはまだ 1 日しか進んでいない。
+振り出しに戻す費用は「28 日ぶんの進捗」ではなく**実際には 1 日**である。
+逆に言えば、**入れるならクロックが進む前の今**であり、
+20 日目に思い出すのが最も高くつく。
+
+したがってこれは技術判断ではなく**タイミングの決定**であり、
+本文書は決定できる立場に無い。決めるべき問いは 1 つ:
+
+> `silkTouchItem` を入れて 4 週間を引き直すか、
+> 最初の消費者（mx-gameplay の採掘ルール）が要求するまで待つか。
+
+待つ側の根拠は `resolveDrop` のヘッダが既に述べている ——
+「メンバは誰も読まないうちに入れるのが、凍結を最も安く間違える方法である」。
+入れる側の根拠は上のクロック実測である。**両方を見た上で決めること。**
 
 ### 3-3. stage 全順序表を持たない
 
@@ -182,4 +225,29 @@ kernel に置けば順序変更のたびに全リポジトリが bump される�
 監査 §6-6: `AIR` は「ブロックが無い」ことを表す番兵であり能力ではない。参照実装では 71 箇所で同一性比較されており、
 うち 24 箇所は AO 計算のホットパス（`greedy-meshing-ao.ts:20-85`）。
 kernel は `isEmpty(blockId)` を **index 0 の定数比較**として公開すべきで、フラグ表を引かせてはならない。
-**未実装**（現在の kernel は blockId の index 表現をまだ持たない）。
+**未実装（保留。決定待ち）** —— 現在の kernel は blockId の index 表現をまだ持たない。
+
+**保留の理由は §3-2-1 と同じ**（凍結クロック）だが、**規模が違う**ので分けて書く。
+シルクタッチが `api-lock.md` の 1 エントリを書き換えるだけなのに対し、こちらは:
+
+- `isEmpty` という**新しい export** が 1 つ増える
+- index 表現そのもの（`BlockIndex` なり `blockIndexOf` なり）が**さらに増える**
+- `BlockId` の現行表現（`Brand.Brand.Constructor<BlockId>`）との関係を決める必要があり、
+  これは既存エントリの**書き換え**になりうる
+
+つまり「optional メンバ 1 つ」ではなく**公開語彙の追加**であり、
+4 週間の引き直しに加えて 14 リポジトリのミラー
+（各所の `domain/kernel-vocabulary.ts`）に波及する。
+
+**そして、これは性能のための表現である。** 監査 §6-6 の根拠は
+参照実装での 71 箇所の同一性比較、うち 24 箇所が AO のホットパス
+（`greedy-meshing-ao.ts:20-85`）というものだった。
+**本リポジトリ群にはまだそのホットパスが無い** —— mc-meshing の AO は
+`domain/ambient-occlusion.ts` にあるが、`isEmpty` が律速だという測定はどこにも無い。
+
+したがって入れる順序は「先に表現、あとで測定」ではなく**その逆**である。
+mc-meshing か mc-worldgen が「フラグ表引きが実際に効いている」と**測ってから**、
+その測定を根拠に語彙を足すこと。測定なしに入れると、
+`properties.solid` / `faces` を移植しなかった §3-5 の判断
+（**誰も読まないフィールドを凍結対象 API に入れるのは、凍結を最も安く間違える方法**）を
+自分で破ることになる。
