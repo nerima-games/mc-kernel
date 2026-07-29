@@ -68,7 +68,7 @@ export const loadProject = (tsconfigPath: string): LoadedProject => {
     throw new Error(`api-lock: cannot read ${tsconfigPath}: ${describeDiagnostics([readResult.error])}`)
   }
   const parsed = ts.parseJsonConfigFileContent(
-    readResult.config as unknown,
+    readResult.config,
     ts.sys,
     path.dirname(tsconfigPath),
     undefined,

@@ -289,7 +289,8 @@ export const opacityOfBlockId = (id: number): BlockOpacity => propertyOfBlockId(
  * inert reading — an unknown block sitting in the dark, rather than an unknown
  * block lighting a cave it has no business lighting.
  */
-export const lightEmissionOfBlockId = (id: number): number => propertyOfBlockId(id, 'lightEmission')
+export const lightEmissionOfBlockId = (id: number): number =>
+  resolvedBlockOfId(id)?.properties.lightEmission ?? BLOCK_PROPERTY_DEFAULTS.lightEmission
 
 /**
  * May light cross this cell at all?
@@ -325,7 +326,8 @@ export const lightEmissionOfBlockId = (id: number): number => propertyOfBlockId(
  * `'opaque'` and emits 15. A capability that agreed with an existing flag on
  * every row would not be a capability.
  */
-export const transmitsLight = (id: number): boolean => opacityOfBlockId(id) !== 'opaque'
+export const transmitsLight = (id: number): boolean =>
+  (resolvedBlockOfId(id)?.properties.opacity ?? BLOCK_PROPERTY_DEFAULTS.opacity) !== 'opaque'
 
 // ---------------------------------------------------------------------------
 // Support: one named property reading and the JOIN that reads two bytes
