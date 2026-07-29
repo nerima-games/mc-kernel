@@ -50,12 +50,23 @@ const FULLY_EQUIPPED: HarvestContext = { heldTier: 'diamond', silkTouch: true }
 /** A wooden pickaxe, which is the exact tier `stone` demands. */
 const WOODEN_PICKAXE: HarvestContext = { heldTier: 'wooden' }
 
+const IRON_ARMOUR_ITEM_TYPES = [
+  'iron_helmet',
+  'iron_chestplate',
+  'iron_leggings',
+  'iron_boots',
+] as const satisfies ReadonlyArray<ItemType>
+
 describe('ItemType is a closed literal union, exactly as BlockType is', () => {
   it.effect('narrows a string that names a known item', () =>
     Effect.sync(() => {
       expect(isItemType('stick')).toBe(true)
       expect(isItemType('cobblestone')).toBe(true)
       expect(isItemType(ITEM_TYPES[0])).toBe(true)
+      for (const armour of IRON_ARMOUR_ITEM_TYPES) {
+        expect(isItemType(armour)).toBe(true)
+      }
+      expect(isItemType('diamond_helmet')).toBe(false)
     }),
   )
 
@@ -109,11 +120,8 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
 
       // ...and the same fact as data, so the reason is legible in a failure.
       //
-      // Pinned as a literal list rather than a count. The seven after
-      // `wooden_pickaxe` arrived together when mc-sim's recipe table was
-      // repointed onto `ItemType` and seven rows had nothing to name; each has a
-      // kernel-side reason recorded beside it in `domain/item-type.ts`, and a
-      // list is what makes an eighth arriving without one visible in review.
+      // Pinned as a literal list rather than a count so every non-placeable
+      // vocabulary addition remains visible in review.
       expect([...NON_PLACEABLE_ITEM_TYPES]).toStrictEqual([
         'stick',
         'glowstone_dust',
@@ -125,6 +133,10 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'blaze_powder',
         'flint_and_steel',
         'fire_charge',
+        'iron_helmet',
+        'iron_chestplate',
+        'iron_leggings',
+        'iron_boots',
         'raw_iron',
         'raw_gold',
         'diamond',
@@ -714,6 +726,8 @@ describe('the rule that keeps a `self` drop honest', () => {
       //   3. It is grandfathered — the pre-roster vocabulary, each entry argued
       //      individually in `domain/item-type.ts`: mc-sim's recipe names and
       //      the two ignition items.
+      //   4. The equipment boundary needs its identity. Equipment behaviour is
+      //      owned above kernel, but its closed item vocabulary is not.
       //
       // Reason 2 is why this test cannot simply be the converse of the one
       // above. Reason 3 is a fixed list that must not grow: a new item with no
@@ -728,6 +742,7 @@ describe('the rule that keeps a `self` drop honest', () => {
         'flint_and_steel',
         'fire_charge',
       ])
+      const EQUIPMENT_ITEMS: ReadonlySet<string> = new Set(IRON_ARMOUR_ITEM_TYPES)
 
       const dropped = new Set<string>()
       for (const entry of BLOCK_REGISTRY) {
@@ -739,7 +754,11 @@ describe('the rule that keeps a `self` drop honest', () => {
       const blockNames = new Set<string>(BLOCK_TYPES)
 
       const unexplained = ITEM_TYPES.filter(
-        (item) => !dropped.has(item) && !blockNames.has(item) && !GRANDFATHERED.has(item),
+        (item) =>
+          !dropped.has(item) &&
+          !blockNames.has(item) &&
+          !GRANDFATHERED.has(item) &&
+          !EQUIPMENT_ITEMS.has(item),
       )
       expect(unexplained).toStrictEqual([])
 
@@ -747,6 +766,7 @@ describe('the rule that keeps a `self` drop honest', () => {
       // an unexplained item cannot be hidden by adding a name to the exemption.
       expect([...GRANDFATHERED].filter((name) => !ITEM_TYPES.includes(name as ItemType))).toStrictEqual([])
       expect(GRANDFATHERED.size).toBe(8)
+      expect([...EQUIPMENT_ITEMS]).toStrictEqual(IRON_ARMOUR_ITEM_TYPES)
     }),
   )
 })

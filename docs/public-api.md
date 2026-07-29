@@ -84,7 +84,7 @@ plan.md §5.3 は「core と block の分離」を「ブロック追加が必ず
 ## 3-bis. アイテム語彙とブロック↔アイテムの橋（item-type / block-item）
 
 ```typescript
-const ITEM_TYPES = ['stone', 'cobblestone', ..., 'wooden_pickaxe'] as const
+const ITEM_TYPES = ['stone', 'cobblestone', ..., 'iron_helmet', ..., 'snowball'] as const
 type ItemType = (typeof ITEM_TYPES)[number]
 const isItemType = (value: string): value is ItemType
 
@@ -109,7 +109,7 @@ plan.md §3.1 の主張は「挙動は名前比較ではなく能力から読む
 
 | 向き | 落ちる例 |
 | --- | --- |
-| `ItemType` → `BlockType` | `stick` / `glowstone_dust` / `wooden_pickaxe` |
+| `ItemType` → `BlockType` | `stick` / `wooden_pickaxe` / `iron_helmet` |
 | `BlockType` → `ItemType` | `air` / `water` / `lava` / `bedrock` / `snow` |
 
 `air` が入らないのは監査 §6-6（「`AIR` は『ブロックが無い』ことを表す番兵であり能力ではない」）の帰結である。
@@ -129,8 +129,10 @@ plan.md §3.1 の主張は「挙動は名前比較ではなく能力から読む
 つまりブロック個別の例外は、他のブロック個別の例外が既にいる場所（レジストリの行）にいる。
 第 2 の block→item 対応表は作らない。
 
-**`ITEM_TYPES` は 16 個。**「自分自身を落とす / 別のものを落とす / 何も落とさない / 道具で門番される」の
-4 形すべてに実データを与えるのに必要な最小限であり、埋めるのは `BLOCK_TYPES` と同じく加算的である。
+**`ITEM_TYPES` は 101 個。** ブロック形・ドロップ形に加え、装備境界が必要とする
+`iron_helmet` / `iron_chestplate` / `iron_leggings` / `iron_boots` を語彙として持つ。
+スロット規則や装備挙動は上位パッケージが所有し、kernel はアイテム同一性だけを所有する。
+埋めるのは `BLOCK_TYPES` と同じく加算的である。
 綴りは `BLOCK_TYPES` に合わせた `lower_snake_case`。**mc-sim の暫定文字列は `UPPER_SNAKE`**
 （`'OAK_PLANKS'` / `'STICK'`）なので、repoint は型の付け替えであると同時に**大小文字の付け替え**でもある。
 

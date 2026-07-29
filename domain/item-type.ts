@@ -54,17 +54,17 @@
  * (`glowstone_dust`, `stick`, `wooden_pickaxe`), and blocks that yield nothing
  * (`oak_leaves`, `bedrock`).
  *
- * It reached 23 when mc-sim's recipe table was repointed, and it is 97 now.
+ * It reached 23 when mc-sim's recipe table was repointed, and it is 101 now.
  * The jump is not enthusiasm: `BLOCK_TYPES` reached the reference's full 120,
  * and 55 of those new rows would otherwise have been LIES — a row stating that
  * a block drops itself, with no item of that name for it to drop. See the rule
  * stated above the additions, which is the whole of the reasoning.
  *
- * The roster is still not a catalogue of everything nameable: there is no
- * armour, no food and no tool beyond `wooden_pickaxe`, because no block drops
- * any of those and no rule in this repository reads them. Ten literals that the
- * rule WOULD admit are also deliberately absent; that argument is at the end of
- * the list, and it is the only place the rule is knowingly not applied.
+ * The roster is still not a catalogue of everything nameable: only the four
+ * iron armour pieces required by the equipment boundary exist; there is no food
+ * and no tool beyond `wooden_pickaxe`. Ten literals that the block-drop rule
+ * WOULD admit are also deliberately absent; that argument is at the end of the
+ * list, and it is the only place that rule is knowingly not applied.
  *
  * Filling it out further is additive, exactly as it is for `BLOCK_TYPES`:
  * consumers read behaviour from the registry rather than from the name, so a
@@ -135,6 +135,13 @@ export const ITEM_TYPES = [
   'blaze_powder',
   'flint_and_steel',
   'fire_charge',
+
+  // Equipment vocabulary is item identity, so kernel owns the names even
+  // though slot rules and equip behaviour live above this package.
+  'iron_helmet',
+  'iron_chestplate',
+  'iron_leggings',
+  'iron_boots',
 
   // ---------------------------------------------------------------------------
   // Grown with `BLOCK_TYPES`, under ONE rule stated before it was applied.
