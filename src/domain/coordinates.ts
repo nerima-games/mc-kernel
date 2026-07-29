@@ -174,8 +174,14 @@ export type LocalBlockCoord = {
 /** Euclidean floor division — correct for negative operands, unlike `/` + trunc. */
 const floorDiv = (value: number, divisor: number): number => Math.floor(value / divisor)
 
-/** Euclidean modulo — always in [0, divisor), unlike `%`. */
-const floorMod = (value: number, divisor: number): number => ((value % divisor) + divisor) % divisor
+/**
+ * Convert a world axis to its chunk-local counterpart without narrowing a
+ * safe integer to 32 bits.
+ */
+const localAxisOfBlockAxis = (value: BlockAxis): LocalAxis => {
+  const remainder = value % CHUNK_SIZE_XZ
+  return LocalAxis(normalizeZero(remainder < 0 ? remainder + CHUNK_SIZE_XZ : remainder))
+}
 
 /** The block cell that contains a continuous position. */
 export const blockPositionOfPosition = (value: Position): BlockPosition =>
@@ -187,9 +193,9 @@ export const chunkCoordOfBlock = (value: BlockPosition): ChunkCoord =>
 
 /** The chunk-local address of a block cell. */
 export const localCoordOfBlock = (value: BlockPosition): LocalBlockCoord => ({
-  lx: LocalAxis(normalizeZero(floorMod(value.x, CHUNK_SIZE_XZ))),
+  lx: localAxisOfBlockAxis(value.x),
   ly: value.y,
-  lz: LocalAxis(normalizeZero(floorMod(value.z, CHUNK_SIZE_XZ))),
+  lz: localAxisOfBlockAxis(value.z),
 })
 
 /** Inverse of `chunkCoordOfBlock` + `localCoordOfBlock`. */

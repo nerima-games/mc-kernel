@@ -76,6 +76,19 @@ describe('world <-> chunk coordinate conversion', () => {
     }),
   )
 
+  it.effect('preserves safe-integer axes without 32-bit truncation', () =>
+    Effect.sync(() => {
+      for (const axis of [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]) {
+        const position = blockPosition(axis, 0, axis)
+        const chunk = chunkCoordOfBlock(position)
+        const local = localCoordOfBlock(position)
+
+        expect(chunk.cx * CHUNK_SIZE_XZ + local.lx).toBe(axis)
+        expect(chunk.cz * CHUNK_SIZE_XZ + local.lz).toBe(axis)
+      }
+    }),
+  )
+
   it.effect('the chunk-local Y component passes through untouched, because kernel does not subdivide vertically', () =>
     Effect.sync(() => {
       expect(localCoordOfBlock(blockPosition(3, -59, 3)).ly).toBe(-59)
