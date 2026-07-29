@@ -1,205 +1,17 @@
-/**
- * api-lock.ts
- *
- * The public-API lock for the nerima-games Minecraft rebuild. This file is the
- * TEMPLATE for all 16 repositories: adapting it to a sibling repository means
- * editing exactly one constant, `REPOSITORY_POLICY`, which is fenced off at the
- * top of the file. Everything below that fence is generic and should be copied
- * byte-for-byte. (At the time of writing all 16 rows are identical, so the file
- * is in fact byte-identical everywhere — see the fence for why it exists
- * anyway.)
- *
- * ---------------------------------------------------------------------------
- * What it is for
- * ---------------------------------------------------------------------------
- *
- * plan.md §6 Step 0-3 requires every repository's initial commit to carry "an
- * API lock file (a report of the public API, reviewed as a diff)", and §6
- * Step 3 gates npm publication on that report being unchanged for four weeks.
- * §8's top risk is a hub repository's API moving under fourteen consumers.
- *
- * The mechanism is therefore simple and its value is entirely in one property:
- * A CHANGE TO THE PUBLIC SURFACE BECOMES A LINE IN A COMMITTED FILE. Not a
- * warning, not a report someone might read — a diff in a pull request, in a
- * file at the repository root, that a human has to look at and approve.
- *
- * `pnpm api:check` regenerates the report and fails if it differs from the
- * committed `api-lock.md`. `pnpm api:update` rewrites it. `pnpm verify` runs
- * the check, so a surface change cannot land without the snapshot moving with
- * it.
- *
- * ---------------------------------------------------------------------------
- * Why this and not @microsoft/api-extractor
- * ---------------------------------------------------------------------------
- *
- * api-extractor was tried first, on mc-kernel, because it is what plan.md §9
- * names. It was rejected on evidence. The decisive failure:
- *
- *   export class ClockPort extends Context.Tag('@nerima-games/mc-kernel/ClockPort')<
- *     ClockPort, ClockService
- *   >() {}
- *
- * TypeScript's own declaration emit renders this faithfully, in two parts:
- *
- *   declare const ClockPort_base: Context.TagClass<
- *     ClockPort, "@nerima-games/mc-kernel/ClockPort", ClockService>
- *   export declare class ClockPort extends ClockPort_base {}
- *
- * api-extractor drops the first part. `ClockPort_base` is not itself exported
- * from the entry point, so api-extractor classifies it as a "forgotten export",
- * emits `ae-forgotten-export` as a WARNING, and writes only:
- *
- *   export class ClockPort extends ClockPort_base {}
- *
- * — an empty shell naming a symbol its own report does not contain. Everything
- * that makes a `Context.Tag` a contract is in the part it discarded: the tag
- * IDENTIFIER STRING and the SERVICE TYPE it is bound to. The identifier string
- * is the key by which Effect resolves a Layer across repository boundaries;
- * changing it silently breaks every consumer's wiring at runtime while every
- * repository still typechecks in isolation. Measured: renaming the tag from
- * `.../ClockPort` to `.../ClockPortRENAMED` left api-extractor's report
- * BYTE-IDENTICAL. A lock file that cannot see that change is worse than no lock
- * file, because it certifies that nothing happened.
- *
- * `Context.Tag` is not an edge case here — it is how every service in every one
- * of the 16 repositories is declared. The whole point of the exercise is that
- * `FrameServices = ClockPort` is frozen at 1.0.0.
- *
- * The other costs api-extractor carried, all secondary to the above:
- *
- *   - it consumes `.d.ts`, and this repository has no build step
- *     (`tsconfig.build.json` sets `noEmit: true`, `package.json#exports` points
- *     at TypeScript source), so it would require wiring up a declaration emit
- *     to disk first;
- *   - 47 transitive packages added to sixteen public repositories, plus a
- *     per-repo `api-extractor.json`, against `typescript` which is already a
- *     devDependency in all 16;
- *   - `ae-missing-release-tag` fires on every export that lacks an `@public`
- *     TSDoc tag — 70 warnings on mc-kernel alone, and the run reports
- *     "completed with errors". Silencing it is a config line; satisfying it
- *     means tagging every export in every repository.
- *
- * What api-extractor got RIGHT, and what this file copies from it: sort every
- * entry by name so that reordering a barrel is not a diff, and render a
- * signature rather than a hash so that a reviewer can read what changed.
- *
- * ---------------------------------------------------------------------------
- * How it works
- * ---------------------------------------------------------------------------
- *
- * 1. Build a Program from `tsconfig.build.json` — the same shipped-source
- *    project the typecheck gate uses — with `declaration` forced on.
- * 2. Run declaration emit IN MEMORY. Nothing is written to disk, so the "no
- *    build step" property of these repositories is preserved exactly; there is
- *    no `dist/`, no `.d.ts` on disk, nothing new in `.gitignore`.
- * 3. Build a second Program over those in-memory `.d.ts` files and ask the
- *    type checker for the exports of `index.d.ts`. That is the authoritative
- *    public surface: it follows `export *`, respects `export type`, and
- *    excludes anything the barrel does not re-export.
- * 4. Render each export as the exact text tsc emitted for it, sorted by name.
- * 5. Pull in any NON-EXPORTED declaration the public surface refers to — the
- *    `ClockPort_base` case above — into a second section. This is the step
- *    api-extractor turns into a warning and skips.
- *
- * Using tsc's declaration emit rather than `checker.typeToString` is
- * deliberate. `typeToString` is a display function: it inlines `import("...")`
- * paths (absolute ones, in these repositories, which a previous sweep spent
- * effort removing from every public file), resolves aliases so that
- * `FrameServices` disappears into `ClockPort`, and drops generic defaults so
- * that `GameModule<ROut, E, RIn, RRegister = never>` loses its fourth
- * parameter's default. Declaration emit is a serialisation function: it is
- * required to produce text that means the same thing in another file, so it
- * preserves all three. `assertPortable` below turns that into an enforced
- * invariant rather than an assumption.
- *
- * ---------------------------------------------------------------------------
- * Determinism
- * ---------------------------------------------------------------------------
- *
- * The snapshot must be a function of the public API and of nothing else, or the
- * diff stops being a signal. Specifically it does not contain, and must never
- * contain: a timestamp, a version number, an absolute path, a file path of any
- * kind, a dependency version, or a hash. Entries are sorted by name with a
- * code-unit comparison (NOT `localeCompare`, which depends on the host's
- * locale). Doc comments are stripped: rewording an essay above an export is not
- * an API change, and mc-kernel's comments are longer than its code.
- *
- * Measured no-op edits that produce ZERO diff: editing a function body, adding
- * a non-exported helper, reordering the barrel, renaming a source file, moving
- * a declaration between files, bumping a devDependency, rewording a doc
- * comment.
- *
- * ---------------------------------------------------------------------------
- * Known limits
- * ---------------------------------------------------------------------------
- *
- * - The report records the SHAPE of the surface, not its BEHAVIOUR. Changing
- *   what `resolveDropItem` returns for a given input is a breaking change this
- *   file cannot see; that is what the test suite is for.
- * - Two supporting declarations that share a name are disambiguated only by
- *   their rendered text. This is deliberate: including the file they came from
- *   would make moving a file a diff, and moving a file is not an API change.
- * - Declaration emit is TypeScript-version-dependent. A `typescript` major bump
- *   can reformat the report; that shows up as a large diff on a devDependency
- *   bump, which is the correct time to look at it. The version is NOT recorded
- *   in the file — recording it would put a dependency bump in the API diff on
- *   every bump, including the ones that change nothing.
- * - It reads only the `.` entry point. All 16 repositories currently declare
- *   exactly one; a repository that adds a second must extend `ENTRY_POINTS`.
- */
+/** Generates and verifies the committed public API snapshot. */
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 
-// ---------------------------------------------------------------------------
-// ↓↓↓ PER-REPOSITORY CONFIGURATION — THIS IS THE ONLY THING YOU EDIT ↓↓↓
-// ---------------------------------------------------------------------------
-
-/**
- * `tsconfigFile`
- *   The project describing SHIPPED SOURCE. Must be the same project the
- *   `typecheck` gate runs over, or the lock could pass while the build fails.
- *   It is read for its `compilerOptions` and its file list; `noEmit` is
- *   overridden in memory and the repository's own `noEmit: true` is untouched.
- *
- * `entryPoints`
- *   Every module named in `package.json#exports`, relative to the repository
- *   root. All 16 repositories currently export exactly `.` from `index.ts`.
- *   Order is irrelevant — entries are sorted by name across all entry points.
- *
- * `snapshotFile`
- *   The committed report, relative to the repository root. Kept at the root
- *   rather than under `docs/` on purpose: a public-surface change should be
- *   impossible to miss in a pull request's file list, and `docs/public-api.md`
- *   is hand-written prose about WHY the API is shaped as it is, which this file
- *   does not replace.
- *
- * ---------------------------------------------------------------------------
- * This constant is identical in all 16 repositories today, which raises the
- * fair question of why the fence exists at all. Two reasons. It matches
- * `check-dependency-whitelist.ts`, so there is exactly one convention for
- * "vendored script with a per-repo head"; and the values are genuinely
- * per-repository facts (mc-render's build project includes `stages/`,
- * mc-sim's includes `application/`) that happen to agree today. A repository
- * that grows a second entry point edits one constant, not the algorithm.
- */
+/** Repository-specific API snapshot settings. */
 export const REPOSITORY_POLICY = {
   tsconfigFile: 'tsconfig.build.json',
-  entryPoints: ['index.ts'],
+  entryPoints: ['src/index.ts'],
   snapshotFile: 'api-lock.md',
 } as const
 
-// ---------------------------------------------------------------------------
-// ↑↑↑ END OF PER-REPOSITORY CONFIGURATION — everything below is generic ↑↑↑
-// ---------------------------------------------------------------------------
-
-/**
- * Bumped when the RENDERING changes in a way that moves every line without any
- * API having moved. A bump is a one-off whole-file diff in all 16 repositories
- * and should be rare; it exists so that such a diff is self-explaining rather
- * than alarming.
- */
+/** Snapshot renderer format version. */
 export const FORMAT_VERSION = 1
 
 /**
@@ -291,8 +103,8 @@ const emitOverrides = (outDir: string): ts.CompilerOptions => ({
   outDir,
   // A composite/incremental project would try to read and write a build info
   // file; there is nothing to be incremental about in a one-shot report.
-  // `tsBuildInfoFile` is not set to `undefined` here because
-  // `exactOptionalPropertyTypes` (on in tsconfig.base.json) rejects that;
+  // `tsBuildInfoFile` is not set to `undefined` because
+  // `exactOptionalPropertyTypes` rejects that;
   // `composite: false` + `incremental: false` already stops it being consulted.
   composite: false,
   incremental: false,
@@ -354,8 +166,8 @@ export const emitDeclarations = (project: LoadedProject, outDir: string): Readon
  *
  * `directoryExists` and `realpath` matter as much as `readFile` here. Module
  * resolution probes the directory before it probes the file, so a host that
- * knows the CONTENTS of `<virtual>/domain/clock.d.ts` but reports that
- * `<virtual>/domain` does not exist resolves nothing at all and yields an
+ * knows the CONTENTS of `<virtual>/src/domain/clock.d.ts` but reports that
+ * `<virtual>/src/domain` does not exist resolves nothing at all and yields an
  * entry point with zero exports — which, since an empty report is a valid
  * report, would fail silently rather than loudly. Hence the explicit
  * `expectedFileCount` check in `generate`.
@@ -414,9 +226,15 @@ export const createVirtualHost = (
   return host
 }
 
-/** `index.ts` -> the absolute path of the `index.d.ts` emit produced for it. */
-const declarationPathFor = (entryPoint: string, outDir: string): string =>
-  normalizePath(path.join(outDir, entryPoint.replace(/\.tsx?$/u, '.d.ts')))
+/** Map a source entry point to its declaration, preserving its path below rootDir. */
+const declarationPathFor = (entryPoint: string, outDir: string, sourceRoot: string): string => {
+  const sourcePath = path.resolve(rootDir, entryPoint)
+  const relativePath = path.relative(sourceRoot, sourcePath)
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    throw new Error(`api-lock: entry point ${JSON.stringify(entryPoint)} is outside compilerOptions.rootDir.`)
+  }
+  return normalizePath(path.join(outDir, relativePath.replace(/\.tsx?$/u, '.d.ts')))
+}
 
 // ---------------------------------------------------------------------------
 // Step 4-5: render
@@ -587,32 +405,6 @@ const referencedLocalSymbols = (
   return found
 }
 
-// ---------------------------------------------------------------------------
-// Rendering the snapshot
-// ---------------------------------------------------------------------------
-
-/**
- * The banner. `renderBanner` pads to the longest line so the box closes, which
- * makes the width a pure function of this array — no magic constant to drift.
- */
-const BANNER = [
-  'GENERATED FILE. Do not edit by hand.',
-  '',
-  'Regenerate with `pnpm api:update`. `pnpm api:check`, which `pnpm verify`',
-  'runs, fails when this file is stale.',
-  '',
-  'Every line below is part of the published surface of this package. A diff',
-  'here is a diff in what consumers can see, and is the thing plan.md §6',
-  'Step 0-3 asks to be reviewed as a diff. See scripts/api-lock.ts for how',
-  'it is produced and why it is produced this way.',
-] as const
-
-const renderBanner = (): ReadonlyArray<string> => {
-  const width = Math.max(...BANNER.map((line) => line.length))
-  const rule = `<!-- ${'-'.repeat(width)} -->`
-  return [rule, ...BANNER.map((line) => `<!-- ${line.padEnd(width, ' ')} -->`), rule]
-}
-
 const renderSection = (entries: ReadonlyArray<Entry>): string =>
   entries.map((entry) => `### ${entry.name}  \`${entry.kind}\`\n\n\`\`\`ts\n${entry.text}\n\`\`\``).join('\n\n')
 
@@ -620,7 +412,7 @@ export const renderSnapshot = (snapshot: Snapshot): string => {
   const lines = [
     `# API lock — ${snapshot.packageName}`,
     '',
-    ...renderBanner(),
+    '<!-- Generated by `pnpm api:update`; checked by `pnpm api:check`. -->',
     '',
     `format: ${String(FORMAT_VERSION)}`,
     `exported declarations: ${String(snapshot.exported.length)}`,
@@ -715,7 +507,8 @@ export const generate = async (): Promise<string> => {
   const emitted = emitDeclarations(project, outDir)
 
   const virtualFiles = new Set(emitted.keys())
-  const entryDeclarations = REPOSITORY_POLICY.entryPoints.map((entry) => declarationPathFor(entry, outDir))
+  const sourceRoot = project.options.rootDir ?? rootDir
+  const entryDeclarations = REPOSITORY_POLICY.entryPoints.map((entry) => declarationPathFor(entry, outDir, sourceRoot))
   for (const declaration of entryDeclarations) {
     if (!virtualFiles.has(declaration)) {
       throw new Error(
@@ -894,7 +687,7 @@ export const main = async (argv: ReadonlyArray<string>): Promise<number> => {
   if (committed === undefined) {
     console.error(`api-lock: ${REPOSITORY_POLICY.snapshotFile} is missing.`)
     console.error('')
-    console.error('The API lock file is required in every commit (plan.md §6 Step 0-3).')
+    console.error('The API lock file is required in every commit.')
     console.error('Create it with `pnpm api:update` and commit it.')
     return 1
   }

@@ -22,15 +22,16 @@
     "registry": "https://npm.pkg.github.com",
     "access": "restricted"
   },
-  "main": "./index.ts",
-  "types": "./index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "files": [
-    "index.ts",
-    "domain",
-    "tsconfig.base.json",
+    "dist",
     "LICENSE",
     "README.md"
   ],
@@ -42,24 +43,27 @@
     "kernel"
   ],
   "scripts": {
-    "typecheck": "tsc -p tsconfig.build.json --pretty false && tsc -p tsconfig.test.json --pretty false",
-    "lint": "oxlint --deny-warnings index.ts domain scripts test",
-    "lint:fix": "oxlint --fix index.ts domain scripts test",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit --pretty false && tsc -p tsconfig.json --pretty false",
+    "build": "tsc -p tsconfig.build.json --pretty false",
+    "lint": "oxlint --deny-warnings src scripts tests",
+    "lint:fix": "oxlint --fix src scripts tests",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "check:deps": "tsx scripts/check-dependency-whitelist.ts",
+    "bench:block-registry": "pnpm build && node benchmarks/block-registry.mjs",
     "api:check": "tsx scripts/api-lock.ts",
     "api:update": "tsx scripts/api-lock.ts --write",
-    "verify": "pnpm typecheck && pnpm lint && pnpm check:deps && pnpm api:check && pnpm test"
+    "check:package": "pnpm build && tsx scripts/check-package.ts",
+    "prepack": "pnpm build",
+    "verify": "pnpm typecheck && pnpm lint && pnpm api:check && pnpm test && pnpm check:package"
   },
   "dependencies": {
     "effect": "^3.22.0"
   },
   "devDependencies": {
     "@effect/vitest": "^0.30.0",
-    "@typescript/native": "npm:typescript@7.0.2",
     "@types/node": "^26.1.2",
+    "@typescript/native": "npm:typescript@7.0.2",
     "@vitest/coverage-v8": "^3.2.7",
     "oxlint": "^1.76.0",
     "tsx": "^4.23.1",

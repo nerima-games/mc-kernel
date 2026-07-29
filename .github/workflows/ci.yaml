@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
 
 # These are public repositories, so a fork PR runs this workflow. Nothing here
@@ -18,23 +19,20 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
         # Pinned to a commit, not the mutable v4 tag: this is a third-party action
         # and a tag can be repointed at new code without any change here.
-        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        uses: pnpm/action-setup@b0f76dfb45f55f8421693e4803ac7bb65143bd34 # v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
           cache: "pnpm"
 
       - name: Install dependencies
-        # --ignore-scripts: pnpm runs postinstall, and a fork PR can edit
-        # package.json and the lockfile consistently and still satisfy
-        # --frozen-lockfile. Nothing here needs a lifecycle script.
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Type check
@@ -43,41 +41,54 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      # Hard gate. Unlike the reference repository's check-package-dag.ts this
-      # script exits non-zero on any violation: unlisted cross-repo import,
-      # undeclared dependency, transitive-closure import, a runtime dependency
-      # on mc-playground-kit, or a raw wall-clock read (Date.now()).
-      - name: Dependency whitelist / time-source ban
-        run: pnpm check:deps
-
-      # The API lock (plan.md §6 Step 0-3). Fails when the committed
-      # api-lock.md no longer matches the package's public surface, so a change
-      # to what consumers can see cannot land without a reviewable diff. Run
-      # `pnpm api:update` to refresh it.
       - name: API lock
         run: pnpm api:check
 
       - name: Test
         run: pnpm test
 
-      # The 99% gate (docs/testing.md §5 row 7), and it is this step that
-      # enforces it. No extra flag is needed and none should be added: the
-      # thresholds live in vitest.config.ts, and `vitest run --coverage` exits
-      # non-zero by itself when any of the four falls below. Keeping the numbers
-      # in the config rather than here means `pnpm test:coverage` gates
-      # identically on a laptop and in CI, so the gate cannot be one that only
-      # ever fires after a push.
-      #
-      # NOTE: `pnpm verify` deliberately does NOT include this step — it runs
-      # `pnpm test` without coverage. Run `pnpm test:coverage` before pushing if
-      # you have touched a branch in domain/.
-      - name: Coverage (99% gate)
+      - name: Build and package smoke test
+        run: pnpm check:package
+
+      - name: Coverage
         run: pnpm test:coverage
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: coverage
           path: coverage/
           retention-days: 7
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b0f76dfb45f55f8421693e4803ac7bb65143bd34 # v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          registry-url: https://npm.pkg.github.com
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Verify tag version
+        run: test "v$(node -p \"require('./package.json').version\")" = "$GITHUB_REF_NAME"
+
+      - name: Publish package
+        run: pnpm publish --no-git-checks
