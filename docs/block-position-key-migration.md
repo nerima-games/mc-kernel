@@ -16,19 +16,19 @@
 複製には座標、識別子、数量、ブロック特性、clock、camera、frame 契約が含まれます。これらは
 `@nerima-games/mc-kernel` の公開 facade から提供します。
 
-## 公開前提
+## 共有化の前提
 
-consumer の置換は、`@nerima-games/mc-kernel` の対象バージョンが GitHub Packages から取得できることが前提です。
-公開前に import だけを置換すると、各リポジトリの単独 CI が必ず失敗します。`workspace:*` は独立した
+consumer の置換は、全 consumer を同時に検証できる統合方式がある場合だけ実施します。registry の公開物に
+依存すると、認証設定と外部可用性が各リポジトリの CI に持ち込まれます。`workspace:*` は独立した
 consumer リポジトリの依存指定として使いません。
 
 ## 実施順
 
-1. このリポジトリで `pnpm verify` と package tarball の smoke test を通し、`0.2.0` を公開します。
-2. 各 consumer の `dependencies` に `"@nerima-games/mc-kernel": "0.2.0"` を追加します。
-3. `domain/kernel-vocabulary` からの import を package facade に置換し、各 consumer で型検査とテストを実行します。
+1. このリポジトリと対象 consumer を同じ統合環境で解決できるようにします。
+2. `pnpm verify` と各 consumer の型検査・テストを通します。
+3. `domain/kernel-vocabulary` からの import を facade に置換します。
 4. 通過後にローカル mirror と mirror 固有の契約テストを削除します。
-5. `mc-dev-meta/repos` の repository spec を新しい package 依存へ更新します。
+5. `mc-dev-meta/repos` の repository spec を統合方式に合わせて更新します。
 
 `mx-gameplay` の 3D ブロック座標 key codec は同じ手順で置換できます。`mx-multiplayer`、`mx-redstone`、
 `mx-ui` の frame 契約は、公開 facade との型一致を個別に確認してから対象化します。

@@ -59,9 +59,9 @@ nav:
   - ホーム: README.md
   - はじめに:
       - アーキテクチャ: architecture.md
-      - 座標キー移行: block-position-key-migration.md
+      - 座標キー共有化: block-position-key-migration.md
   - リファレンス:
       - 公開 API: api-reference.md
   - プロジェクト:
       - テストと検証: testing.md
-      - バージョニングと公開: versioning.md
+      - バージョニングと変更管理: versioning.md

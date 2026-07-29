@@ -18,7 +18,7 @@ consumer が利用できる入口は `@nerima-games/mc-kernel` だけです。�
 - **座標キー**: `BlockPositionKey`、`blockPositionKeyOf`、`isBlockPositionKey`、`blockPositionOfKey`、`decodeBlockPositionKey`。
 - **範囲**: `AABB`、`aabb`、`aabbOfBlock`、`aabbIntersects`、`aabbContainsPoint`。
 
-`BlockPositionKey` は canonical な `"x,y,z"` 表現です。consumer の移行条件は[座標キー移行](block-position-key-migration.md)を参照してください。
+`BlockPositionKey` は canonical な `"x,y,z"` 表現です。consumer との共有化判断は[座標キー共有化](block-position-key-migration.md)を参照してください。
 
 ## ブロックとアイテム
 

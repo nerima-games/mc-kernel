@@ -3,7 +3,6 @@ name: CI
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
 
 # These are public repositories, so a fork PR runs this workflow. Nothing here
@@ -60,35 +59,3 @@ jobs:
           name: coverage
           path: coverage/
           retention-days: 7
-
-  publish:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: ci
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@b0f76dfb45f55f8421693e4803ac7bb65143bd34 # v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: "24"
-          cache: "pnpm"
-          registry-url: https://npm.pkg.github.com
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
-
-      - name: Verify tag version
-        run: test "v$(node -p \"require('./package.json').version\")" = "$GITHUB_REF_NAME"
-
-      - name: Publish package
-        run: pnpm publish --no-git-checks

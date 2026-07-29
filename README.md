@@ -9,11 +9,7 @@ Minecraft-clone の各パッケージが共有する、依存を持たない基�
 
 `src/` は出荷する実装、`tests/` はその検証だけを置く。公開 API は `src/index.ts` に限定し、`api-lock.md` のスナップショットで検査します。
 
-## インストール
-
-```console
-pnpm add @nerima-games/mc-kernel
-```
+## 利用境界
 
 ```ts
 import { blockPosition, blockPositionKeyOf, CHUNK_SIZE_XZ } from '@nerima-games/mc-kernel'
@@ -24,7 +20,9 @@ const key = blockPositionKeyOf(origin)
 console.log(key, CHUNK_SIZE_XZ)
 ```
 
-Node.js 24 以上と pnpm 11 以上をサポートします。パッケージは Node ESM と型宣言だけを公開します。
+この import は公開 API の境界を表しますが、npm registry への配布は行いません。consumer は当面それぞれの
+`domain/kernel-vocabulary.ts` を所有し、共有化は単一ワークスペースまたは Git submodule など、認証不要で
+再現可能な統合方式を採用する時点で改めて検討します。開発環境は Node.js 24 以上と pnpm 11 以上をサポートします。
 
 ## 開発
 
