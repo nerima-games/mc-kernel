@@ -171,6 +171,8 @@ describe('public API surface', () => {
       expect(kernel.BLOCK_TYPES).toBe(BLOCK_TYPES)
       expect(kernel.isItemType).toBe(isItemType)
       expect(kernel.ITEM_TYPES).toBe(ITEM_TYPES)
+      expect(kernel.isItemType('bow')).toBe(true)
+      expect(kernel.isItemType('arrow')).toBe(true)
       expect(kernel.isItemType('lily_pad')).toBe(true)
     }),
   )

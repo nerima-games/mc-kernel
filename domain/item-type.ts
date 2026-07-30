@@ -98,12 +98,14 @@ export const ITEM_TYPES = [
   // the two unions would be structurally interchangeable and the distinction
   // this file exists to draw would be decorative.
   //
-  // `stick`, the pickaxes, and the hoes are names the organisation uses:
+  // `stick`, `bow`, `arrow`, the pickaxes, and the hoes are names the organisation uses:
   // mc-sim's `STARTER_RECIPES`
   // produces `'STICK'` and `'WOODEN_PICKAXE'` (`mc-sim/domain/recipe.ts:602,640`),
   // while mx-gameplay's mining progression consumes `stone_pickaxe`,
   // `iron_pickaxe`, and `diamond_pickaxe` as successive craftable tool tiers.
   'stick',
+  'bow',
+  'arrow',
   'glowstone_dust',
   'wooden_pickaxe',
   'stone_pickaxe',

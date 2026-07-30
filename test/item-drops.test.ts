@@ -76,6 +76,8 @@ describe('ItemType is a closed literal union, exactly as BlockType is', () => {
   it.effect('narrows a string that names a known item', () =>
     Effect.sync(() => {
       expect(isItemType('stick')).toBe(true)
+      expect(isItemType('bow')).toBe(true)
+      expect(isItemType('arrow')).toBe(true)
       expect(isItemType('cobblestone')).toBe(true)
       expect(isItemType('stone_pickaxe')).toBe(true)
       expect(isItemType('iron_pickaxe')).toBe(true)
@@ -148,6 +150,8 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
       // vocabulary addition remains visible in review.
       expect([...NON_PLACEABLE_ITEM_TYPES]).toStrictEqual([
         'stick',
+        'bow',
+        'arrow',
         'glowstone_dust',
         'wooden_pickaxe',
         'stone_pickaxe',
@@ -266,6 +270,8 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
       // The other direction only exists once placeability is proven, and there
       // is deliberately no `blockOfItem(item: ItemType)` to ask about a stick.
       expect(isPlaceableItem('stick')).toBe(false)
+      expect(isPlaceableItem('bow')).toBe(false)
+      expect(isPlaceableItem('arrow')).toBe(false)
       expect(isPlaceableItem('glowstone_dust')).toBe(false)
       expect(isPlaceableItem('torch')).toBe(true)
       const torch = 'torch'
@@ -745,6 +751,8 @@ describe('the rule that keeps a `self` drop honest', () => {
       // added explicitly here.
       const EXPLICIT_NON_BLOCK_ITEMS: ReadonlySet<string> = new Set([
         'stick',
+        'bow',
+        'arrow',
         'wooden_pickaxe',
         'stone_pickaxe',
         'iron_pickaxe',
@@ -780,7 +788,7 @@ describe('the rule that keeps a `self` drop honest', () => {
       // The explicit list is pinned to its exact membership so that adding an
       // unexplained item cannot be hidden by adding a name to the exemption.
       expect([...EXPLICIT_NON_BLOCK_ITEMS].filter((name) => !ITEM_TYPES.includes(name as ItemType))).toStrictEqual([])
-      expect(EXPLICIT_NON_BLOCK_ITEMS.size).toBe(15)
+      expect(EXPLICIT_NON_BLOCK_ITEMS.size).toBe(17)
       expect([...EQUIPMENT_ITEMS]).toStrictEqual(IRON_ARMOUR_ITEM_TYPES)
     }),
   )
