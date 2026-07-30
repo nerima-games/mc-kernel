@@ -321,7 +321,7 @@ describe('the supportRule column across the whole registry', () => {
     }),
   )
 
-  it.effect('the thirteen with a reference rule name only blocks that exist', () =>
+  it.effect('the explicit support rules name only blocks that exist', () =>
     Effect.sync(() => {
       const named = BLOCK_TYPES.flatMap((type) => {
         const rule = supportRuleOfBlockId(blockIdOf(type))
@@ -334,13 +334,14 @@ describe('the supportRule column across the whole registry', () => {
         // never be satisfied, and `blockIdOf` would silently answer AIR.
         expect(BLOCK_TYPES).toContain(block)
       }
-      // The seven support blocks the reference's five rules name between them.
+      // Every named support must be part of the public block vocabulary.
       expect([...new Set(named)].sort()).toStrictEqual([
         'cactus',
         'dirt',
         'farmland',
         'grass_block',
         'sand',
+        'soul_sand',
         'sugar_cane',
         'water',
       ])
@@ -366,11 +367,14 @@ describe('the supportRule column across the whole registry', () => {
     }),
   )
 
-  it.effect('all three crops share the FARMLAND rule — a closed set of three that stays three', () =>
+  it.effect('keeps crop support aligned with vanilla farmland and soul sand rules', () =>
     Effect.sync(() => {
-      for (const crop of ['wheat_crop', 'potato_crop', 'nether_wart_crop'] as const) {
+      for (const crop of ['wheat_crop', 'potato_crop'] as const) {
         expect(supportRuleOfBlockId(blockIdOf(crop))).toStrictEqual(needsOneOf('farmland'))
       }
+      expect(supportRuleOfBlockId(blockIdOf('nether_wart_crop'))).toStrictEqual(needsOneOf('soul_sand'))
+      expect(canBlockStaySupported(blockIdOf('nether_wart_crop'), blockIdOf('soul_sand'))).toBe(true)
+      expect(canBlockStaySupported(blockIdOf('nether_wart_crop'), blockIdOf('farmland'))).toBe(false)
     }),
   )
 })

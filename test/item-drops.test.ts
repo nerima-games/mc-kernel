@@ -57,6 +57,8 @@ const IRON_ARMOUR_ITEM_TYPES = [
   'iron_boots',
 ] as const satisfies ReadonlyArray<ItemType>
 
+const HOE_ITEM_TYPES = ['wooden_hoe', 'stone_hoe', 'iron_hoe', 'diamond_hoe'] as const satisfies ReadonlyArray<ItemType>
+
 describe('ItemType is a closed literal union, exactly as BlockType is', () => {
   it.effect('narrows a string that names a known item', () =>
     Effect.sync(() => {
@@ -65,6 +67,9 @@ describe('ItemType is a closed literal union, exactly as BlockType is', () => {
       expect(isItemType('stone_pickaxe')).toBe(true)
       expect(isItemType('iron_pickaxe')).toBe(true)
       expect(isItemType('diamond_pickaxe')).toBe(true)
+      for (const hoe of HOE_ITEM_TYPES) {
+        expect(isItemType(hoe)).toBe(true)
+      }
       expect(isItemType(ITEM_TYPES[0])).toBe(true)
       for (const armour of IRON_ARMOUR_ITEM_TYPES) {
         expect(isItemType(armour)).toBe(true)
@@ -132,6 +137,10 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'stone_pickaxe',
         'iron_pickaxe',
         'diamond_pickaxe',
+        'wooden_hoe',
+        'stone_hoe',
+        'iron_hoe',
+        'diamond_hoe',
         'coal',
         'iron_ingot',
         'flint',
@@ -745,6 +754,7 @@ describe('the rule that keeps a `self` drop honest', () => {
         'stone_pickaxe',
         'iron_pickaxe',
         'diamond_pickaxe',
+        ...HOE_ITEM_TYPES,
         'iron_ingot',
         'flint',
         'gunpowder',
@@ -775,7 +785,7 @@ describe('the rule that keeps a `self` drop honest', () => {
       // The explicit list is pinned to its exact membership so that adding an
       // unexplained item cannot be hidden by adding a name to the exemption.
       expect([...EXPLICIT_NON_BLOCK_ITEMS].filter((name) => !ITEM_TYPES.includes(name as ItemType))).toStrictEqual([])
-      expect(EXPLICIT_NON_BLOCK_ITEMS.size).toBe(11)
+      expect(EXPLICIT_NON_BLOCK_ITEMS.size).toBe(15)
       expect([...EQUIPMENT_ITEMS]).toStrictEqual(IRON_ARMOUR_ITEM_TYPES)
     }),
   )

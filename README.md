@@ -112,7 +112,7 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
   チャンクバッファの 1 バイトから能力を引きたいリポジトリが依存グラフ上で互いに届かない 3 箇所に現れた時点で成立しなくなった。
   経緯と論拠は [docs/responsibility.md](./docs/responsibility.md) §3-2 と当該ファイルのヘッダにある。
 - **`BlockType` は代表的な少数のみ**（18 / 参照実装は 120）。埋めるのは加算的な作業。
-- **`ItemType` を公開した**（`domain/item-type.ts`、102 種。鉄防具 4 種と木・石のつるはしを含む）。plan.md §3.1 が挙げていながら
+- **`ItemType` を公開した**（`domain/item-type.ts`、108 種。鉄防具 4 種とつるはし・クワ各 4 tier を含む）。plan.md §3.1 が挙げていながら
   書かれていなかった語彙で、欠落のあいだに mc-sim / mc-playground-kit / mx-ui がそれぞれ暫定の
   `type ItemId = string` を置いていた。`domain/block-item.ts` がブロック↔アイテムの橋
   （監査 §6-8 の `ItemType ∩ BlockType` を導出で解く）を、`dropOfBlockId` が

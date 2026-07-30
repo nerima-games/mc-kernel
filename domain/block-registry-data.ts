@@ -250,8 +250,11 @@ const PLANT_PROPERTIES = {
 // sensitive set) and the absence of a line between :75 and :89. They get
 // `NEEDS_ANY_SUPPORT`, which is that absence written down.
 
-/** `block-support.ts:78-81` — all three crops, and nothing but farmland. */
+/** Wheat and potatoes grow only on farmland. */
 const NEEDS_FARMLAND: SupportRule = needsOneOf('farmland')
+
+/** Nether wart grows only on soul sand. */
+const NEEDS_SOUL_SAND: SupportRule = needsOneOf('soul_sand')
 
 /**
  * `SURFACE_PLANT_SUPPORT_BLOCK_TYPES` (`block-support.ts:63-67`), for the seven
@@ -1549,12 +1552,8 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
   // the sharpest one yet: the other cases disagree between tables about blocks
   // that differ, whereas this splits a set the source itself defines as a set.
   //
-  // `supportRule` is what these rows actually wanted, and they have it:
-  // `block-support.ts:78-81` gives all three "FARMLAND below", and `farmland`
-  // being in the roster is what made that writable. All three rows carry
-  // `NEEDS_FARMLAND` — the one column on which `CROP_BLOCK_TYPES` is a closed
-  // set of three that this table agrees is a closed set of three, unlike
-  // `suffocates` directly above.
+  // `supportRule` is what these rows actually wanted, and they have it. Wheat
+  // and potatoes require farmland; nether wart requires soul sand.
   {
     id: BlockId(71),
     definition: {
@@ -1570,7 +1569,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         hardness: 0,
         friction: 0,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'wheat_seeds' },
-        supportRule: NEEDS_FARMLAND, // block-support.ts:78-81 via CROP_BLOCK_TYPES (:20)
+        supportRule: NEEDS_FARMLAND,
       },
     },
   },
@@ -1584,7 +1583,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         hardness: 0,
         friction: 0,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'potato' },
-        supportRule: NEEDS_FARMLAND, // block-support.ts:78-81 via CROP_BLOCK_TYPES (:20)
+        supportRule: NEEDS_FARMLAND,
       },
     },
   },
@@ -1603,7 +1602,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         hardness: 0,
         friction: 0,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'nether_wart' },
-        supportRule: NEEDS_FARMLAND, // block-support.ts:78-81 via CROP_BLOCK_TYPES (:20)
+        supportRule: NEEDS_SOUL_SAND,
       },
     },
   },
