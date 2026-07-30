@@ -62,6 +62,7 @@ describe('ItemType is a closed literal union, exactly as BlockType is', () => {
     Effect.sync(() => {
       expect(isItemType('stick')).toBe(true)
       expect(isItemType('cobblestone')).toBe(true)
+      expect(isItemType('stone_pickaxe')).toBe(true)
       expect(isItemType(ITEM_TYPES[0])).toBe(true)
       for (const armour of IRON_ARMOUR_ITEM_TYPES) {
         expect(isItemType(armour)).toBe(true)
@@ -126,6 +127,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'stick',
         'glowstone_dust',
         'wooden_pickaxe',
+        'stone_pickaxe',
         'coal',
         'iron_ingot',
         'flint',
@@ -723,18 +725,20 @@ describe('the rule that keeps a `self` drop honest', () => {
       //   2. It names a block, so a player can hold and place it. `stone` is the
       //      case: it DROPS cobblestone, so reason 1 never applies to it, and it
       //      is still an item because you can carry a stone block.
-      //   3. It is grandfathered — the pre-roster vocabulary, each entry argued
-      //      individually in `domain/item-type.ts`: mc-sim's recipe names and
-      //      the two ignition items.
+      //   3. It is an explicitly admitted non-block item, each entry argued
+      //      individually in `domain/item-type.ts`: recipe/tool names and the
+      //      two ignition items.
       //   4. The equipment boundary needs its identity. Equipment behaviour is
       //      owned above kernel, but its closed item vocabulary is not.
       //
       // Reason 2 is why this test cannot simply be the converse of the one
-      // above. Reason 3 is a fixed list that must not grow: a new item with no
-      // block behind it has to earn its place in review, not here.
-      const GRANDFATHERED: ReadonlySet<string> = new Set([
+      // above. Reason 3 is a fixed list that must not grow accidentally: a new
+      // item with no block behind it has to earn its place in review and be
+      // added explicitly here.
+      const EXPLICIT_NON_BLOCK_ITEMS: ReadonlySet<string> = new Set([
         'stick',
         'wooden_pickaxe',
+        'stone_pickaxe',
         'iron_ingot',
         'flint',
         'gunpowder',
@@ -757,15 +761,15 @@ describe('the rule that keeps a `self` drop honest', () => {
         (item) =>
           !dropped.has(item) &&
           !blockNames.has(item) &&
-          !GRANDFATHERED.has(item) &&
+          !EXPLICIT_NON_BLOCK_ITEMS.has(item) &&
           !EQUIPMENT_ITEMS.has(item),
       )
       expect(unexplained).toStrictEqual([])
 
-      // The grandfathered list is pinned to its exact membership so that adding
-      // an unexplained item cannot be hidden by adding a name to the exemption.
-      expect([...GRANDFATHERED].filter((name) => !ITEM_TYPES.includes(name as ItemType))).toStrictEqual([])
-      expect(GRANDFATHERED.size).toBe(8)
+      // The explicit list is pinned to its exact membership so that adding an
+      // unexplained item cannot be hidden by adding a name to the exemption.
+      expect([...EXPLICIT_NON_BLOCK_ITEMS].filter((name) => !ITEM_TYPES.includes(name as ItemType))).toStrictEqual([])
+      expect(EXPLICIT_NON_BLOCK_ITEMS.size).toBe(9)
       expect([...EQUIPMENT_ITEMS]).toStrictEqual(IRON_ARMOUR_ITEM_TYPES)
     }),
   )

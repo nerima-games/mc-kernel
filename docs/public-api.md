@@ -109,7 +109,7 @@ plan.md §3.1 の主張は「挙動は名前比較ではなく能力から読む
 
 | 向き | 落ちる例 |
 | --- | --- |
-| `ItemType` → `BlockType` | `stick` / `wooden_pickaxe` / `iron_helmet` |
+| `ItemType` → `BlockType` | `stick` / `wooden_pickaxe` / `stone_pickaxe` / `iron_helmet` |
 | `BlockType` → `ItemType` | `air` / `water` / `lava` / `bedrock` / `snow` |
 
 `air` が入らないのは監査 §6-6（「`AIR` は『ブロックが無い』ことを表す番兵であり能力ではない」）の帰結である。
@@ -129,7 +129,7 @@ plan.md §3.1 の主張は「挙動は名前比較ではなく能力から読む
 つまりブロック個別の例外は、他のブロック個別の例外が既にいる場所（レジストリの行）にいる。
 第 2 の block→item 対応表は作らない。
 
-**`ITEM_TYPES` は 101 個。** ブロック形・ドロップ形に加え、装備境界が必要とする
+**`ITEM_TYPES` は 102 個。** ブロック形・ドロップ形、木・石のつるはしに加え、装備境界が必要とする
 `iron_helmet` / `iron_chestplate` / `iron_leggings` / `iron_boots` を語彙として持つ。
 スロット規則や装備挙動は上位パッケージが所有し、kernel はアイテム同一性だけを所有する。
 埋めるのは `BLOCK_TYPES` と同じく加算的である。
