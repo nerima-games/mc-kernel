@@ -51,10 +51,10 @@
  * real case behind it rather than a placeholder: an item identical to its block
  * (`dirt`), an item a *different* block yields (`cobblestone` from `stone`,
  * `dirt` from `grass_block`), an item that is not a block at all
- * (`glowstone_dust`, `stick`, `wooden_pickaxe`, `stone_pickaxe`), and blocks that yield nothing
+ * (`glowstone_dust`, `stick`, `wooden_pickaxe`, `stone_pickaxe`, `iron_pickaxe`), and blocks that yield nothing
  * (`oak_leaves`, `bedrock`).
  *
- * It reached 23 when mc-sim's recipe table was repointed, and it is 102 now.
+ * It reached 23 when mc-sim's recipe table was repointed, and it is 103 now.
  * The jump is not enthusiasm: `BLOCK_TYPES` reached the reference's full 120,
  * and 55 of those new rows would otherwise have been LIES — a row stating that
  * a block drops itself, with no item of that name for it to drop. See the rule
@@ -62,7 +62,7 @@
  *
  * The roster is still not a catalogue of everything nameable: only the four
  * iron armour pieces required by the equipment boundary exist; there is no food
- * and no tool beyond the two pickaxe tiers used by gameplay. Ten literals that the block-drop rule
+ * and no tool beyond the three pickaxe tiers used by gameplay. Ten literals that the block-drop rule
  * WOULD admit are also deliberately absent; that argument is at the end of the
  * list, and it is the only place that rule is knowingly not applied.
  *
@@ -98,14 +98,15 @@ export const ITEM_TYPES = [
   // the two unions would be structurally interchangeable and the distinction
   // this file exists to draw would be decorative.
   //
-  // `stick`, `wooden_pickaxe`, and `stone_pickaxe` are names the organisation uses:
+  // `stick`, `wooden_pickaxe`, `stone_pickaxe`, and `iron_pickaxe` are names the organisation uses:
   // mc-sim's `STARTER_RECIPES` produces `'STICK'` and `'WOODEN_PICKAXE'`
   // (`mc-sim/domain/recipe.ts:602,640`), while mx-gameplay's mining progression
-  // consumes `stone_pickaxe` as the next craftable tool tier.
+  // consumes `stone_pickaxe` and `iron_pickaxe` as successive craftable tool tiers.
   'stick',
   'glowstone_dust',
   'wooden_pickaxe',
   'stone_pickaxe',
+  'iron_pickaxe',
 
   // Requested by mc-sim, with the cost written down, after its recipe table was
   // repointed onto this union and seven rows had nothing to name. The request

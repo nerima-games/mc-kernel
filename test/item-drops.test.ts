@@ -63,6 +63,7 @@ describe('ItemType is a closed literal union, exactly as BlockType is', () => {
       expect(isItemType('stick')).toBe(true)
       expect(isItemType('cobblestone')).toBe(true)
       expect(isItemType('stone_pickaxe')).toBe(true)
+      expect(isItemType('iron_pickaxe')).toBe(true)
       expect(isItemType(ITEM_TYPES[0])).toBe(true)
       for (const armour of IRON_ARMOUR_ITEM_TYPES) {
         expect(isItemType(armour)).toBe(true)
@@ -128,6 +129,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'glowstone_dust',
         'wooden_pickaxe',
         'stone_pickaxe',
+        'iron_pickaxe',
         'coal',
         'iron_ingot',
         'flint',
@@ -739,6 +741,7 @@ describe('the rule that keeps a `self` drop honest', () => {
         'stick',
         'wooden_pickaxe',
         'stone_pickaxe',
+        'iron_pickaxe',
         'iron_ingot',
         'flint',
         'gunpowder',
@@ -769,7 +772,7 @@ describe('the rule that keeps a `self` drop honest', () => {
       // The explicit list is pinned to its exact membership so that adding an
       // unexplained item cannot be hidden by adding a name to the exemption.
       expect([...EXPLICIT_NON_BLOCK_ITEMS].filter((name) => !ITEM_TYPES.includes(name as ItemType))).toStrictEqual([])
-      expect(EXPLICIT_NON_BLOCK_ITEMS.size).toBe(9)
+      expect(EXPLICIT_NON_BLOCK_ITEMS.size).toBe(10)
       expect([...EQUIPMENT_ITEMS]).toStrictEqual(IRON_ARMOUR_ITEM_TYPES)
     }),
   )
