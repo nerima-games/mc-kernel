@@ -54,7 +54,7 @@
  * (`glowstone_dust`, `stick`, `wooden_pickaxe`, `stone_pickaxe`, `iron_pickaxe`), and blocks that yield nothing
  * (`oak_leaves`, `bedrock`).
  *
- * It reached 23 when mc-sim's recipe table was repointed, and it is 108 now.
+ * It reached 23 when mc-sim's recipe table was repointed, and it is 112 now.
  * The jump is not enthusiasm: `BLOCK_TYPES` reached the reference's full 120,
  * and 55 of those new rows would otherwise have been LIES — a row stating that
  * a block drops itself, with no item of that name for it to drop. See the rule
@@ -62,7 +62,7 @@
  *
  * The roster is still not a catalogue of everything nameable: only the four
  * iron armour pieces required by the equipment boundary exist; there is no food
- * and no tools beyond the pickaxe and hoe tiers used by gameplay. Ten literals that the block-drop rule
+ * and no tools beyond the pickaxe, hoe, and sword tiers used by gameplay. Ten literals that the block-drop rule
  * WOULD admit are also deliberately absent; that argument is at the end of the
  * list, and it is the only place that rule is knowingly not applied.
  *
@@ -98,7 +98,7 @@ export const ITEM_TYPES = [
   // the two unions would be structurally interchangeable and the distinction
   // this file exists to draw would be decorative.
   //
-  // `stick`, `bow`, `arrow`, the pickaxes, and the hoes are names the organisation uses:
+  // `stick`, `bow`, `arrow`, the pickaxes, hoes, and swords are names the organisation uses:
   // mc-sim's `STARTER_RECIPES`
   // produces `'STICK'` and `'WOODEN_PICKAXE'` (`mc-sim/domain/recipe.ts:602,640`),
   // while mx-gameplay's mining progression consumes `stone_pickaxe`,
@@ -115,6 +115,10 @@ export const ITEM_TYPES = [
   'stone_hoe',
   'iron_hoe',
   'diamond_hoe',
+  'wooden_sword',
+  'stone_sword',
+  'iron_sword',
+  'diamond_sword',
 
   // Requested by mc-sim, with the cost written down, after its recipe table was
   // repointed onto this union and seven rows had nothing to name. The request
