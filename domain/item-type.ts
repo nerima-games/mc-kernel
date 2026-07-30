@@ -98,15 +98,17 @@ export const ITEM_TYPES = [
   // the two unions would be structurally interchangeable and the distinction
   // this file exists to draw would be decorative.
   //
-  // `stick`, `wooden_pickaxe`, `stone_pickaxe`, and `iron_pickaxe` are names the organisation uses:
-  // mc-sim's `STARTER_RECIPES` produces `'STICK'` and `'WOODEN_PICKAXE'`
-  // (`mc-sim/domain/recipe.ts:602,640`), while mx-gameplay's mining progression
-  // consumes `stone_pickaxe` and `iron_pickaxe` as successive craftable tool tiers.
+  // `stick`, `wooden_pickaxe`, `stone_pickaxe`, `iron_pickaxe`, and
+  // `diamond_pickaxe` are names the organisation uses: mc-sim's `STARTER_RECIPES`
+  // produces `'STICK'` and `'WOODEN_PICKAXE'` (`mc-sim/domain/recipe.ts:602,640`),
+  // while mx-gameplay's mining progression consumes `stone_pickaxe`,
+  // `iron_pickaxe`, and `diamond_pickaxe` as successive craftable tool tiers.
   'stick',
   'glowstone_dust',
   'wooden_pickaxe',
   'stone_pickaxe',
   'iron_pickaxe',
+  'diamond_pickaxe',
 
   // Requested by mc-sim, with the cost written down, after its recipe table was
   // repointed onto this union and seven rows had nothing to name. The request
