@@ -2,6 +2,7 @@ import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import * as kernel from '../index'
 import { BLOCK_TYPES, isBlockType } from '../domain/block-type'
+import { isItemType, ITEM_TYPES } from '../domain/item-type'
 
 describe('BlockType', () => {
   it.effect('narrows a string that names a known block', () =>
@@ -168,6 +169,9 @@ describe('public API surface', () => {
     Effect.sync(() => {
       expect(kernel.isBlockType).toBe(isBlockType)
       expect(kernel.BLOCK_TYPES).toBe(BLOCK_TYPES)
+      expect(kernel.isItemType).toBe(isItemType)
+      expect(kernel.ITEM_TYPES).toBe(ITEM_TYPES)
+      expect(kernel.isItemType('lily_pad')).toBe(true)
     }),
   )
 })

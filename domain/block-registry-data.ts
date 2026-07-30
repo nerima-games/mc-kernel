@@ -811,14 +811,6 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       capabilities: SURFACE_PLANT_CAPABILITIES,
       properties: {
         ...PLANT_PROPERTIES,
-        // HELD BACK, not transcribed. The reference drops this block as itself
-        // (`getInventoryDropForBlock` has no override for it), and the item form is
-        // deliberately absent from `ITEM_TYPES` — see the block comment there on
-        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
-        // would make it placeable and wake a placement rule that is known wrong.
-        // Stated as nothing rather than inheriting "yields itself" and producing
-        // nothing silently.
-        drops: DROPS_NOTHING,
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:5)
       },
     },
@@ -831,14 +823,6 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
-        // HELD BACK, not transcribed. The reference drops this block as itself
-        // (`getInventoryDropForBlock` has no override for it), and the item form is
-        // deliberately absent from `ITEM_TYPES` — see the block comment there on
-        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
-        // would make it placeable and wake a placement rule that is known wrong.
-        // Stated as nothing rather than inheriting "yields itself" and producing
-        // nothing silently.
-        drops: DROPS_NOTHING,
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:6)
       }, // plant-mesh.ts:19
     },
@@ -851,14 +835,6 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
-        // HELD BACK, not transcribed. The reference drops this block as itself
-        // (`getInventoryDropForBlock` has no override for it), and the item form is
-        // deliberately absent from `ITEM_TYPES` — see the block comment there on
-        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
-        // would make it placeable and wake a placement rule that is known wrong.
-        // Stated as nothing rather than inheriting "yields itself" and producing
-        // nothing silently.
-        drops: DROPS_NOTHING,
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:7)
       }, // plant-mesh.ts:20
     },
@@ -871,14 +847,6 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
-        // HELD BACK, not transcribed. The reference drops this block as itself
-        // (`getInventoryDropForBlock` has no override for it), and the item form is
-        // deliberately absent from `ITEM_TYPES` — see the block comment there on
-        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
-        // would make it placeable and wake a placement rule that is known wrong.
-        // Stated as nothing rather than inheriting "yields itself" and producing
-        // nothing silently.
-        drops: DROPS_NOTHING,
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:8)
       }, // plant-mesh.ts:21
     },
@@ -891,14 +859,6 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
-        // HELD BACK, not transcribed. The reference drops this block as itself
-        // (`getInventoryDropForBlock` has no override for it), and the item form is
-        // deliberately absent from `ITEM_TYPES` — see the block comment there on
-        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
-        // would make it placeable and wake a placement rule that is known wrong.
-        // Stated as nothing rather than inheriting "yields itself" and producing
-        // nothing silently.
-        drops: DROPS_NOTHING,
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:9)
       }, // plant-mesh.ts:22
     },
@@ -911,14 +871,6 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
-        // HELD BACK, not transcribed. The reference drops this block as itself
-        // (`getInventoryDropForBlock` has no override for it), and the item form is
-        // deliberately absent from `ITEM_TYPES` — see the block comment there on
-        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
-        // would make it placeable and wake a placement rule that is known wrong.
-        // Stated as nothing rather than inheriting "yields itself" and producing
-        // nothing silently.
-        drops: DROPS_NOTHING,
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:10)
       }, // plant-mesh.ts:23
     },
@@ -931,14 +883,6 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
-        // HELD BACK, not transcribed. The reference drops this block as itself
-        // (`getInventoryDropForBlock` has no override for it), and the item form is
-        // deliberately absent from `ITEM_TYPES` — see the block comment there on
-        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
-        // would make it placeable and wake a placement rule that is known wrong.
-        // Stated as nothing rather than inheriting "yields itself" and producing
-        // nothing silently.
-        drops: DROPS_NOTHING,
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:11)
       }, // plant-mesh.ts:24
     },
@@ -965,14 +909,6 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
-        // HELD BACK, not transcribed. The reference drops this block as itself
-        // (`getInventoryDropForBlock` has no override for it), and the item form is
-        // deliberately absent from `ITEM_TYPES` — see the block comment there on
-        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
-        // would make it placeable and wake a placement rule that is known wrong.
-        // Stated as nothing rather than inheriting "yields itself" and producing
-        // nothing silently.
-        drops: DROPS_NOTHING,
         supportRule: NEEDS_SUGAR_CANE_GROUND, // block-support.ts:82
       }, // plant-mesh.ts:25
     },
@@ -996,14 +932,6 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'lilyPad',
-        // HELD BACK, not transcribed. The reference drops this block as itself
-        // (`getInventoryDropForBlock` has no override for it), and the item form is
-        // deliberately absent from `ITEM_TYPES` — see the block comment there on
-        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
-        // would make it placeable and wake a placement rule that is known wrong.
-        // Stated as nothing rather than inheriting "yields itself" and producing
-        // nothing silently.
-        drops: DROPS_NOTHING,
         supportRule: NEEDS_WATER, // block-support.ts:84
       }, // plant-mesh.ts:34
     },
@@ -1127,14 +1055,6 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         collisionShape: 'cactus', // block-collision-predicates.ts:136
         renderKind: 'cactus', // plant-mesh.ts:30
         contactDamage: 1, // environment-hazard.config.ts:26 (`CACTUS_DAMAGE`)
-        // HELD BACK, not transcribed. The reference drops this block as itself
-        // (`getInventoryDropForBlock` has no override for it), and the item form is
-        // deliberately absent from `ITEM_TYPES` — see the block comment there on
-        // the ten support-sensitive plants and mx-gameplay's F7. Giving it an item
-        // would make it placeable and wake a placement rule that is known wrong.
-        // Stated as nothing rather than inheriting "yields itself" and producing
-        // nothing silently.
-        drops: DROPS_NOTHING,
         supportRule: NEEDS_SAND_OR_CACTUS, // block-support.ts:83
       },
     },

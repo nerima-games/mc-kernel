@@ -290,9 +290,8 @@ export const ITEM_TYPES = [
   // block by block: none of the eighteen appears in `INVENTORY_DROP_OVERRIDES`.
   // There is no guess here; there was a missing transcription.
   //
-  // SEVEN OF THE EIGHTEEN ARE HERE. The other ten are held back on purpose and
-  // the reason is in the block comment directly below, which is worth reading
-  // before "finishing the job".
+  // All seventeen are now represented: the seven older rows below and the ten
+  // support-sensitive plants at the end of this roster.
   'ladder',
   'kelp',
   'seagrass',
@@ -314,58 +313,18 @@ export const ITEM_TYPES = [
   'string',
   'snowball',
 
-  // ---------------------------------------------------------------------------
-  // TEN DELIBERATELY ABSENT: the support-sensitive plants.
-  // ---------------------------------------------------------------------------
-  //
-  // `sapling`, `dandelion`, `poppy`, `brown_mushroom`, `red_mushroom`,
-  // `tall_grass`, `fern`, `sugar_cane`, `cactus` and `lily_pad` all satisfy the
-  // rule above — the reference drops each of them as itself — and are still NOT
-  // in this roster. This is the one place the rule is knowingly not applied, so
-  // it is the one that needs the argument.
-  //
-  // THE BLOCKER IS GONE AND THIS HOLD IS NOW THE LAST STEP, NOT A WAIT.
-  // `supportRule` landed (`./block-support`, `./block-registry`), mx-gameplay
-  // reads it instead of the fallback, and F7 is closed — so the code path these
-  // ten would activate is no longer known-wrong. What survives is only the
-  // mechanical work of itemising them: ten literals here, ten registry rows
-  // whose `DROPS_NOTHING` becomes the default rule, and the drop tests on both
-  // sides. That is its own change for the reason every roster change is
-  // (`./block-definition`: a literal moves `api-lock.md` and restarts the
-  // four-week window), and it is now unblocked in the ordinary sense rather
-  // than blocked on a decision.
-  //
-  // The paragraphs below are kept as the RECORD of why they were held, because
-  // the argument is what makes the hold legible rather than arbitrary.
-  //
-  // GIVING THEM AN ITEM FORM WOULD ACTIVATE A KNOWN-WRONG CODE PATH IN ANOTHER
-  // REPOSITORY. `PlaceableItemType` is `ItemType & BlockType` (`./block-item`),
-  // so an item form is not merely a name — it is what makes a block reachable by
-  // `placeBlock`. mx-gameplay's `test/place-block.test.ts` carries a finding it
-  // calls F7: `block-support.ts:75-91` gives exactly these ten a PER-BLOCK
-  // `SUPPORT_RULES` entry (lily pad -> water, cactus -> sand|self, sugar cane ->
-  // dirt|grass|sand|self, the seven surface plants -> dirt|grass|farmland), and
-  // mx-gameplay answers all ten with the fallback arm instead — kernel's
-  // `canSupportAttachments`. Water is non-supporting, and water is the only
-  // thing a lily pad may sit on, so under that rule A LILY PAD IS REFUSED ON THE
-  // ONE CELL IT BELONGS ON AND ALLOWED ON STONE.
-  //
-  // That finding is dormant TODAY for exactly one reason: none of the ten is a
-  // `PlaceableItemType`, so no call can reach the wrong answer. Its own text
-  // predicts how it will stop being dormant — 「the roster row that wakes it will
-  // be added by somebody who is not reading this file」. Adding these ten here
-  // would have been that row.
-  //
-  // THE FIX WAS `supportRule`, AND IT HAS LANDED. `PENDING_CAPABILITIES`
-  // (`./block-definition`) held it back because the rule needs to name blocks
-  // and the roster did not exist; the roster arrived, `farmland` included, and
-  // the column was written. These ten literals are now the same one-line-each
-  // addition `snow` had.
-  //
-  // Until they are added their registry rows say `DROPS_NOTHING` explicitly
-  // rather than inheriting "yields itself" and silently producing nothing — so
-  // the cost of the remaining gap is a stated divergence from the reference in
-  // one column, not a lie in two.
+  // `supportRule` now owns the placement constraints for these plants, so their
+  // item forms can follow the same evidence as every other default self-drop.
+  'sapling',
+  'dandelion',
+  'poppy',
+  'brown_mushroom',
+  'red_mushroom',
+  'tall_grass',
+  'fern',
+  'sugar_cane',
+  'cactus',
+  'lily_pad',
 ] as const
 
 export type ItemType = (typeof ITEM_TYPES)[number]

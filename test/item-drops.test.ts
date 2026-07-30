@@ -59,6 +59,19 @@ const IRON_ARMOUR_ITEM_TYPES = [
 
 const HOE_ITEM_TYPES = ['wooden_hoe', 'stone_hoe', 'iron_hoe', 'diamond_hoe'] as const satisfies ReadonlyArray<ItemType>
 
+const SUPPORT_SENSITIVE_PLANT_ITEM_TYPES = [
+  'sapling',
+  'dandelion',
+  'poppy',
+  'brown_mushroom',
+  'red_mushroom',
+  'tall_grass',
+  'fern',
+  'sugar_cane',
+  'cactus',
+  'lily_pad',
+] as const satisfies ReadonlyArray<ItemType>
+
 describe('ItemType is a closed literal union, exactly as BlockType is', () => {
   it.effect('narrows a string that names a known item', () =>
     Effect.sync(() => {
@@ -69,6 +82,9 @@ describe('ItemType is a closed literal union, exactly as BlockType is', () => {
       expect(isItemType('diamond_pickaxe')).toBe(true)
       for (const hoe of HOE_ITEM_TYPES) {
         expect(isItemType(hoe)).toBe(true)
+      }
+      for (const plant of SUPPORT_SENSITIVE_PLANT_ITEM_TYPES) {
+        expect(isItemType(plant)).toBe(true)
       }
       expect(isItemType(ITEM_TYPES[0])).toBe(true)
       for (const armour of IRON_ARMOUR_ITEM_TYPES) {
@@ -166,7 +182,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'snowball',
       ])
 
-      // The block half of the same ledger: 23 entries over 36 blocks before, 45
+      // The block half of the same ledger: 23 entries over 36 blocks before, 35
       // over 120 now. It grew far more slowly than the roster did, and its
       // composition changed completely — seven of the old entries turned out to
       // be untranscribed drops rather than gaps (a block whose row says "yields
@@ -188,14 +204,6 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
       //   `count: 0` written in its row as well, so the "nothing" is a decision
       //   in two places rather than a consequence of this list.
       //
-      //   THE TEN SUPPORT-SENSITIVE PLANTS, here on purpose and the roster's one
-      //   knowing divergence from the reference: `sapling`, `dandelion`, `poppy`,
-      //   `brown_mushroom`, `red_mushroom`, `tall_grass`, `fern`, `sugar_cane`,
-      //   `cactus`, `lily_pad`. An item form is what makes a block PLACEABLE, and
-      //   mx-gameplay answers all ten with the wrong support rule (its F7: a lily
-      //   pad refused on water and allowed on stone). Held until `supportRule`
-      //   exists; the full argument is in `domain/item-type.ts`.
-      //
       //   ...and `ice`, which belongs to none of them: it has an item-shaped
       //   drop rule that `NO_BASE_DROP_BLOCK_TYPES` refuses by name.
       expect([...UNITEMISED_BLOCK_TYPES]).toStrictEqual([
@@ -205,16 +213,6 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'bedrock',
         'snow',
         'cobweb',
-        'sapling',
-        'dandelion',
-        'poppy',
-        'brown_mushroom',
-        'red_mushroom',
-        'tall_grass',
-        'fern',
-        'sugar_cane',
-        'lily_pad',
-        'cactus',
         'amethyst_cluster',
         'ice',
         'farmland',
@@ -252,6 +250,13 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
     Effect.sync(() => {
       expect(itemOfBlock('dirt')).toBe('dirt')
       expect(itemOfBlock('cobblestone')).toBe('cobblestone')
+      for (const plant of SUPPORT_SENSITIVE_PLANT_ITEM_TYPES) {
+        expect(itemOfBlock(plant)).toBe(plant)
+        expect(isPlaceableItem(plant)).toBe(true)
+        if (isPlaceableItem(plant)) {
+          expect(blockOfPlaceableItem(plant)).toBe(plant)
+        }
+      }
 
       // No item form. Not a failure — a real answer.
       expect(itemOfBlock('air')).toBeUndefined()
@@ -323,20 +328,20 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
     ['cobblestone', 'nothing', 'cobblestone'],
     ['ladder', 'ladder', 'ladder'],
     ['cobweb', 'string', 'string'],
-    ['sapling', 'nothing', 'nothing'],
-    ['dandelion', 'nothing', 'nothing'],
-    ['poppy', 'nothing', 'nothing'],
-    ['brown_mushroom', 'nothing', 'nothing'],
-    ['red_mushroom', 'nothing', 'nothing'],
-    ['tall_grass', 'nothing', 'nothing'],
-    ['fern', 'nothing', 'nothing'],
-    ['sugar_cane', 'nothing', 'nothing'],
-    ['lily_pad', 'nothing', 'nothing'],
+    ['sapling', 'sapling', 'sapling'],
+    ['dandelion', 'dandelion', 'dandelion'],
+    ['poppy', 'poppy', 'poppy'],
+    ['brown_mushroom', 'brown_mushroom', 'brown_mushroom'],
+    ['red_mushroom', 'red_mushroom', 'red_mushroom'],
+    ['tall_grass', 'tall_grass', 'tall_grass'],
+    ['fern', 'fern', 'fern'],
+    ['sugar_cane', 'sugar_cane', 'sugar_cane'],
+    ['lily_pad', 'lily_pad', 'lily_pad'],
     ['kelp', 'kelp', 'kelp'],
     ['seagrass', 'seagrass', 'seagrass'],
     ['rail', 'rail', 'rail'],
     ['powered_rail', 'powered_rail', 'powered_rail'],
-    ['cactus', 'nothing', 'nothing'],
+    ['cactus', 'cactus', 'cactus'],
     ['pressure_plate', 'nothing', 'pressure_plate'],
     ['stone_slab', 'nothing', 'stone_slab'],
     ['granite', 'granite', 'granite'],
@@ -685,11 +690,11 @@ describe('the rule that keeps a `self` drop honest', () => {
       // legitimately drop nothing, but it has to be a DECISION in the row —
       // `count: 0` — rather than the side effect of a missing item literal.
       //
-      // The six blocks below are the roster's honest "nothing"s among the rows
-      // that state a self-drop at all, and each has a named reference table
-      // behind it. Everything else that yields nothing does so because its rule
-      // points at a different item, or because it is one of the pre-existing
-      // passable rows whose drop was never transcribed as self.
+      // The eleven blocks below are the roster's honest "nothing"s, and each
+      // has a named reference table behind it. Everything else that yields
+      // nothing does so because its rule points at a different item, or because
+      // it is one of the pre-existing passable rows whose drop was never
+      // transcribed as self.
       const explicitlyNothing = BLOCK_REGISTRY.filter(
         (entry) => blockPropertiesOf(entry.definition).drops.count === 0,
       ).map((entry) => entry.definition.type)
@@ -700,16 +705,6 @@ describe('the rule that keeps a `self` drop honest', () => {
         'water',
         'oak_leaves',
         'lava',
-        'sapling',
-        'dandelion',
-        'poppy',
-        'brown_mushroom',
-        'red_mushroom',
-        'tall_grass',
-        'fern',
-        'sugar_cane',
-        'lily_pad',
-        'cactus',
         'ice',
         'piston_head',
         'end_portal',
