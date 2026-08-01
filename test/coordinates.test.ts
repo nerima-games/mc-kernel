@@ -13,7 +13,7 @@ import {
   localCoordOfBlock,
   position,
   type BlockPosition,
-} from '../domain/coordinates'
+} from '../src/domain/coordinates'
 
 /** Coordinates chosen to straddle the origin, chunk borders, and both signs. */
 const SAMPLE_COORDINATES: ReadonlyArray<readonly [number, number, number]> = [

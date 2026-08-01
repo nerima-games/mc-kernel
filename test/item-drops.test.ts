@@ -21,7 +21,7 @@
  */
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { blockPropertiesOf, type BlockDefinition } from '../domain/block-definition'
+import { blockPropertiesOf, type BlockDefinition } from '../src/domain/block-definition'
 import {
   BARE_HANDED,
   DEFAULT_BLOCK_DROP,
@@ -31,7 +31,7 @@ import {
   type BlockDropRule,
   type HarvestContext,
   type HarvestToolRequirement,
-} from '../domain/block-harvest'
+} from '../src/domain/block-harvest'
 import {
   blockOfPlaceableItem,
   isPlaceableItem,
@@ -39,10 +39,10 @@ import {
   NON_PLACEABLE_ITEM_TYPES,
   PLACEABLE_ITEM_TYPES,
   UNITEMISED_BLOCK_TYPES,
-} from '../domain/block-item'
-import { BLOCK_IDS, BLOCK_REGISTRY, blockIdOf, dropOfBlockId } from '../domain/block-registry'
-import { BLOCK_TYPES, type BlockType } from '../domain/block-type'
-import { isItemType, ITEM_TYPES, type ItemType } from '../domain/item-type'
+} from '../src/domain/block-item'
+import { BLOCK_IDS, BLOCK_REGISTRY, blockIdOf, dropOfBlockId } from '../src/domain/block-registry'
+import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
+import { isItemType, ITEM_TYPES, type ItemType } from '../src/domain/item-type'
 
 /** A diamond pickaxe with silk touch: nothing is gated for this player. */
 const FULLY_EQUIPPED: HarvestContext = { heldTier: 'diamond', silkTouch: true }

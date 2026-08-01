@@ -8,16 +8,16 @@ import {
   TRUE_BY_DEFAULT_CAPABILITY_FLAGS,
   type BlockCapabilityFlag,
   type BlockCapabilityOverrides,
-} from '../domain/block-capabilities'
-import { blockCapabilitiesOf, type BlockDefinition } from '../domain/block-definition'
-import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../domain/block-properties'
+} from '../src/domain/block-capabilities'
+import { blockCapabilitiesOf, type BlockDefinition } from '../src/domain/block-definition'
+import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
 import {
   BLOCK_IDS,
   blockIdOf,
   blockTypeOfId,
   capabilitiesOfBlockId,
   capabilityOfBlockId,
-} from '../domain/block-registry'
+} from '../src/domain/block-registry'
 
 describe('block capability flags — the additive-safety guarantee', () => {
   it.effect(

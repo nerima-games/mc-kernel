@@ -16,6 +16,14 @@ plan.md §6 Step 3:
 > 界面が安定した（API ロック 4 週間無変更）リポジトリから GitHub Packages 等へ npm 公開 + changesets 運用に切り替え。
 > それまでは dev-meta workspace 統合で開発。
 
+**この引用は plan.md 執筆時点（`api-lock.md` 導入前）の記録であり、現在は上書きされている。**
+`api-lock.md` / `scripts/api-lock.ts` / `pnpm api:check` という自動 API スナップショット機構、および
+それに紐づく「4 週間無変更で凍結」という日数計測ベースの自動ゲートは、org 標準として廃止された
+（[API_STANDARD.md §4](https://github.com/nerima-games/.github/blob/main/API_STANDARD.md#4-自動-apiロックスナップショットツールは使わない)）。
+`1.0.0` への昇格は、計測期間や自動判定に代えて **maintainer（take）の裁量判断のみ**で行う
+（[RELEASE_STANDARD.md §4.2](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#42-新しい昇格ポリシー人間による裁量判断)）。
+バージョニングと CHANGELOG 生成自体は changesets に一本化されている（§4、`.changeset/config.json` 参照）。
+
 plan.md §8 のリスク表も同じことを別角度から書いている。
 
 > **新規構築初期は全界面が高 churn** → npm 公開を遅らせ dev-meta workspace で開発。bump 連鎖を構造的に回避
@@ -49,9 +57,15 @@ hoist 設定だけであり、`@nerima-games:registry=` の行と認証トーク
 
 1. `tsconfig.build.json` を emit ありに変更し、`dist/` を生成する
 2. `package.json` の `main` / `types` / `exports` を `dist/` に向ける
-3. `files` から `domain` を外し `dist` を入れる
-4. GitHub Actions に publish job を追加する（tag push トリガ）
-5. changesets を導入する
+3. `files` から `src` を外し `dist` を入れる
+4. GitHub Actions に publish job を追加する（`RELEASE_STANDARD.md §3` の設計に従い、
+   changesets のリリース PR がバージョンを確定させた push でのみ発火する）
+
+**changesets 自体は導入済み。** `.changeset/config.json`（`access: restricted`、`baseBranch: main`、
+`@changesets/changelog-github`）と `@changesets/cli` devDependency は
+org 標準（[RELEASE_STANDARD.md §1](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#1-changesets-導入)）
+に従い先行して導入した。上記リストが「完成時に追加する」と言っているのは、
+publish job の新設と `dist/` への切り替えのみである。
 
 **先にやらない理由**: ビルド成果物を介すと型エラーがビルド時にしか出なくなり、
 16 リポジトリを 1 つの workspace で開発している間の DX が落ちる。
@@ -182,25 +196,29 @@ plan.md §3.1 が boolean と書いていた 3 つ（`emissive` / `transparent` 
 
 上の読み替え表に従い、MAJOR 分類 → `0.x` では minor bump、すなわち `0.1.0` → `0.2.0`。
 
-**`api-lock.md` が変わるので、plan.md §6 Step 3 の「4 週間無変更」の計測は
-このコミットから振り出しに戻る**（[freeze-checklist.md](./freeze-checklist.md)）。
-それが払った代価であり、払う判断の根拠は「凍結後に同じ変更をすると深さ 5 の republish になる」ことである。
+当時はこの変更で `api-lock.md` が動き、plan.md §6 Step 3 の「4 週間無変更」の計測がこのコミットから
+振り出しに戻る、という代価を払ってでもやる判断だった。根拠は「凍結後に同じ変更をすると深さ 5 の
+republish になる」ことである。**この日数計測ベースの自動ゲート自体は org 標準として現在は廃止されており
+（[freeze-checklist.md](./freeze-checklist.md)、[RELEASE_STANDARD.md §4](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#4-0x--100-昇格ポリシー旧ゲートの廃止)）、
+現行の昇格判断は maintainer の裁量による**が、この判断そのもの（型を正しくするコストは早いほど安い）は
+今も変わらず有効である。
 
-## 7. API ロックファイル
+## 7. API ロックファイル（廃止済み）
 
-plan.md §6 Step 0-3 が初回コミットに求める「公開 API のレポートを diff レビュー」の実装。
-§9 の未決事項「API ロックファイルのツール選定（api-extractor 相当の Effect-TS 互換手段）」は**これで解決済み**。
+**本節は歴史的経緯の記録である。`api-lock.md` / `scripts/api-lock.ts` / `pnpm api:check` /
+`pnpm api:update` は本リポジトリから削除済みで、現在は存在しない。** 自動 API スナップショット/diff
+ツールを持たないことは org 標準として決定されており、新しく同種の仕組みを追加する提案は
+[API_STANDARD.md §4](https://github.com/nerima-games/.github/blob/main/API_STANDARD.md#4-自動-apiロックスナップショットツールは使わない)
+に反する。破壊的変更の判定は §3-2 に述べたとおり人間のレビューで行う
+（判定基準そのものは [API_STANDARD.md §3](https://github.com/nerima-games/.github/blob/main/API_STANDARD.md) を参照）。
 
-| 項目 | 内容 |
-| --- | --- |
-| 生成物 | リポジトリ直下の `api-lock.md`（コミット対象） |
-| 生成器 | `scripts/api-lock.ts`（16 リポジトリに byte-identical で vendor。`check-dependency-whitelist.ts` と同じ方式） |
-| 検査 | `pnpm api:check` — `api-lock.md` が実際の公開 API と食い違えば非ゼロ終了 |
-| 更新 | `pnpm api:update` |
-| 配線 | `pnpm verify` の `check:deps` と `test` の間、および CI の独立ステップ |
-| 追加依存 | **なし**（`typescript` は既に全 16 リポジトリの devDependency） |
+以前この節が記述していたのは、plan.md §6 Step 0-3 が初回コミットに求めた「公開 API のレポートを diff
+レビュー」の実装だった。生成物は `api-lock.md`、生成器は `scripts/api-lock.ts`
+（16 リポジトリに byte-identical で vendor）、検査は `pnpm api:check`、更新は `pnpm api:update`、
+`pnpm verify` と CI に配線されていた。以下は残す価値がある部分——なぜ `@microsoft/api-extractor` ではなく
+自前実装を選んだかの検討過程——のみを記録として残す。
 
-### 7-1. なぜ api-extractor ではないのか
+### 7-1. なぜ api-extractor ではなかったのか
 
 plan.md §9 が名指ししている `@microsoft/api-extractor` を最初に、mc-kernel の実コードで試した。**却下した。**
 
@@ -254,11 +272,11 @@ barrel 並べ替え・devDependency bump）は api-extractor も**全部通っ�
 5. 公開面が参照している**非 export の宣言**（上記 `ClockPort_base`）を第 2 節に取り込む。
    api-extractor が警告にして飛ばす工程はここである。
 
-`checker.typeToString` を使っていないのは意図的。あれは表示用関数で、
+`checker.typeToString` を使っていなかったのは意図的だった。あれは表示用関数で、
 `import("...")` の絶対パスを埋め込み、`FrameServices` を `ClockPort` に潰し、
 `GameModule<ROut, E, RIn, RRegister = never>` の既定値を落とす。declaration emit は直列化用関数で、
-「別のファイルで同じ意味になるテキスト」を出す義務があるため 3 つとも保たれる。
-`assertPortable`（`scripts/api-lock.ts`）がこれを毎回の実行時不変条件として強制する。
+「別のファイルで同じ意味になるテキスト」を出す義務があるため 3 つとも保たれていた。
+`assertPortable`（旧 `scripts/api-lock.ts`）がこれを毎回の実行時不変条件として強制していた。
 
 ### 7-3. 決定性
 
@@ -280,10 +298,13 @@ barrel 並べ替え・devDependency bump）は api-extractor も**全部通っ�
   これは「まさに見るべきとき」なので許容し、TypeScript のバージョンはファイルに記録していない
   （記録すると、何も変えない bump のたびに API diff が出る）。
 
-### 7-5. 運用
+### 7-5. 運用（廃止済み・記録として）
 
-- 公開面を変える PR は `pnpm api:update` の結果を**同じ PR に**含める。差分がレビュー対象そのものである。
-- plan.md §6 Step 3 の「**4 週間無変更**」の計測は、`api-lock.md` が最後に変わったコミットから数える。
-  これで計測の起点が客観的な事実になった（[freeze-checklist.md](./freeze-checklist.md)）。
-- `pnpm api:check` は CI の独立ステップでもある。`verify` 経由だけにすると、
-  ステップ名を見ただけでは落ちた理由が分からない。
+- 公開面を変える PR には `pnpm api:update` の結果を**同じ PR に**含めていた。差分がレビュー対象そのものだった。
+- plan.md §6 Step 3 の「**4 週間無変更**」の計測は、`api-lock.md` が最後に変わったコミットから数えていた。
+- `pnpm api:check` は CI の独立ステップでもあった。
+
+**現在の運用**: 1.0.0 への昇格は日数計測を伴わず、maintainer（take）の裁量判断のみで行う
+（[RELEASE_STANDARD.md §4.2](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#42-新しい昇格ポリシー人間による裁量判断)、
+[freeze-checklist.md](./freeze-checklist.md)）。バージョン bump と CHANGELOG 生成は changesets
+（`.changeset/`、§3）に一本化されている。
