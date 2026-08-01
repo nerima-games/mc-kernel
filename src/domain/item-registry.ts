@@ -52,9 +52,13 @@ const SINGLE_STACK_ITEMS: ReadonlySet<ItemType> = new Set<ItemType>([
   'potion_of_poison',
   'potion_of_regeneration',
   'enchanted_book',
+  'water_bucket',
+  'lava_bucket',
+  'oak_boat',
+  'minecart',
 ])
 
-const SIXTEEN_STACK_ITEMS: ReadonlySet<ItemType> = new Set<ItemType>(['ender_pearl', 'snowball'])
+const SIXTEEN_STACK_ITEMS: ReadonlySet<ItemType> = new Set<ItemType>(['ender_pearl', 'snowball', 'bucket'])
 
 const stackLimitOf = (type: ItemType): ItemStackLimit => {
   if (SINGLE_STACK_ITEMS.has(type)) {

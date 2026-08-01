@@ -353,6 +353,16 @@ export const ITEM_TYPES = [
   // Anvil input vocabulary. The payload stays generic in kernel so gameplay's
   // enchantment registry can evolve without creating an upward dependency.
   'enchanted_book',
+
+  // Fluid transport and the first rideable vehicle identities. Their runtime
+  // rules live in gameplay; kernel owns the stable inventory/save vocabulary.
+  // These remain non-block items: using a bucket or vehicle is an action, not
+  // ordinary block placement, and none of them is furnace fuel.
+  'bucket',
+  'water_bucket',
+  'lava_bucket',
+  'oak_boat',
+  'minecart',
 ] as const
 
 export type ItemType = (typeof ITEM_TYPES)[number]

@@ -236,4 +236,16 @@ describe('public API surface', () => {
       expect(kernel.isPlaceableItem('enchanted_book')).toBe(false)
     }),
   )
+
+  it.effect('exports fluid and vehicle item identities with canonical metadata', () =>
+    Effect.sync(() => {
+      expect(kernel.itemIdOf('bucket')).toBe(137)
+      expect(kernel.maxStackCountOfItem('bucket')).toBe(16)
+      for (const type of ['water_bucket', 'lava_bucket', 'oak_boat', 'minecart'] as const) {
+        expect(kernel.isItemType(type)).toBe(true)
+        expect(kernel.maxStackCountOfItem(type)).toBe(1)
+        expect(kernel.isPlaceableItem(type)).toBe(false)
+      }
+    }),
+  )
 })
