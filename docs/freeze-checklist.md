@@ -1,8 +1,16 @@
 # API 凍結チェックリスト（1.0.0 の前提条件）
 
 mc-kernel の公開 API を `1.0.0` として凍結する前に満たすべき条件。
-**(a) (b) (b') は満たし、API ロックファイルも導入された（ツール選定は決着済み。[versioning.md](./versioning.md) §7）。
-下流実消費も `pnpm check:repoint` で通った。**残る阻害要因は「ロックの 4 週間無変更」の経過待ちだけである。**
+**(a) (b) (b') (c) はいずれも満たしている。** 下流実消費も `pnpm check:repoint` で通った。
+
+**この判定に自動ゲートは存在しない。** 以前は「`api-lock.md` が 4 週間無変更であること」という
+日数計測ベースの自動ゲートを最後の関門としていたが、`api-lock.md` / `scripts/api-lock.ts` /
+`pnpm api:check` はいずれも org 標準の変更により削除された
+（[API_STANDARD.md §4](https://github.com/nerima-games/.github/blob/main/API_STANDARD.md#4-自動-apiロックスナップショットツールは使わない)）。
+1.0.0 への昇格は、計測期間や自動判定に代えて **maintainer（take）の裁量判断のみ**で行う
+（[RELEASE_STANDARD.md §4.2](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#42-新しい昇格ポリシー人間による裁量判断)）。
+残る実質的な未達成項目は「完成条件（[testing.md](./testing.md) §5）を満たしているか」のみであり、
+これは下記チェックリストに残る唯一の未達成項目である。
 
 凍結が特別扱いされる理由は [versioning.md](./versioning.md) §5 にある。
 kernel は 14 リポジトリからピン留めされ、破壊的変更は深さ 5 の republish カスケードを起こす。
@@ -237,8 +245,6 @@ shipped source は 1 行も要らない。作業内容は
 - [x] (a) 能力フラグ監査が完了している
 - [x] (b) 縦切りスパイクが `GameModule` / `StageRegistration` / `FrameServices` を実消費者で検証している
 - [x] (b') その結果 `FrameServices` が確定し、プレースホルダである旨のコメントが消えている
-- [x] API ロックファイルが**導入されている**（`api-lock.md` / `scripts/api-lock.ts` / `pnpm api:check`）
-- [ ] その API ロックファイルが **4 週間無変更**である（plan.md §6 Step 3）
 - [ ] 完成条件（[testing.md](./testing.md) §5）を満たしている
 - [x] 下流リポジトリが少なくとも 1 つ、実際に kernel を消費して契約を確認している（[versioning.md](./versioning.md) §2）
       — **3 リポジトリ（mx-gameplay / mx-ui / mx-redstone）で、ミラーを削除し import を
@@ -259,34 +265,35 @@ shipped source は 1 行も要らない。作業内容は
       mc-render は一度、`files` が丸ごと 1 ディレクトリを落としたパッケージを
       出荷しかけている —— このゲートはそれを捕まえない。
 
-**plan.md §9 の未決事項「API ロックファイルのツール選定（api-extractor 相当の Effect-TS 互換手段）」は決着した。**
-`@microsoft/api-extractor` は mc-kernel の実コードで試したうえで却下してある。理由と実測は
-[versioning.md](./versioning.md) §7-1。要点だけ再掲すると、api-extractor は `ClockPort` の Tag 識別子文字列を
-レポートに載せない —— つまり**下のリストが名指ししている当の値**（`'@nerima-games/mc-kernel/ClockPort'`）を
-改名しても、そのレポートはバイト単位で同一のままだった。採用したのは自前の `scripts/api-lock.ts` で、
-TypeScript 自身の declaration emit をメモリ上で走らせ、非 export の `ClockPort_base` まで含めて記録する。
-新規依存はゼロ（`typescript` は既に devDependency）。
+**(歴史的経緯)** かつて plan.md §9 は「API ロックファイルのツール選定（api-extractor 相当の
+Effect-TS 互換手段）」を未決事項として挙げていた。`@microsoft/api-extractor` は mc-kernel の実コードで
+試したうえで却下され（api-extractor は `ClockPort` の Tag 識別子文字列をレポートに載せず、これを
+改名してもレポートがバイト単位で同一のままだったため。詳細は [versioning.md](./versioning.md) §7-1
+に記録として残っている）、代わりに自前の `scripts/api-lock.ts` を採用し、`api-lock.md` が
+4 週間無変更であることを 1.0.0 昇格の自動ゲートとしていた。
 
-**4 週間の計測はこれで始められる。** 起点は `api-lock.md` が最後に変わったコミットであり、
-`pnpm verify` と CI が「気付かないうちに変わっていた」を構造的に不可能にしている。
-契約形状が確定し計測も始まった以上、**クリティカルパスは「時間の経過」そのものに移った** ——
-残る 2 つ（完成条件・下流実消費）はこの 4 週間と並行して進められる。
+**この自動ゲート（および `api-lock.md` / `scripts/api-lock.ts` 自体）は org 標準の変更により削除済みである。**
+1.0.0 への昇格は日数計測を伴わず、[RELEASE_STANDARD.md §4.2](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#42-新しい昇格ポリシー人間による裁量判断)
+が定めるとおり maintainer（take）の裁量判断のみで行う。残る実質的な未達成項目は「完成条件
+（[testing.md](./testing.md) §5）を満たしているか」だけであり、下流実消費（本チェックリストの
+最後の項目）は既に満たされている。
 
-> **⚠ 計測は一度リセットされている。** アイテム語彙の投入（`domain/item-type.ts` /
-> `domain/block-item.ts`、`BlockDropRule.item` の型変更、`dropOfBlockId` の追加）で
-> `api-lock.md` が動いた。**4 週間はそのコミットから数え直しである。**
+> **(歴史的経緯) 計測は過去に一度リセットされたことがある。** アイテム語彙の投入
+> （`domain/item-type.ts` / `domain/block-item.ts`、`BlockDropRule.item` の型変更、
+> `dropOfBlockId` の追加）で `api-lock.md` が動き、当時運用していた「4 週間無変更」の
+> 計測がそのコミットから数え直しになった。
 >
-> それを承知でやった理由は 3 つある。
+> それを承知でやった判断の理由は 3 つあり、これは自動ゲートの有無に関わらず今も参考になる。
 >
 > 1. plan.md §3.1 は kernel の公開 API に 「`BlockType` / `ItemType`（リテラル型）」 を挙げている。
 >    **`ItemType` を欠いたまま凍結すると、凍結した API が仕様を満たしていない。**
 > 2. 欠落は既に 3 リポジトリに暫定 `type ItemId = string` を生んでおり
 >    （mc-sim / mc-playground-kit / mx-ui）、放置するほど repoint のコストが上がる。
 > 3. `BlockDropRule.item` の型変更は凍結後には MAJOR、つまり深さ 5 の republish カスケードである
->    （[versioning.md](./versioning.md) §6-1）。**リセット 4 週間はカスケードより安い。**
+>    （[versioning.md](./versioning.md) §6-1）。**先に払うコストはカスケードより安い。**
 >
-> なお下流実消費（下記 3 つ目の未達項目）はこの変更で**近づいた**。mc-compose の横断 E2E が
-> 書けなかった「採掘がインベントリに反映される」は `dropOfBlockId` で書けるようになっている。
+> なお下流実消費はこの変更で**近づいた**。mc-compose の横断 E2E が書けなかった
+> 「採掘がインベントリに反映される」は `dropOfBlockId` で書けるようになっている。
 
 #### (b) 完了時点で残っている作業
 

@@ -18,9 +18,9 @@
  */
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../domain/block-capabilities'
-import { blockCapabilitiesOf, resolveBlock } from '../domain/block-definition'
-import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS, COLLISION_SHAPES } from '../domain/block-properties'
+import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block-capabilities'
+import { blockCapabilitiesOf, resolveBlock } from '../src/domain/block-definition'
+import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS, COLLISION_SHAPES } from '../src/domain/block-properties'
 import {
   AIR_BLOCK_ID,
   BLOCK_ID_MAX,
@@ -40,8 +40,8 @@ import {
   resolvedBlockOfId,
   transmitsLight,
   UNREGISTERED_BLOCK_TYPES,
-} from '../domain/block-registry'
-import { BLOCK_TYPES, type BlockType } from '../domain/block-type'
+} from '../src/domain/block-registry'
+import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
 
 describe('id assignment is permanent', () => {
   /**

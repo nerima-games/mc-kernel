@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../domain/block-capabilities'
+import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block-capabilities'
 import {
   AUDITED_CAPABILITY_NAMES,
   blockCapabilitiesOf,
@@ -8,8 +8,8 @@ import {
   PENDING_CAPABILITIES,
   resolveBlock,
   type BlockDefinition,
-} from '../domain/block-definition'
-import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../domain/block-properties'
+} from '../src/domain/block-definition'
+import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
 
 describe('adding a block is one table row plus flag settings (plan.md §3.1 invariant)', () => {
   // THE named regression test for plan.md §3.1's closing requirement:

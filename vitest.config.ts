@@ -28,7 +28,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       enabled: false,
-      include: ['index.ts', 'domain/**/*.ts'],
+      include: ['src/index.ts', 'src/domain/**/*.ts'],
       exclude: [
         '**/*.d.ts',
         '**/*.config.ts',
@@ -38,7 +38,7 @@ export default defineConfig({
         // such a file as 0% rather than 100%, which would make the headline
         // number meaningless. Its contracts are exercised by
         // test/clock-and-frame.test.ts and enforced by `pnpm typecheck`.
-        'domain/frame.ts',
+        'src/domain/frame.ts',
       ],
       all: true,
       reporter: ['text', 'json', 'html', 'lcov'],

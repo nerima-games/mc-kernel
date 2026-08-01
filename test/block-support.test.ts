@@ -22,23 +22,23 @@
  */
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../domain/block-properties'
+import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
 import {
   BLOCK_REGISTRY,
   blockIdOf,
   canBlockStaySupported,
   isSupportSensitiveBlockId,
   supportRuleOfBlockId,
-} from '../domain/block-registry'
+} from '../src/domain/block-registry'
 import {
   NEEDS_ANY_SUPPORT,
   NEEDS_NO_SUPPORT,
   isSupportSensitive,
   needsOneOf,
   satisfiesSupportRule,
-} from '../domain/block-support'
-import type { BlockType } from '../domain/block-type'
-import { BLOCK_TYPES } from '../domain/block-type'
+} from '../src/domain/block-support'
+import type { BlockType } from '../src/domain/block-type'
+import { BLOCK_TYPES } from '../src/domain/block-type'
 
 // ---------------------------------------------------------------------------
 // The three arms, in isolation
