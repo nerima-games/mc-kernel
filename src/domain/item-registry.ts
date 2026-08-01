@@ -51,6 +51,7 @@ const SINGLE_STACK_ITEMS: ReadonlySet<ItemType> = new Set<ItemType>([
   'potion_of_swiftness',
   'potion_of_poison',
   'potion_of_regeneration',
+  'enchanted_book',
 ])
 
 const SIXTEEN_STACK_ITEMS: ReadonlySet<ItemType> = new Set<ItemType>(['ender_pearl', 'snowball'])

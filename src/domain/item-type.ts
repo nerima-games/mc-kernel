@@ -54,7 +54,7 @@
  * (`glowstone_dust`, `stick`, `wooden_pickaxe`, `stone_pickaxe`, `iron_pickaxe`), and blocks that yield nothing
  * (`oak_leaves`, `bedrock`).
  *
- * It reached 23 when mc-sim's recipe table was repointed, and it is 136 now.
+ * It reached 23 when mc-sim's recipe table was repointed, and it is 137 now.
  * The jump is not enthusiasm: `BLOCK_TYPES` reached the reference's full 120,
  * and 55 of those new rows would otherwise have been LIES — a row stating that
  * a block drops itself, with no item of that name for it to drop. See the rule
@@ -349,6 +349,10 @@ export const ITEM_TYPES = [
   // End progression vocabulary. Recipe ownership remains above kernel; this
   // package owns the stable item identity consumed by that recipe.
   'eye_of_ender',
+
+  // Anvil input vocabulary. The payload stays generic in kernel so gameplay's
+  // enchantment registry can evolve without creating an upward dependency.
+  'enchanted_book',
 ] as const
 
 export type ItemType = (typeof ITEM_TYPES)[number]

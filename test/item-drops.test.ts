@@ -211,6 +211,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'spider_eye',
         'ghast_tear',
         'eye_of_ender',
+        'enchanted_book',
       ])
 
       // The block half of the same ledger: 23 entries over 36 blocks before, 35
@@ -767,8 +768,8 @@ describe('the rule that keeps a `self` drop honest', () => {
       //      case: it DROPS cobblestone, so reason 1 never applies to it, and it
       //      is still an item because you can carry a stone block.
       //   3. It is an explicitly admitted non-block item, each entry argued
-      //      individually in `domain/item-type.ts`: recipe/tool names and the
-      //      two ignition items.
+      //      individually in `domain/item-type.ts`: recipe/tool, ignition,
+      //      brewing, portal, and anvil-input vocabulary.
       //   4. The equipment boundary needs its identity. Equipment behaviour is
       //      owned above kernel, but its closed item vocabulary is not.
       //
@@ -804,6 +805,7 @@ describe('the rule that keeps a `self` drop honest', () => {
         'spider_eye',
         'ghast_tear',
         'eye_of_ender',
+        'enchanted_book',
       ])
       const EQUIPMENT_ITEMS: ReadonlySet<string> = new Set(IRON_ARMOUR_ITEM_TYPES)
 

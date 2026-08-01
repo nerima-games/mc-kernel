@@ -35,6 +35,7 @@
  */
 
 export * from './domain/block-capabilities'
+export * from './domain/anvil'
 export * from './domain/block-definition'
 export * from './domain/block-harvest'
 export * from './domain/block-item'

@@ -96,6 +96,18 @@ describe('public API surface', () => {
         'itemTypeOfId',
         'encodeItemId',
         'decodeItemId',
+        // deterministic anvil planning, application, and persistence boundary
+        'ANVIL_SNAPSHOT_VERSION',
+        'ANVIL_TOO_EXPENSIVE_LEVEL',
+        'ANVIL_REPAIR_BONUS_RATIO',
+        'ANVIL_MAX_CUSTOM_NAME_LENGTH',
+        'snapshotAnvilState',
+        'decodeAnvilSnapshot',
+        'encodeAnvilSnapshot',
+        'decodeAnvilSnapshotString',
+        'nextAnvilRepairCost',
+        'planAnvil',
+        'applyAnvil',
         // the block -> item bridge (audit §6-8's intersection, derived)
         'PLACEABLE_ITEM_TYPES',
         'NON_PLACEABLE_ITEM_TYPES',
@@ -204,6 +216,7 @@ describe('public API surface', () => {
       expect(kernel.isItemType('arrow')).toBe(true)
       expect(kernel.isItemType('lily_pad')).toBe(true)
       expect(kernel.isItemType('potion_of_regeneration')).toBe(true)
+      expect(kernel.isItemType('enchanted_book')).toBe(true)
     }),
   )
 
@@ -212,6 +225,15 @@ describe('public API surface', () => {
       expect(kernel.isItemType('eye_of_ender')).toBe(true)
       expect(kernel.itemIdOf('eye_of_ender')).toBe(kernel.itemDefinitionOf('eye_of_ender').id)
       expect(kernel.isPlaceableItem('eye_of_ender')).toBe(false)
+    }),
+  )
+
+  it.effect('exports the canonical enchanted-book item identity', () =>
+    Effect.sync(() => {
+      expect(kernel.isItemType('enchanted_book')).toBe(true)
+      expect(kernel.itemIdOf('enchanted_book')).toBe(136)
+      expect(kernel.maxStackCountOfItem('enchanted_book')).toBe(1)
+      expect(kernel.isPlaceableItem('enchanted_book')).toBe(false)
     }),
   )
 })
