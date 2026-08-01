@@ -5,8 +5,8 @@
  * reconciled with docs/capability-flag-audit.md (25 of its 28 capabilities
  * implemented, 3 pending with recorded reasons — see PENDING_CAPABILITIES).
  * `FrameServices` is SETTLED (`ClockPort`, and nothing else) — see
- * docs/freeze-checklist.md (b). Still outstanding: the Chunk codec and the full
- * 120-literal block roster. See README.md 現状.
+ * docs/freeze-checklist.md (b). The versioned Chunk codec lives in
+ * `domain/chunk.ts`. See README.md 現状.
  *
  * It now carries BOTH vocabularies plan.md §3.1 asked for. `ItemType`
  * (`domain/item-type.ts`) was the missing half; while it was missing, mc-sim,
@@ -44,6 +44,7 @@ export * from './domain/block-support'
 export * from './domain/block-type'
 export * from './domain/camera'
 export * from './domain/clock'
+export * from './domain/chunk'
 export * from './domain/coordinates'
 export * from './domain/frame'
 export * from './domain/identifiers'

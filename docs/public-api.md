@@ -478,6 +478,17 @@ stage は時間を読まずに進めず、かつグローバルから読んで�
 **この別名を広げるのは stage の *提供者*（ランタイムを組む人）にとって破壊的変更である**（stage の *著者* にとってはそうではない）。
 1.0.0 で凍結され、広げるのは MAJOR である。
 
+## Chunk バイナリ形式
+
+`chunk(coord, height, blocks)` は 16×16 の縦列 Chunk を構築する。`blocks` は
+`16 * 16 * height` バイトでなければならず、各バイトは登録済みの `BlockId` でなければならない。
+構築時にバッファをコピーするため、呼び出し側の後続変更は Chunk に波及しない。
+
+`encodeChunk` / `decodeChunk` は固定 24 バイトヘッダーとブロック列を用いる。
+ヘッダーは magic (`MCHK`)、codec version、幅・奥行き、height、符号付き 32-bit の `cx` / `cz`、
+payload 長を little-endian で保持する。decoder は magic、version、寸法、長さ、未知の BlockId、
+末尾の余剰データを破損として拒否する。
+
 ### `after` が存在しない stage を指したとき
 
 スパイクの判断: **何も強制せず、両方を報告する。**

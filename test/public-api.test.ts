@@ -63,6 +63,12 @@ describe('public API surface', () => {
         'aabbOfBlock',
         'aabbIntersects',
         'aabbContainsPoint',
+        // versioned chunk storage boundary
+        'CHUNK_CODEC_VERSION',
+        'CHUNK_HEADER_BYTES',
+        'chunk',
+        'encodeChunk',
+        'decodeChunk',
         // block types
         'BLOCK_TYPES',
         'isBlockType',
