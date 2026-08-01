@@ -1,11 +1,11 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Context, Effect, Layer, Ref } from 'effect'
-import { snapshotAgeSecs, type CameraPoseSnapshot } from '../domain/camera'
-import { ClockPort, FixedClockLayer, monotonicSecs, wallClockEpochMillis } from '../domain/clock'
-import { position } from '../domain/coordinates'
-import { StageId } from '../domain/identifiers'
-import type { FrameServices, GameModule, StageRegistration } from '../domain/frame'
-import { DeltaTimeSecs, EpochMillis, MonotonicTimeSecs } from '../domain/quantities'
+import { snapshotAgeSecs, type CameraPoseSnapshot } from '../src/domain/camera'
+import { ClockPort, FixedClockLayer, monotonicSecs, wallClockEpochMillis } from '../src/domain/clock'
+import { position } from '../src/domain/coordinates'
+import { StageId } from '../src/domain/identifiers'
+import type { FrameServices, GameModule, StageRegistration } from '../src/domain/frame'
+import { DeltaTimeSecs, EpochMillis, MonotonicTimeSecs } from '../src/domain/quantities'
 
 const FIXED_AT = {
   monotonicSecs: MonotonicTimeSecs(1_234.5),

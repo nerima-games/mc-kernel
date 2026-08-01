@@ -15,7 +15,7 @@
  *
  * The ban is enforced by `pnpm check:deps`
  * (`scripts/check-dependency-whitelist.ts`), not by oxlint — oxlint 0.12 does
- * not implement the rules that could express it. See oxlint.json for detail.
+ * not implement the rules that could express it. See .oxlintrc.json for detail.
  *
  * The one legitimate place to read a global clock is the adapter that
  * *implements* this Port, in whichever repository owns the platform layer. That

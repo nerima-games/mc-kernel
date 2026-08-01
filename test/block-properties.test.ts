@@ -6,7 +6,7 @@ import {
   HARVEST_TIERS,
   resolveDropItem,
   satisfiesHarvestTier,
-} from '../domain/block-harvest'
+} from '../src/domain/block-harvest'
 import {
   BLOCK_OPACITIES,
   BLOCK_PROPERTY_DEFAULTS,
@@ -23,8 +23,8 @@ import {
   resolveBlockProperties,
   type BlockProperties,
   type BlockPropertyOverrides,
-} from '../domain/block-properties'
-import { blockPropertiesOf, resolveBlock, type BlockDefinition } from '../domain/block-definition'
+} from '../src/domain/block-properties'
+import { blockPropertiesOf, resolveBlock, type BlockDefinition } from '../src/domain/block-definition'
 
 describe('block properties — the additive-safety guarantee, extended to non-booleans', () => {
   it.effect(

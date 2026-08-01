@@ -1,8 +1,8 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect, Either } from 'effect'
-import { BlockAxis, CHUNK_SIZE_XZ, ChunkAxis, LocalAxis } from '../domain/coordinates'
-import { StageId, WorldId } from '../domain/identifiers'
-import { DeltaTimeSecs, EpochMillis, MAX_STACK_COUNT, MonotonicTimeSecs, StackCount } from '../domain/quantities'
+import { BlockAxis, CHUNK_SIZE_XZ, ChunkAxis, LocalAxis } from '../src/domain/coordinates'
+import { StageId, WorldId } from '../src/domain/identifiers'
+import { DeltaTimeSecs, EpochMillis, MAX_STACK_COUNT, MonotonicTimeSecs, StackCount } from '../src/domain/quantities'
 
 describe('StackCount', () => {
   it.effect('accepts the boundaries of its documented range', () =>

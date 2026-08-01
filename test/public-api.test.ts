@@ -1,8 +1,8 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import * as kernel from '../index'
-import { BLOCK_TYPES, isBlockType } from '../domain/block-type'
-import { isItemType, ITEM_TYPES } from '../domain/item-type'
+import * as kernel from '../src/index'
+import { BLOCK_TYPES, isBlockType } from '../src/domain/block-type'
+import { isItemType, ITEM_TYPES } from '../src/domain/item-type'
 
 describe('BlockType', () => {
   it.effect('narrows a string that names a known block', () =>
