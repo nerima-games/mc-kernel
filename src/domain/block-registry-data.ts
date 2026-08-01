@@ -1962,6 +1962,23 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       },
     },
   },
+  { id: BlockId(120), definition: { type: 'soul_soil', properties: { hardness: 5 } } },
+  {
+    id: BlockId(121),
+    definition: {
+      type: 'wither_skeleton_skull',
+      capabilities: {
+        suffocates: false,
+        validSpawnSurface: false,
+        canSupportAttachments: false,
+      },
+      properties: {
+        opacity: 'transparentSolid',
+        collisionShape: 'none',
+        supportRule: NEEDS_ANY_SUPPORT,
+      },
+    },
+  },
 ]
 
 // ---------------------------------------------------------------------------

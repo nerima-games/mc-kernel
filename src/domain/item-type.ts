@@ -377,6 +377,12 @@ export const ITEM_TYPES = [
   'bone',
   'name_tag',
   'saddle',
+
+  // Wither summoning and its ordinary-play reward. Appended because item ids
+  // are permanent and derived from this roster's order.
+  'soul_soil',
+  'wither_skeleton_skull',
+  'nether_star',
 ] as const
 
 export type ItemType = (typeof ITEM_TYPES)[number]

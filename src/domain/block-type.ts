@@ -305,6 +305,8 @@ export const BLOCK_TYPES = [
   'netherrack',
   'nether_portal',
   'fire',
+  'soul_soil',
+  'wither_skeleton_skull',
 ] as const
 
 export type BlockType = (typeof BLOCK_TYPES)[number]

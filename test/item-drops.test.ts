@@ -227,6 +227,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'bone',
         'name_tag',
         'saddle',
+        'nether_star',
       ])
 
       // The block half of the same ledger: 23 entries over 36 blocks before, 35
@@ -477,6 +478,8 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
     ['netherrack', 'netherrack', 'netherrack'],
     ['nether_portal', 'nothing', 'nothing'],
     ['fire', 'nothing', 'nothing'],
+    ['soul_soil', 'soul_soil', 'soul_soil'],
+    ['wither_skeleton_skull', 'wither_skeleton_skull', 'wither_skeleton_skull'],
   ]
 
   it.effect('covers the registry exactly, so a new block without a decision fails here', () =>
@@ -836,6 +839,7 @@ describe('the rule that keeps a `self` drop honest', () => {
         'bone',
         'name_tag',
         'saddle',
+        'nether_star',
       ])
       const EQUIPMENT_ITEMS: ReadonlySet<string> = new Set(IRON_ARMOUR_ITEM_TYPES)
 

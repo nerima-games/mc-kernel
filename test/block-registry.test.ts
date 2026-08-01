@@ -180,6 +180,8 @@ describe('id assignment is permanent', () => {
     ['netherrack', 117],
     ['nether_portal', 118],
     ['fire', 119],
+    ['soul_soil', 120],
+    ['wither_skeleton_skull', 121],
   ]
 
   it.effect('assigns exactly the pinned ids', () =>
@@ -528,6 +530,7 @@ describe('the named light readings', () => {
         'brewing_stand',
         'nether_portal',
         'fire',
+        'wither_skeleton_skull',
       ])
 
       // The three crops are in this list, and that is the fact most likely to be
@@ -1010,8 +1013,8 @@ describe('the reference tables this roster transcribes', () => {
   )
 })
 
-describe('the completed roster — 120 literals, and the columns that had to stay independent', () => {
-  it.effect('is exactly the reference’s 120, distinct, and every one has a registry row', () =>
+describe('the completed roster and additive gameplay vocabulary', () => {
+  it.effect('keeps the reference’s 120 plus two additions distinct and registered', () =>
     Effect.sync(() => {
       // `docs/testing.md` §5.2 re-derived the 120 from two hand-maintained
       // arrays in the reference that agree as sets (`BlockTypeSchema` and
@@ -1022,16 +1025,16 @@ describe('the completed roster — 120 literals, and the columns that had to sta
       //
       // Counting LINES of the reference schema gives 128; eight are comments.
       // That is the trap, and 120 is the answer.
-      expect(BLOCK_TYPES.length).toBe(120)
-      expect(new Set(BLOCK_TYPES).size).toBe(120)
-      expect(BLOCK_REGISTRY.length).toBe(120)
+      expect(BLOCK_TYPES.length).toBe(122)
+      expect(new Set(BLOCK_TYPES).size).toBe(122)
+      expect(BLOCK_REGISTRY.length).toBe(122)
 
       // The bijection, both ways, over the whole roster. `UNREGISTERED_BLOCK_TYPES`
       // asserts one direction elsewhere; this is the round trip.
       for (const type of BLOCK_TYPES) {
         expect(blockTypeOfId(blockIdOf(type))).toBe(type)
       }
-      expect(new Set(BLOCK_IDS).size).toBe(120)
+      expect(new Set(BLOCK_IDS).size).toBe(122)
     }),
   )
 
@@ -1044,7 +1047,7 @@ describe('the completed roster — 120 literals, and the columns that had to sta
       for (const id of BLOCK_IDS) {
         expect(id).toBeLessThanOrEqual(BLOCK_ID_MAX)
       }
-      expect(Math.max(...BLOCK_IDS)).toBe(119)
+      expect(Math.max(...BLOCK_IDS)).toBe(121)
     }),
   )
 

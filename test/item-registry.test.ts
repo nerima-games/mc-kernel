@@ -127,6 +127,9 @@ describe('item registry', () => {
       expect([...encodeItemId('minecart')]).toStrictEqual([0, 141])
       expect([...encodeItemId('fishing_rod')]).toStrictEqual([0, 142])
       expect([...encodeItemId('saddle')]).toStrictEqual([0, 151])
+      expect([...encodeItemId('soul_soil')]).toStrictEqual([0, 152])
+      expect([...encodeItemId('wither_skeleton_skull')]).toStrictEqual([0, 153])
+      expect([...encodeItemId('nether_star')]).toStrictEqual([0, 154])
     }),
   )
 
@@ -135,14 +138,15 @@ describe('item registry', () => {
       expect(decodeItemId(new Uint8Array())).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0]))).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0, 127, 0]))).toBeUndefined()
-      expect(decodeItemId(new Uint8Array([0, 152]))).toBeUndefined()
+      expect(decodeItemId(new Uint8Array([0, 155]))).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0xff, 0xff]))).toBeUndefined()
       expect(isKnownItemId(134)).toBe(true)
       expect(isKnownItemId(EYE_OF_ENDER_ITEM_ID)).toBe(true)
       expect(isKnownItemId(ENCHANTED_BOOK_ITEM_ID)).toBe(true)
       expect(isKnownItemId(141)).toBe(true)
       expect(isKnownItemId(151)).toBe(true)
-      expect(isKnownItemId(152)).toBe(false)
+      expect(isKnownItemId(154)).toBe(true)
+      expect(isKnownItemId(155)).toBe(false)
       expect(isKnownItemId(-1)).toBe(false)
       expect(isKnownItemId(1.5)).toBe(false)
     }),
@@ -184,6 +188,9 @@ describe('item registry', () => {
         'leather',
         'bone',
         'name_tag',
+        'soul_soil',
+        'wither_skeleton_skull',
+        'nether_star',
       ] as const) {
         expect(maxStackCountOfItem(type)).toBe(64)
       }

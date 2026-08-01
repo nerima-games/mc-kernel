@@ -261,6 +261,7 @@ const SUPPORT_SENSITIVE: ReadonlyArray<BlockType> = [
   'nether_wart_crop',
   'redstone_wire',
   'redstone_torch',
+  'wither_skeleton_skull',
 ]
 
 /** The six with no per-block rule, named — the ones that FALL THROUGH. */
@@ -271,10 +272,11 @@ const FALLS_THROUGH_TO_THE_NEGATIVE_LIST: ReadonlyArray<BlockType> = [
   'pressure_plate',
   'redstone_wire',
   'redstone_torch',
+  'wither_skeleton_skull',
 ]
 
 describe('the supportRule column across the whole registry', () => {
-  it.effect('exactly nineteen blocks are support-sensitive, and these are they', () =>
+  it.effect('exactly twenty blocks are support-sensitive, and these are they', () =>
     Effect.sync(() => {
       const sensitive = BLOCK_REGISTRY.filter((entry) => isSupportSensitiveBlockId(entry.id)).map(
         (entry) => entry.definition.type,
@@ -283,11 +285,11 @@ describe('the supportRule column across the whole registry', () => {
     }),
   )
 
-  it.effect('the other 101 require nothing below, so an ordinary cube is unaffected', () =>
+  it.effect('the other 102 require nothing below, so an ordinary cube is unaffected', () =>
     Effect.sync(() => {
       const indifferent = BLOCK_TYPES.filter((type) => !isSupportSensitiveBlockId(blockIdOf(type)))
       expect(indifferent.length).toBe(BLOCK_TYPES.length - SUPPORT_SENSITIVE.length)
-      expect(indifferent.length).toBe(101)
+      expect(indifferent.length).toBe(102)
       for (const type of indifferent) {
         expect(supportRuleOfBlockId(blockIdOf(type))).toStrictEqual(NEEDS_NO_SUPPORT)
         // ...and "requires nothing" means it stays up over ANY support,
