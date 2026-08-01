@@ -206,4 +206,12 @@ describe('public API surface', () => {
       expect(kernel.isItemType('potion_of_regeneration')).toBe(true)
     }),
   )
+
+  it.effect('exports the canonical Eye of Ender item identity', () =>
+    Effect.sync(() => {
+      expect(kernel.isItemType('eye_of_ender')).toBe(true)
+      expect(kernel.itemIdOf('eye_of_ender')).toBe(kernel.itemDefinitionOf('eye_of_ender').id)
+      expect(kernel.isPlaceableItem('eye_of_ender')).toBe(false)
+    }),
+  )
 })

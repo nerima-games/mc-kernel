@@ -26,6 +26,8 @@ const BREWING_ITEM_IDS = {
   water_bottle: 127,
 } as const satisfies Readonly<Partial<Record<ItemType, number>>>
 
+const EYE_OF_ENDER_ITEM_ID = 135
+
 describe('item registry', () => {
   it.effect('covers the ItemType roster exactly once with dense permanent ids', () =>
     Effect.sync(() => {
@@ -49,6 +51,15 @@ describe('item registry', () => {
     }),
   )
 
+  it.effect('appends the Eye of Ender without changing any existing permanent id', () =>
+    Effect.sync(() => {
+      expect(itemIdOf('ghast_tear')).toBe(134)
+      expect(itemIdOf('eye_of_ender')).toBe(EYE_OF_ENDER_ITEM_ID)
+      expect(itemTypeOfId(EYE_OF_ENDER_ITEM_ID)).toBe('eye_of_ender')
+      expect(itemDefinitionOf('eye_of_ender').id).toBe(EYE_OF_ENDER_ITEM_ID)
+    }),
+  )
+
   it.effect('round-trips every registered item through its two-byte save and wire field', () =>
     Effect.sync(() => {
       for (const type of ITEM_TYPES) {
@@ -56,6 +67,7 @@ describe('item registry', () => {
       }
       expect([...encodeItemId('water_bottle')]).toStrictEqual([0, 127])
       expect([...encodeItemId('ghast_tear')]).toStrictEqual([0, 134])
+      expect([...encodeItemId('eye_of_ender')]).toStrictEqual([0, EYE_OF_ENDER_ITEM_ID])
     }),
   )
 
@@ -64,10 +76,11 @@ describe('item registry', () => {
       expect(decodeItemId(new Uint8Array())).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0]))).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0, 127, 0]))).toBeUndefined()
-      expect(decodeItemId(new Uint8Array([0, 135]))).toBeUndefined()
+      expect(decodeItemId(new Uint8Array([0, 136]))).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0xff, 0xff]))).toBeUndefined()
       expect(isKnownItemId(134)).toBe(true)
-      expect(isKnownItemId(135)).toBe(false)
+      expect(isKnownItemId(EYE_OF_ENDER_ITEM_ID)).toBe(true)
+      expect(isKnownItemId(136)).toBe(false)
       expect(isKnownItemId(-1)).toBe(false)
       expect(isKnownItemId(1.5)).toBe(false)
     }),
@@ -86,7 +99,14 @@ describe('item registry', () => {
       }
       expect(maxStackCountOfItem('ender_pearl')).toBe(16)
       expect(maxStackCountOfItem('snowball')).toBe(16)
-      for (const type of ['sugar', 'spider_eye', 'ghast_tear', 'nether_wart', 'blaze_powder'] as const) {
+      for (const type of [
+        'sugar',
+        'spider_eye',
+        'ghast_tear',
+        'nether_wart',
+        'blaze_powder',
+        'eye_of_ender',
+      ] as const) {
         expect(maxStackCountOfItem(type)).toBe(64)
       }
     }),

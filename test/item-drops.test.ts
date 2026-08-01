@@ -89,6 +89,7 @@ describe('ItemType is a closed literal union, exactly as BlockType is', () => {
       expect(isItemType('stone_pickaxe')).toBe(true)
       expect(isItemType('iron_pickaxe')).toBe(true)
       expect(isItemType('diamond_pickaxe')).toBe(true)
+      expect(isItemType('eye_of_ender')).toBe(true)
       for (const hoe of HOE_ITEM_TYPES) {
         expect(isItemType(hoe)).toBe(true)
       }
@@ -209,6 +210,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'sugar',
         'spider_eye',
         'ghast_tear',
+        'eye_of_ender',
       ])
 
       // The block half of the same ledger: 23 entries over 36 blocks before, 35
@@ -801,6 +803,7 @@ describe('the rule that keeps a `self` drop honest', () => {
         'sugar',
         'spider_eye',
         'ghast_tear',
+        'eye_of_ender',
       ])
       const EQUIPMENT_ITEMS: ReadonlySet<string> = new Set(IRON_ARMOUR_ITEM_TYPES)
 
