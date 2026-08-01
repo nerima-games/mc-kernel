@@ -54,7 +54,7 @@
  * (`glowstone_dust`, `stick`, `wooden_pickaxe`, `stone_pickaxe`, `iron_pickaxe`), and blocks that yield nothing
  * (`oak_leaves`, `bedrock`).
  *
- * It reached 23 when mc-sim's recipe table was repointed, and it is 112 now.
+ * It reached 23 when mc-sim's recipe table was repointed, and it is 135 now.
  * The jump is not enthusiasm: `BLOCK_TYPES` reached the reference's full 120,
  * and 55 of those new rows would otherwise have been LIES — a row stating that
  * a block drops itself, with no item of that name for it to drop. See the rule
@@ -334,6 +334,17 @@ export const ITEM_TYPES = [
   'sugar_cane',
   'cactus',
   'lily_pad',
+
+  // Brewing ingredients and the first potion states. Appended because the
+  // Item registry assigns permanent wire ids from this roster's order.
+  'water_bottle',
+  'awkward_potion',
+  'potion_of_swiftness',
+  'potion_of_poison',
+  'potion_of_regeneration',
+  'sugar',
+  'spider_eye',
+  'ghast_tear',
 ] as const
 
 export type ItemType = (typeof ITEM_TYPES)[number]

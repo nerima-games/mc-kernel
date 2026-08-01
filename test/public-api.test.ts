@@ -3,6 +3,7 @@ import { Effect } from 'effect'
 import * as kernel from '../src/index'
 import { BLOCK_TYPES, isBlockType } from '../src/domain/block-type'
 import { isItemType, ITEM_TYPES } from '../src/domain/item-type'
+import { ITEM_REGISTRY, itemIdOf } from '../src/domain/item-registry'
 
 describe('BlockType', () => {
   it.effect('narrows a string that names a known block', () =>
@@ -82,6 +83,19 @@ describe('public API surface', () => {
         // item types — plan.md §3.1's other literal vocabulary
         'ITEM_TYPES',
         'isItemType',
+        // Stable item ids, storage codec, and stack metadata
+        'ItemId',
+        'ITEM_ID_MAX',
+        'ITEM_ID_BYTES',
+        'ITEM_REGISTRY',
+        'ITEM_IDS',
+        'isKnownItemId',
+        'itemDefinitionOf',
+        'maxStackCountOfItem',
+        'itemIdOf',
+        'itemTypeOfId',
+        'encodeItemId',
+        'decodeItemId',
         // the block -> item bridge (audit §6-8's intersection, derived)
         'PLACEABLE_ITEM_TYPES',
         'NON_PLACEABLE_ITEM_TYPES',
@@ -184,9 +198,12 @@ describe('public API surface', () => {
       expect(kernel.BLOCK_TYPES).toBe(BLOCK_TYPES)
       expect(kernel.isItemType).toBe(isItemType)
       expect(kernel.ITEM_TYPES).toBe(ITEM_TYPES)
+      expect(kernel.ITEM_REGISTRY).toBe(ITEM_REGISTRY)
+      expect(kernel.itemIdOf).toBe(itemIdOf)
       expect(kernel.isItemType('bow')).toBe(true)
       expect(kernel.isItemType('arrow')).toBe(true)
       expect(kernel.isItemType('lily_pad')).toBe(true)
+      expect(kernel.isItemType('potion_of_regeneration')).toBe(true)
     }),
   )
 })

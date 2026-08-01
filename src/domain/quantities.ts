@@ -13,9 +13,8 @@ import { Brand } from 'effect'
 /**
  * Maximum items in one inventory stack.
  *
- * PROVISIONAL: vanilla Minecraft stack limits are per-item (64 / 16 / 1) and
- * the per-item table belongs to the inventory repository, not to kernel.
- * Kernel only fixes the upper bound of the representable range.
+ * Per-item limits (64 / 16 / 1) live in `item-registry.ts`; this remains the
+ * upper bound of the representable range shared by every item stack.
  */
 export const MAX_STACK_COUNT = 64
 

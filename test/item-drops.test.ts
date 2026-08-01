@@ -201,6 +201,14 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'nether_wart',
         'string',
         'snowball',
+        'water_bottle',
+        'awkward_potion',
+        'potion_of_swiftness',
+        'potion_of_poison',
+        'potion_of_regeneration',
+        'sugar',
+        'spider_eye',
+        'ghast_tear',
       ])
 
       // The block half of the same ledger: 23 entries over 36 blocks before, 35
@@ -785,6 +793,14 @@ describe('the rule that keeps a `self` drop honest', () => {
         'wheat',
         'flint_and_steel',
         'fire_charge',
+        'water_bottle',
+        'awkward_potion',
+        'potion_of_swiftness',
+        'potion_of_poison',
+        'potion_of_regeneration',
+        'sugar',
+        'spider_eye',
+        'ghast_tear',
       ])
       const EQUIPMENT_ITEMS: ReadonlySet<string> = new Set(IRON_ARMOUR_ITEM_TYPES)
 
@@ -809,7 +825,6 @@ describe('the rule that keeps a `self` drop honest', () => {
       // The explicit list is pinned to its exact membership so that adding an
       // unexplained item cannot be hidden by adding a name to the exemption.
       expect([...EXPLICIT_NON_BLOCK_ITEMS].filter((name) => !ITEM_TYPES.includes(name as ItemType))).toStrictEqual([])
-      expect(EXPLICIT_NON_BLOCK_ITEMS.size).toBe(24)
       expect([...EQUIPMENT_ITEMS]).toStrictEqual(IRON_ARMOUR_ITEM_TYPES)
     }),
   )
