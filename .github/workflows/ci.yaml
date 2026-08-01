@@ -46,7 +46,7 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
-      # oxlint's no-restricted-imports (oxlint.json) is the enforcement mechanism
+      # oxlint's no-restricted-imports (.oxlintrc.json) is the enforcement mechanism
       # for the Tier1 dependency policy (DEPENDENCY_POLICY.md §5) — this replaces
       # the retired scripts/check-dependency-whitelist.ts + pnpm check:deps.
       - name: Lint
