@@ -42,17 +42,23 @@ type LocalAxis = number & Brand.Brand<'LocalAxis'>   // チャンク内ローカ
 
 type Position      = { readonly x: number; readonly y: number; readonly z: number }      // 連続座標
 type BlockPosition = { readonly x: BlockAxis; readonly y: BlockAxis; readonly z: BlockAxis }
+type BlockFace = 'down' | 'up' | 'north' | 'south' | 'west' | 'east'
 type ChunkCoord    = { readonly cx: ChunkAxis; readonly cz: ChunkAxis }
 type LocalBlockCoord = { readonly lx: LocalAxis; readonly y: BlockAxis; readonly lz: LocalAxis }
 type AABB          = { readonly min: Position; readonly max: Position }
 
 const position / blockPosition / chunkCoord
+const BLOCK_FACES / HORIZONTAL_BLOCK_FACES / isBlockFace / oppositeBlockFace
+const adjacentBlockPosition / horizontalBlockNeighbours / blockNeighbours
 const blockPositionOfPosition / chunkCoordOfBlock / localCoordOfBlock / blockPositionOfChunkLocal
 const aabb / aabbOfBlock / aabbIntersects / aabbContainsPoint
 ```
 
 **なぜ kernel か**: 座標変換は `mc-worldgen`（生成）・`mc-meshing`（メッシュ）・`mc-physics`（衝突）・`mc-sim`（エンティティ）・`mc-render`（描画）が
 全員必要とする。どれか 1 つに置けば残り 4 つがそこに依存し、階層構造が崩壊する。
+`BLOCK_FACES` は `down, up, north, south, west, east` の順を契約として固定する。
+`HORIZONTAL_BLOCK_FACES` は既存 gameplay 規則と互換な `west, east, north, south` の順を固定する。
+北は -Z、西は -X であり、近傍探索を実行ごとに同じ順序に保つ。
 
 **`Position` と `BlockPosition` を型で区別している理由**は plan.md §3.4 の実測知見に直結する。
 
