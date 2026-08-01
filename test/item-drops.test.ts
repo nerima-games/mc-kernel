@@ -180,6 +180,8 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'flint',
         'gunpowder',
         'blaze_powder',
+        'rotten_flesh',
+        'ender_pearl',
         'flint_and_steel',
         'fire_charge',
         'iron_helmet',
@@ -194,6 +196,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'redstone_dust',
         'amethyst_shard',
         'wheat_seeds',
+        'wheat',
         'potato',
         'nether_wart',
         'string',
@@ -777,6 +780,9 @@ describe('the rule that keeps a `self` drop honest', () => {
         'flint',
         'gunpowder',
         'blaze_powder',
+        'rotten_flesh',
+        'ender_pearl',
+        'wheat',
         'flint_and_steel',
         'fire_charge',
       ])
@@ -803,7 +809,7 @@ describe('the rule that keeps a `self` drop honest', () => {
       // The explicit list is pinned to its exact membership so that adding an
       // unexplained item cannot be hidden by adding a name to the exemption.
       expect([...EXPLICIT_NON_BLOCK_ITEMS].filter((name) => !ITEM_TYPES.includes(name as ItemType))).toStrictEqual([])
-      expect(EXPLICIT_NON_BLOCK_ITEMS.size).toBe(21)
+      expect(EXPLICIT_NON_BLOCK_ITEMS.size).toBe(24)
       expect([...EQUIPMENT_ITEMS]).toStrictEqual(IRON_ARMOUR_ITEM_TYPES)
     }),
   )

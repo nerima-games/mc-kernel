@@ -148,6 +148,8 @@ export const ITEM_TYPES = [
   'flint',
   'gunpowder',
   'blaze_powder',
+  'rotten_flesh',
+  'ender_pearl',
   'flint_and_steel',
   'fire_charge',
 
@@ -270,6 +272,7 @@ export const ITEM_TYPES = [
   'redstone_dust',
   'amethyst_shard',
   'wheat_seeds',
+  'wheat',
   'potato',
   'nether_wart',
 
