@@ -56,6 +56,8 @@ const SINGLE_STACK_ITEMS: ReadonlySet<ItemType> = new Set<ItemType>([
   'lava_bucket',
   'oak_boat',
   'minecart',
+  'fishing_rod',
+  'saddle',
 ])
 
 const SIXTEEN_STACK_ITEMS: ReadonlySet<ItemType> = new Set<ItemType>(['ender_pearl', 'snowball', 'bucket'])

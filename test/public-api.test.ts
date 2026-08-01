@@ -217,6 +217,8 @@ describe('public API surface', () => {
       expect(kernel.isItemType('lily_pad')).toBe(true)
       expect(kernel.isItemType('potion_of_regeneration')).toBe(true)
       expect(kernel.isItemType('enchanted_book')).toBe(true)
+      expect(kernel.isItemType('fishing_rod')).toBe(true)
+      expect(kernel.isItemType('cod')).toBe(true)
     }),
   )
 
@@ -244,6 +246,30 @@ describe('public API surface', () => {
       for (const type of ['water_bucket', 'lava_bucket', 'oak_boat', 'minecart'] as const) {
         expect(kernel.isItemType(type)).toBe(true)
         expect(kernel.maxStackCountOfItem(type)).toBe(1)
+        expect(kernel.isPlaceableItem(type)).toBe(false)
+      }
+    }),
+  )
+
+  it.effect('exports fishing item identities with canonical metadata', () =>
+    Effect.sync(() => {
+      expect(kernel.itemIdOf('fishing_rod')).toBe(142)
+      expect(kernel.itemIdOf('saddle')).toBe(151)
+      expect(kernel.maxStackCountOfItem('fishing_rod')).toBe(1)
+      expect(kernel.maxStackCountOfItem('saddle')).toBe(1)
+      const stackableFishingItems = [
+        'cod',
+        'salmon',
+        'tropical_fish',
+        'pufferfish',
+        'bowl',
+        'leather',
+        'bone',
+        'name_tag',
+      ] as const
+      for (const type of stackableFishingItems) {
+        expect(kernel.isItemType(type)).toBe(true)
+        expect(kernel.maxStackCountOfItem(type)).toBe(64)
         expect(kernel.isPlaceableItem(type)).toBe(false)
       }
     }),

@@ -217,6 +217,16 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'lava_bucket',
         'oak_boat',
         'minecart',
+        'fishing_rod',
+        'cod',
+        'salmon',
+        'tropical_fish',
+        'pufferfish',
+        'bowl',
+        'leather',
+        'bone',
+        'name_tag',
+        'saddle',
       ])
 
       // The block half of the same ledger: 23 entries over 36 blocks before, 35
@@ -816,6 +826,16 @@ describe('the rule that keeps a `self` drop honest', () => {
         'lava_bucket',
         'oak_boat',
         'minecart',
+        'fishing_rod',
+        'cod',
+        'salmon',
+        'tropical_fish',
+        'pufferfish',
+        'bowl',
+        'leather',
+        'bone',
+        'name_tag',
+        'saddle',
       ])
       const EQUIPMENT_ITEMS: ReadonlySet<string> = new Set(IRON_ARMOUR_ITEM_TYPES)
 

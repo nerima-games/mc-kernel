@@ -35,6 +35,18 @@ const FLUID_AND_VEHICLE_ITEM_IDS = {
   oak_boat: 140,
   water_bucket: 138,
 } as const satisfies Readonly<Partial<Record<ItemType, number>>>
+const FISHING_ITEM_IDS = {
+  bone: 149,
+  bowl: 147,
+  cod: 143,
+  fishing_rod: 142,
+  leather: 148,
+  name_tag: 150,
+  pufferfish: 146,
+  saddle: 151,
+  salmon: 144,
+  tropical_fish: 145,
+} as const satisfies Readonly<Partial<Record<ItemType, number>>>
 
 describe('item registry', () => {
   it.effect('covers the ItemType roster exactly once with dense permanent ids', () =>
@@ -88,6 +100,17 @@ describe('item registry', () => {
     }),
   )
 
+  it.effect('appends fishing items without changing existing permanent ids', () =>
+    Effect.sync(() => {
+      expect(itemIdOf('minecart')).toBe(FLUID_AND_VEHICLE_ITEM_IDS.minecart)
+      for (const [type, id] of Object.entries(FISHING_ITEM_IDS)) {
+        expect(itemIdOf(type as ItemType)).toBe(id)
+        expect(itemTypeOfId(id)).toBe(type)
+        expect(itemDefinitionOf(type as ItemType).id).toBe(id)
+      }
+    }),
+  )
+
   it.effect('round-trips every registered item through its two-byte save and wire field', () =>
     Effect.sync(() => {
       for (const type of ITEM_TYPES) {
@@ -102,6 +125,8 @@ describe('item registry', () => {
       expect([...encodeItemId('lava_bucket')]).toStrictEqual([0, 139])
       expect([...encodeItemId('oak_boat')]).toStrictEqual([0, 140])
       expect([...encodeItemId('minecart')]).toStrictEqual([0, 141])
+      expect([...encodeItemId('fishing_rod')]).toStrictEqual([0, 142])
+      expect([...encodeItemId('saddle')]).toStrictEqual([0, 151])
     }),
   )
 
@@ -110,13 +135,14 @@ describe('item registry', () => {
       expect(decodeItemId(new Uint8Array())).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0]))).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0, 127, 0]))).toBeUndefined()
-      expect(decodeItemId(new Uint8Array([0, 142]))).toBeUndefined()
+      expect(decodeItemId(new Uint8Array([0, 152]))).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0xff, 0xff]))).toBeUndefined()
       expect(isKnownItemId(134)).toBe(true)
       expect(isKnownItemId(EYE_OF_ENDER_ITEM_ID)).toBe(true)
       expect(isKnownItemId(ENCHANTED_BOOK_ITEM_ID)).toBe(true)
       expect(isKnownItemId(141)).toBe(true)
-      expect(isKnownItemId(142)).toBe(false)
+      expect(isKnownItemId(151)).toBe(true)
+      expect(isKnownItemId(152)).toBe(false)
       expect(isKnownItemId(-1)).toBe(false)
       expect(isKnownItemId(1.5)).toBe(false)
     }),
@@ -135,6 +161,8 @@ describe('item registry', () => {
         'lava_bucket',
         'oak_boat',
         'minecart',
+        'fishing_rod',
+        'saddle',
       ] as const) {
         expect(maxStackCountOfItem(type)).toBe(1)
       }
@@ -148,6 +176,14 @@ describe('item registry', () => {
         'nether_wart',
         'blaze_powder',
         'eye_of_ender',
+        'cod',
+        'salmon',
+        'tropical_fish',
+        'pufferfish',
+        'bowl',
+        'leather',
+        'bone',
+        'name_tag',
       ] as const) {
         expect(maxStackCountOfItem(type)).toBe(64)
       }

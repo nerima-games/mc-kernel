@@ -54,15 +54,15 @@
  * (`glowstone_dust`, `stick`, `wooden_pickaxe`, `stone_pickaxe`, `iron_pickaxe`), and blocks that yield nothing
  * (`oak_leaves`, `bedrock`).
  *
- * It reached 23 when mc-sim's recipe table was repointed, and it is 137 now.
+ * It reached 23 when mc-sim's recipe table was repointed, and it is 152 now.
  * The jump is not enthusiasm: `BLOCK_TYPES` reached the reference's full 120,
  * and 55 of those new rows would otherwise have been LIES — a row stating that
  * a block drops itself, with no item of that name for it to drop. See the rule
  * stated above the additions, which is the whole of the reasoning.
  *
  * The roster is still not a catalogue of everything nameable: only the four
- * iron armour pieces required by the equipment boundary exist; there is no food
- * and no tools beyond the pickaxe, hoe, and sword tiers used by gameplay. Ten literals that the block-drop rule
+ * iron armour pieces required by the equipment boundary exist; food and tool
+ * identities are limited to gameplay requirements. Ten literals that the block-drop rule
  * WOULD admit are also deliberately absent; that argument is at the end of the
  * list, and it is the only place that rule is knowingly not applied.
  *
@@ -363,6 +363,20 @@ export const ITEM_TYPES = [
   'lava_bucket',
   'oak_boat',
   'minecart',
+
+  // Fishing inventory vocabulary. Timing, loot selection, and durability live
+  // Above kernel; these stable identities let every reward enter inventory and
+  // Save data without a gameplay-owned string namespace.
+  'fishing_rod',
+  'cod',
+  'salmon',
+  'tropical_fish',
+  'pufferfish',
+  'bowl',
+  'leather',
+  'bone',
+  'name_tag',
+  'saddle',
 ] as const
 
 export type ItemType = (typeof ITEM_TYPES)[number]
