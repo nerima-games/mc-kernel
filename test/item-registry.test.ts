@@ -130,6 +130,7 @@ describe('item registry', () => {
       expect([...encodeItemId('soul_soil')]).toStrictEqual([0, 152])
       expect([...encodeItemId('wither_skeleton_skull')]).toStrictEqual([0, 153])
       expect([...encodeItemId('nether_star')]).toStrictEqual([0, 154])
+      expect([...encodeItemId('bone_meal')]).toStrictEqual([0, 155])
     }),
   )
 
@@ -138,7 +139,7 @@ describe('item registry', () => {
       expect(decodeItemId(new Uint8Array())).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0]))).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0, 127, 0]))).toBeUndefined()
-      expect(decodeItemId(new Uint8Array([0, 155]))).toBeUndefined()
+      expect(decodeItemId(new Uint8Array([0, 170]))).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0xff, 0xff]))).toBeUndefined()
       expect(isKnownItemId(134)).toBe(true)
       expect(isKnownItemId(EYE_OF_ENDER_ITEM_ID)).toBe(true)
@@ -146,7 +147,9 @@ describe('item registry', () => {
       expect(isKnownItemId(141)).toBe(true)
       expect(isKnownItemId(151)).toBe(true)
       expect(isKnownItemId(154)).toBe(true)
-      expect(isKnownItemId(155)).toBe(false)
+      expect(isKnownItemId(155)).toBe(true)
+      expect(isKnownItemId(169)).toBe(true)
+      expect(isKnownItemId(170)).toBe(false)
       expect(isKnownItemId(-1)).toBe(false)
       expect(isKnownItemId(1.5)).toBe(false)
     }),

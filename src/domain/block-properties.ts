@@ -81,6 +81,10 @@ export type CollisionShape = (typeof COLLISION_SHAPES)[number]
 export const RENDER_KINDS = ['cube', 'cross', 'cactus', 'rail', 'lilyPad', 'fluid'] as const
 export type RenderKind = (typeof RENDER_KINDS)[number]
 
+/** Surface material used by the gameplay footstep rule (audit §4.8). */
+export const FOOTSTEP_MATERIALS = ['default', 'grass', 'wood', 'stone'] as const
+export type FootstepMaterial = (typeof FOOTSTEP_MATERIALS)[number]
+
 /** Vehicle running surface (audit §4.1, `block-collision-predicates.ts:184-201`). */
 export const RAIL_KINDS = ['none', 'normal', 'powered'] as const
 export type RailKind = (typeof RAIL_KINDS)[number]
@@ -118,6 +122,8 @@ export type BlockProperties = {
   readonly collisionShape: CollisionShape
   /** Mesh shape. Audit §4.8. */
   readonly renderKind: RenderKind
+  /** Sound material selected by the gameplay footstep rule. Audit §4.8. */
+  readonly footstepMaterial: FootstepMaterial
   /** Break-time base, 0..100. Audit §4.5, `break-speed.ts:6-43`. */
   readonly hardness: number
   /** Surface friction, 0..1. Audit §4.5, `block-collision-predicates.ts:61-63,152-161`. */
@@ -155,6 +161,7 @@ export const BLOCK_PROPERTY_DEFAULTS: BlockProperties = {
   fluid: 'none',
   collisionShape: 'full',
   renderKind: 'cube',
+  footstepMaterial: 'default',
   /** `blocks.config.terrain.ts:9-14` `defaultBlockProperties`. */
   hardness: 8,
   /** `DEFAULT_BLOCK_FRICTION` in the reference. */

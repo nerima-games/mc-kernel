@@ -383,6 +383,23 @@ export const ITEM_TYPES = [
   'soul_soil',
   'wither_skeleton_skull',
   'nether_star',
+  'bone_meal',
+
+  // Silk Touch block forms. Appended to preserve every existing item id.
+  'coal_ore',
+  'iron_ore',
+  'gold_ore',
+  'diamond_ore',
+  'redstone_ore',
+  'lapis_ore',
+  'emerald_ore',
+  'deepslate_coal_ore',
+  'deepslate_iron_ore',
+  'deepslate_gold_ore',
+  'deepslate_diamond_ore',
+  'deepslate_redstone_ore',
+  'deepslate_lapis_ore',
+  'deepslate_emerald_ore',
 ] as const
 
 export type ItemType = (typeof ITEM_TYPES)[number]

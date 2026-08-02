@@ -18,12 +18,10 @@ mc-kernel は `domain/` しか持たない（純粋関数・型・データテ�
 | クロック Port / フレーム契約 | 実装済み | `test/clock-and-frame.test.ts` |
 | 公開バレルの再エクスポート | 実装済み | `test/public-api.test.ts` |
 | 依存ゲート | 実装済み | `test/check-dependency-whitelist.test.ts` |
-| ~~Chunk データ構造とコーデックのラウンドトリップ~~ | **kernel の担当ではない（§5.1）** | mc-worldgen / mc-save 側にある |
+| Chunk データ構造とコーデックのラウンドトリップ | 実装済み | `test/chunk.test.ts` |
 
-**Chunk は kernel に来ない。** plan.md §3.1 は `Chunk` データ構造とコーデックを kernel の主要 API に挙げているが、
-その後 `Chunk` は mc-worldgen（`domain/chunk.ts:32`）、コーデックは mc-save（`domain/format.ts` の
-`defineFormat`）が所有すると確定した。**kernel が 2 枚目を宣言すれば「少ない語彙」ではなく「別の型」になる。**
-完成条件からも取り下げてある —— 理由の全文は §5.1。
+`Chunk` データ構造と versioned codec は mc-kernel が所有する。mc-worldgen は生成・ロード・dirty 管理を、
+mc-save は媒体フォーマットと保存先を所有し、同じ `Chunk` 型を境界で利用する。
 
 > この行は一度「未実装。完成条件には含まれる」のまま §5 と食い違った。**1 つの文書の中に
 > 同じことを述べる場所が 2 つあれば、片方を直したとき他方が古くなる** —— この組織が
@@ -69,7 +67,8 @@ plan.md §6 Step 2 の方針:
 
 kernel に該当するのは能力フラグ表の整合性テストで、既に `block-capabilities.test.ts` の
 `audit §4.9` ブロックが参照実装のメンバーシップを転記した回帰テストになっている。
-Chunk コーデックを実装する際は、参照実装のセーブ fixture をオラクルとして移植すること。
+Chunk コーデックは `domain/chunk.ts` と `test/chunk.test.ts` で検証する。媒体フォーマットの fixture は
+mc-save 側で追加する。
 
 ## 4. カバレッジ
 
@@ -140,16 +139,16 @@ mc-kernel が「完成」と言えるのは以下が全て満たされたとき�
 | --- | --- | --- |
 | 1 | `pnpm verify` が green | ✅ |
 | 2 | 能力フラグ監査が完了している | ✅（`docs/capability-flag-audit.md`） |
-| 3 | 監査の 28 能力が実装済み、または保留理由が記録されている | ✅（**25 実装 / 3 保留**、`PENDING_CAPABILITIES`）。`supportRule` が保留から実装に移った —— §4.6.1 と §5.3.2 |
+| 3 | 監査の 28 能力が実装済み、または保留理由が記録されている | ✅（**27 実装 / 1 保留**、`PENDING_CAPABILITIES`）。`supportRule`、`tillable`、`footstepMaterial` が保留から実装に移った |
 | 4 | `BlockType` 語彙が参照実装の 120 リテラルに追いついている | ✅（**120 / 120**。§5.3） |
 | 4' | `ItemType` 語彙が存在する（plan.md §3.1） | ✅（`domain/item-type.ts`、97 種。条件 4 に伴って 23 → 97、理由は §5.3.4） |
-| 5 | ~~`Chunk` データ構造とコーデック + ラウンドトリップテスト~~ | **取り下げ（§5.1）**。両方とも他リポジトリが所有すると確定した |
+| 5 | `Chunk` データ構造とコーデック + ラウンドトリップテスト | ✅ `domain/chunk.ts` / `test/chunk.test.ts` |
 | 6 | `FrameServices` が縦切りスパイクで確定している | ✅（`ClockPort` のみ。[freeze-checklist.md](./freeze-checklist.md) (b)） |
 | 7 | 99% カバレッジゲートが有効 | ✅（`vitest.config.ts` の `thresholds` + CI の Coverage ステップ。実測 100/100/100/100、§4） |
 | 8 | API ロックファイル（公開 API のレポートを diff レビュー） | ✅（`api-lock.md` / `pnpm api:check`。ツール選定は [versioning.md](./versioning.md) §7） |
 
 **8 条件すべてが満たされた。mc-kernel は完成である。**
-5 を取り下げ、7 を有効化した時点で残っていたのは 4 だけであり、その 4 が今回埋まった。
+5 の codec 実装と 7 のゲートを有効化した時点で残っていたのは 4 だけであり、その 4 が今回埋まった。
 
 **7 は 4 を待たずに入れた。** この表は元々「7 は 4 が終わったときに有効化するゲートであって独立した作業ではない」
 と書いていたが、その依存関係は逆だった。ゲートは完成のご褒美ではなく、**残りの作業を守る道具**である
@@ -166,8 +165,8 @@ mc-kernel が「完成」と言えるのは以下が全て満たされたとき�
 > `domain/block-registry.ts` が 3 つのアクセサを公開面に足すので、`api-lock.md` が変わる
 > （`pnpm api:update` 実行済み）。**これは語彙のリセットとは別の理由である** ——
 > 下の段落は「`BLOCK_TYPES` を変更する理由が無くなった」と言っており、それは今も正しい。
-> 変わったのは能力の列であって名簿ではない。保留 3 件（`footstepMaterial` / `tillable` /
-> `textureTiles`）を実装すれば、そのたびに同じことが起きる。
+> 変わったのは能力の列であって名簿ではない。残る保留 1 件（`textureTiles`）を
+> 実装すれば、そのたびに同じことが起きる。
 >
 > **注意: 語彙を 36 → 120 に広げた変更で、この 4 週間は一度リセットされた。名簿としてはこれが最後である。**
 > `BLOCK_TYPES` と `ITEM_TYPES` は `api-lock.md` にメンバーが逐語的に記録されており、
@@ -187,29 +186,25 @@ mc-kernel が「完成」と言えるのは以下が全て満たされたとき�
 > すべて kernel 側の既存の誤りで、§5.3 に列挙してある）。
 > 検算の取れない転記を 84 行ぶん手で書くのは、1 回でやってよい作業ではない。
 
-### 5.1 条件 5 を取り下げる理由（実装しないという判断であり、先送りではない）
+### 5.1 条件 5 の責務境界
 
-この条件は **`Chunk` の所有者も コーデックの所有者も決まる前に書かれた**。
-両方ともその後に決着しており、今これを実装すると**同じものに 2 つ目の綴りを作る**ことになる。
+この条件は `Chunk` の所有者とコーデックの所有者を明確に分けるためのものだった。
+現在は kernel が型と versioned codec を所有し、worldgen が生成・管理、mc-save が媒体を所有する。
 
 | 条件 5 が kernel に要求するもの | 実際の所有者 | 証拠 |
 | --- | --- | --- |
-| `Chunk` データ構造 | **mc-worldgen** | `mc-worldgen/domain/chunk.ts:32` の `export type Chunk`。`ChunkStore` が生成・ロード・dirty 管理まで持つ |
-| コーデック | **mc-save** | `mc-save/domain/format.ts` の `defineFormat`、`mc-save/domain/registry.ts:28` の `SaveFormat<Chunk, ChunkEncoded>` |
-| ラウンドトリップテスト | **mc-save** | `mc-save/test/binary-roundtrip.test.ts`、`test/indexeddb-storage.test.ts:509` |
+| `Chunk` データ構造 | **mc-kernel** | `domain/chunk.ts` の `export type Chunk`。worldgen は生成・ロード・dirty 管理を持つ |
+| versioned codec | **mc-kernel** | `domain/chunk.ts` の `encodeChunk` / `decodeChunk` |
+| 媒体フォーマットと保存先 | **mc-save** | `defineFormat` と `StoragePort` の実装 |
 
 **kernel が 2 つ目の `Chunk` を宣言すれば、それは「より少ない語彙」ではなく「別の型」である** ——
 `domain/item-type.ts` が `ItemType` の部分ミラーについて述べているのと同じ理屈で、
 `Context.Tag` と `Brand` が文字列でキーされる以上、名前が同じで中身が違う 2 つは
 TypeScript には別物、Effect には同一物に見える。この組織はその形の欠陥を 4 回記録している。
 
-**では kernel は何を持つべきか。** 座標語彙（`Position` / `AABB` / `ChunkCoord`）は
-plan.md §3.1 のとおり既に kernel にあり、mc-worldgen の `Chunk` も mc-save の
-`SaveFormat` もそれを使う。**共有すべきものは既に共有されており、条件 5 が要求していたのは
-その上に重ねる 2 枚目だった。**
-
-取り下げであって延期ではないので、この行は 4 週間後も ❌ のままにはならない。
-**判断を「未着手」として残しておくと、いつか誰かが親切心で実装する。**
+**では各リポジトリは何を持つべきか。** kernel は座標語彙と `Chunk` の versioned codec、
+mc-worldgen は生成・ロード・dirty 管理、mc-save は媒体フォーマットと保存先を持つ。
+同じ `Chunk` 型を境界で共有し、各リポジトリが別の型や codec を重ねないことが条件 5 の意図である。
 
 ### 5.2 「120」を再計数した（結論: 監査の数字は正しい）
 
@@ -271,8 +266,8 @@ plan.md の「〜119」は同じ数の概数であり、より緩い言明であ
 
 ### 5.3.2 `PENDING_CAPABILITIES` 4 件のうち 3 件が解除された
 
-`domain/block-definition.ts` の `PENDING_CAPABILITIES` は 4 件を保留しており、
-うち 3 件の保留理由は「**ブロック名簿が存在するまで既定値を決められない**」だった。
+`domain/block-definition.ts` の `PENDING_CAPABILITIES` は 1 件を保留している。
+以前の 4 件のうち 3 件は実装済みとなった。
 名簿が存在するようになったので、その理由は消滅した。
 
 **そのうち `supportRule` は実装済みである**（名簿を完成させた変更とは別の変更として。
@@ -284,8 +279,8 @@ semver-MINOR であり、84 行の表に埋めるのではなくレビュー可�
 | --- | --- | --- |
 | `supportRule` | **実装済み**（`domain/block-support.ts` / `test/block-support.test.ts`。§4.6.1） | `block-support.ts:75-91` が要求する参照先ブロックが全て名簿にあった —— 作物 → `farmland`、`sugar_cane` → `dirt`/`grass_block`/`sand`/自身、`cactus` → `sand`/自身、`lily_pad` → `water`、草花 → `dirt`/`grass_block`/`farmland`。**`farmland` が最後のピースだった** |
 | `textureTiles` | **解除。ただし設計判断が残る** | 「storage index で引く位置配列であり、定義表と二重管理になっている」という監査 §4.8 の指摘は名簿とは無関係に有効。名簿が無いことは*もう*理由にならない、というだけ |
-| `footstepMaterial` | **部分的に解除** | 保留理由は名簿ではなく「mc-audio の cue 語彙と同じ変更で入るべき」だった。名簿側の障害は無くなったが、mc-audio 側の前提は変わっていない |
-| `tillable` | 変化なし | 元々名簿待ちではない。`TILLABLE_BLOCK_TYPES` は `DIRT` と `GRASS` の 2 つで、両方すでに名簿にある |
+| `footstepMaterial` | **実装済み** | kernel は `default\|grass\|wood\|stone` の純粋な素材分類を提供し、cue ID と再生は `mc-audio` / host の責務として分離した |
+| `tillable` | **実装済み** | `block-registry-data.ts` の `dirt` / `grass_block` が capability を宣言し、mx-gameplay が ID 経由で参照する |
 
 ### 5.3.3 完成させる過程で見つかった、既存行の誤り
 

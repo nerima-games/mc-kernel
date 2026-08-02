@@ -174,6 +174,12 @@ export const BLOCK_CAPABILITY_DEFAULTS = {
    * Audit §4.8 / §4.9.
    */
   validSpawnSurface: true,
+
+  /**
+   * A hoe can convert this block into farmland.
+   * Audit §4.8 / §5-20 — `block-service.config.ts:264-267`.
+   */
+  tillable: false,
 } as const satisfies Readonly<Record<string, boolean>>
 
 /** Derived from the defaults table — a flag cannot exist without a default. */

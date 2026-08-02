@@ -2,8 +2,8 @@
  * @nerima-games/mc-kernel — the vocabulary every other repository shares.
  *
  * Documentation index: docs/README.md. The block capability model is
- * reconciled with docs/capability-flag-audit.md (25 of its 28 capabilities
- * implemented, 3 pending with recorded reasons — see PENDING_CAPABILITIES).
+ * reconciled with docs/capability-flag-audit.md (27 of its 28 capabilities
+ * implemented, 1 pending with a recorded reason — see PENDING_CAPABILITIES).
  * `FrameServices` is SETTLED (`ClockPort`, and nothing else) — see
  * docs/freeze-checklist.md (b). The versioned Chunk codec lives in
  * `domain/chunk.ts`. See README.md 現状.

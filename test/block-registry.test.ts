@@ -275,6 +275,15 @@ describe('id assignment is permanent', () => {
 })
 
 describe('reading behaviour off a chunk buffer byte', () => {
+  it.effect('answers tillable from the registry for dirt and grass_block only', () =>
+    Effect.sync(() => {
+      expect(capabilityOfBlockId(blockIdOf('dirt'), 'tillable')).toBe(true)
+      expect(capabilityOfBlockId(blockIdOf('grass_block'), 'tillable')).toBe(true)
+      expect(capabilityOfBlockId(blockIdOf('stone'), 'tillable')).toBe(false)
+      expect([...blockIdsWithCapability('tillable')]).toStrictEqual([blockIdOf('dirt'), blockIdOf('grass_block')])
+    }),
+  )
+
   it.effect('answers fallsWhenUnsupported for sand and gravel and nothing else', () =>
     Effect.sync(() => {
       // THE slice question. Note that no block NAME appears on the read side:
@@ -935,6 +944,23 @@ describe('the reference tables this roster transcribes', () => {
       expect(propertyOfBlockId(blockIdOf('snow'), 'friction')).toBe(0.3)
       expect(propertyOfBlockId(blockIdOf('sand'), 'friction')).toBe(0.5)
       expect(propertyOfBlockId(blockIdOf('dirt'), 'friction')).toBe(0.6)
+    }),
+  )
+
+  it.effect('classifies the reference footstep surfaces without making sound cues a kernel concern', () =>
+    Effect.sync(() => {
+      expect(BLOCK_PROPERTY_DEFAULTS.footstepMaterial).toBe('default')
+
+      for (const block of ['dirt', 'grass_block', 'farmland'] as const) {
+        expect(propertyOfBlockId(blockIdOf(block), 'footstepMaterial')).toBe('grass')
+      }
+      for (const block of ['oak_log', 'oak_planks', 'oak_leaves', 'sapling', 'ladder', 'chest', 'door'] as const) {
+        expect(propertyOfBlockId(blockIdOf(block), 'footstepMaterial')).toBe('wood')
+      }
+      for (const block of ['stone', 'gravel', 'sand', 'cobblestone', 'end_stone_bricks'] as const) {
+        expect(propertyOfBlockId(blockIdOf(block), 'footstepMaterial')).toBe('stone')
+      }
+      expect(propertyOfBlockId(blockIdOf('glass'), 'footstepMaterial')).toBe('default')
     }),
   )
 

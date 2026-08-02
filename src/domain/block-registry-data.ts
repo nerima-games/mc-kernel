@@ -398,22 +398,32 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         // default 8, which claimed stone is exactly as hard as dirt.
         hardness: 25,
         friction: 0.8,
+        footstepMaterial: 'stone',
         harvestTool: NEEDS_WOODEN_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'cobblestone' },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'cobblestone', silkTouchItem: 'stone' },
       },
     },
   },
-  { id: BlockId(3), definition: { type: 'dirt', properties: { harvestTool: FASTER_WITH_SHOVEL } } },
+  {
+    id: BlockId(3),
+    definition: {
+      type: 'dirt',
+      capabilities: { tillable: true },
+      properties: { harvestTool: FASTER_WITH_SHOVEL, footstepMaterial: 'grass' },
+    },
+  },
   {
     // Different-drop with NO tool gate — the row that keeps the two axes
     // visibly separate. Grass yields dirt to bare hands.
     id: BlockId(4),
     definition: {
       type: 'grass_block',
+      capabilities: { tillable: true },
       properties: {
         hardness: 10,
         harvestTool: FASTER_WITH_SHOVEL,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'dirt' },
+        footstepMaterial: 'grass',
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'dirt', silkTouchItem: 'grass_block' },
       },
     },
   },
@@ -425,7 +435,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'sand',
       capabilities: { fallsWhenUnsupported: true },
-      properties: { hardness: 8, friction: 0.5, harvestTool: FASTER_WITH_SHOVEL },
+      properties: { hardness: 8, friction: 0.5, harvestTool: FASTER_WITH_SHOVEL, footstepMaterial: 'stone' },
     },
   },
   {
@@ -483,7 +493,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       // Vanilla's 10% flint is a RANDOM drop, and audit §6-9 places random drop
       // rules in mx-gameplay ("`drops` では表現できない"). The deterministic
       // half — gravel yields gravel — is what belongs here.
-      properties: { hardness: 10, friction: 0.5, harvestTool: FASTER_WITH_SHOVEL },
+      properties: { hardness: 10, friction: 0.5, harvestTool: FASTER_WITH_SHOVEL, footstepMaterial: 'stone' },
     },
   },
   {
@@ -512,7 +522,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       // BELOW the default 8 and so made a log softer than dirt. The reference
       // has 35, above cobblestone. The direction of the error is the reason the
       // whole column was re-derived rather than spot-fixed.
-      properties: { hardness: 35, harvestTool: FASTER_WITH_AXE },
+      properties: { hardness: 35, harvestTool: FASTER_WITH_AXE, footstepMaterial: 'wood' },
     },
   },
   {
@@ -533,6 +543,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         opacity: 'transparentSolid',
         hardness: 3,
+        footstepMaterial: 'wood',
         // DECLARED DIVERGENCE, kept. `shears` is not a category the reference's
         // `isEffectiveTool` (`block-utils.ts:32-63`) knows — it has only
         // axe/shovel/pickaxe sets, and LEAVES is in none of them. The category
@@ -578,7 +589,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       // `PLANKS` is 35 in the reference with the comment "Vanilla planks 2.0 =
       // wood (35 on this scale), not stone-soft" — the reference wrote down the
       // exact mistake this row used to make.
-      properties: { hardness: 35, harvestTool: FASTER_WITH_AXE },
+      properties: { hardness: 35, harvestTool: FASTER_WITH_AXE, footstepMaterial: 'wood' },
     },
   },
   {
@@ -588,9 +599,8 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'glass',
       capabilities: { suffocates: false, validSpawnSurface: false },
-      // The silk-touch row. `requiresSilkTouch` is a GATE, not a substitution:
-      // with the enchantment you get the glass, without it you get nothing.
-      // See `./block-harvest` on why substitution is left unmodelled.
+      // Glass remains a Silk Touch gate; block substitutions such as stone and
+      // ores are modelled separately by `silkTouchItem` in block-harvest.
       properties: {
         opacity: 'transparentSolid',
         hardness: 4,
@@ -699,7 +709,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       // an infinite bare-handed cobblestone supply from any stone wall. Flagged
       // rather than silently matched, since it is the one row in this file
       // where kernel is deliberately STRICTER than its source.
-      properties: { hardness: 35, friction: 0.8, harvestTool: NEEDS_WOODEN_PICKAXE },
+      properties: { hardness: 35, friction: 0.8, harvestTool: NEEDS_WOODEN_PICKAXE, footstepMaterial: 'stone' },
     },
   },
 
@@ -752,7 +762,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         validSpawnSurface: false, // spawn-selection-search.ts:46
       },
       // hardness 4 / friction 0.6: blocks.config.crafted.ts (`block:ladder`).
-      properties: { opacity: 'transparentSolid', collisionShape: 'none', hardness: 4 },
+      properties: { opacity: 'transparentSolid', collisionShape: 'none', hardness: 4, footstepMaterial: 'wood' },
     },
   },
   {
@@ -811,6 +821,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       capabilities: SURFACE_PLANT_CAPABILITIES,
       properties: {
         ...PLANT_PROPERTIES,
+        footstepMaterial: 'wood',
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:5)
       },
     },
@@ -1199,7 +1210,11 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'farmland',
       capabilities: { suffocates: false },
-      properties: { harvestTool: FASTER_WITH_SHOVEL, drops: { ...DEFAULT_BLOCK_DROP, item: 'dirt' } },
+      properties: {
+        harvestTool: FASTER_WITH_SHOVEL,
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'dirt' },
+        footstepMaterial: 'grass',
+      },
     },
   },
 
@@ -1248,7 +1263,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         friction: 0.8,
         xpOnBreak: 5,
         harvestTool: NEEDS_WOODEN_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'coal', affectedByFortune: true },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'coal', silkTouchItem: 'coal_ore', affectedByFortune: true },
       },
     },
   },
@@ -1260,7 +1275,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         hardness: 50,
         friction: 0.8,
         harvestTool: NEEDS_STONE_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_iron' },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_iron', silkTouchItem: 'iron_ore' },
       },
     },
   },
@@ -1272,7 +1287,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         hardness: 50,
         friction: 0.8,
         harvestTool: NEEDS_IRON_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_gold' },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_gold', silkTouchItem: 'gold_ore' },
       },
     },
   },
@@ -1285,7 +1300,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         friction: 0.8,
         xpOnBreak: 7,
         harvestTool: NEEDS_IRON_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'diamond', affectedByFortune: true },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'diamond', silkTouchItem: 'diamond_ore', affectedByFortune: true },
       },
     },
   },
@@ -1299,7 +1314,13 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         friction: 0.8,
         xpOnBreak: 5,
         harvestTool: NEEDS_IRON_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'redstone_dust', count: 4, affectedByFortune: true },
+        drops: {
+          ...DEFAULT_BLOCK_DROP,
+          item: 'redstone_dust',
+          silkTouchItem: 'redstone_ore',
+          count: 4,
+          affectedByFortune: true,
+        },
       },
     },
   },
@@ -1312,7 +1333,13 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         friction: 0.8,
         xpOnBreak: 5,
         harvestTool: NEEDS_STONE_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'lapis_lazuli', count: 4, affectedByFortune: true },
+        drops: {
+          ...DEFAULT_BLOCK_DROP,
+          item: 'lapis_lazuli',
+          silkTouchItem: 'lapis_ore',
+          count: 4,
+          affectedByFortune: true,
+        },
       },
     },
   },
@@ -1325,7 +1352,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         friction: 0.8,
         xpOnBreak: 7,
         harvestTool: NEEDS_IRON_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'emerald', affectedByFortune: true },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'emerald', silkTouchItem: 'emerald_ore', affectedByFortune: true },
       },
     },
   },
@@ -1338,7 +1365,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         friction: 0.8,
         xpOnBreak: 5,
         harvestTool: NEEDS_WOODEN_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'coal', affectedByFortune: true },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'coal', silkTouchItem: 'deepslate_coal_ore', affectedByFortune: true },
       },
     },
   },
@@ -1350,7 +1377,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         hardness: 60,
         friction: 0.8,
         harvestTool: NEEDS_STONE_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_iron' },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_iron', silkTouchItem: 'deepslate_iron_ore' },
       },
     },
   },
@@ -1362,7 +1389,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         hardness: 60,
         friction: 0.8,
         harvestTool: NEEDS_IRON_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_gold' },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_gold', silkTouchItem: 'deepslate_gold_ore' },
       },
     },
   },
@@ -1375,7 +1402,12 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         friction: 0.8,
         xpOnBreak: 7,
         harvestTool: NEEDS_IRON_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'diamond', affectedByFortune: true },
+        drops: {
+          ...DEFAULT_BLOCK_DROP,
+          item: 'diamond',
+          silkTouchItem: 'deepslate_diamond_ore',
+          affectedByFortune: true,
+        },
       },
     },
   },
@@ -1389,7 +1421,13 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         friction: 0.8,
         xpOnBreak: 5,
         harvestTool: NEEDS_IRON_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'redstone_dust', count: 4, affectedByFortune: true },
+        drops: {
+          ...DEFAULT_BLOCK_DROP,
+          item: 'redstone_dust',
+          silkTouchItem: 'deepslate_redstone_ore',
+          count: 4,
+          affectedByFortune: true,
+        },
       },
     },
   },
@@ -1402,7 +1440,13 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         friction: 0.8,
         xpOnBreak: 5,
         harvestTool: NEEDS_STONE_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'lapis_lazuli', count: 4, affectedByFortune: true },
+        drops: {
+          ...DEFAULT_BLOCK_DROP,
+          item: 'lapis_lazuli',
+          silkTouchItem: 'deepslate_lapis_ore',
+          count: 4,
+          affectedByFortune: true,
+        },
       },
     },
   },
@@ -1415,7 +1459,12 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         friction: 0.8,
         xpOnBreak: 7,
         harvestTool: NEEDS_IRON_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'emerald', affectedByFortune: true },
+        drops: {
+          ...DEFAULT_BLOCK_DROP,
+          item: 'emerald',
+          silkTouchItem: 'deepslate_emerald_ore',
+          affectedByFortune: true,
+        },
       },
     },
   },
@@ -1756,7 +1805,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       properties: { opacity: 'transparentSolid', lightEmission: 15, hardness: 0, friction: 0 },
     },
   },
-  { id: BlockId(96), definition: { type: 'end_stone_bricks', properties: { hardness: 45 } } },
+  { id: BlockId(96), definition: { type: 'end_stone_bricks', properties: { hardness: 45, footstepMaterial: 'stone' } } },
   {
     id: BlockId(97),
     definition: {
@@ -1841,7 +1890,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'chest',
       capabilities: { flammable: true },
-      properties: { hardness: 35 },
+      properties: { hardness: 35, footstepMaterial: 'wood' },
     },
   },
   {
@@ -1849,7 +1898,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'door',
       capabilities: { flammable: true, suffocates: false, validSpawnSurface: false },
-      properties: { opacity: 'transparentSolid', hardness: 15 },
+      properties: { opacity: 'transparentSolid', hardness: 15, footstepMaterial: 'wood' },
     },
   },
   {

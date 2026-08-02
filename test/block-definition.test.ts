@@ -121,21 +121,22 @@ describe('the implemented / pending ledger', () => {
     }),
   )
 
-  it.effect('the audit table has 28 rows, of which 25 are implemented and 3 are pending', () =>
+  it.effect('the audit table has 28 rows, of which 27 are implemented and 1 is pending', () =>
     Effect.sync(() => {
       // docs/capability-flag-audit.md §7 prose says "26"; its §3 table has 28
       // rows. The table is what is implemented against, and the discrepancy is
       // recorded rather than quietly resolved.
       //
-      // 24/4 until `supportRule` landed as `properties.supportRule`
+      // 24/4 until `supportRule` landed as `properties.supportRule`, then
+      // `tillable` and `footstepMaterial` landed as additive properties.
       // (`domain/block-support.ts`). The property count moved and the pending
       // count moved with it; the test ABOVE is the one that checks they moved
       // together, and these are the absolute numbers that catch a capability
       // being dropped from both lists at once.
       expect(AUDITED_CAPABILITY_NAMES).toHaveLength(28)
-      expect(BLOCK_CAPABILITY_FLAGS).toHaveLength(11)
-      expect(BLOCK_PROPERTY_NAMES).toHaveLength(14)
-      expect(PENDING_CAPABILITIES).toHaveLength(3)
+      expect(BLOCK_CAPABILITY_FLAGS).toHaveLength(12)
+      expect(BLOCK_PROPERTY_NAMES).toHaveLength(15)
+      expect(PENDING_CAPABILITIES).toHaveLength(1)
     }),
   )
 

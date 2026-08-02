@@ -44,8 +44,14 @@ import { BLOCK_IDS, BLOCK_REGISTRY, blockIdOf, dropOfBlockId } from '../src/doma
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
 import { isItemType, ITEM_TYPES, type ItemType } from '../src/domain/item-type'
 
-/** A diamond pickaxe with silk touch: nothing is gated for this player. */
+/** A diamond pickaxe without enchantments: nothing is tier-gated for this player. */
 const FULLY_EQUIPPED: HarvestContext = { heldTier: 'diamond', silkTouch: true }
+
+/** A diamond pickaxe with Silk Touch, used only by substitution assertions. */
+const SILK_TOUCH: HarvestContext = { heldTier: 'diamond', silkTouch: true }
+
+/** A diamond pickaxe without enchantments, used for the ordinary drop ledger. */
+const DIAMOND_PICKAXE: HarvestContext = { heldTier: 'diamond' }
 
 /** A wooden pickaxe, which is the exact tier `stone` demands. */
 const WOODEN_PICKAXE: HarvestContext = { heldTier: 'wooden' }
@@ -228,6 +234,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'name_tag',
         'saddle',
         'nether_star',
+        'bone_meal',
       ])
 
       // The block half of the same ledger: 23 entries over 36 blocks before, 35
@@ -264,20 +271,6 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'amethyst_cluster',
         'ice',
         'farmland',
-        'coal_ore',
-        'iron_ore',
-        'gold_ore',
-        'diamond_ore',
-        'redstone_ore',
-        'lapis_ore',
-        'emerald_ore',
-        'deepslate_coal_ore',
-        'deepslate_iron_ore',
-        'deepslate_gold_ore',
-        'deepslate_diamond_ore',
-        'deepslate_redstone_ore',
-        'deepslate_lapis_ore',
-        'deepslate_emerald_ore',
         'wheat_crop',
         'potato_crop',
         'nether_wart_crop',
@@ -498,7 +491,8 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
         // No block name on the read side: the input is a number.
         const id = blockIdOf(type)
         expect(dropOfBlockId(id)?.item ?? 'nothing').toBe(bare)
-        expect(dropOfBlockId(id, FULLY_EQUIPPED)?.item ?? 'nothing').toBe(equipped)
+        const context = type === 'glass' ? FULLY_EQUIPPED : DIAMOND_PICKAXE
+        expect(dropOfBlockId(id, context)?.item ?? 'nothing').toBe(equipped)
       }
     }),
   )
@@ -571,6 +565,23 @@ describe('the tool gate', () => {
       expect(dropOfBlockId(glass, { silkTouch: true })?.item).toBe('glass')
       // Silk touch does not unlock a tier-gated block.
       expect(dropOfBlockId(blockIdOf('stone'), { silkTouch: true })).toBeUndefined()
+    }),
+  )
+
+  it.effect('silk touch substitutes the block for cobblestone, dirt, and raw ore drops', () =>
+    Effect.sync(() => {
+      expect(dropOfBlockId(blockIdOf('stone'), { heldTier: 'wooden', silkTouch: true })?.item).toBe('stone')
+      expect(dropOfBlockId(blockIdOf('grass_block'), { silkTouch: true })?.item).toBe('grass_block')
+      expect(dropOfBlockId(blockIdOf('iron_ore'), SILK_TOUCH)).toStrictEqual({
+        item: 'iron_ore',
+        count: 1,
+        affectedByFortune: false,
+      })
+      expect(dropOfBlockId(blockIdOf('deepslate_redstone_ore'), SILK_TOUCH)).toStrictEqual({
+        item: 'deepslate_redstone_ore',
+        count: 4,
+        affectedByFortune: true,
+      })
     }),
   )
 
@@ -840,6 +851,7 @@ describe('the rule that keeps a `self` drop honest', () => {
         'name_tag',
         'saddle',
         'nether_star',
+        'bone_meal',
       ])
       const EQUIPMENT_ITEMS: ReadonlySet<string> = new Set(IRON_ARMOUR_ITEM_TYPES)
 

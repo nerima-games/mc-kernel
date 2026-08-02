@@ -76,6 +76,7 @@ describe('block properties — the additive-safety guarantee, extended to non-bo
         fluid: 'none',
         collisionShape: 'full',
         renderKind: 'cube',
+        footstepMaterial: 'default',
         hardness: 8,
         friction: 0.6,
         contactDamage: 0,
