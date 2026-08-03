@@ -235,6 +235,8 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'saddle',
         'nether_star',
         'bone_meal',
+        'shears',
+        'wool',
       ])
 
       // The block half of the same ledger: 23 entries over 36 blocks before, 35
@@ -852,6 +854,8 @@ describe('the rule that keeps a `self` drop honest', () => {
         'saddle',
         'nether_star',
         'bone_meal',
+        'shears',
+        'wool',
       ])
       const EQUIPMENT_ITEMS: ReadonlySet<string> = new Set(IRON_ARMOUR_ITEM_TYPES)
 

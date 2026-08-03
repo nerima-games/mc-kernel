@@ -219,6 +219,8 @@ describe('public API surface', () => {
       expect(kernel.isItemType('enchanted_book')).toBe(true)
       expect(kernel.isItemType('fishing_rod')).toBe(true)
       expect(kernel.isItemType('cod')).toBe(true)
+      expect(kernel.isItemType('shears')).toBe(true)
+      expect(kernel.isItemType('wool')).toBe(true)
     }),
   )
 

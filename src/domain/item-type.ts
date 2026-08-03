@@ -400,6 +400,12 @@ export const ITEM_TYPES = [
   'deepslate_redstone_ore',
   'deepslate_lapis_ore',
   'deepslate_emerald_ore',
+
+  // Animal interaction vocabulary. Wool is an inventory drop rather than a
+  // placeable block in this kernel build; shears are single-stack equipment.
+  // Both are appended because item ids are permanent wire identities.
+  'shears',
+  'wool',
 ] as const
 
 export type ItemType = (typeof ITEM_TYPES)[number]

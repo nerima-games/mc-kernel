@@ -41,6 +41,7 @@ const SINGLE_STACK_ITEMS: ReadonlySet<ItemType> = new Set<ItemType>([
   'stone_sword',
   'iron_sword',
   'diamond_sword',
+  'shears',
   'flint_and_steel',
   'iron_helmet',
   'iron_chestplate',
