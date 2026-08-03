@@ -144,9 +144,9 @@ plan.md §2.3-5 により**依存は推移しない**ので、「下流のどこ
 | --- | --- | --- |
 | 乱数ドロップ（gravel → flint 10%、oak_leaves → sapling） | `mx-gameplay` | 監査 §6-9。kernel は純粋で RNG を持たない |
 | 幸運の倍率適用 | `mx-gameplay` | 同上。kernel は `affectedByFortune` を**運ぶ**だけ |
-| シルクタッチの**置換**（stone → stone） | **未実装（保留。決定待ち）** | 現状の `requiresSilkTouch` は gate であって substitution ではない。加算的な直し方（`silkTouchItem?: ItemType`）を `domain/block-harvest.ts` に記録済み。**保留の理由は設計ではなく凍結クロックである** — §3-2-1 |
+| シルクタッチの**置換**（stone → stone、鉱石 → 鉱石） | **実装済み** | `BlockDropRule.silkTouchItem?: ItemType` を `domain/block-harvest.ts` で解決し、stone / grass_block / 14 種の鉱石を registry に登録。`requiresSilkTouch` の gate と置換を分離している。 |
 
-#### 3-2-1. シルクタッチ置換が「保留」である理由（2026-07-28 実測）
+#### 3-2-1. シルクタッチ置換の実装記録
 
 **これは設計上の未決ではない。** 直し方は決まっており、`domain/block-harvest.ts` の
 `resolveDrop` のヘッダに書いてある通り**加算的**である:
@@ -158,7 +158,7 @@ readonly silkTouchItem?: ItemType   // BlockDropRule に 1 メンバ
 そして同ファイルの変更規則（「新メンバは optional であるか、`BLOCK_PROPERTY_DEFAULTS` に
 既定値を持つこと」）を**満たしている**。14 の固定済み消費者のどれも壊さない。
 
-**保留しているのは公開面の凍結クロックのほうである。**
+**実装時には公開面の凍結クロックも更新対象になった。**
 [versioning.md](./versioning.md) の 4 週間ロックの起点は `git log -1 -- api-lock.md` であり、
 `BlockDropRule` はその `api-lock.md` に**型本体が丸ごと転記されている**（現在 141 エントリ中の 1 つ）:
 
@@ -167,27 +167,14 @@ type BlockDropRule = {
     readonly item: ItemType | 'self';
     readonly count: number;
     readonly requiresSilkTouch: boolean;
+    readonly silkTouchItem?: ItemType;
     readonly affectedByFortune: boolean;
 };
 ```
 
-optional メンバを足せばこのブロックが変わり、**クロックが振り出しに戻る。**
+optional メンバを追加したため、この公開型と下流のテストを同時に更新した。既存の item ID は変更せず、新規鉱石 item は名簿末尾に追加している。
 
-**そのうえで、コストは今もっとも安い。** 2026-07-28 時点で `api-lock.md` が最後に動いたのは
-**2026-07-27**、つまりクロックはまだ 1 日しか進んでいない。
-振り出しに戻す費用は「28 日ぶんの進捗」ではなく**実際には 1 日**である。
-逆に言えば、**入れるならクロックが進む前の今**であり、
-20 日目に思い出すのが最も高くつく。
-
-したがってこれは技術判断ではなく**タイミングの決定**であり、
-本文書は決定できる立場に無い。決めるべき問いは 1 つ:
-
-> `silkTouchItem` を入れて 4 週間を引き直すか、
-> 最初の消費者（mx-gameplay の採掘ルール）が要求するまで待つか。
-
-待つ側の根拠は `resolveDrop` のヘッダが既に述べている ——
-「メンバは誰も読まないうちに入れるのが、凍結を最も安く間違える方法である」。
-入れる側の根拠は上のクロック実測である。**両方を見た上で決めること。**
+現在の消費者は `resolveDrop` の `silkTouch` コンテキストを渡し、通常ドロップと置換ドロップを同じ純粋関数で解決する。通常の gate（glass など）は従来どおり `requiresSilkTouch` で制御される。
 
 ### 3-3. stage 全順序表を持たない
 

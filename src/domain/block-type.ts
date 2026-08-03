@@ -212,9 +212,8 @@ export const BLOCK_TYPES = [
   //
   // These are the three members of `CROP_BLOCK_TYPES`, and they are here as a
   // closed set even though `supportRule` — the capability that gives a crop its
-  // "must stand on FARMLAND" rule — is still `PENDING_CAPABILITIES`. The set is
-  // what UNBLOCKS that capability rather than what waits on it; see the note in
-  // `./block-definition`.
+  // "must stand on FARMLAND" rule — is now implemented in the registry. The set
+  // keeps support rules on a closed vocabulary; see `./block-definition`.
   'wheat_crop',
   'potato_crop',
   'nether_wart_crop',
@@ -305,6 +304,8 @@ export const BLOCK_TYPES = [
   'netherrack',
   'nether_portal',
   'fire',
+  'soul_soil',
+  'wither_skeleton_skull',
 ] as const
 
 export type BlockType = (typeof BLOCK_TYPES)[number]

@@ -1,6 +1,9 @@
 /**
  * Spatial vocabulary: continuous positions, axis-aligned bounding boxes, and
  * the world <-> chunk coordinate conversions.
+ *
+ * PRE-AUDIT FIRST CUT (叩き台).
+ *
  * Three coordinate spaces exist and are kept apart by branding the axes:
  *
  *   Position          continuous, world space, metres (1 block = 1 unit)
@@ -8,8 +11,15 @@
  *   ChunkCoord        integral, chunk space   (ChunkAxis; one step = 16 blocks)
  *   LocalBlockCoord   integral, chunk-local   (LocalAxis on x/z, in [0, 15])
  *
- * Negative coordinates use floor division and Euclidean modulo so converting
- * through chunk-local coordinates round-trips correctly.
+ * The invariant that ties them together, and that `test/coordinates.test.ts`
+ * pins down:
+ *
+ *   blockPositionOfChunkLocal(chunkCoordOfBlock(p), localCoordOfBlock(p)) === p
+ *
+ * for every BlockPosition p, including negative coordinates. This is why the
+ * conversions use floor division and euclidean modulo rather than truncation:
+ * `-1 / 16` truncates to `0` and `-1 % 16` is `-1` in JavaScript, both of which
+ * would break the round trip on the negative side of the origin.
  */
 import { Brand } from 'effect'
 
@@ -74,78 +84,70 @@ export const blockPosition = (x: number, y: number, z: number): BlockPosition =>
 })
 
 /**
- * The canonical wire/key representation of a block position: `x,y,z`.
+ * The six faces of a block, in canonical traversal order.
  *
- * The brand prevents an unvalidated string from being used as an internal
- * coordinate key. Use `decodeBlockPositionKey` at a storage or network
- * boundary, then keep the branded key inside the domain.
+ * Y is vertical, north is -Z, and west is -X. The order is part of the public
+ * contract so simulation code can traverse neighbours deterministically.
  */
-export type BlockPositionKey = string & Brand.Brand<'BlockPositionKey'>
+export const BLOCK_FACES = ['down', 'up', 'north', 'south', 'west', 'east'] as const
 
-type ParsedBlockPositionKey = readonly [x: number, y: number, z: number]
+export type BlockFace = (typeof BLOCK_FACES)[number]
 
-const canonicalIntegerText = (value: number): string => String(normalizeZero(value))
+/** Horizontal faces in the traversal order already used by gameplay rules. */
+export const HORIZONTAL_BLOCK_FACES = ['west', 'east', 'north', 'south'] as const satisfies ReadonlyArray<BlockFace>
 
-/**
- * Parse without allocating an intermediate array. The canonical spelling check
- * keeps one key per position (`0`, not `-0`; decimal, not exponent notation).
- */
-const parseBlockPositionKey = (value: string): ParsedBlockPositionKey | undefined => {
-  const firstComma = value.indexOf(',')
-  const secondComma = value.indexOf(',', firstComma + 1)
+const BLOCK_FACE_LOOKUP: ReadonlySet<string> = new Set(BLOCK_FACES)
 
-  if (
-    firstComma <= 0 ||
-    secondComma <= firstComma + 1 ||
-    secondComma === value.length - 1 ||
-    value.indexOf(',', secondComma + 1) !== -1
-  ) {
-    return undefined
+/** Boundary guard for faces read from save files, network frames, or commands. */
+export const isBlockFace = (value: string): value is BlockFace => BLOCK_FACE_LOOKUP.has(value)
+
+/** The face reached by crossing a block through `face`. */
+export const oppositeBlockFace = (face: BlockFace): BlockFace => {
+  switch (face) {
+    case 'down':
+      return 'up'
+    case 'up':
+      return 'down'
+    case 'north':
+      return 'south'
+    case 'south':
+      return 'north'
+    case 'west':
+      return 'east'
+    case 'east':
+      return 'west'
+    default:
+      return face satisfies never
   }
-
-  const xText = value.slice(0, firstComma)
-  const yText = value.slice(firstComma + 1, secondComma)
-  const zText = value.slice(secondComma + 1)
-  const x = Number(xText)
-  const y = Number(yText)
-  const z = Number(zText)
-
-  if (
-    !Number.isSafeInteger(x) ||
-    !Number.isSafeInteger(y) ||
-    !Number.isSafeInteger(z) ||
-    xText !== canonicalIntegerText(x) ||
-    yText !== canonicalIntegerText(y) ||
-    zText !== canonicalIntegerText(z)
-  ) {
-    return undefined
-  }
-
-  return [x, y, z]
 }
 
-/** Serialise a block position into its canonical, allocation-minimal key. */
-export const blockPositionKeyOf = (value: BlockPosition): BlockPositionKey =>
-  `${String(value.x)},${String(value.y)},${String(value.z)}` as BlockPositionKey
-
-/** Narrow an external string after validating its complete canonical format. */
-export const isBlockPositionKey = (value: string): value is BlockPositionKey => parseBlockPositionKey(value) !== undefined
-
-/** Recover a block position from a key that has already been validated. */
-export const blockPositionOfKey = (value: BlockPositionKey): BlockPosition => {
-  const parsed = parseBlockPositionKey(value)
-  if (parsed === undefined) {
-    throw new TypeError(`Invalid BlockPositionKey: ${value}`)
+/** The block cell touching `source` across `face`. */
+export const adjacentBlockPosition = (source: BlockPosition, face: BlockFace): BlockPosition => {
+  switch (face) {
+    case 'down':
+      return blockPosition(source.x, source.y - 1, source.z)
+    case 'up':
+      return blockPosition(source.x, source.y + 1, source.z)
+    case 'north':
+      return blockPosition(source.x, source.y, source.z - 1)
+    case 'south':
+      return blockPosition(source.x, source.y, source.z + 1)
+    case 'west':
+      return blockPosition(source.x - 1, source.y, source.z)
+    case 'east':
+      return blockPosition(source.x + 1, source.y, source.z)
+    default:
+      return face satisfies never
   }
-
-  return blockPosition(...parsed)
 }
 
-/** Decode untrusted storage or network input without allowing invalid axes in. */
-export const decodeBlockPositionKey = (value: string): BlockPosition | undefined => {
-  const parsed = parseBlockPositionKey(value)
-  return parsed === undefined ? undefined : blockPosition(...parsed)
-}
+/** Horizontal neighbours in west, east, north, south order. */
+export const horizontalBlockNeighbours = (source: BlockPosition): ReadonlyArray<BlockPosition> =>
+  HORIZONTAL_BLOCK_FACES.map((face) => adjacentBlockPosition(source, face))
+
+/** All face-adjacent cells, in `BLOCK_FACES` order. */
+export const blockNeighbours = (source: BlockPosition): ReadonlyArray<BlockPosition> =>
+  BLOCK_FACES.map((face) => adjacentBlockPosition(source, face))
 
 /** The horizontal address of a chunk column. */
 export type ChunkCoord = {

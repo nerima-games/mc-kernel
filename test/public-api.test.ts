@@ -2,6 +2,8 @@ import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import * as kernel from '../src/index'
 import { BLOCK_TYPES, isBlockType } from '../src/domain/block-type'
+import { isItemType, ITEM_TYPES } from '../src/domain/item-type'
+import { ITEM_REGISTRY, itemIdOf } from '../src/domain/item-registry'
 
 describe('BlockType', () => {
   it.effect('narrows a string that names a known block', () =>
@@ -53,10 +55,13 @@ describe('public API surface', () => {
         'LocalAxis',
         'position',
         'blockPosition',
-        'blockPositionKeyOf',
-        'isBlockPositionKey',
-        'blockPositionOfKey',
-        'decodeBlockPositionKey',
+        'BLOCK_FACES',
+        'HORIZONTAL_BLOCK_FACES',
+        'isBlockFace',
+        'oppositeBlockFace',
+        'adjacentBlockPosition',
+        'horizontalBlockNeighbours',
+        'blockNeighbours',
         'chunkCoord',
         'blockPositionOfPosition',
         'chunkCoordOfBlock',
@@ -66,12 +71,43 @@ describe('public API surface', () => {
         'aabbOfBlock',
         'aabbIntersects',
         'aabbContainsPoint',
+        // versioned chunk storage boundary
+        'CHUNK_CODEC_VERSION',
+        'CHUNK_HEADER_BYTES',
+        'chunk',
+        'encodeChunk',
+        'decodeChunk',
         // block types
         'BLOCK_TYPES',
         'isBlockType',
-        // item types — the design contract's other literal vocabulary
+        // item types — plan.md §3.1's other literal vocabulary
         'ITEM_TYPES',
         'isItemType',
+        // Stable item ids, storage codec, and stack metadata
+        'ItemId',
+        'ITEM_ID_MAX',
+        'ITEM_ID_BYTES',
+        'ITEM_REGISTRY',
+        'ITEM_IDS',
+        'isKnownItemId',
+        'itemDefinitionOf',
+        'maxStackCountOfItem',
+        'itemIdOf',
+        'itemTypeOfId',
+        'encodeItemId',
+        'decodeItemId',
+        // deterministic anvil planning, application, and persistence boundary
+        'ANVIL_SNAPSHOT_VERSION',
+        'ANVIL_TOO_EXPENSIVE_LEVEL',
+        'ANVIL_REPAIR_BONUS_RATIO',
+        'ANVIL_MAX_CUSTOM_NAME_LENGTH',
+        'snapshotAnvilState',
+        'decodeAnvilSnapshot',
+        'encodeAnvilSnapshot',
+        'decodeAnvilSnapshotString',
+        'nextAnvilRepairCost',
+        'planAnvil',
+        'applyAnvil',
         // the block -> item bridge (audit §6-8's intersection, derived)
         'PLACEABLE_ITEM_TYPES',
         'NON_PLACEABLE_ITEM_TYPES',
@@ -172,6 +208,70 @@ describe('public API surface', () => {
     Effect.sync(() => {
       expect(kernel.isBlockType).toBe(isBlockType)
       expect(kernel.BLOCK_TYPES).toBe(BLOCK_TYPES)
+      expect(kernel.isItemType).toBe(isItemType)
+      expect(kernel.ITEM_TYPES).toBe(ITEM_TYPES)
+      expect(kernel.ITEM_REGISTRY).toBe(ITEM_REGISTRY)
+      expect(kernel.itemIdOf).toBe(itemIdOf)
+      expect(kernel.isItemType('bow')).toBe(true)
+      expect(kernel.isItemType('arrow')).toBe(true)
+      expect(kernel.isItemType('lily_pad')).toBe(true)
+      expect(kernel.isItemType('potion_of_regeneration')).toBe(true)
+      expect(kernel.isItemType('enchanted_book')).toBe(true)
+      expect(kernel.isItemType('fishing_rod')).toBe(true)
+      expect(kernel.isItemType('cod')).toBe(true)
+    }),
+  )
+
+  it.effect('exports the canonical Eye of Ender item identity', () =>
+    Effect.sync(() => {
+      expect(kernel.isItemType('eye_of_ender')).toBe(true)
+      expect(kernel.itemIdOf('eye_of_ender')).toBe(kernel.itemDefinitionOf('eye_of_ender').id)
+      expect(kernel.isPlaceableItem('eye_of_ender')).toBe(false)
+    }),
+  )
+
+  it.effect('exports the canonical enchanted-book item identity', () =>
+    Effect.sync(() => {
+      expect(kernel.isItemType('enchanted_book')).toBe(true)
+      expect(kernel.itemIdOf('enchanted_book')).toBe(136)
+      expect(kernel.maxStackCountOfItem('enchanted_book')).toBe(1)
+      expect(kernel.isPlaceableItem('enchanted_book')).toBe(false)
+    }),
+  )
+
+  it.effect('exports fluid and vehicle item identities with canonical metadata', () =>
+    Effect.sync(() => {
+      expect(kernel.itemIdOf('bucket')).toBe(137)
+      expect(kernel.maxStackCountOfItem('bucket')).toBe(16)
+      for (const type of ['water_bucket', 'lava_bucket', 'oak_boat', 'minecart'] as const) {
+        expect(kernel.isItemType(type)).toBe(true)
+        expect(kernel.maxStackCountOfItem(type)).toBe(1)
+        expect(kernel.isPlaceableItem(type)).toBe(false)
+      }
+    }),
+  )
+
+  it.effect('exports fishing item identities with canonical metadata', () =>
+    Effect.sync(() => {
+      expect(kernel.itemIdOf('fishing_rod')).toBe(142)
+      expect(kernel.itemIdOf('saddle')).toBe(151)
+      expect(kernel.maxStackCountOfItem('fishing_rod')).toBe(1)
+      expect(kernel.maxStackCountOfItem('saddle')).toBe(1)
+      const stackableFishingItems = [
+        'cod',
+        'salmon',
+        'tropical_fish',
+        'pufferfish',
+        'bowl',
+        'leather',
+        'bone',
+        'name_tag',
+      ] as const
+      for (const type of stackableFishingItems) {
+        expect(kernel.isItemType(type)).toBe(true)
+        expect(kernel.maxStackCountOfItem(type)).toBe(64)
+        expect(kernel.isPlaceableItem(type)).toBe(false)
+      }
     }),
   )
 })

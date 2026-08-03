@@ -44,18 +44,72 @@ import { BLOCK_IDS, BLOCK_REGISTRY, blockIdOf, dropOfBlockId } from '../src/doma
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
 import { isItemType, ITEM_TYPES, type ItemType } from '../src/domain/item-type'
 
-/** A diamond pickaxe with silk touch: nothing is gated for this player. */
+/** A diamond pickaxe without enchantments: nothing is tier-gated for this player. */
 const FULLY_EQUIPPED: HarvestContext = { heldTier: 'diamond', silkTouch: true }
+
+/** A diamond pickaxe with Silk Touch, used only by substitution assertions. */
+const SILK_TOUCH: HarvestContext = { heldTier: 'diamond', silkTouch: true }
+
+/** A diamond pickaxe without enchantments, used for the ordinary drop ledger. */
+const DIAMOND_PICKAXE: HarvestContext = { heldTier: 'diamond' }
 
 /** A wooden pickaxe, which is the exact tier `stone` demands. */
 const WOODEN_PICKAXE: HarvestContext = { heldTier: 'wooden' }
+
+const IRON_ARMOUR_ITEM_TYPES = [
+  'iron_helmet',
+  'iron_chestplate',
+  'iron_leggings',
+  'iron_boots',
+] as const satisfies ReadonlyArray<ItemType>
+
+const HOE_ITEM_TYPES = ['wooden_hoe', 'stone_hoe', 'iron_hoe', 'diamond_hoe'] as const satisfies ReadonlyArray<ItemType>
+
+const SWORD_ITEM_TYPES = [
+  'wooden_sword',
+  'stone_sword',
+  'iron_sword',
+  'diamond_sword',
+] as const satisfies ReadonlyArray<ItemType>
+
+const SUPPORT_SENSITIVE_PLANT_ITEM_TYPES = [
+  'sapling',
+  'dandelion',
+  'poppy',
+  'brown_mushroom',
+  'red_mushroom',
+  'tall_grass',
+  'fern',
+  'sugar_cane',
+  'cactus',
+  'lily_pad',
+] as const satisfies ReadonlyArray<ItemType>
 
 describe('ItemType is a closed literal union, exactly as BlockType is', () => {
   it.effect('narrows a string that names a known item', () =>
     Effect.sync(() => {
       expect(isItemType('stick')).toBe(true)
+      expect(isItemType('bow')).toBe(true)
+      expect(isItemType('arrow')).toBe(true)
       expect(isItemType('cobblestone')).toBe(true)
+      expect(isItemType('stone_pickaxe')).toBe(true)
+      expect(isItemType('iron_pickaxe')).toBe(true)
+      expect(isItemType('diamond_pickaxe')).toBe(true)
+      expect(isItemType('eye_of_ender')).toBe(true)
+      for (const hoe of HOE_ITEM_TYPES) {
+        expect(isItemType(hoe)).toBe(true)
+      }
+      for (const sword of SWORD_ITEM_TYPES) {
+        expect(isItemType(sword)).toBe(true)
+      }
+      for (const plant of SUPPORT_SENSITIVE_PLANT_ITEM_TYPES) {
+        expect(isItemType(plant)).toBe(true)
+      }
       expect(isItemType(ITEM_TYPES[0])).toBe(true)
+      for (const armour of IRON_ARMOUR_ITEM_TYPES) {
+        expect(isItemType(armour)).toBe(true)
+      }
+      expect(isItemType('diamond_helmet')).toBe(false)
     }),
   )
 
@@ -109,15 +163,25 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
 
       // ...and the same fact as data, so the reason is legible in a failure.
       //
-      // Pinned as a literal list rather than a count. The seven after
-      // `wooden_pickaxe` arrived together when mc-sim's recipe table was
-      // repointed onto `ItemType` and seven rows had nothing to name; each has a
-      // kernel-side reason recorded beside it in `domain/item-type.ts`, and a
-      // list is what makes an eighth arriving without one visible in review.
+      // Pinned as a literal list rather than a count so every non-placeable
+      // vocabulary addition remains visible in review.
       expect([...NON_PLACEABLE_ITEM_TYPES]).toStrictEqual([
         'stick',
+        'bow',
+        'arrow',
         'glowstone_dust',
         'wooden_pickaxe',
+        'stone_pickaxe',
+        'iron_pickaxe',
+        'diamond_pickaxe',
+        'wooden_hoe',
+        'stone_hoe',
+        'iron_hoe',
+        'diamond_hoe',
+        'wooden_sword',
+        'stone_sword',
+        'iron_sword',
+        'diamond_sword',
         'coal',
         'iron_ingot',
         'flint',
@@ -127,6 +191,10 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'ender_pearl',
         'flint_and_steel',
         'fire_charge',
+        'iron_helmet',
+        'iron_chestplate',
+        'iron_leggings',
+        'iron_boots',
         'raw_iron',
         'raw_gold',
         'diamond',
@@ -140,9 +208,36 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'nether_wart',
         'string',
         'snowball',
+        'water_bottle',
+        'awkward_potion',
+        'potion_of_swiftness',
+        'potion_of_poison',
+        'potion_of_regeneration',
+        'sugar',
+        'spider_eye',
+        'ghast_tear',
+        'eye_of_ender',
+        'enchanted_book',
+        'bucket',
+        'water_bucket',
+        'lava_bucket',
+        'oak_boat',
+        'minecart',
+        'fishing_rod',
+        'cod',
+        'salmon',
+        'tropical_fish',
+        'pufferfish',
+        'bowl',
+        'leather',
+        'bone',
+        'name_tag',
+        'saddle',
+        'nether_star',
+        'bone_meal',
       ])
 
-      // The block half of the same ledger: 23 entries over 36 blocks before, 45
+      // The block half of the same ledger: 23 entries over 36 blocks before, 35
       // over 120 now. It grew far more slowly than the roster did, and its
       // composition changed completely — seven of the old entries turned out to
       // be untranscribed drops rather than gaps (a block whose row says "yields
@@ -164,14 +259,6 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
       //   `count: 0` written in its row as well, so the "nothing" is a decision
       //   in two places rather than a consequence of this list.
       //
-      //   THE TEN SUPPORT-SENSITIVE PLANTS, here on purpose and the roster's one
-      //   knowing divergence from the reference: `sapling`, `dandelion`, `poppy`,
-      //   `brown_mushroom`, `red_mushroom`, `tall_grass`, `fern`, `sugar_cane`,
-      //   `cactus`, `lily_pad`. An item form is what makes a block PLACEABLE, and
-      //   mx-gameplay answers all ten with the wrong support rule (its F7: a lily
-      //   pad refused on water and allowed on stone). Held until `supportRule`
-      //   exists; the full argument is in `domain/item-type.ts`.
-      //
       //   ...and `ice`, which belongs to none of them: it has an item-shaped
       //   drop rule that `NO_BASE_DROP_BLOCK_TYPES` refuses by name.
       expect([...UNITEMISED_BLOCK_TYPES]).toStrictEqual([
@@ -181,33 +268,9 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'bedrock',
         'snow',
         'cobweb',
-        'sapling',
-        'dandelion',
-        'poppy',
-        'brown_mushroom',
-        'red_mushroom',
-        'tall_grass',
-        'fern',
-        'sugar_cane',
-        'lily_pad',
-        'cactus',
         'amethyst_cluster',
         'ice',
         'farmland',
-        'coal_ore',
-        'iron_ore',
-        'gold_ore',
-        'diamond_ore',
-        'redstone_ore',
-        'lapis_ore',
-        'emerald_ore',
-        'deepslate_coal_ore',
-        'deepslate_iron_ore',
-        'deepslate_gold_ore',
-        'deepslate_diamond_ore',
-        'deepslate_redstone_ore',
-        'deepslate_lapis_ore',
-        'deepslate_emerald_ore',
         'wheat_crop',
         'potato_crop',
         'nether_wart_crop',
@@ -228,6 +291,13 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
     Effect.sync(() => {
       expect(itemOfBlock('dirt')).toBe('dirt')
       expect(itemOfBlock('cobblestone')).toBe('cobblestone')
+      for (const plant of SUPPORT_SENSITIVE_PLANT_ITEM_TYPES) {
+        expect(itemOfBlock(plant)).toBe(plant)
+        expect(isPlaceableItem(plant)).toBe(true)
+        if (isPlaceableItem(plant)) {
+          expect(blockOfPlaceableItem(plant)).toBe(plant)
+        }
+      }
 
       // No item form. Not a failure — a real answer.
       expect(itemOfBlock('air')).toBeUndefined()
@@ -237,6 +307,8 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
       // The other direction only exists once placeability is proven, and there
       // is deliberately no `blockOfItem(item: ItemType)` to ask about a stick.
       expect(isPlaceableItem('stick')).toBe(false)
+      expect(isPlaceableItem('bow')).toBe(false)
+      expect(isPlaceableItem('arrow')).toBe(false)
       expect(isPlaceableItem('glowstone_dust')).toBe(false)
       expect(isPlaceableItem('torch')).toBe(true)
       const torch = 'torch'
@@ -299,20 +371,20 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
     ['cobblestone', 'nothing', 'cobblestone'],
     ['ladder', 'ladder', 'ladder'],
     ['cobweb', 'string', 'string'],
-    ['sapling', 'nothing', 'nothing'],
-    ['dandelion', 'nothing', 'nothing'],
-    ['poppy', 'nothing', 'nothing'],
-    ['brown_mushroom', 'nothing', 'nothing'],
-    ['red_mushroom', 'nothing', 'nothing'],
-    ['tall_grass', 'nothing', 'nothing'],
-    ['fern', 'nothing', 'nothing'],
-    ['sugar_cane', 'nothing', 'nothing'],
-    ['lily_pad', 'nothing', 'nothing'],
+    ['sapling', 'sapling', 'sapling'],
+    ['dandelion', 'dandelion', 'dandelion'],
+    ['poppy', 'poppy', 'poppy'],
+    ['brown_mushroom', 'brown_mushroom', 'brown_mushroom'],
+    ['red_mushroom', 'red_mushroom', 'red_mushroom'],
+    ['tall_grass', 'tall_grass', 'tall_grass'],
+    ['fern', 'fern', 'fern'],
+    ['sugar_cane', 'sugar_cane', 'sugar_cane'],
+    ['lily_pad', 'lily_pad', 'lily_pad'],
     ['kelp', 'kelp', 'kelp'],
     ['seagrass', 'seagrass', 'seagrass'],
     ['rail', 'rail', 'rail'],
     ['powered_rail', 'powered_rail', 'powered_rail'],
-    ['cactus', 'nothing', 'nothing'],
+    ['cactus', 'cactus', 'cactus'],
     ['pressure_plate', 'nothing', 'pressure_plate'],
     ['stone_slab', 'nothing', 'stone_slab'],
     ['granite', 'granite', 'granite'],
@@ -399,6 +471,8 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
     ['netherrack', 'netherrack', 'netherrack'],
     ['nether_portal', 'nothing', 'nothing'],
     ['fire', 'nothing', 'nothing'],
+    ['soul_soil', 'soul_soil', 'soul_soil'],
+    ['wither_skeleton_skull', 'wither_skeleton_skull', 'wither_skeleton_skull'],
   ]
 
   it.effect('covers the registry exactly, so a new block without a decision fails here', () =>
@@ -417,7 +491,8 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
         // No block name on the read side: the input is a number.
         const id = blockIdOf(type)
         expect(dropOfBlockId(id)?.item ?? 'nothing').toBe(bare)
-        expect(dropOfBlockId(id, FULLY_EQUIPPED)?.item ?? 'nothing').toBe(equipped)
+        const context = type === 'glass' ? FULLY_EQUIPPED : DIAMOND_PICKAXE
+        expect(dropOfBlockId(id, context)?.item ?? 'nothing').toBe(equipped)
       }
     }),
   )
@@ -490,6 +565,23 @@ describe('the tool gate', () => {
       expect(dropOfBlockId(glass, { silkTouch: true })?.item).toBe('glass')
       // Silk touch does not unlock a tier-gated block.
       expect(dropOfBlockId(blockIdOf('stone'), { silkTouch: true })).toBeUndefined()
+    }),
+  )
+
+  it.effect('silk touch substitutes the block for cobblestone, dirt, and raw ore drops', () =>
+    Effect.sync(() => {
+      expect(dropOfBlockId(blockIdOf('stone'), { heldTier: 'wooden', silkTouch: true })?.item).toBe('stone')
+      expect(dropOfBlockId(blockIdOf('grass_block'), { silkTouch: true })?.item).toBe('grass_block')
+      expect(dropOfBlockId(blockIdOf('iron_ore'), SILK_TOUCH)).toStrictEqual({
+        item: 'iron_ore',
+        count: 1,
+        affectedByFortune: false,
+      })
+      expect(dropOfBlockId(blockIdOf('deepslate_redstone_ore'), SILK_TOUCH)).toStrictEqual({
+        item: 'deepslate_redstone_ore',
+        count: 4,
+        affectedByFortune: true,
+      })
     }),
   )
 
@@ -661,11 +753,11 @@ describe('the rule that keeps a `self` drop honest', () => {
       // legitimately drop nothing, but it has to be a DECISION in the row —
       // `count: 0` — rather than the side effect of a missing item literal.
       //
-      // The six blocks below are the roster's honest "nothing"s among the rows
-      // that state a self-drop at all, and each has a named reference table
-      // behind it. Everything else that yields nothing does so because its rule
-      // points at a different item, or because it is one of the pre-existing
-      // passable rows whose drop was never transcribed as self.
+      // The eleven blocks below are the roster's honest "nothing"s, and each
+      // has a named reference table behind it. Everything else that yields
+      // nothing does so because its rule points at a different item, or because
+      // it is one of the pre-existing passable rows whose drop was never
+      // transcribed as self.
       const explicitlyNothing = BLOCK_REGISTRY.filter(
         (entry) => blockPropertiesOf(entry.definition).drops.count === 0,
       ).map((entry) => entry.definition.type)
@@ -676,16 +768,6 @@ describe('the rule that keeps a `self` drop honest', () => {
         'water',
         'oak_leaves',
         'lava',
-        'sapling',
-        'dandelion',
-        'poppy',
-        'brown_mushroom',
-        'red_mushroom',
-        'tall_grass',
-        'fern',
-        'sugar_cane',
-        'lily_pad',
-        'cactus',
         'ice',
         'piston_head',
         'end_portal',
@@ -714,26 +796,64 @@ describe('the rule that keeps a `self` drop honest', () => {
       //   2. It names a block, so a player can hold and place it. `stone` is the
       //      case: it DROPS cobblestone, so reason 1 never applies to it, and it
       //      is still an item because you can carry a stone block.
-      //   3. It is grandfathered — the pre-roster vocabulary, each entry argued
-      //      individually in `domain/item-type.ts`: mc-sim's recipe names and
-      //      the two ignition items.
+      //   3. It is an explicitly admitted non-block item, each entry argued
+      //      individually in `domain/item-type.ts`: recipe/tool, ignition,
+      //      brewing, portal, and anvil-input vocabulary.
+      //   4. The equipment boundary needs its identity. Equipment behaviour is
+      //      owned above kernel, but its closed item vocabulary is not.
       //
       // Reason 2 is why this test cannot simply be the converse of the one
-      // above. Reason 3 is a fixed list that must not grow: a new item with no
-      // block behind it has to earn its place in review, not here.
-      const GRANDFATHERED: ReadonlySet<string> = new Set([
+      // above. Reason 3 is a fixed list that must not grow accidentally: a new
+      // item with no block behind it has to earn its place in review and be
+      // added explicitly here.
+      const EXPLICIT_NON_BLOCK_ITEMS: ReadonlySet<string> = new Set([
         'stick',
+        'bow',
+        'arrow',
         'wooden_pickaxe',
+        'stone_pickaxe',
+        'iron_pickaxe',
+        'diamond_pickaxe',
+        ...HOE_ITEM_TYPES,
+        ...SWORD_ITEM_TYPES,
         'iron_ingot',
         'flint',
         'gunpowder',
         'blaze_powder',
         'rotten_flesh',
         'ender_pearl',
+        'wheat',
         'flint_and_steel',
         'fire_charge',
-        'wheat',
+        'water_bottle',
+        'awkward_potion',
+        'potion_of_swiftness',
+        'potion_of_poison',
+        'potion_of_regeneration',
+        'sugar',
+        'spider_eye',
+        'ghast_tear',
+        'eye_of_ender',
+        'enchanted_book',
+        'bucket',
+        'water_bucket',
+        'lava_bucket',
+        'oak_boat',
+        'minecart',
+        'fishing_rod',
+        'cod',
+        'salmon',
+        'tropical_fish',
+        'pufferfish',
+        'bowl',
+        'leather',
+        'bone',
+        'name_tag',
+        'saddle',
+        'nether_star',
+        'bone_meal',
       ])
+      const EQUIPMENT_ITEMS: ReadonlySet<string> = new Set(IRON_ARMOUR_ITEM_TYPES)
 
       const dropped = new Set<string>()
       for (const entry of BLOCK_REGISTRY) {
@@ -745,14 +865,18 @@ describe('the rule that keeps a `self` drop honest', () => {
       const blockNames = new Set<string>(BLOCK_TYPES)
 
       const unexplained = ITEM_TYPES.filter(
-        (item) => !dropped.has(item) && !blockNames.has(item) && !GRANDFATHERED.has(item),
+        (item) =>
+          !dropped.has(item) &&
+          !blockNames.has(item) &&
+          !EXPLICIT_NON_BLOCK_ITEMS.has(item) &&
+          !EQUIPMENT_ITEMS.has(item),
       )
       expect(unexplained).toStrictEqual([])
 
-      // The grandfathered list is pinned to its exact membership so that adding
-      // an unexplained item cannot be hidden by adding a name to the exemption.
-      expect([...GRANDFATHERED].filter((name) => !ITEM_TYPES.includes(name as ItemType))).toStrictEqual([])
-      expect(GRANDFATHERED.size).toBe(11)
+      // The explicit list is pinned to its exact membership so that adding an
+      // unexplained item cannot be hidden by adding a name to the exemption.
+      expect([...EXPLICIT_NON_BLOCK_ITEMS].filter((name) => !ITEM_TYPES.includes(name as ItemType))).toStrictEqual([])
+      expect([...EQUIPMENT_ITEMS]).toStrictEqual(IRON_ARMOUR_ITEM_TYPES)
     }),
   )
 })

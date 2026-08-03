@@ -261,6 +261,7 @@ const SUPPORT_SENSITIVE: ReadonlyArray<BlockType> = [
   'nether_wart_crop',
   'redstone_wire',
   'redstone_torch',
+  'wither_skeleton_skull',
 ]
 
 /** The six with no per-block rule, named — the ones that FALL THROUGH. */
@@ -271,10 +272,11 @@ const FALLS_THROUGH_TO_THE_NEGATIVE_LIST: ReadonlyArray<BlockType> = [
   'pressure_plate',
   'redstone_wire',
   'redstone_torch',
+  'wither_skeleton_skull',
 ]
 
 describe('the supportRule column across the whole registry', () => {
-  it.effect('exactly nineteen blocks are support-sensitive, and these are they', () =>
+  it.effect('exactly twenty blocks are support-sensitive, and these are they', () =>
     Effect.sync(() => {
       const sensitive = BLOCK_REGISTRY.filter((entry) => isSupportSensitiveBlockId(entry.id)).map(
         (entry) => entry.definition.type,
@@ -283,11 +285,11 @@ describe('the supportRule column across the whole registry', () => {
     }),
   )
 
-  it.effect('the other 101 require nothing below, so an ordinary cube is unaffected', () =>
+  it.effect('the other 102 require nothing below, so an ordinary cube is unaffected', () =>
     Effect.sync(() => {
       const indifferent = BLOCK_TYPES.filter((type) => !isSupportSensitiveBlockId(blockIdOf(type)))
       expect(indifferent.length).toBe(BLOCK_TYPES.length - SUPPORT_SENSITIVE.length)
-      expect(indifferent.length).toBe(101)
+      expect(indifferent.length).toBe(102)
       for (const type of indifferent) {
         expect(supportRuleOfBlockId(blockIdOf(type))).toStrictEqual(NEEDS_NO_SUPPORT)
         // ...and "requires nothing" means it stays up over ANY support,
@@ -321,7 +323,7 @@ describe('the supportRule column across the whole registry', () => {
     }),
   )
 
-  it.effect('the thirteen with a reference rule name only blocks that exist', () =>
+  it.effect('the explicit support rules name only blocks that exist', () =>
     Effect.sync(() => {
       const named = BLOCK_TYPES.flatMap((type) => {
         const rule = supportRuleOfBlockId(blockIdOf(type))
@@ -334,13 +336,14 @@ describe('the supportRule column across the whole registry', () => {
         // never be satisfied, and `blockIdOf` would silently answer AIR.
         expect(BLOCK_TYPES).toContain(block)
       }
-      // The seven support blocks the reference's five rules name between them.
+      // Every named support must be part of the public block vocabulary.
       expect([...new Set(named)].sort()).toStrictEqual([
         'cactus',
         'dirt',
         'farmland',
         'grass_block',
         'sand',
+        'soul_sand',
         'sugar_cane',
         'water',
       ])
@@ -366,11 +369,14 @@ describe('the supportRule column across the whole registry', () => {
     }),
   )
 
-  it.effect('all three crops share the FARMLAND rule — a closed set of three that stays three', () =>
+  it.effect('keeps crop support aligned with vanilla farmland and soul sand rules', () =>
     Effect.sync(() => {
-      for (const crop of ['wheat_crop', 'potato_crop', 'nether_wart_crop'] as const) {
+      for (const crop of ['wheat_crop', 'potato_crop'] as const) {
         expect(supportRuleOfBlockId(blockIdOf(crop))).toStrictEqual(needsOneOf('farmland'))
       }
+      expect(supportRuleOfBlockId(blockIdOf('nether_wart_crop'))).toStrictEqual(needsOneOf('soul_sand'))
+      expect(canBlockStaySupported(blockIdOf('nether_wart_crop'), blockIdOf('soul_sand'))).toBe(true)
+      expect(canBlockStaySupported(blockIdOf('nether_wart_crop'), blockIdOf('farmland'))).toBe(false)
     }),
   )
 })

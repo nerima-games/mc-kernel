@@ -180,6 +180,8 @@ describe('id assignment is permanent', () => {
     ['netherrack', 117],
     ['nether_portal', 118],
     ['fire', 119],
+    ['soul_soil', 120],
+    ['wither_skeleton_skull', 121],
   ]
 
   it.effect('assigns exactly the pinned ids', () =>
@@ -273,6 +275,15 @@ describe('id assignment is permanent', () => {
 })
 
 describe('reading behaviour off a chunk buffer byte', () => {
+  it.effect('answers tillable from the registry for dirt and grass_block only', () =>
+    Effect.sync(() => {
+      expect(capabilityOfBlockId(blockIdOf('dirt'), 'tillable')).toBe(true)
+      expect(capabilityOfBlockId(blockIdOf('grass_block'), 'tillable')).toBe(true)
+      expect(capabilityOfBlockId(blockIdOf('stone'), 'tillable')).toBe(false)
+      expect([...blockIdsWithCapability('tillable')]).toStrictEqual([blockIdOf('dirt'), blockIdOf('grass_block')])
+    }),
+  )
+
   it.effect('answers fallsWhenUnsupported for sand and gravel and nothing else', () =>
     Effect.sync(() => {
       // THE slice question. Note that no block NAME appears on the read side:
@@ -528,6 +539,7 @@ describe('the named light readings', () => {
         'brewing_stand',
         'nether_portal',
         'fire',
+        'wither_skeleton_skull',
       ])
 
       // The three crops are in this list, and that is the fact most likely to be
@@ -935,6 +947,23 @@ describe('the reference tables this roster transcribes', () => {
     }),
   )
 
+  it.effect('classifies the reference footstep surfaces without making sound cues a kernel concern', () =>
+    Effect.sync(() => {
+      expect(BLOCK_PROPERTY_DEFAULTS.footstepMaterial).toBe('default')
+
+      for (const block of ['dirt', 'grass_block', 'farmland'] as const) {
+        expect(propertyOfBlockId(blockIdOf(block), 'footstepMaterial')).toBe('grass')
+      }
+      for (const block of ['oak_log', 'oak_planks', 'oak_leaves', 'sapling', 'ladder', 'chest', 'door'] as const) {
+        expect(propertyOfBlockId(blockIdOf(block), 'footstepMaterial')).toBe('wood')
+      }
+      for (const block of ['stone', 'gravel', 'sand', 'cobblestone', 'end_stone_bricks'] as const) {
+        expect(propertyOfBlockId(blockIdOf(block), 'footstepMaterial')).toBe('stone')
+      }
+      expect(propertyOfBlockId(blockIdOf('glass'), 'footstepMaterial')).toBe('default')
+    }),
+  )
+
   it.effect('puts hardness on the reference’s 0-100 scale, so the column can be compared to itself', () =>
     Effect.sync(() => {
       // `historical design audit` §4.5.1 recorded that this column held two
@@ -1010,8 +1039,8 @@ describe('the reference tables this roster transcribes', () => {
   )
 })
 
-describe('the completed roster — 120 literals, and the columns that had to stay independent', () => {
-  it.effect('is exactly the reference’s 120, distinct, and every one has a registry row', () =>
+describe('the completed roster and additive gameplay vocabulary', () => {
+  it.effect('keeps the reference’s 120 plus two additions distinct and registered', () =>
     Effect.sync(() => {
       // `docs/testing.md` §5.2 re-derived the 120 from two hand-maintained
       // arrays in the reference that agree as sets (`BlockTypeSchema` and
@@ -1022,16 +1051,16 @@ describe('the completed roster — 120 literals, and the columns that had to sta
       //
       // Counting LINES of the reference schema gives 128; eight are comments.
       // That is the trap, and 120 is the answer.
-      expect(BLOCK_TYPES.length).toBe(120)
-      expect(new Set(BLOCK_TYPES).size).toBe(120)
-      expect(BLOCK_REGISTRY.length).toBe(120)
+      expect(BLOCK_TYPES.length).toBe(122)
+      expect(new Set(BLOCK_TYPES).size).toBe(122)
+      expect(BLOCK_REGISTRY.length).toBe(122)
 
       // The bijection, both ways, over the whole roster. `UNREGISTERED_BLOCK_TYPES`
       // asserts one direction elsewhere; this is the round trip.
       for (const type of BLOCK_TYPES) {
         expect(blockTypeOfId(blockIdOf(type))).toBe(type)
       }
-      expect(new Set(BLOCK_IDS).size).toBe(120)
+      expect(new Set(BLOCK_IDS).size).toBe(122)
     }),
   )
 
@@ -1044,7 +1073,7 @@ describe('the completed roster — 120 literals, and the columns that had to sta
       for (const id of BLOCK_IDS) {
         expect(id).toBeLessThanOrEqual(BLOCK_ID_MAX)
       }
-      expect(Math.max(...BLOCK_IDS)).toBe(119)
+      expect(Math.max(...BLOCK_IDS)).toBe(121)
     }),
   )
 

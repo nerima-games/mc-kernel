@@ -118,7 +118,8 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
   （監査 §6-8 の `ItemType ∩ BlockType` を導出で解く）を、`dropOfBlockId` が
   「壊したブロックのバイト → インベントリに入るアイテム」を担う。
   詳細は [docs/public-api.md](./docs/public-api.md) §3-bis と §4-3。
-- **`Chunk` データ構造とコーデックは未着手。** plan.md §3.1 の主要 API だが未実装。
+- **`Chunk` データ構造と versioned codec は実装済み。** `domain/chunk.ts` の
+  `Chunk` / `encodeChunk` / `decodeChunk` とラウンドトリップテストが所有する。
 - **`FrameServices` は確定した — `ClockPort` だけ。** 縦切りスパイクを通した結果であり、プレースホルダではない。
   同じスパイクで `GameModule.frameStages` が配列から Effect になり、`RRegister` パラメータが増えた。
   [docs/freeze-checklist.md](./docs/freeze-checklist.md) (b) と

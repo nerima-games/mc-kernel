@@ -34,7 +34,7 @@ kernel は 14 リポジトリからピン留めされ、破壊的変更は深さ
 - `properties.solid` と `faces` は production で **0 回**しか読まれていない。移植しない。
 - フラグに還元できない残余が 10 種類ある（監査 §6）。kernel には置かず体験モジュールに残す。
 
-kernel での対応状況: **25 実装 / 3 保留**。保留 3 件は `PENDING_CAPABILITIES` に理由つきで記録され、
+kernel での対応状況: **27 実装 / 1 保留**。保留 1 件は `PENDING_CAPABILITIES` に理由つきで記録され、
 `test/block-definition.test.ts` が「実装済み + 保留 = 監査の 28」を機械的に検査している。
 （`supportRule` は保留から実装へ移った —— 監査 §4.6.1、`domain/block-support.ts`）
 

@@ -42,17 +42,23 @@ type LocalAxis = number & Brand.Brand<'LocalAxis'>   // チャンク内ローカ
 
 type Position      = { readonly x: number; readonly y: number; readonly z: number }      // 連続座標
 type BlockPosition = { readonly x: BlockAxis; readonly y: BlockAxis; readonly z: BlockAxis }
+type BlockFace = 'down' | 'up' | 'north' | 'south' | 'west' | 'east'
 type ChunkCoord    = { readonly cx: ChunkAxis; readonly cz: ChunkAxis }
 type LocalBlockCoord = { readonly lx: LocalAxis; readonly y: BlockAxis; readonly lz: LocalAxis }
 type AABB          = { readonly min: Position; readonly max: Position }
 
 const position / blockPosition / chunkCoord
+const BLOCK_FACES / HORIZONTAL_BLOCK_FACES / isBlockFace / oppositeBlockFace
+const adjacentBlockPosition / horizontalBlockNeighbours / blockNeighbours
 const blockPositionOfPosition / chunkCoordOfBlock / localCoordOfBlock / blockPositionOfChunkLocal
 const aabb / aabbOfBlock / aabbIntersects / aabbContainsPoint
 ```
 
 **なぜ kernel か**: 座標変換は `mc-worldgen`（生成）・`mc-meshing`（メッシュ）・`mc-physics`（衝突）・`mc-sim`（エンティティ）・`mc-render`（描画）が
 全員必要とする。どれか 1 つに置けば残り 4 つがそこに依存し、階層構造が崩壊する。
+`BLOCK_FACES` は `down, up, north, south, west, east` の順を契約として固定する。
+`HORIZONTAL_BLOCK_FACES` は既存 gameplay 規則と互換な `west, east, north, south` の順を固定する。
+北は -Z、西は -X であり、近傍探索を実行ごとに同じ順序に保つ。
 
 **`Position` と `BlockPosition` を型で区別している理由**は plan.md §3.4 の実測知見に直結する。
 
@@ -305,7 +311,7 @@ type ResolvedBlock = { readonly type: BlockType
 
 const blockCapabilitiesOf / blockPropertiesOf / resolveBlock
 const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string>          // 監査 §3 の 28 行
-const PENDING_CAPABILITIES: ReadonlyArray<{ name, kind, why }> // 未実装 4 件と理由
+const PENDING_CAPABILITIES: ReadonlyArray<{ name, kind, why }> // 未実装 1 件と理由
 ```
 
 **加算安全性（additive safety）が全体の要**。定義は差分だけを書き、書かなかったものは文書化された既定に解決される。
@@ -321,18 +327,16 @@ const PENDING_CAPABILITIES: ReadonlyArray<{ name, kind, why }> // 未実装 4 �
    完全なレコードは能力が増えるたびに必須キーが増え、まさにこの設計が避けようとしている破壊が起きる。
 2. `BlockCapabilityFlag` に対する `default` 節なしの網羅 `switch` を書かない。`BLOCK_CAPABILITY_FLAGS` を回す。
 
-### 4-5. 未実装 3 件（`PENDING_CAPABILITIES`）
+### 4-5. 未実装 1 件（`PENDING_CAPABILITIES`）
 
 `supportRule` はここにあったが**実装済み**になった（`domain/block-support.ts`、監査 §4.6.1）。
 保留理由は「block roster が無いと既定値を決められない」で、roster が 120 で完成した時点で消滅した。
 
 | 能力 | 種別 | 保留理由 |
 | --- | --- | --- |
-| `footstepMaterial` | property | 純粋に音響分類。`mc-audio` のキュー語彙と同時に入れる（監査 §4.8） |
-| `tillable` | flag | production 2 ヒットの農業専用（監査 §4.8） |
 | `textureTiles` | property | 監査 §4.8 が「既定なし」と明記。実 block roster と同時にしか入れられない |
 
-`test/block-definition.test.ts` が「実装済み 25 + 保留 3 = 監査の 28」を機械的に検査している。
+`test/block-definition.test.ts` が「実装済み 27 + 保留 1 = 監査の 28」を機械的に検査している。
 監査にあるものを黙って落とすことも、監査にないものを勝手に足すこともできない。
 
 ## 5. `CameraPoseSnapshot`（camera）
@@ -477,6 +481,17 @@ stage は時間を読まずに進めず、かつグローバルから読んで�
 
 **この別名を広げるのは stage の *提供者*（ランタイムを組む人）にとって破壊的変更である**（stage の *著者* にとってはそうではない）。
 1.0.0 で凍結され、広げるのは MAJOR である。
+
+## Chunk バイナリ形式
+
+`chunk(coord, height, blocks)` は 16×16 の縦列 Chunk を構築する。`blocks` は
+`16 * 16 * height` バイトでなければならず、各バイトは登録済みの `BlockId` でなければならない。
+構築時にバッファをコピーするため、呼び出し側の後続変更は Chunk に波及しない。
+
+`encodeChunk` / `decodeChunk` は固定 24 バイトヘッダーとブロック列を用いる。
+ヘッダーは magic (`MCHK`)、codec version、幅・奥行き、height、符号付き 32-bit の `cx` / `cz`、
+payload 長を little-endian で保持する。decoder は magic、version、寸法、長さ、未知の BlockId、
+末尾の余剰データを破損として拒否する。
 
 ### `after` が存在しない stage を指したとき
 

@@ -1,6 +1,44 @@
-/** Injectable monotonic and wall-clock time source. */
+/**
+ * The clock Port.
+ *
+ * PRE-AUDIT FIRST CUT (叩き台).
+ *
+ * ---------------------------------------------------------------------------
+ * This is the reason `Date.now()` is banned repository-wide
+ * ---------------------------------------------------------------------------
+ *
+ * A direct global time read makes the calling code untestable (its behaviour
+ * depends on when the test happens to run), unreproducible (a replayed input
+ * log produces a different simulation), and impossible to run at anything other
+ * than wall-clock speed. Every reading of time therefore comes from this Port,
+ * which is injected as a Layer.
+ *
+ * The ban is enforced by `pnpm check:deps`
+ * (`scripts/check-dependency-whitelist.ts`), not by oxlint — oxlint 0.12 does
+ * not implement the rules that could express it. See .oxlintrc.json for detail.
+ *
+ * The one legitimate place to read a global clock is the adapter that
+ * *implements* this Port, in whichever repository owns the platform layer. That
+ * single line opts out with the escape-hatch comment the check script defines.
+ *
+ * ---------------------------------------------------------------------------
+ * Two clocks, deliberately
+ * ---------------------------------------------------------------------------
+ *
+ * `monotonicSecs` never goes backwards and is what all simulation, animation
+ * and profiling must use. `wallClockEpochMillis` can jump in either direction
+ * (NTP, DST, the user changing the system clock) and exists only for values a
+ * human reads or that must survive a save/load round trip.
+ *
+ * NOTE on the relationship to Effect's own `Clock`: Effect provides
+ * `Effect.Clock`, and the eventual adapter will almost certainly be built on
+ * it. This Port is kept separate because it is the *domain's* vocabulary for
+ * time — seconds, branded, two explicitly distinguished clocks — rather than
+ * the runtime's. Whether the two should be merged is a question for the
+ * vertical-slice spike.
+ */
 import { Context, Effect, Layer } from 'effect'
-import type { EpochMillis, MonotonicTimeSecs } from './quantities.js'
+import type { EpochMillis, MonotonicTimeSecs } from './quantities'
 
 export type ClockService = {
   /** Monotonic reading. Only differences between readings are meaningful. */

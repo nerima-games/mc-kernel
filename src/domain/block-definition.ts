@@ -131,7 +131,7 @@ export const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string> = [
  * because the mechanism was built first.
  *
  * ---------------------------------------------------------------------------
- * ONE OF THE FOUR HAS LANDED; TWO MORE ARE UNBLOCKED. The roster arrived.
+ * THREE OF THE FOUR HAVE LANDED; ONE MORE REMAINS. The roster arrived.
  * ---------------------------------------------------------------------------
  *
  * Three of these entries said, in one form or another, that the capability
@@ -157,20 +157,17 @@ export const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string> = [
  *     definition table — is about the SHAPE and is untouched by the roster.
  *     "There is no block table yet" is no longer among the reasons to wait.
  *
- *   `footstepMaterial`  PARTIALLY unblocked. Re-reading it, the roster was
- *     never its blocker: the entry says it belongs to the same change as the
- *     mc-audio cue vocabulary, and that is still true. Listed among the three
- *     because `docs/testing.md` had recorded it as roster-blocked; it was not.
+ *   `footstepMaterial`  IMPLEMENTED as a pure surface classification. Kernel
+ *     deliberately does not own cue IDs or audio playback; mc-audio remains
+ *     the owner of those concerns.
  *
- *   `tillable`          Unchanged, and never roster-blocked.
- *     `TILLABLE_BLOCK_TYPES` is DIRT and GRASS, both of which were in the
- *     roster from the start.
+ *   `tillable`          IMPLEMENTED in the kernel registry. mx-gameplay keeps a
+ *     compatibility mirror until it consumes the next published kernel API.
  *
- * Implementing any of them was deliberately NOT part of the change that
- * completed the roster. A capability is a semver-MINOR addition to a package
- * fourteen repositories pin, and it should arrive as its own reviewable diff
- * rather than buried in an 84-row table. `supportRule` did arrive that way, as
- * its own change, and the other three are still waiting for the same courtesy.
+ * Implementing the remaining entries is deliberately separate from the roster
+ * change. A capability is a semver-MINOR addition to a package fourteen
+ * repositories pin, and it should arrive as its own reviewable diff rather than
+ * buried in an 84-row table. `supportRule` and `tillable` arrived that way.
  *
  * Separately REJECTED, and therefore absent from both this list and the tables:
  * `properties.solid` and `faces`, which the reference's `BlockPropertiesSchema`
@@ -183,18 +180,6 @@ export const PENDING_CAPABILITIES: ReadonlyArray<{
   readonly kind: 'flag' | 'property'
   readonly why: string
 }> = [
-  {
-    name: 'footstepMaterial',
-    kind: 'property',
-    why:
-      'audit §4.8 (footstep-sound-data.ts:3-23). Pure audio classification; ' +
-      'belongs to the same change as the mc-audio cue vocabulary.',
-  },
-  {
-    name: 'tillable',
-    kind: 'flag',
-    why: 'audit §4.8 / §5-20 (block-service.config.ts:264-267). Two production hits; farming-only.',
-  },
   {
     name: 'textureTiles',
     kind: 'property',

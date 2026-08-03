@@ -54,10 +54,10 @@ plan.md §3.1 は能力フラグとして `passable` / `fallsWhenUnsupported` / 
 | `movementDrag` | number | 移動を減速させるか | 5 | ❌ |
 | `renderKind` | enum `cube\|cross\|cactus\|rail\|lilyPad\|fluid` | メッシュ生成の形状 | 15 | ❌ |
 | `validSpawnSurface` | boolean | スポーン/村の地面として使えるか | 4 | ❌ |
-| `drops` | struct `{item, count, requiresSilkTouch, fortune}` | 破壊時のドロップ | 25 | ❌ |
+| `drops` | struct `{item, silkTouchItem?, count, requiresSilkTouch, fortune}` | 破壊時のドロップ | 25 | ✅ (`block-harvest.ts`) |
 | `xpOnBreak` | number | 破壊時の経験値 | 6 | ❌ |
-| `footstepMaterial` | enum `grass\|wood\|stone\|default` | 足音の素材 | 9 | ❌ |
-| `tillable` | boolean | クワで耕せるか | 2 | ❌ |
+| `footstepMaterial` | enum `grass\|wood\|stone\|default` | 足音の素材 | 9 | ✅ (`block-properties.ts`) |
+| `tillable` | boolean | クワで耕せるか | 2 | ✅ |
 | `textureTiles` | struct `{top, bottom, side}` | アトラスのどのタイルか | 2 | ❌ |
 
 ## 4. 各能力の根拠と提案セマンティクス

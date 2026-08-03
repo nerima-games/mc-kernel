@@ -5,12 +5,19 @@ import {
   aabbContainsPoint,
   aabbIntersects,
   aabbOfBlock,
+  adjacentBlockPosition,
+  BLOCK_FACES,
+  blockNeighbours,
   blockPosition,
   blockPositionOfChunkLocal,
   blockPositionOfPosition,
   CHUNK_SIZE_XZ,
   chunkCoordOfBlock,
+  HORIZONTAL_BLOCK_FACES,
   localCoordOfBlock,
+  horizontalBlockNeighbours,
+  isBlockFace,
+  oppositeBlockFace,
   position,
   type BlockPosition,
 } from '../src/domain/coordinates'
@@ -111,6 +118,57 @@ describe('blockPositionOfPosition', () => {
       const local = localCoordOfBlock(blockPosition(-0, 0, -0))
       expect(Object.is(local.lx, 0)).toBe(true)
       expect(Object.is(local.lz, 0)).toBe(true)
+    }),
+  )
+})
+
+describe('block face adjacency', () => {
+  it.effect('uses the canonical Minecraft axes and deterministic six-face order', () =>
+    Effect.sync(() => {
+      const source = blockPosition(10, 20, 30)
+      expect(BLOCK_FACES).toStrictEqual(['down', 'up', 'north', 'south', 'west', 'east'])
+      expect(blockNeighbours(source)).toStrictEqual([
+        blockPosition(10, 19, 30),
+        blockPosition(10, 21, 30),
+        blockPosition(10, 20, 29),
+        blockPosition(10, 20, 31),
+        blockPosition(9, 20, 30),
+        blockPosition(11, 20, 30),
+      ])
+    }),
+  )
+
+  it.effect('returns horizontal neighbours without leaking the vertical faces', () =>
+    Effect.sync(() => {
+      expect(HORIZONTAL_BLOCK_FACES).toStrictEqual(['west', 'east', 'north', 'south'])
+      expect(horizontalBlockNeighbours(blockPosition(-16, 4, 15))).toStrictEqual([
+        blockPosition(-17, 4, 15),
+        blockPosition(-15, 4, 15),
+        blockPosition(-16, 4, 14),
+        blockPosition(-16, 4, 16),
+      ])
+    }),
+  )
+
+  it.effect('crossing a face and its opposite returns to the source', () =>
+    Effect.sync(() => {
+      const source = blockPosition(-3, 7, 11)
+      for (const face of BLOCK_FACES) {
+        expect(adjacentBlockPosition(adjacentBlockPosition(source, face), oppositeBlockFace(face))).toStrictEqual(
+          source,
+        )
+      }
+    }),
+  )
+
+  it.effect('guards untrusted face strings at the boundary', () =>
+    Effect.sync(() => {
+      for (const face of BLOCK_FACES) {
+        expect(isBlockFace(face)).toBe(true)
+      }
+      expect(isBlockFace('forward')).toBe(false)
+      expect(isBlockFace('North')).toBe(false)
+      expect(isBlockFace('')).toBe(false)
     }),
   )
 })

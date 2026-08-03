@@ -94,6 +94,7 @@ describe('block capability flags — the additive-safety guarantee', () => {
           suffocates: true,
           canSupportAttachments: true,
           validSpawnSurface: true,
+          tillable: false,
         }
         expect({ ...BLOCK_CAPABILITY_DEFAULTS }).toStrictEqual(expected)
       }),

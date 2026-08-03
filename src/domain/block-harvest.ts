@@ -121,6 +121,8 @@ export type BlockDropRule = {
    * "different block", never "not a block".
    */
   readonly item: ItemType | 'self'
+  /** Item yielded by Silk Touch instead of `item`; omitted when the normal drop is correct. */
+  readonly silkTouchItem?: ItemType
   /** Base count before fortune. `0` = drops nothing (audit: ICE, `NEVER_DROPPED_BLOCK_TYPES`). */
   readonly count: number
   /** Only drops at all when mined with a silk-touch tool. */
@@ -151,8 +153,14 @@ export const DEFAULT_BLOCK_DROP: BlockDropRule = {
  * answers "which item", not "does anything drop"; `resolveDrop` below is the
  * function that answers both, and is what mining should call.
  */
-export const resolveDropItem = (rule: BlockDropRule, brokenBlock: BlockType): ItemType | undefined =>
-  rule.item === 'self' ? itemOfBlock(brokenBlock) : rule.item
+export const resolveDropItem = (
+  rule: BlockDropRule,
+  brokenBlock: BlockType,
+  silkTouch = false,
+): ItemType | undefined => {
+  const item = silkTouch && rule.silkTouchItem !== undefined ? rule.silkTouchItem : rule.item
+  return item === 'self' ? itemOfBlock(brokenBlock) : item
+}
 
 // ---------------------------------------------------------------------------
 // The gate: harvestTool x drops -> what actually lands in the inventory
@@ -211,13 +219,9 @@ export type BlockDrop = {
  * ...and a fourth that is not a denial but an absence: the rule says `'self'`
  * and the block has no item form.
  *
- * KNOWN LIMITATION, recorded rather than faked: silk touch is modelled as a
- * GATE, not as a SUBSTITUTION. Vanilla's "stone drops itself instead of
- * cobblestone under silk touch" needs a second item on the rule. The additive
- * fix is one optional member (`silkTouchItem?: ItemType`), which is exactly
- * what this file's own change rule permits; it is left out until a consumer
- * needs it, because a member nobody reads is the cheapest way to get a freeze
- * wrong (`./block-definition`, on `properties.solid`).
+ * Silk Touch is both a gate and, where the registry supplies one, a
+ * substitution. Rules without `silkTouchItem` keep their normal item, which
+ * covers blocks such as glass whose regular drop is already the block itself.
  */
 export const resolveDrop = (
   requirement: HarvestToolRequirement,
@@ -235,7 +239,7 @@ export const resolveDrop = (
     return undefined
   }
 
-  const item = resolveDropItem(rule, brokenBlock)
+  const item = resolveDropItem(rule, brokenBlock, context.silkTouch === true)
 
   return item === undefined ? undefined : { item, count: rule.count, affectedByFortune: rule.affectedByFortune }
 }
