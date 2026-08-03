@@ -123,6 +123,8 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'flint',
         'gunpowder',
         'blaze_powder',
+        'rotten_flesh',
+        'ender_pearl',
         'flint_and_steel',
         'fire_charge',
         'raw_iron',
@@ -133,6 +135,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'redstone_dust',
         'amethyst_shard',
         'wheat_seeds',
+        'wheat',
         'potato',
         'nether_wart',
         'string',
@@ -725,8 +728,11 @@ describe('the rule that keeps a `self` drop honest', () => {
         'flint',
         'gunpowder',
         'blaze_powder',
+        'rotten_flesh',
+        'ender_pearl',
         'flint_and_steel',
         'fire_charge',
+        'wheat',
       ])
 
       const dropped = new Set<string>()
@@ -746,7 +752,7 @@ describe('the rule that keeps a `self` drop honest', () => {
       // The grandfathered list is pinned to its exact membership so that adding
       // an unexplained item cannot be hidden by adding a name to the exemption.
       expect([...GRANDFATHERED].filter((name) => !ITEM_TYPES.includes(name as ItemType))).toStrictEqual([])
-      expect(GRANDFATHERED.size).toBe(8)
+      expect(GRANDFATHERED.size).toBe(11)
     }),
   )
 })

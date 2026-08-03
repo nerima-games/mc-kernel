@@ -1,0 +1,142 @@
+{
+  "$schema": "https://oxc-project.github.io/oxc/schema/linter.json",
+  // oxlint is the ONLY lint/format configuration in this repository.
+  // There is deliberately no prettier, no biome and no .editorconfig.
+  //
+  // NOTE on the `Date.now()` ban: oxlint 0.12 does not implement `no-restricted-syntax`
+  // or `no-restricted-properties`, and while `no-restricted-globals` is listed by
+  // `oxlint --rules` it is not implemented either (no checkmark). Verified empirically
+  // against oxlint 0.12.0: a file containing `Date.now()` produces 0 diagnostics under
+  // all three rules. `scripts/check-dependency-whitelist.ts`, which used to enforce this
+  // ban, was retired org-wide in favour of oxlint's `no-restricted-imports`
+  // (DEPENDENCY_POLICY.md §5); there is currently no automated enforcement of the
+  // `Date.now()` ban left in this repository. When oxlint gains `no-restricted-syntax`,
+  // add the ban here.
+  "env": {
+    "es2022": true,
+    "node": true
+  },
+  "settings": {
+    "typescript": {
+      "version": "5.9"
+    }
+  },
+  "plugins": [],
+  "categories": {
+    "correctness": "warn",
+    "suspicious": "warn",
+    "perf": "warn",
+    "style": "warn",
+    "restriction": "warn"
+  },
+  "rules": {
+    // TypeScript-specific rules
+    // Prefer `type` over `interface` for pure data types (Schema.Struct pattern).
+    // Exception in this repo: the plan.md §4.1 contracts (StageRegistration, GameModule)
+    // are reproduced verbatim as `interface` so the spec and the code read identically.
+    "@typescript-eslint/consistent-type-definitions": ["warn", "type"],
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unused-vars": "warn",
+    "@typescript-eslint/no-floating-promises": "warn",
+    "@typescript-eslint/no-misused-new": "warn",
+    "@typescript-eslint/no-unnecessary-type-assertion": "warn",
+    "@typescript-eslint/no-var-requires": "warn",
+    "@typescript-eslint/prefer-enum-initializers": "warn",
+    "@typescript-eslint/prefer-for-of": "warn",
+    "@typescript-eslint/prefer-literal-enum-member": "warn",
+
+    // Correctness
+    "no-array-constructor": "warn",
+    "no-empty": "warn",
+    "no-eq-null": "warn",
+    "no-extra-boolean-cast": "warn",
+    "no-fallthrough": "warn",
+    "no-irregular-whitespace": "warn",
+    "no-self-compare": "warn",
+    "no-throw-literal": "warn",
+    "no-unreachable": "warn",
+    "use-isnan": "warn",
+    "valid-typeof": "warn",
+
+    // Suspicious
+    "no-console": "warn",
+    "no-debugger": "warn",
+    "no-empty-function": "warn",
+    "no-empty-pattern": "warn",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-redeclare": "warn",
+    "no-shadow": "warn",
+    "no-unreachable-loop": "warn",
+    "no-unused-private-class-members": "warn",
+
+    // Performance
+    "no-await-in-loop": "warn",
+    "no-loop-func": "warn",
+    "no-promise-executor-return": "warn",
+    "no-sync": "warn",
+
+    // Style
+    // NOTE: as of oxlint 1.76.0, oxlint does not implement any ESLint-core
+    // *formatting* rules at all (array-bracket-spacing, block-spacing,
+    // brace-style, camelcase, comma-dangle, comma-spacing, comma-style,
+    // computed-property-spacing, eol-last, func-call-spacing, indent,
+    // key-spacing, keyword-spacing, linebreak-style,
+    // lines-between-class-members, no-mixed-spaces-and-tabs, no-new-object,
+    // no-tabs, no-trailing-spaces, no-whitespace-before-property,
+    // object-curly-spacing, one-var, operator-linebreak, padded-blocks,
+    // quote-props, semi-spacing, space-before-blocks, space-infix-ops,
+    // space-unary-ops, spaced-comment). Verified empirically against oxlint
+    // 1.76.0: `oxlint --rules --format=json` lists 847 rules total and none
+    // of the names above appear under any plugin/scope; `oxlint
+    // --print-config` hard-fails ("Rule 'X' not found in plugin 'eslint'")
+    // if any of them are present in this file. This was previously masked
+    // because this config file was itself never loaded (see the top-level
+    // rename note in git history: `oxlint.json` -> `.oxlintrc.json`), so
+    // these entries silently did nothing rather than erroring. Oxlint's
+    // stance is that formatting is a formatter's job (Oxfmt), not the
+    // linter's; there is deliberately no replacement configured here since
+    // this repo runs no formatter (see the top-of-file note). If any of
+    // these are needed again, they must be loaded via oxlint's JS plugin
+    // system (stylistic ESLint plugin), not as bare rule names.
+    "no-array-method-this-argument": "warn",
+    "no-bitwise": "warn",
+
+    // Restriction
+    "default-case": "warn",
+    "default-case-last": "warn",
+    "no-empty-character-class": "warn",
+    // Declared for intent and for the day oxlint implements it; inert in 0.12
+    // (see the `Date.now()` note above — there is no other enforcement of this ban).
+    "no-restricted-globals": ["warn", "name", "open", "close", "event"],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "paths": [
+          {
+            "name": "effect",
+            "message": "Please use named imports from 'effect' package",
+            "importNames": ["default"]
+          }
+        ],
+        "patterns": [
+          {
+            "regex": "^@nerima-games/.+",
+            "message": "mc-kernel is a Tier1 library (DEPENDENCY_POLICY.md) with zero internal org dependencies by definition; it must not depend on any @nerima-games/* package, including mc-kernel itself."
+          }
+        ]
+      }
+    ],
+    "prefer-template": "warn",
+
+    // Disabled rules (conflict with project style)
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/explicit-module-boundary-types": "off",
+    "@typescript-eslint/no-non-null-assertion": "off",
+    "no-case-declarations": "off",
+    "no-constant-condition": "off",
+    "no-param-reassign": "off",
+    "no-plusplus": "off"
+  },
+  "ignorePatterns": ["node_modules/**", "coverage/**", "dist/**", ".git/**", "*.config.ts", "docs/**"]
+}
