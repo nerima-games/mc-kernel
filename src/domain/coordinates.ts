@@ -83,6 +83,70 @@ export const blockPosition = (x: number, y: number, z: number): BlockPosition =>
   z: BlockAxis(normalizeZero(z)),
 })
 
+/** The canonical wire/key representation of a block position: `x,y,z`. */
+export type BlockPositionKey = string & Brand.Brand<'BlockPositionKey'>
+
+type ParsedBlockPositionKey = readonly [x: number, y: number, z: number]
+
+const canonicalIntegerText = (value: number): string => String(normalizeZero(value))
+
+const parseBlockPositionKey = (value: string): ParsedBlockPositionKey | undefined => {
+  const firstComma = value.indexOf(',')
+  const secondComma = value.indexOf(',', firstComma + 1)
+
+  if (
+    firstComma <= 0 ||
+    secondComma <= firstComma + 1 ||
+    secondComma === value.length - 1 ||
+    value.indexOf(',', secondComma + 1) !== -1
+  ) {
+    return undefined
+  }
+
+  const xText = value.slice(0, firstComma)
+  const yText = value.slice(firstComma + 1, secondComma)
+  const zText = value.slice(secondComma + 1)
+  const x = Number(xText)
+  const y = Number(yText)
+  const z = Number(zText)
+
+  if (
+    !Number.isSafeInteger(x) ||
+    !Number.isSafeInteger(y) ||
+    !Number.isSafeInteger(z) ||
+    xText !== canonicalIntegerText(x) ||
+    yText !== canonicalIntegerText(y) ||
+    zText !== canonicalIntegerText(z)
+  ) {
+    return undefined
+  }
+
+  return [x, y, z]
+}
+
+/** Serialize a block position into its canonical, allocation-minimal key. */
+export const blockPositionKeyOf = (value: BlockPosition): BlockPositionKey =>
+  `${String(value.x)},${String(value.y)},${String(value.z)}` as BlockPositionKey
+
+/** Narrow an external string after validating its complete canonical format. */
+export const isBlockPositionKey = (value: string): value is BlockPositionKey => parseBlockPositionKey(value) !== undefined
+
+/** Recover a block position from a key that has already been validated. */
+export const blockPositionOfKey = (value: BlockPositionKey): BlockPosition => {
+  const parsed = parseBlockPositionKey(value)
+  if (parsed === undefined) {
+    throw new TypeError(`Invalid BlockPositionKey: ${value}`)
+  }
+
+  return blockPosition(...parsed)
+}
+
+/** Decode untrusted storage or network input without allowing invalid axes in. */
+export const decodeBlockPositionKey = (value: string): BlockPosition | undefined => {
+  const parsed = parseBlockPositionKey(value)
+  return parsed === undefined ? undefined : blockPosition(...parsed)
+}
+
 /**
  * The six faces of a block, in canonical traversal order.
  *
