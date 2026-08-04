@@ -214,6 +214,7 @@ describe('public API surface', () => {
       expect(kernel.itemIdOf).toBe(itemIdOf)
       expect(kernel.isItemType('bow')).toBe(true)
       expect(kernel.isItemType('arrow')).toBe(true)
+      expect(kernel.isItemType('bone_meal')).toBe(true)
       expect(kernel.isItemType('lily_pad')).toBe(true)
       expect(kernel.isItemType('potion_of_regeneration')).toBe(true)
       expect(kernel.isItemType('enchanted_book')).toBe(true)
