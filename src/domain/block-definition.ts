@@ -39,10 +39,16 @@
  * is answered by the mechanism rather than by the location — the table states
  * OVERRIDES only, so a wrong row is one wrong line rather than a fork.
  */
-import type { BlockCapabilities, BlockCapabilityOverrides } from './block-capabilities.js'
-import { resolveBlockCapabilities } from './block-capabilities.js'
-import type { BlockProperties, BlockPropertyOverrides } from './block-properties.js'
-import { resolveBlockProperties } from './block-properties.js'
+import {
+  type BlockCapabilities,
+  type BlockCapabilityOverrides,
+  resolveBlockCapabilities,
+} from './block-capabilities.js'
+import {
+  type BlockProperties,
+  type BlockPropertyOverrides,
+  resolveBlockProperties,
+} from './block-properties.js'
 import type { BlockType } from './block-type.js'
 
 /**

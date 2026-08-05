@@ -20,8 +20,8 @@
  */
 import type { Effect, Layer } from 'effect'
 import type { ClockPort } from './clock'
-import type { StageId } from './identifiers'
 import type { DeltaTimeSecs } from './quantities'
+import type { StageId } from './identifiers'
 
 /**
  * The context every frame stage may assume is present. SETTLED — `ClockPort`,
