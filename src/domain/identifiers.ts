@@ -3,6 +3,8 @@
  */
 import { Brand } from 'effect'
 
+const NON_BLANK_STRING_MIN_LENGTH = 0
+
 /**
  * Identifies a single world (save). Kernel does not know how worlds are stored;
  * it only guarantees that a WorldId is a non-empty, non-blank string.
@@ -10,7 +12,7 @@ import { Brand } from 'effect'
 export type WorldId = string & Brand.Brand<'WorldId'>
 
 export const WorldId = Brand.refined<WorldId>(
-  (value) => value.trim().length > 0,
+  (value) => value.trim().length > NON_BLANK_STRING_MIN_LENGTH,
   (value) => Brand.error(`WorldId must be a non-blank string, received ${JSON.stringify(value)}`),
 )
 
@@ -20,6 +22,6 @@ export const WorldId = Brand.refined<WorldId>(
 export type StageId = string & Brand.Brand<'StageId'>
 
 export const StageId = Brand.refined<StageId>(
-  (value) => value.trim().length > 0,
+  (value) => value.trim().length > NON_BLANK_STRING_MIN_LENGTH,
   (value) => Brand.error(`StageId must be a non-blank string, received ${JSON.stringify(value)}`),
 )
