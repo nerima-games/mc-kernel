@@ -1,13 +1,13 @@
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
 import {
+  type BlockPositionKey,
   blockPosition,
   blockPositionKeyOf,
   blockPositionOfKey,
   decodeBlockPositionKey,
   isBlockPositionKey,
-  type BlockPositionKey,
 } from '../src/domain/coordinates'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect } from 'effect'
 
 describe('BlockPositionKey', () => {
   it.effect('round-trips canonical positions, including safe-integer boundaries', () =>
