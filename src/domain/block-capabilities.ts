@@ -229,7 +229,7 @@ export const resolveBlockCapabilities = (overrides: BlockCapabilityOverrides): B
 
   for (const flag of BLOCK_CAPABILITY_FLAGS) {
     const override = overrides[flag]
-    if (override !== undefined) {
+    if (typeof override !== 'undefined') {
       resolved[flag] = override
     }
   }
