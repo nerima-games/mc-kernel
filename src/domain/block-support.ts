@@ -166,7 +166,7 @@ export const satisfiesSupportRule = (
       return belowSupportsAttachments
 
     case 'oneOf':
-      return blockBelow !== undefined && rule.blocks.includes(blockBelow)
+      return typeof blockBelow === 'string' && rule.blocks.includes(blockBelow)
 
     default:
       return rule satisfies never
