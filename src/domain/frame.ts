@@ -90,7 +90,7 @@ export interface StageRegistration {
  * A repository's contribution to a running game.
  *
  * `ROut`      — services this module provides.
- * `E`         — errors that can occur while *building* those services.
+ * `Error`     — errors that can occur while *building* those services.
  * `RIn`       — services this module needs to be given in order to build.
  * `RRegister` — services this module needs in order to REGISTER its stages.
  *
@@ -144,12 +144,12 @@ export interface StageRegistration {
  * nothing to be constructed — still reads as three parameters.
  *
  * `frameStages`' ERROR channel stays `never`, unlike the Layer's. A module that
- * can fail to come up expresses that in `E`, where a host already has to handle
+ * can fail to come up expresses that in `Error`, where a host already has to handle
  * it; a second failure channel that means the same thing ("this module is not
  * usable") would give the host two places to look and no way to tell them
  * apart.
  */
-export interface GameModule<ROut, E, RIn, RRegister = never> {
-  readonly layers: Layer.Layer<ROut, E, RIn>
+export interface GameModule<ROut, Error, RIn, RRegister = never> {
+  readonly layers: Layer.Layer<ROut, Error, RIn>
   readonly frameStages: Effect.Effect<ReadonlyArray<StageRegistration>, never, RRegister>
 }
