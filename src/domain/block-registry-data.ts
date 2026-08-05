@@ -1944,8 +1944,10 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
 // module load, so that no consumer is tempted to build its own index.
 // ---------------------------------------------------------------------------
 
+const UNDEFINED: undefined = globalThis.undefined
+
 const buildResolvedById = (): ReadonlyArray<ResolvedBlock | undefined> => {
-  const table: Array<ResolvedBlock | undefined> = Array.from({ length: BLOCK_ID_MAX + 1 }, () => undefined)
+  const table: Array<ResolvedBlock | undefined> = Array.from({ length: BLOCK_ID_MAX + 1 }, () => UNDEFINED)
 
   for (const entry of BLOCK_REGISTRY) {
     table[entry.id] = resolveBlock(entry.definition)
@@ -1971,7 +1973,7 @@ const buildCapabilitiesById = (): Readonly<Record<BlockCapabilityFlag, Uint8Arra
 
   for (const entry of BLOCK_REGISTRY) {
     const resolved = RESOLVED_BY_ID[entry.id]
-    if (resolved === undefined) continue
+    if (typeof resolved === 'undefined') continue
 
     for (const flag of BLOCK_CAPABILITY_FLAGS) {
       columns[flag][entry.id] = resolved.capabilities[flag] ? 1 : 0
@@ -2001,7 +2003,7 @@ const buildPropertyColumns = (): {
 
   for (const entry of BLOCK_REGISTRY) {
     const resolved = RESOLVED_BY_ID[entry.id]
-    if (resolved === undefined) continue
+    if (typeof resolved === 'undefined') continue
 
     const { properties } = resolved
     opacity[entry.id] = properties.opacity
@@ -2023,7 +2025,7 @@ const buildIdByType = (): Readonly<Record<BlockType, BlockId>> => {
   }
 
   for (const type of BLOCK_TYPES) {
-    if (table[type] === undefined) {
+    if (typeof table[type] === 'undefined') {
       throw new Error(`Block registry is missing a row for ${type}`)
     }
   }
@@ -2047,14 +2049,14 @@ export const blockIdOf = (type: BlockType): BlockId => ID_BY_TYPE[type] ?? AIR_B
 
 /** id -> `BlockType`. `undefined` for a byte this build does not recognise. */
 export const blockTypeOfId = (id: number): BlockType | undefined =>
-  isAddressableBlockId(id) ? RESOLVED_BY_ID[id]?.type : undefined
+  isAddressableBlockId(id) ? RESOLVED_BY_ID[id]?.type : UNDEFINED
 
 /** id -> the fully resolved row. `undefined` for an unrecognised byte. */
 export const resolvedBlockOfId = (id: number): ResolvedBlock | undefined =>
-  isAddressableBlockId(id) ? RESOLVED_BY_ID[id] : undefined
+  isAddressableBlockId(id) ? RESOLVED_BY_ID[id] : UNDEFINED
 
 /** Does this number name a block this build knows about? */
-export const isKnownBlockId = (id: number): boolean => resolvedBlockOfId(id) !== undefined
+export const isKnownBlockId = (id: number): boolean => typeof resolvedBlockOfId(id) !== 'undefined'
 
 /**
  * Read one capability straight off a chunk buffer byte. TOTAL — see the module
@@ -2101,8 +2103,8 @@ export const capabilitiesOfBlockId = (id: number): BlockCapabilities =>
 export const dropOfBlockId = (id: number, context: HarvestContext = BARE_HANDED): BlockDrop | undefined => {
   const resolved = resolvedBlockOfId(id)
 
-  return resolved === undefined
-    ? undefined
+  return typeof resolved === 'undefined'
+    ? UNDEFINED
     : resolveDrop(resolved.properties.harvestTool, resolved.properties.drops, resolved.type, context)
 }
 
