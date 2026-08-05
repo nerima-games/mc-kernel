@@ -1,15 +1,15 @@
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block-capabilities'
 import {
   AUDITED_CAPABILITY_NAMES,
+  type BlockDefinition,
+  PENDING_CAPABILITIES,
   blockCapabilitiesOf,
   blockPropertiesOf,
-  PENDING_CAPABILITIES,
   resolveBlock,
-  type BlockDefinition,
 } from '../src/domain/block-definition'
 import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect } from 'effect'
 
 describe('adding a block is one table row plus flag settings (the design contract invariant)', () => {
   // THE named regression test for the design contract's closing requirement:

@@ -1,16 +1,12 @@
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
 import {
   BLOCK_CAPABILITY_DEFAULTS,
   BLOCK_CAPABILITY_FLAGS,
-  capabilityOf,
-  resolveBlockCapabilities,
-  TRUE_BY_DEFAULT_CAPABILITY_FLAGS,
   type BlockCapabilityFlag,
   type BlockCapabilityOverrides,
+  TRUE_BY_DEFAULT_CAPABILITY_FLAGS,
+  capabilityOf,
+  resolveBlockCapabilities,
 } from '../src/domain/block-capabilities'
-import { blockCapabilitiesOf, type BlockDefinition } from '../src/domain/block-definition'
-import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
 import {
   BLOCK_IDS,
   blockIdOf,
@@ -18,6 +14,10 @@ import {
   capabilitiesOfBlockId,
   capabilityOfBlockId,
 } from '../src/domain/block-registry'
+import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
+import { type BlockDefinition, blockCapabilitiesOf } from '../src/domain/block-definition'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect } from 'effect'
 
 describe('block capability flags — the additive-safety guarantee', () => {
   it.effect(
