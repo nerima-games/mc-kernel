@@ -16,6 +16,8 @@ describe('StackCount', () => {
   it.effect('rejects a fractional count, because half an item does not exist', () =>
     Effect.sync(() => {
       expect(Either.isLeft(StackCount.either(1.5))).toBe(true)
+      // Effect Brand constructors are callable validation functions, not classes.
+      // eslint-disable-next-line new-cap
       expect(() => StackCount(1.5)).toThrow()
     }),
   )
