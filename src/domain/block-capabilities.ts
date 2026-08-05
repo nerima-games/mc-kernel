@@ -95,55 +95,72 @@
  * justifies its existence and its default.
  */
 export const BLOCK_CAPABILITY_DEFAULTS = {
+  ...{
   /**
    * Entities move through it without collision. `false` = solid.
    * Audit §4.1 — `block-collision-predicates.ts:22-44` (`PASSABLE_BLOCK_IDS`, 19 entries).
    */
   passable: false,
+  } as const,
 
+  ...{
   /**
    * Becomes a falling entity when the block beneath it is removed (sand, gravel).
    * Audit §3 — `falling-block.ts`.
    */
   fallsWhenUnsupported: false,
+  } as const,
 
+  ...{
   /**
    * Placement, falling blocks and fluid flow may overwrite this cell.
    * Audit §4.2 — `block-service-place-load.ts:50`, `falling-block.ts:15-19`.
    */
   replaceable: false,
+  } as const,
 
+  ...{
   /**
    * Can be ignited and can propagate fire to neighbours.
    * Audit §4.3 — `fire-lifecycle.ts:18-30` (`FLAMMABLE_BLOCK_TYPES`, 11 entries).
    */
   flammable: false,
+  } as const,
 
+  ...{
   /**
    * Supports a permanent fire on top of it (NETHERRACK, LAVA). A separate
    * concept from `flammable`: a fire source does not itself burn away.
    * Audit §4.3 — `fire-lifecycle.ts:77-78` (`isFireSourceIndex`).
    */
   fireSource: false,
+  } as const,
 
+  ...{
   /**
    * A piston can neither push nor pull it (bedrock, obsidian-class blocks).
    * the design contract wants this in kernel; the reference had it as a local constant.
    */
   pistonImmovable: false,
+  } as const,
 
+  ...{
   /**
    * Destroyed when flowing water reaches it (torches, crops, plants).
    * Audit §4.6 — `block-support.ts:34-45` -> `isWaterBreakableBlockIndex` (:103).
    */
   brokenByWaterFlow: false,
+  } as const,
 
+  ...{
   /**
    * Can be climbed vertically (ladder, vines).
    * Audit §4.1 — `block-collision-predicates.ts:177-182` (`isInLadder`).
    */
   climbable: false,
+  } as const,
 
+  ...{
   /**
    * An entity whose head is inside this block takes suffocation damage.
    * DEFAULT `true` — the reference stores the NEGATIVE list.
@@ -158,14 +175,18 @@ export const BLOCK_CAPABILITY_DEFAULTS = {
    * reviewable mistake rather than an invisible one.
    */
   suffocates: true,
+  } as const,
 
+  ...{
   /**
    * Torches, rails, pressure plates and plants may be attached to / stand on it.
    * DEFAULT `true` — the reference stores the NEGATIVE list.
    * Audit §4.6 — `block-support.ts:47-61` (`NON_SUPPORTING_BLOCK_TYPES`).
    */
   canSupportAttachments: true,
+  } as const,
 
+  ...{
   /**
    * Mobs and village placement may use the top face of this block as ground.
    * DEFAULT `true` — the reference stores the NEGATIVE list, twice and
@@ -174,12 +195,15 @@ export const BLOCK_CAPABILITY_DEFAULTS = {
    * Audit §4.8 / §4.9.
    */
   validSpawnSurface: true,
+  } as const,
 
+  ...{
   /**
    * A hoe can convert this block into farmland.
    * Audit §4.8 / §5-20 — `block-service.config.ts:264-267`.
    */
   tillable: false,
+  } as const,
 } as const satisfies Readonly<Record<string, boolean>>
 
 /** Derived from the defaults table — a flag cannot exist without a default. */
@@ -206,7 +230,7 @@ export const TRUE_BY_DEFAULT_CAPABILITY_FLAGS: ReadonlyArray<BlockCapabilityFlag
  * Produced by `resolveBlockCapabilities`; never written by hand (see rule 1 above).
  */
 export type BlockCapabilities = {
-  readonly [K in BlockCapabilityFlag]: boolean
+  readonly [capabilityFlag in BlockCapabilityFlag]: boolean
 }
 
 /**
@@ -214,7 +238,7 @@ export type BlockCapabilities = {
  * meaningful and means "take the default".
  */
 export type BlockCapabilityOverrides = {
-  readonly [K in BlockCapabilityFlag]?: boolean
+  readonly [capabilityFlag in BlockCapabilityFlag]?: boolean
 }
 
 /**
@@ -225,7 +249,9 @@ export type BlockCapabilityOverrides = {
  * against a newer one.
  */
 export const resolveBlockCapabilities = (overrides: BlockCapabilityOverrides): BlockCapabilities => {
-  const resolved: { -readonly [K in BlockCapabilityFlag]: boolean } = { ...BLOCK_CAPABILITY_DEFAULTS }
+  const resolved: { -readonly [capabilityFlag in BlockCapabilityFlag]: boolean } = {
+    ...BLOCK_CAPABILITY_DEFAULTS,
+  }
 
   for (const flag of BLOCK_CAPABILITY_FLAGS) {
     const override = overrides[flag]
