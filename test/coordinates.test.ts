@@ -1,26 +1,26 @@
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
 import {
+  BLOCK_FACES,
+  type BlockPosition,
+  CHUNK_SIZE_XZ,
+  HORIZONTAL_BLOCK_FACES,
   aabb,
   aabbContainsPoint,
   aabbIntersects,
   aabbOfBlock,
   adjacentBlockPosition,
-  BLOCK_FACES,
   blockNeighbours,
   blockPosition,
   blockPositionOfChunkLocal,
   blockPositionOfPosition,
-  CHUNK_SIZE_XZ,
   chunkCoordOfBlock,
-  HORIZONTAL_BLOCK_FACES,
-  localCoordOfBlock,
   horizontalBlockNeighbours,
   isBlockFace,
+  localCoordOfBlock,
   oppositeBlockFace,
   position,
-  type BlockPosition,
 } from '../src/domain/coordinates'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect } from 'effect'
 
 /** Coordinates chosen to straddle the origin, chunk borders, and both signs. */
 const SAMPLE_COORDINATES: ReadonlyArray<readonly [number, number, number]> = [
