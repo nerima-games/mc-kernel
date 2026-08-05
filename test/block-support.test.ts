@@ -39,6 +39,15 @@ import {
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 
+const UNNAMED_BLOCK_TYPE = BLOCK_TYPES.at(BLOCK_TYPES.length)
+const NON_SENSITIVE_BLOCK_COUNT = 103
+const NO_NAMED_SUPPORTS = 0
+const UNKNOWN_BLOCK_ID = 200
+const MAX_BLOCK_ID = 255
+const NEGATIVE_BLOCK_ID = -1
+const FRACTIONAL_BLOCK_ID = 1.5
+const UNKNOWN_BLOCK_IDS = [UNKNOWN_BLOCK_ID, MAX_BLOCK_ID, NEGATIVE_BLOCK_ID, FRACTIONAL_BLOCK_ID, Number.NaN]
+
 // ---------------------------------------------------------------------------
 // The three arms, in isolation
 // ---------------------------------------------------------------------------
@@ -48,7 +57,7 @@ describe('SupportRule — the three arms', () => {
     Effect.sync(() => {
       expect(satisfiesSupportRule(NEEDS_NO_SUPPORT, 'stone', true)).toBe(true)
       expect(satisfiesSupportRule(NEEDS_NO_SUPPORT, 'air', false)).toBe(true)
-      expect(satisfiesSupportRule(NEEDS_NO_SUPPORT, undefined, false)).toBe(true)
+      expect(satisfiesSupportRule(NEEDS_NO_SUPPORT, UNNAMED_BLOCK_TYPE, false)).toBe(true)
     }),
   )
 
@@ -57,9 +66,9 @@ describe('SupportRule — the three arms', () => {
       expect(satisfiesSupportRule(NEEDS_ANY_SUPPORT, 'stone', true)).toBe(true)
       expect(satisfiesSupportRule(NEEDS_ANY_SUPPORT, 'stone', false)).toBe(false)
       // The name is not consulted, which is what makes this arm the reference's
-      // fallback rather than a fourteenth list: `block-support.ts:100` asks
+      // Fallback rather than a fourteenth list: `block-support.ts:100` asks
       // `NON_SUPPORTING_BLOCK_TYPES` and nothing else.
-      expect(satisfiesSupportRule(NEEDS_ANY_SUPPORT, undefined, true)).toBe(true)
+      expect(satisfiesSupportRule(NEEDS_ANY_SUPPORT, UNNAMED_BLOCK_TYPE, true)).toBe(true)
     }),
   )
 
@@ -69,7 +78,7 @@ describe('SupportRule — the three arms', () => {
       expect(satisfiesSupportRule(rule, 'sand', false)).toBe(true)
       expect(satisfiesSupportRule(rule, 'cactus', false)).toBe(true)
       // `dirt` supports attachments and is still refused, which is the whole
-      // point of the column: the per-block list WINS over the negative set.
+      // Point of the column: the per-block list WINS over the negative set.
       expect(satisfiesSupportRule(rule, 'dirt', true)).toBe(false)
     }),
   )
@@ -84,8 +93,8 @@ describe('SupportRule — the three arms', () => {
    */
   it.effect('an unnameable block below holds up a torch and does not float a lily pad', () =>
     Effect.sync(() => {
-      expect(satisfiesSupportRule(NEEDS_ANY_SUPPORT, undefined, true)).toBe(true)
-      expect(satisfiesSupportRule(needsOneOf('water'), undefined, true)).toBe(false)
+      expect(satisfiesSupportRule(NEEDS_ANY_SUPPORT, UNNAMED_BLOCK_TYPE, true)).toBe(true)
+      expect(satisfiesSupportRule(needsOneOf('water'), UNNAMED_BLOCK_TYPE, true)).toBe(false)
     }),
   )
 
@@ -95,7 +104,7 @@ describe('SupportRule — the three arms', () => {
       expect(isSupportSensitive(NEEDS_ANY_SUPPORT)).toBe(true)
       expect(isSupportSensitive(needsOneOf('farmland'))).toBe(true)
       // A list may be EMPTY without ceasing to be a rule — that is a block
-      // nothing can hold up, which is a statable thing and not an absence.
+      // Nothing can hold up, which is a statable thing and not an absence.
       expect(isSupportSensitive(needsOneOf())).toBe(true)
       expect(satisfiesSupportRule(needsOneOf(), 'stone', true)).toBe(false)
     }),
@@ -104,8 +113,8 @@ describe('SupportRule — the three arms', () => {
   it.effect('needsOneOf keeps the order it was given, so a row diffs against its source set', () =>
     Effect.sync(() => {
       expect(needsOneOf('dirt', 'grass_block', 'sand', 'sugar_cane')).toStrictEqual({
-        kind: 'oneOf',
         blocks: ['dirt', 'grass_block', 'sand', 'sugar_cane'],
+        kind: 'oneOf',
       })
     }),
   )
@@ -162,9 +171,9 @@ describe('the reference implementation’s block-support suite, ported as an ora
       for (const [held, support, expected] of referenceCases) {
         expect({
           held,
-          support,
           stays: canBlockStaySupported(blockIdOf(held), blockIdOf(support)),
-        }).toStrictEqual({ held, support, stays: expected })
+          support,
+        }).toStrictEqual({ held, stays: expected, support })
       }
     }),
   )
@@ -220,7 +229,7 @@ describe('the reference implementation’s block-support suite, ported as an ora
       expect(canBlockStaySupported(blockIdOf('sugar_cane'), blockIdOf('sand'))).toBe(true)
       expect(canBlockStaySupported(blockIdOf('sugar_cane'), blockIdOf('stone'))).toBe(false)
       // ...and they do not hold each other up, which is what a shared "plants
-      // stack" rule would have got wrong.
+      // Stack" rule would have got wrong.
       expect(canBlockStaySupported(blockIdOf('cactus'), blockIdOf('sugar_cane'))).toBe(false)
     }),
   )
@@ -288,11 +297,11 @@ describe('the supportRule column across the whole registry', () => {
     Effect.sync(() => {
       const indifferent = BLOCK_TYPES.filter((type) => !isSupportSensitiveBlockId(blockIdOf(type)))
       expect(indifferent.length).toBe(BLOCK_TYPES.length - SUPPORT_SENSITIVE.length)
-      expect(indifferent.length).toBe(103)
+      expect(indifferent.length).toBe(NON_SENSITIVE_BLOCK_COUNT)
       for (const type of indifferent) {
         expect(supportRuleOfBlockId(blockIdOf(type))).toStrictEqual(NEEDS_NO_SUPPORT)
         // ...and "requires nothing" means it stays up over ANY support,
-        // including air, which is what keeps a floating stone floating.
+        // Including air, which is what keeps a floating stone floating.
         expect(canBlockStaySupported(blockIdOf(type), blockIdOf('air'))).toBe(true)
       }
     }),
@@ -315,7 +324,7 @@ describe('the supportRule column across the whole registry', () => {
       for (const type of FALLS_THROUGH_TO_THE_NEGATIVE_LIST) {
         expect(supportRuleOfBlockId(blockIdOf(type))).toStrictEqual(NEEDS_ANY_SUPPORT)
         // The defining property of the arm: it tracks `canSupportAttachments`
-        // exactly. `stone` supports, `snow` does not (audit §4.9's own example).
+        // Exactly. `stone` supports, `snow` does not (audit §4.9's own example).
         expect(canBlockStaySupported(blockIdOf(type), blockIdOf('stone'))).toBe(true)
         expect(canBlockStaySupported(blockIdOf(type), blockIdOf('snow'))).toBe(false)
       }
@@ -326,13 +335,16 @@ describe('the supportRule column across the whole registry', () => {
     Effect.sync(() => {
       const named = BLOCK_TYPES.flatMap((type) => {
         const rule = supportRuleOfBlockId(blockIdOf(type))
-        return rule.kind === 'oneOf' ? [...rule.blocks] : []
+        if (rule.kind !== 'oneOf') {
+          return []
+        }
+        return [...rule.blocks]
       })
 
-      expect(named.length).toBeGreaterThan(0)
+      expect(named.length).toBeGreaterThan(NO_NAMED_SUPPORTS)
       for (const block of named) {
         // A rule naming a block with no registry row would be a rule that can
-        // never be satisfied, and `blockIdOf` would silently answer AIR.
+        // Never be satisfied, and `blockIdOf` would silently answer AIR.
         expect(BLOCK_TYPES).toContain(block)
       }
       // Every named support must be part of the public block vocabulary.
@@ -387,7 +399,7 @@ describe('the supportRule column across the whole registry', () => {
 describe('the id-keyed readings are total', () => {
   it.effect('an unknown byte requires nothing, is not sensitive, and stays where it is put', () =>
     Effect.sync(() => {
-      for (const id of [200, 255, -1, 1.5, Number.NaN]) {
+      for (const id of UNKNOWN_BLOCK_IDS) {
         expect(supportRuleOfBlockId(id)).toStrictEqual(NEEDS_NO_SUPPORT)
         expect(isSupportSensitiveBlockId(id)).toBe(false)
         expect(canBlockStaySupported(id, blockIdOf('air'))).toBe(true)
@@ -398,11 +410,11 @@ describe('the id-keyed readings are total', () => {
   it.effect('an unknown byte BELOW reads as ordinary ground, matching capabilityOfBlockId', () =>
     Effect.sync(() => {
       // The fallback arm: an unknown byte resolves to an opaque cube, which
-      // supports attachments, so a torch stands on it.
-      expect(canBlockStaySupported(blockIdOf('torch'), 200)).toBe(true)
+      // Supports attachments, so a torch stands on it.
+      expect(canBlockStaySupported(blockIdOf('torch'), UNKNOWN_BLOCK_ID)).toBe(true)
       // The list arm: no unnameable block is a member of a list of names.
-      expect(canBlockStaySupported(blockIdOf('lily_pad'), 200)).toBe(false)
-      expect(canBlockStaySupported(blockIdOf('wheat_crop'), 200)).toBe(false)
+      expect(canBlockStaySupported(blockIdOf('lily_pad'), UNKNOWN_BLOCK_ID)).toBe(false)
+      expect(canBlockStaySupported(blockIdOf('wheat_crop'), UNKNOWN_BLOCK_ID)).toBe(false)
     }),
   )
 })
