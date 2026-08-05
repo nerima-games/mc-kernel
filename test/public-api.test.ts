@@ -1,18 +1,38 @@
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
 import * as kernel from '../src/index'
 import { BLOCK_TYPES, isBlockType } from '../src/domain/block-type'
-import { isItemType, ITEM_TYPES } from '../src/domain/item-type'
 import { ITEM_REGISTRY, itemIdOf } from '../src/domain/item-registry'
+import { ITEM_TYPES, isItemType } from '../src/domain/item-type'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect } from 'effect'
 
 const ORIGIN_AXIS = 0
+const FIRST_BLOCK_TYPE_INDEX = 0
+const ENCHANTED_BOOK_ID = 136
+const SINGLE_ITEM_STACK = 1
+const BUCKET_ID = 137
+const BUCKET_MAX_STACK = 16
+const FISHING_ROD_ID = 142
+const SADDLE_ID = 151
+const STANDARD_ITEM_STACK = 64
+const PUBLIC_ITEM_TYPES = [
+  'bow',
+  'arrow',
+  'bone_meal',
+  'lily_pad',
+  'potion_of_regeneration',
+  'enchanted_book',
+  'fishing_rod',
+  'cod',
+  'shears',
+  'wool',
+] as const
 
 describe('BlockType', () => {
   it.effect('narrows a string that names a known block', () =>
     Effect.sync(() => {
       expect(isBlockType('stone')).toBe(true)
       expect(isBlockType('air')).toBe(true)
-      expect(isBlockType(BLOCK_TYPES[0])).toBe(true)
+      expect(isBlockType(BLOCK_TYPES[FIRST_BLOCK_TYPE_INDEX])).toBe(true)
     }),
   )
 
@@ -222,22 +242,17 @@ describe('public API surface', () => {
       expect(kernel.ITEM_TYPES).toBe(ITEM_TYPES)
       expect(kernel.ITEM_REGISTRY).toBe(ITEM_REGISTRY)
       expect(kernel.itemIdOf).toBe(itemIdOf)
-      expect(kernel.isItemType('bow')).toBe(true)
-      expect(kernel.isItemType('arrow')).toBe(true)
-      expect(kernel.isItemType('bone_meal')).toBe(true)
-      expect(kernel.isItemType('lily_pad')).toBe(true)
-      expect(kernel.isItemType('potion_of_regeneration')).toBe(true)
-      expect(kernel.isItemType('enchanted_book')).toBe(true)
-      expect(kernel.isItemType('fishing_rod')).toBe(true)
-      expect(kernel.isItemType('cod')).toBe(true)
-      expect(kernel.isItemType('shears')).toBe(true)
-      expect(kernel.isItemType('wool')).toBe(true)
+      for (const itemType of PUBLIC_ITEM_TYPES) {
+        expect(kernel.isItemType(itemType)).toBe(true)
+      }
     }),
   )
 
   it.effect('makes the coordinate key type available to TypeScript callers', () =>
     Effect.sync(() => {
-      const key: kernel.BlockPositionKey = kernel.blockPositionKeyOf(kernel.blockPosition(0, 0, 0))
+      const key: kernel.BlockPositionKey = kernel.blockPositionKeyOf(
+        kernel.blockPosition(ORIGIN_AXIS, ORIGIN_AXIS, ORIGIN_AXIS),
+      )
 
       expect(key).toBe('0,0,0')
     }),
@@ -260,19 +275,19 @@ describe('public API surface', () => {
   it.effect('exports the canonical enchanted-book item identity', () =>
     Effect.sync(() => {
       expect(kernel.isItemType('enchanted_book')).toBe(true)
-      expect(kernel.itemIdOf('enchanted_book')).toBe(136)
-      expect(kernel.maxStackCountOfItem('enchanted_book')).toBe(1)
+      expect(kernel.itemIdOf('enchanted_book')).toBe(ENCHANTED_BOOK_ID)
+      expect(kernel.maxStackCountOfItem('enchanted_book')).toBe(SINGLE_ITEM_STACK)
       expect(kernel.isPlaceableItem('enchanted_book')).toBe(false)
     }),
   )
 
   it.effect('exports fluid and vehicle item identities with canonical metadata', () =>
     Effect.sync(() => {
-      expect(kernel.itemIdOf('bucket')).toBe(137)
-      expect(kernel.maxStackCountOfItem('bucket')).toBe(16)
+      expect(kernel.itemIdOf('bucket')).toBe(BUCKET_ID)
+      expect(kernel.maxStackCountOfItem('bucket')).toBe(BUCKET_MAX_STACK)
       for (const type of ['water_bucket', 'lava_bucket', 'oak_boat', 'minecart'] as const) {
         expect(kernel.isItemType(type)).toBe(true)
-        expect(kernel.maxStackCountOfItem(type)).toBe(1)
+        expect(kernel.maxStackCountOfItem(type)).toBe(SINGLE_ITEM_STACK)
         expect(kernel.isPlaceableItem(type)).toBe(false)
       }
     }),
@@ -280,10 +295,10 @@ describe('public API surface', () => {
 
   it.effect('exports fishing item identities with canonical metadata', () =>
     Effect.sync(() => {
-      expect(kernel.itemIdOf('fishing_rod')).toBe(142)
-      expect(kernel.itemIdOf('saddle')).toBe(151)
-      expect(kernel.maxStackCountOfItem('fishing_rod')).toBe(1)
-      expect(kernel.maxStackCountOfItem('saddle')).toBe(1)
+      expect(kernel.itemIdOf('fishing_rod')).toBe(FISHING_ROD_ID)
+      expect(kernel.itemIdOf('saddle')).toBe(SADDLE_ID)
+      expect(kernel.maxStackCountOfItem('fishing_rod')).toBe(SINGLE_ITEM_STACK)
+      expect(kernel.maxStackCountOfItem('saddle')).toBe(SINGLE_ITEM_STACK)
       const stackableFishingItems = [
         'cod',
         'salmon',
@@ -296,7 +311,7 @@ describe('public API surface', () => {
       ] as const
       for (const type of stackableFishingItems) {
         expect(kernel.isItemType(type)).toBe(true)
-        expect(kernel.maxStackCountOfItem(type)).toBe(64)
+        expect(kernel.maxStackCountOfItem(type)).toBe(STANDARD_ITEM_STACK)
         expect(kernel.isPlaceableItem(type)).toBe(false)
       }
     }),
