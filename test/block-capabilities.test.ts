@@ -19,6 +19,9 @@ import { type BlockDefinition, blockCapabilitiesOf } from '../src/domain/block-d
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 
+const EMPTY_COLLECTION_LENGTH = 0
+const MINIMUM_DISTINCT_CAPABILITY_VALUES = 1
+
 describe('block capability flags — the additive-safety guarantee', () => {
   it.effect(
     'a block definition that omits a flag resolves to that flag documented default',
@@ -26,8 +29,8 @@ describe('block capability flags — the additive-safety guarantee', () => {
       Effect.sync(() => {
         // A definition that mentions exactly one flag. Everything else is silent.
         const sand: BlockDefinition = {
-          type: 'sand',
           capabilities: { fallsWhenUnsupported: true },
+          type: 'sand',
         }
 
         const resolved = blockCapabilitiesOf(sand)
@@ -36,14 +39,13 @@ describe('block capability flags — the additive-safety guarantee', () => {
         expect(resolved.fallsWhenUnsupported).toBe(true)
 
         // Every flag it did NOT mention resolves to the documented default —
-        // no `undefined`, no "unknown", no per-repository guess. This is the
-        // property that lets another flag be added later without touching a
-        // single existing block definition anywhere in the organisation.
+        // No `undefined`, no "unknown", no per-repository guess. This is the
+        // Property that lets another flag be added later without touching a
+        // Single existing block definition anywhere in the organisation.
         for (const flag of BLOCK_CAPABILITY_FLAGS) {
-          if (flag === 'fallsWhenUnsupported') {
-            continue
+          if (flag !== 'fallsWhenUnsupported') {
+            expect(resolved[flag]).toBe(BLOCK_CAPABILITY_DEFAULTS[flag])
           }
-          expect(resolved[flag]).toBe(BLOCK_CAPABILITY_DEFAULTS[flag])
         }
       }),
   )
@@ -57,12 +59,12 @@ describe('block capability flags — the additive-safety guarantee', () => {
 
   it.effect('every declared flag has a default, so no flag can be introduced without one', () =>
     Effect.sync(() => {
-      expect(BLOCK_CAPABILITY_FLAGS.length).toBeGreaterThan(0)
+      expect(BLOCK_CAPABILITY_FLAGS.length).toBeGreaterThan(EMPTY_COLLECTION_LENGTH)
       for (const flag of BLOCK_CAPABILITY_FLAGS) {
         expect(typeof BLOCK_CAPABILITY_DEFAULTS[flag]).toBe('boolean')
       }
       // BLOCK_CAPABILITY_FLAGS is derived from the defaults table, so the two
-      // can never drift apart. Pinning it here documents that intent.
+      // Can never drift apart. Pinning it here documents that intent.
       expect([...BLOCK_CAPABILITY_FLAGS].sort()).toStrictEqual(Object.keys(BLOCK_CAPABILITY_DEFAULTS).sort())
     }),
   )
@@ -72,29 +74,29 @@ describe('block capability flags — the additive-safety guarantee', () => {
     () =>
       Effect.sync(() => {
         // SUPERSEDES the pre-audit rule "every default is false". That rule was
-        // a property of a guessed 7-flag set, not of the mechanism, and
-        // historical design audit §4.6-§4.9 shows it is wrong: the
-        // reference implementation stores `suffocates`, `canSupportAttachments`
-        // and `validSpawnSurface` as NEGATIVE membership lists, i.e. their
-        // ordinary-cube answer is `true`.
+        // A property of a guessed 7-flag set, not of the mechanism, and
+        // Historical design audit §4.6-§4.9 shows it is wrong: the
+        // Reference implementation stores `suffocates`, `canSupportAttachments`
+        // And `validSpawnSurface` as NEGATIVE membership lists, i.e. their
+        // Ordinary-cube answer is `true`.
         //
         // This assertion is strictly stronger than the rule it replaces: it
-        // pins every default individually instead of asserting one blanket
-        // value, so a wrong default is now a test failure rather than a value
-        // that happens to satisfy a weaker predicate.
+        // Pins every default individually instead of asserting one blanket
+        // Value, so a wrong default is now a test failure rather than a value
+        // That happens to satisfy a weaker predicate.
         const expected: Record<BlockCapabilityFlag, boolean> = {
-          passable: false,
-          fallsWhenUnsupported: false,
-          replaceable: false,
-          flammable: false,
-          fireSource: false,
-          pistonImmovable: false,
           brokenByWaterFlow: false,
-          climbable: false,
-          suffocates: true,
           canSupportAttachments: true,
-          validSpawnSurface: true,
+          climbable: false,
+          fallsWhenUnsupported: false,
+          fireSource: false,
+          flammable: false,
+          passable: false,
+          pistonImmovable: false,
+          replaceable: false,
+          suffocates: true,
           tillable: false,
+          validSpawnSurface: true,
         }
         expect({ ...BLOCK_CAPABILITY_DEFAULTS }).toStrictEqual(expected)
       }),
@@ -106,7 +108,7 @@ describe('block capability flags — the additive-safety guarantee', () => {
       expect([...trueByDefault].sort()).toStrictEqual([...TRUE_BY_DEFAULT_CAPABILITY_FLAGS].sort())
 
       // Everything else must default to false, so that a definition which
-      // forgets a flag can never accidentally opt INTO behaviour.
+      // Forgets a flag can never accidentally opt INTO behaviour.
       for (const flag of BLOCK_CAPABILITY_FLAGS) {
         if (!TRUE_BY_DEFAULT_CAPABILITY_FLAGS.includes(flag)) {
           expect(BLOCK_CAPABILITY_DEFAULTS[flag]).toBe(false)
@@ -119,10 +121,10 @@ describe('block capability flags — the additive-safety guarantee', () => {
 describe('properties that are not boolean capability flags', () => {
   it.effect('`emissive`, `transparent` and `fluid` are NOT boolean flags', () =>
     Effect.sync(() => {
-      // Regression guard. the design contract lists these as booleans; the audit
-      // proved all three are the wrong TYPE, not merely under-specified.
+      // Regression guard. The design contract lists these as booleans; the audit
+      // Proved all three are the wrong TYPE, not merely under-specified.
       // Re-adding any of them to the boolean table would silently discard
-      // information the reference implementation already carries.
+      // Information the reference implementation already carries.
       for (const wrong of ['emissive', 'transparent', 'fluid']) {
         expect(BLOCK_CAPABILITY_FLAGS).not.toContain(wrong)
       }
@@ -131,15 +133,15 @@ describe('properties that are not boolean capability flags', () => {
 
   it.effect('they live in the property table instead, with the types the audit requires', () =>
     Effect.sync(() => {
-      // emissive: boolean -> lightEmission: 0..15   (light.ts:24-46)
+      // Emissive: boolean -> lightEmission: 0..15   (light.ts:24-46)
       expect(BLOCK_PROPERTY_NAMES).toContain('lightEmission')
       expect(typeof BLOCK_PROPERTY_DEFAULTS.lightEmission).toBe('number')
 
-      // transparent: boolean -> opacity: 3-value    (meshing-worker-config.ts:7-13)
+      // Transparent: boolean -> opacity: 3-value    (meshing-worker-config.ts:7-13)
       expect(BLOCK_PROPERTY_NAMES).toContain('opacity')
       expect(BLOCK_PROPERTY_DEFAULTS.opacity).toBe('opaque')
 
-      // fluid: boolean -> 'none'|'water'|'lava'     (greedy-meshing-fluid-state.ts:27)
+      // Fluid: boolean -> 'none'|'water'|'lava'     (greedy-meshing-fluid-state.ts:27)
       expect(BLOCK_PROPERTY_NAMES).toContain('fluid')
       expect(BLOCK_PROPERTY_DEFAULTS.fluid).toBe('none')
     }),
@@ -147,7 +149,7 @@ describe('properties that are not boolean capability flags', () => {
 
   it.effect('the remaining capabilities are boolean flags', () =>
     Effect.sync(() => {
-      // the design contract named seven; four of them survive as booleans unchanged.
+        // The design contract named seven; four of them survive as booleans unchanged.
       // §3.12's `pistonImmovable` is the fourth-plus-one.
       for (const flag of ['passable', 'fallsWhenUnsupported', 'flammable', 'pistonImmovable']) {
         expect(BLOCK_CAPABILITY_FLAGS).toContain(flag)
@@ -160,38 +162,38 @@ describe('audit §4.9 — "non-solid" is five independent capabilities, not one 
   // THE REGRESSION TEST the audit calls its most important conclusion.
   //
   // The reference implementation re-lists "the non-solid blocks" in five
-  // places, with DIFFERENT membership each time:
-  //   block-collision-predicates.ts:22   PASSABLE_BLOCK_IDS
-  //   environment-hazard.config.ts:39    NON_SUFFOCATING_BLOCKS
-  //   block-support.ts:47                NON_SUPPORTING_BLOCK_TYPES
-  //   spawn-selection-search.ts:41       NON_SPAWN_SURFACE_BLOCK_IDS
-  //   village-placement-surface.ts:6     VILLAGE_NON_GROUND_IDS
+  // Places, with DIFFERENT membership each time:
+  //   Block-collision-predicates.ts:22   PASSABLE_BLOCK_IDS
+  //   Environment-hazard.config.ts:39    NON_SUFFOCATING_BLOCKS
+  //   Block-support.ts:47                NON_SUPPORTING_BLOCK_TYPES
+  //   Spawn-selection-search.ts:41       NON_SPAWN_SURFACE_BLOCK_IDS
+  //   Village-placement-surface.ts:6     VILLAGE_NON_GROUND_IDS
   //
   // Merging them into one `solid` flag necessarily regresses. These fixtures
-  // transcribe the reference's actual membership for the three blocks where
-  // the sets disagree; if someone later collapses the flags, at least one of
-  // these expectations becomes impossible to satisfy.
+  // Transcribe the reference's actual membership for the three blocks where
+  // The sets disagree; if someone later collapses the flags, at least one of
+  // These expectations becomes impossible to satisfy.
 
   const glass: BlockDefinition = {
-    type: 'glass',
-    // NOT in PASSABLE_BLOCK_IDS -> collides.
-    // IS in NON_SUFFOCATING_BLOCKS and NON_SPAWN_SURFACE_BLOCK_IDS.
-    capabilities: { suffocates: false, validSpawnSurface: false },
-    properties: { opacity: 'transparentSolid' },
+      // NOT in PASSABLE_BLOCK_IDS -> collides.
+      // IS in NON_SUFFOCATING_BLOCKS and NON_SPAWN_SURFACE_BLOCK_IDS.
+      capabilities: { suffocates: false, validSpawnSurface: false },
+      properties: { opacity: 'transparentSolid' },
+      type: 'glass',
   }
 
   const leaves: BlockDefinition = {
-    type: 'oak_leaves',
-    // block-collision-predicates.ts:18-21 records the bug: listing LEAVES as
-    // passable let players fall straight through tree canopies. It is solid.
-    capabilities: { suffocates: false, validSpawnSurface: false },
-    properties: { opacity: 'transparentSolid' },
+      // Block-collision-predicates.ts:18-21 records the bug: listing LEAVES as
+      // Passable let players fall straight through tree canopies. It is solid.
+      capabilities: { suffocates: false, validSpawnSurface: false },
+      properties: { opacity: 'transparentSolid' },
+      type: 'oak_leaves',
   }
 
   const snow: BlockDefinition = {
-    type: 'snow',
-    // In NON_SUPPORTING_BLOCK_TYPES but NOT in PASSABLE_BLOCK_IDS.
-    capabilities: { canSupportAttachments: false },
+      // In NON_SUPPORTING_BLOCK_TYPES but NOT in PASSABLE_BLOCK_IDS.
+      capabilities: { canSupportAttachments: false },
+      type: 'snow',
   }
 
   it.effect('GLASS is solid for collision yet neither suffocating nor a spawn surface', () =>
@@ -204,8 +206,8 @@ describe('audit §4.9 — "non-solid" is five independent capabilities, not one 
       expect(resolved.validSpawnSurface).toBe(false)
 
       // A single `solid` flag would have to be simultaneously true (so the
-      // player does not fall through a glass floor) and false (so standing
-      // inside glass does not suffocate, and so mobs do not spawn on it).
+      // Player does not fall through a glass floor) and false (so standing
+      // Inside glass does not suffocate, and so mobs do not spawn on it).
       expect(solidForCollision).not.toBe(resolved.suffocates)
       expect(solidForCollision).not.toBe(resolved.validSpawnSurface)
     }),
@@ -236,7 +238,7 @@ describe('audit §4.9 — "non-solid" is five independent capabilities, not one 
 
       // If "solid for collision", `suffocates`, `canSupportAttachments` and
       // `validSpawnSurface` were the same underlying concept, every row would
-      // report the same value for all four. None of these rows does.
+      // Report the same value for all four. None of these rows does.
       for (const row of rows) {
         const answers = new Set([
           !row.passable,
@@ -244,11 +246,11 @@ describe('audit §4.9 — "non-solid" is five independent capabilities, not one 
           row.canSupportAttachments,
           row.validSpawnSurface,
         ])
-        expect(answers.size).toBeGreaterThan(1)
+      expect(answers.size).toBeGreaterThan(MINIMUM_DISTINCT_CAPABILITY_VALUES)
       }
 
       // And the disagreement is not the same disagreement each time: glass
-      // differs from snow on both `suffocates` and `canSupportAttachments`.
+      // Differs from snow on both `suffocates` and `canSupportAttachments`.
       const [glassRow, , snowRow] = rows
       expect(glassRow?.suffocates).not.toBe(snowRow?.suffocates)
       expect(glassRow?.canSupportAttachments).not.toBe(snowRow?.canSupportAttachments)
@@ -269,7 +271,7 @@ describe('resolveBlockCapabilities', () => {
   it.effect('an explicit `false` override is honoured and not confused with omission', () =>
     Effect.sync(() => {
       // `suffocates` is one of the three flags that default to TRUE, so this
-      // is now a real distinction rather than a hypothetical one.
+      // Is now a real distinction rather than a hypothetical one.
       const explicit = resolveBlockCapabilities({ suffocates: false })
       const omitted = resolveBlockCapabilities({})
       expect(explicit.suffocates).toBe(false)
@@ -310,7 +312,7 @@ describe('capabilityOf', () => {
   it.effect('reads a true-by-default flag correctly when the overrides say nothing', () =>
     Effect.sync(() => {
       // `??` would be wrong here if the default were consulted only for
-      // falsy values; pinning it because `suffocates` defaults to true.
+      // Falsy values; pinning it because `suffocates` defaults to true.
       expect(capabilityOf({}, 'suffocates')).toBe(true)
       expect(capabilityOf({ suffocates: false }, 'suffocates')).toBe(false)
     }),
@@ -339,7 +341,7 @@ describe('audit §4.9, continued — the roster additions that make the argument
   it.effect('CACTUS disagrees with itself three ways in one row, which glass and leaves do twice', () =>
     Effect.sync(() => {
       // The strongest single counter-example to a `solid` boolean in the whole
-      // table. From the reference:
+      // Table. From the reference:
       //   NOT in PASSABLE_BLOCK_IDS            -> collides, so `solid` must be true
       //   IS  in NON_SUFFOCATING_BLOCKS (:65)  -> so `solid` must be false
       //   IS  in NON_SUPPORTING_BLOCK_TYPES    -> so `solid` must be false
@@ -353,8 +355,8 @@ describe('audit §4.9, continued — the roster additions that make the argument
       expect(cactus.validSpawnSurface).toBe(false)
 
       // One boolean would have to be simultaneously true and false three times
-      // over. Stated as the impossibility rather than as four values, so that
-      // the test still means something if the values are ever re-sourced.
+      // Over. Stated as the impossibility rather than as four values, so that
+      // The test still means something if the values are ever re-sourced.
       for (const collapsed of [cactus.suffocates, cactus.canSupportAttachments, cactus.validSpawnSurface]) {
         expect(solidForCollision).not.toBe(collapsed)
       }
@@ -364,12 +366,12 @@ describe('audit §4.9, continued — the roster additions that make the argument
   it.effect('LADDER is passable and STILL supports attachments, so passability implies nothing', () =>
     Effect.sync(() => {
       // The disagreement in the other direction, and the one a tidy-up would
-      // most likely erase: everything else in `PASSABLE_BLOCK_IDS` that is also
-      // in `NON_SUPPORTING_BLOCK_TYPES` makes "passable therefore non-
-      // supporting" look like a rule. `ladder` is in the first
+      // Most likely erase: everything else in `PASSABLE_BLOCK_IDS` that is also
+      // In `NON_SUPPORTING_BLOCK_TYPES` makes "passable therefore non-
+      // Supporting" look like a rule. `ladder` is in the first
       // (`block-collision-predicates.ts:29`) and absent from the second
       // (`block-support.ts:47-60`), which is what a ladder being climbable and
-      // wall-mounted actually requires.
+      // Wall-mounted actually requires.
       const ladder = capabilitiesOfBlockId(blockIdOf('ladder'))
 
       expect(ladder.passable).toBe(true)
@@ -377,8 +379,8 @@ describe('audit §4.9, continued — the roster additions that make the argument
       expect(ladder.canSupportAttachments).toBe(true)
 
       // ...and it is a genuine split within the passable set, not a lone
-      // exception that could be re-read as an oversight: the plants next to it
-      // in the same reference list answer the other way.
+      // Exception that could be re-read as an oversight: the plants next to it
+      // In the same reference list answer the other way.
       expect(capabilitiesOfBlockId(blockIdOf('dandelion')).canSupportAttachments).toBe(false)
       expect(capabilitiesOfBlockId(blockIdOf('rail')).canSupportAttachments).toBe(false)
     }),
@@ -387,30 +389,29 @@ describe('audit §4.9, continued — the roster additions that make the argument
   it.effect('EVERY pair of the four solidity concepts disagrees on some row of the real table', () =>
     Effect.sync(() => {
       // The generalisation of the GLASS/LEAVES/SNOW tests, and the assertion
-      // that actually forbids the merge. Those three rows show that the four
-      // concepts are not ALL one concept; this shows that no TWO of them are
-      // one concept, which is the claim audit §4.9 makes and the weaker test
-      // does not reach.
+      // That actually forbids the merge. Those three rows show that the four
+      // Concepts are not ALL one concept; this shows that no TWO of them are
+      // One concept, which is the claim audit §4.9 makes and the weaker test
+      // Does not reach.
       //
       // If someone were to redefine any of these four in terms of another, the
-      // pair would agree on every row and this fails naming the pair.
+      // Pair would agree on every row and this fails naming the pair.
       const READINGS = {
+        canSupportAttachments: (id: number) => capabilityOfBlockId(id, 'canSupportAttachments'),
         solidForCollision: (id: number) => !capabilityOfBlockId(id, 'passable'),
         suffocates: (id: number) => capabilityOfBlockId(id, 'suffocates'),
-        canSupportAttachments: (id: number) => capabilityOfBlockId(id, 'canSupportAttachments'),
         validSpawnSurface: (id: number) => capabilityOfBlockId(id, 'validSpawnSurface'),
       } as const
       const names = Object.keys(READINGS) as ReadonlyArray<keyof typeof READINGS>
 
       for (const left of names) {
         for (const right of names) {
-          if (left >= right) {
-            continue
+          if (left < right) {
+            const witness = BLOCK_IDS.find((id) => READINGS[left](id) !== READINGS[right](id))
+            // The block name is in the failure message on purpose: when this
+            // Breaks, the useful question is "which row stopped disagreeing".
+            expect(witness).toBeDefined()
           }
-          const witness = BLOCK_IDS.find((id) => READINGS[left](id) !== READINGS[right](id))
-          // The block name is in the failure message on purpose: when this
-          // breaks, the useful question is "which row stopped disagreeing".
-          expect(witness === undefined ? `${left} never disagrees with ${right}` : 'ok').toBe('ok')
         }
       }
     }),
@@ -419,14 +420,14 @@ describe('audit §4.9, continued — the roster additions that make the argument
   it.effect('a passable block never also suffocates, which audit §4.7 licenses and the reference violates', () =>
     Effect.sync(() => {
       // Audit §4.7: 「`passable=true` なら常に false を導出する方が安全」. Kernel
-      // does not COERCE this (see `domain/block-capabilities.ts` on why a row
-      // stating both should be a reviewable mistake), so it has to be checked.
+      // Does not COERCE this (see `domain/block-capabilities.ts` on why a row
+      // Stating both should be a reviewable mistake), so it has to be checked.
       //
       // It is checked because the reference's own tables break it:
       // `NON_SUFFOCATING_BLOCKS` omits SUGAR_CANE, LILY_PAD, KELP, SEAGRASS,
       // RAIL and POWERED_RAIL, all six of which `PASSABLE_BLOCK_IDS` contains.
       // Those rows are the ones where kernel deliberately departs from a literal
-      // transcription, and this is the test that says so out loud.
+      // Transcription, and this is the test that says so out loud.
       for (const id of BLOCK_IDS) {
         if (capabilityOfBlockId(id, 'passable')) {
           expect({ block: blockTypeOfId(id), suffocates: capabilityOfBlockId(id, 'suffocates') }).toStrictEqual({
@@ -437,7 +438,7 @@ describe('audit §4.9, continued — the roster additions that make the argument
       }
 
       // Named individually so the six inferences cannot be quietly dropped back
-      // to the default by a later edit.
+      // To the default by a later edit.
       for (const inferred of ['sugar_cane', 'lily_pad', 'kelp', 'seagrass', 'rail', 'powered_rail'] as const) {
         expect(capabilityOfBlockId(blockIdOf(inferred), 'suffocates')).toBe(false)
       }
