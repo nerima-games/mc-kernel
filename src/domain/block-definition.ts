@@ -80,9 +80,9 @@ export const blockPropertiesOf = (definition: BlockDefinition): BlockProperties 
 
 /** Resolve both halves at once. */
 export const resolveBlock = (definition: BlockDefinition): ResolvedBlock => ({
-  type: definition.type,
   capabilities: blockCapabilitiesOf(definition),
   properties: blockPropertiesOf(definition),
+  type: definition.type,
 })
 
 // ---------------------------------------------------------------------------
@@ -187,8 +187,8 @@ export const PENDING_CAPABILITIES: ReadonlyArray<{
   readonly why: string
 }> = [
   {
-    name: 'textureTiles',
     kind: 'property',
+    name: 'textureTiles',
     why:
       'audit §4.8 (block-texture-map.config.ts:18). The audit records that this ' +
       'is currently a positional array indexed by storage index, double-managed ' +
