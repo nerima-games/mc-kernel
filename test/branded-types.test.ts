@@ -1,36 +1,57 @@
-import { describe, expect, it } from '@effect/vitest'
-import { Effect, Either } from 'effect'
 import { BlockAxis, CHUNK_SIZE_XZ, ChunkAxis, LocalAxis } from '../src/domain/coordinates'
-import { StageId, WorldId } from '../src/domain/identifiers'
 import { DeltaTimeSecs, EpochMillis, MAX_STACK_COUNT, MonotonicTimeSecs, StackCount } from '../src/domain/quantities'
+import { Effect, Either } from 'effect'
+import { StageId, WorldId } from '../src/domain/identifiers'
+import { describe, expect, it } from '@effect/vitest'
+
+const EMPTY_STACK_COUNT = 0
+const SINGLE_ITEM_STACK_COUNT = 1
+const FRACTIONAL_STACK_COUNT = 1.5
+const NEGATIVE_STACK_COUNT = -1
+const STACK_COUNT_OVER_MAXIMUM = 1
+const INVALID_STACK_COUNT = 999
+const FIRST_VALIDATION_ISSUE = 0
+const ZERO_DELTA_SECONDS = 0
+const NEGATIVE_DELTA_SECONDS = -0.001
+const NEGATIVE_MONOTONIC_TIME_SECONDS = -1
+const INITIAL_MONOTONIC_TIME_SECONDS = 0
+const FRACTIONAL_EPOCH_MILLIS = 1.5
+const SAFE_INTEGER_OVERFLOW = 2
+const EXPECTED_EPOCH_MILLIS = 1_700_000_000_000
+const CHUNK_ORIGIN = 0
+const LAST_LOCAL_COORDINATE_OFFSET = 1
+const NEGATIVE_LOCAL_COORDINATE = -1
+const FRACTIONAL_BLOCK_COORDINATE = 0.5
+const FRACTIONAL_CHUNK_COORDINATE = -0.5
+const VALID_NEGATIVE_BLOCK_COORDINATE = -64
+const VALID_NEGATIVE_CHUNK_COORDINATE = -4
 
 describe('StackCount', () => {
   it.effect('accepts the boundaries of its documented range', () =>
     Effect.sync(() => {
-      expect(Either.isRight(StackCount.either(0))).toBe(true)
-      expect(Either.isRight(StackCount.either(1))).toBe(true)
+      expect(Either.isRight(StackCount.either(EMPTY_STACK_COUNT))).toBe(true)
+      expect(Either.isRight(StackCount.either(SINGLE_ITEM_STACK_COUNT))).toBe(true)
       expect(Either.isRight(StackCount.either(MAX_STACK_COUNT))).toBe(true)
     }),
   )
 
   it.effect('rejects a fractional count, because half an item does not exist', () =>
     Effect.sync(() => {
-      expect(Either.isLeft(StackCount.either(1.5))).toBe(true)
-      // Effect Brand constructors are callable validation functions, not classes.
-      // eslint-disable-next-line new-cap
-      expect(() => StackCount(1.5)).toThrow()
+      expect(Either.isLeft(StackCount.either(FRACTIONAL_STACK_COUNT))).toBe(true)
+      const makeStackCount = StackCount
+      expect(() => makeStackCount(FRACTIONAL_STACK_COUNT)).toThrow()
     }),
   )
 
   it.effect('rejects a negative count', () =>
     Effect.sync(() => {
-      expect(Either.isLeft(StackCount.either(-1))).toBe(true)
+      expect(Either.isLeft(StackCount.either(NEGATIVE_STACK_COUNT))).toBe(true)
     }),
   )
 
   it.effect('rejects a count above the maximum stack size', () =>
     Effect.sync(() => {
-      expect(Either.isLeft(StackCount.either(MAX_STACK_COUNT + 1))).toBe(true)
+      expect(Either.isLeft(StackCount.either(MAX_STACK_COUNT + STACK_COUNT_OVER_MAXIMUM))).toBe(true)
     }),
   )
 
@@ -42,10 +63,10 @@ describe('StackCount', () => {
 
   it.effect('reports what was wrong rather than failing silently', () =>
     Effect.sync(() => {
-      const result = StackCount.either(999)
+      const result = StackCount.either(INVALID_STACK_COUNT)
       expect(Either.isLeft(result)).toBe(true)
       if (Either.isLeft(result)) {
-        expect(result.left[0]?.message).toContain('999')
+        expect(result.left[FIRST_VALIDATION_ISSUE]?.message).toContain(`${INVALID_STACK_COUNT}`)
       }
     }),
   )
@@ -54,13 +75,13 @@ describe('StackCount', () => {
 describe('DeltaTimeSecs', () => {
   it.effect('accepts zero, because a frame may be scheduled twice within one clock tick', () =>
     Effect.sync(() => {
-      expect(Either.isRight(DeltaTimeSecs.either(0))).toBe(true)
+      expect(Either.isRight(DeltaTimeSecs.either(ZERO_DELTA_SECONDS))).toBe(true)
     }),
   )
 
   it.effect('rejects a negative delta, because time does not run backwards within a frame', () =>
     Effect.sync(() => {
-      expect(Either.isLeft(DeltaTimeSecs.either(-0.001))).toBe(true)
+      expect(Either.isLeft(DeltaTimeSecs.either(NEGATIVE_DELTA_SECONDS))).toBe(true)
     }),
   )
 
@@ -75,16 +96,16 @@ describe('DeltaTimeSecs', () => {
 describe('MonotonicTimeSecs and EpochMillis', () => {
   it.effect('MonotonicTimeSecs rejects a negative reading', () =>
     Effect.sync(() => {
-      expect(Either.isLeft(MonotonicTimeSecs.either(-1))).toBe(true)
-      expect(Either.isRight(MonotonicTimeSecs.either(0))).toBe(true)
+      expect(Either.isLeft(MonotonicTimeSecs.either(NEGATIVE_MONOTONIC_TIME_SECONDS))).toBe(true)
+      expect(Either.isRight(MonotonicTimeSecs.either(INITIAL_MONOTONIC_TIME_SECONDS))).toBe(true)
     }),
   )
 
   it.effect('EpochMillis rejects a fractional millisecond and values beyond safe-integer precision', () =>
     Effect.sync(() => {
-      expect(Either.isLeft(EpochMillis.either(1.5))).toBe(true)
-      expect(Either.isLeft(EpochMillis.either(Number.MAX_SAFE_INTEGER + 2))).toBe(true)
-      expect(Either.isRight(EpochMillis.either(1_700_000_000_000))).toBe(true)
+      expect(Either.isLeft(EpochMillis.either(FRACTIONAL_EPOCH_MILLIS))).toBe(true)
+      expect(Either.isLeft(EpochMillis.either(Number.MAX_SAFE_INTEGER + SAFE_INTEGER_OVERFLOW))).toBe(true)
+      expect(Either.isRight(EpochMillis.either(EXPECTED_EPOCH_MILLIS))).toBe(true)
     }),
   )
 })
@@ -92,19 +113,19 @@ describe('MonotonicTimeSecs and EpochMillis', () => {
 describe('coordinate axes', () => {
   it.effect('LocalAxis rejects a coordinate that has left its chunk', () =>
     Effect.sync(() => {
-      expect(Either.isRight(LocalAxis.either(0))).toBe(true)
-      expect(Either.isRight(LocalAxis.either(CHUNK_SIZE_XZ - 1))).toBe(true)
+      expect(Either.isRight(LocalAxis.either(CHUNK_ORIGIN))).toBe(true)
+      expect(Either.isRight(LocalAxis.either(CHUNK_SIZE_XZ - LAST_LOCAL_COORDINATE_OFFSET))).toBe(true)
       expect(Either.isLeft(LocalAxis.either(CHUNK_SIZE_XZ))).toBe(true)
-      expect(Either.isLeft(LocalAxis.either(-1))).toBe(true)
+      expect(Either.isLeft(LocalAxis.either(NEGATIVE_LOCAL_COORDINATE))).toBe(true)
     }),
   )
 
   it.effect('BlockAxis and ChunkAxis reject non-integers', () =>
     Effect.sync(() => {
-      expect(Either.isLeft(BlockAxis.either(0.5))).toBe(true)
-      expect(Either.isLeft(ChunkAxis.either(-0.5))).toBe(true)
-      expect(Either.isRight(BlockAxis.either(-64))).toBe(true)
-      expect(Either.isRight(ChunkAxis.either(-4))).toBe(true)
+      expect(Either.isLeft(BlockAxis.either(FRACTIONAL_BLOCK_COORDINATE))).toBe(true)
+      expect(Either.isLeft(ChunkAxis.either(FRACTIONAL_CHUNK_COORDINATE))).toBe(true)
+      expect(Either.isRight(BlockAxis.either(VALID_NEGATIVE_BLOCK_COORDINATE))).toBe(true)
+      expect(Either.isRight(ChunkAxis.either(VALID_NEGATIVE_CHUNK_COORDINATE))).toBe(true)
     }),
   )
 })
