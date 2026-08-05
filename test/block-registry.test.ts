@@ -182,6 +182,7 @@ describe('id assignment is permanent', () => {
     ['fire', 119],
     ['soul_soil', 120],
     ['wither_skeleton_skull', 121],
+    ['dropper', 122],
   ]
 
   it.effect('assigns exactly the pinned ids', () =>
@@ -1051,16 +1052,16 @@ describe('the completed roster and additive gameplay vocabulary', () => {
       //
       // Counting LINES of the reference schema gives 128; eight are comments.
       // That is the trap, and 120 is the answer.
-      expect(BLOCK_TYPES.length).toBe(122)
-      expect(new Set(BLOCK_TYPES).size).toBe(122)
-      expect(BLOCK_REGISTRY.length).toBe(122)
+      expect(BLOCK_TYPES.length).toBe(123)
+      expect(new Set(BLOCK_TYPES).size).toBe(123)
+      expect(BLOCK_REGISTRY.length).toBe(123)
 
       // The bijection, both ways, over the whole roster. `UNREGISTERED_BLOCK_TYPES`
       // asserts one direction elsewhere; this is the round trip.
       for (const type of BLOCK_TYPES) {
         expect(blockTypeOfId(blockIdOf(type))).toBe(type)
       }
-      expect(new Set(BLOCK_IDS).size).toBe(122)
+      expect(new Set(BLOCK_IDS).size).toBe(123)
     }),
   )
 
@@ -1073,7 +1074,7 @@ describe('the completed roster and additive gameplay vocabulary', () => {
       for (const id of BLOCK_IDS) {
         expect(id).toBeLessThanOrEqual(BLOCK_ID_MAX)
       }
-      expect(Math.max(...BLOCK_IDS)).toBe(121)
+      expect(Math.max(...BLOCK_IDS)).toBe(122)
     }),
   )
 

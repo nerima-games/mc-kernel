@@ -285,11 +285,11 @@ describe('the supportRule column across the whole registry', () => {
     }),
   )
 
-  it.effect('the other 102 require nothing below, so an ordinary cube is unaffected', () =>
+  it.effect('the other 103 require nothing below, so an ordinary cube is unaffected', () =>
     Effect.sync(() => {
       const indifferent = BLOCK_TYPES.filter((type) => !isSupportSensitiveBlockId(blockIdOf(type)))
       expect(indifferent.length).toBe(BLOCK_TYPES.length - SUPPORT_SENSITIVE.length)
-      expect(indifferent.length).toBe(102)
+      expect(indifferent.length).toBe(103)
       for (const type of indifferent) {
         expect(supportRuleOfBlockId(blockIdOf(type))).toStrictEqual(NEEDS_NO_SUPPORT)
         // ...and "requires nothing" means it stays up over ANY support,

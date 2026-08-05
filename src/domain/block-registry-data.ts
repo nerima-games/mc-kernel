@@ -1971,6 +1971,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       },
     },
   },
+  { id: BlockId(122), definition: { type: 'dropper', properties: { hardness: 60 } } },
 ]
 
 // ---------------------------------------------------------------------------
