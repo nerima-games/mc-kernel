@@ -55,6 +55,10 @@ describe('public API surface', () => {
         'LocalAxis',
         'position',
         'blockPosition',
+        'blockPositionKeyOf',
+        'isBlockPositionKey',
+        'blockPositionOfKey',
+        'decodeBlockPositionKey',
         'BLOCK_FACES',
         'HORIZONTAL_BLOCK_FACES',
         'isBlockFace',
@@ -222,6 +226,14 @@ describe('public API surface', () => {
       expect(kernel.isItemType('cod')).toBe(true)
       expect(kernel.isItemType('shears')).toBe(true)
       expect(kernel.isItemType('wool')).toBe(true)
+    }),
+  )
+
+  it.effect('makes the coordinate key type available to TypeScript callers', () =>
+    Effect.sync(() => {
+      const key: kernel.BlockPositionKey = kernel.blockPositionKeyOf(kernel.blockPosition(0, 0, 0))
+
+      expect(key).toBe('0,0,0')
     }),
   )
 
