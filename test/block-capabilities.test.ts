@@ -3,13 +3,13 @@ import { Effect } from 'effect'
 import {
   BLOCK_CAPABILITY_DEFAULTS,
   BLOCK_CAPABILITY_FLAGS,
-  capabilityOf,
-  resolveBlockCapabilities,
-  TRUE_BY_DEFAULT_CAPABILITY_FLAGS,
   type BlockCapabilityFlag,
   type BlockCapabilityOverrides,
+  TRUE_BY_DEFAULT_CAPABILITY_FLAGS,
+  capabilityOf,
+  resolveBlockCapabilities,
 } from '../src/domain/block-capabilities'
-import { blockCapabilitiesOf, type BlockDefinition } from '../src/domain/block-definition'
+import { type BlockDefinition, blockCapabilitiesOf } from '../src/domain/block-definition'
 import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
 import {
   BLOCK_IDS,

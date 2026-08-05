@@ -37,8 +37,7 @@ import {
   needsOneOf,
   satisfiesSupportRule,
 } from '../src/domain/block-support'
-import type { BlockType } from '../src/domain/block-type'
-import { BLOCK_TYPES } from '../src/domain/block-type'
+import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
 
 // ---------------------------------------------------------------------------
 // The three arms, in isolation

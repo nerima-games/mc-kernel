@@ -21,28 +21,28 @@
  */
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { blockPropertiesOf, type BlockDefinition } from '../src/domain/block-definition'
+import { type BlockDefinition, blockPropertiesOf } from '../src/domain/block-definition'
 import {
   BARE_HANDED,
+  type BlockDropRule,
   DEFAULT_BLOCK_DROP,
   DEFAULT_HARVEST_TOOL,
-  resolveDrop,
-  resolveDropItem,
-  type BlockDropRule,
   type HarvestContext,
   type HarvestToolRequirement,
+  resolveDrop,
+  resolveDropItem,
 } from '../src/domain/block-harvest'
 import {
-  blockOfPlaceableItem,
-  isPlaceableItem,
-  itemOfBlock,
   NON_PLACEABLE_ITEM_TYPES,
   PLACEABLE_ITEM_TYPES,
   UNITEMISED_BLOCK_TYPES,
+  blockOfPlaceableItem,
+  isPlaceableItem,
+  itemOfBlock,
 } from '../src/domain/block-item'
 import { BLOCK_IDS, BLOCK_REGISTRY, blockIdOf, dropOfBlockId } from '../src/domain/block-registry'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
-import { isItemType, ITEM_TYPES, type ItemType } from '../src/domain/item-type'
+import { ITEM_TYPES, type ItemType, isItemType } from '../src/domain/item-type'
 
 /** A diamond pickaxe without enchantments: nothing is tier-gated for this player. */
 const FULLY_EQUIPPED: HarvestContext = { heldTier: 'diamond', silkTouch: true }

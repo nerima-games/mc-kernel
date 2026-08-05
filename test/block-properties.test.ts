@@ -11,20 +11,20 @@ import {
   BLOCK_OPACITIES,
   BLOCK_PROPERTY_DEFAULTS,
   BLOCK_PROPERTY_NAMES,
-  clampLightLevel,
-  COLLISION_SHAPES,
-  FLUID_KINDS,
-  isLightLevel,
-  LIGHT_LEVEL_MAX,
-  LIGHT_LEVEL_MIN,
-  propertyOf,
-  RAIL_KINDS,
-  RENDER_KINDS,
-  resolveBlockProperties,
   type BlockProperties,
   type BlockPropertyOverrides,
+  COLLISION_SHAPES,
+  FLUID_KINDS,
+  LIGHT_LEVEL_MAX,
+  LIGHT_LEVEL_MIN,
+  RAIL_KINDS,
+  RENDER_KINDS,
+  clampLightLevel,
+  isLightLevel,
+  propertyOf,
+  resolveBlockProperties,
 } from '../src/domain/block-properties'
-import { blockPropertiesOf, resolveBlock, type BlockDefinition } from '../src/domain/block-definition'
+import { type BlockDefinition, blockPropertiesOf, resolveBlock } from '../src/domain/block-definition'
 
 describe('block properties — the additive-safety guarantee, extended to non-booleans', () => {
   it.effect(
