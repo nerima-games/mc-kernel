@@ -1,5 +1,5 @@
-import { Brand } from 'effect'
 import type { BlockDefinition } from './block-definition'
+import { Brand } from 'effect'
 
 /**
  * The storage encoding of a block inside a chunk buffer.
@@ -36,4 +36,3 @@ export type BlockRegistryEntry = {
   readonly id: BlockId
   readonly definition: BlockDefinition
 }
-

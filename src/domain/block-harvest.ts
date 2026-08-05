@@ -17,9 +17,9 @@
  * or must come with a default in `BLOCK_PROPERTY_DEFAULTS`. Never both required
  * and defaultless.
  */
-import { itemOfBlock } from './block-item.js'
 import type { BlockType } from './block-type.js'
 import type { ItemType } from './item-type.js'
+import { itemOfBlock } from './block-item.js'
 
 // ---------------------------------------------------------------------------
 // harvestTool (audit §4.5)

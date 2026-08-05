@@ -51,10 +51,13 @@
  * property without a default a compile error, so the "cannot exist without a
  * default" guarantee survives the split.
  */
-import type { BlockDropRule, HarvestToolRequirement } from './block-harvest.js'
-import { DEFAULT_BLOCK_DROP, DEFAULT_HARVEST_TOOL } from './block-harvest.js'
-import type { SupportRule } from './block-support.js'
-import { NEEDS_NO_SUPPORT } from './block-support.js'
+import {
+  type BlockDropRule,
+  DEFAULT_BLOCK_DROP,
+  DEFAULT_HARVEST_TOOL,
+  type HarvestToolRequirement,
+} from './block-harvest.js'
+import { NEEDS_NO_SUPPORT, type SupportRule } from './block-support.js'
 
 // ---------------------------------------------------------------------------
 // Value vocabularies

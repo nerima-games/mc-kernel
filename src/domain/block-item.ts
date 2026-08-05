@@ -54,10 +54,8 @@
  * string unions do not silently interconvert" is a property that would
  * otherwise quietly stop holding the day one roster grew to swallow the other.
  */
-import type { BlockType } from './block-type.js'
-import { BLOCK_TYPES } from './block-type.js'
-import type { ItemType } from './item-type.js'
-import { ITEM_TYPES } from './item-type.js'
+import { BLOCK_TYPES, type BlockType } from './block-type.js'
+import { ITEM_TYPES, type ItemType } from './item-type.js'
 
 /**
  * The audit §6-8 intersection, solved at the type level: an item that can be
