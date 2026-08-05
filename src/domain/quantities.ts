@@ -15,11 +15,13 @@ import { Brand } from 'effect'
  */
 export const MAX_STACK_COUNT = 64
 
+const MIN_NON_NEGATIVE_VALUE = 0
+
 /** Number of items in one inventory stack. Integer in [0, MAX_STACK_COUNT]. */
 export type StackCount = number & Brand.Brand<'StackCount'>
 
 export const StackCount = Brand.refined<StackCount>(
-  (value) => Number.isInteger(value) && value >= 0 && value <= MAX_STACK_COUNT,
+  (value) => Number.isInteger(value) && value >= MIN_NON_NEGATIVE_VALUE && value <= MAX_STACK_COUNT,
   (value) => Brand.error(`StackCount must be an integer in [0, ${MAX_STACK_COUNT}], received ${value}`),
 )
 
@@ -33,7 +35,7 @@ export const StackCount = Brand.refined<StackCount>(
 export type DeltaTimeSecs = number & Brand.Brand<'DeltaTimeSecs'>
 
 export const DeltaTimeSecs = Brand.refined<DeltaTimeSecs>(
-  (value) => Number.isFinite(value) && value >= 0,
+  (value) => Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE,
   (value) => Brand.error(`DeltaTimeSecs must be a finite, non-negative number of seconds, received ${value}`),
 )
 
@@ -47,7 +49,7 @@ export const DeltaTimeSecs = Brand.refined<DeltaTimeSecs>(
 export type MonotonicTimeSecs = number & Brand.Brand<'MonotonicTimeSecs'>
 
 export const MonotonicTimeSecs = Brand.refined<MonotonicTimeSecs>(
-  (value) => Number.isFinite(value) && value >= 0,
+  (value) => Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE,
   (value) => Brand.error(`MonotonicTimeSecs must be a finite, non-negative number of seconds, received ${value}`),
 )
 
