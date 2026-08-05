@@ -31,21 +31,19 @@ mc-save は媒体フォーマットと保存先を所有し、同じ `Chunk` 型
 ## 2. コマンド
 
 ```console
-$ pnpm verify        # typecheck && lint && check:deps && api:check && test
-$ pnpm test:coverage # 99% ゲート。verify には含まれないので別に走らせる
+$ pnpm verify        # typecheck && lint && test
+$ pnpm test:coverage # カバレッジ計測。verify には含まれない
 ```
 
-**`pnpm verify` は CI と同じ内容ではない。** CI はこの 2 つを両方走らせるが、`verify` はカバレッジを
-含まない（`pnpm test` であって `pnpm test:coverage` ではない）。`domain/` の分岐に触ったら
-`pnpm test:coverage` も走らせること。走らせずに push しても落ちるのは CI であって手元ではない。
+**`pnpm verify` はカバレッジを含まない。** `domain/` の分岐に触ったら、必要に応じて
+`pnpm test:coverage` を別途実行すること。カバレッジ閾値は現在設定していない。
 
 | コマンド | 内容 |
 | --- | --- |
 | `pnpm typecheck` | `tsconfig.build.json` と `tsconfig.test.json` の両方を型検査 |
-| `pnpm lint` | oxlint（このリポジトリ唯一の lint / format 設定）。**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は 5 カテゴリすべてと個別 67 ルールが `warn`、`error` は 4 つだけ。このフラグが無かった頃は実質その 4 つしかゲートになっていなかった） |
-| `pnpm check:deps` | 依存ホワイトリスト + 循環検査 + 壁時計直読み禁止 |
+| `pnpm lint` | oxlint（このリポジトリ唯一の lint / format 設定）。**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は `correctness`、`suspicious`、`perf`、`restriction` と個別ルールを `warn` にし、`style` は無効化している） |
 | `pnpm test` | vitest（`@effect/vitest` の `it.effect` が主 API） |
-| `pnpm test:coverage` | カバレッジ計測 + **99% ゲート**（4 指標すべて。閾値は `vitest.config.ts`、後述） |
+| `pnpm test:coverage` | カバレッジ計測（閾値は未設定） |
 
 `pnpm` は `corepack` 経由で 9.15.0 を使う（`package.json` の `packageManager` でピン留め）。
 
@@ -72,7 +70,7 @@ mc-save 側で追加する。
 
 ## 4. カバレッジ
 
-**99% ゲートは有効である。** 参照実装（`takeokunn/ts-minecraft`）と同じく 4 指標すべてに課している。
+**カバレッジ閾値は未設定である。** 計測結果は確認するが、現時点では閾値で失敗させない。
 
 ```typescript
 // vitest.config.ts
