@@ -14,11 +14,14 @@ export type BlockId = number & Brand.Brand<'BlockId'>
 
 /** Largest representable id, from the `Uint8Array` chunk buffer. */
 export const BLOCK_ID_MAX = 255
+const BLOCK_ID_MIN = 0
 
 export const BlockId = Brand.refined<BlockId>(
-  (value) => Number.isInteger(value) && value >= 0 && value <= BLOCK_ID_MAX,
+  (value) => Number.isInteger(value) && value >= BLOCK_ID_MIN && value <= BLOCK_ID_MAX,
   (value) => Brand.error(`BlockId must be an integer in [0, ${BLOCK_ID_MAX}], received ${value}`),
 )
+
+const blockId = BlockId
 
 /**
  * Air is id 0, and this is load-bearing rather than conventional.
@@ -29,7 +32,7 @@ export const BlockId = Brand.refined<BlockId>(
  * out-of-bounds `AIR` sentinel (`domain/chunk-view.ts`: an unloaded neighbour
  * meshes as open sky rather than as a black wall).
  */
-export const AIR_BLOCK_ID: BlockId = BlockId(0)
+export const AIR_BLOCK_ID: BlockId = blockId(BLOCK_ID_MIN)
 
 /** One row of the table: a permanent id and the definition it names. */
 export type BlockRegistryEntry = {
