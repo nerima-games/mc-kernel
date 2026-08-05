@@ -3,52 +3,52 @@
  * 「`BlockType` / `ItemType`(リテラル型)」.
  *
  * The block half shipped (`./block-type`, `./block-registry`); this half never
- * did, so every repository that needed an item name invented `type ItemId =
- * string` with a comment promising to repoint when kernel published it
+ * Did, so every repository that needed an item name invented `type ItemId =
+ * String` with a comment promising to repoint when kernel published it
  * (`mc-sim/domain/inventory.ts`, `mc-playground-kit/domain/launch-options.ts`,
  * `mx-ui/domain/inventory-view-model.ts`). Three provisional aliases of the same
- * missing type is the same failure the block registry's header argues against,
- * one namespace over.
+ * Missing type is the same failure the block registry's header argues against,
+ * One namespace over.
  *
  * ---------------------------------------------------------------------------
  * Why a literal union and not a branded string
  * ---------------------------------------------------------------------------
  *
  * `./block-type` is a literal union because the design contract's whole argument for
- * the block vocabulary is that behaviour must key off capability flags rather
- * than off name comparisons — and the only thing that makes "did you handle
- * every case?" a question the compiler can answer is a closed set of literals.
+ * The block vocabulary is that behaviour must key off capability flags rather
+ * Than off name comparisons — and the only thing that makes "did you handle
+ * Every case?" a question the compiler can answer is a closed set of literals.
  * A branded string closes the set to *outsiders* but not to *typos*: `ItemId('
- * stik')` type-checks. An item namespace spelled `string` reopens exactly the
- * hole audit §2 measured on the reference implementation (335 raw block-name
- * literal sites across 80 files).
+ * Stik')` type-checks. An item namespace spelled `string` reopens exactly the
+ * Hole audit §2 measured on the reference implementation (335 raw block-name
+ * Literal sites across 80 files).
  *
  * So this file is `./block-type` with a different roster, deliberately down to
- * the shape of the guard. Reviewers should be able to diff the two.
+ * The shape of the guard. Reviewers should be able to diff the two.
  *
  * ---------------------------------------------------------------------------
  * `ItemType` is NOT a subset of `BlockType`, in either direction
  * ---------------------------------------------------------------------------
  *
  * A stick is not a block. A pickaxe is not a block. Equally, `air` is not an
- * item — audit §6-6 records that `AIR` is a sentinel meaning "no block here"
- * and not a thing — and neither are `water`, `lava`, `bedrock` or `snow` in
- * this build.
+ * Item — audit §6-6 records that `AIR` is a sentinel meaning "no block here"
+ * And not a thing — and neither are `water`, `lava`, `bedrock` or `snow` in
+ * This build.
  *
  * The two rosters therefore OVERLAP rather than nest, and the overlap is
- * itself a useful type: audit §6-8 looked at the reference's hand-written
+ * Itself a useful type: audit §6-8 looked at the reference's hand-written
  * `BLOCK_ITEMS` list ("blocks you can hold in your hand",
  * `first-person-held-item.ts:58-76`, already missing KELP / SEAGRASS /
  * AMETHYST_* / RAIL) and concluded 「これは `ItemType ∩ BlockType` の導出であり、
  * フラグではなく型レベルで解決すべき」. `./block-item` does exactly that, by
- * derivation, so the list cannot go stale.
+ * Derivation, so the list cannot go stale.
  *
  * ---------------------------------------------------------------------------
  * The roster grew with the block roster, and only as far as it had to
  * ---------------------------------------------------------------------------
  *
  * It began at sixteen entries, chosen so that every shape of drop rule had a
- * real case behind it rather than a placeholder: an item identical to its block
+ * Real case behind it rather than a placeholder: an item identical to its block
  * (`dirt`), an item a *different* block yields (`cobblestone` from `stone`,
  * `dirt` from `grass_block`), an item that is not a block at all
  * (`glowstone_dust`, `stick`, `wooden_pickaxe`, `stone_pickaxe`, `iron_pickaxe`), and blocks that yield nothing
@@ -56,29 +56,29 @@
  *
  * It reached 23 when mc-sim's recipe table was repointed, and it is 152 now.
  * The jump is not enthusiasm: `BLOCK_TYPES` reached the reference's full 120,
- * and 55 of those new rows would otherwise have been LIES — a row stating that
- * a block drops itself, with no item of that name for it to drop. See the rule
- * stated above the additions, which is the whole of the reasoning.
+ * And 55 of those new rows would otherwise have been LIES — a row stating that
+ * A block drops itself, with no item of that name for it to drop. See the rule
+ * Stated above the additions, which is the whole of the reasoning.
  *
  * The roster is still not a catalogue of everything nameable: only the four
- * iron armour pieces required by the equipment boundary exist; food and tool
- * identities are limited to gameplay requirements. Ten literals that the block-drop rule
+ * Iron armour pieces required by the equipment boundary exist; food and tool
+ * Identities are limited to gameplay requirements. Ten literals that the block-drop rule
  * WOULD admit are also deliberately absent; that argument is at the end of the
- * list, and it is the only place that rule is knowingly not applied.
+ * List, and it is the only place that rule is knowingly not applied.
  *
  * Filling it out further is additive, exactly as it is for `BLOCK_TYPES`:
- * consumers read behaviour from the registry rather than from the name, so a
- * new literal changes nobody's code. `docs/versioning.md` §6 classifies it MINOR.
+ * Consumers read behaviour from the registry rather than from the name, so a
+ * New literal changes nobody's code. `docs/versioning.md` §6 classifies it MINOR.
  *
  * Spelling is `lower_snake_case`, matching `BLOCK_TYPES`. Note that mc-sim's
- * provisional strings are UPPER_SNAKE (`'OAK_PLANKS'`, `'STICK'`): repointing
- * is a re-casing as well as a re-typing, and the compiler will find every site
- * once `ItemId` is this union.
+ * Provisional strings are UPPER_SNAKE (`'OAK_PLANKS'`, `'STICK'`): repointing
+ * Is a re-casing as well as a re-typing, and the compiler will find every site
+ * Once `ItemId` is this union.
  */
 
 export const ITEM_TYPES = [
   // Items that are also blocks. Spelled identically to their `BlockType`, which
-  // is what makes `./block-item`'s bridge a derivation instead of a table.
+  // Is what makes `./block-item`'s bridge a derivation instead of a table.
   'stone',
   'cobblestone',
   'dirt',
@@ -94,14 +94,14 @@ export const ITEM_TYPES = [
   'piston',
 
   // Items that are not blocks, and never will be. These are the entries that
-  // make `ItemType` un-assignable to `BlockType`; without at least one of them
-  // the two unions would be structurally interchangeable and the distinction
-  // this file exists to draw would be decorative.
+  // Make `ItemType` un-assignable to `BlockType`; without at least one of them
+  // The two unions would be structurally interchangeable and the distinction
+  // This file exists to draw would be decorative.
   //
   // `stick`, `bow`, `arrow`, the pickaxes, hoes, and swords are names the organisation uses:
-  // mc-sim's `STARTER_RECIPES`
-  // produces `'STICK'` and `'WOODEN_PICKAXE'` (`mc-sim/domain/recipe.ts:602,640`),
-  // while mx-gameplay's mining progression consumes `stone_pickaxe`,
+  // The mc-sim's `STARTER_RECIPES`
+  // Produces `'STICK'` and `'WOODEN_PICKAXE'` (`mc-sim/domain/recipe.ts:602,640`),
+  // While mx-gameplay's mining progression consumes `stone_pickaxe`,
   // `iron_pickaxe`, and `diamond_pickaxe` as successive craftable tool tiers.
   'stick',
   'bow',
@@ -121,28 +121,28 @@ export const ITEM_TYPES = [
   'diamond_sword',
 
   // Requested by mc-sim, with the cost written down, after its recipe table was
-  // repointed onto this union and seven rows had nothing to name. The request
-  // was accepted rather than the rows being restored locally, because a mirror
-  // that runs ahead of this file typechecks locally, ships a table this union
-  // rejects, and breaks on the one day the mirror is deleted — which is the day
-  // the whole mirror discipline promises will be uneventful.
+  // Repointed onto this union and seven rows had nothing to name. The request
+  // Was accepted rather than the rows being restored locally, because a mirror
+  // That runs ahead of this file typechecks locally, ships a table this union
+  // Rejects, and breaks on the one day the mirror is deleted — which is the day
+  // The whole mirror discipline promises will be uneventful.
   //
   // These are NOT here on the strength of a recipe table alone. Growing tier-1
-  // vocabulary from tier-2 evidence is the guessed-roster failure, one direction
-  // over. Each has a kernel-side reason that arrives with it:
+  // Vocabulary from tier-2 evidence is the guessed-roster failure, one direction
+  // Over. Each has a kernel-side reason that arrives with it:
   //
   //   `coal` / `iron_ingot` / `flint`   what ore blocks and gravel drop, so they
-  //                                     belong in `BlockDropRule.item` before any
-  //                                     recipe names them
+  //                                     Belong in `BlockDropRule.item` before any
+  //                                     Recipe names them
   //   `gunpowder` / `blaze_powder`      mob drops (the design contract gives the rules
-  //                                     to mx-gameplay; the vocabulary is kernel's)
+  //                                     To mx-gameplay; the vocabulary is kernel's)
   //   `flint_and_steel` / `fire_charge` the two ignition items §3.11 names for the
-  //                                     flammable capability this registry already
-  //                                     carries
+  //                                     Flammable capability this registry already
+  //                                     Carries
   //
   // `crafting_table` was requested and is deliberately ABSENT: its recipe row was
-  // replaced by a vanilla one of identical shape, so nothing needs the literal
-  // and adding it would be vocabulary with no reason of its own.
+  // Replaced by a vanilla one of identical shape, so nothing needs the literal
+  // And adding it would be vocabulary with no reason of its own.
   'coal',
   'iron_ingot',
   'flint',
@@ -154,7 +154,7 @@ export const ITEM_TYPES = [
   'fire_charge',
 
   // Equipment vocabulary is item identity, so kernel owns the names even
-  // though slot rules and equip behaviour live above this package.
+  // Though slot rules and equip behaviour live above this package.
   'iron_helmet',
   'iron_chestplate',
   'iron_leggings',
@@ -166,30 +166,30 @@ export const ITEM_TYPES = [
   //
   // THE RULE: a block gets an item form here if and only if its registry row's
   // `drops` rule resolves to ITSELF and yields something. Nothing else about a
-  // block earns it an item.
+  // Block earns it an item.
   //
   // The rule is not a convention picked to keep the diff tidy — it is forced by
   // `resolveDropItem` (`./block-harvest`). A row that says `item: 'self'` looks
-  // up `itemOfBlock`, which answers `undefined` when the name is absent from
-  // this roster. So a block whose drop is `'self'` and whose name is NOT here
-  // does not drop nothing LOUDLY; it drops nothing SILENTLY, and the registry
-  // row that promised a drop is a row the type system agrees with and the
-  // player never sees. Adding the literal is what makes the row true.
+  // Up `itemOfBlock`, which answers `undefined` when the name is absent from
+  // This roster. So a block whose drop is `'self'` and whose name is NOT here
+  // Does not drop nothing LOUDLY; it drops nothing SILENTLY, and the registry
+  // Row that promised a drop is a row the type system agrees with and the
+  // Player never sees. Adding the literal is what makes the row true.
   //
   // The converse is why the rule has an "only if" as well. A block whose drop is
-  // an OVERRIDE needs no item of its own: `farmland` yields `dirt`, every ore
-  // yields its mineral, `door_open` yields `door`. Adding `farmland` as an item
-  // because it happens to be a block would be the guessed roster this file
-  // already refused once, and `getInventoryDropForBlock`
+  // An OVERRIDE needs no item of its own: `farmland` yields `dirt`, every ore
+  // Yields its mineral, `door_open` yields `door`. Adding `farmland` as an item
+  // Because it happens to be a block would be the guessed roster this file
+  // Already refused once, and `getInventoryDropForBlock`
   // (`block-service.config.ts:189-190`) is the reference's own statement that a
-  // block's drop is its own name only WHEN NOT OVERRIDDEN.
+  // Block's drop is its own name only WHEN NOT OVERRIDDEN.
   //
   // Note that the reference cannot make this distinction and does not try:
   // `InventoryItemSchema = Schema.Union(BlockTypeSchema, ItemTypeSchema)`
   // (`inventory-item.ts:7`) makes EVERY block an inventory item, including
   // `AIR`, `FIRE` and `END_PORTAL`. That union is exactly what this file's
-  // header rejects, and the six blocks it would have handed an item form to
-  // with nothing behind it are listed in `UNITEMISED_BLOCK_TYPES` instead.
+  // Header rejects, and the six blocks it would have handed an item form to
+  // With nothing behind it are listed in `UNITEMISED_BLOCK_TYPES` instead.
 
   // ---------------------------------------------------------------------------
   // Items that are also blocks (55). Same name as their `BlockType`.
@@ -257,13 +257,13 @@ export const ITEM_TYPES = [
   // Every one of these is the right-hand side of a row in
   // `block-service.config.ts:151-187`, which is the same standard the earlier
   // `coal` / `iron_ingot` / `flint` entries were held to: the item exists
-  // because a block in THIS registry drops it, not because a recipe mentions it.
+  // Because a block in THIS registry drops it, not because a recipe mentions it.
   //
   // `raw_iron` and `raw_gold` rather than `iron_ingot` and `gold_ingot` is the
-  // reference's answer and not a slip — `IRON_ORE` maps to `RAW_IRON`, and that
-  // is also why `ORE_XP_TABLE` gives iron and gold zero experience: the ore
-  // yields raw material and the furnace pays the XP. `iron_ingot` was already
-  // here for mc-sim's recipes and is a different item from `raw_iron`.
+  // Reference's answer and not a slip — `IRON_ORE` maps to `RAW_IRON`, and that
+  // Is also why `ORE_XP_TABLE` gives iron and gold zero experience: the ore
+  // Yields raw material and the furnace pays the XP. `iron_ingot` was already
+  // Here for mc-sim's recipes and is a different item from `raw_iron`.
   'raw_iron',
   'raw_gold',
   'diamond',
@@ -281,26 +281,26 @@ export const ITEM_TYPES = [
   // ---------------------------------------------------------------------------
   //
   // These were NOT part of completing the block roster. They were found by the
-  // test that the roster work made necessary — `every row whose drop is 'self'
-  // has an item form` in `test/item-drops.test.ts` — which reported 21 rows in
-  // breach, and eighteen of them predated this change.
+  // Test that the roster work made necessary — `every row whose drop is 'self'
+  // Has an item form` in `test/item-drops.test.ts` — which reported 21 rows in
+  // Breach, and eighteen of them predated this change.
   //
   // Each of the seventeen below is a block already in the registry whose row
-  // carries the DEFAULT drop rule, meaning "yields itself, one of them". None of
-  // them had an item form, so `resolveDropItem` hit the `'self'` sentinel,
-  // found nothing, and returned `undefined`. Breaking a ladder gave you nothing.
+  // Carries the DEFAULT drop rule, meaning "yields itself, one of them". None of
+  // Them had an item form, so `resolveDropItem` hit the `'self'` sentinel,
+  // Found nothing, and returned `undefined`. Breaking a ladder gave you nothing.
   //
   // The previous decision was to leave them, on the grounds that growing the
-  // item vocabulary from block-side evidence is the guessed-roster failure this
-  // file argues against. That reasoning was right about `string` and `snowball`
+  // Item vocabulary from block-side evidence is the guessed-roster failure this
+  // File argues against. That reasoning was right about `string` and `snowball`
   // — names that appear nowhere else — and wrong about these, because the item
-  // a block drops WHEN NOT OVERRIDDEN is its own name, stated by
+  // A block drops WHEN NOT OVERRIDDEN is its own name, stated by
   // `getInventoryDropForBlock` (`block-service.config.ts:189-190`) and confirmed
-  // block by block: none of the eighteen appears in `INVENTORY_DROP_OVERRIDES`.
+  // Block by block: none of the eighteen appears in `INVENTORY_DROP_OVERRIDES`.
   // There is no guess here; there was a missing transcription.
   //
   // All seventeen are now represented: the seven older rows below and the ten
-  // support-sensitive plants at the end of this roster.
+  // Support-sensitive plants at the end of this roster.
   'ladder',
   'kelp',
   'seagrass',
@@ -315,15 +315,15 @@ export const ITEM_TYPES = [
   //
   // `cobweb` -> STRING and `snow` -> SNOWBALL are rows of
   // `INVENTORY_DROP_OVERRIDES` (:170, :183), which is the same evidence every
-  // other override target here rests on. They were held back while they were the
-  // only two of their kind; they are not any more, and holding them back was
-  // costing two more rows that silently dropped nothing (`cobweb`) or that
-  // recorded a gap where the reference had an answer (`snow`).
+  // Other override target here rests on. They were held back while they were the
+  // Only two of their kind; they are not any more, and holding them back was
+  // Costing two more rows that silently dropped nothing (`cobweb`) or that
+  // Recorded a gap where the reference had an answer (`snow`).
   'string',
   'snowball',
 
   // `supportRule` now owns the placement constraints for these plants, so their
-  // item forms can follow the same evidence as every other default self-drop.
+  // Item forms can follow the same evidence as every other default self-drop.
   'sapling',
   'dandelion',
   'poppy',
@@ -347,17 +347,17 @@ export const ITEM_TYPES = [
   'ghast_tear',
 
   // End progression vocabulary. Recipe ownership remains above kernel; this
-  // package owns the stable item identity consumed by that recipe.
+  // Package owns the stable item identity consumed by that recipe.
   'eye_of_ender',
 
   // Anvil input vocabulary. The payload stays generic in kernel so gameplay's
-  // enchantment registry can evolve without creating an upward dependency.
+  // Enchantment registry can evolve without creating an upward dependency.
   'enchanted_book',
 
   // Fluid transport and the first rideable vehicle identities. Their runtime
-  // rules live in gameplay; kernel owns the stable inventory/save vocabulary.
+  // Rules live in gameplay; kernel owns the stable inventory/save vocabulary.
   // These remain non-block items: using a bucket or vehicle is an action, not
-  // ordinary block placement, and none of them is furnace fuel.
+  // Ordinary block placement, and none of them is furnace fuel.
   'bucket',
   'water_bucket',
   'lava_bucket',
@@ -379,7 +379,7 @@ export const ITEM_TYPES = [
   'saddle',
 
   // Wither summoning and its ordinary-play reward. Appended because item ids
-  // are permanent and derived from this roster's order.
+  // Are permanent and derived from this roster's order.
   'soul_soil',
   'wither_skeleton_skull',
   'nether_star',
@@ -402,7 +402,7 @@ export const ITEM_TYPES = [
   'deepslate_emerald_ore',
 
   // Animal interaction vocabulary. Wool is an inventory drop rather than a
-  // placeable block in this kernel build; shears are single-stack equipment.
+  // Placeable block in this kernel build; shears are single-stack equipment.
   // Both are appended because item ids are permanent wire identities.
   'shears',
   'wool',
@@ -417,9 +417,9 @@ const ITEM_TYPE_LOOKUP: ReadonlySet<string> = new Set<string>(ITEM_TYPES)
 
 /**
  * Narrowing guard for values arriving from outside the type system (save
- * files, network frames, developer consoles).
+ * Files, network frames, developer consoles).
  *
  * Same shape as `isBlockType`, and deliberately so — a save file that stores an
- * inventory stores item names, and the two are read on the same path.
+ * Inventory stores item names, and the two are read on the same path.
  */
 export const isItemType = (value: string): value is ItemType => ITEM_TYPE_LOOKUP.has(value)
