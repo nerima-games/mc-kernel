@@ -268,10 +268,11 @@ describe('id assignment is permanent', () => {
 
   it.effect('rejects ids the chunk buffer cannot hold', () =>
     Effect.sync(() => {
-      expect(() => BlockId(-1)).toThrow()
-      expect(() => BlockId(BLOCK_ID_MAX + 1)).toThrow()
-      expect(() => BlockId(1.5)).toThrow()
-      expect(BlockId(BLOCK_ID_MAX)).toBe(BLOCK_ID_MAX)
+      const blockId = BlockId
+      expect(() => blockId(-1)).toThrow()
+      expect(() => blockId(BLOCK_ID_MAX + 1)).toThrow()
+      expect(() => blockId(1.5)).toThrow()
+      expect(blockId(BLOCK_ID_MAX)).toBe(BLOCK_ID_MAX)
     }),
   )
 })
