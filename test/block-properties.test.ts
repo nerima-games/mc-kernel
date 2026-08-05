@@ -1,12 +1,3 @@
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
-import {
-  DEFAULT_BLOCK_DROP,
-  DEFAULT_HARVEST_TOOL,
-  HARVEST_TIERS,
-  resolveDropItem,
-  satisfiesHarvestTier,
-} from '../src/domain/block-harvest'
 import {
   BLOCK_OPACITIES,
   BLOCK_PROPERTY_DEFAULTS,
@@ -25,6 +16,15 @@ import {
   resolveBlockProperties,
 } from '../src/domain/block-properties'
 import { type BlockDefinition, blockPropertiesOf, resolveBlock } from '../src/domain/block-definition'
+import {
+  DEFAULT_BLOCK_DROP,
+  DEFAULT_HARVEST_TOOL,
+  HARVEST_TIERS,
+  resolveDropItem,
+  satisfiesHarvestTier,
+} from '../src/domain/block-harvest'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect } from 'effect'
 
 describe('block properties — the additive-safety guarantee, extended to non-booleans', () => {
   it.effect(

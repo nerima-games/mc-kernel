@@ -20,8 +20,6 @@
  *     `test/block-capabilities.test.ts` owns it. Noted because the reference
  *     puts all three in one file and a reader coming from there will look.
  */
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
 import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
 import {
   BLOCK_REGISTRY,
@@ -30,6 +28,7 @@ import {
   isSupportSensitiveBlockId,
   supportRuleOfBlockId,
 } from '../src/domain/block-registry'
+import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
 import {
   NEEDS_ANY_SUPPORT,
   NEEDS_NO_SUPPORT,
@@ -37,7 +36,8 @@ import {
   needsOneOf,
   satisfiesSupportRule,
 } from '../src/domain/block-support'
-import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect } from 'effect'
 
 // ---------------------------------------------------------------------------
 // The three arms, in isolation
