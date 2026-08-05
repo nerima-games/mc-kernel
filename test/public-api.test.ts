@@ -34,21 +34,21 @@ describe('BlockType', () => {
 
 describe('public API surface', () => {
   // The barrel is what all 15 other repositories import. A re-export dropped
-  // here is invisible to every other test in this repository but breaks the
-  // whole organisation, so it is pinned explicitly.
+  // Here is invisible to every other test in this repository but breaks the
+  // Whole organisation, so it is pinned explicitly.
   it.effect('re-exports every value the other repositories are expected to import', () =>
     Effect.sync(() => {
       const expected = [
-        // identifiers
+        // Identifiers
         'WorldId',
         'StageId',
-        // quantities
+        // Quantities
         'StackCount',
         'MAX_STACK_COUNT',
         'DeltaTimeSecs',
         'MonotonicTimeSecs',
         'EpochMillis',
-        // coordinates
+        // Coordinates
         'CHUNK_SIZE_XZ',
         'BlockAxis',
         'ChunkAxis',
@@ -71,16 +71,16 @@ describe('public API surface', () => {
         'aabbOfBlock',
         'aabbIntersects',
         'aabbContainsPoint',
-        // versioned chunk storage boundary
+        // Versioned chunk storage boundary
         'CHUNK_CODEC_VERSION',
         'CHUNK_HEADER_BYTES',
         'chunk',
         'encodeChunk',
         'decodeChunk',
-        // block types
+        // Block types
         'BLOCK_TYPES',
         'isBlockType',
-        // item types — plan.md §3.1's other literal vocabulary
+        // Item types — plan.md §3.1's other literal vocabulary
         'ITEM_TYPES',
         'isItemType',
         // Stable item ids, storage codec, and stack metadata
@@ -96,7 +96,7 @@ describe('public API surface', () => {
         'itemTypeOfId',
         'encodeItemId',
         'decodeItemId',
-        // deterministic anvil planning, application, and persistence boundary
+        // Deterministic anvil planning, application, and persistence boundary
         'ANVIL_SNAPSHOT_VERSION',
         'ANVIL_TOO_EXPENSIVE_LEVEL',
         'ANVIL_REPAIR_BONUS_RATIO',
@@ -108,20 +108,20 @@ describe('public API surface', () => {
         'nextAnvilRepairCost',
         'planAnvil',
         'applyAnvil',
-        // the block -> item bridge (audit §6-8's intersection, derived)
+        // The block -> item bridge (audit §6-8's intersection, derived)
         'PLACEABLE_ITEM_TYPES',
         'NON_PLACEABLE_ITEM_TYPES',
         'UNITEMISED_BLOCK_TYPES',
         'isPlaceableItem',
         'itemOfBlock',
         'blockOfPlaceableItem',
-        // block capability flags (booleans)
+        // Block capability flags (booleans)
         'BLOCK_CAPABILITY_DEFAULTS',
         'BLOCK_CAPABILITY_FLAGS',
         'TRUE_BY_DEFAULT_CAPABILITY_FLAGS',
         'resolveBlockCapabilities',
         'capabilityOf',
-        // block properties (typed values)
+        // Block properties (typed values)
         'BLOCK_PROPERTY_DEFAULTS',
         'BLOCK_PROPERTY_NAMES',
         'BLOCK_OPACITIES',
@@ -135,7 +135,7 @@ describe('public API surface', () => {
         'clampLightLevel',
         'resolveBlockProperties',
         'propertyOf',
-        // the two struct properties, kept in their own module for API-lock review
+        // The two struct properties, kept in their own module for API-lock review
         'HARVEST_TOOL_CATEGORIES',
         'HARVEST_TIERS',
         'DEFAULT_HARVEST_TOOL',
@@ -144,21 +144,21 @@ describe('public API surface', () => {
         'resolveDropItem',
         'BARE_HANDED',
         'resolveDrop',
-        // supportRule (audit §4.6), in its own module for the same reason: its
-        // value is a list of BLOCK NAMES, so it is the one property that can go
-        // stale when a different block's row changes.
+        // SupportRule (audit §4.6), in its own module for the same reason: its
+        // Value is a list of BLOCK NAMES, so it is the one property that can go
+        // Stale when a different block's row changes.
         'NEEDS_NO_SUPPORT',
         'NEEDS_ANY_SUPPORT',
         'needsOneOf',
         'isSupportSensitive',
         'satisfiesSupportRule',
-        // block definitions
+        // Block definitions
         'blockCapabilitiesOf',
         'blockPropertiesOf',
         'resolveBlock',
         'AUDITED_CAPABILITY_NAMES',
         'PENDING_CAPABILITIES',
-        // block registry — the numeric-id codec and the table
+        // Block registry — the numeric-id codec and the table
         'BlockId',
         'BLOCK_ID_MAX',
         'AIR_BLOCK_ID',
@@ -173,24 +173,24 @@ describe('public API surface', () => {
         'capabilitiesOfBlockId',
         'blockIdsWithCapability',
         'blockIdsWithOpacity',
-        // the named light readings — mc-worldgen mirrors these three by name,
-        // because it cannot restate the generic property machinery to ask two
-        // questions. See `domain/block-registry.ts` on why they are the only
-        // named property readings kernel exports.
+        // The named light readings — mc-worldgen mirrors these three by name,
+        // Because it cannot restate the generic property machinery to ask two
+        // Questions. See `domain/block-registry.ts` on why they are the only
+        // Named property readings kernel exports.
         'opacityOfBlockId',
         'lightEmissionOfBlockId',
         'transmitsLight',
-        // the support readings and the two-byte join. `canBlockStaySupported` is
+        // The support readings and the two-byte join. `canBlockStaySupported` is
         // `dropOfBlockId`'s shape — a join no single accessor can express — and
-        // mx-gameplay is its consumer.
+        // Mx-gameplay is its consumer.
         'supportRuleOfBlockId',
         'isSupportSensitiveBlockId',
         'canBlockStaySupported',
         'dropOfBlockId',
         'UNREGISTERED_BLOCK_TYPES',
-        // camera
+        // Camera
         'snapshotAgeSecs',
-        // clock
+        // Clock
         'ClockPort',
         'fixedClock',
         'FixedClockLayer',

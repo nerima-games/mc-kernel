@@ -22,7 +22,7 @@ import type { BlockType } from './block-type.js'
 import type { ItemType } from './item-type.js'
 
 // ---------------------------------------------------------------------------
-// harvestTool (audit §4.5)
+// HarvestTool (audit §4.5)
 // ---------------------------------------------------------------------------
 
 /**
@@ -91,7 +91,7 @@ export const satisfiesHarvestTier = (requirement: HarvestToolRequirement, heldTi
   TIER_ORDER[heldTier] >= TIER_ORDER[requirement.minTier]
 
 // ---------------------------------------------------------------------------
-// drops (audit §4.5)
+// Drops (audit §4.5)
 // ---------------------------------------------------------------------------
 
 /**
@@ -213,13 +213,13 @@ export type BlockDrop = {
  *      `NEVER_DROPPED_BLOCK_TYPES` and `blockDropsBaseItem`).
  *   2. The tool tier is below `harvestTool.minTier` — mining stone bare-handed.
  *      Note that the CATEGORY is not consulted, per `satisfiesHarvestTier`:
- *      the wrong family of tool is slow, not fruitless.
+ *      The wrong family of tool is slow, not fruitless.
  *   3. `requiresSilkTouch` and the tool has none — breaking glass.
  *
  * ...and a fourth that is not a denial but an absence: the rule says `'self'`
  * and the block has no item form.
  *
- * Silk Touch is both a gate and, where the registry supplies one, a
+ * Silk touch is both a gate and, where the registry supplies one, a
  * substitution. Rules without `silkTouchItem` keep their normal item, which
  * covers blocks such as glass whose regular drop is already the block itself.
  */
