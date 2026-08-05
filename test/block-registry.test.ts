@@ -191,6 +191,7 @@ describe('id assignment is permanent', () => {
         expect(blockIdOf(type)).toBe(id)
         expect(blockTypeOfId(id)).toBe(type)
       }
+      expect(blockIdOf('not_a_block' as BlockType)).toBe(AIR_BLOCK_ID)
     }),
   )
 
@@ -773,6 +774,22 @@ describe('the table states differences only', () => {
         expect(resolved).toBeDefined()
         for (const flag of BLOCK_CAPABILITY_FLAGS) {
           expect(typeof resolved?.capabilities[flag]).toBe('boolean')
+        }
+      }
+    }),
+  )
+
+  it.effect('keeps the capability column aligned with resolved rows for every byte', () =>
+    Effect.sync(() => {
+      for (let rawId = 0; rawId <= BLOCK_ID_MAX; rawId += 1) {
+        const resolved = resolvedBlockOfId(rawId)
+        expect(capabilitiesOfBlockId(rawId)).toStrictEqual(
+          resolved?.capabilities ?? BLOCK_CAPABILITY_DEFAULTS,
+        )
+        for (const flag of BLOCK_CAPABILITY_FLAGS) {
+          expect(capabilityOfBlockId(rawId, flag)).toBe(
+            resolved?.capabilities[flag] ?? BLOCK_CAPABILITY_DEFAULTS[flag],
+          )
         }
       }
     }),
