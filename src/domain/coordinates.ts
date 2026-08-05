@@ -224,6 +224,59 @@ export const chunkCoord = (cx: number, cz: number): ChunkCoord => ({
   cz: ChunkAxis(normalizeZero(cz)),
 })
 
+/* eslint-disable max-statements, no-magic-numbers, no-ternary, no-undefined -- Chunk keys mirror the existing BlockPositionKey validation, including delimiter sentinels and an undefined decode result. */
+/** The canonical wire/key representation of a chunk column: `cx,cz`. */
+export type ChunkKey = string & Brand.Brand<'ChunkKey'>
+
+type ParsedChunkKey = readonly [cx: number, cz: number]
+
+const parseChunkKey = (value: string): ParsedChunkKey | undefined => {
+  const comma = value.indexOf(',')
+
+  if (comma <= 0 || comma === value.length - 1 || value.indexOf(',', comma + 1) !== -1) {
+    return undefined
+  }
+
+  const cxText = value.slice(0, comma)
+  const czText = value.slice(comma + 1)
+  const cx = Number(cxText)
+  const cz = Number(czText)
+
+  if (
+    !Number.isSafeInteger(cx) ||
+    !Number.isSafeInteger(cz) ||
+    cxText !== canonicalIntegerText(cx) ||
+    czText !== canonicalIntegerText(cz)
+  ) {
+    return undefined
+  }
+
+  return [cx, cz]
+}
+
+/** Produces the canonical, allocation-minimal key for a chunk coordinate. */
+export const chunkKeyOf = (value: ChunkCoord): ChunkKey =>
+  `${String(value.cx)},${String(value.cz)}` as ChunkKey
+
+/** True only for the single canonical spelling of a safe-integer chunk key. */
+export const isChunkKey = (value: string): value is ChunkKey => parseChunkKey(value) !== undefined
+
+/** Parses a trusted canonical chunk key, rejecting malformed forged values. */
+export const chunkCoordOfKey = (value: ChunkKey): ChunkCoord => {
+  const parsed = parseChunkKey(value)
+  if (parsed === undefined) {
+    throw new TypeError(`Invalid ChunkKey: ${value}`)
+  }
+  return chunkCoord(parsed[0], parsed[1])
+}
+
+/** Decodes an untrusted chunk key without throwing for malformed input. */
+export const decodeChunkKey = (value: string): ChunkCoord | undefined => {
+  const parsed = parseChunkKey(value)
+  return parsed === undefined ? undefined : chunkCoord(parsed[0], parsed[1])
+}
+/* eslint-enable max-statements, no-magic-numbers, no-ternary, no-undefined */
+
 /**
  * A block address relative to its chunk column.
  *

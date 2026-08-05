@@ -5,6 +5,8 @@ import { BLOCK_TYPES, isBlockType } from '../src/domain/block-type'
 import { isItemType, ITEM_TYPES } from '../src/domain/item-type'
 import { ITEM_REGISTRY, itemIdOf } from '../src/domain/item-registry'
 
+const ORIGIN_AXIS = 0
+
 describe('BlockType', () => {
   it.effect('narrows a string that names a known block', () =>
     Effect.sync(() => {
@@ -67,6 +69,10 @@ describe('public API surface', () => {
         'horizontalBlockNeighbours',
         'blockNeighbours',
         'chunkCoord',
+        'chunkKeyOf',
+        'isChunkKey',
+        'chunkCoordOfKey',
+        'decodeChunkKey',
         'blockPositionOfPosition',
         'chunkCoordOfBlock',
         'localCoordOfBlock',
@@ -237,6 +243,12 @@ describe('public API surface', () => {
     }),
   )
 
+  it.effect('re-exports the ChunkKey type', () =>
+    Effect.sync(() => {
+      const key: kernel.ChunkKey = kernel.chunkKeyOf(kernel.chunkCoord(ORIGIN_AXIS, ORIGIN_AXIS))
+      expect(key).toBe('0,0')
+    }),
+  )
   it.effect('exports the canonical Eye of Ender item identity', () =>
     Effect.sync(() => {
       expect(kernel.isItemType('eye_of_ender')).toBe(true)
