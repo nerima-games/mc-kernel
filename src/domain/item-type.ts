@@ -406,6 +406,9 @@ export const ITEM_TYPES = [
   // Both are appended because item ids are permanent wire identities.
   'shears',
   'wool',
+
+  // Appended because item ids are permanent wire identities.
+  'dropper',
 ] as const
 
 export type ItemType = (typeof ITEM_TYPES)[number]

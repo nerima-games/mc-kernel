@@ -167,5 +167,8 @@ export const satisfiesSupportRule = (
 
     case 'oneOf':
       return blockBelow !== undefined && rule.blocks.includes(blockBelow)
+
+    default:
+      return rule satisfies never
   }
 }

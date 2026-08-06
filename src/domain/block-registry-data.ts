@@ -4,10 +4,9 @@
  * IDs are wire-format values: entries stay explicit, are never reused, and
  * unknown values resolve to inert defaults so chunk reads remain total.
  */
-import { Brand } from 'effect'
 import type { BlockCapabilities, BlockCapabilityFlag } from './block-capabilities.js'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from './block-capabilities.js'
-import type { BlockDefinition, ResolvedBlock } from './block-definition.js'
+import type { ResolvedBlock } from './block-definition.js'
 import { resolveBlock } from './block-definition.js'
 import type { BlockDrop, HarvestContext } from './block-harvest.js'
 import { BARE_HANDED, DEFAULT_BLOCK_DROP, DEFAULT_HARVEST_TOOL, resolveDrop } from './block-harvest.js'
@@ -17,6 +16,8 @@ import type { SupportRule } from './block-support.js'
 import { NEEDS_ANY_SUPPORT, isSupportSensitive, needsOneOf, satisfiesSupportRule } from './block-support.js'
 import type { BlockType } from './block-type.js'
 import { BLOCK_TYPES } from './block-type.js'
+import type { BlockRegistryEntry } from './block-registry-types.js'
+import { BLOCK_ID_MAX, BlockId } from './block-registry-types.js'
 
 /**
  * Drops nothing, to anyone, ever.
@@ -188,42 +189,6 @@ const NEEDS_SAND_OR_CACTUS: SupportRule = needsOneOf('sand', 'cactus')
  * and could not fix it without this column.
  */
 const NEEDS_WATER: SupportRule = needsOneOf('water')
-
-/**
- * The storage encoding of a block inside a chunk buffer.
- *
- * One byte, because the chunk buffer is a `Uint8Array` (16 × 16 × 256 = 65,536
- * bytes per chunk in both the reference implementation and mc-worldgen). The
- * 256-value ceiling is therefore a fact about the chunk format and not a
- * pessimism about the block roster; widening it is a chunk-format migration and
- * belongs to mc-save, not here.
- */
-export type BlockId = number & Brand.Brand<'BlockId'>
-
-/** Largest representable id, from the `Uint8Array` chunk buffer. */
-export const BLOCK_ID_MAX = 255
-
-export const BlockId = Brand.refined<BlockId>(
-  (value) => Number.isInteger(value) && value >= 0 && value <= BLOCK_ID_MAX,
-  (value) => Brand.error(`BlockId must be an integer in [0, ${BLOCK_ID_MAX}], received ${value}`),
-)
-
-/**
- * Air is id 0, and this is load-bearing rather than conventional.
- *
- * `new Uint8Array(n)` is zero-filled, so a freshly allocated chunk is a chunk
- * full of air with no initialisation pass. mc-worldgen's `emptyBlocks()` and
- * mc-meshing's `emptyChunk()` both rely on it, as does mc-meshing's
- * out-of-bounds `AIR` sentinel (`domain/chunk-view.ts`: an unloaded neighbour
- * meshes as open sky rather than as a black wall).
- */
-export const AIR_BLOCK_ID: BlockId = BlockId(0)
-
-/** One row of the table: a permanent id and the definition it names. */
-export type BlockRegistryEntry = {
-  readonly id: BlockId
-  readonly definition: BlockDefinition
-}
 
 /**
  * THE block table.
@@ -1971,6 +1936,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
       },
     },
   },
+  { id: BlockId(122), definition: { type: 'dropper', properties: { hardness: 60 } } },
 ]
 
 // ---------------------------------------------------------------------------
@@ -2074,25 +2040,16 @@ const ID_BY_TYPE = buildIdByType()
 export const BLOCK_IDS: ReadonlyArray<BlockId> = BLOCK_REGISTRY.map((entry) => entry.id)
 
 /**
- * Does this number name a block this build knows about?
- *
- * Delegates instead of repeating the range test. The two were spelled
- * separately, which made "this id is known" and "this id resolves to a row"
- * two independent claims that happened to agree; the case where they could
- * come apart is a HOLE — an id below `REGISTRY_LENGTH` with no entry, which
- * `BLOCK_IDS` above says a removed block leaves behind forever. Answering the
- * question by asking the resolver makes the agreement structural, so there is
- * no longer a version of this predicate that can drift from the table it
- * describes.
+ * `BlockType` -> id. Registry completeness is validated at initialization;
+ * unknown values that bypass the type guard fail loudly at lookup time.
  */
-export const isKnownBlockId = (id: number): boolean => resolvedBlockOfId(id) !== undefined
-
-/**
- * `BlockType` -> id. Total over `BLOCK_TYPES`: `buildIdByType` verifies the
- * registry before this lookup table is published, so a forgotten row fails
- * module initialization instead of silently resolving as air.
- */
-export const blockIdOf = (type: BlockType): BlockId => ID_BY_TYPE[type]
+export const blockIdOf = (type: BlockType): BlockId => {
+  const id = ID_BY_TYPE[type] as BlockId | undefined
+  if (id === undefined) {
+    throw new Error(`Block registry is missing a row for ${type}`)
+  }
+  return id
+}
 
 /** id -> `BlockType`. `undefined` for a byte this build does not recognise. */
 export const blockTypeOfId = (id: number): BlockType | undefined =>
@@ -2101,6 +2058,9 @@ export const blockTypeOfId = (id: number): BlockType | undefined =>
 /** id -> the fully resolved row. `undefined` for an unrecognised byte. */
 export const resolvedBlockOfId = (id: number): ResolvedBlock | undefined =>
   isAddressableBlockId(id) ? RESOLVED_BY_ID[id] : undefined
+
+/** Does this number name a block this build knows about? */
+export const isKnownBlockId = (id: number): boolean => resolvedBlockOfId(id) !== undefined
 
 /**
  * Read one capability straight off a chunk buffer byte. TOTAL — see the module

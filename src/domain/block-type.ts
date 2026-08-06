@@ -243,6 +243,7 @@ export const BLOCK_TYPES = [
   'observer',
   'comparator',
   'dispenser',
+  'dropper',
   'hopper',
   'piston_head',
 

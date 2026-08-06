@@ -437,6 +437,7 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
     ['observer', 'observer', 'observer'],
     ['comparator', 'comparator', 'comparator'],
     ['dispenser', 'dispenser', 'dispenser'],
+    ['dropper', 'dropper', 'dropper'],
     ['hopper', 'hopper', 'hopper'],
     ['piston_head', 'nothing', 'nothing'],
     ['end_stone', 'end_stone', 'end_stone'],

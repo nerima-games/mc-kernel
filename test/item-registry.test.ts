@@ -116,8 +116,10 @@ describe('item registry', () => {
       expect(itemIdOf('deepslate_emerald_ore')).toBe(169)
       expect(itemIdOf('shears')).toBe(170)
       expect(itemIdOf('wool')).toBe(171)
+      expect(itemIdOf('dropper')).toBe(172)
       expect(itemTypeOfId(170)).toBe('shears')
       expect(itemTypeOfId(171)).toBe('wool')
+      expect(itemTypeOfId(172)).toBe('dropper')
       expect(maxStackCountOfItem('shears')).toBe(1)
       expect(maxStackCountOfItem('wool')).toBe(64)
     }),
@@ -145,6 +147,7 @@ describe('item registry', () => {
       expect([...encodeItemId('bone_meal')]).toStrictEqual([0, 155])
       expect([...encodeItemId('shears')]).toStrictEqual([0, 170])
       expect([...encodeItemId('wool')]).toStrictEqual([0, 171])
+      expect([...encodeItemId('dropper')]).toStrictEqual([0, 172])
     }),
   )
 
@@ -153,7 +156,7 @@ describe('item registry', () => {
       expect(decodeItemId(new Uint8Array())).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0]))).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0, 127, 0]))).toBeUndefined()
-      expect(decodeItemId(new Uint8Array([0, 172]))).toBeUndefined()
+      expect(decodeItemId(new Uint8Array([0, 173]))).toBeUndefined()
       expect(decodeItemId(new Uint8Array([0xff, 0xff]))).toBeUndefined()
       expect(isKnownItemId(134)).toBe(true)
       expect(isKnownItemId(EYE_OF_ENDER_ITEM_ID)).toBe(true)
@@ -165,7 +168,8 @@ describe('item registry', () => {
       expect(isKnownItemId(169)).toBe(true)
       expect(isKnownItemId(170)).toBe(true)
       expect(isKnownItemId(171)).toBe(true)
-      expect(isKnownItemId(172)).toBe(false)
+      expect(isKnownItemId(172)).toBe(true)
+      expect(isKnownItemId(173)).toBe(false)
       expect(isKnownItemId(-1)).toBe(false)
       expect(isKnownItemId(1.5)).toBe(false)
     }),
