@@ -17,7 +17,7 @@ import { NEEDS_ANY_SUPPORT, isSupportSensitive, needsOneOf, satisfiesSupportRule
 import type { BlockType } from './block-type.js'
 import { BLOCK_TYPES } from './block-type.js'
 import type { BlockRegistryEntry } from './block-registry-types.js'
-import { AIR_BLOCK_ID, BLOCK_ID_MAX, BlockId } from './block-registry-types.js'
+import { BLOCK_ID_MAX, BlockId } from './block-registry-types.js'
 
 /**
  * Drops nothing, to anyone, ever.
@@ -2041,9 +2041,15 @@ export const BLOCK_IDS: ReadonlyArray<BlockId> = BLOCK_REGISTRY.map((entry) => e
 
 /**
  * `BlockType` -> id. Registry completeness is validated at initialization;
- * unknown values that bypass the type guard preserve the historic air fallback.
+ * unknown values that bypass the type guard fail loudly at lookup time.
  */
-export const blockIdOf = (type: BlockType): BlockId => ID_BY_TYPE[type] ?? AIR_BLOCK_ID
+export const blockIdOf = (type: BlockType): BlockId => {
+  const id = ID_BY_TYPE[type] as BlockId | undefined
+  if (id === undefined) {
+    throw new Error(`Block registry is missing a row for ${type}`)
+  }
+  return id
+}
 
 /** id -> `BlockType`. `undefined` for a byte this build does not recognise. */
 export const blockTypeOfId = (id: number): BlockType | undefined =>

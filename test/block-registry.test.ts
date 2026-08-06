@@ -191,7 +191,9 @@ describe('id assignment is permanent', () => {
         expect(blockIdOf(type)).toBe(id)
         expect(blockTypeOfId(id)).toBe(type)
       }
-      expect(blockIdOf('not_a_block' as BlockType)).toBe(AIR_BLOCK_ID)
+      expect(() => blockIdOf('not_a_block' as BlockType)).toThrow(
+        'Block registry is missing a row for not_a_block',
+      )
     }),
   )
 
