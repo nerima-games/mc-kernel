@@ -1,6 +1,6 @@
 /* eslint-disable max-statements, no-magic-numbers -- Constants define the fixed binary wire format. */
+import { BlockState, blockState } from './block-state'
 import { CHUNK_SIZE_XZ, type ChunkCoord, chunkCoord } from './coordinates'
-import { isKnownBlockId } from './block-registry'
 
 export const CHUNK_CODEC_VERSION = 1
 export const CHUNK_HEADER_BYTES = 24
@@ -14,7 +14,7 @@ const MIN_INT32 = -0x80000000
 export type Chunk = {
   readonly coord: ChunkCoord
   readonly height: number
-  readonly blocks: Uint8Array
+  readonly blocks: BlockState
 }
 
 const expectedBlockCount = (height: number): number => CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * height
@@ -31,17 +31,20 @@ const assertCoord = (value: number, name: 'cx' | 'cz'): void => {
   }
 }
 
-const assertBlocks = (blocks: Uint8Array, height: number): void => {
+const assertBlockLength = (blocks: Uint8Array, height: number): void => {
   const expected = expectedBlockCount(height)
   if (blocks.length !== expected) {
     throw new RangeError(`Chunk block data length must be ${expected}, received ${blocks.length}`)
   }
+}
 
-  for (let index = 0; index < blocks.length; index += 1) {
-    const blockId = blocks[index]!
-    if (!isKnownBlockId(blockId)) {
-      throw new RangeError(`Chunk contains unknown block id ${blockId} at index ${index}`)
-    }
+const assertBlocks = (blocks: BlockState, height: number): void => {
+  if (!(blocks instanceof BlockState)) {
+    throw new TypeError('Chunk blocks must be a BlockState')
+  }
+  const expected = expectedBlockCount(height)
+  if (blocks.length !== expected) {
+    throw new RangeError(`Chunk block data length must be ${expected}, received ${blocks.length}`)
   }
 }
 
@@ -50,8 +53,8 @@ export const chunk = (coord: ChunkCoord, height: number, blocks: Uint8Array): Ch
   assertCoord(coord.cx, 'cx')
   assertCoord(coord.cz, 'cz')
   assertHeight(height)
-  assertBlocks(blocks, height)
-  return { blocks: blocks.slice(), coord: chunkCoord(coord.cx, coord.cz), height }
+  assertBlockLength(blocks, height)
+  return { blocks: blockState(blocks), coord: chunkCoord(coord.cx, coord.cz), height }
 }
 
 /** Encode a chunk into the versioned little-endian kernel wire format. */
@@ -71,7 +74,7 @@ export const encodeChunk = (value: Chunk): Uint8Array => {
   view.setInt32(12, value.coord.cx, true)
   view.setInt32(16, value.coord.cz, true)
   view.setUint32(20, value.blocks.length, true)
-  encoded.set(value.blocks, CHUNK_HEADER_BYTES)
+  value.blocks.copyTo(encoded, CHUNK_HEADER_BYTES)
   return encoded
 }
 
