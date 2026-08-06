@@ -110,6 +110,8 @@ describe('public API surface', () => {
         'chunk',
         'encodeChunk',
         'decodeChunk',
+        'BlockState',
+        'blockState',
         // Block types
         'BLOCK_TYPES',
         'isBlockType',

@@ -8,7 +8,8 @@ import {
   decodeChunk,
   encodeChunk,
 } from '../src/domain/chunk'
-import { blockIdOf } from '../src/domain/block-registry'
+import { BlockId as blockId, blockIdOf } from '../src/domain/block-registry'
+import { blockState } from '../src/domain/block-state'
 import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates'
 
 const height = 2
@@ -29,7 +30,7 @@ describe('chunk binary codec', () => {
 
       expect(decoded.coord).toStrictEqual(source.coord)
       expect(decoded.height).toBe(height)
-      expect(decoded.blocks).toStrictEqual(source.blocks)
+      expect(decoded.blocks.toBytes()).toStrictEqual(source.blocks.toBytes())
     }),
   )
 
@@ -78,15 +79,31 @@ describe('chunk binary codec', () => {
       const input = sampleBlocks()
       const source = chunk(chunkCoord(1, 2), height, input)
       input[0] = blockIdOf('water')
-      expect(source.blocks[0]).toBe(blockIdOf('stone'))
+      expect(source.blocks.get(0)).toBe(blockIdOf('stone'))
 
       const encoded = encodeChunk(source)
-      source.blocks[0] = blockIdOf('water')
+      source.blocks.set(0, blockIdOf('water'))
       expect(encoded[CHUNK_HEADER_BYTES]).toBe(blockIdOf('stone'))
 
       const decoded = decodeChunk(encoded)
       encoded[CHUNK_HEADER_BYTES] = blockIdOf('water')
-      expect(decoded.blocks[0]).toBe(blockIdOf('stone'))
+      expect(decoded.blocks.get(0)).toBe(blockIdOf('stone'))
+    }),
+  )
+
+  it.effect('keeps block storage behind checked accessors', () =>
+    Effect.sync(() => {
+      const state = blockState(sampleBlocks())
+      const copy = state.toBytes()
+      copy[0] = blockIdOf('water')
+
+      expect(state.get(0)).toBe(blockIdOf('stone'))
+      state.set(0, blockIdOf('water'))
+      expect(state.get(0)).toBe(blockIdOf('water'))
+      expect(() => state.get(-1)).toThrow(/index/)
+      expect(() => state.get(state.length)).toThrow(/index/)
+      expect(() => state.set(0, blockId(255))).toThrow(/unknown block id 255/)
+      expect(() => blockState(new Uint8Array([255]))).toThrow(/unknown block id 255/)
     }),
   )
 
