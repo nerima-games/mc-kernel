@@ -51,10 +51,13 @@
  * property without a default a compile error, so the "cannot exist without a
  * default" guarantee survives the split.
  */
-import type { BlockDropRule, HarvestToolRequirement } from './block-harvest.js'
-import { DEFAULT_BLOCK_DROP, DEFAULT_HARVEST_TOOL } from './block-harvest.js'
-import type { SupportRule } from './block-support.js'
-import { NEEDS_NO_SUPPORT } from './block-support.js'
+import {
+  type BlockDropRule,
+  DEFAULT_BLOCK_DROP,
+  DEFAULT_HARVEST_TOOL,
+  type HarvestToolRequirement,
+} from './block-harvest.js'
+import { NEEDS_NO_SUPPORT, type SupportRule } from './block-support.js'
 
 // ---------------------------------------------------------------------------
 // Value vocabularies
@@ -156,24 +159,30 @@ export type BlockProperties = {
  * generic without a cast.
  */
 export const BLOCK_PROPERTY_DEFAULTS: BlockProperties = {
-  opacity: 'opaque',
-  lightEmission: LIGHT_LEVEL_MIN,
-  fluid: 'none',
-  collisionShape: 'full',
-  renderKind: 'cube',
-  footstepMaterial: 'default',
-  /** `blocks.config.terrain.ts:9-14` `defaultBlockProperties`. */
-  hardness: 8,
-  /** `DEFAULT_BLOCK_FRICTION` in the reference. */
-  friction: 0.6,
-  contactDamage: 0,
-  movementDrag: 0,
-  xpOnBreak: 0,
-  railKind: 'none',
-  harvestTool: DEFAULT_HARVEST_TOOL,
-  drops: DEFAULT_BLOCK_DROP,
-  /** Audit §4.6: 既定値 `supportRule='none'`. An ordinary cube needs no floor. */
-  supportRule: NEEDS_NO_SUPPORT,
+  ...{ opacity: 'opaque' },
+  ...{ lightEmission: LIGHT_LEVEL_MIN },
+  ...{ fluid: 'none' },
+  ...{ collisionShape: 'full' },
+  ...{ renderKind: 'cube' },
+  ...{ footstepMaterial: 'default' },
+  ...{
+    /** `blocks.config.terrain.ts:9-14` `defaultBlockProperties`. */
+    hardness: 8,
+  },
+  ...{
+    /** `DEFAULT_BLOCK_FRICTION` in the reference. */
+    friction: 0.6,
+  },
+  ...{ contactDamage: 0 },
+  ...{ movementDrag: 0 },
+  ...{ xpOnBreak: 0 },
+  ...{ railKind: 'none' },
+  ...{ harvestTool: DEFAULT_HARVEST_TOOL },
+  ...{ drops: DEFAULT_BLOCK_DROP },
+  ...{
+    /** Audit §4.6: 既定値 `supportRule='none'`. An ordinary cube needs no floor. */
+    supportRule: NEEDS_NO_SUPPORT,
+  },
 }
 
 /** Derived from the defaults table, exactly as `BlockCapabilityFlag` is. */
@@ -189,7 +198,7 @@ export const BLOCK_PROPERTY_NAMES: ReadonlyArray<BlockPropertyName> = Object.key
  * meaningful and means "take the default".
  */
 export type BlockPropertyOverrides = {
-  readonly [K in BlockPropertyName]?: BlockProperties[K]
+  readonly [propertyName in BlockPropertyName]?: BlockProperties[propertyName]
 }
 
 /**
@@ -208,7 +217,7 @@ export const resolveBlockProperties = (overrides: BlockPropertyOverrides): Block
  * Read one property without materialising the whole set. Semantically identical
  * to `resolveBlockProperties(overrides)[name]`.
  */
-export const propertyOf = <K extends BlockPropertyName>(
+export const propertyOf = <propertyName extends BlockPropertyName>(
   overrides: BlockPropertyOverrides,
-  name: K,
-): BlockProperties[K] => overrides[name] ?? BLOCK_PROPERTY_DEFAULTS[name]
+  name: propertyName,
+): BlockProperties[propertyName] => overrides[name] ?? BLOCK_PROPERTY_DEFAULTS[name]

@@ -1,19 +1,23 @@
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
-import { blockPositionKey } from '../src/domain/block-position-key'
 import {
+  type BlockPositionKey,
   blockPosition,
   blockPositionKeyOf,
   blockPositionOfKey,
   decodeBlockPositionKey,
   isBlockPositionKey,
-  type BlockPositionKey,
 } from '../src/domain/coordinates'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect } from 'effect'
+import { blockPositionKey } from '../src/domain/block-position-key'
+
+const NEGATIVE_ZERO_COMPONENT = -0
+const ORIGIN_COMPONENT = 0
+const FIRST_UNSAFE_INTEGER = 9_007_199_254_740_992
 
 describe('BlockPositionKey', () => {
   it.effect('round-trips canonical positions, including safe-integer boundaries', () =>
     Effect.sync(() => {
-      const source = blockPosition(Number.MIN_SAFE_INTEGER, 0, Number.MAX_SAFE_INTEGER)
+        const source = blockPosition(Number.MIN_SAFE_INTEGER, ORIGIN_COMPONENT, Number.MAX_SAFE_INTEGER)
       const key = blockPositionKeyOf(source)
 
       expect(key).toBe('-9007199254740991,0,9007199254740991')
@@ -24,9 +28,13 @@ describe('BlockPositionKey', () => {
     }),
   )
 
-  it.effect('uses one spelling per position, including the origin', () =>
-    Effect.sync(() => {
-      expect(blockPositionKeyOf(blockPosition(-0, -0, -0))).toBe('0,0,0')
+    it.effect('uses one spelling per position, including the origin', () =>
+      Effect.sync(() => {
+        expect(
+          blockPositionKeyOf(
+            blockPosition(NEGATIVE_ZERO_COMPONENT, NEGATIVE_ZERO_COMPONENT, NEGATIVE_ZERO_COMPONENT),
+          ),
+        ).toBe('0,0,0')
       expect(isBlockPositionKey('0,0,0')).toBe(true)
       expect(isBlockPositionKey('-0,0,0')).toBe(false)
       expect(isBlockPositionKey('01,0,0')).toBe(false)
@@ -42,9 +50,9 @@ describe('BlockPositionKey', () => {
         '0,0,0,0',
         '0,,0',
         '0,0,',
-        '0.5,0,0',
-        'Infinity,0,0',
-        '9007199254740992,0,0',
+          '0.5,0,0',
+          'Infinity,0,0',
+          `${FIRST_UNSAFE_INTEGER},0,0`,
       ]) {
         expect(isBlockPositionKey(key)).toBe(false)
         expect(decodeBlockPositionKey(key)).toBeUndefined()

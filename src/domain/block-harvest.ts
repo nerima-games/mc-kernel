@@ -17,12 +17,12 @@
  * or must come with a default in `BLOCK_PROPERTY_DEFAULTS`. Never both required
  * and defaultless.
  */
-import { itemOfBlock } from './block-item.js'
 import type { BlockType } from './block-type.js'
 import type { ItemType } from './item-type.js'
+import { itemOfBlock } from './block-item.js'
 
 // ---------------------------------------------------------------------------
-// harvestTool (audit §4.5)
+// HarvestTool (audit §4.5)
 // ---------------------------------------------------------------------------
 
 /**
@@ -91,7 +91,7 @@ export const satisfiesHarvestTier = (requirement: HarvestToolRequirement, heldTi
   TIER_ORDER[heldTier] >= TIER_ORDER[requirement.minTier]
 
 // ---------------------------------------------------------------------------
-// drops (audit §4.5)
+// Drops (audit §4.5)
 // ---------------------------------------------------------------------------
 
 /**
@@ -133,11 +133,14 @@ export type BlockDropRule = {
 
 /** Audit §4.5: 既定値 `drops={item: 自身, count: 1}`. */
 export const DEFAULT_BLOCK_DROP: BlockDropRule = {
-  item: 'self',
-  count: 1,
-  requiresSilkTouch: false,
   affectedByFortune: false,
+  count: 1,
+  item: 'self',
+  requiresSilkTouch: false,
 }
+
+const NO_DROP_COUNT = 0
+const NO_DROP_VALUE: { readonly value?: never } = {}
 
 /**
  * Resolve the `'self'` sentinel against the block that is actually being broken.
@@ -158,8 +161,15 @@ export const resolveDropItem = (
   brokenBlock: BlockType,
   silkTouch = false,
 ): ItemType | undefined => {
-  const item = silkTouch && rule.silkTouchItem !== undefined ? rule.silkTouchItem : rule.item
-  return item === 'self' ? itemOfBlock(brokenBlock) : item
+  const { item: defaultItem, silkTouchItem } = rule
+  let item = defaultItem
+  if (silkTouch && silkTouchItem !== NO_DROP_VALUE.value) {
+    item = silkTouchItem
+  }
+  if (item === 'self') {
+    return itemOfBlock(brokenBlock)
+  }
+  return item
 }
 
 // ---------------------------------------------------------------------------
@@ -213,33 +223,38 @@ export type BlockDrop = {
  *      `NEVER_DROPPED_BLOCK_TYPES` and `blockDropsBaseItem`).
  *   2. The tool tier is below `harvestTool.minTier` — mining stone bare-handed.
  *      Note that the CATEGORY is not consulted, per `satisfiesHarvestTier`:
- *      the wrong family of tool is slow, not fruitless.
+ *      The wrong family of tool is slow, not fruitless.
  *   3. `requiresSilkTouch` and the tool has none — breaking glass.
  *
  * ...and a fourth that is not a denial but an absence: the rule says `'self'`
  * and the block has no item form.
  *
- * Silk Touch is both a gate and, where the registry supplies one, a
+ * Silk touch is both a gate and, where the registry supplies one, a
  * substitution. Rules without `silkTouchItem` keep their normal item, which
  * covers blocks such as glass whose regular drop is already the block itself.
  */
 export const resolveDrop = (
-  requirement: HarvestToolRequirement,
-  rule: BlockDropRule,
-  brokenBlock: BlockType,
-  context: HarvestContext = BARE_HANDED,
+  ...[requirement, rule, brokenBlock, context = BARE_HANDED]: [
+    HarvestToolRequirement,
+    BlockDropRule,
+    BlockType,
+    HarvestContext?,
+  ]
 ): BlockDrop | undefined => {
-  if (rule.count <= 0) {
-    return undefined
+  if (rule.count <= NO_DROP_COUNT) {
+    return NO_DROP_VALUE.value
   }
   if (!satisfiesHarvestTier(requirement, context.heldTier ?? 'none')) {
-    return undefined
+    return NO_DROP_VALUE.value
   }
   if (rule.requiresSilkTouch && context.silkTouch !== true) {
-    return undefined
+    return NO_DROP_VALUE.value
   }
 
   const item = resolveDropItem(rule, brokenBlock, context.silkTouch === true)
 
-  return item === undefined ? undefined : { item, count: rule.count, affectedByFortune: rule.affectedByFortune }
+  if (item === NO_DROP_VALUE.value) {
+    return NO_DROP_VALUE.value
+  }
+  return { affectedByFortune: rule.affectedByFortune, count: rule.count, item }
 }
