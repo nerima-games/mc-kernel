@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
+import { blockPositionKey } from '../src/domain/block-position-key'
 import {
   blockPosition,
   blockPositionKeyOf,
@@ -16,6 +17,7 @@ describe('BlockPositionKey', () => {
       const key = blockPositionKeyOf(source)
 
       expect(key).toBe('-9007199254740991,0,9007199254740991')
+      expect(blockPositionKey(source)).toBe(key)
       expect(isBlockPositionKey(key)).toBe(true)
       expect(blockPositionOfKey(key)).toStrictEqual(source)
       expect(decodeBlockPositionKey(key)).toStrictEqual(source)
