@@ -2075,17 +2075,24 @@ const buildPropertyColumns = (): {
     return columns;
 };
 const PROPERTY_COLUMNS = buildPropertyColumns();
+const seededRecord = <Key extends string, Value>(
+    keys: ReadonlyArray<Key>,
+    build: (key: Key) => Value,
+): Record<Key, Value> =>
+    Object.fromEntries(keys.map((key) => [key, build(key)])) as Record<Key, Value>;
+
 const buildIdByType = (): Readonly<Record<BlockType, BlockId>> => {
-    const table: Partial<Record<BlockType, BlockId>> = {};
+    const idsByType = new Map<BlockType, BlockId>();
     for (const entry of BLOCK_REGISTRY) {
-        table[entry.definition.type] = entry.id;
+        idsByType.set(entry.definition.type, entry.id);
     }
-    for (const type of BLOCK_TYPES) {
-        if (typeof table[type] === 'undefined') {
+    return seededRecord(BLOCK_TYPES, (type) => {
+        const id = idsByType.get(type);
+        if (typeof id === 'undefined') {
             throw new Error(`Block registry is missing a row for ${type}`);
         }
-    }
-    return table as Readonly<Record<BlockType, BlockId>>;
+        return id;
+    });
 };
 const ID_BY_TYPE = buildIdByType();
 /**
@@ -2179,19 +2186,16 @@ export const dropOfBlockId = (id: number, context: HarvestContext = BARE_HANDED)
  * compiler can use it, and the empty bucket for a flag no block carries is
  * produced by the loop rather than conjured by a fallback.
  */
-const buildIdsByCapability = (): Readonly<Record<BlockCapabilityFlag, ReadonlySet<number>>> => {
-    const table: Partial<Record<BlockCapabilityFlag, ReadonlySet<number>>> = {};
-    for (const flag of BLOCK_CAPABILITY_FLAGS) {
+const buildIdsByCapability = (): Readonly<Record<BlockCapabilityFlag, ReadonlySet<number>>> =>
+    seededRecord(BLOCK_CAPABILITY_FLAGS, (flag) => {
         const members = new Set<number>();
         for (const entry of BLOCK_REGISTRY) {
             if (capabilityOfBlockId(entry.id, flag)) {
                 members.add(entry.id);
             }
         }
-        table[flag] = members;
-    }
-    return table as Readonly<Record<BlockCapabilityFlag, ReadonlySet<number>>>;
-};
+        return members;
+    });
 const IDS_BY_CAPABILITY = buildIdsByCapability();
 /**
  * The set of ids carrying a capability, as a NATIVE `Set<number>`.
@@ -2224,7 +2228,7 @@ export const blockIdsWithCapability = (flag: BlockCapabilityFlag): ReadonlySet<n
  * expects a set.
  */
 const buildIdsByOpacity = (): Readonly<Record<BlockOpacity, ReadonlySet<number>>> => {
-    const table = Object.fromEntries(BLOCK_OPACITIES.map((opacity) => [opacity, new Set<number>()])) as Record<BlockOpacity, Set<number>>;
+    const table = seededRecord(BLOCK_OPACITIES, () => new Set<number>());
     for (const entry of BLOCK_REGISTRY) {
         table[propertyOfBlockId(entry.id, 'opacity')].add(entry.id);
     }
