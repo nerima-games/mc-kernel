@@ -9,7 +9,7 @@ import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS, type BlockCapabiliti
 import { BLOCK_ID_MAX, type BlockId, type BlockRegistryEntry, BlockId as createBlockId } from './block-registry-types.js';
 import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS, type BlockOpacity, type BlockProperties, type BlockPropertyName } from './block-properties.js';
 import { BLOCK_TYPES, type BlockType } from './block-type.js';
-import { NEEDS_ANY_SUPPORT, type SupportRule, isSupportSensitive, needsOneOf, satisfiesSupportRule } from './block-support.js';
+import { NEEDS_ANY_SUPPORT, type SupportRule, isSupportSensitive, needsOneOf } from './block-support.js';
 import { type ResolvedBlock, resolveBlock } from './block-definition.js';
 /**
  * Drops nothing, to anyone, ever.
@@ -2095,6 +2095,19 @@ const buildIdByType = (): Readonly<Record<BlockType, BlockId>> => {
     });
 };
 const ID_BY_TYPE = buildIdByType();
+type SupportBlockIdsById = ReadonlyArray<ReadonlySet<number> | undefined>;
+
+const buildSupportBlockIdsById = (): SupportBlockIdsById => {
+    const blockIdsById: Array<ReadonlySet<number> | undefined> = Array.from({ length: BLOCK_ID_TABLE_LENGTH }, () => UNDEFINED);
+    for (const entry of BLOCK_REGISTRY) {
+        const supportRule = PROPERTY_COLUMNS.supportRule[entry.id] ?? BLOCK_PROPERTY_DEFAULTS.supportRule;
+        if (supportRule.kind === 'oneOf') {
+            blockIdsById[entry.id] = new Set<number>(supportRule.blocks.map((type) => ID_BY_TYPE[type]));
+        }
+    }
+    return blockIdsById;
+};
+const SUPPORT_BLOCK_IDS_BY_ID = buildSupportBlockIdsById();
 /**
  * Every id currently assigned, ascending. Holes left by a removed block are
  * absent from this array but still consume their number forever.
@@ -2404,11 +2417,21 @@ const canSupportAttachmentsOfBlockId = (id: number): boolean => {
     }
     return BLOCK_CAPABILITY_DEFAULTS.canSupportAttachments;
 };
-export const canBlockStaySupported = (id: number, supportBelow: number): boolean => satisfiesSupportRule(
-    supportRuleOfBlockId(id),
-    blockTypeOfId(supportBelow),
-    canSupportAttachmentsOfBlockId(supportBelow),
-);
+export const canBlockStaySupported = (id: number, supportBelow: number): boolean => {
+    const supportRule = supportRuleOfBlockId(id);
+    switch (supportRule.kind) {
+        case 'none':
+            return true;
+        case 'anySupporting':
+            return canSupportAttachmentsOfBlockId(supportBelow);
+        case 'oneOf':
+            return SUPPORT_BLOCK_IDS_BY_ID[id]?.has(supportBelow) ?? false;
+        default: {
+            const unreachable: never = supportRule;
+            return unreachable;
+        }
+    }
+};
 /**
  * Block types in the vocabulary that the table does not yet cover.
  *
