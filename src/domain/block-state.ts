@@ -29,7 +29,6 @@ const assertCopyRange = (targetLength: number, sourceLength: number, offset: num
 
 /** An owned, registry-validated block buffer with checked mutation boundaries. */
 export class BlockState {
-  readonly length: number
   readonly #bytes: Uint8Array
 
   static fromBytes(bytes: Uint8Array): BlockState {
@@ -41,7 +40,12 @@ export class BlockState {
 
   private constructor(bytes: Uint8Array) {
     this.#bytes = bytes.slice()
-    this.length = this.#bytes.length
+    // Prevent runtime callers from shadowing the derived length getter.
+    Object.freeze(this)
+  }
+
+  get length(): number {
+    return this.#bytes.length
   }
 
   /** Read a known block id at a checked linear index. */
