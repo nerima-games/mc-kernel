@@ -34,6 +34,9 @@ const blockId = BlockId
  */
 export const AIR_BLOCK_ID: BlockId = blockId(BLOCK_ID_MIN)
 
+/** Tests the zero-byte air sentinel without a registry lookup. */
+export const isEmpty = (id: number): boolean => id === AIR_BLOCK_ID
+
 /** One row of the table: a permanent id and the definition it names. */
 export type BlockRegistryEntry = {
   readonly id: BlockId

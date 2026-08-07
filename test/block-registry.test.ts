@@ -40,6 +40,7 @@ import {
   blockTypeOfId,
   capabilitiesOfBlockId,
   capabilityOfBlockId,
+  isEmpty,
   isKnownBlockId,
   lightEmissionOfBlockId,
   opacityOfBlockId,
@@ -305,6 +306,11 @@ describe('id assignment is permanent', () => {
   it.effect('air is zero, because a zero-filled buffer must already be a valid chunk', () =>
     Effect.sync(() => {
       expect(AIR_BLOCK_ID).toBe(number('0'))
+      expectTypeOf(isEmpty).toEqualTypeOf<(id: number) => boolean>()
+      expect(isEmpty(AIR_BLOCK_ID)).toBe(true)
+      for (const nonAir of [number('1'), BLOCK_ID_MAX, number('-1'), number('1.5'), Number.NaN]) {
+        expect(isEmpty(nonAir)).toBe(false)
+      }
       const fresh = new Uint8Array(number('8'))
       for (const byte of fresh) {
         expect(blockTypeOfId(byte)).toBe('air')

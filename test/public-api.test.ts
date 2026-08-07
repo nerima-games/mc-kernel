@@ -210,6 +210,7 @@ describe('public API surface', () => {
         'BlockId',
         'BLOCK_ID_MAX',
         'AIR_BLOCK_ID',
+        'isEmpty',
         'BLOCK_REGISTRY',
         'BLOCK_IDS',
         'isKnownBlockId',
@@ -275,6 +276,9 @@ describe('public API surface', () => {
       const stoneDefinition = blockRegistry.resolvedBlockOfId(stoneId)
 
       expect(kernel.blockIdOf('stone')).toBe(stoneId)
+      expect(kernel.isEmpty).toBe(blockRegistry.isEmpty)
+      expect(blockRegistry.isEmpty(blockRegistry.AIR_BLOCK_ID)).toBe(true)
+      expect(blockRegistry.isEmpty(stoneId)).toBe(false)
       expect(blockRegistry.blockTypeOfId(stoneId)).toBe('stone')
       expect(stoneDefinition).toBeDefined()
       expect(stoneDefinition?.type).toBe('stone')

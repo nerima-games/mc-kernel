@@ -86,6 +86,18 @@ const isBlockType = (value: string): value is BlockType
 plan.md §5.3 は「core と block の分離」を「ブロック追加が必ず両方を共変更する」という理由で棄却しており、
 語彙と能力モデルが同じリポジトリにあることは意図的である。
 
+### 3-1. 数値ブロック ID と空気判定（block-registry）
+
+```typescript
+type BlockId = number & Brand.Brand<'BlockId'>
+const AIR_BLOCK_ID: BlockId = 0
+const isEmpty: (id: number) => boolean
+```
+
+`BlockId` はチャンクの `Uint8Array` に格納する安定した密な数値 ID である。`isEmpty` の引数は
+意図的に `number` とし、チャンクバッファから読み出した未ブランドの値を直接受け取る。
+空気は ID 0 だけであり、判定はレジストリ lookup ではなく定数比較で行う。
+
 ## 3-bis. アイテム語彙とブロック↔アイテムの橋（item-type / block-item）
 
 ```typescript

@@ -26,5 +26,5 @@ export {
   supportRuleOfBlockId,
   transmitsLight,
 } from './block-registry-data.js'
-export { AIR_BLOCK_ID, BLOCK_ID_MAX, BlockId } from './block-registry-types.js'
+export { AIR_BLOCK_ID, BLOCK_ID_MAX, BlockId, isEmpty } from './block-registry-types.js'
 export type { BlockRegistryEntry } from './block-registry-types.js'
