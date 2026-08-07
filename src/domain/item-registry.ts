@@ -5,6 +5,7 @@ import { MAX_STACK_COUNT } from './quantities'
 import { Brand } from 'effect'
 
 export type ItemId = number & Brand.Brand<'ItemId'>
+export type ItemIdBytes = Uint8Array & Brand.Brand<'ItemIdBytes'>
 
 /** Item ids use an unsigned 16-bit wire representation. */
 export const ITEM_ID_MAX = 0xffff
@@ -91,7 +92,7 @@ const DEFINITION_BY_TYPE: Readonly<Record<ItemType, ItemDefinition>> = Object.fr
   ITEM_REGISTRY.map((definition) => [definition.type, definition]),
 ) as Readonly<Record<ItemType, ItemDefinition>>
 
-export const isKnownItemId = (id: number): boolean =>
+export const isKnownItemId = (id: number): id is ItemId =>
   Number.isInteger(id) && id >= ITEM_ID_MIN && id < ITEM_REGISTRY.length
 
 export const itemDefinitionOf = (type: ItemType): ItemDefinition => DEFINITION_BY_TYPE[type]
@@ -100,21 +101,34 @@ export const maxStackCountOfItem = (type: ItemType): ItemStackLimit => itemDefin
 
 export const itemIdOf = (type: ItemType): ItemId => itemDefinitionOf(type).id
 
-export const itemTypeOfId = (id: number): ItemType | undefined => ITEM_REGISTRY[id]?.type
-
-/** Encode an item's permanent id in network byte order. */
-export const encodeItemId = (type: ItemType): Uint8Array => {
-  const bytes = new Uint8Array(ITEM_ID_BYTES)
-  new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setUint16(ITEM_ID_BYTE_OFFSET, itemIdOf(type), false)
-  return bytes
+export function itemTypeOfId(id: ItemId): ItemType
+export function itemTypeOfId(id: number): ItemType | undefined
+export function itemTypeOfId(id: number): ItemType | undefined {
+  return ITEM_REGISTRY[id]?.type
 }
 
-/** Decode a complete item-id field; malformed lengths and unknown ids fail closed. */
-export const decodeItemId = (bytes: Uint8Array): ItemType | undefined => {
+export const ItemIdBytes = (bytes: Uint8Array): ItemIdBytes => {
   if (bytes.byteLength !== ITEM_ID_BYTES) {
-    return
+    throw new RangeError(`ItemIdBytes must be exactly ${ITEM_ID_BYTES} bytes, received ${bytes.byteLength}`)
   }
 
   const id = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint16(ITEM_ID_BYTE_OFFSET, false)
+  if (!isKnownItemId(id)) {
+    throw new RangeError(`ItemIdBytes must encode a registered item id, received ${id}`)
+  }
+
+  return bytes as ItemIdBytes
+}
+
+/** Encode an item's permanent id in network byte order. */
+export const encodeItemId = (type: ItemType): ItemIdBytes => {
+  const bytes = new Uint8Array(ITEM_ID_BYTES)
+  new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setUint16(ITEM_ID_BYTE_OFFSET, itemIdOf(type), false)
+  return ItemIdBytes(bytes)
+}
+
+/** Decode a validated item-id field from its two-byte wire representation. */
+export const decodeItemId = (bytes: ItemIdBytes): ItemType => {
+  const id = ItemId(new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint16(ITEM_ID_BYTE_OFFSET, false))
   return itemTypeOfId(id)
 }

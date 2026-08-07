@@ -108,15 +108,18 @@ export const UNITEMISED_BLOCK_TYPES: ReadonlyArray<BlockType> = BLOCK_TYPES.filt
 )
 
 /**
- * Block -> the item it becomes in an inventory. PARTIAL.
+ * Block -> the item it becomes in an inventory.
  *
  * `undefined` means "this block has no item form", which is a real answer and
  * not a failure: it is what `air` and the fluids are. Callers that are
  * resolving a drop should use `dropOfBlockId` (`./block-registry`) instead,
  * which folds this together with the tool gate and the drop rule.
  */
-export const itemOfBlock = (block: BlockType): PlaceableItemType | undefined =>
-  isItemisedBlock(block) ? block : undefined
+export function itemOfBlock(block: PlaceableItemType): PlaceableItemType
+export function itemOfBlock(block: BlockType): PlaceableItemType | undefined
+export function itemOfBlock(block: BlockType): PlaceableItemType | undefined {
+  return isItemisedBlock(block) ? block : undefined
+}
 
 /**
  * Item -> the block it places. TOTAL, but only on the intersection.

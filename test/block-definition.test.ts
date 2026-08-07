@@ -10,6 +10,7 @@ import {
   type BlockDefinition,
 } from '../src/domain/block-definition'
 import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
+import { StackCount } from '../src/domain/quantities'
 
 describe('adding a block is one table row plus flag settings (the design contract invariant)', () => {
   // THE named regression test for the design contract's closing requirement:
@@ -44,7 +45,7 @@ describe('adding a block is one table row plus flag settings (the design contrac
           collisionShape: 'none',
           lightEmission: 15,
           contactDamage: 4,
-          drops: { item: 'self', count: 0, requiresSilkTouch: false, affectedByFortune: false },
+          drops: { item: 'self', count: StackCount(0), requiresSilkTouch: false, affectedByFortune: false },
         },
       }
 

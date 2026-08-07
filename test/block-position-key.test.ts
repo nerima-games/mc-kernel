@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import {
+  BlockPositionKey as parseBlockPositionKey,
   blockPosition,
   blockPositionKeyOf,
   blockPositionOfKey,
@@ -17,6 +18,7 @@ describe('BlockPositionKey', () => {
 
       expect(key).toBe('-9007199254740991,0,9007199254740991')
       expect(isBlockPositionKey(key)).toBe(true)
+      expect(parseBlockPositionKey(key)).toBe(key)
       expect(blockPositionOfKey(key)).toStrictEqual(source)
       expect(decodeBlockPositionKey(key)).toStrictEqual(source)
     }),
@@ -52,6 +54,7 @@ describe('BlockPositionKey', () => {
 
   it.effect('fails loudly if JavaScript callers forge an invalid branded key', () =>
     Effect.sync(() => {
+      expect(() => parseBlockPositionKey('0.5,0,0')).toThrow(TypeError)
       expect(() => blockPositionOfKey('0.5,0,0' as BlockPositionKey)).toThrow(TypeError)
     }),
   )

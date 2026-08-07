@@ -18,9 +18,15 @@
  */
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
+import { expectTypeOf } from 'vitest'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block-capabilities'
 import { blockCapabilitiesOf, resolveBlock } from '../src/domain/block-definition'
-import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS, COLLISION_SHAPES } from '../src/domain/block-properties'
+import {
+  BLOCK_OPACITIES,
+  BLOCK_PROPERTY_DEFAULTS,
+  COLLISION_SHAPES,
+  type LightLevel,
+} from '../src/domain/block-properties'
 import {
   AIR_BLOCK_ID,
   BLOCK_ID_MAX,
@@ -253,6 +259,15 @@ describe('id assignment is permanent', () => {
       for (const type of BLOCK_TYPES) {
         expect(blockTypeOfId(blockIdOf(type))).toBe(type)
       }
+    }),
+  )
+
+  it.effect('treats branded ids as total lookups', () =>
+    Effect.sync(() => {
+      const id = BlockId(2)
+
+      expect(blockTypeOfId(id)).toBe('stone')
+      expect(resolvedBlockOfId(id).type).toBe('stone')
     }),
   )
 
@@ -489,6 +504,12 @@ describe('the named light readings', () => {
     }),
   )
 
+  it.effect('returns the branded light-level type', () =>
+    Effect.sync(() => {
+      expectTypeOf(lightEmissionOfBlockId(blockIdOf('torch'))).toEqualTypeOf<LightLevel>()
+    }),
+  )
+
   it.effect('is NOT a synonym for passable — GLASS is the row that says so', () =>
     Effect.sync(() => {
       // Audit §4.9. If `opacity` agreed with an existing flag on every row it
@@ -705,6 +726,16 @@ describe('unknown ids', () => {
       for (const id of BLOCK_IDS) {
         expect(isKnownBlockId(id)).toBe(true)
       }
+    }),
+  )
+
+  it.effect('narrow numbers to BlockId when known', () =>
+    Effect.sync(() => {
+      const id = 2 as number
+      if (!isKnownBlockId(id)) {
+        throw new Error('expected known block id in type-narrowing test')
+      }
+      expectTypeOf(id).toEqualTypeOf<BlockId>()
     }),
   )
 

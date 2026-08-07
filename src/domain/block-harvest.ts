@@ -17,9 +17,10 @@
  * or must come with a default in `BLOCK_PROPERTY_DEFAULTS`. Never both required
  * and defaultless.
  */
-import { itemOfBlock } from './block-item.js'
+import { itemOfBlock, type PlaceableItemType } from './block-item.js'
 import type { BlockType } from './block-type.js'
 import type { ItemType } from './item-type.js'
+import { StackCount, type StackCount as StackCountValue } from './quantities.js'
 
 // ---------------------------------------------------------------------------
 // harvestTool (audit §4.5)
@@ -124,7 +125,7 @@ export type BlockDropRule = {
   /** Item yielded by Silk Touch instead of `item`; omitted when the normal drop is correct. */
   readonly silkTouchItem?: ItemType
   /** Base count before fortune. `0` = drops nothing (audit: ICE, `NEVER_DROPPED_BLOCK_TYPES`). */
-  readonly count: number
+  readonly count: StackCountValue
   /** Only drops at all when mined with a silk-touch tool. */
   readonly requiresSilkTouch: boolean
   /** Fortune multiplies `count` (`FORTUNE_ORE_BLOCKS`, `block-service.config.ts:270-276`). */
@@ -134,7 +135,7 @@ export type BlockDropRule = {
 /** Audit §4.5: 既定値 `drops={item: 自身, count: 1}`. */
 export const DEFAULT_BLOCK_DROP: BlockDropRule = {
   item: 'self',
-  count: 1,
+  count: StackCount(1),
   requiresSilkTouch: false,
   affectedByFortune: false,
 }
@@ -153,11 +154,13 @@ export const DEFAULT_BLOCK_DROP: BlockDropRule = {
  * answers "which item", not "does anything drop"; `resolveDrop` below is the
  * function that answers both, and is what mining should call.
  */
-export const resolveDropItem = (
+export function resolveDropItem(rule: BlockDropRule, brokenBlock: PlaceableItemType, silkTouch?: boolean): ItemType
+export function resolveDropItem(rule: BlockDropRule, brokenBlock: BlockType, silkTouch?: boolean): ItemType | undefined
+export function resolveDropItem(
   rule: BlockDropRule,
   brokenBlock: BlockType,
   silkTouch = false,
-): ItemType | undefined => {
+): ItemType | undefined {
   const item = silkTouch && rule.silkTouchItem !== undefined ? rule.silkTouchItem : rule.item
   return item === 'self' ? itemOfBlock(brokenBlock) : item
 }
@@ -199,7 +202,7 @@ export const BARE_HANDED: HarvestContext = {}
 export type BlockDrop = {
   readonly item: ItemType
   /** Base count, before fortune. Always >= 1; "nothing" is `undefined`, not zero. */
-  readonly count: number
+  readonly count: StackCountValue
   readonly affectedByFortune: boolean
 }
 
@@ -241,5 +244,7 @@ export const resolveDrop = (
 
   const item = resolveDropItem(rule, brokenBlock, context.silkTouch === true)
 
-  return item === undefined ? undefined : { item, count: rule.count, affectedByFortune: rule.affectedByFortune }
+  return item === undefined
+    ? undefined
+    : { item, count: rule.count, affectedByFortune: rule.affectedByFortune }
 }

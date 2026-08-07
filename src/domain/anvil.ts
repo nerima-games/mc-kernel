@@ -1,11 +1,16 @@
 /* eslint-disable complexity, curly, init-declarations, max-statements, no-continue, no-control-regex, no-magic-numbers, no-nested-ternary, no-ternary, no-undefined, prefer-destructuring, sort-keys -- Validation and deterministic anvil rules intentionally expose the complete wire contract in one module. */
 import { type ItemType, isItemType } from './item-type'
 import { maxStackCountOfItem } from './item-registry'
+import { StackCount } from './quantities'
+import { Brand } from 'effect'
 
 export const ANVIL_SNAPSHOT_VERSION = 1 as const
 export const ANVIL_TOO_EXPENSIVE_LEVEL = 40
 export const ANVIL_REPAIR_BONUS_RATIO = 0.12
 export const ANVIL_MAX_CUSTOM_NAME_LENGTH = 50
+
+export type AnvilEnchantmentId = string & Brand.Brand<'AnvilEnchantmentId'>
+export type AnvilCustomName = string & Brand.Brand<'AnvilCustomName'>
 
 export type AnvilDurability = {
   readonly current: number
@@ -13,7 +18,7 @@ export type AnvilDurability = {
 }
 
 export type AnvilEnchantment = {
-  readonly id: string
+  readonly id: AnvilEnchantmentId
   readonly level: number
 }
 
@@ -23,7 +28,7 @@ export type AnvilItemPayload = {
   readonly durability: AnvilDurability | null
   readonly enchantments: ReadonlyArray<AnvilEnchantment>
   readonly repairCost?: number
-  readonly customName?: string | null
+  readonly customName?: AnvilCustomName | null
 }
 
 export type CanonicalAnvilItemPayload = {
@@ -31,7 +36,7 @@ export type CanonicalAnvilItemPayload = {
   readonly durability: AnvilDurability | null
   readonly enchantments: ReadonlyArray<AnvilEnchantment>
   readonly repairCost: number
-  readonly customName: string | null
+  readonly customName: AnvilCustomName | null
 }
 
 export type AnvilInputStack = {
@@ -43,7 +48,7 @@ export type AnvilState = {
   readonly left: AnvilItemPayload | null
   readonly right: AnvilInputStack | null
   /** Desired output name. Use null to clear an existing custom name. */
-  readonly rename: string | null
+  readonly rename: AnvilCustomName | null
   readonly experienceLevels: number
 }
 
@@ -51,17 +56,17 @@ export type CanonicalAnvilState = {
   readonly left: CanonicalAnvilItemPayload | null
   readonly right: {
     readonly payload: CanonicalAnvilItemPayload
-    readonly count: number
+    readonly count: StackCount
   } | null
-  readonly rename: string | null
+  readonly rename: AnvilCustomName | null
   readonly experienceLevels: number
 }
 
 export type AnvilEnchantmentRule = {
-  readonly id: string
+  readonly id: AnvilEnchantmentId
   readonly maxLevel: number
   readonly applicableItems: ReadonlyArray<ItemType>
-  readonly incompatibleWith: ReadonlyArray<string>
+  readonly incompatibleWith: ReadonlyArray<AnvilEnchantmentId>
   readonly costPerLevel?: number
 }
 
@@ -86,12 +91,14 @@ export type AnvilSnapshot = {
   readonly state: CanonicalAnvilState
 }
 
+export type AnvilSnapshotString = string & Brand.Brand<'AnvilSnapshotString'>
+
 export type AnvilSnapshotResult =
   | { readonly ok: true; readonly snapshot: AnvilSnapshot }
   | { readonly ok: false; readonly issues: ReadonlyArray<AnvilValidationIssue> }
 
 export type AnvilSnapshotEncodingResult =
-  | { readonly ok: true; readonly encoded: string; readonly snapshot: AnvilSnapshot }
+  | { readonly ok: true; readonly encoded: AnvilSnapshotString; readonly snapshot: AnvilSnapshot }
   | { readonly ok: false; readonly issues: ReadonlyArray<AnvilValidationIssue> }
 
 export type AnvilRejectionReason =
@@ -109,7 +116,7 @@ export type AnvilPlan =
       readonly ok: true
       readonly output: CanonicalAnvilItemPayload
       readonly levelCost: number
-      readonly materialCost: number
+      readonly materialCost: StackCount
     }
   | {
       readonly ok: false
@@ -125,7 +132,7 @@ export type AnvilApplyResult =
       readonly state: CanonicalAnvilState
       readonly output: CanonicalAnvilItemPayload
       readonly levelCost: number
-      readonly materialCost: number
+      readonly materialCost: StackCount
     }
   | {
       readonly ok: false
@@ -151,6 +158,28 @@ const isCustomName = (value: unknown): value is string =>
   value.length > 0 &&
   value.length <= ANVIL_MAX_CUSTOM_NAME_LENGTH &&
   !/[\u0000-\u001f\u007f]/.test(value)
+
+/** Narrow external text to a canonical enchantment id without throwing. */
+export const isAnvilEnchantmentId = (value: string): value is AnvilEnchantmentId => isEnchantmentId(value)
+
+/** Narrow external text to a canonical custom name without throwing. */
+export const isAnvilCustomName = (value: string): value is AnvilCustomName => isCustomName(value)
+
+export const AnvilEnchantmentId = (value: string): AnvilEnchantmentId => {
+  if (!isAnvilEnchantmentId(value)) {
+    throw new TypeError(`Invalid AnvilEnchantmentId: ${value}`)
+  }
+
+  return value as AnvilEnchantmentId
+}
+
+export const AnvilCustomName = (value: string): AnvilCustomName => {
+  if (!isAnvilCustomName(value)) {
+    throw new TypeError(`Invalid AnvilCustomName: ${value}`)
+  }
+
+  return value as AnvilCustomName
+}
 
 const compareIds = (left: AnvilEnchantment, right: AnvilEnchantment): number =>
   left.id < right.id ? -1 : left.id > right.id ? 1 : 0
@@ -197,7 +226,11 @@ const decodeItemPayload = (
   }
 
   const customNameValue = value['customName'] ?? null
-  const customName = customNameValue === null || isCustomName(customNameValue) ? customNameValue : undefined
+  const customName = customNameValue === null
+    ? null
+    : typeof customNameValue === 'string' && isCustomName(customNameValue)
+    ? AnvilCustomName(customNameValue)
+    : undefined
   if (customName === undefined) {
     issues.push({ path: `${path}.customName`, reason: 'must be null or a valid custom name' })
   }
@@ -207,7 +240,7 @@ const decodeItemPayload = (
   if (!Array.isArray(enchantmentsValue)) {
     issues.push({ path: `${path}.enchantments`, reason: 'must be an array' })
   } else {
-    const seen = new Set<string>()
+    const seen = new Set<AnvilEnchantmentId>()
     for (const [index, candidate] of enchantmentsValue.entries()) {
       const candidatePath = `${path}.enchantments.${String(index)}`
       if (!isRecord(candidate)) {
@@ -224,12 +257,13 @@ const decodeItemPayload = (
         issues.push({ path: `${candidatePath}.level`, reason: 'must be a positive safe integer' })
         continue
       }
-      if (seen.has(id)) {
+      const canonicalId = AnvilEnchantmentId(id)
+      if (seen.has(canonicalId)) {
         issues.push({ path: `${candidatePath}.id`, reason: 'must be unique' })
         continue
       }
-      seen.add(id)
-      enchantments.push({ id, level })
+      seen.add(canonicalId)
+      enchantments.push({ id: canonicalId, level })
     }
   }
 
@@ -278,12 +312,16 @@ const decodeState = (
     } else if (payload !== undefined && payload.durability !== null && countValue !== 1) {
       issues.push({ path: `${path}.right.count`, reason: 'durable item payloads cannot stack' })
     } else if (payload !== undefined) {
-      right = { payload, count: countValue }
+      right = { payload, count: StackCount(countValue) }
     }
   }
 
   const renameValue = value['rename']
-  const rename = renameValue === null || isCustomName(renameValue) ? renameValue : undefined
+  const rename = renameValue === null
+    ? null
+    : typeof renameValue === 'string' && isCustomName(renameValue)
+    ? AnvilCustomName(renameValue)
+    : undefined
   if (rename === undefined) {
     issues.push({ path: `${path}.rename`, reason: 'must be null or a valid custom name' })
   }
@@ -322,10 +360,23 @@ export const decodeAnvilSnapshot = (value: unknown): AnvilSnapshotResult => {
     : { ok: true, snapshot: { version: ANVIL_SNAPSHOT_VERSION, state } }
 }
 
+/** Validate an external JSON snapshot string before it becomes a branded persistence token. */
+export const AnvilSnapshotString = (value: string): AnvilSnapshotString => {
+  if (!isAnvilSnapshotString(value)) {
+    throw new TypeError(`Invalid AnvilSnapshotString: ${value}`)
+  }
+
+  return value as AnvilSnapshotString
+}
+
+/** Narrow external snapshot storage text to a validated branded token without throwing. */
+export const isAnvilSnapshotString = (value: string): value is AnvilSnapshotString =>
+  decodeAnvilSnapshotString(value).ok
+
 export const encodeAnvilSnapshot = (state: AnvilState): AnvilSnapshotEncodingResult => {
   const snapshot = snapshotAnvilState(state)
   return snapshot.ok
-    ? { ok: true, encoded: JSON.stringify(snapshot.snapshot), snapshot: snapshot.snapshot }
+    ? { ok: true, encoded: AnvilSnapshotString(JSON.stringify(snapshot.snapshot)), snapshot: snapshot.snapshot }
     : snapshot
 }
 
@@ -347,9 +398,9 @@ const rejection = (
 ): AnvilPlanFailure => ({ ok: false, reason, issues: [{ path, reason: message }] })
 
 const conflicts = (
-  leftId: string,
-  rightId: string,
-  definitions: ReadonlyMap<string, AnvilEnchantmentRule>,
+  leftId: AnvilEnchantmentId,
+  rightId: AnvilEnchantmentId,
+  definitions: ReadonlyMap<AnvilEnchantmentId, AnvilEnchantmentRule>,
 ): boolean => {
   if (leftId === rightId) return false
   return definitions.get(leftId)?.incompatibleWith.includes(rightId) === true ||
@@ -359,12 +410,14 @@ const conflicts = (
 const validateRuleSet = (
   rules: AnvilRuleSet,
 ):
-  | { readonly ok: true; readonly definitions: ReadonlyMap<string, AnvilEnchantmentRule> }
+  | { readonly ok: true; readonly definitions: ReadonlyMap<AnvilEnchantmentId, AnvilEnchantmentRule> }
   | AnvilPlanFailure => {
-  const definitions = new Map<string, AnvilEnchantmentRule>()
+  const definitions = new Map<AnvilEnchantmentId, AnvilEnchantmentRule>()
   for (const [index, rule] of rules.enchantments.entries()) {
+    const invalidIncompatibleWith = rule.incompatibleWith.some((id) => !isEnchantmentId(id))
     if (
       !isEnchantmentId(rule.id) ||
+      invalidIncompatibleWith ||
       !isPositiveSafeInteger(rule.maxLevel) ||
       (rule.costPerLevel !== undefined && !isPositiveSafeInteger(rule.costPerLevel)) ||
       definitions.has(rule.id)
@@ -383,7 +436,7 @@ const validateRuleSet = (
 
 const validateEnchantmentSet = (
   payload: CanonicalAnvilItemPayload,
-  definitions: ReadonlyMap<string, AnvilEnchantmentRule>,
+  definitions: ReadonlyMap<AnvilEnchantmentId, AnvilEnchantmentRule>,
   sourceBook: boolean,
 ): AnvilPlanFailure | undefined => {
   for (const [index, enchantment] of payload.enchantments.entries()) {
@@ -428,7 +481,7 @@ export const planAnvil = (state: AnvilState, rules: AnvilRuleSet): AnvilPlan => 
   let durability = left.durability === null ? null : { ...left.durability }
   let enchantments = [...left.enchantments]
   let operationCost = 0
-  let materialCost = 0
+  let materialCost = StackCount(0)
   let rightContributed = false
 
   if (right !== null && right.payload.item === left.item && durability !== null) {
@@ -443,7 +496,7 @@ export const planAnvil = (state: AnvilState, rules: AnvilRuleSet): AnvilPlan => 
     if (repaired > durability.current) {
       durability = { current: repaired, max: durability.max }
       operationCost = safeAdd(operationCost, 2)
-      materialCost = 1
+      materialCost = StackCount(1)
       rightContributed = true
     }
   } else if (right !== null) {
@@ -467,7 +520,7 @@ export const planAnvil = (state: AnvilState, rules: AnvilRuleSet): AnvilPlan => 
           max: durability.max,
         }
         operationCost = safeAdd(operationCost, units)
-        materialCost = units
+        materialCost = StackCount(units)
         rightContributed = true
       }
     }
@@ -494,7 +547,7 @@ export const planAnvil = (state: AnvilState, rules: AnvilRuleSet): AnvilPlan => 
             ? { id: source.id, level: mergedLevel }
             : candidate)
         operationCost = safeAdd(operationCost, mergedLevel * (definition.costPerLevel ?? 1))
-        materialCost = Math.max(materialCost, 1)
+        materialCost = StackCount(Math.max(materialCost, 1))
         rightContributed = true
       }
     }
@@ -548,7 +601,7 @@ export const applyAnvil = (state: AnvilState, rules: AnvilRuleSet): AnvilApplyRe
   const right = canonical.snapshot.state.right
   const remainingRight = right === null || right.count === plan.materialCost
     ? null
-    : { payload: right.payload, count: right.count - plan.materialCost }
+    : { payload: right.payload, count: StackCount(right.count - plan.materialCost) }
 
   return {
     ok: true,

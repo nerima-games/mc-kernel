@@ -4,15 +4,20 @@ import { Effect } from 'effect'
 import {
   CHUNK_CODEC_VERSION,
   CHUNK_HEADER_BYTES,
+  ChunkBlocks,
+  EncodedChunk,
+  ChunkHeight,
+  MAX_CHUNK_HEIGHT,
   chunk,
+  chunkBlockCount,
   decodeChunk,
   encodeChunk,
 } from '../src/domain/chunk'
 import { blockIdOf } from '../src/domain/block-registry'
 import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates'
 
-const height = 2
-const blockCount = CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * height
+const height = ChunkHeight(2)
+const blockCount = chunkBlockCount(height)
 
 const sampleBlocks = (): Uint8Array => {
   const blocks = new Uint8Array(blockCount)
@@ -92,9 +97,20 @@ describe('chunk binary codec', () => {
 
   it.effect('rejects constructor values outside the binary format bounds', () =>
     Effect.sync(() => {
-      expect(() => chunk(chunkCoord(0, 0), 0x1_0000, new Uint8Array())).toThrow(/height/)
-      expect(() => chunk(chunkCoord(0x8000_0000, 0), 1, new Uint8Array(256))).toThrow(/cx/)
-      expect(() => chunk(chunkCoord(0, -0x8000_0001), 1, new Uint8Array(256))).toThrow(/cz/)
+      expect(() => ChunkHeight(0)).toThrow(/height/)
+      expect(() => ChunkHeight(MAX_CHUNK_HEIGHT + 1)).toThrow(/height/)
+      expect(() => ChunkBlocks(ChunkHeight(1), new Uint8Array())).toThrow(/length/)
+      expect(() => ChunkBlocks(ChunkHeight(1), new Uint8Array([255, ...new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ - 1)]))).toThrow(/unknown block id 255/)
+      expect(() => EncodedChunk(new Uint8Array())).toThrow(/header/)
+      expect(() => chunk(chunkCoord(0x8000_0000, 0), 1, new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cx/)
+      expect(() => chunk(chunkCoord(0, -0x8000_0001), 1, new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cz/)
+    }),
+  )
+
+  it.effect('derives the exact payload size from the validated height', () =>
+    Effect.sync(() => {
+      expect(chunkBlockCount(ChunkHeight(1))).toBe(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ)
+      expect(chunkBlockCount(height)).toBe(blockCount)
     }),
   )
 })

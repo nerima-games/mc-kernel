@@ -21,6 +21,7 @@
  */
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
+import { expectTypeOf } from 'vitest'
 import { blockPropertiesOf, type BlockDefinition } from '../src/domain/block-definition'
 import {
   BARE_HANDED,
@@ -43,6 +44,7 @@ import {
 import { BLOCK_IDS, BLOCK_REGISTRY, blockIdOf, dropOfBlockId } from '../src/domain/block-registry'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
 import { isItemType, ITEM_TYPES, type ItemType } from '../src/domain/item-type'
+import { StackCount, type StackCount as StackCountValue } from '../src/domain/quantities'
 
 /** A diamond pickaxe without enchantments: nothing is tier-gated for this player. */
 const FULLY_EQUIPPED: HarvestContext = { heldTier: 'diamond', silkTouch: true }
@@ -315,6 +317,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
       expect(isPlaceableItem('torch')).toBe(true)
       const torch = 'torch'
       if (isPlaceableItem(torch)) {
+        expect(itemOfBlock(torch)).toBe('torch')
         expect(blockOfPlaceableItem(torch)).toBe('torch')
       }
     }),
@@ -598,8 +601,16 @@ describe('the tool gate', () => {
       // ...and it became partial when the answer became an ITEM: `self` on a
       // block with no item form is nothing rather than a fabricated name.
       expect(resolveDropItem(DEFAULT_BLOCK_DROP, 'dirt')).toBe('dirt')
+      expectTypeOf(resolveDropItem(DEFAULT_BLOCK_DROP, 'dirt')).toEqualTypeOf<ItemType>()
       expect(resolveDropItem(DEFAULT_BLOCK_DROP, 'air')).toBeUndefined()
       expect(resolveDropItem(DEFAULT_BLOCK_DROP, 'water')).toBeUndefined()
+
+      const resolvedDrop = resolveDrop(DEFAULT_HARVEST_TOOL, DEFAULT_BLOCK_DROP, 'dirt', FULLY_EQUIPPED)
+      if (resolvedDrop === undefined) {
+        throw new Error('expected dirt to resolve to a drop')
+      }
+      expectTypeOf(DEFAULT_BLOCK_DROP.count).toEqualTypeOf<StackCountValue>()
+      expectTypeOf(resolvedDrop.count).toEqualTypeOf<StackCountValue>()
     }),
   )
 })
@@ -649,7 +660,7 @@ describe('additive safety', () => {
       // cannot reach an existing one; this is that claim, executed.
       const hypotheticalRule: BlockDropRule = {
         item: 'stick',
-        count: 9,
+        count: StackCount(9),
         requiresSilkTouch: false,
         affectedByFortune: true,
       }

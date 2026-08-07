@@ -11,13 +11,14 @@ import { resolveBlock } from './block-definition.js'
 import type { BlockDrop, HarvestContext } from './block-harvest.js'
 import { BARE_HANDED, DEFAULT_BLOCK_DROP, DEFAULT_HARVEST_TOOL, resolveDrop } from './block-harvest.js'
 import type { BlockOpacity, BlockProperties, BlockPropertyName } from './block-properties.js'
-import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS } from './block-properties.js'
+import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS, LightLevel } from './block-properties.js'
 import type { SupportRule } from './block-support.js'
 import { NEEDS_ANY_SUPPORT, isSupportSensitive, needsOneOf, satisfiesSupportRule } from './block-support.js'
 import type { BlockType } from './block-type.js'
 import { BLOCK_TYPES } from './block-type.js'
 import type { BlockRegistryEntry } from './block-registry-types.js'
 import { AIR_BLOCK_ID, BLOCK_ID_MAX, BlockId } from './block-registry-types.js'
+import { StackCount } from './quantities.js'
 
 /**
  * Drops nothing, to anyone, ever.
@@ -28,7 +29,7 @@ import { AIR_BLOCK_ID, BLOCK_ID_MAX, BlockId } from './block-registry-types.js'
  * required key every time `BlockDropRule` grows, and that is the breakage this
  * whole design exists to avoid.
  */
-const DROPS_NOTHING = { ...DEFAULT_BLOCK_DROP, count: 0 } as const
+const DROPS_NOTHING = { ...DEFAULT_BLOCK_DROP, count: StackCount(0) } as const
 
 /**
  * The tier gate that separates "mined stone" from "wasted a swing".
@@ -389,7 +390,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         hardness: 2,
         friction: 0.3,
         harvestTool: FASTER_WITH_SHOVEL,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'snowball', count: 4 },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'snowball', count: StackCount(4) },
       },
     },
   },
@@ -566,7 +567,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         // gives `GLOWSTONE` 4. Left as it is rather than corrected in passing:
         // it is a content value, not a transcription error, and changing a drop
         // count is a gameplay change that should be reviewed on its own.
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'glowstone_dust', count: 2, affectedByFortune: true },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'glowstone_dust', count: StackCount(2), affectedByFortune: true },
       },
     },
   },
@@ -1099,7 +1100,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         hardness: 15,
         friction: 0.8,
         harvestTool: NEEDS_WOODEN_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'amethyst_shard', count: 4 },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'amethyst_shard', count: StackCount(4) },
       },
     },
   },
@@ -1226,7 +1227,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
           ...DEFAULT_BLOCK_DROP,
           item: 'redstone_dust',
           silkTouchItem: 'redstone_ore',
-          count: 4,
+          count: StackCount(4),
           affectedByFortune: true,
         },
       },
@@ -1245,7 +1246,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
           ...DEFAULT_BLOCK_DROP,
           item: 'lapis_lazuli',
           silkTouchItem: 'lapis_ore',
-          count: 4,
+          count: StackCount(4),
           affectedByFortune: true,
         },
       },
@@ -1333,7 +1334,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
           ...DEFAULT_BLOCK_DROP,
           item: 'redstone_dust',
           silkTouchItem: 'deepslate_redstone_ore',
-          count: 4,
+          count: StackCount(4),
           affectedByFortune: true,
         },
       },
@@ -1352,7 +1353,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
           ...DEFAULT_BLOCK_DROP,
           item: 'lapis_lazuli',
           silkTouchItem: 'deepslate_lapis_ore',
-          count: 4,
+          count: StackCount(4),
           affectedByFortune: true,
         },
       },
@@ -2046,15 +2047,21 @@ export const BLOCK_IDS: ReadonlyArray<BlockId> = BLOCK_REGISTRY.map((entry) => e
 export const blockIdOf = (type: BlockType): BlockId => ID_BY_TYPE[type] ?? AIR_BLOCK_ID
 
 /** id -> `BlockType`. `undefined` for a byte this build does not recognise. */
-export const blockTypeOfId = (id: number): BlockType | undefined =>
-  isAddressableBlockId(id) ? RESOLVED_BY_ID[id]?.type : undefined
+export function blockTypeOfId(id: BlockId): BlockType
+export function blockTypeOfId(id: number): BlockType | undefined
+export function blockTypeOfId(id: number): BlockType | undefined {
+  return isAddressableBlockId(id) ? RESOLVED_BY_ID[id]?.type : undefined
+}
 
 /** id -> the fully resolved row. `undefined` for an unrecognised byte. */
-export const resolvedBlockOfId = (id: number): ResolvedBlock | undefined =>
-  isAddressableBlockId(id) ? RESOLVED_BY_ID[id] : undefined
+export function resolvedBlockOfId(id: BlockId): ResolvedBlock
+export function resolvedBlockOfId(id: number): ResolvedBlock | undefined
+export function resolvedBlockOfId(id: number): ResolvedBlock | undefined {
+  return isAddressableBlockId(id) ? RESOLVED_BY_ID[id] : undefined
+}
 
 /** Does this number name a block this build knows about? */
-export const isKnownBlockId = (id: number): boolean => resolvedBlockOfId(id) !== undefined
+export const isKnownBlockId = (id: number): id is BlockId => resolvedBlockOfId(id) !== undefined
 
 /**
  * Read one capability straight off a chunk buffer byte. TOTAL — see the module
@@ -2241,9 +2248,9 @@ export const opacityOfBlockId = (id: number): BlockOpacity =>
  * inert reading — an unknown block sitting in the dark, rather than an unknown
  * block lighting a cave it has no business lighting.
  */
-export const lightEmissionOfBlockId = (id: number): number =>
+export const lightEmissionOfBlockId = (id: number): LightLevel =>
   isAddressableBlockId(id)
-    ? (PROPERTY_COLUMNS.lightEmission[id] ?? BLOCK_PROPERTY_DEFAULTS.lightEmission)
+    ? LightLevel(PROPERTY_COLUMNS.lightEmission[id] ?? BLOCK_PROPERTY_DEFAULTS.lightEmission)
     : BLOCK_PROPERTY_DEFAULTS.lightEmission
 
 /**

@@ -51,6 +51,7 @@
  * property without a default a compile error, so the "cannot exist without a
  * default" guarantee survives the split.
  */
+import { Brand } from 'effect'
 import type { BlockDropRule, HarvestToolRequirement } from './block-harvest.js'
 import { DEFAULT_BLOCK_DROP, DEFAULT_HARVEST_TOOL } from './block-harvest.js'
 import type { SupportRule } from './block-support.js'
@@ -93,13 +94,23 @@ export type RailKind = (typeof RAIL_KINDS)[number]
 export const LIGHT_LEVEL_MIN = 0
 export const LIGHT_LEVEL_MAX = 15
 
+export type LightLevel = number & Brand.Brand<'LightLevel'>
+
 /** Guard for values arriving from save files or a developer console. */
-export const isLightLevel = (value: number): boolean =>
+export const isLightLevel = (value: number): value is LightLevel =>
   Number.isInteger(value) && value >= LIGHT_LEVEL_MIN && value <= LIGHT_LEVEL_MAX
 
+export const LightLevel = Brand.refined<LightLevel>(
+  isLightLevel,
+  (value) =>
+    Brand.error(
+      `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${value}`,
+    ),
+)
+
 /** Clamp into the 4-bit light range. Used when combining emission with attenuation. */
-export const clampLightLevel = (value: number): number =>
-  Math.min(LIGHT_LEVEL_MAX, Math.max(LIGHT_LEVEL_MIN, Math.trunc(value)))
+export const clampLightLevel = (value: number): LightLevel =>
+  LightLevel(Math.min(LIGHT_LEVEL_MAX, Math.max(LIGHT_LEVEL_MIN, Math.trunc(value))))
 
 // ---------------------------------------------------------------------------
 // The property table
@@ -115,7 +126,7 @@ export type BlockProperties = {
   /** Meshing bucket + light attenuation class. Audit §4.4. */
   readonly opacity: BlockOpacity
   /** Emitted light level, 0..15. Audit §4.4, `light.ts:24-46`. */
-  readonly lightEmission: number
+  readonly lightEmission: LightLevel
   /** Which fluid this block is, if any. Audit §4.2. */
   readonly fluid: FluidKind
   /** Collision hull. Audit §4.1. */
@@ -157,7 +168,7 @@ export type BlockProperties = {
  */
 export const BLOCK_PROPERTY_DEFAULTS: BlockProperties = {
   opacity: 'opaque',
-  lightEmission: LIGHT_LEVEL_MIN,
+  lightEmission: LightLevel(LIGHT_LEVEL_MIN),
   fluid: 'none',
   collisionShape: 'full',
   renderKind: 'cube',
@@ -188,9 +199,23 @@ export const BLOCK_PROPERTY_NAMES: ReadonlyArray<BlockPropertyName> = Object.key
  * What a block definition actually declares. Every key optional — omission is
  * meaningful and means "take the default".
  */
+type BlockPropertyOverrideValue<K extends BlockPropertyName> =
+  K extends 'lightEmission' ? number | LightLevel : BlockProperties[K]
+
 export type BlockPropertyOverrides = {
-  readonly [K in BlockPropertyName]?: BlockProperties[K]
+  readonly [K in BlockPropertyName]?: BlockPropertyOverrideValue<K>
 }
+
+const resolveLightEmission = (overrides: BlockPropertyOverrides): LightLevel =>
+  overrides.lightEmission === undefined
+    ? BLOCK_PROPERTY_DEFAULTS.lightEmission
+    : isLightLevel(overrides.lightEmission)
+      ? overrides.lightEmission
+      : (() => {
+          throw new TypeError(
+            `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${overrides.lightEmission}`,
+          )
+        })()
 
 /**
  * Fill in the defaults for every property the overrides do not mention.
@@ -202,6 +227,7 @@ export type BlockPropertyOverrides = {
 export const resolveBlockProperties = (overrides: BlockPropertyOverrides): BlockProperties => ({
   ...BLOCK_PROPERTY_DEFAULTS,
   ...overrides,
+  lightEmission: resolveLightEmission(overrides),
 })
 
 /**
@@ -211,4 +237,7 @@ export const resolveBlockProperties = (overrides: BlockPropertyOverrides): Block
 export const propertyOf = <K extends BlockPropertyName>(
   overrides: BlockPropertyOverrides,
   name: K,
-): BlockProperties[K] => overrides[name] ?? BLOCK_PROPERTY_DEFAULTS[name]
+): BlockProperties[K] =>
+  name === 'lightEmission'
+    ? (resolveLightEmission(overrides) as BlockProperties[K])
+    : ((overrides[name] ?? BLOCK_PROPERTY_DEFAULTS[name]) as BlockProperties[K])

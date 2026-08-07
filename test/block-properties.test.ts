@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
+import { expectTypeOf } from 'vitest'
 import {
   DEFAULT_BLOCK_DROP,
   DEFAULT_HARVEST_TOOL,
@@ -15,16 +16,19 @@ import {
   COLLISION_SHAPES,
   FLUID_KINDS,
   isLightLevel,
+  LightLevel,
   LIGHT_LEVEL_MAX,
   LIGHT_LEVEL_MIN,
   propertyOf,
   RAIL_KINDS,
   RENDER_KINDS,
   resolveBlockProperties,
+  type LightLevel as LightLevelType,
   type BlockProperties,
   type BlockPropertyOverrides,
 } from '../src/domain/block-properties'
 import { blockPropertiesOf, resolveBlock, type BlockDefinition } from '../src/domain/block-definition'
+import { StackCount } from '../src/domain/quantities'
 
 describe('block properties — the additive-safety guarantee, extended to non-booleans', () => {
   it.effect(
@@ -72,7 +76,7 @@ describe('block properties — the additive-safety guarantee, extended to non-bo
     Effect.sync(() => {
       const expected: BlockProperties = {
         opacity: 'opaque',
-        lightEmission: 0,
+        lightEmission: LightLevel(0),
         fluid: 'none',
         collisionShape: 'full',
         renderKind: 'cube',
@@ -84,7 +88,7 @@ describe('block properties — the additive-safety guarantee, extended to non-bo
         xpOnBreak: 0,
         railKind: 'none',
         harvestTool: { category: 'none', minTier: 'none' },
-        drops: { item: 'self', count: 1, requiresSilkTouch: false, affectedByFortune: false },
+        drops: { item: 'self', count: StackCount(1), requiresSilkTouch: false, affectedByFortune: false },
         // Audit §4.6 states this default in as many words: `supportRule='none'`.
         // An ordinary cube requires nothing beneath it, so a block that says
         // nothing about support is not "unsupported" — it is uninterested.
@@ -172,6 +176,30 @@ describe('light level helpers', () => {
       expect(clampLightLevel(99)).toBe(15)
       expect(clampLightLevel(7.9)).toBe(7)
       expect(clampLightLevel(15)).toBe(15)
+      expectTypeOf(clampLightLevel(7.9)).toEqualTypeOf<LightLevelType>()
+    }),
+  )
+})
+
+describe('light level branding', () => {
+  it.effect('brands resolved light emission values while preserving numeric override ergonomics', () =>
+    Effect.sync(() => {
+      const resolved = resolveBlockProperties({ lightEmission: 14 })
+
+      expect(resolved.lightEmission).toBe(14)
+      expectTypeOf(resolved.lightEmission).toEqualTypeOf<LightLevelType>()
+    }),
+  )
+
+  it.effect('rejects invalid light emission overrides', () =>
+    Effect.sync(() => {
+      expect(() => resolveBlockProperties({ lightEmission: 16 })).toThrow(/LightLevel must be an integer/)
+    }),
+  )
+
+  it.effect('exposes the public light-level constructor', () =>
+    Effect.sync(() => {
+      expect(LightLevel(3)).toBe(3)
     }),
   )
 })
