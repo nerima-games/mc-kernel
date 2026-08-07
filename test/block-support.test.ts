@@ -127,6 +127,14 @@ describe('SupportRule — the three arms', () => {
   )
 })
 
+describe('support-rule fallback totality', () => {
+  it.effect('rejects impossible support-rule kinds at the final default arm', () =>
+    Effect.sync(() => {
+      expect(satisfiesSupportRule({ kind: 'invalid' } as never, 'stone', true)).toStrictEqual({ kind: 'invalid' })
+    }),
+  )
+})
+
 // ---------------------------------------------------------------------------
 // The reference's own cases, ported
 // ---------------------------------------------------------------------------

@@ -92,6 +92,7 @@ describe('chunk binary codec', () => {
 
   it.effect('rejects constructor values outside the binary format bounds', () =>
     Effect.sync(() => {
+      expect(() => chunk(chunkCoord(0, 0), 1, new Uint8Array(255))).toThrow(/block data length must be 256, received 255/i)
       expect(() => chunk(chunkCoord(0, 0), 0x1_0000, new Uint8Array())).toThrow(/height/)
       expect(() => chunk(chunkCoord(0x8000_0000, 0), 1, new Uint8Array(256))).toThrow(/cx/)
       expect(() => chunk(chunkCoord(0, -0x8000_0001), 1, new Uint8Array(256))).toThrow(/cz/)

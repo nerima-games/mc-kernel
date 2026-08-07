@@ -1,6 +1,6 @@
 {
   "name": "@nerima-games/mc-kernel",
-  "version": "0.2.18",
+  "version": "0.2.19",
   "type": "module",
   "description": "Shared vocabulary for the nerima-games Minecraft-clone rebuild: branded types, coordinates, block capability flags, frame contracts, and the clock Port.",
   "homepage": "https://github.com/nerima-games/mc-kernel#readme",

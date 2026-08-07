@@ -306,6 +306,16 @@ describe('id assignment is permanent', () => {
   )
 })
 
+describe('unknown-id fallbacks stay total even for non-byte numbers', () => {
+  it.effect('treats negative, fractional, and NaN ids as default-opacity blocks', () =>
+    Effect.sync(() => {
+      for (const unknown of [-1, 1.5, Number.NaN]) {
+        expect(transmitsLight(unknown)).toBe(false)
+      }
+    }),
+  )
+})
+
 describe('reading behaviour off a chunk buffer byte', () => {
   it.effect('answers tillable from the registry for dirt and grass_block only', () =>
     Effect.sync(() => {
