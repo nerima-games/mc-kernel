@@ -131,6 +131,8 @@ describe('chunk binary codec', () => {
       expect(() => ChunkBlocks(ChunkHeight(1), new Uint8Array())).toThrow(/length/)
       expect(() => ChunkBlocks(ChunkHeight(1), new Uint8Array([255, ...new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ - 1)]))).toThrow(/unknown block id 255/)
       expect(() => EncodedChunk(new Uint8Array())).toThrow(/header/)
+      expect(() => chunk(chunkCoord(0, 0), 1, new Uint8Array(255))).toThrow(/block data length must be 256, received 255/i)
+      expect(() => chunk(chunkCoord(0, 0), 0x1_0000, new Uint8Array())).toThrow(/height/)
       expect(() => chunk(chunkCoord(0x8000_0000, 0), 1, new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cx/)
       expect(() => chunk(chunkCoord(0, -0x8000_0001), 1, new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cz/)
     }),

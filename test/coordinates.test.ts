@@ -136,6 +136,18 @@ describe('world <-> chunk coordinate conversion', () => {
   )
 })
 
+describe('face fallback totality', () => {
+  it.effect('keeps the final fallback arms total for invalid face values', () =>
+    Effect.sync(() => {
+      const invalidFace = 'sideways' as never
+      const source = blockPosition(TEN, TWENTY, THIRTY)
+
+      expect(oppositeBlockFace(invalidFace)).toBe('sideways')
+      expect(adjacentBlockPosition(source, invalidFace)).toBe('sideways')
+    }),
+  )
+})
+
 describe('blockPositionOfPosition', () => {
   it.effect('floors a continuous position into the block cell that contains it', () =>
     Effect.sync(() => {
