@@ -143,7 +143,8 @@ export const encodeChunk = (value: Chunk): EncodedChunk => {
   view.setInt32(16, value.coord.cz, true)
   view.setUint32(20, value.blocks.length, true)
   value.blocks.copyTo(encoded, CHUNK_HEADER_BYTES)
-  return EncodedChunk(encoded)
+  // Every wire field was written from validated inputs; avoid revalidating this fresh buffer.
+  return encoded as EncodedChunk
 }
 
 /** Decode and validate a chunk. Trailing bytes and unknown registry ids are corruption. */
