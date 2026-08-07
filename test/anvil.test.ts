@@ -84,7 +84,7 @@ describe('anvil validation guards', () => {
         enchantments: [
           ...RULES.enchantments,
           {
-            id: 'sharpness',
+            id: AnvilEnchantmentId('sharpness'),
             maxLevel: 5,
             applicableItems: ['iron_sword'],
             incompatibleWith: [],
@@ -129,7 +129,7 @@ describe('anvil validation guards', () => {
     Effect.sync(() => {
       const invalidLeft = planAnvil(state({
         left: item({
-          enchantments: [{ id: 'sharpness', level: 6 }],
+          enchantments: [{ id: AnvilEnchantmentId('sharpness'), level: 6 }],
         }),
       }), RULES)
 
@@ -148,7 +148,7 @@ describe('anvil validation guards', () => {
     Effect.sync(() => {
       const invalidLeft = planAnvil(state({
         left: item({
-          enchantments: [{ id: 'efficiency', level: 1 }],
+          enchantments: [{ id: AnvilEnchantmentId('efficiency'), level: 1 }],
         }),
       }), RULES)
 
@@ -161,8 +161,8 @@ describe('anvil validation guards', () => {
       const conflictingLeft = planAnvil(state({
         left: item({
           enchantments: [
-            { id: 'sharpness', level: 1 },
-            { id: 'smite', level: 1 },
+            { id: AnvilEnchantmentId('sharpness'), level: 1 },
+            { id: AnvilEnchantmentId('smite'), level: 1 },
           ],
         }),
       }), RULES)
@@ -411,7 +411,7 @@ describe('anvil application', () => {
     Effect.sync(() => {
       let reads = 0
       const unstable = {
-        ...state({ rename: 'Named sword', experienceLevels: 1 }),
+        ...state({ rename: AnvilCustomName('Named sword'), experienceLevels: 1 }),
         get experienceLevels() {
           reads += 1
           if (reads === 1) return 1
@@ -567,7 +567,7 @@ describe('anvil snapshot codec', () => {
 
       expect(snapshotAnvilState(state({
         left: item({
-          enchantments: [{ id: 'sharpness', level: 0 }],
+          enchantments: [{ id: AnvilEnchantmentId('sharpness'), level: 0 }],
         }),
       }))).toStrictEqual({
         ok: false,
