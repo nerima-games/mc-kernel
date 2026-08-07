@@ -1,6 +1,9 @@
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
 import * as kernel from '../src/index'
+import type { BlockRegistryEntry } from '../src/domain/block-registry'
+import * as blockRegistry from '../src/domain/block-registry'
+import { BLOCK_PROPERTY_DEFAULTS } from '../src/domain/block-properties'
 import { BLOCK_TYPES, isBlockType } from '../src/domain/block-type'
 import { isItemType, ITEM_TYPES } from '../src/domain/item-type'
 import { ITEM_REGISTRY, itemIdOf } from '../src/domain/item-registry'
@@ -212,6 +215,27 @@ describe('public API surface', () => {
       expect(kernel.ITEM_TYPES).toBe(ITEM_TYPES)
       expect(kernel.ITEM_REGISTRY).toBe(ITEM_REGISTRY)
       expect(kernel.itemIdOf).toBe(itemIdOf)
+      expect(kernel.BLOCK_REGISTRY).toBe(blockRegistry.BLOCK_REGISTRY)
+      expect(kernel.BLOCK_IDS).toBe(blockRegistry.BLOCK_IDS)
+      expect(kernel.isKnownBlockId).toBe(blockRegistry.isKnownBlockId)
+      expect(kernel.blockIdOf).toBe(blockRegistry.blockIdOf)
+      expect(kernel.blockTypeOfId).toBe(blockRegistry.blockTypeOfId)
+      expect(kernel.resolvedBlockOfId).toBe(blockRegistry.resolvedBlockOfId)
+      expect(kernel.capabilityOfBlockId).toBe(blockRegistry.capabilityOfBlockId)
+      expect(kernel.capabilitiesOfBlockId).toBe(blockRegistry.capabilitiesOfBlockId)
+      expect(kernel.propertyOfBlockId).toBe(blockRegistry.propertyOfBlockId)
+      expect(kernel.blockIdsWithCapability).toBe(blockRegistry.blockIdsWithCapability)
+      expect(kernel.blockIdsWithOpacity).toBe(blockRegistry.blockIdsWithOpacity)
+      expect(kernel.opacityOfBlockId).toBe(blockRegistry.opacityOfBlockId)
+      expect(kernel.lightEmissionOfBlockId).toBe(blockRegistry.lightEmissionOfBlockId)
+      expect(kernel.transmitsLight).toBe(blockRegistry.transmitsLight)
+      expect(kernel.supportRuleOfBlockId).toBe(blockRegistry.supportRuleOfBlockId)
+      expect(kernel.isSupportSensitiveBlockId).toBe(blockRegistry.isSupportSensitiveBlockId)
+      expect(kernel.canBlockStaySupported).toBe(blockRegistry.canBlockStaySupported)
+      expect(kernel.dropOfBlockId).toBe(blockRegistry.dropOfBlockId)
+      expect(kernel.UNREGISTERED_BLOCK_TYPES).toBe(blockRegistry.UNREGISTERED_BLOCK_TYPES)
+      expect(kernel.AIR_BLOCK_ID).toBe(blockRegistry.AIR_BLOCK_ID)
+      expect(kernel.BLOCK_ID_MAX).toBe(blockRegistry.BLOCK_ID_MAX)
       expect(kernel.isItemType('bow')).toBe(true)
       expect(kernel.isItemType('arrow')).toBe(true)
       expect(kernel.isItemType('bone_meal')).toBe(true)
@@ -222,6 +246,36 @@ describe('public API surface', () => {
       expect(kernel.isItemType('cod')).toBe(true)
       expect(kernel.isItemType('shears')).toBe(true)
       expect(kernel.isItemType('wool')).toBe(true)
+    }),
+  )
+
+  it.effect('keeps the stable block-registry import path behaviorally identical to the barrel', () =>
+    Effect.sync(() => {
+      const blockRegistryEntry: BlockRegistryEntry = blockRegistry.BLOCK_REGISTRY[0]!
+      expect(blockRegistryEntry.id).toBe(blockRegistry.AIR_BLOCK_ID)
+      expect(blockRegistryEntry.definition.type).toBe('air')
+
+      const stoneId = blockRegistry.blockIdOf('stone')
+      const stoneDefinition = blockRegistry.resolvedBlockOfId(stoneId)
+      expect(kernel.blockIdOf('stone')).toBe(stoneId)
+      expect(blockRegistry.blockTypeOfId(stoneId)).toBe('stone')
+      expect(stoneDefinition).toBeDefined()
+      expect(stoneDefinition?.type).toBe('stone')
+      expect(blockRegistry.capabilityOfBlockId(stoneId, 'canSupportAttachments')).toBe(true)
+      expect(blockRegistry.transmitsLight(stoneId)).toBe(false)
+    }),
+  )
+
+  it.effect('documents unknown block-id defaults on the stable block-registry import path', () =>
+    Effect.sync(() => {
+      const unknownId = (blockRegistry.BLOCK_ID_MAX + 1) as never
+      expect(blockRegistry.isKnownBlockId(unknownId)).toBe(false)
+      expect(blockRegistry.dropOfBlockId(unknownId)).toBeUndefined()
+      expect(blockRegistry.opacityOfBlockId(unknownId)).toBe(BLOCK_PROPERTY_DEFAULTS.opacity)
+      expect(blockRegistry.lightEmissionOfBlockId(unknownId)).toBe(BLOCK_PROPERTY_DEFAULTS.lightEmission)
+      expect(blockRegistry.supportRuleOfBlockId(unknownId)).toEqual(BLOCK_PROPERTY_DEFAULTS.supportRule)
+      expect(blockRegistry.isSupportSensitiveBlockId(unknownId)).toBe(false)
+      expect(blockRegistry.canBlockStaySupported(unknownId, blockRegistry.AIR_BLOCK_ID)).toBe(true)
     }),
   )
 

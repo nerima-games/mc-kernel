@@ -777,6 +777,22 @@ describe('the table states differences only', () => {
       }
     }),
   )
+
+  it.effect('keeps the capability column aligned with resolved rows for every byte', () =>
+    Effect.sync(() => {
+      for (let rawId = 0; rawId <= BLOCK_ID_MAX; rawId += 1) {
+        const resolved = resolvedBlockOfId(rawId)
+        expect(capabilitiesOfBlockId(rawId)).toStrictEqual(
+          resolved?.capabilities ?? BLOCK_CAPABILITY_DEFAULTS,
+        )
+        for (const flag of BLOCK_CAPABILITY_FLAGS) {
+          expect(capabilityOfBlockId(rawId, flag)).toBe(
+            resolved?.capabilities[flag] ?? BLOCK_CAPABILITY_DEFAULTS[flag],
+          )
+        }
+      }
+    }),
+  )
 })
 
 describe('the reference tables this roster transcribes', () => {

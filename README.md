@@ -8,8 +8,8 @@
 
 なし。`effect` のみに依存し、`@nerima-games/*` のどのリポジトリにも依存しない。
 
-これは設計上の制約であり、`pnpm check:deps` で機械的に強制されている
-（`scripts/check-dependency-whitelist.ts` の `REPOSITORY_POLICY` が kernel の行を空集合として宣言している）。
+これは設計上の制約であり、`.oxlintrc.json` の `no-restricted-imports` と
+`pnpm lint` の `--deny-warnings` で機械的に強制されている。
 
 ## このリポジトリの位置づけ
 
@@ -34,7 +34,7 @@ kernel が誰かに依存した時点で構造的に循環が生じるためで�
 | [docs/public-api.md](./docs/public-api.md) | 公開 API 全体と、各横断型が**なぜ kernel にあるのか** |
 | [docs/capability-flag-audit.md](./docs/capability-flag-audit.md) | **能力フラグ監査（一次資料・能力モデルの権威）** |
 | [docs/design-notes.md](./docs/design-notes.md) | 参照実装の名指し判定散乱の実測、初日原則、「ブロック追加 = 1 行」不変条件 |
-| [docs/testing.md](./docs/testing.md) | 検証要件・完成条件・99% カバレッジゲートの投入時期 |
+| [docs/testing.md](./docs/testing.md) | 検証要件・実行コマンド・現時点の未完了項目 |
 | [docs/versioning.md](./docs/versioning.md) | 0.x → 1.0.0 方針、GitHub Packages、**加算的な能力追加がなぜ死活問題か** |
 | [docs/freeze-checklist.md](./docs/freeze-checklist.md) | 1.0.0 凍結の前提条件（監査 ✅ / 縦切りスパイク ❌） |
 
@@ -93,13 +93,12 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
 | コマンド | 内容 |
 | --- | --- |
 | `pnpm typecheck` | `tsconfig.build.json` と `tsconfig.test.json` の両方を型検査 |
-| `pnpm lint` | oxlint（このリポジトリ唯一の lint / format 設定。prettier も biome も .editorconfig も置かない）。**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は 5 カテゴリすべてと個別 67 ルールが `warn`、`error` は 4 つだけ。このフラグが無かった頃は実質その 4 つしかゲートになっていなかった） |
+| `pnpm lint` | oxlint（このリポジトリ唯一の lint / format 設定。prettier も biome も .editorconfig も置かない）。**`--deny-warnings` 付きで走る**ため、`warn` のカテゴリや個別ルールもビルドを落とす。現行設定の要点は `.oxlintrc.json` を正とする |
 | `pnpm lint:fix` | oxlint の自動修正 |
 | `pnpm test` | vitest（`@effect/vitest` の `it.effect` が主 API） |
 | `pnpm test:watch` | vitest watch |
 | `pnpm test:coverage` | カバレッジ計測（閾値は未設定。[docs/testing.md](./docs/testing.md) §4） |
-| `pnpm check:deps` | 依存ホワイトリスト + 循環検査 + 壁時計直読み禁止の検査 |
-| `pnpm verify` | `typecheck && lint && check:deps && test`。CI と同じ内容 |
+| `pnpm verify` | `typecheck && lint && test` |
 
 ## 現状
 
@@ -111,8 +110,9 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
 - **ブロックテーブルは同梱している**（`domain/block-registry.ts`）。もともとは「コンテンツなので持たない」方針だったが、
   チャンクバッファの 1 バイトから能力を引きたいリポジトリが依存グラフ上で互いに届かない 3 箇所に現れた時点で成立しなくなった。
   経緯と論拠は [docs/responsibility.md](./docs/responsibility.md) §3-2 と当該ファイルのヘッダにある。
-- **`BlockType` は代表的な少数のみ**（18 / 参照実装は 120）。埋めるのは加算的な作業。
-- **`ItemType` を公開した**（`domain/item-type.ts`、108 種。鉄防具 4 種とつるはし・クワ各 4 tier を含む）。plan.md §3.1 が挙げていながら
+- **`BlockType` とレジストリは 123 種を収録している。** 参照実装の 120 リテラルを基礎に、kernel が必要とする
+  `soul_soil`、`wither_skeleton_skull`、`dropper` を加えた。追加時はリテラルだけでなくレジストリ行と能力を同時に定義する。
+- **`ItemType` を公開した**（`domain/item-type.ts`、173 種。鉄防具 4 種とつるはし・クワ各 4 tier を含む）。plan.md §3.1 が挙げていながら
   書かれていなかった語彙で、欠落のあいだに mc-sim / mc-playground-kit / mx-ui がそれぞれ暫定の
   `type ItemId = string` を置いていた。`domain/block-item.ts` がブロック↔アイテムの橋
   （監査 §6-8 の `ItemType ∩ BlockType` を導出で解く）を、`dropOfBlockId` が

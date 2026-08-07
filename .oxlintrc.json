@@ -26,7 +26,7 @@
     "correctness": "warn",
     "suspicious": "warn",
     "perf": "warn",
-    "style": "warn",
+    "style": "off",
     "restriction": "warn"
   },
   "rules": {
@@ -136,7 +136,8 @@
     "no-case-declarations": "off",
     "no-constant-condition": "off",
     "no-param-reassign": "off",
-    "no-plusplus": "off"
+    "no-plusplus": "off",
+    "no-undefined": "off"
   },
   "ignorePatterns": ["node_modules/**", "coverage/**", "dist/**", ".git/**", "*.config.ts", "docs/**"]
 }

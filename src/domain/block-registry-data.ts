@@ -4,10 +4,9 @@
  * IDs are wire-format values: entries stay explicit, are never reused, and
  * unknown values resolve to inert defaults so chunk reads remain total.
  */
-import { Brand } from 'effect'
 import type { BlockCapabilities, BlockCapabilityFlag } from './block-capabilities.js'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from './block-capabilities.js'
-import type { BlockDefinition, ResolvedBlock } from './block-definition.js'
+import type { ResolvedBlock } from './block-definition.js'
 import { resolveBlock } from './block-definition.js'
 import type { BlockDrop, HarvestContext } from './block-harvest.js'
 import { BARE_HANDED, DEFAULT_BLOCK_DROP, DEFAULT_HARVEST_TOOL, resolveDrop } from './block-harvest.js'
@@ -17,6 +16,8 @@ import type { SupportRule } from './block-support.js'
 import { NEEDS_ANY_SUPPORT, isSupportSensitive, needsOneOf, satisfiesSupportRule } from './block-support.js'
 import type { BlockType } from './block-type.js'
 import { BLOCK_TYPES } from './block-type.js'
+import type { BlockRegistryEntry } from './block-registry-types.js'
+import { BLOCK_ID_MAX, BlockId } from './block-registry-types.js'
 
 /**
  * Drops nothing, to anyone, ever.
@@ -188,42 +189,6 @@ const NEEDS_SAND_OR_CACTUS: SupportRule = needsOneOf('sand', 'cactus')
  * and could not fix it without this column.
  */
 const NEEDS_WATER: SupportRule = needsOneOf('water')
-
-/**
- * The storage encoding of a block inside a chunk buffer.
- *
- * One byte, because the chunk buffer is a `Uint8Array` (16 × 16 × 256 = 65,536
- * bytes per chunk in both the reference implementation and mc-worldgen). The
- * 256-value ceiling is therefore a fact about the chunk format and not a
- * pessimism about the block roster; widening it is a chunk-format migration and
- * belongs to mc-save, not here.
- */
-export type BlockId = number & Brand.Brand<'BlockId'>
-
-/** Largest representable id, from the `Uint8Array` chunk buffer. */
-export const BLOCK_ID_MAX = 255
-
-export const BlockId = Brand.refined<BlockId>(
-  (value) => Number.isInteger(value) && value >= 0 && value <= BLOCK_ID_MAX,
-  (value) => Brand.error(`BlockId must be an integer in [0, ${BLOCK_ID_MAX}], received ${value}`),
-)
-
-/**
- * Air is id 0, and this is load-bearing rather than conventional.
- *
- * `new Uint8Array(n)` is zero-filled, so a freshly allocated chunk is a chunk
- * full of air with no initialisation pass. mc-worldgen's `emptyBlocks()` and
- * mc-meshing's `emptyChunk()` both rely on it, as does mc-meshing's
- * out-of-bounds `AIR` sentinel (`domain/chunk-view.ts`: an unloaded neighbour
- * meshes as open sky rather than as a black wall).
- */
-export const AIR_BLOCK_ID: BlockId = BlockId(0)
-
-/** One row of the table: a permanent id and the definition it names. */
-export type BlockRegistryEntry = {
-  readonly id: BlockId
-  readonly definition: BlockDefinition
-}
 
 /**
  * THE block table.
@@ -2050,20 +2015,25 @@ const buildPropertyColumns = (): {
 
 const PROPERTY_COLUMNS = buildPropertyColumns()
 
+const seededRecord = <K extends string, V>(keys: ReadonlyArray<K>, build: (key: K) => V): Record<K, V> =>
+  Object.fromEntries(keys.map((key) => [key, build(key)])) as Record<K, V>
+
 const buildIdByType = (): Readonly<Record<BlockType, BlockId>> => {
-  const table: Partial<Record<BlockType, BlockId>> = {}
+  const assignedIds = new Map<BlockType, BlockId>()
 
   for (const entry of BLOCK_REGISTRY) {
-    table[entry.definition.type] = entry.id
+    assignedIds.set(entry.definition.type, entry.id)
   }
 
-  for (const type of BLOCK_TYPES) {
-    if (table[type] === undefined) {
+  return seededRecord(BLOCK_TYPES, (type) => {
+    const blockId = assignedIds.get(type)
+
+    if (blockId === undefined) {
       throw new Error(`Block registry is missing a row for ${type}`)
     }
-  }
 
-  return table as Readonly<Record<BlockType, BlockId>>
+    return blockId
+  })
 }
 
 const ID_BY_TYPE = buildIdByType()
@@ -2075,23 +2045,8 @@ const ID_BY_TYPE = buildIdByType()
 export const BLOCK_IDS: ReadonlyArray<BlockId> = BLOCK_REGISTRY.map((entry) => entry.id)
 
 /**
- * Does this number name a block this build knows about?
- *
- * Delegates instead of repeating the range test. The two were spelled
- * separately, which made "this id is known" and "this id resolves to a row"
- * two independent claims that happened to agree; the case where they could
- * come apart is a HOLE — an id below `REGISTRY_LENGTH` with no entry, which
- * `BLOCK_IDS` above says a removed block leaves behind forever. Answering the
- * question by asking the resolver makes the agreement structural, so there is
- * no longer a version of this predicate that can drift from the table it
- * describes.
- */
-export const isKnownBlockId = (id: number): boolean => resolvedBlockOfId(id) !== undefined
-
-/**
- * `BlockType` -> id. Total over `BLOCK_TYPES`: `buildIdByType` verifies the
- * registry before this lookup table is published, so a forgotten row fails
- * module initialization instead of silently resolving as air.
+ * `BlockType` -> id. Registry completeness is validated at initialization; a
+ * missing row must fail loudly instead of silently reading as air.
  */
 export const blockIdOf = (type: BlockType): BlockId => ID_BY_TYPE[type]
 
@@ -2102,6 +2057,9 @@ export const blockTypeOfId = (id: number): BlockType | undefined =>
 /** id -> the fully resolved row. `undefined` for an unrecognised byte. */
 export const resolvedBlockOfId = (id: number): ResolvedBlock | undefined =>
   isAddressableBlockId(id) ? RESOLVED_BY_ID[id] : undefined
+
+/** Does this number name a block this build knows about? */
+export const isKnownBlockId = (id: number): boolean => resolvedBlockOfId(id) !== undefined
 
 /**
  * Read one capability straight off a chunk buffer byte. TOTAL — see the module
@@ -2163,19 +2121,17 @@ export const dropOfBlockId = (id: number, context: HarvestContext = BARE_HANDED)
  * produced by the loop rather than conjured by a fallback.
  */
 const buildIdsByCapability = (): Readonly<Record<BlockCapabilityFlag, ReadonlySet<number>>> => {
-  const table: Partial<Record<BlockCapabilityFlag, ReadonlySet<number>>> = {}
-
-  for (const flag of BLOCK_CAPABILITY_FLAGS) {
+  return seededRecord(BLOCK_CAPABILITY_FLAGS, (flag) => {
     const members = new Set<number>()
+
     for (const entry of BLOCK_REGISTRY) {
       if (capabilityOfBlockId(entry.id, flag)) {
         members.add(entry.id)
       }
     }
-    table[flag] = members
-  }
 
-  return table as Readonly<Record<BlockCapabilityFlag, ReadonlySet<number>>>
+    return members
+  })
 }
 
 const IDS_BY_CAPABILITY = buildIdsByCapability()
@@ -2212,10 +2168,7 @@ export const blockIdsWithCapability = (flag: BlockCapabilityFlag): ReadonlySet<n
  * expects a set.
  */
 const buildIdsByOpacity = (): Readonly<Record<BlockOpacity, ReadonlySet<number>>> => {
-  const table = Object.fromEntries(BLOCK_OPACITIES.map((opacity) => [opacity, new Set<number>()])) as Record<
-    BlockOpacity,
-    Set<number>
-  >
+  const table = seededRecord(BLOCK_OPACITIES, () => new Set<number>())
 
   for (const entry of BLOCK_REGISTRY) {
     table[propertyOfBlockId(entry.id, 'opacity')].add(entry.id)
@@ -2386,14 +2339,23 @@ export const isSupportSensitiveBlockId = (id: number): boolean =>
  * answer a maintenance sweep ("should this block pop off now?"); kernel has no
  * opinion about which, because it holds no world.
  */
-export const canBlockStaySupported = (id: number, supportBelow: number): boolean =>
-  satisfiesSupportRule(
-    supportRuleOfBlockId(id),
-    blockTypeOfId(supportBelow),
-    isAddressableBlockId(supportBelow)
-      ? CAPABILITIES_BY_ID.canSupportAttachments[supportBelow] === 1
-      : BLOCK_CAPABILITY_DEFAULTS.canSupportAttachments,
-  )
+export const canBlockStaySupported = (id: number, supportBelow: number): boolean => {
+  const rule = supportRuleOfBlockId(id)
+
+  switch (rule.kind) {
+    case 'none':
+      return true
+
+    case 'anySupporting':
+      return capabilityOfBlockId(supportBelow, 'canSupportAttachments')
+
+    case 'oneOf':
+      return satisfiesSupportRule(rule, blockTypeOfId(supportBelow), false)
+
+    default:
+      return rule satisfies never
+  }
+}
 
 /**
  * Block types in the vocabulary that the table does not yet cover.
