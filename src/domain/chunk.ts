@@ -48,13 +48,19 @@ const assertBlocks = (blocks: BlockState, height: number): void => {
   }
 }
 
+const createChunk = (coord: ChunkCoord, height: number, blocks: Uint8Array): Chunk => ({
+  blocks: blockState(blocks),
+  coord,
+  height,
+})
+
 /** Construct a validated chunk without retaining the caller's mutable buffer. */
 export const chunk = (coord: ChunkCoord, height: number, blocks: Uint8Array): Chunk => {
   assertCoord(coord.cx, 'cx')
   assertCoord(coord.cz, 'cz')
   assertHeight(height)
   assertBlockLength(blocks, height)
-  return { blocks: blockState(blocks), coord: chunkCoord(coord.cx, coord.cz), height }
+  return createChunk(chunkCoord(coord.cx, coord.cz), height, blocks)
 }
 
 /** Encode a chunk into the versioned little-endian kernel wire format. */
@@ -111,7 +117,7 @@ export const decodeChunk = (encoded: Uint8Array): Chunk => {
     )
   }
 
-  return chunk(
+  return createChunk(
     chunkCoord(view.getInt32(12, true), view.getInt32(16, true)),
     height,
     encoded.subarray(CHUNK_HEADER_BYTES),
