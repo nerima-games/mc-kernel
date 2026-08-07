@@ -60,6 +60,14 @@ const item = (
   ...overrides,
 })
 
+const state = (overrides: Partial<AnvilState> = {}): AnvilState => ({
+  left: item(),
+  right: null,
+  rename: null,
+  experienceLevels: 30,
+  ...overrides,
+})
+
 describe('anvil validation guards', () => {
   it.effect('rejects invalid or duplicate enchantment rules before planning', () =>
     Effect.sync(() => {
@@ -154,14 +162,6 @@ describe('anvil validation guards', () => {
       expect(conflictingLeft).toMatchObject({ ok: false, reason: 'enchantment-conflict' })
     }),
   )
-})
-
-const state = (overrides: Partial<AnvilState> = {}): AnvilState => ({
-  left: item(),
-  right: null,
-  rename: null,
-  experienceLevels: 30,
-  ...overrides,
 })
 
 describe('anvil planning', () => {
@@ -400,7 +400,8 @@ describe('anvil application', () => {
         ...state({ rename: 'Named sword', experienceLevels: 1 }),
         get experienceLevels() {
           reads += 1
-          return reads === 1 ? 1 : Number.NaN
+          if (reads === 1) return 1
+          return Number.NaN
         },
       } as AnvilState
 
