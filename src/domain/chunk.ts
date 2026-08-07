@@ -16,6 +16,12 @@ export type ChunkHeight = number & Brand.Brand<'ChunkHeight'>
 export type ChunkBlocks = BlockState & Brand.Brand<'ChunkBlocks'>
 export type EncodedChunk = Uint8Array & Brand.Brand<'EncodedChunk'>
 
+type ValidatedEncodedChunk = {
+  readonly encoded: EncodedChunk
+  readonly height: ChunkHeight
+  readonly view: DataView
+}
+
 const ChunkHeightBrand = Brand.refined<ChunkHeight>(
   (value) => Number.isInteger(value) && value > 0 && value <= MAX_CHUNK_HEIGHT,
   (value) => Brand.error(`Chunk height must be an integer in [1, ${MAX_CHUNK_HEIGHT}], received ${value}`),
@@ -66,7 +72,7 @@ export const ChunkBlocks = (height: number, blocks: Uint8Array): ChunkBlocks => 
 
 const validateEncodedChunk = (
   encoded: Uint8Array,
-): { readonly height: ChunkHeight; readonly payloadLength: number; readonly view: DataView } => {
+): ValidatedEncodedChunk => {
   if (encoded.length < CHUNK_HEADER_BYTES) {
     throw new RangeError(`Chunk data is shorter than the ${CHUNK_HEADER_BYTES}-byte header`)
   }
@@ -97,12 +103,11 @@ const validateEncodedChunk = (
     )
   }
 
-  return { height, payloadLength, view }
+  return { encoded: encoded as EncodedChunk, height, view }
 }
 
 export const EncodedChunk = (encoded: Uint8Array): EncodedChunk => {
-  validateEncodedChunk(encoded)
-  return encoded as EncodedChunk
+  return validateEncodedChunk(encoded).encoded
 }
 
 const validatedChunk = (coord: ChunkCoord, height: ChunkHeight, blocks: ChunkBlocks): Chunk => ({
@@ -143,8 +148,7 @@ export const encodeChunk = (value: Chunk): EncodedChunk => {
 
 /** Decode and validate a chunk. Trailing bytes and unknown registry ids are corruption. */
 export const decodeChunk = (encoded: Uint8Array): Chunk => {
-  const validated = EncodedChunk(encoded)
-  const { height, view } = validateEncodedChunk(validated)
+  const { encoded: validated, height, view } = validateEncodedChunk(encoded)
   const blocks = ChunkBlocks(height, validated.subarray(CHUNK_HEADER_BYTES))
 
   return validatedChunk(chunkCoord(view.getInt32(12, true), view.getInt32(16, true)), height, blocks)
