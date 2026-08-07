@@ -107,6 +107,18 @@ describe('chunk binary codec', () => {
     }),
   )
 
+  it.effect('keeps the runtime length boundary authoritative', () =>
+    Effect.sync(() => {
+      const source = chunk(chunkCoord(0, 0), height, sampleBlocks())
+      const state = source.blocks
+      const { length } = state
+
+      expect(() => Object.defineProperty(state, 'length', { value: 0 })).toThrow(TypeError)
+      expect(state.length).toBe(length)
+      expect(new DataView(encodeChunk(source).buffer).getUint32(20, true)).toBe(length)
+    }),
+  )
+
   it.effect('rejects constructor values outside the binary format bounds', () =>
     Effect.sync(() => {
       expect(() => chunk(chunkCoord(0, 0), 0x1_0000, new Uint8Array())).toThrow(/height/)
