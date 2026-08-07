@@ -114,6 +114,6 @@ export const decodeChunk = (encoded: Uint8Array): Chunk => {
   return chunk(
     chunkCoord(view.getInt32(12, true), view.getInt32(16, true)),
     height,
-    encoded.slice(CHUNK_HEADER_BYTES),
+    encoded.subarray(CHUNK_HEADER_BYTES),
   )
 }
