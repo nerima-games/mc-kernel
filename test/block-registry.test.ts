@@ -16,6 +16,17 @@
  *     buffer byte with no block name in the caller — the hole the vertical
  *     slice spike could not fill.
  */
+import { describe, expect, it } from '@effect/vitest'
+import { Effect } from 'effect'
+import { expectTypeOf } from 'vitest'
+import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block-capabilities'
+import { blockCapabilitiesOf, resolveBlock } from '../src/domain/block-definition'
+import {
+  BLOCK_OPACITIES,
+  BLOCK_PROPERTY_DEFAULTS,
+  COLLISION_SHAPES,
+  type LightLevel,
+} from '../src/domain/block-properties'
 import {
   AIR_BLOCK_ID,
   BLOCK_IDS,
@@ -36,12 +47,7 @@ import {
   resolvedBlockOfId,
   transmitsLight,
 } from '../src/domain/block-registry'
-import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block-capabilities'
-import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS, COLLISION_SHAPES } from '../src/domain/block-properties'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
-import { blockCapabilitiesOf, resolveBlock } from '../src/domain/block-definition'
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
 
 const number = Number
 
@@ -287,6 +293,15 @@ describe('id assignment is permanent', () => {
     }),
   )
 
+  it.effect('treats branded ids as total lookups', () =>
+    Effect.sync(() => {
+      const id = BlockId(2)
+
+      expect(blockTypeOfId(id)).toBe('stone')
+      expect(resolvedBlockOfId(id).type).toBe('stone')
+    }),
+  )
+
   it.effect('air is zero, because a zero-filled buffer must already be a valid chunk', () =>
     Effect.sync(() => {
       expect(AIR_BLOCK_ID).toBe(number('0'))
@@ -524,6 +539,12 @@ describe('the named light readings', () => {
     }),
   )
 
+  it.effect('returns the branded light-level type', () =>
+    Effect.sync(() => {
+      expectTypeOf(lightEmissionOfBlockId(blockIdOf('torch'))).toEqualTypeOf<LightLevel>()
+    }),
+  )
+
   it.effect('is NOT a synonym for passable — GLASS is the row that says so', () =>
     Effect.sync(() => {
       // Audit §4.9. If `opacity` agreed with an existing flag on every row it
@@ -734,6 +755,16 @@ describe('unknown ids', () => {
       for (const id of BLOCK_IDS) {
         expect(isKnownBlockId(id)).toBe(true)
       }
+    }),
+  )
+
+  it.effect('narrow numbers to BlockId when known', () =>
+    Effect.sync(() => {
+      const id = 2 as number
+      if (!isKnownBlockId(id)) {
+        throw new Error('expected known block id in type-narrowing test')
+      }
+      expectTypeOf(id).toEqualTypeOf<BlockId>()
     }),
   )
 

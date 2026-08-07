@@ -80,6 +80,7 @@ describe('public API surface', () => {
         'LocalAxis',
         'position',
         'blockPosition',
+        'BlockPositionKey',
         'blockPositionKeyOf',
         'isBlockPositionKey',
         'blockPositionOfKey',
@@ -92,9 +93,8 @@ describe('public API surface', () => {
         'horizontalBlockNeighbours',
         'blockNeighbours',
         'blockPositionKey',
-        'blockPositionOfKey',
-        'isBlockPositionKey',
         'chunkCoord',
+        'ChunkKey',
         'chunkKeyOf',
         'isChunkKey',
         'chunkCoordOfKey',
@@ -110,7 +110,12 @@ describe('public API surface', () => {
         // Versioned chunk storage boundary
         'CHUNK_CODEC_VERSION',
         'CHUNK_HEADER_BYTES',
+        'ChunkBlocks',
+        'EncodedChunk',
+        'ChunkHeight',
+        'MAX_CHUNK_HEIGHT',
         'chunk',
+        'chunkBlockCount',
         'encodeChunk',
         'decodeChunk',
         'BlockState',
@@ -123,6 +128,7 @@ describe('public API surface', () => {
         'isItemType',
         // Stable item ids, storage codec, and stack metadata
         'ItemId',
+        'ItemIdBytes',
         'ITEM_ID_MAX',
         'ITEM_ID_BYTES',
         'ITEM_REGISTRY',
@@ -139,6 +145,9 @@ describe('public API surface', () => {
         'ANVIL_TOO_EXPENSIVE_LEVEL',
         'ANVIL_REPAIR_BONUS_RATIO',
         'ANVIL_MAX_CUSTOM_NAME_LENGTH',
+        'AnvilEnchantmentId',
+        'AnvilCustomName',
+        'AnvilSnapshotString',
         'snapshotAnvilState',
         'decodeAnvilSnapshot',
         'encodeAnvilSnapshot',
@@ -169,6 +178,7 @@ describe('public API surface', () => {
         'RAIL_KINDS',
         'LIGHT_LEVEL_MIN',
         'LIGHT_LEVEL_MAX',
+        'LightLevel',
         'isLightLevel',
         'clampLightLevel',
         'resolveBlockProperties',
@@ -301,6 +311,33 @@ describe('public API surface', () => {
     Effect.sync(() => {
       const key: kernel.ChunkKey = kernel.chunkKeyOf(kernel.chunkCoord(ORIGIN_AXIS, ORIGIN_AXIS))
       expect(key).toBe('0,0')
+    }),
+  )
+  it.effect('re-exports the LightLevel type', () =>
+    Effect.sync(() => {
+      const level: kernel.LightLevel = kernel.clampLightLevel(ORIGIN_AXIS)
+      expect(level).toBe(0)
+    }),
+  )
+
+  it.effect('supports documented package subpath exports', () =>
+    Effect.promise(async () => {
+      const blockRegistryPath = '@nerima-games/mc-kernel/domain/block-registry'
+      const chunkPath = '@nerima-games/mc-kernel/domain/chunk'
+      const [blockRegistryModule, chunkModule] = await Promise.all([
+        import(blockRegistryPath),
+        import(chunkPath),
+      ])
+
+      expect(blockRegistryModule.blockIdOf).toBe(kernel.blockIdOf)
+      expect(blockRegistryModule.BLOCK_REGISTRY).toBe(kernel.BLOCK_REGISTRY)
+      expect(chunkModule.encodeChunk).toBe(kernel.encodeChunk)
+      expect(chunkModule.decodeChunk).toBe(kernel.decodeChunk)
+      expect(chunkModule.EncodedChunk).toBe(kernel.EncodedChunk)
+      expect(chunkModule.CHUNK_CODEC_VERSION).toBe(kernel.CHUNK_CODEC_VERSION)
+      expect(chunkModule.ChunkBlocks).toBe(kernel.ChunkBlocks)
+      expect(chunkModule.MAX_CHUNK_HEIGHT).toBe(kernel.MAX_CHUNK_HEIGHT)
+      expect(chunkModule.chunkBlockCount).toBe(kernel.chunkBlockCount)
     }),
   )
   it.effect('exports the canonical Eye of Ender item identity', () =>

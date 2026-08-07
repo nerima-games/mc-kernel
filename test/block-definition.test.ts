@@ -10,6 +10,7 @@ import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain
 import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
+import { StackCount } from '../src/domain/quantities'
 
 const AUDITED_CAPABILITY_COUNT = 28
 const IMPLEMENTED_FLAG_COUNT = 12
@@ -48,7 +49,7 @@ describe('adding a block is one table row plus flag settings (the design contrac
         properties: {
           collisionShape: 'none',
           contactDamage: LAVA_CONTACT_DAMAGE,
-          drops: { affectedByFortune: false, count: NO_DROPS, item: 'self', requiresSilkTouch: false },
+          drops: { affectedByFortune: false, count: StackCount(NO_DROPS), item: 'self', requiresSilkTouch: false },
           fluid: 'lava',
           lightEmission: MAXIMUM_LIGHT_EMISSION,
           opacity: 'fluid',

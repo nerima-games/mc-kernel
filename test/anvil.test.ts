@@ -2,6 +2,12 @@
 import { Effect } from 'effect'
 import {
   ANVIL_SNAPSHOT_VERSION,
+  AnvilCustomName,
+  AnvilEnchantmentId,
+  AnvilSnapshotString,
+  isAnvilCustomName,
+  isAnvilEnchantmentId,
+  isAnvilSnapshotString,
   type AnvilItemPayload,
   type AnvilRuleSet,
   type AnvilState,
@@ -13,33 +19,35 @@ import {
   planAnvil,
   snapshotAnvilState,
 } from '../src/domain/anvil'
+import type { StackCount } from '../src/domain/quantities'
 import { describe, expect, it } from '@effect/vitest'
+import { expectTypeOf } from 'vitest'
 
 const RULES = {
   enchantments: [
     {
-      id: 'efficiency',
+      id: AnvilEnchantmentId('efficiency'),
       maxLevel: 5,
       applicableItems: ['iron_pickaxe'],
       incompatibleWith: [],
       costPerLevel: 1,
     },
     {
-      id: 'sharpness',
+      id: AnvilEnchantmentId('sharpness'),
       maxLevel: 5,
       applicableItems: ['iron_sword'],
-      incompatibleWith: ['smite'],
+      incompatibleWith: [AnvilEnchantmentId('smite')],
       costPerLevel: 1,
     },
     {
-      id: 'smite',
+      id: AnvilEnchantmentId('smite'),
       maxLevel: 5,
       applicableItems: ['iron_sword'],
-      incompatibleWith: ['sharpness'],
+      incompatibleWith: [AnvilEnchantmentId('sharpness')],
       costPerLevel: 1,
     },
     {
-      id: 'unbreaking',
+      id: AnvilEnchantmentId('unbreaking'),
       maxLevel: 3,
       applicableItems: ['iron_pickaxe', 'iron_sword'],
       incompatibleWith: [],
@@ -110,6 +118,11 @@ describe('anvil planning', () => {
       expect(applied.output.durability).toStrictEqual({ current: 250, max: 250 })
       expect(applied.levelCost).toBe(3)
       expect(applied.materialCost).toBe(3)
+      expectTypeOf(applied.materialCost).toEqualTypeOf<StackCount>()
+      expectTypeOf(applied.state.right).not.toBeNull()
+      if (applied.state.right !== null) {
+        expectTypeOf(applied.state.right.count).toEqualTypeOf<StackCount>()
+      }
       expect(applied.state).toStrictEqual({
         left: null,
         right: {
@@ -139,14 +152,14 @@ describe('anvil planning', () => {
   it.effect('merges enchanted books and same-kind items with caps and deterministic costs', () =>
     Effect.sync(() => {
       const bookPlan = planAnvil(state({
-        left: item({ enchantments: [{ id: 'sharpness', level: 4 }] }),
+        left: item({ enchantments: [{ id: AnvilEnchantmentId('sharpness'), level: 4 }] }),
         right: {
           payload: item({
             item: 'enchanted_book',
             durability: null,
             enchantments: [
-              { id: 'unbreaking', level: 2 },
-              { id: 'sharpness', level: 4 },
+              { id: AnvilEnchantmentId('unbreaking'), level: 2 },
+              { id: AnvilEnchantmentId('sharpness'), level: 4 },
             ],
           }),
           count: 1,
@@ -155,24 +168,25 @@ describe('anvil planning', () => {
       expect(bookPlan.ok).toBe(true)
       if (!bookPlan.ok) return
       expect(bookPlan.output.enchantments).toStrictEqual([
-        { id: 'sharpness', level: 5 },
-        { id: 'unbreaking', level: 2 },
+        { id: AnvilEnchantmentId('sharpness'), level: 5 },
+        { id: AnvilEnchantmentId('unbreaking'), level: 2 },
       ])
       expect(bookPlan.levelCost).toBe(9)
+      expectTypeOf(bookPlan.materialCost).toEqualTypeOf<StackCount>()
 
       const itemPlan = planAnvil(state({
-        left: item({ enchantments: [{ id: 'sharpness', level: 2 }] }),
+        left: item({ enchantments: [{ id: AnvilEnchantmentId('sharpness'), level: 2 }] }),
         right: {
           payload: item({
             durability: { current: 1, max: 250 },
-            enchantments: [{ id: 'sharpness', level: 2 }],
+            enchantments: [{ id: AnvilEnchantmentId('sharpness'), level: 2 }],
           }),
           count: 1,
         },
       }), RULES)
       expect(itemPlan.ok).toBe(true)
       if (!itemPlan.ok) return
-      expect(itemPlan.output.enchantments).toStrictEqual([{ id: 'sharpness', level: 3 }])
+      expect(itemPlan.output.enchantments).toStrictEqual([{ id: AnvilEnchantmentId('sharpness'), level: 3 }])
       expect(itemPlan.output.durability).toStrictEqual({ current: 131, max: 250 })
       expect(itemPlan.levelCost).toBe(5)
     }),
@@ -185,7 +199,7 @@ describe('anvil planning', () => {
           payload: item({
             item: 'enchanted_book',
             durability: null,
-            enchantments: [{ id: 'efficiency', level: 1 }],
+            enchantments: [{ id: AnvilEnchantmentId('efficiency'), level: 1 }],
           }),
           count: 1,
         },
@@ -193,12 +207,12 @@ describe('anvil planning', () => {
       expect(targetViolation).toMatchObject({ ok: false, reason: 'invalid-enchantment' })
 
       const conflict = planAnvil(state({
-        left: item({ enchantments: [{ id: 'sharpness', level: 2 }] }),
+        left: item({ enchantments: [{ id: AnvilEnchantmentId('sharpness'), level: 2 }] }),
         right: {
           payload: item({
             item: 'enchanted_book',
             durability: null,
-            enchantments: [{ id: 'smite', level: 2 }],
+            enchantments: [{ id: AnvilEnchantmentId('smite'), level: 2 }],
           }),
           count: 1,
         },
@@ -206,12 +220,12 @@ describe('anvil planning', () => {
       expect(conflict).toMatchObject({ ok: false, reason: 'enchantment-conflict' })
 
       const capped = planAnvil(state({
-        left: item({ enchantments: [{ id: 'sharpness', level: 5 }] }),
+        left: item({ enchantments: [{ id: AnvilEnchantmentId('sharpness'), level: 5 }] }),
         right: {
           payload: item({
             item: 'enchanted_book',
             durability: null,
-            enchantments: [{ id: 'sharpness', level: 5 }],
+            enchantments: [{ id: AnvilEnchantmentId('sharpness'), level: 5 }],
           }),
           count: 1,
         },
@@ -223,8 +237,8 @@ describe('anvil planning', () => {
   it.effect('supports rename and applies prior-work and too-expensive rules deterministically', () =>
     Effect.sync(() => {
       const renamePlan = planAnvil(state({
-        left: item({ repairCost: 3, customName: 'Old name' }),
-        rename: 'New name',
+        left: item({ repairCost: 3, customName: AnvilCustomName('Old name') }),
+        rename: AnvilCustomName('New name'),
       }), RULES)
       expect(renamePlan).toStrictEqual({
         ok: true,
@@ -233,7 +247,7 @@ describe('anvil planning', () => {
           durability: { current: 100, max: 250 },
           enchantments: [],
           repairCost: 7,
-          customName: 'New name',
+          customName: AnvilCustomName('New name'),
         },
         levelCost: 4,
         materialCost: 0,
@@ -242,7 +256,7 @@ describe('anvil planning', () => {
 
       const tooExpensive = planAnvil(state({
         left: item({ repairCost: 39 }),
-        rename: 'Costs forty',
+        rename: AnvilCustomName('Costs forty'),
       }), RULES)
       expect(tooExpensive).toMatchObject({ ok: false, reason: 'too-expensive' })
     }),
@@ -252,17 +266,17 @@ describe('anvil planning', () => {
 describe('anvil application', () => {
   it.effect('consumes experience and inputs atomically only after a valid plan', () =>
     Effect.sync(() => {
-      const input = state({ rename: 'Named sword', experienceLevels: 1 })
+      const input = state({ rename: AnvilCustomName('Named sword'), experienceLevels: 1 })
       const success = applyAnvil(input, RULES)
       expect(success).toMatchObject({
         ok: true,
         state: { left: null, right: null, rename: null, experienceLevels: 0 },
-        output: { customName: 'Named sword' },
+        output: { customName: AnvilCustomName('Named sword') },
       })
 
       const insufficientInput = state({
         left: item({ repairCost: 3 }),
-        rename: 'Too costly',
+        rename: AnvilCustomName('Too costly'),
         experienceLevels: 3,
       })
       const insufficient = applyAnvil(insufficientInput, RULES)
@@ -278,13 +292,24 @@ describe('anvil application', () => {
 })
 
 describe('anvil snapshot codec', () => {
+  it.effect('exposes non-throwing guards for branded anvil boundary strings', () =>
+    Effect.sync(() => {
+      expect(isAnvilEnchantmentId('sharpness')).toBe(true)
+      expect(isAnvilEnchantmentId('Sharpness')).toBe(false)
+      expect(isAnvilCustomName('Named sword')).toBe(true)
+      expect(isAnvilCustomName('')).toBe(false)
+      expect(isAnvilSnapshotString('{"version":1,"state":{"left":null,"right":null,"rename":null,"experienceLevels":0}}')).toBe(true)
+      expect(isAnvilSnapshotString('{')).toBe(false)
+    }),
+  )
+
   it.effect('canonicalises optional fields and enchantment order before deterministic encoding', () =>
     Effect.sync(() => {
       const input = state({
         left: item({
           enchantments: [
-            { id: 'unbreaking', level: 2 },
-            { id: 'sharpness', level: 3 },
+            { id: AnvilEnchantmentId('unbreaking'), level: 2 },
+            { id: AnvilEnchantmentId('sharpness'), level: 3 },
           ],
         }),
         experienceLevels: 12,
@@ -295,6 +320,7 @@ describe('anvil snapshot codec', () => {
       expect(encoded.encoded).toBe(
         '{"version":1,"state":{"left":{"item":"iron_sword","durability":{"current":100,"max":250},"enchantments":[{"id":"sharpness","level":3},{"id":"unbreaking","level":2}],"repairCost":0,"customName":null},"right":null,"rename":null,"experienceLevels":12}}',
       )
+      expect(AnvilSnapshotString(encoded.encoded)).toBe(encoded.encoded)
       expect(decodeAnvilSnapshotString(encoded.encoded)).toStrictEqual({
         ok: true,
         snapshot: encoded.snapshot,
@@ -307,12 +333,13 @@ describe('anvil snapshot codec', () => {
   it.effect('rejects malformed JSON, versions, duplicate enchantments, and invalid stacks', () =>
     Effect.sync(() => {
       expect(decodeAnvilSnapshotString('{')).toMatchObject({ ok: false })
+      expect(() => AnvilSnapshotString('{')).toThrowError(TypeError)
       expect(decodeAnvilSnapshot({ version: 2, state: state() })).toMatchObject({ ok: false })
       expect(snapshotAnvilState(state({
         left: item({
           enchantments: [
-            { id: 'sharpness', level: 1 },
-            { id: 'sharpness', level: 2 },
+            { id: AnvilEnchantmentId('sharpness'), level: 1 },
+            { id: AnvilEnchantmentId('sharpness'), level: 2 },
           ],
         }),
       }))).toMatchObject({ ok: false })

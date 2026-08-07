@@ -51,13 +51,11 @@
  * property without a default a compile error, so the "cannot exist without a
  * default" guarantee survives the split.
  */
-import {
-  type BlockDropRule,
-  DEFAULT_BLOCK_DROP,
-  DEFAULT_HARVEST_TOOL,
-  type HarvestToolRequirement,
-} from './block-harvest.js'
-import { NEEDS_NO_SUPPORT, type SupportRule } from './block-support.js'
+import { Brand } from 'effect'
+import type { BlockDropRule, HarvestToolRequirement } from './block-harvest.js'
+import { DEFAULT_BLOCK_DROP, DEFAULT_HARVEST_TOOL } from './block-harvest.js'
+import type { SupportRule } from './block-support.js'
+import { NEEDS_NO_SUPPORT } from './block-support.js'
 
 // ---------------------------------------------------------------------------
 // Value vocabularies
@@ -96,13 +94,23 @@ export type RailKind = (typeof RAIL_KINDS)[number]
 export const LIGHT_LEVEL_MIN = 0
 export const LIGHT_LEVEL_MAX = 15
 
+export type LightLevel = number & Brand.Brand<'LightLevel'>
+
 /** Guard for values arriving from save files or a developer console. */
-export const isLightLevel = (value: number): boolean =>
+export const isLightLevel = (value: number): value is LightLevel =>
   Number.isInteger(value) && value >= LIGHT_LEVEL_MIN && value <= LIGHT_LEVEL_MAX
 
+export const LightLevel = Brand.refined<LightLevel>(
+  isLightLevel,
+  (value) =>
+    Brand.error(
+      `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${value}`,
+    ),
+)
+
 /** Clamp into the 4-bit light range. Used when combining emission with attenuation. */
-export const clampLightLevel = (value: number): number =>
-  Math.min(LIGHT_LEVEL_MAX, Math.max(LIGHT_LEVEL_MIN, Math.trunc(value)))
+export const clampLightLevel = (value: number): LightLevel =>
+  LightLevel(Math.min(LIGHT_LEVEL_MAX, Math.max(LIGHT_LEVEL_MIN, Math.trunc(value))))
 
 // ---------------------------------------------------------------------------
 // The property table
@@ -118,7 +126,7 @@ export type BlockProperties = {
   /** Meshing bucket + light attenuation class. Audit §4.4. */
   readonly opacity: BlockOpacity
   /** Emitted light level, 0..15. Audit §4.4, `light.ts:24-46`. */
-  readonly lightEmission: number
+  readonly lightEmission: LightLevel
   /** Which fluid this block is, if any. Audit §4.2. */
   readonly fluid: FluidKind
   /** Collision hull. Audit §4.1. */
@@ -159,30 +167,24 @@ export type BlockProperties = {
  * generic without a cast.
  */
 export const BLOCK_PROPERTY_DEFAULTS: BlockProperties = {
-  ...{ opacity: 'opaque' },
-  ...{ lightEmission: LIGHT_LEVEL_MIN },
-  ...{ fluid: 'none' },
-  ...{ collisionShape: 'full' },
-  ...{ renderKind: 'cube' },
-  ...{ footstepMaterial: 'default' },
-  ...{
-    /** `blocks.config.terrain.ts:9-14` `defaultBlockProperties`. */
-    hardness: 8,
-  },
-  ...{
-    /** `DEFAULT_BLOCK_FRICTION` in the reference. */
-    friction: 0.6,
-  },
-  ...{ contactDamage: 0 },
-  ...{ movementDrag: 0 },
-  ...{ xpOnBreak: 0 },
-  ...{ railKind: 'none' },
-  ...{ harvestTool: DEFAULT_HARVEST_TOOL },
-  ...{ drops: DEFAULT_BLOCK_DROP },
-  ...{
-    /** Audit §4.6: 既定値 `supportRule='none'`. An ordinary cube needs no floor. */
-    supportRule: NEEDS_NO_SUPPORT,
-  },
+  opacity: 'opaque',
+  lightEmission: LightLevel(LIGHT_LEVEL_MIN),
+  fluid: 'none',
+  collisionShape: 'full',
+  renderKind: 'cube',
+  footstepMaterial: 'default',
+  /** `blocks.config.terrain.ts:9-14` `defaultBlockProperties`. */
+  hardness: 8,
+  /** `DEFAULT_BLOCK_FRICTION` in the reference. */
+  friction: 0.6,
+  contactDamage: 0,
+  movementDrag: 0,
+  xpOnBreak: 0,
+  railKind: 'none',
+  harvestTool: DEFAULT_HARVEST_TOOL,
+  drops: DEFAULT_BLOCK_DROP,
+  /** Audit §4.6: 既定値 `supportRule='none'`. An ordinary cube needs no floor. */
+  supportRule: NEEDS_NO_SUPPORT,
 }
 
 /** Derived from the defaults table, exactly as `BlockCapabilityFlag` is. */
@@ -197,9 +199,23 @@ export const BLOCK_PROPERTY_NAMES: ReadonlyArray<BlockPropertyName> = Object.key
  * What a block definition actually declares. Every key optional — omission is
  * meaningful and means "take the default".
  */
+type BlockPropertyOverrideValue<K extends BlockPropertyName> =
+  K extends 'lightEmission' ? number | LightLevel : BlockProperties[K]
+
 export type BlockPropertyOverrides = {
-  readonly [propertyName in BlockPropertyName]?: BlockProperties[propertyName]
+  readonly [K in BlockPropertyName]?: BlockPropertyOverrideValue<K>
 }
+
+const resolveLightEmission = (overrides: BlockPropertyOverrides): LightLevel =>
+  overrides.lightEmission === undefined
+    ? BLOCK_PROPERTY_DEFAULTS.lightEmission
+    : isLightLevel(overrides.lightEmission)
+      ? overrides.lightEmission
+      : (() => {
+          throw new TypeError(
+            `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${overrides.lightEmission}`,
+          )
+        })()
 
 /**
  * Fill in the defaults for every property the overrides do not mention.
@@ -211,13 +227,17 @@ export type BlockPropertyOverrides = {
 export const resolveBlockProperties = (overrides: BlockPropertyOverrides): BlockProperties => ({
   ...BLOCK_PROPERTY_DEFAULTS,
   ...overrides,
+  lightEmission: resolveLightEmission(overrides),
 })
 
 /**
  * Read one property without materialising the whole set. Semantically identical
  * to `resolveBlockProperties(overrides)[name]`.
  */
-export const propertyOf = <propertyName extends BlockPropertyName>(
+export const propertyOf = <K extends BlockPropertyName>(
   overrides: BlockPropertyOverrides,
-  name: propertyName,
-): BlockProperties[propertyName] => overrides[name] ?? BLOCK_PROPERTY_DEFAULTS[name]
+  name: K,
+): BlockProperties[K] =>
+  name === 'lightEmission'
+    ? (resolveLightEmission(overrides) as BlockProperties[K])
+    : ((overrides[name] ?? BLOCK_PROPERTY_DEFAULTS[name]) as BlockProperties[K])

@@ -2,8 +2,10 @@ import {
   BLOCK_OPACITIES,
   BLOCK_PROPERTY_DEFAULTS,
   BLOCK_PROPERTY_NAMES,
+  LightLevel,
   type BlockProperties,
   type BlockPropertyOverrides,
+  type LightLevel as LightLevelType,
   COLLISION_SHAPES,
   FLUID_KINDS,
   LIGHT_LEVEL_MAX,
@@ -16,6 +18,9 @@ import {
   resolveBlockProperties,
 } from '../src/domain/block-properties'
 import { type BlockDefinition, blockPropertiesOf, resolveBlock } from '../src/domain/block-definition'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect } from 'effect'
+import { expectTypeOf } from 'vitest'
 import {
   DEFAULT_BLOCK_DROP,
   DEFAULT_HARVEST_TOOL,
@@ -23,8 +28,7 @@ import {
   resolveDropItem,
   satisfiesHarvestTier,
 } from '../src/domain/block-harvest'
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { StackCount } from '../src/domain/quantities'
 
 const TORCH_LIGHT_LEVEL = 14
 const DEFAULT_HARDNESS = 8
@@ -87,17 +91,17 @@ describe('block properties — the additive-safety guarantee, extended to non-bo
   it.effect('every default is pinned to the "ordinary opaque solid cube" reading of audit §7', () =>
     Effect.sync(() => {
       const expected: BlockProperties = {
+        opacity: 'opaque',
+        lightEmission: LightLevel(0),
+        fluid: 'none',
         collisionShape: 'full',
         contactDamage: NO_PROPERTIES,
-        drops: { affectedByFortune: false, count: END_PORTAL_FRAME_LIGHT_LEVEL, item: 'self', requiresSilkTouch: false },
-        fluid: 'none',
+        drops: { affectedByFortune: false, count: StackCount(1), item: 'self', requiresSilkTouch: false },
         footstepMaterial: 'default',
         friction: 0.6,
         hardness: DEFAULT_HARDNESS,
         harvestTool: { category: 'none', minTier: 'none' },
-        lightEmission: NO_PROPERTIES,
         movementDrag: NO_PROPERTIES,
-        opacity: 'opaque',
         railKind: 'none',
         renderKind: 'cube',
         // Audit §4.6 states this default in as many words: `supportRule='none'`.
@@ -188,6 +192,30 @@ describe('light level helpers', () => {
       expect(clampLightLevel(FAR_ABOVE_MAXIMUM_LIGHT_LEVEL)).toBe(EXPECTED_LIGHT_LEVEL_MAXIMUM)
       expect(clampLightLevel(FRACTIONAL_LIGHT_LEVEL_TO_TRUNCATE)).toBe(TRUNCATED_LIGHT_LEVEL)
       expect(clampLightLevel(EXPECTED_LIGHT_LEVEL_MAXIMUM)).toBe(EXPECTED_LIGHT_LEVEL_MAXIMUM)
+      expectTypeOf(clampLightLevel(7.9)).toEqualTypeOf<LightLevelType>()
+    }),
+  )
+})
+
+describe('light level branding', () => {
+  it.effect('brands resolved light emission values while preserving numeric override ergonomics', () =>
+    Effect.sync(() => {
+      const resolved = resolveBlockProperties({ lightEmission: 14 })
+
+      expect(resolved.lightEmission).toBe(14)
+      expectTypeOf(resolved.lightEmission).toEqualTypeOf<LightLevelType>()
+    }),
+  )
+
+  it.effect('rejects invalid light emission overrides', () =>
+    Effect.sync(() => {
+      expect(() => resolveBlockProperties({ lightEmission: 16 })).toThrow(/LightLevel must be an integer/)
+    }),
+  )
+
+  it.effect('exposes the public light-level constructor', () =>
+    Effect.sync(() => {
+      expect(LightLevel(3)).toBe(3)
     }),
   )
 })

@@ -1,5 +1,6 @@
 import {
   type BlockPositionKey,
+  BlockPositionKey as parseBlockPositionKey,
   blockPosition,
   blockPositionKeyOf,
   blockPositionOfKey,
@@ -17,12 +18,13 @@ const FIRST_UNSAFE_INTEGER = 9_007_199_254_740_992
 describe('BlockPositionKey', () => {
   it.effect('round-trips canonical positions, including safe-integer boundaries', () =>
     Effect.sync(() => {
-        const source = blockPosition(Number.MIN_SAFE_INTEGER, ORIGIN_COMPONENT, Number.MAX_SAFE_INTEGER)
+      const source = blockPosition(Number.MIN_SAFE_INTEGER, ORIGIN_COMPONENT, Number.MAX_SAFE_INTEGER)
       const key = blockPositionKeyOf(source)
 
       expect(key).toBe('-9007199254740991,0,9007199254740991')
       expect(blockPositionKey(source)).toBe(key)
       expect(isBlockPositionKey(key)).toBe(true)
+      expect(parseBlockPositionKey(key)).toBe(key)
       expect(blockPositionOfKey(key)).toStrictEqual(source)
       expect(decodeBlockPositionKey(key)).toStrictEqual(source)
     }),
@@ -62,6 +64,7 @@ describe('BlockPositionKey', () => {
 
   it.effect('fails loudly if JavaScript callers forge an invalid branded key', () =>
     Effect.sync(() => {
+      expect(() => parseBlockPositionKey('0.5,0,0')).toThrow(TypeError)
       expect(() => blockPositionOfKey('0.5,0,0' as BlockPositionKey)).toThrow(TypeError)
     }),
   )

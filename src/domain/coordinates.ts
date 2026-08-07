@@ -94,16 +94,19 @@ export type BlockPosition = {
   readonly ['z']: BlockAxis
 }
 
-export const blockPosition = (coordinateX: number, coordinateY: number, coordinateZ: number): BlockPosition => ({
-  'x': blockAxis(normalizeZero(coordinateX)),
-  'y': blockAxis(normalizeZero(coordinateY)),
-  'z': blockAxis(normalizeZero(coordinateZ)),
-})
+const blockPositionFromAxes = (x: BlockAxis, y: BlockAxis, z: BlockAxis): BlockPosition => ({ x, y, z })
+
+export const blockPosition = (x: number, y: number, z: number): BlockPosition =>
+  blockPositionFromAxes(
+    blockAxis(normalizeZero(x)),
+    blockAxis(normalizeZero(y)),
+    blockAxis(normalizeZero(z)),
+  )
 
 /** The canonical wire/key representation of a block position: `x,y,z`. */
 export type BlockPositionKey = string & Brand.Brand<'BlockPositionKey'>
 
-type ParsedBlockPositionKey = readonly [coordinateX: number, coordinateY: number, coordinateZ: number]
+type ParsedBlockPositionKey = readonly [x: BlockAxis, y: BlockAxis, z: BlockAxis]
 
 const canonicalIntegerText = (value: number): string => String(normalizeZero(value))
 
@@ -130,18 +133,31 @@ const parseBlockPositionKey = (value: string): ParsedBlockPositionKey | Absent =
     value.slice(firstComma + UNIT_STEP, secondComma),
     value.slice(secondComma + UNIT_STEP),
   ] as const
-  const coordinates: ParsedBlockPositionKey = [Number(texts[ZERO]), Number(texts[UNIT_STEP]), Number(texts[UNIT_STEP + UNIT_STEP])]
+  const coordinates = [Number(texts[ZERO]), Number(texts[UNIT_STEP]), Number(texts[UNIT_STEP + UNIT_STEP])] as const
 
   if (!hasCanonicalIntegerText(texts, coordinates)) {
     return
   }
 
-  return coordinates
+  return [
+    blockAxis(normalizeZero(coordinates[ZERO])),
+    blockAxis(normalizeZero(coordinates[UNIT_STEP])),
+    blockAxis(normalizeZero(coordinates[2])),
+  ]
 }
 
 /** Serialize a block position into its canonical, allocation-minimal key. */
 export const blockPositionKeyOf = (value: BlockPosition): BlockPositionKey =>
   `${String(value.x)},${String(value.y)},${String(value.z)}` as BlockPositionKey
+
+/** Validate external text before it becomes a branded block-position key. */
+export const BlockPositionKey = (value: string): BlockPositionKey => {
+  if (parseBlockPositionKey(value) === undefined) {
+    throw new TypeError(`Invalid BlockPositionKey: ${value}`)
+  }
+
+  return value as BlockPositionKey
+}
 
 /** Narrow an external string after validating its complete canonical format. */
 export const isBlockPositionKey = (value: string): value is BlockPositionKey => parseBlockPositionKey(value) !== ABSENT
@@ -153,16 +169,13 @@ export const blockPositionOfKey = (value: BlockPositionKey): BlockPosition => {
     throw new TypeError(`Invalid BlockPositionKey: ${value}`)
   }
 
-  return blockPosition(...parsed)
+  return blockPositionFromAxes(...parsed)
 }
 
 /** Decode untrusted storage or network input without allowing invalid axes in. */
 export const decodeBlockPositionKey = (value: string): BlockPosition | Absent => {
   const parsed = parseBlockPositionKey(value)
-  if (parsed === ABSENT) {
-    return
-  }
-  return blockPosition(...parsed)
+  return parsed === undefined ? undefined : blockPositionFromAxes(...parsed)
 }
 
 /**
@@ -224,12 +237,33 @@ export const adjacentBlockPosition = (source: BlockPosition, face: BlockFace): B
 }
 
 /** Horizontal neighbours in west, east, north, south order. */
-export const horizontalBlockNeighbours = (source: BlockPosition): ReadonlyArray<BlockPosition> =>
-  HORIZONTAL_BLOCK_FACES.map((face) => adjacentBlockPosition(source, face))
+export const horizontalBlockNeighbours = (
+  source: BlockPosition,
+): readonly [west: BlockPosition, east: BlockPosition, north: BlockPosition, south: BlockPosition] => [
+  blockPosition(source.x - 1, source.y, source.z),
+  blockPosition(source.x + 1, source.y, source.z),
+  blockPosition(source.x, source.y, source.z - 1),
+  blockPosition(source.x, source.y, source.z + 1),
+]
 
 /** All face-adjacent cells, in `BLOCK_FACES` order. */
-export const blockNeighbours = (source: BlockPosition): ReadonlyArray<BlockPosition> =>
-  BLOCK_FACES.map((face) => adjacentBlockPosition(source, face))
+export const blockNeighbours = (
+  source: BlockPosition,
+): readonly [
+  down: BlockPosition,
+  up: BlockPosition,
+  north: BlockPosition,
+  south: BlockPosition,
+  west: BlockPosition,
+  east: BlockPosition,
+] => [
+  blockPosition(source.x, source.y - 1, source.z),
+  blockPosition(source.x, source.y + 1, source.z),
+  blockPosition(source.x, source.y, source.z - 1),
+  blockPosition(source.x, source.y, source.z + 1),
+  blockPosition(source.x - 1, source.y, source.z),
+  blockPosition(source.x + 1, source.y, source.z),
+]
 
 /** The horizontal address of a chunk column. */
 export type ChunkCoord = {
@@ -237,15 +271,15 @@ export type ChunkCoord = {
   readonly cz: ChunkAxis
 }
 
-export const chunkCoord = (cx: number, cz: number): ChunkCoord => ({
-  cx: chunkAxis(normalizeZero(cx)),
-  cz: chunkAxis(normalizeZero(cz)),
-})
+const chunkCoordFromAxes = (cx: ChunkAxis, cz: ChunkAxis): ChunkCoord => ({ cx, cz })
+
+export const chunkCoord = (cx: number, cz: number): ChunkCoord =>
+  chunkCoordFromAxes(chunkAxis(normalizeZero(cx)), chunkAxis(normalizeZero(cz)))
 
 /** The canonical wire/key representation of a chunk column: `cx,cz`. */
 export type ChunkKey = string & Brand.Brand<'ChunkKey'>
 
-type ParsedChunkKey = readonly [chunkX: number, chunkZ: number]
+type ParsedChunkKey = readonly [cx: ChunkAxis, cz: ChunkAxis]
 
 const parseChunkKey = (value: string): ParsedChunkKey | Absent => {
   const comma = value.indexOf(',')
@@ -255,18 +289,27 @@ const parseChunkKey = (value: string): ParsedChunkKey | Absent => {
   }
 
   const texts = [value.slice(ZERO, comma), value.slice(comma + UNIT_STEP)] as const
-  const coordinates: ParsedChunkKey = [Number(texts[ZERO]), Number(texts[UNIT_STEP])]
+  const coordinates = [Number(texts[ZERO]), Number(texts[UNIT_STEP])] as const
 
   if (!hasCanonicalIntegerText(texts, coordinates)) {
     return
   }
 
-  return coordinates
+  return [chunkAxis(normalizeZero(coordinates[ZERO])), chunkAxis(normalizeZero(coordinates[UNIT_STEP]))]
 }
 
 /** Produces the canonical, allocation-minimal key for a chunk coordinate. */
 export const chunkKeyOf = (value: ChunkCoord): ChunkKey =>
   `${String(value.cx)},${String(value.cz)}` as ChunkKey
+
+/** Validate external text before it becomes a branded chunk key. */
+export const ChunkKey = (value: string): ChunkKey => {
+  if (parseChunkKey(value) === undefined) {
+    throw new TypeError(`Invalid ChunkKey: ${value}`)
+  }
+
+  return value as ChunkKey
+}
 
 /** True only for the single canonical spelling of a safe-integer chunk key. */
 export const isChunkKey = (value: string): value is ChunkKey => parseChunkKey(value) !== ABSENT
@@ -277,16 +320,13 @@ export const chunkCoordOfKey = (value: ChunkKey): ChunkCoord => {
   if (parsed === ABSENT) {
     throw new TypeError(`Invalid ChunkKey: ${value}`)
   }
-  return chunkCoord(parsed[ZERO], parsed[UNIT_STEP])
+  return chunkCoordFromAxes(...parsed)
 }
 
 /** Decodes an untrusted chunk key without throwing for malformed input. */
 export const decodeChunkKey = (value: string): ChunkCoord | Absent => {
   const parsed = parseChunkKey(value)
-  if (parsed === ABSENT) {
-    return
-  }
-  return chunkCoord(parsed[ZERO], parsed[UNIT_STEP])
+  return parsed === undefined ? undefined : chunkCoordFromAxes(...parsed)
 }
 
 /**
