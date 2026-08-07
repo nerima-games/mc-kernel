@@ -1,9 +1,18 @@
+import { BLOCK_IDS, BLOCK_ID_MAX, isKnownBlockId } from './block-registry'
 import type { BlockId } from './block-registry-types'
-import { isKnownBlockId } from './block-registry'
 
 const MIN_INDEX = 0
 const INDEX_INCREMENT = 1
 const LAST_INDEX_OFFSET = 1
+const BLOCK_ID_ENABLED = 1
+
+// Raw chunk bytes are already bounded integers.
+// Generic number checks and resolved-object lookups would slow the validation hot path.
+// Derive the table from the canonical registry so removed block ids remain invalid.
+const KNOWN_BLOCK_ID_TABLE = new Uint8Array(BLOCK_ID_MAX + INDEX_INCREMENT)
+for (const blockId of BLOCK_IDS) {
+  KNOWN_BLOCK_ID_TABLE[blockId] = BLOCK_ID_ENABLED
+}
 
 const assertIndex = (index: number, length: number): void => {
   if (!Number.isInteger(index) || index < MIN_INDEX || index >= length) {
@@ -15,6 +24,12 @@ const assertIndex = (index: number, length: number): void => {
 
 const assertKnownBlockId = (blockId: number, index: number): void => {
   if (!isKnownBlockId(blockId)) {
+    throw new RangeError(`Block state contains unknown block id ${blockId} at index ${index}`)
+  }
+}
+
+const assertKnownBlockByte = (blockId: number, index: number): void => {
+  if (KNOWN_BLOCK_ID_TABLE[blockId] !== BLOCK_ID_ENABLED) {
     throw new RangeError(`Block state contains unknown block id ${blockId} at index ${index}`)
   }
 }
@@ -33,7 +48,7 @@ export class BlockState {
 
   static fromBytes(bytes: Uint8Array): BlockState {
     for (let index = MIN_INDEX; index < bytes.length; index += INDEX_INCREMENT) {
-      assertKnownBlockId(bytes[index]!, index)
+      assertKnownBlockByte(bytes[index]!, index)
     }
     return new BlockState(bytes)
   }
