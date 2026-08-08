@@ -1973,8 +1973,10 @@ const buildCapabilitiesById = (): Readonly<Record<BlockCapabilityFlag, Uint8Arra
   }
 
   for (const entry of BLOCK_REGISTRY) {
-    const resolved = RESOLVED_BY_ID[entry.id]
-    if (resolved === undefined) continue
+    // `buildResolvedById` sets this index unconditionally for every registry
+    // entry, and `resolveBlock`'s return type is `ResolvedBlock`, never
+    // `undefined` — so a registry-sourced id can never miss here.
+    const resolved = RESOLVED_BY_ID[entry.id]!
 
     for (const flag of BLOCK_CAPABILITY_FLAGS) {
       columns[flag][entry.id] = resolved.capabilities[flag] ? 1 : 0
@@ -2003,10 +2005,9 @@ const buildPropertyColumns = (): {
   lightEmission.fill(BLOCK_PROPERTY_DEFAULTS.lightEmission)
 
   for (const entry of BLOCK_REGISTRY) {
-    const resolved = RESOLVED_BY_ID[entry.id]
-    if (resolved === undefined) continue
-
-    const { properties } = resolved
+    // Same totality as `buildCapabilitiesById` above: a registry-sourced id
+    // is never a miss into `RESOLVED_BY_ID`.
+    const { properties } = RESOLVED_BY_ID[entry.id]!
     opacity[entry.id] = properties.opacity
     lightEmission[entry.id] = properties.lightEmission
     supportRule[entry.id] = properties.supportRule
@@ -2050,7 +2051,9 @@ const buildSupportBlockIdsById = (): SupportBlockIdsById => {
   )
 
   for (const entry of BLOCK_REGISTRY) {
-    const supportRule = PROPERTY_COLUMNS.supportRule[entry.id] ?? BLOCK_PROPERTY_DEFAULTS.supportRule
+    // `buildPropertyColumns` pre-fills this column for every id in
+    // `[0, BLOCK_ID_MAX]` before this runs, so a registry id is never a miss.
+    const supportRule = PROPERTY_COLUMNS.supportRule[entry.id]!
 
     if (supportRule.kind === 'oneOf') {
       blockIdsById[entry.id] = new Set(supportRule.blocks.map((type) => ID_BY_TYPE[type]))
@@ -2275,7 +2278,12 @@ export const blockIdsWithOpacity = (opacity: BlockOpacity): ReadonlySet<number> 
  * default at 「普通の不透明立方体」.
  */
 export const opacityOfBlockId = (id: number): BlockOpacity =>
-  isAddressableBlockId(id) ? PROPERTY_COLUMNS.opacity[id] ?? BLOCK_PROPERTY_DEFAULTS.opacity : BLOCK_PROPERTY_DEFAULTS.opacity
+  // `PROPERTY_COLUMNS.opacity` is dense over the whole addressable range
+  // (`buildPropertyColumns` pre-fills every index before the registry loop
+  // overwrites some of them), so an addressable id is never a miss — only
+  // the range check itself, not the array read, can fall through to the
+  // default below.
+  isAddressableBlockId(id) ? PROPERTY_COLUMNS.opacity[id]! : BLOCK_PROPERTY_DEFAULTS.opacity
 
 /**
  * The light a chunk buffer byte emits, 0..15.
@@ -2285,8 +2293,10 @@ export const opacityOfBlockId = (id: number): BlockOpacity =>
  * block lighting a cave it has no business lighting.
  */
 export const lightEmissionOfBlockId = (id: number): LightLevel =>
+  // Same density guarantee as `opacityOfBlockId`: `PROPERTY_COLUMNS.lightEmission`
+  // is filled for every addressable index before this ever reads it.
   isAddressableBlockId(id)
-    ? LightLevel(PROPERTY_COLUMNS.lightEmission[id] ?? BLOCK_PROPERTY_DEFAULTS.lightEmission)
+    ? LightLevel(PROPERTY_COLUMNS.lightEmission[id]!)
     : BLOCK_PROPERTY_DEFAULTS.lightEmission
 
 /**
@@ -2351,8 +2361,10 @@ export const transmitsLight = (id: number): boolean =>
  * again — an unknown block sits where it was put rather than popping off.
  */
 export const supportRuleOfBlockId = (id: number): SupportRule =>
+  // Same density guarantee again: `PROPERTY_COLUMNS.supportRule` is filled
+  // for every addressable index before this ever reads it.
   isAddressableBlockId(id)
-    ? (PROPERTY_COLUMNS.supportRule[id] ?? BLOCK_PROPERTY_DEFAULTS.supportRule)
+    ? PROPERTY_COLUMNS.supportRule[id]!
     : BLOCK_PROPERTY_DEFAULTS.supportRule
 
 /**
@@ -2393,7 +2405,12 @@ export const canBlockStaySupported = (id: number, supportBelow: number): boolean
       return capabilityOfBlockId(supportBelow, 'canSupportAttachments')
 
     case 'oneOf':
-      return SUPPORT_BLOCK_IDS_BY_ID[id]?.has(supportBelow) ?? false
+      // `BLOCK_PROPERTY_DEFAULTS.supportRule.kind` is `'none'`, never
+      // `'oneOf'`, so reaching this arm already proves `id` is a registry id
+      // whose row set `supportRule.kind` to `'oneOf'` — the exact condition
+      // `buildSupportBlockIdsById` uses to populate this same index. The two
+      // reads share their source, so this lookup cannot miss.
+      return SUPPORT_BLOCK_IDS_BY_ID[id]!.has(supportBelow)
 
     default:
       return rule satisfies never
