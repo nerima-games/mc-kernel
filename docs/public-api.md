@@ -495,9 +495,30 @@ stage は時間を読まずに進めず、かつグローバルから読んで�
 
 ## Chunk バイナリ形式
 
-`chunk(coord, height, blocks)` は 16×16 の縦列 Chunk を構築する。`blocks` は
-`16 * 16 * height` バイトでなければならず、各バイトは登録済みの `BlockId` でなければならない。
+`chunk(coord, height, blocks)` は 16×16 の縦列 Chunk を構築する。`blocks` 引数は
+`16 * 16 * height` バイトの生 `Uint8Array` を取り、各バイトは登録済みの `BlockId` でなければならない。
 構築時にバッファをコピーするため、呼び出し側の後続変更は Chunk に波及しない。
+
+**`Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks` を保持する（0.3.0、破壊的変更）。**
+
+```typescript
+type ChunkBlocks = BlockState & Brand.Brand<'ChunkBlocks'>
+
+class BlockState {
+  get length(): number
+  get(index: number): BlockId
+  set(index: number, blockId: BlockId): void
+  toBytes(): Uint8Array
+  copyTo(target: Uint8Array, offset?: number): void
+}
+```
+
+`chunk()` / `decodeChunk()` は入力バイト列を構築時に一度だけ検証し、以後は `ChunkBlocks` 経由でのみ
+読み書きさせる。**添字演算子（`blocks[i]`）は意図的に公開していない** —— 範囲外の読み出しも未登録
+`BlockId` の書き込みもコンパイルは通ってしまうため、`get` / `set` がその場で `RangeError` を投げることで
+バッファの不変条件（長さの範囲内であること・登録済み ID のみが書けること）を境界で強制する。生バイト列が
+必要な消費者（ワイヤ送信、コピー）は `toBytes()`（新規コピーを返す）または `copyTo(target, offset?)`
+（呼び出し側バッファへ範囲チェック付きで書き込み、割り当てを増やさない）を使う。
 
 `encodeChunk` / `decodeChunk` は固定 24 バイトヘッダーとブロック列を用いる。
 ヘッダーは magic (`MCHK`)、codec version、幅・奥行き、height、符号付き 32-bit の `cx` / `cz`、
