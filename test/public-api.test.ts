@@ -92,7 +92,6 @@ describe('public API surface', () => {
         'adjacentBlockPosition',
         'horizontalBlockNeighbours',
         'blockNeighbours',
-        'blockPositionKey',
         'chunkCoord',
         'ChunkKey',
         'chunkKeyOf',

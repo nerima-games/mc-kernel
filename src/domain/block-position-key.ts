@@ -1,5 +1,4 @@
 export {
-  blockPositionKeyOf as blockPositionKey,
   blockPositionKeyOf,
   blockPositionOfKey,
   decodeBlockPositionKey,

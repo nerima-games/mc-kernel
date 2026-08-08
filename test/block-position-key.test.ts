@@ -9,7 +9,6 @@ import {
 } from '../src/domain/coordinates'
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import { blockPositionKey } from '../src/domain/block-position-key'
 
 const NEGATIVE_ZERO_COMPONENT = -0
 const ORIGIN_COMPONENT = 0
@@ -22,7 +21,6 @@ describe('BlockPositionKey', () => {
       const key = blockPositionKeyOf(source)
 
       expect(key).toBe('-9007199254740991,0,9007199254740991')
-      expect(blockPositionKey(source)).toBe(key)
       expect(isBlockPositionKey(key)).toBe(true)
       expect(parseBlockPositionKey(key)).toBe(key)
       expect(blockPositionOfKey(key)).toStrictEqual(source)
