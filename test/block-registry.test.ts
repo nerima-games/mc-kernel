@@ -294,12 +294,23 @@ describe('id assignment is permanent', () => {
     }),
   )
 
-  it.effect('treats branded ids as total lookups', () =>
+  it.effect('a BlockId only proves the byte fits the chunk buffer, not that a row claims it', () =>
     Effect.sync(() => {
-      const id = BlockId(2)
+      // `BlockId` validates against the chunk-buffer range (0-255,
+      // `block-registry-types.ts`), not against the registry (0-122 today).
+      // A registered id resolves normally:
+      const registered = BlockId(2)
+      expect(blockTypeOfId(registered)).toBe('stone')
+      expect(resolvedBlockOfId(registered)?.type).toBe('stone')
 
-      expect(blockTypeOfId(id)).toBe('stone')
-      expect(resolvedBlockOfId(id).type).toBe('stone')
+      // ...but a `BlockId` in the unclaimed remainder is real and
+      // constructible, and honestly returns `undefined` rather than lying via
+      // a non-optional overload keyed only on the branded type.
+      for (const unregistered of [BlockId(123), BlockId(BLOCK_ID_MAX)]) {
+        expect(blockTypeOfId(unregistered)).toBeUndefined()
+        expect(resolvedBlockOfId(unregistered)).toBeUndefined()
+        expect(isKnownBlockId(unregistered)).toBe(false)
+      }
     }),
   )
 

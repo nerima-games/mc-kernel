@@ -2082,19 +2082,24 @@ export const blockIdOf = (type: BlockType): BlockId => {
   return blockId
 }
 
-/** id -> `BlockType`. `undefined` for a byte this build does not recognise. */
-export function blockTypeOfId(id: BlockId): BlockType
-export function blockTypeOfId(id: number): BlockType | undefined
-export function blockTypeOfId(id: number): BlockType | undefined {
-  return isAddressableBlockId(id) ? RESOLVED_BY_ID[id]?.type : undefined
-}
+/**
+ * id -> `BlockType`. `undefined` for a byte this build does not recognise.
+ *
+ * There is deliberately no `(id: BlockId) => BlockType` total overload here.
+ * `BlockId` only proves the byte fits the chunk-buffer range (0-255,
+ * `block-registry-types.ts`); the registry currently claims 0-122
+ * (`BLOCK_IDS`). A `BlockId` in the unclaimed remainder is real and
+ * constructible — a save file or a future build can produce one — so a
+ * signature promising a non-optional `BlockType` for every `BlockId` would be
+ * a type lying about a value the registry has never seen. Use `isKnownBlockId`
+ * or check the result against `undefined` instead of trusting the input type.
+ */
+export const blockTypeOfId = (id: number): BlockType | undefined =>
+  isAddressableBlockId(id) ? RESOLVED_BY_ID[id]?.type : undefined
 
-/** id -> the fully resolved row. `undefined` for an unrecognised byte. */
-export function resolvedBlockOfId(id: BlockId): ResolvedBlock
-export function resolvedBlockOfId(id: number): ResolvedBlock | undefined
-export function resolvedBlockOfId(id: number): ResolvedBlock | undefined {
-  return isAddressableBlockId(id) ? RESOLVED_BY_ID[id] : undefined
-}
+/** id -> the fully resolved row. `undefined` for an unrecognised byte, including an addressable `BlockId` the registry does not claim — see `blockTypeOfId`. */
+export const resolvedBlockOfId = (id: number): ResolvedBlock | undefined =>
+  isAddressableBlockId(id) ? RESOLVED_BY_ID[id] : undefined
 
 /** Does this number name a block this build knows about? */
 export const isKnownBlockId = (id: number): id is BlockId => resolvedBlockOfId(id) !== undefined
