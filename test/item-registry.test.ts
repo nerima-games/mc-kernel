@@ -4,6 +4,8 @@ import { describe, expect, it } from '@effect/vitest'
 import {
   ITEM_IDS,
   ITEM_REGISTRY,
+  ItemId,
+  ItemIdBytes,
   decodeItemId,
   encodeItemId,
   isKnownItemId,
@@ -14,6 +16,7 @@ import {
 } from '../src/domain/item-registry'
 import { ITEM_TYPES, type ItemType } from '../src/domain/item-type'
 import { Effect } from 'effect'
+import { expectTypeOf } from 'vitest'
 
 const BREWING_ITEM_IDS = {
   awkward_potion: 128,
@@ -58,6 +61,7 @@ describe('item registry', () => {
       expect(itemIdOf('stick')).toBe(13)
       expect(itemIdOf('lily_pad')).toBe(126)
       expect(itemTypeOfId(126)).toBe('lily_pad')
+      expect(itemTypeOfId(ItemId(126))).toBe('lily_pad')
     }),
   )
 
@@ -128,7 +132,9 @@ describe('item registry', () => {
   it.effect('round-trips every registered item through its two-byte save and wire field', () =>
     Effect.sync(() => {
       for (const type of ITEM_TYPES) {
-        expect(decodeItemId(encodeItemId(type))).toBe(type)
+        const bytes = encodeItemId(type)
+        expect(ItemIdBytes(bytes)).toBe(bytes)
+        expect(decodeItemId(bytes)).toBe(type)
       }
       expect([...encodeItemId('water_bottle')]).toStrictEqual([0, 127])
       expect([...encodeItemId('ghast_tear')]).toStrictEqual([0, 134])
@@ -151,13 +157,22 @@ describe('item registry', () => {
     }),
   )
 
-  it.effect('rejects malformed fields and unregistered uint16 ids', () =>
+  it.effect('accepts only complete bytes for registered item ids', () =>
     Effect.sync(() => {
-      expect(decodeItemId(new Uint8Array())).toBeUndefined()
-      expect(decodeItemId(new Uint8Array([0]))).toBeUndefined()
-      expect(decodeItemId(new Uint8Array([0, 127, 0]))).toBeUndefined()
-      expect(decodeItemId(new Uint8Array([0, 173]))).toBeUndefined()
-      expect(decodeItemId(new Uint8Array([0xff, 0xff]))).toBeUndefined()
+      expect(ItemIdBytes(new Uint8Array([0, 127]))).toStrictEqual(new Uint8Array([0, 127]))
+      expect(ItemIdBytes(new Uint8Array([0, EYE_OF_ENDER_ITEM_ID]))).toStrictEqual(
+        new Uint8Array([0, EYE_OF_ENDER_ITEM_ID]),
+      )
+      expect(() => ItemIdBytes(new Uint8Array())).toThrow(/exactly 2 bytes/u)
+      expect(() => ItemIdBytes(new Uint8Array([0]))).toThrow(/exactly 2 bytes/u)
+      expect(() => ItemIdBytes(new Uint8Array([0, 127, 0]))).toThrow(/exactly 2 bytes/u)
+      expect(() => ItemIdBytes(new Uint8Array([0, 173]))).toThrow(/registered item id/u)
+      expect(() => ItemIdBytes(new Uint8Array([0xff, 0xff]))).toThrow(/registered item id/u)
+    }),
+  )
+
+  it.effect('recognises known and unknown uint16 item ids', () =>
+    Effect.sync(() => {
       expect(isKnownItemId(134)).toBe(true)
       expect(isKnownItemId(EYE_OF_ENDER_ITEM_ID)).toBe(true)
       expect(isKnownItemId(ENCHANTED_BOOK_ITEM_ID)).toBe(true)
@@ -172,6 +187,16 @@ describe('item registry', () => {
       expect(isKnownItemId(173)).toBe(false)
       expect(isKnownItemId(-1)).toBe(false)
       expect(isKnownItemId(1.5)).toBe(false)
+    }),
+  )
+
+  it.effect('narrows numbers to ItemId when known', () =>
+    Effect.sync(() => {
+      const id = 134 as number
+      if (!isKnownItemId(id)) {
+        throw new Error('expected known item id in type-narrowing test')
+      }
+      expectTypeOf(id).toEqualTypeOf<ItemId>()
     }),
   )
 

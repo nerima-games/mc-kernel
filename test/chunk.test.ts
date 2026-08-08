@@ -4,15 +4,21 @@ import { Effect } from 'effect'
 import {
   CHUNK_CODEC_VERSION,
   CHUNK_HEADER_BYTES,
+  ChunkBlocks,
+  EncodedChunk,
+  ChunkHeight,
+  MAX_CHUNK_HEIGHT,
   chunk,
+  chunkBlockCount,
   decodeChunk,
   encodeChunk,
 } from '../src/domain/chunk'
-import { blockIdOf } from '../src/domain/block-registry'
+import { BlockId as blockId, blockIdOf } from '../src/domain/block-registry'
+import { blockState } from '../src/domain/block-state'
 import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates'
 
-const height = 2
-const blockCount = CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * height
+const height = ChunkHeight(2)
+const blockCount = chunkBlockCount(height)
 
 const sampleBlocks = (): Uint8Array => {
   const blocks = new Uint8Array(blockCount)
@@ -29,7 +35,7 @@ describe('chunk binary codec', () => {
 
       expect(decoded.coord).toStrictEqual(source.coord)
       expect(decoded.height).toBe(height)
-      expect(decoded.blocks).toStrictEqual(source.blocks)
+      expect(decoded.blocks.toBytes()).toStrictEqual(source.blocks.toBytes())
     }),
   )
 
@@ -78,23 +84,96 @@ describe('chunk binary codec', () => {
       const input = sampleBlocks()
       const source = chunk(chunkCoord(1, 2), height, input)
       input[0] = blockIdOf('water')
-      expect(source.blocks[0]).toBe(blockIdOf('stone'))
+      expect(source.blocks.get(0)).toBe(blockIdOf('stone'))
 
       const encoded = encodeChunk(source)
-      source.blocks[0] = blockIdOf('water')
+      source.blocks.set(0, blockIdOf('water'))
       expect(encoded[CHUNK_HEADER_BYTES]).toBe(blockIdOf('stone'))
 
       const decoded = decodeChunk(encoded)
       encoded[CHUNK_HEADER_BYTES] = blockIdOf('water')
-      expect(decoded.blocks[0]).toBe(blockIdOf('stone'))
+      expect(decoded.blocks.get(0)).toBe(blockIdOf('stone'))
+    }),
+  )
+
+  it.effect('keeps block storage behind checked accessors', () =>
+    Effect.sync(() => {
+      const state = blockState(sampleBlocks())
+      const copy = state.toBytes()
+      copy[0] = blockIdOf('water')
+
+      expect(state.get(0)).toBe(blockIdOf('stone'))
+      state.set(0, blockIdOf('water'))
+      expect(state.get(0)).toBe(blockIdOf('water'))
+      expect(() => state.get(-1)).toThrow(/index/)
+      expect(() => state.get(state.length)).toThrow(/index/)
+      expect(() => state.set(0, blockId(255))).toThrow(/unknown block id 255/)
+      expect(() => blockState(new Uint8Array([255]))).toThrow(/unknown block id 255/)
+    }),
+  )
+
+  it.effect('validates the destination range before copying into a caller-owned buffer', () =>
+    Effect.sync(() => {
+      const state = blockState(sampleBlocks())
+      const target = new Uint8Array(state.length)
+
+      state.copyTo(target)
+      expect(target).toStrictEqual(state.toBytes())
+
+      expect(() => state.copyTo(new Uint8Array(state.length), -1)).toThrow(/copy range/)
+      expect(() => state.copyTo(new Uint8Array(state.length - 1), 0)).toThrow(/copy range/)
+      expect(() => state.copyTo(new Uint8Array(state.length), 1)).toThrow(/copy range/)
+    }),
+  )
+
+  it.effect('keeps the runtime length boundary authoritative', () =>
+    Effect.sync(() => {
+      const source = chunk(chunkCoord(0, 0), height, sampleBlocks())
+      const state = source.blocks
+      const { length } = state
+
+      expect(() => Object.defineProperty(state, 'length', { value: 0 })).toThrow(TypeError)
+      expect(state.length).toBe(length)
+      expect(new DataView(encodeChunk(source).buffer).getUint32(20, true)).toBe(length)
     }),
   )
 
   it.effect('rejects constructor values outside the binary format bounds', () =>
     Effect.sync(() => {
+      expect(() => ChunkHeight(0)).toThrow(/height/)
+      expect(() => ChunkHeight(MAX_CHUNK_HEIGHT + 1)).toThrow(/height/)
+      expect(() => ChunkBlocks(ChunkHeight(1), new Uint8Array())).toThrow(/length/)
+      expect(() => ChunkBlocks(ChunkHeight(1), new Uint8Array([255, ...new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ - 1)]))).toThrow(/unknown block id 255/)
+      expect(() => EncodedChunk(new Uint8Array())).toThrow(/header/)
+      expect(() => chunk(chunkCoord(0, 0), 1, new Uint8Array(255))).toThrow(/block data length must be 256, received 255/i)
       expect(() => chunk(chunkCoord(0, 0), 0x1_0000, new Uint8Array())).toThrow(/height/)
-      expect(() => chunk(chunkCoord(0x8000_0000, 0), 1, new Uint8Array(256))).toThrow(/cx/)
-      expect(() => chunk(chunkCoord(0, -0x8000_0001), 1, new Uint8Array(256))).toThrow(/cz/)
+      expect(() => chunk(chunkCoord(0x8000_0000, 0), 1, new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cx/)
+      expect(() => chunk(chunkCoord(0, -0x8000_0001), 1, new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cz/)
+    }),
+  )
+
+  it.effect('rejects encoding blocks that are not a BlockState or whose length disagrees with the declared height', () =>
+    Effect.sync(() => {
+      const coord = chunkCoord(0, 0)
+
+      expect(() => encodeChunk({
+        coord,
+        height,
+        blocks: { length: blockCount } as never,
+      })).toThrow(/must be a BlockState/)
+
+      expect(() => encodeChunk({
+        coord,
+        height: ChunkHeight(1),
+        blocks: blockState(sampleBlocks()) as never,
+      })).toThrow(/block data length must be/)
+    }),
+  )
+
+  it.effect('derives the exact payload size from the validated height', () =>
+    Effect.sync(() => {
+      expect(chunkBlockCount(ChunkHeight(1))).toBe(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ)
+      expect(chunkBlockCount(height)).toBe(blockCount)
     }),
   )
 })

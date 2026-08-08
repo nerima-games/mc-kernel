@@ -120,8 +120,8 @@ export const NEEDS_ANY_SUPPORT: SupportRule = { kind: 'anySupporting' }
  * is the property that makes the table checkable against its source by eye.
  */
 export const needsOneOf = (...blocks: ReadonlyArray<BlockType>): SupportRule => ({
-  kind: 'oneOf',
   blocks,
+  kind: 'oneOf',
 })
 
 /**
@@ -166,7 +166,7 @@ export const satisfiesSupportRule = (
       return belowSupportsAttachments
 
     case 'oneOf':
-      return blockBelow !== undefined && rule.blocks.includes(blockBelow)
+      return typeof blockBelow === 'string' && rule.blocks.includes(blockBelow)
 
     default:
       return rule satisfies never

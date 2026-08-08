@@ -11,13 +11,14 @@ import { resolveBlock } from './block-definition.js'
 import type { BlockDrop, HarvestContext } from './block-harvest.js'
 import { BARE_HANDED, DEFAULT_BLOCK_DROP, DEFAULT_HARVEST_TOOL, resolveDrop } from './block-harvest.js'
 import type { BlockOpacity, BlockProperties, BlockPropertyName } from './block-properties.js'
-import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS } from './block-properties.js'
+import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS, LightLevel } from './block-properties.js'
 import type { SupportRule } from './block-support.js'
-import { NEEDS_ANY_SUPPORT, isSupportSensitive, needsOneOf, satisfiesSupportRule } from './block-support.js'
+import { NEEDS_ANY_SUPPORT, isSupportSensitive, needsOneOf } from './block-support.js'
 import type { BlockType } from './block-type.js'
 import { BLOCK_TYPES } from './block-type.js'
 import type { BlockRegistryEntry } from './block-registry-types.js'
-import { AIR_BLOCK_ID, BLOCK_ID_MAX, BlockId } from './block-registry-types.js'
+import { BLOCK_ID_MAX, BlockId } from './block-registry-types.js'
+import { StackCount } from './quantities.js'
 
 /**
  * Drops nothing, to anyone, ever.
@@ -28,7 +29,7 @@ import { AIR_BLOCK_ID, BLOCK_ID_MAX, BlockId } from './block-registry-types.js'
  * required key every time `BlockDropRule` grows, and that is the breakage this
  * whole design exists to avoid.
  */
-const DROPS_NOTHING = { ...DEFAULT_BLOCK_DROP, count: 0 } as const
+const DROPS_NOTHING = { ...DEFAULT_BLOCK_DROP, count: StackCount(0) } as const
 
 /**
  * The tier gate that separates "mined stone" from "wasted a swing".
@@ -389,7 +390,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         hardness: 2,
         friction: 0.3,
         harvestTool: FASTER_WITH_SHOVEL,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'snowball', count: 4 },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'snowball', count: StackCount(4) },
       },
     },
   },
@@ -566,7 +567,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         // gives `GLOWSTONE` 4. Left as it is rather than corrected in passing:
         // it is a content value, not a transcription error, and changing a drop
         // count is a gameplay change that should be reviewed on its own.
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'glowstone_dust', count: 2, affectedByFortune: true },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'glowstone_dust', count: StackCount(2), affectedByFortune: true },
       },
     },
   },
@@ -1099,7 +1100,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
         hardness: 15,
         friction: 0.8,
         harvestTool: NEEDS_WOODEN_PICKAXE,
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'amethyst_shard', count: 4 },
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'amethyst_shard', count: StackCount(4) },
       },
     },
   },
@@ -1226,7 +1227,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
           ...DEFAULT_BLOCK_DROP,
           item: 'redstone_dust',
           silkTouchItem: 'redstone_ore',
-          count: 4,
+          count: StackCount(4),
           affectedByFortune: true,
         },
       },
@@ -1245,7 +1246,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
           ...DEFAULT_BLOCK_DROP,
           item: 'lapis_lazuli',
           silkTouchItem: 'lapis_ore',
-          count: 4,
+          count: StackCount(4),
           affectedByFortune: true,
         },
       },
@@ -1333,7 +1334,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
           ...DEFAULT_BLOCK_DROP,
           item: 'redstone_dust',
           silkTouchItem: 'deepslate_redstone_ore',
-          count: 4,
+          count: StackCount(4),
           affectedByFortune: true,
         },
       },
@@ -1352,7 +1353,7 @@ export const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry> = [
           ...DEFAULT_BLOCK_DROP,
           item: 'lapis_lazuli',
           silkTouchItem: 'deepslate_lapis_ore',
-          count: 4,
+          count: StackCount(4),
           affectedByFortune: true,
         },
       },
@@ -1960,6 +1961,8 @@ const RESOLVED_BY_ID = buildResolvedById()
 const isAddressableBlockId = (id: number): boolean =>
   Number.isInteger(id) && id >= 0 && id <= BLOCK_ID_MAX
 
+const BLOCK_ID_TABLE_LENGTH = BLOCK_ID_MAX + 1
+
 const buildCapabilitiesById = (): Readonly<Record<BlockCapabilityFlag, Uint8Array>> => {
   const columns = {} as Record<BlockCapabilityFlag, Uint8Array>
 
@@ -1970,8 +1973,10 @@ const buildCapabilitiesById = (): Readonly<Record<BlockCapabilityFlag, Uint8Arra
   }
 
   for (const entry of BLOCK_REGISTRY) {
-    const resolved = RESOLVED_BY_ID[entry.id]
-    if (resolved === undefined) continue
+    // `buildResolvedById` sets this index unconditionally for every registry
+    // entry, and `resolveBlock`'s return type is `ResolvedBlock`, never
+    // `undefined` — so a registry-sourced id can never miss here.
+    const resolved = RESOLVED_BY_ID[entry.id]!
 
     for (const flag of BLOCK_CAPABILITY_FLAGS) {
       columns[flag][entry.id] = resolved.capabilities[flag] ? 1 : 0
@@ -2000,10 +2005,9 @@ const buildPropertyColumns = (): {
   lightEmission.fill(BLOCK_PROPERTY_DEFAULTS.lightEmission)
 
   for (const entry of BLOCK_REGISTRY) {
-    const resolved = RESOLVED_BY_ID[entry.id]
-    if (resolved === undefined) continue
-
-    const { properties } = resolved
+    // Same totality as `buildCapabilitiesById` above: a registry-sourced id
+    // is never a miss into `RESOLVED_BY_ID`.
+    const { properties } = RESOLVED_BY_ID[entry.id]!
     opacity[entry.id] = properties.opacity
     lightEmission[entry.id] = properties.lightEmission
     supportRule[entry.id] = properties.supportRule
@@ -2015,23 +2019,51 @@ const buildPropertyColumns = (): {
 
 const PROPERTY_COLUMNS = buildPropertyColumns()
 
+const seededRecord = <K extends string, V>(keys: ReadonlyArray<K>, build: (key: K) => V): Record<K, V> =>
+  Object.fromEntries(keys.map((key) => [key, build(key)])) as Record<K, V>
+
 const buildIdByType = (): Readonly<Record<BlockType, BlockId>> => {
-  const table: Partial<Record<BlockType, BlockId>> = {}
+  const assignedIds = new Map<BlockType, BlockId>()
 
   for (const entry of BLOCK_REGISTRY) {
-    table[entry.definition.type] = entry.id
+    assignedIds.set(entry.definition.type, entry.id)
   }
 
-  for (const type of BLOCK_TYPES) {
-    if (table[type] === undefined) {
+  return seededRecord(BLOCK_TYPES, (type) => {
+    const blockId = assignedIds.get(type)
+
+    if (blockId === undefined) {
       throw new Error(`Block registry is missing a row for ${type}`)
     }
-  }
 
-  return table as Readonly<Record<BlockType, BlockId>>
+    return blockId
+  })
 }
 
 const ID_BY_TYPE = buildIdByType()
+
+type SupportBlockIdsById = ReadonlyArray<ReadonlySet<number> | undefined>
+
+const buildSupportBlockIdsById = (): SupportBlockIdsById => {
+  const blockIdsById: Array<ReadonlySet<number> | undefined> = Array.from(
+    { length: BLOCK_ID_TABLE_LENGTH },
+    () => undefined,
+  )
+
+  for (const entry of BLOCK_REGISTRY) {
+    // `buildPropertyColumns` pre-fills this column for every id in
+    // `[0, BLOCK_ID_MAX]` before this runs, so a registry id is never a miss.
+    const supportRule = PROPERTY_COLUMNS.supportRule[entry.id]!
+
+    if (supportRule.kind === 'oneOf') {
+      blockIdsById[entry.id] = new Set(supportRule.blocks.map((type) => ID_BY_TYPE[type]))
+    }
+  }
+
+  return blockIdsById
+}
+
+const SUPPORT_BLOCK_IDS_BY_ID = buildSupportBlockIdsById()
 
 /**
  * Every id currently assigned, ascending. Holes left by a removed block are
@@ -2040,21 +2072,40 @@ const ID_BY_TYPE = buildIdByType()
 export const BLOCK_IDS: ReadonlyArray<BlockId> = BLOCK_REGISTRY.map((entry) => entry.id)
 
 /**
- * `BlockType` -> id. Registry completeness is validated at initialization;
- * unknown values that bypass the type guard preserve the historic air fallback.
+ * `BlockType` -> id. Registry completeness is validated at initialization; a
+ * missing row must fail loudly instead of silently reading as air.
  */
-export const blockIdOf = (type: BlockType): BlockId => ID_BY_TYPE[type] ?? AIR_BLOCK_ID
+export const blockIdOf = (type: BlockType): BlockId => {
+  const blockId = ID_BY_TYPE[type]
 
-/** id -> `BlockType`. `undefined` for a byte this build does not recognise. */
+  if (blockId === undefined) {
+    throw new Error(`Block registry is missing a row for ${type}`)
+  }
+
+  return blockId
+}
+
+/**
+ * id -> `BlockType`. `undefined` for a byte this build does not recognise.
+ *
+ * There is deliberately no `(id: BlockId) => BlockType` total overload here.
+ * `BlockId` only proves the byte fits the chunk-buffer range (0-255,
+ * `block-registry-types.ts`); the registry currently claims 0-122
+ * (`BLOCK_IDS`). A `BlockId` in the unclaimed remainder is real and
+ * constructible — a save file or a future build can produce one — so a
+ * signature promising a non-optional `BlockType` for every `BlockId` would be
+ * a type lying about a value the registry has never seen. Use `isKnownBlockId`
+ * or check the result against `undefined` instead of trusting the input type.
+ */
 export const blockTypeOfId = (id: number): BlockType | undefined =>
   isAddressableBlockId(id) ? RESOLVED_BY_ID[id]?.type : undefined
 
-/** id -> the fully resolved row. `undefined` for an unrecognised byte. */
+/** id -> the fully resolved row. `undefined` for an unrecognised byte, including an addressable `BlockId` the registry does not claim — see `blockTypeOfId`. */
 export const resolvedBlockOfId = (id: number): ResolvedBlock | undefined =>
   isAddressableBlockId(id) ? RESOLVED_BY_ID[id] : undefined
 
 /** Does this number name a block this build knows about? */
-export const isKnownBlockId = (id: number): boolean => resolvedBlockOfId(id) !== undefined
+export const isKnownBlockId = (id: number): id is BlockId => resolvedBlockOfId(id) !== undefined
 
 /**
  * Read one capability straight off a chunk buffer byte. TOTAL — see the module
@@ -2116,19 +2167,17 @@ export const dropOfBlockId = (id: number, context: HarvestContext = BARE_HANDED)
  * produced by the loop rather than conjured by a fallback.
  */
 const buildIdsByCapability = (): Readonly<Record<BlockCapabilityFlag, ReadonlySet<number>>> => {
-  const table: Partial<Record<BlockCapabilityFlag, ReadonlySet<number>>> = {}
-
-  for (const flag of BLOCK_CAPABILITY_FLAGS) {
+  return seededRecord(BLOCK_CAPABILITY_FLAGS, (flag) => {
     const members = new Set<number>()
+
     for (const entry of BLOCK_REGISTRY) {
       if (capabilityOfBlockId(entry.id, flag)) {
         members.add(entry.id)
       }
     }
-    table[flag] = members
-  }
 
-  return table as Readonly<Record<BlockCapabilityFlag, ReadonlySet<number>>>
+    return members
+  })
 }
 
 const IDS_BY_CAPABILITY = buildIdsByCapability()
@@ -2165,10 +2214,7 @@ export const blockIdsWithCapability = (flag: BlockCapabilityFlag): ReadonlySet<n
  * expects a set.
  */
 const buildIdsByOpacity = (): Readonly<Record<BlockOpacity, ReadonlySet<number>>> => {
-  const table = Object.fromEntries(BLOCK_OPACITIES.map((opacity) => [opacity, new Set<number>()])) as Record<
-    BlockOpacity,
-    Set<number>
-  >
+  const table = seededRecord(BLOCK_OPACITIES, () => new Set<number>())
 
   for (const entry of BLOCK_REGISTRY) {
     table[propertyOfBlockId(entry.id, 'opacity')].add(entry.id)
@@ -2232,7 +2278,12 @@ export const blockIdsWithOpacity = (opacity: BlockOpacity): ReadonlySet<number> 
  * default at 「普通の不透明立方体」.
  */
 export const opacityOfBlockId = (id: number): BlockOpacity =>
-  isAddressableBlockId(id) ? PROPERTY_COLUMNS.opacity[id] ?? BLOCK_PROPERTY_DEFAULTS.opacity : BLOCK_PROPERTY_DEFAULTS.opacity
+  // `PROPERTY_COLUMNS.opacity` is dense over the whole addressable range
+  // (`buildPropertyColumns` pre-fills every index before the registry loop
+  // overwrites some of them), so an addressable id is never a miss — only
+  // the range check itself, not the array read, can fall through to the
+  // default below.
+  isAddressableBlockId(id) ? PROPERTY_COLUMNS.opacity[id]! : BLOCK_PROPERTY_DEFAULTS.opacity
 
 /**
  * The light a chunk buffer byte emits, 0..15.
@@ -2241,9 +2292,11 @@ export const opacityOfBlockId = (id: number): BlockOpacity =>
  * inert reading — an unknown block sitting in the dark, rather than an unknown
  * block lighting a cave it has no business lighting.
  */
-export const lightEmissionOfBlockId = (id: number): number =>
+export const lightEmissionOfBlockId = (id: number): LightLevel =>
+  // Same density guarantee as `opacityOfBlockId`: `PROPERTY_COLUMNS.lightEmission`
+  // is filled for every addressable index before this ever reads it.
   isAddressableBlockId(id)
-    ? (PROPERTY_COLUMNS.lightEmission[id] ?? BLOCK_PROPERTY_DEFAULTS.lightEmission)
+    ? LightLevel(PROPERTY_COLUMNS.lightEmission[id]!)
     : BLOCK_PROPERTY_DEFAULTS.lightEmission
 
 /**
@@ -2308,8 +2361,10 @@ export const transmitsLight = (id: number): boolean =>
  * again — an unknown block sits where it was put rather than popping off.
  */
 export const supportRuleOfBlockId = (id: number): SupportRule =>
+  // Same density guarantee again: `PROPERTY_COLUMNS.supportRule` is filled
+  // for every addressable index before this ever reads it.
   isAddressableBlockId(id)
-    ? (PROPERTY_COLUMNS.supportRule[id] ?? BLOCK_PROPERTY_DEFAULTS.supportRule)
+    ? PROPERTY_COLUMNS.supportRule[id]!
     : BLOCK_PROPERTY_DEFAULTS.supportRule
 
 /**
@@ -2339,14 +2394,28 @@ export const isSupportSensitiveBlockId = (id: number): boolean =>
  * answer a maintenance sweep ("should this block pop off now?"); kernel has no
  * opinion about which, because it holds no world.
  */
-export const canBlockStaySupported = (id: number, supportBelow: number): boolean =>
-  satisfiesSupportRule(
-    supportRuleOfBlockId(id),
-    blockTypeOfId(supportBelow),
-    isAddressableBlockId(supportBelow)
-      ? CAPABILITIES_BY_ID.canSupportAttachments[supportBelow] === 1
-      : BLOCK_CAPABILITY_DEFAULTS.canSupportAttachments,
-  )
+export const canBlockStaySupported = (id: number, supportBelow: number): boolean => {
+  const rule = supportRuleOfBlockId(id)
+
+  switch (rule.kind) {
+    case 'none':
+      return true
+
+    case 'anySupporting':
+      return capabilityOfBlockId(supportBelow, 'canSupportAttachments')
+
+    case 'oneOf':
+      // `BLOCK_PROPERTY_DEFAULTS.supportRule.kind` is `'none'`, never
+      // `'oneOf'`, so reaching this arm already proves `id` is a registry id
+      // whose row set `supportRule.kind` to `'oneOf'` — the exact condition
+      // `buildSupportBlockIdsById` uses to populate this same index. The two
+      // reads share their source, so this lookup cannot miss.
+      return SUPPORT_BLOCK_IDS_BY_ID[id]!.has(supportBelow)
+
+    default:
+      return rule satisfies never
+  }
+}
 
 /**
  * Block types in the vocabulary that the table does not yet cover.

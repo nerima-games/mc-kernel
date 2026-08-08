@@ -1,39 +1,84 @@
-import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
 import {
+  BLOCK_FACES,
+  type BlockPosition,
+  CHUNK_SIZE_XZ,
+  HORIZONTAL_BLOCK_FACES,
   aabb,
   aabbContainsPoint,
   aabbIntersects,
   aabbOfBlock,
   adjacentBlockPosition,
-  BLOCK_FACES,
   blockNeighbours,
   blockPosition,
   blockPositionOfChunkLocal,
   blockPositionOfPosition,
-  CHUNK_SIZE_XZ,
   chunkCoordOfBlock,
-  HORIZONTAL_BLOCK_FACES,
-  localCoordOfBlock,
   horizontalBlockNeighbours,
   isBlockFace,
+  localCoordOfBlock,
   oppositeBlockFace,
   position,
-  type BlockPosition,
 } from '../src/domain/coordinates'
+import { describe, expect, it } from '@effect/vitest'
+import { Effect } from 'effect'
+
+const NEGATIVE_ZERO = -0
+const NEGATIVE_ONE = -1
+const NEGATIVE_TWO = -2
+const NEGATIVE_THREE = -3
+const NEGATIVE_FIFTEEN = -15
+const NEGATIVE_SIXTEEN = -16
+const NEGATIVE_SEVENTEEN = -17
+const NEGATIVE_THIRTY_THREE = -33
+const NEGATIVE_FIFTY_NINE = -59
+const NEGATIVE_SIXTY_FOUR = -64
+const NEGATIVE_ONE_TENTH = -0.1
+const NEGATIVE_ONE_HALF = -0.5
+const NEGATIVE_NINE_TENTHS = -0.9
+const NEGATIVE_FIVE_THOUSAND_SIX_HUNDRED_SEVENTY_EIGHT = -5678
+const ZERO = 0
+const ONE = 1
+const TWO = 2
+const THREE = 3
+const FOUR = 4
+const FIVE = 5
+const SEVEN = 7
+const EIGHT = 8
+const NINE = 9
+const TEN = 10
+const ELEVEN = 11
+const FOURTEEN = 14
+const FIFTEEN = 15
+const SIXTEEN = 16
+const SEVENTEEN = 17
+const NINETEEN = 19
+const TWENTY = 20
+const TWENTY_ONE = 21
+const TWENTY_NINE = 29
+const THIRTY = 30
+const THIRTY_ONE = 31
+const SIXTY_FOUR = 64
+const ONE_HUNDRED = 100
+const THREE_HUNDRED_NINETEEN = 319
+const THREE_HUNDRED_TWENTY = 320
+const ONE_THOUSAND_TWO_HUNDRED_THIRTY_FOUR = 1234
+const ONE_TENTH = 0.1
+const ONE_HALF = 0.5
+const NINE_TENTHS = 0.9
+const JUST_ABOVE_ONE = 1.0001
 
 /** Coordinates chosen to straddle the origin, chunk borders, and both signs. */
 const SAMPLE_COORDINATES: ReadonlyArray<readonly [number, number, number]> = [
-  [0, 0, 0],
-  [1, 64, 1],
-  [15, 0, 15],
-  [16, 0, 16],
-  [17, 320, 31],
-  [-1, 0, -1],
-  [-15, -64, -15],
-  [-16, 0, -16],
-  [-17, 0, -33],
-  [1234, 100, -5678],
+  [ZERO, ZERO, ZERO],
+  [ONE, SIXTY_FOUR, ONE],
+  [FIFTEEN, ZERO, FIFTEEN],
+  [SIXTEEN, ZERO, SIXTEEN],
+  [SEVENTEEN, THREE_HUNDRED_TWENTY, THIRTY_ONE],
+  [NEGATIVE_ONE, ZERO, NEGATIVE_ONE],
+  [NEGATIVE_FIFTEEN, NEGATIVE_SIXTY_FOUR, NEGATIVE_FIFTEEN],
+  [NEGATIVE_SIXTEEN, ZERO, NEGATIVE_SIXTEEN],
+  [NEGATIVE_SEVENTEEN, ZERO, NEGATIVE_THIRTY_THREE],
+  [ONE_THOUSAND_TWO_HUNDRED_THIRTY_FOUR, ONE_HUNDRED, NEGATIVE_FIVE_THOUSAND_SIX_HUNDRED_SEVENTY_EIGHT],
 ]
 
 const roundTrip = (source: BlockPosition): BlockPosition =>
@@ -42,8 +87,8 @@ const roundTrip = (source: BlockPosition): BlockPosition =>
 describe('world <-> chunk coordinate conversion', () => {
   it.effect('round-trips every sample block position, including across the origin into negatives', () =>
     Effect.sync(() => {
-      for (const [x, y, z] of SAMPLE_COORDINATES) {
-        const source = blockPosition(x, y, z)
+      for (const [blockX, blockY, blockZ] of SAMPLE_COORDINATES) {
+        const source = blockPosition(blockX, blockY, blockZ)
         expect(roundTrip(source)).toStrictEqual(source)
       }
     }),
@@ -51,9 +96,9 @@ describe('world <-> chunk coordinate conversion', () => {
 
   it.effect('round-trips exhaustively over a two-chunk-wide neighbourhood of the origin', () =>
     Effect.sync(() => {
-      for (let x = -CHUNK_SIZE_XZ * 2; x <= CHUNK_SIZE_XZ * 2; x += 1) {
-        for (let z = -CHUNK_SIZE_XZ * 2; z <= CHUNK_SIZE_XZ * 2; z += 1) {
-          const source = blockPosition(x, 0, z)
+      for (let blockX = -CHUNK_SIZE_XZ * TWO; blockX <= CHUNK_SIZE_XZ * TWO; blockX += ONE) {
+        for (let blockZ = -CHUNK_SIZE_XZ * TWO; blockZ <= CHUNK_SIZE_XZ * TWO; blockZ += ONE) {
+          const source = blockPosition(blockX, ZERO, blockZ)
           expect(roundTrip(source)).toStrictEqual(source)
         }
       }
@@ -62,11 +107,11 @@ describe('world <-> chunk coordinate conversion', () => {
 
   it.effect('local coordinates always land in [0, CHUNK_SIZE_XZ - 1], including for negative world coordinates', () =>
     Effect.sync(() => {
-      for (let x = -CHUNK_SIZE_XZ * 2; x <= CHUNK_SIZE_XZ * 2; x += 1) {
-        const local = localCoordOfBlock(blockPosition(x, 0, x))
-        expect(local.lx).toBeGreaterThanOrEqual(0)
+      for (let blockX = -CHUNK_SIZE_XZ * TWO; blockX <= CHUNK_SIZE_XZ * TWO; blockX += ONE) {
+        const local = localCoordOfBlock(blockPosition(blockX, ZERO, blockX))
+        expect(local.lx).toBeGreaterThanOrEqual(ZERO)
         expect(local.lx).toBeLessThan(CHUNK_SIZE_XZ)
-        expect(local.lz).toBeGreaterThanOrEqual(0)
+        expect(local.lz).toBeGreaterThanOrEqual(ZERO)
         expect(local.lz).toBeLessThan(CHUNK_SIZE_XZ)
       }
     }),
@@ -74,19 +119,31 @@ describe('world <-> chunk coordinate conversion', () => {
 
   it.effect('chunk coordinates floor rather than truncate, so -1 belongs to chunk -1 and not to chunk 0', () =>
     Effect.sync(() => {
-      expect(chunkCoordOfBlock(blockPosition(-1, 0, -1))).toStrictEqual({ cx: -1, cz: -1 })
-      expect(chunkCoordOfBlock(blockPosition(-16, 0, -16))).toStrictEqual({ cx: -1, cz: -1 })
-      expect(chunkCoordOfBlock(blockPosition(-17, 0, -17))).toStrictEqual({ cx: -2, cz: -2 })
-      expect(chunkCoordOfBlock(blockPosition(0, 0, 0))).toStrictEqual({ cx: 0, cz: 0 })
-      expect(chunkCoordOfBlock(blockPosition(15, 0, 15))).toStrictEqual({ cx: 0, cz: 0 })
-      expect(chunkCoordOfBlock(blockPosition(16, 0, 16))).toStrictEqual({ cx: 1, cz: 1 })
+      expect(chunkCoordOfBlock(blockPosition(NEGATIVE_ONE, ZERO, NEGATIVE_ONE))).toStrictEqual({ cx: NEGATIVE_ONE, cz: NEGATIVE_ONE })
+      expect(chunkCoordOfBlock(blockPosition(NEGATIVE_SIXTEEN, ZERO, NEGATIVE_SIXTEEN))).toStrictEqual({ cx: NEGATIVE_ONE, cz: NEGATIVE_ONE })
+      expect(chunkCoordOfBlock(blockPosition(NEGATIVE_SEVENTEEN, ZERO, NEGATIVE_SEVENTEEN))).toStrictEqual({ cx: NEGATIVE_TWO, cz: NEGATIVE_TWO })
+      expect(chunkCoordOfBlock(blockPosition(ZERO, ZERO, ZERO))).toStrictEqual({ cx: ZERO, cz: ZERO })
+      expect(chunkCoordOfBlock(blockPosition(FIFTEEN, ZERO, FIFTEEN))).toStrictEqual({ cx: ZERO, cz: ZERO })
+      expect(chunkCoordOfBlock(blockPosition(SIXTEEN, ZERO, SIXTEEN))).toStrictEqual({ cx: ONE, cz: ONE })
     }),
   )
 
   it.effect('the chunk-local Y component passes through untouched, because kernel does not subdivide vertically', () =>
     Effect.sync(() => {
-      expect(localCoordOfBlock(blockPosition(3, -59, 3)).ly).toBe(-59)
-      expect(localCoordOfBlock(blockPosition(3, 319, 3)).ly).toBe(319)
+      expect(localCoordOfBlock(blockPosition(THREE, NEGATIVE_FIFTY_NINE, THREE)).ly).toBe(NEGATIVE_FIFTY_NINE)
+      expect(localCoordOfBlock(blockPosition(THREE, THREE_HUNDRED_NINETEEN, THREE)).ly).toBe(THREE_HUNDRED_NINETEEN)
+    }),
+  )
+})
+
+describe('face fallback totality', () => {
+  it.effect('keeps the final fallback arms total for invalid face values', () =>
+    Effect.sync(() => {
+      const invalidFace = 'sideways' as never
+      const source = blockPosition(TEN, TWENTY, THIRTY)
+
+      expect(oppositeBlockFace(invalidFace)).toBe('sideways')
+      expect(adjacentBlockPosition(source, invalidFace)).toBe('sideways')
     }),
   )
 })
@@ -94,30 +151,30 @@ describe('world <-> chunk coordinate conversion', () => {
 describe('blockPositionOfPosition', () => {
   it.effect('floors a continuous position into the block cell that contains it', () =>
     Effect.sync(() => {
-      expect(blockPositionOfPosition(position(0.9, 0.1, 0.5))).toStrictEqual(blockPosition(0, 0, 0))
-      expect(blockPositionOfPosition(position(-0.1, -0.9, -0.5))).toStrictEqual(blockPosition(-1, -1, -1))
+      expect(blockPositionOfPosition(position(NINE_TENTHS, ONE_TENTH, ONE_HALF))).toStrictEqual(blockPosition(ZERO, ZERO, ZERO))
+      expect(blockPositionOfPosition(position(NEGATIVE_ONE_TENTH, NEGATIVE_NINE_TENTHS, NEGATIVE_ONE_HALF))).toStrictEqual(blockPosition(NEGATIVE_ONE, NEGATIVE_ONE, NEGATIVE_ONE))
     }),
   )
 
   it.effect('normalises the negative zero that Math.floor(-0) produces, so coordinates stay canonical', () =>
     Effect.sync(() => {
-      const origin = blockPositionOfPosition(position(-0, -0, -0))
-      expect(Object.is(origin.x, 0)).toBe(true)
-      expect(Object.is(origin.y, 0)).toBe(true)
-      expect(Object.is(origin.z, 0)).toBe(true)
-      expect(origin).toStrictEqual(blockPosition(0, 0, 0))
+      const origin = blockPositionOfPosition(position(NEGATIVE_ZERO, NEGATIVE_ZERO, NEGATIVE_ZERO))
+      expect(Object.is(origin.x, ZERO)).toBe(true)
+      expect(Object.is(origin.y, ZERO)).toBe(true)
+      expect(Object.is(origin.z, ZERO)).toBe(true)
+      expect(origin).toStrictEqual(blockPosition(ZERO, ZERO, ZERO))
     }),
   )
 
   it.effect('normalises negative zero in chunk and chunk-local coordinates too', () =>
     Effect.sync(() => {
-      const chunk = chunkCoordOfBlock(blockPosition(-0, 0, -0))
-      expect(Object.is(chunk.cx, 0)).toBe(true)
-      expect(Object.is(chunk.cz, 0)).toBe(true)
+      const chunk = chunkCoordOfBlock(blockPosition(NEGATIVE_ZERO, ZERO, NEGATIVE_ZERO))
+      expect(Object.is(chunk.cx, ZERO)).toBe(true)
+      expect(Object.is(chunk.cz, ZERO)).toBe(true)
 
-      const local = localCoordOfBlock(blockPosition(-0, 0, -0))
-      expect(Object.is(local.lx, 0)).toBe(true)
-      expect(Object.is(local.lz, 0)).toBe(true)
+      const local = localCoordOfBlock(blockPosition(NEGATIVE_ZERO, ZERO, NEGATIVE_ZERO))
+      expect(Object.is(local.lx, ZERO)).toBe(true)
+      expect(Object.is(local.lz, ZERO)).toBe(true)
     }),
   )
 })
@@ -125,15 +182,15 @@ describe('blockPositionOfPosition', () => {
 describe('block face adjacency', () => {
   it.effect('uses the canonical Minecraft axes and deterministic six-face order', () =>
     Effect.sync(() => {
-      const source = blockPosition(10, 20, 30)
+      const source = blockPosition(TEN, TWENTY, THIRTY)
       expect(BLOCK_FACES).toStrictEqual(['down', 'up', 'north', 'south', 'west', 'east'])
       expect(blockNeighbours(source)).toStrictEqual([
-        blockPosition(10, 19, 30),
-        blockPosition(10, 21, 30),
-        blockPosition(10, 20, 29),
-        blockPosition(10, 20, 31),
-        blockPosition(9, 20, 30),
-        blockPosition(11, 20, 30),
+        blockPosition(TEN, NINETEEN, THIRTY),
+        blockPosition(TEN, TWENTY_ONE, THIRTY),
+        blockPosition(TEN, TWENTY, TWENTY_NINE),
+        blockPosition(TEN, TWENTY, THIRTY_ONE),
+        blockPosition(NINE, TWENTY, THIRTY),
+        blockPosition(ELEVEN, TWENTY, THIRTY),
       ])
     }),
   )
@@ -141,18 +198,18 @@ describe('block face adjacency', () => {
   it.effect('returns horizontal neighbours without leaking the vertical faces', () =>
     Effect.sync(() => {
       expect(HORIZONTAL_BLOCK_FACES).toStrictEqual(['west', 'east', 'north', 'south'])
-      expect(horizontalBlockNeighbours(blockPosition(-16, 4, 15))).toStrictEqual([
-        blockPosition(-17, 4, 15),
-        blockPosition(-15, 4, 15),
-        blockPosition(-16, 4, 14),
-        blockPosition(-16, 4, 16),
+      expect(horizontalBlockNeighbours(blockPosition(NEGATIVE_SIXTEEN, FOUR, FIFTEEN))).toStrictEqual([
+        blockPosition(NEGATIVE_SEVENTEEN, FOUR, FIFTEEN),
+        blockPosition(NEGATIVE_FIFTEEN, FOUR, FIFTEEN),
+        blockPosition(NEGATIVE_SIXTEEN, FOUR, FOURTEEN),
+        blockPosition(NEGATIVE_SIXTEEN, FOUR, SIXTEEN),
       ])
     }),
   )
 
   it.effect('crossing a face and its opposite returns to the source', () =>
     Effect.sync(() => {
-      const source = blockPosition(-3, 7, 11)
+      const source = blockPosition(NEGATIVE_THREE, SEVEN, ELEVEN)
       for (const face of BLOCK_FACES) {
         expect(adjacentBlockPosition(adjacentBlockPosition(source, face), oppositeBlockFace(face))).toStrictEqual(
           source,
@@ -176,16 +233,16 @@ describe('block face adjacency', () => {
 describe('AABB', () => {
   it.effect('normalises swapped corners so that min <= max holds componentwise', () =>
     Effect.sync(() => {
-      const box = aabb(position(3, 4, 5), position(1, 2, 3))
-      expect(box.min).toStrictEqual(position(1, 2, 3))
-      expect(box.max).toStrictEqual(position(3, 4, 5))
+      const box = aabb(position(THREE, FOUR, FIVE), position(ONE, TWO, THREE))
+      expect(box.min).toStrictEqual(position(ONE, TWO, THREE))
+      expect(box.max).toStrictEqual(position(THREE, FOUR, FIVE))
     }),
   )
 
   it.effect('treats touching faces as adjacent rather than overlapping, so standing on a block is not a collision', () =>
     Effect.sync(() => {
-      const below = aabbOfBlock(blockPosition(0, 0, 0))
-      const above = aabbOfBlock(blockPosition(0, 1, 0))
+      const below = aabbOfBlock(blockPosition(ZERO, ZERO, ZERO))
+      const above = aabbOfBlock(blockPosition(ZERO, ONE, ZERO))
       expect(aabbIntersects(below, above)).toBe(false)
       expect(aabbIntersects(below, below)).toBe(true)
     }),
@@ -193,8 +250,8 @@ describe('AABB', () => {
 
   it.effect('detects a genuine overlap', () =>
     Effect.sync(() => {
-      const left = aabb(position(0, 0, 0), position(2, 2, 2))
-      const right = aabb(position(1, 1, 1), position(3, 3, 3))
+      const left = aabb(position(ZERO, ZERO, ZERO), position(TWO, TWO, TWO))
+      const right = aabb(position(ONE, ONE, ONE), position(THREE, THREE, THREE))
       expect(aabbIntersects(left, right)).toBe(true)
       expect(aabbIntersects(right, left)).toBe(true)
     }),
@@ -202,19 +259,19 @@ describe('AABB', () => {
 
   it.effect('a block occupies the unit cube anchored at its own coordinates', () =>
     Effect.sync(() => {
-      const box = aabbOfBlock(blockPosition(-3, 7, 2))
-      expect(box.min).toStrictEqual(position(-3, 7, 2))
-      expect(box.max).toStrictEqual(position(-2, 8, 3))
+      const box = aabbOfBlock(blockPosition(NEGATIVE_THREE, SEVEN, TWO))
+      expect(box.min).toStrictEqual(position(NEGATIVE_THREE, SEVEN, TWO))
+      expect(box.max).toStrictEqual(position(NEGATIVE_TWO, EIGHT, THREE))
     }),
   )
 
   it.effect('containment includes the boundary', () =>
     Effect.sync(() => {
-      const box = aabb(position(0, 0, 0), position(1, 1, 1))
-      expect(aabbContainsPoint(box, position(0.5, 0.5, 0.5))).toBe(true)
-      expect(aabbContainsPoint(box, position(0, 0, 0))).toBe(true)
-      expect(aabbContainsPoint(box, position(1, 1, 1))).toBe(true)
-      expect(aabbContainsPoint(box, position(1.0001, 0.5, 0.5))).toBe(false)
+      const box = aabb(position(ZERO, ZERO, ZERO), position(ONE, ONE, ONE))
+      expect(aabbContainsPoint(box, position(ONE_HALF, ONE_HALF, ONE_HALF))).toBe(true)
+      expect(aabbContainsPoint(box, position(ZERO, ZERO, ZERO))).toBe(true)
+      expect(aabbContainsPoint(box, position(ONE, ONE, ONE))).toBe(true)
+      expect(aabbContainsPoint(box, position(JUST_ABOVE_ONE, ONE_HALF, ONE_HALF))).toBe(false)
     }),
   )
 })

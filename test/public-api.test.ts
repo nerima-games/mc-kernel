@@ -1,16 +1,41 @@
+import * as kernel from '../src/index'
+import type { BlockRegistryEntry } from '../src/domain/block-registry'
+import * as blockRegistry from '../src/domain/block-registry'
+import { BLOCK_TYPES, isBlockType } from '../src/domain/block-type'
+import { BLOCK_PROPERTY_DEFAULTS } from '../src/domain/block-properties'
+import { ITEM_REGISTRY, itemIdOf } from '../src/domain/item-registry'
+import { ITEM_TYPES, isItemType } from '../src/domain/item-type'
 import { describe, expect, it } from '@effect/vitest'
 import { Effect } from 'effect'
-import * as kernel from '../src/index'
-import { BLOCK_TYPES, isBlockType } from '../src/domain/block-type'
-import { isItemType, ITEM_TYPES } from '../src/domain/item-type'
-import { ITEM_REGISTRY, itemIdOf } from '../src/domain/item-registry'
+
+const ORIGIN_AXIS = 0
+const FIRST_BLOCK_TYPE_INDEX = 0
+const ENCHANTED_BOOK_ID = 136
+const SINGLE_ITEM_STACK = 1
+const BUCKET_ID = 137
+const BUCKET_MAX_STACK = 16
+const FISHING_ROD_ID = 142
+const SADDLE_ID = 151
+const STANDARD_ITEM_STACK = 64
+const PUBLIC_ITEM_TYPES = [
+  'bow',
+  'arrow',
+  'bone_meal',
+  'lily_pad',
+  'potion_of_regeneration',
+  'enchanted_book',
+  'fishing_rod',
+  'cod',
+  'shears',
+  'wool',
+] as const
 
 describe('BlockType', () => {
   it.effect('narrows a string that names a known block', () =>
     Effect.sync(() => {
       expect(isBlockType('stone')).toBe(true)
       expect(isBlockType('air')).toBe(true)
-      expect(isBlockType(BLOCK_TYPES[0])).toBe(true)
+      expect(isBlockType(BLOCK_TYPES[FIRST_BLOCK_TYPE_INDEX])).toBe(true)
     }),
   )
 
@@ -34,27 +59,32 @@ describe('BlockType', () => {
 
 describe('public API surface', () => {
   // The barrel is what all 15 other repositories import. A re-export dropped
-  // here is invisible to every other test in this repository but breaks the
-  // whole organisation, so it is pinned explicitly.
+  // Here is invisible to every other test in this repository but breaks the
+  // Whole organisation, so it is pinned explicitly.
   it.effect('re-exports every value the other repositories are expected to import', () =>
     Effect.sync(() => {
       const expected = [
-        // identifiers
+        // Identifiers
         'WorldId',
         'StageId',
-        // quantities
+        // Quantities
         'StackCount',
         'MAX_STACK_COUNT',
         'DeltaTimeSecs',
         'MonotonicTimeSecs',
         'EpochMillis',
-        // coordinates
+        // Coordinates
         'CHUNK_SIZE_XZ',
         'BlockAxis',
         'ChunkAxis',
         'LocalAxis',
         'position',
         'blockPosition',
+        'BlockPositionKey',
+        'blockPositionKeyOf',
+        'isBlockPositionKey',
+        'blockPositionOfKey',
+        'decodeBlockPositionKey',
         'BLOCK_FACES',
         'HORIZONTAL_BLOCK_FACES',
         'isBlockFace',
@@ -63,6 +93,11 @@ describe('public API surface', () => {
         'horizontalBlockNeighbours',
         'blockNeighbours',
         'chunkCoord',
+        'ChunkKey',
+        'chunkKeyOf',
+        'isChunkKey',
+        'chunkCoordOfKey',
+        'decodeChunkKey',
         'blockPositionOfPosition',
         'chunkCoordOfBlock',
         'localCoordOfBlock',
@@ -71,20 +106,28 @@ describe('public API surface', () => {
         'aabbOfBlock',
         'aabbIntersects',
         'aabbContainsPoint',
-        // versioned chunk storage boundary
+        // Versioned chunk storage boundary
         'CHUNK_CODEC_VERSION',
         'CHUNK_HEADER_BYTES',
+        'ChunkBlocks',
+        'EncodedChunk',
+        'ChunkHeight',
+        'MAX_CHUNK_HEIGHT',
         'chunk',
+        'chunkBlockCount',
         'encodeChunk',
         'decodeChunk',
-        // block types
+        'BlockState',
+        'blockState',
+        // Block types
         'BLOCK_TYPES',
         'isBlockType',
-        // item types — plan.md §3.1's other literal vocabulary
+        // Item types — plan.md §3.1's other literal vocabulary
         'ITEM_TYPES',
         'isItemType',
         // Stable item ids, storage codec, and stack metadata
         'ItemId',
+        'ItemIdBytes',
         'ITEM_ID_MAX',
         'ITEM_ID_BYTES',
         'ITEM_REGISTRY',
@@ -96,11 +139,14 @@ describe('public API surface', () => {
         'itemTypeOfId',
         'encodeItemId',
         'decodeItemId',
-        // deterministic anvil planning, application, and persistence boundary
+        // Deterministic anvil planning, application, and persistence boundary
         'ANVIL_SNAPSHOT_VERSION',
         'ANVIL_TOO_EXPENSIVE_LEVEL',
         'ANVIL_REPAIR_BONUS_RATIO',
         'ANVIL_MAX_CUSTOM_NAME_LENGTH',
+        'AnvilEnchantmentId',
+        'AnvilCustomName',
+        'AnvilSnapshotString',
         'snapshotAnvilState',
         'decodeAnvilSnapshot',
         'encodeAnvilSnapshot',
@@ -108,20 +154,20 @@ describe('public API surface', () => {
         'nextAnvilRepairCost',
         'planAnvil',
         'applyAnvil',
-        // the block -> item bridge (audit §6-8's intersection, derived)
+        // The block -> item bridge (audit §6-8's intersection, derived)
         'PLACEABLE_ITEM_TYPES',
         'NON_PLACEABLE_ITEM_TYPES',
         'UNITEMISED_BLOCK_TYPES',
         'isPlaceableItem',
         'itemOfBlock',
         'blockOfPlaceableItem',
-        // block capability flags (booleans)
+        // Block capability flags (booleans)
         'BLOCK_CAPABILITY_DEFAULTS',
         'BLOCK_CAPABILITY_FLAGS',
         'TRUE_BY_DEFAULT_CAPABILITY_FLAGS',
         'resolveBlockCapabilities',
         'capabilityOf',
-        // block properties (typed values)
+        // Block properties (typed values)
         'BLOCK_PROPERTY_DEFAULTS',
         'BLOCK_PROPERTY_NAMES',
         'BLOCK_OPACITIES',
@@ -131,11 +177,12 @@ describe('public API surface', () => {
         'RAIL_KINDS',
         'LIGHT_LEVEL_MIN',
         'LIGHT_LEVEL_MAX',
+        'LightLevel',
         'isLightLevel',
         'clampLightLevel',
         'resolveBlockProperties',
         'propertyOf',
-        // the two struct properties, kept in their own module for API-lock review
+        // The two struct properties, kept in their own module for API-lock review
         'HARVEST_TOOL_CATEGORIES',
         'HARVEST_TIERS',
         'DEFAULT_HARVEST_TOOL',
@@ -144,24 +191,25 @@ describe('public API surface', () => {
         'resolveDropItem',
         'BARE_HANDED',
         'resolveDrop',
-        // supportRule (audit §4.6), in its own module for the same reason: its
-        // value is a list of BLOCK NAMES, so it is the one property that can go
-        // stale when a different block's row changes.
+        // SupportRule (audit §4.6), in its own module for the same reason: its
+        // Value is a list of BLOCK NAMES, so it is the one property that can go
+        // Stale when a different block's row changes.
         'NEEDS_NO_SUPPORT',
         'NEEDS_ANY_SUPPORT',
         'needsOneOf',
         'isSupportSensitive',
         'satisfiesSupportRule',
-        // block definitions
+        // Block definitions
         'blockCapabilitiesOf',
         'blockPropertiesOf',
         'resolveBlock',
         'AUDITED_CAPABILITY_NAMES',
         'PENDING_CAPABILITIES',
-        // block registry — the numeric-id codec and the table
+        // Block registry — the numeric-id codec and the table
         'BlockId',
         'BLOCK_ID_MAX',
         'AIR_BLOCK_ID',
+        'isEmpty',
         'BLOCK_REGISTRY',
         'BLOCK_IDS',
         'isKnownBlockId',
@@ -173,24 +221,24 @@ describe('public API surface', () => {
         'capabilitiesOfBlockId',
         'blockIdsWithCapability',
         'blockIdsWithOpacity',
-        // the named light readings — mc-worldgen mirrors these three by name,
-        // because it cannot restate the generic property machinery to ask two
-        // questions. See `domain/block-registry.ts` on why they are the only
-        // named property readings kernel exports.
+        // The named light readings — mc-worldgen mirrors these three by name,
+        // Because it cannot restate the generic property machinery to ask two
+        // Questions. See `domain/block-registry.ts` on why they are the only
+        // Named property readings kernel exports.
         'opacityOfBlockId',
         'lightEmissionOfBlockId',
         'transmitsLight',
-        // the support readings and the two-byte join. `canBlockStaySupported` is
+        // The support readings and the two-byte join. `canBlockStaySupported` is
         // `dropOfBlockId`'s shape — a join no single accessor can express — and
-        // mx-gameplay is its consumer.
+        // Mx-gameplay is its consumer.
         'supportRuleOfBlockId',
         'isSupportSensitiveBlockId',
         'canBlockStaySupported',
         'dropOfBlockId',
         'UNREGISTERED_BLOCK_TYPES',
-        // camera
+        // Camera
         'snapshotAgeSecs',
-        // clock
+        // Clock
         'ClockPort',
         'fixedClock',
         'FixedClockLayer',
@@ -212,19 +260,89 @@ describe('public API surface', () => {
       expect(kernel.ITEM_TYPES).toBe(ITEM_TYPES)
       expect(kernel.ITEM_REGISTRY).toBe(ITEM_REGISTRY)
       expect(kernel.itemIdOf).toBe(itemIdOf)
-      expect(kernel.isItemType('bow')).toBe(true)
-      expect(kernel.isItemType('arrow')).toBe(true)
-      expect(kernel.isItemType('bone_meal')).toBe(true)
-      expect(kernel.isItemType('lily_pad')).toBe(true)
-      expect(kernel.isItemType('potion_of_regeneration')).toBe(true)
-      expect(kernel.isItemType('enchanted_book')).toBe(true)
-      expect(kernel.isItemType('fishing_rod')).toBe(true)
-      expect(kernel.isItemType('cod')).toBe(true)
-      expect(kernel.isItemType('shears')).toBe(true)
-      expect(kernel.isItemType('wool')).toBe(true)
+      for (const itemType of PUBLIC_ITEM_TYPES) {
+        expect(kernel.isItemType(itemType)).toBe(true)
+      }
     }),
   )
 
+  it.effect('keeps the stable block-registry import path behaviorally identical to the barrel', () =>
+    Effect.sync(() => {
+      const blockRegistryEntry: BlockRegistryEntry = blockRegistry.BLOCK_REGISTRY[0]!
+      expect(blockRegistryEntry.id).toBe(blockRegistry.AIR_BLOCK_ID)
+      expect(blockRegistryEntry.definition.type).toBe('air')
+      const stoneId = blockRegistry.blockIdOf('stone')
+      const stoneDefinition = blockRegistry.resolvedBlockOfId(stoneId)
+
+      expect(kernel.blockIdOf('stone')).toBe(stoneId)
+      expect(kernel.isEmpty).toBe(blockRegistry.isEmpty)
+      expect(blockRegistry.isEmpty(blockRegistry.AIR_BLOCK_ID)).toBe(true)
+      expect(blockRegistry.isEmpty(stoneId)).toBe(false)
+      expect(blockRegistry.blockTypeOfId(stoneId)).toBe('stone')
+      expect(stoneDefinition).toBeDefined()
+      expect(stoneDefinition?.type).toBe('stone')
+      expect(blockRegistry.capabilityOfBlockId(stoneId, 'canSupportAttachments')).toBe(true)
+      expect(blockRegistry.transmitsLight(stoneId)).toBe(false)
+    }),
+  )
+
+  it.effect('documents unknown block-id defaults on the stable block-registry import path', () =>
+    Effect.sync(() => {
+      const unknownId = (blockRegistry.BLOCK_ID_MAX + 1) as never
+
+      expect(blockRegistry.isKnownBlockId(unknownId)).toBe(false)
+      expect(blockRegistry.dropOfBlockId(unknownId)).toBeUndefined()
+      expect(blockRegistry.opacityOfBlockId(unknownId)).toBe(BLOCK_PROPERTY_DEFAULTS.opacity)
+      expect(blockRegistry.lightEmissionOfBlockId(unknownId)).toBe(BLOCK_PROPERTY_DEFAULTS.lightEmission)
+      expect(blockRegistry.supportRuleOfBlockId(unknownId)).toEqual(BLOCK_PROPERTY_DEFAULTS.supportRule)
+      expect(blockRegistry.isSupportSensitiveBlockId(unknownId)).toBe(false)
+      expect(blockRegistry.canBlockStaySupported(unknownId, blockRegistry.AIR_BLOCK_ID)).toBe(true)
+    }),
+  )
+
+  it.effect('makes the coordinate key type available to TypeScript callers', () =>
+    Effect.sync(() => {
+      const key: kernel.BlockPositionKey = kernel.blockPositionKeyOf(
+        kernel.blockPosition(ORIGIN_AXIS, ORIGIN_AXIS, ORIGIN_AXIS),
+      )
+
+      expect(key).toBe('0,0,0')
+    }),
+  )
+
+  it.effect('re-exports the ChunkKey type', () =>
+    Effect.sync(() => {
+      const key: kernel.ChunkKey = kernel.chunkKeyOf(kernel.chunkCoord(ORIGIN_AXIS, ORIGIN_AXIS))
+      expect(key).toBe('0,0')
+    }),
+  )
+  it.effect('re-exports the LightLevel type', () =>
+    Effect.sync(() => {
+      const level: kernel.LightLevel = kernel.clampLightLevel(ORIGIN_AXIS)
+      expect(level).toBe(0)
+    }),
+  )
+
+  it.effect('supports documented package subpath exports', () =>
+    Effect.promise(async () => {
+      const blockRegistryPath = '@nerima-games/mc-kernel/domain/block-registry'
+      const chunkPath = '@nerima-games/mc-kernel/domain/chunk'
+      const [blockRegistryModule, chunkModule] = await Promise.all([
+        import(blockRegistryPath),
+        import(chunkPath),
+      ])
+
+      expect(blockRegistryModule.blockIdOf).toBe(kernel.blockIdOf)
+      expect(blockRegistryModule.BLOCK_REGISTRY).toBe(kernel.BLOCK_REGISTRY)
+      expect(chunkModule.encodeChunk).toBe(kernel.encodeChunk)
+      expect(chunkModule.decodeChunk).toBe(kernel.decodeChunk)
+      expect(chunkModule.EncodedChunk).toBe(kernel.EncodedChunk)
+      expect(chunkModule.CHUNK_CODEC_VERSION).toBe(kernel.CHUNK_CODEC_VERSION)
+      expect(chunkModule.ChunkBlocks).toBe(kernel.ChunkBlocks)
+      expect(chunkModule.MAX_CHUNK_HEIGHT).toBe(kernel.MAX_CHUNK_HEIGHT)
+      expect(chunkModule.chunkBlockCount).toBe(kernel.chunkBlockCount)
+    }),
+  )
   it.effect('exports the canonical Eye of Ender item identity', () =>
     Effect.sync(() => {
       expect(kernel.isItemType('eye_of_ender')).toBe(true)
@@ -236,19 +354,19 @@ describe('public API surface', () => {
   it.effect('exports the canonical enchanted-book item identity', () =>
     Effect.sync(() => {
       expect(kernel.isItemType('enchanted_book')).toBe(true)
-      expect(kernel.itemIdOf('enchanted_book')).toBe(136)
-      expect(kernel.maxStackCountOfItem('enchanted_book')).toBe(1)
+      expect(kernel.itemIdOf('enchanted_book')).toBe(ENCHANTED_BOOK_ID)
+      expect(kernel.maxStackCountOfItem('enchanted_book')).toBe(SINGLE_ITEM_STACK)
       expect(kernel.isPlaceableItem('enchanted_book')).toBe(false)
     }),
   )
 
   it.effect('exports fluid and vehicle item identities with canonical metadata', () =>
     Effect.sync(() => {
-      expect(kernel.itemIdOf('bucket')).toBe(137)
-      expect(kernel.maxStackCountOfItem('bucket')).toBe(16)
+      expect(kernel.itemIdOf('bucket')).toBe(BUCKET_ID)
+      expect(kernel.maxStackCountOfItem('bucket')).toBe(BUCKET_MAX_STACK)
       for (const type of ['water_bucket', 'lava_bucket', 'oak_boat', 'minecart'] as const) {
         expect(kernel.isItemType(type)).toBe(true)
-        expect(kernel.maxStackCountOfItem(type)).toBe(1)
+        expect(kernel.maxStackCountOfItem(type)).toBe(SINGLE_ITEM_STACK)
         expect(kernel.isPlaceableItem(type)).toBe(false)
       }
     }),
@@ -256,10 +374,10 @@ describe('public API surface', () => {
 
   it.effect('exports fishing item identities with canonical metadata', () =>
     Effect.sync(() => {
-      expect(kernel.itemIdOf('fishing_rod')).toBe(142)
-      expect(kernel.itemIdOf('saddle')).toBe(151)
-      expect(kernel.maxStackCountOfItem('fishing_rod')).toBe(1)
-      expect(kernel.maxStackCountOfItem('saddle')).toBe(1)
+      expect(kernel.itemIdOf('fishing_rod')).toBe(FISHING_ROD_ID)
+      expect(kernel.itemIdOf('saddle')).toBe(SADDLE_ID)
+      expect(kernel.maxStackCountOfItem('fishing_rod')).toBe(SINGLE_ITEM_STACK)
+      expect(kernel.maxStackCountOfItem('saddle')).toBe(SINGLE_ITEM_STACK)
       const stackableFishingItems = [
         'cod',
         'salmon',
@@ -272,7 +390,7 @@ describe('public API surface', () => {
       ] as const
       for (const type of stackableFishingItems) {
         expect(kernel.isItemType(type)).toBe(true)
-        expect(kernel.maxStackCountOfItem(type)).toBe(64)
+        expect(kernel.maxStackCountOfItem(type)).toBe(STANDARD_ITEM_STACK)
         expect(kernel.isPlaceableItem(type)).toBe(false)
       }
     }),

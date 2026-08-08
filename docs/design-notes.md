@@ -157,4 +157,9 @@ kernel が公開する形が下流の性能を決めるため記録しておく�
 参照実装は `light.ts:49-60`（`Uint8Array`）、`plant-mesh.ts:36-43`、`block-collision-predicates.ts:61-63` で既にこの形をとっている。
 kernel は「宣言的テーブル」と「index 展開済みルックアップ」の**両方**を公開し、消費側に `Set` / `HashSet` を組ませないこと。
 
-**未実装。** index 展開には block roster（どのブロックがどの index か）が必要で、kernel はまだそれを持たない。
+`BlockId` はすでに `Uint8Array` に対応する安定した密な数値 ID であり、
+`block-registry-data.ts` は宣言的なレジストリから id-indexed lookup columns を構築している。
+`isEmpty(blockId)` はこの wire contract の id 0 を直接比較するため、空気判定で表や `Set` を引かない。
+
+**残課題。** 追加の index 展開済み lookup を公開する場合は、実際の下流ホットパスと測定結果を先に確定する。
+現在の実装では既存 accessor が必要な lookup を所有し、別の `BlockIndex` 型や公開 mutable 配列は導入しない。

@@ -39,10 +39,16 @@
  * is answered by the mechanism rather than by the location — the table states
  * OVERRIDES only, so a wrong row is one wrong line rather than a fork.
  */
-import type { BlockCapabilities, BlockCapabilityOverrides } from './block-capabilities.js'
-import { resolveBlockCapabilities } from './block-capabilities.js'
-import type { BlockProperties, BlockPropertyOverrides } from './block-properties.js'
-import { resolveBlockProperties } from './block-properties.js'
+import {
+  type BlockCapabilities,
+  type BlockCapabilityOverrides,
+  resolveBlockCapabilities,
+} from './block-capabilities.js'
+import {
+  type BlockProperties,
+  type BlockPropertyOverrides,
+  resolveBlockProperties,
+} from './block-properties.js'
 import type { BlockType } from './block-type.js'
 
 /**
@@ -74,9 +80,9 @@ export const blockPropertiesOf = (definition: BlockDefinition): BlockProperties 
 
 /** Resolve both halves at once. */
 export const resolveBlock = (definition: BlockDefinition): ResolvedBlock => ({
-  type: definition.type,
   capabilities: blockCapabilitiesOf(definition),
   properties: blockPropertiesOf(definition),
+  type: definition.type,
 })
 
 // ---------------------------------------------------------------------------
@@ -181,8 +187,8 @@ export const PENDING_CAPABILITIES: ReadonlyArray<{
   readonly why: string
 }> = [
   {
-    name: 'textureTiles',
     kind: 'property',
+    name: 'textureTiles',
     why:
       'audit §4.8 (block-texture-map.config.ts:18). The audit records that this ' +
       'is currently a positional array indexed by storage index, double-managed ' +

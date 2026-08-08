@@ -86,6 +86,18 @@ const isBlockType = (value: string): value is BlockType
 plan.md §5.3 は「core と block の分離」を「ブロック追加が必ず両方を共変更する」という理由で棄却しており、
 語彙と能力モデルが同じリポジトリにあることは意図的である。
 
+### 3-1. 数値ブロック ID と空気判定（block-registry）
+
+```typescript
+type BlockId = number & Brand.Brand<'BlockId'>
+const AIR_BLOCK_ID: BlockId = 0
+const isEmpty: (id: number) => boolean
+```
+
+`BlockId` はチャンクの `Uint8Array` に格納する安定した密な数値 ID である。`isEmpty` の引数は
+意図的に `number` とし、チャンクバッファから読み出した未ブランドの値を直接受け取る。
+空気は ID 0 だけであり、判定はレジストリ lookup ではなく定数比較で行う。
+
 ## 3-bis. アイテム語彙とブロック↔アイテムの橋（item-type / block-item）
 
 ```typescript
@@ -134,7 +146,7 @@ plan.md §3.1 の主張は「挙動は名前比較ではなく能力から読む
 つまりブロック個別の例外は、他のブロック個別の例外が既にいる場所（レジストリの行）にいる。
 第 2 の block→item 対応表は作らない。
 
-**`ITEM_TYPES` は 118 個。** ブロック形・ドロップ形、つるはし・クワ各 4 tier に加え、装備境界が必要とする
+**`ITEM_TYPES` は 173 個。** ブロック形・ドロップ形、つるはし・クワ各 4 tier に加え、装備境界が必要とする
 `iron_helmet` / `iron_chestplate` / `iron_leggings` / `iron_boots` を語彙として持つ。
 スロット規則や装備挙動は上位パッケージが所有し、kernel はアイテム同一性だけを所有する。
 `supportRule` が配置条件を所有するようになったため、条件依存の草花・キノコ・サトウキビ・サボテン・睡蓮 10 種も
@@ -483,9 +495,30 @@ stage は時間を読まずに進めず、かつグローバルから読んで�
 
 ## Chunk バイナリ形式
 
-`chunk(coord, height, blocks)` は 16×16 の縦列 Chunk を構築する。`blocks` は
-`16 * 16 * height` バイトでなければならず、各バイトは登録済みの `BlockId` でなければならない。
+`chunk(coord, height, blocks)` は 16×16 の縦列 Chunk を構築する。`blocks` 引数は
+`16 * 16 * height` バイトの生 `Uint8Array` を取り、各バイトは登録済みの `BlockId` でなければならない。
 構築時にバッファをコピーするため、呼び出し側の後続変更は Chunk に波及しない。
+
+**`Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks` を保持する（0.3.0、破壊的変更）。**
+
+```typescript
+type ChunkBlocks = BlockState & Brand.Brand<'ChunkBlocks'>
+
+class BlockState {
+  get length(): number
+  get(index: number): BlockId
+  set(index: number, blockId: BlockId): void
+  toBytes(): Uint8Array
+  copyTo(target: Uint8Array, offset?: number): void
+}
+```
+
+`chunk()` / `decodeChunk()` は入力バイト列を構築時に一度だけ検証し、以後は `ChunkBlocks` 経由でのみ
+読み書きさせる。**添字演算子（`blocks[i]`）は意図的に公開していない** —— 範囲外の読み出しも未登録
+`BlockId` の書き込みもコンパイルは通ってしまうため、`get` / `set` がその場で `RangeError` を投げることで
+バッファの不変条件（長さの範囲内であること・登録済み ID のみが書けること）を境界で強制する。生バイト列が
+必要な消費者（ワイヤ送信、コピー）は `toBytes()`（新規コピーを返す）または `copyTo(target, offset?)`
+（呼び出し側バッファへ範囲チェック付きで書き込み、割り当てを増やさない）を使う。
 
 `encodeChunk` / `decodeChunk` は固定 24 バイトヘッダーとブロック列を用いる。
 ヘッダーは magic (`MCHK`)、codec version、幅・奥行き、height、符号付き 32-bit の `cx` / `cz`、
