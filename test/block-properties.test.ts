@@ -19,7 +19,7 @@ import {
 } from '../src/domain/block-properties'
 import { type BlockDefinition, blockPropertiesOf, resolveBlock } from '../src/domain/block-definition'
 import { describe, expect, it } from '@effect/vitest'
-import { Effect } from 'effect'
+import { Effect, Either } from 'effect'
 import { expectTypeOf } from 'vitest'
 import {
   DEFAULT_BLOCK_DROP,
@@ -216,6 +216,24 @@ describe('light level branding', () => {
   it.effect('exposes the public light-level constructor', () =>
     Effect.sync(() => {
       expect(LightLevel(3)).toBe(3)
+    }),
+  )
+
+  it.effect('the public constructor throws its own branded error, distinct from resolveBlockProperties guard', () =>
+    Effect.sync(() => {
+      // `resolveBlockProperties` never calls `LightLevel` with an out-of-range
+      // value — it throws its own TypeError before the brand constructor is
+      // reached (see `resolveLightEmission`). The brand's own refinement error
+      // is only reachable by calling the exported constructor directly.
+      expect(() => LightLevel(ABOVE_MAXIMUM_LIGHT_LEVEL)).toThrow()
+
+      const result = LightLevel.either(ABOVE_MAXIMUM_LIGHT_LEVEL)
+      expect(Either.isLeft(result)).toBe(true)
+      if (Either.isLeft(result)) {
+        expect(result.left[0]?.message).toBe(
+          `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${ABOVE_MAXIMUM_LIGHT_LEVEL}`,
+        )
+      }
     }),
   )
 })

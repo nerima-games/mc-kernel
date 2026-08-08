@@ -112,6 +112,20 @@ describe('chunk binary codec', () => {
     }),
   )
 
+  it.effect('validates the destination range before copying into a caller-owned buffer', () =>
+    Effect.sync(() => {
+      const state = blockState(sampleBlocks())
+      const target = new Uint8Array(state.length)
+
+      state.copyTo(target)
+      expect(target).toStrictEqual(state.toBytes())
+
+      expect(() => state.copyTo(new Uint8Array(state.length), -1)).toThrow(/copy range/)
+      expect(() => state.copyTo(new Uint8Array(state.length - 1), 0)).toThrow(/copy range/)
+      expect(() => state.copyTo(new Uint8Array(state.length), 1)).toThrow(/copy range/)
+    }),
+  )
+
   it.effect('keeps the runtime length boundary authoritative', () =>
     Effect.sync(() => {
       const source = chunk(chunkCoord(0, 0), height, sampleBlocks())
@@ -135,6 +149,24 @@ describe('chunk binary codec', () => {
       expect(() => chunk(chunkCoord(0, 0), 0x1_0000, new Uint8Array())).toThrow(/height/)
       expect(() => chunk(chunkCoord(0x8000_0000, 0), 1, new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cx/)
       expect(() => chunk(chunkCoord(0, -0x8000_0001), 1, new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cz/)
+    }),
+  )
+
+  it.effect('rejects encoding blocks that are not a BlockState or whose length disagrees with the declared height', () =>
+    Effect.sync(() => {
+      const coord = chunkCoord(0, 0)
+
+      expect(() => encodeChunk({
+        coord,
+        height,
+        blocks: { length: blockCount } as never,
+      })).toThrow(/must be a BlockState/)
+
+      expect(() => encodeChunk({
+        coord,
+        height: ChunkHeight(1),
+        blocks: blockState(sampleBlocks()) as never,
+      })).toThrow(/block data length must be/)
     }),
   )
 

@@ -590,3 +590,229 @@ describe('anvil snapshot codec', () => {
     }),
   )
 })
+
+describe('anvil branded boundary throwing constructors', () => {
+  it.effect('throws instead of returning a branded value for text the guard rejects', () =>
+    Effect.sync(() => {
+      expect(() => AnvilEnchantmentId('Not Lowercase')).toThrowError(TypeError)
+      expect(() => AnvilCustomName('')).toThrowError(TypeError)
+    }),
+  )
+})
+
+describe('anvil item payload field validation', () => {
+  it.effect('rejects a non-object payload before inspecting any field', () =>
+    Effect.sync(() => {
+      expect(snapshotAnvilState({
+        ...state(),
+        left: 'not-an-object' as never,
+      })).toStrictEqual({
+        ok: false,
+        issues: [{ path: '$.state.left', reason: 'must be an object' }],
+      })
+    }),
+  )
+
+  it.effect('rejects an item field that is not a known item type', () =>
+    Effect.sync(() => {
+      expect(snapshotAnvilState(state({
+        left: { ...item(), item: 'not_a_real_item' as never },
+      }))).toStrictEqual({
+        ok: false,
+        issues: [{ path: '$.state.left.item', reason: 'must be a known item type' }],
+      })
+    }),
+  )
+
+  it.effect('rejects a durability object that fails the shape or range check', () =>
+    Effect.sync(() => {
+      expect(snapshotAnvilState(state({
+        left: { ...item(), durability: { current: -1, max: 10 } as never },
+      }))).toStrictEqual({
+        ok: false,
+        issues: [{
+          path: '$.state.left.durability',
+          reason: 'must be null or valid remaining durability',
+        }],
+      })
+    }),
+  )
+
+  it.effect('rejects a negative repair cost', () =>
+    Effect.sync(() => {
+      expect(snapshotAnvilState(state({
+        left: { ...item(), repairCost: -1 as never },
+      }))).toStrictEqual({
+        ok: false,
+        issues: [{
+          path: '$.state.left.repairCost',
+          reason: 'must be a non-negative safe integer',
+        }],
+      })
+    }),
+  )
+
+  it.effect('rejects a custom name carrying a control character', () =>
+    Effect.sync(() => {
+      expect(snapshotAnvilState(state({
+        left: { ...item(), customName: 'bad name' as never },
+      }))).toStrictEqual({
+        ok: false,
+        issues: [{
+          path: '$.state.left.customName',
+          reason: 'must be null or a valid custom name',
+        }],
+      })
+    }),
+  )
+
+  it.effect('rejects an enchantments field that is not an array', () =>
+    Effect.sync(() => {
+      expect(snapshotAnvilState(state({
+        left: { ...item(), enchantments: 'not-an-array' as never },
+      }))).toStrictEqual({
+        ok: false,
+        issues: [{ path: '$.state.left.enchantments', reason: 'must be an array' }],
+      })
+    }),
+  )
+
+  it.effect('rejects an enchantment array entry that is not an object', () =>
+    Effect.sync(() => {
+      expect(snapshotAnvilState(state({
+        left: { ...item(), enchantments: [null] as never },
+      }))).toStrictEqual({
+        ok: false,
+        issues: [{ path: '$.state.left.enchantments.0', reason: 'must be an object' }],
+      })
+    }),
+  )
+
+  it.effect('rejects a durable right-hand item stacked at more than one, distinct from exceeding the stack limit', () =>
+    Effect.sync(() => {
+      expect(snapshotAnvilState(state({
+        right: {
+          payload: item({ item: 'iron_ingot', durability: { current: 5, max: 10 } }),
+          count: 2,
+        },
+      }))).toStrictEqual({
+        ok: false,
+        issues: [{
+          path: '$.state.right.count',
+          reason: 'durable item payloads cannot stack',
+        }],
+      })
+    }),
+  )
+
+  it.effect('rejects a non-object value at the top of the snapshot decoder', () =>
+    Effect.sync(() => {
+      expect(decodeAnvilSnapshot(null)).toStrictEqual({
+        ok: false,
+        issues: [{ path: '$', reason: 'must be an object' }],
+      })
+    }),
+  )
+})
+
+describe('anvil planning branch coverage', () => {
+  it.effect('rejects a missing left input distinctly from an invalid snapshot', () =>
+    Effect.sync(() => {
+      expect(planAnvil(state({ left: null }), RULES)).toStrictEqual({
+        ok: false,
+        reason: 'invalid-input',
+        issues: [{ path: '$.state.left', reason: 'an anvil requires a left input' }],
+      })
+
+      const invalidSnapshot = planAnvil({ ...state(), rename: '' as never }, RULES)
+      expect(invalidSnapshot).toMatchObject({ ok: false, reason: 'invalid-input' })
+    }),
+  )
+
+  it.effect('rejects a right-hand payload whose own enchantments are invalid, before any merge is attempted', () =>
+    Effect.sync(() => {
+      const invalidRight = planAnvil(state({
+        right: {
+          payload: item({
+            enchantments: [{ id: AnvilEnchantmentId('sharpness'), level: 99 }],
+          }),
+          count: 1,
+        },
+      }), RULES)
+
+      expect(invalidRight).toMatchObject({ ok: false, reason: 'invalid-enchantment' })
+    }),
+  )
+
+  it.effect('renames a non-durable item, exercising the null-durability branch of planning', () =>
+    Effect.sync(() => {
+      const planned = planAnvil(state({
+        left: item({ item: 'iron_ingot', durability: null }),
+        rename: AnvilCustomName('Renamed ingot'),
+      }), RULES)
+
+      expect(planned).toMatchObject({
+        ok: true,
+        output: { durability: null, customName: AnvilCustomName('Renamed ingot') },
+      })
+    }),
+  )
+
+  it.effect('rejects a right input that neither repairs nor enchants because no repair rule targets the left item', () =>
+    Effect.sync(() => {
+      const noRepairRule = planAnvil(state({
+        left: item({ item: 'iron_pickaxe' }),
+        right: {
+          payload: item({ item: 'iron_ingot', durability: null }),
+          count: 1,
+        },
+      }), RULES)
+
+      expect(noRepairRule).toStrictEqual({
+        ok: false,
+        reason: 'incompatible-input',
+        issues: [{
+          path: '$.state.right',
+          reason: 'does not repair or enchant the left input',
+        }],
+      })
+    }),
+  )
+
+  it.effect('merges an enchantment at a differing level via Math.max and leaves an unrelated enchantment untouched', () =>
+    Effect.sync(() => {
+      const rulesWithoutCostPerLevel = {
+        enchantments: [
+          { id: AnvilEnchantmentId('sharpness'), maxLevel: 5, applicableItems: ['iron_sword'], incompatibleWith: [] },
+          { id: AnvilEnchantmentId('unbreaking'), maxLevel: 3, applicableItems: ['iron_sword'], incompatibleWith: [] },
+        ],
+      } as const satisfies AnvilRuleSet
+
+      const merged = planAnvil(state({
+        left: item({
+          enchantments: [
+            { id: AnvilEnchantmentId('sharpness'), level: 1 },
+            { id: AnvilEnchantmentId('unbreaking'), level: 1 },
+          ],
+        }),
+        right: {
+          payload: item({
+            item: 'enchanted_book',
+            durability: null,
+            enchantments: [{ id: AnvilEnchantmentId('sharpness'), level: 3 }],
+          }),
+          count: 1,
+        },
+      }), rulesWithoutCostPerLevel)
+
+      expect(merged.ok).toBe(true)
+      if (!merged.ok) return
+      expect(merged.output.enchantments).toStrictEqual([
+        { id: AnvilEnchantmentId('sharpness'), level: 3 },
+        { id: AnvilEnchantmentId('unbreaking'), level: 1 },
+      ])
+      // costPerLevel is absent from both rules above, so the merge falls back to 1 per level.
+      expect(merged.levelCost).toBe(3)
+    }),
+  )
+})
