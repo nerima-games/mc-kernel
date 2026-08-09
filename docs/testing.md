@@ -52,6 +52,21 @@ $ pnpm package:verify # build、pack 済み tarball、clean consumer、公開 ex
 
 `pnpm` は `corepack` 経由で 11.17.0 を使う（`package.json` の `packageManager` でピン留め）。
 
+## 性能ベンチマーク
+
+性能変更の比較には `scripts/benchmark.mjs` を使う。ビルド済みの成果物を同じ実行環境で計測し、変更前後で同じコマンドを実行する。
+
+```console
+$ nix develop --command pnpm build
+$ nix develop --command node scripts/benchmark.mjs
+```
+
+レジストリ参照、BlockState 構築、Chunk codec、Anvil snapshot codec、Anvil planning を対象に、各ケースの
+`min` / `median` / `max` を JSON で出力する。各サンプルでは決定的なチェックサムも検証するため、チェックサムが一致しない計測結果は速度比較に使わない。
+マシンや Node.js の条件が異なる計測値は直接比較せず、同一条件で複数回実行して中央値を見る。
+
+このスクリプトは再現可能な開発用計測器であり、公開 API や npm package の実行経路には含めない。
+
 ## 3. テストの書き方
 
 - `@effect/vitest` の `it.effect` + `Effect.sync` を基本形とする。

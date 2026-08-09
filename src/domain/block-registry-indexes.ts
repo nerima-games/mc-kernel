@@ -12,7 +12,12 @@ import { resolveBlock } from './block-definition.js'
 import type { BlockDrop, HarvestContext } from './block-harvest.js'
 import { BARE_HANDED, resolveDrop } from './block-harvest.js'
 import type { BlockOpacity, BlockProperties, BlockPropertyName } from './block-properties.js'
-import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS, LightLevel } from './block-properties.js'
+import {
+  BLOCK_OPACITIES,
+  BLOCK_PROPERTY_DEFAULTS,
+  BLOCK_PROPERTY_NAMES,
+  LightLevel,
+} from './block-properties.js'
 import type { SupportRule } from './block-support.js'
 import { isSupportSensitive } from './block-support.js'
 import type { BlockType } from './block-type.js'
@@ -34,6 +39,18 @@ const buildResolvedById = (): ReadonlyArray<ResolvedBlock | undefined> => {
 }
 
 const RESOLVED_BY_ID = buildResolvedById()
+
+const buildKnownById = (): Uint8Array => {
+  const table = new Uint8Array(BLOCK_ID_TABLE_LENGTH)
+
+  for (let id = 0; id < BLOCK_ID_TABLE_LENGTH; id += 1) {
+    table[id] = RESOLVED_BY_ID[id] === undefined ? 0 : 1
+  }
+
+  return table
+}
+
+const KNOWN_BY_ID = buildKnownById()
 
 const isAddressableBlockId = (id: number): boolean =>
   Number.isInteger(id) && id >= 0 && id <= BLOCK_ID_MAX
@@ -62,24 +79,45 @@ const CAPABILITIES_BY_ID = buildCapabilitiesById()
 
 type PropertyColumns = {
   readonly opacity: ReadonlyArray<BlockOpacity>
-  readonly lightEmission: Uint8Array
+  readonly lightEmission: ReadonlyArray<LightLevel>
   readonly supportRule: ReadonlyArray<SupportRule>
   readonly supportSensitive: Uint8Array
+  readonly byName: Readonly<Record<BlockPropertyName, ReadonlyArray<unknown>>>
+}
+
+const buildPropertyValuesByName = (): Record<BlockPropertyName, unknown[]> => {
+  const columns = {} as Record<BlockPropertyName, unknown[]>
+
+  for (const name of BLOCK_PROPERTY_NAMES) {
+    columns[name] = Array.from({ length: BLOCK_ID_TABLE_LENGTH }, () => BLOCK_PROPERTY_DEFAULTS[name])
+  }
+
+  for (const entry of BLOCK_REGISTRY) {
+    const { properties } = RESOLVED_BY_ID[entry.id]!
+
+    for (const name of BLOCK_PROPERTY_NAMES) {
+      columns[name][entry.id] = properties[name]
+    }
+  }
+
+  return columns
 }
 
 const buildPropertyColumns = (): PropertyColumns => {
+  const byName = buildPropertyValuesByName()
   const opacity: BlockOpacity[] = Array.from(
     { length: BLOCK_ID_TABLE_LENGTH },
     () => BLOCK_PROPERTY_DEFAULTS.opacity,
   )
-  const lightEmission = new Uint8Array(BLOCK_ID_TABLE_LENGTH)
+  const lightEmission: LightLevel[] = Array.from(
+    { length: BLOCK_ID_TABLE_LENGTH },
+    () => BLOCK_PROPERTY_DEFAULTS.lightEmission,
+  )
   const supportRule: SupportRule[] = Array.from(
     { length: BLOCK_ID_TABLE_LENGTH },
     () => BLOCK_PROPERTY_DEFAULTS.supportRule,
   )
   const supportSensitive = new Uint8Array(BLOCK_ID_TABLE_LENGTH)
-
-  lightEmission.fill(BLOCK_PROPERTY_DEFAULTS.lightEmission)
 
   for (const entry of BLOCK_REGISTRY) {
     const { properties } = RESOLVED_BY_ID[entry.id]!
@@ -89,7 +127,7 @@ const buildPropertyColumns = (): PropertyColumns => {
     supportSensitive[entry.id] = isSupportSensitive(properties.supportRule) ? 1 : 0
   }
 
-  return { opacity, lightEmission, supportRule, supportSensitive }
+  return { opacity, lightEmission, supportRule, supportSensitive, byName }
 }
 
 const PROPERTY_COLUMNS = buildPropertyColumns()
@@ -169,15 +207,19 @@ export const resolvedBlockOfId = (id: number): ResolvedBlock | undefined =>
   isAddressableBlockId(id) ? RESOLVED_BY_ID[id] : undefined
 
 /** Whether this number names a block in the current registry. */
-export const isKnownBlockId = (id: number): id is BlockId => resolvedBlockOfId(id) !== undefined
+export const isKnownBlockId = (id: number): id is BlockId =>
+  isAddressableBlockId(id) && KNOWN_BY_ID[id] === 1
 
 /** Read one capability from a raw chunk-buffer byte. */
 export const capabilityOfBlockId = (id: number, flag: BlockCapabilityFlag): boolean =>
   isAddressableBlockId(id) ? CAPABILITIES_BY_ID[flag][id] === 1 : BLOCK_CAPABILITY_DEFAULTS[flag]
 
 /** Read one resolved property from a raw chunk-buffer byte. */
-export const propertyOfBlockId = <K extends BlockPropertyName>(id: number, name: K): BlockProperties[K] =>
-  resolvedBlockOfId(id)?.properties[name] ?? BLOCK_PROPERTY_DEFAULTS[name]
+export const propertyOfBlockId = <K extends BlockPropertyName>(id: number, name: K): BlockProperties[K] => {
+  const value = isAddressableBlockId(id) ? PROPERTY_COLUMNS.byName[name][id] : undefined
+
+  return (value ?? BLOCK_PROPERTY_DEFAULTS[name]) as BlockProperties[K]
+}
 
 /** Read all resolved capabilities from a raw chunk-buffer byte. */
 export const capabilitiesOfBlockId = (id: number): BlockCapabilities =>
@@ -232,7 +274,7 @@ export const opacityOfBlockId = (id: number): BlockOpacity =>
 /** Read the emitted light level of a raw chunk-buffer byte. */
 export const lightEmissionOfBlockId = (id: number): LightLevel =>
   isAddressableBlockId(id)
-    ? LightLevel(PROPERTY_COLUMNS.lightEmission[id]!)
+    ? PROPERTY_COLUMNS.lightEmission[id]!
     : BLOCK_PROPERTY_DEFAULTS.lightEmission
 
 /** Whether light can cross the cell represented by a raw chunk-buffer byte. */

@@ -24,6 +24,7 @@ kernel の実装に落とし込んだもの。
 | [capability-flag-audit.md](./capability-flag-audit.md) | **能力フラグ監査（一次資料）。** 参照実装を実測して必要な能力集合を確定したもの。本リポジトリの能力モデルの権威 | 能力フラグを追加/変更する人 |
 | [design-notes.md](./design-notes.md) | 参照実装の失敗（名指し判定の散乱）の実測、初日から焼き込む設計原則、「ブロック追加 = 定義テーブル 1 行」不変条件 | 設計判断の背景を知りたい人 |
 | [testing.md](./testing.md) | 検証要件、完成条件、100% カバレッジゲート | CI / テストを触る人 |
+| [testing.md の性能ベンチマーク](./testing.md#性能ベンチマーク) | レジストリ、Chunk、Anvil の決定的な性能計測 | 性能を変更・比較する人 |
 | [versioning.md](./versioning.md) | 0.x → 1.0.0 の方針、GitHub Packages 公開、**加算的な能力追加がなぜ死活問題なのか** | リリース作業者 |
 | [freeze-checklist.md](./freeze-checklist.md) | API を 1.0.0 で凍結する前に満たすべき前提条件 | 凍結を判断する人 |
 

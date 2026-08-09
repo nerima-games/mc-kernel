@@ -256,7 +256,12 @@ export const AnvilSnapshotString = (value: string): AnvilSnapshotStringType => {
 
 export const encodeAnvilSnapshot = (state: AnvilState): AnvilSnapshotEncodingResult => {
   const snapshot = snapshotAnvilState(state)
-  return snapshot.ok
-    ? { ok: true, encoded: AnvilSnapshotString(JSON.stringify(snapshot.snapshot)), snapshot: snapshot.snapshot }
-    : snapshot
+  if (!snapshot.ok) return snapshot
+
+  // snapshotAnvilState has already canonicalized and validated every field.
+  // Re-entering AnvilSnapshotString here would parse and validate this fresh
+  // snapshot a second time, while the public constructor still validates text
+  // supplied by callers.
+  const encoded = JSON.stringify(snapshot.snapshot) as AnvilSnapshotStringType
+  return { ok: true, encoded, snapshot: snapshot.snapshot }
 }
