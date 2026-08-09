@@ -198,6 +198,27 @@ describe('anvil planning', () => {
     }),
   )
 
+  it.effect('rejects same-kind repair inputs when the left item is already fully durable', () =>
+    Effect.sync(() => {
+      const planned = planAnvil(state({
+        left: item({ durability: { current: 250, max: 250 } }),
+        right: {
+          payload: item({ durability: { current: 250, max: 250 } }),
+          count: 1,
+        },
+      }), RULES)
+
+      expect(planned).toStrictEqual({
+        ok: false,
+        reason: 'incompatible-input',
+        issues: [{
+          path: '$.state.right',
+          reason: 'does not repair or enchant the left input',
+        }],
+      })
+    }),
+  )
+
   it.effect('rejects same-kind repair inputs when the right durability does not match the left item', () =>
     Effect.sync(() => {
       const mismatched = planAnvil(state({
@@ -263,6 +284,27 @@ describe('anvil planning', () => {
         },
       }), RULES)
       expect(statefulMaterial).toMatchObject({ ok: false, reason: 'incompatible-input' })
+    }),
+  )
+
+  it.effect('rejects repair material when the left item is already fully durable', () =>
+    Effect.sync(() => {
+      const planned = planAnvil(state({
+        left: item({ durability: { current: 250, max: 250 } }),
+        right: {
+          payload: item({ item: 'iron_ingot', durability: null }),
+          count: 1,
+        },
+      }), RULES)
+
+      expect(planned).toStrictEqual({
+        ok: false,
+        reason: 'incompatible-input',
+        issues: [{
+          path: '$.state.right',
+          reason: 'does not repair or enchant the left input',
+        }],
+      })
     }),
   )
 
