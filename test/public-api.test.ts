@@ -5,7 +5,7 @@ import { BLOCK_TYPES, isBlockType } from '../src/domain/block-type'
 import { BLOCK_PROPERTY_DEFAULTS } from '../src/domain/block-properties'
 import { ITEM_REGISTRY, itemIdOf } from '../src/domain/item-registry'
 import { ITEM_TYPES, isItemType } from '../src/domain/item-type'
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 
 const ORIGIN_AXIS = 0
@@ -31,29 +31,29 @@ const PUBLIC_ITEM_TYPES = [
 ] as const
 
 describe('BlockType', () => {
-  it.effect('narrows a string that names a known block', () =>
-    Effect.sync(() => {
+  it('narrows a string that names a known block', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(isBlockType('stone')).toBe(true)
       expect(isBlockType('air')).toBe(true)
       expect(isBlockType(BLOCK_TYPES[FIRST_BLOCK_TYPE_INDEX])).toBe(true)
-    }),
+    })),
   )
 
-  it.effect('rejects a string that does not, so save files and network frames cannot smuggle one in', () =>
-    Effect.sync(() => {
+  it('rejects a string that does not, so save files and network frames cannot smuggle one in', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(isBlockType('unobtainium')).toBe(false)
       expect(isBlockType('')).toBe(false)
       expect(isBlockType('Stone')).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('accepts every block in the provisional roster', () =>
-    Effect.sync(() => {
+  it('accepts every block in the provisional roster', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const blockType of BLOCK_TYPES) {
         expect(isBlockType(blockType)).toBe(true)
       }
       expect(new Set(BLOCK_TYPES).size).toBe(BLOCK_TYPES.length)
-    }),
+    })),
   )
 })
 
@@ -61,8 +61,8 @@ describe('public API surface', () => {
   // The barrel is what all 15 other repositories import. A re-export dropped
   // Here is invisible to every other test in this repository but breaks the
   // Whole organisation, so it is pinned explicitly.
-  it.effect('re-exports every value the other repositories are expected to import', () =>
-    Effect.sync(() => {
+  it('re-exports every value the other repositories are expected to import', () =>
+    Effect.runPromise(Effect.sync(() => {
       const expected = [
         // Identifiers
         'WorldId',
@@ -249,11 +249,11 @@ describe('public API surface', () => {
       for (const name of expected) {
         expect(Object.keys(kernel)).toContain(name)
       }
-    }),
+    })),
   )
 
-  it.effect('exposes the same implementations through the barrel as through the modules', () =>
-    Effect.sync(() => {
+  it('exposes the same implementations through the barrel as through the modules', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(kernel.isBlockType).toBe(isBlockType)
       expect(kernel.BLOCK_TYPES).toBe(BLOCK_TYPES)
       expect(kernel.isItemType).toBe(isItemType)
@@ -263,11 +263,11 @@ describe('public API surface', () => {
       for (const itemType of PUBLIC_ITEM_TYPES) {
         expect(kernel.isItemType(itemType)).toBe(true)
       }
-    }),
+    })),
   )
 
-  it.effect('keeps the stable block-registry import path behaviorally identical to the barrel', () =>
-    Effect.sync(() => {
+  it('keeps the stable block-registry import path behaviorally identical to the barrel', () =>
+    Effect.runPromise(Effect.sync(() => {
       const blockRegistryEntry: BlockRegistryEntry = blockRegistry.BLOCK_REGISTRY[0]!
       expect(blockRegistryEntry.id).toBe(blockRegistry.AIR_BLOCK_ID)
       expect(blockRegistryEntry.definition.type).toBe('air')
@@ -283,11 +283,11 @@ describe('public API surface', () => {
       expect(stoneDefinition?.type).toBe('stone')
       expect(blockRegistry.capabilityOfBlockId(stoneId, 'canSupportAttachments')).toBe(true)
       expect(blockRegistry.transmitsLight(stoneId)).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('documents unknown block-id defaults on the stable block-registry import path', () =>
-    Effect.sync(() => {
+  it('documents unknown block-id defaults on the stable block-registry import path', () =>
+    Effect.runPromise(Effect.sync(() => {
       const unknownId = (blockRegistry.BLOCK_ID_MAX + 1) as never
 
       expect(blockRegistry.isKnownBlockId(unknownId)).toBe(false)
@@ -297,34 +297,34 @@ describe('public API surface', () => {
       expect(blockRegistry.supportRuleOfBlockId(unknownId)).toEqual(BLOCK_PROPERTY_DEFAULTS.supportRule)
       expect(blockRegistry.isSupportSensitiveBlockId(unknownId)).toBe(false)
       expect(blockRegistry.canBlockStaySupported(unknownId, blockRegistry.AIR_BLOCK_ID)).toBe(true)
-    }),
+    })),
   )
 
-  it.effect('makes the coordinate key type available to TypeScript callers', () =>
-    Effect.sync(() => {
+  it('makes the coordinate key type available to TypeScript callers', () =>
+    Effect.runPromise(Effect.sync(() => {
       const key: kernel.BlockPositionKey = kernel.blockPositionKeyOf(
         kernel.blockPosition(ORIGIN_AXIS, ORIGIN_AXIS, ORIGIN_AXIS),
       )
 
       expect(key).toBe('0,0,0')
-    }),
+    })),
   )
 
-  it.effect('re-exports the ChunkKey type', () =>
-    Effect.sync(() => {
+  it('re-exports the ChunkKey type', () =>
+    Effect.runPromise(Effect.sync(() => {
       const key: kernel.ChunkKey = kernel.chunkKeyOf(kernel.chunkCoord(ORIGIN_AXIS, ORIGIN_AXIS))
       expect(key).toBe('0,0')
-    }),
+    })),
   )
-  it.effect('re-exports the LightLevel type', () =>
-    Effect.sync(() => {
+  it('re-exports the LightLevel type', () =>
+    Effect.runPromise(Effect.sync(() => {
       const level: kernel.LightLevel = kernel.clampLightLevel(ORIGIN_AXIS)
       expect(level).toBe(0)
-    }),
+    })),
   )
 
-  it.effect('supports documented package subpath exports', () =>
-    Effect.promise(async () => {
+  it('supports documented package subpath exports', () =>
+    Effect.runPromise(Effect.promise(async () => {
       const packageRootPath = '@nerima-games/mc-kernel'
       const blockRegistryPath = '@nerima-games/mc-kernel/domain/block-registry'
       const chunkPath = '@nerima-games/mc-kernel/domain/chunk'
@@ -343,27 +343,27 @@ describe('public API surface', () => {
       expect(chunkModule.ChunkBlocks).toBe(packageRoot.ChunkBlocks)
       expect(chunkModule.MAX_CHUNK_HEIGHT).toBe(packageRoot.MAX_CHUNK_HEIGHT)
       expect(chunkModule.chunkBlockCount).toBe(packageRoot.chunkBlockCount)
-    }),
+    })),
   )
-  it.effect('exports the canonical Eye of Ender item identity', () =>
-    Effect.sync(() => {
+  it('exports the canonical Eye of Ender item identity', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(kernel.isItemType('eye_of_ender')).toBe(true)
       expect(kernel.itemIdOf('eye_of_ender')).toBe(kernel.itemDefinitionOf('eye_of_ender').id)
       expect(kernel.isPlaceableItem('eye_of_ender')).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('exports the canonical enchanted-book item identity', () =>
-    Effect.sync(() => {
+  it('exports the canonical enchanted-book item identity', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(kernel.isItemType('enchanted_book')).toBe(true)
       expect(kernel.itemIdOf('enchanted_book')).toBe(ENCHANTED_BOOK_ID)
       expect(kernel.maxStackCountOfItem('enchanted_book')).toBe(SINGLE_ITEM_STACK)
       expect(kernel.isPlaceableItem('enchanted_book')).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('exports fluid and vehicle item identities with canonical metadata', () =>
-    Effect.sync(() => {
+  it('exports fluid and vehicle item identities with canonical metadata', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(kernel.itemIdOf('bucket')).toBe(BUCKET_ID)
       expect(kernel.maxStackCountOfItem('bucket')).toBe(BUCKET_MAX_STACK)
       for (const type of ['water_bucket', 'lava_bucket', 'oak_boat', 'minecart'] as const) {
@@ -371,11 +371,11 @@ describe('public API surface', () => {
         expect(kernel.maxStackCountOfItem(type)).toBe(SINGLE_ITEM_STACK)
         expect(kernel.isPlaceableItem(type)).toBe(false)
       }
-    }),
+    })),
   )
 
-  it.effect('exports fishing item identities with canonical metadata', () =>
-    Effect.sync(() => {
+  it('exports fishing item identities with canonical metadata', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(kernel.itemIdOf('fishing_rod')).toBe(FISHING_ROD_ID)
       expect(kernel.itemIdOf('saddle')).toBe(SADDLE_ID)
       expect(kernel.maxStackCountOfItem('fishing_rod')).toBe(SINGLE_ITEM_STACK)
@@ -395,6 +395,6 @@ describe('public API surface', () => {
         expect(kernel.maxStackCountOfItem(type)).toBe(STANDARD_ITEM_STACK)
         expect(kernel.isPlaceableItem(type)).toBe(false)
       }
-    }),
+    })),
   )
 })

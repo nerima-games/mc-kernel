@@ -7,7 +7,7 @@ import {
   decodeBlockPositionKey,
   isBlockPositionKey,
 } from '../src/domain/coordinates'
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 
 const NEGATIVE_ZERO_COMPONENT = -0
@@ -15,8 +15,8 @@ const ORIGIN_COMPONENT = 0
 const FIRST_UNSAFE_INTEGER = 9_007_199_254_740_992
 
 describe('BlockPositionKey', () => {
-  it.effect('round-trips canonical positions, including safe-integer boundaries', () =>
-    Effect.sync(() => {
+  it('round-trips canonical positions, including safe-integer boundaries', () =>
+    Effect.runPromise(Effect.sync(() => {
       const source = blockPosition(Number.MIN_SAFE_INTEGER, ORIGIN_COMPONENT, Number.MAX_SAFE_INTEGER)
       const key = blockPositionKeyOf(source)
 
@@ -25,11 +25,11 @@ describe('BlockPositionKey', () => {
       expect(parseBlockPositionKey(key)).toBe(key)
       expect(blockPositionOfKey(key)).toStrictEqual(source)
       expect(decodeBlockPositionKey(key)).toStrictEqual(source)
-    }),
+    })),
   )
 
-    it.effect('uses one spelling per position, including the origin', () =>
-      Effect.sync(() => {
+    it('uses one spelling per position, including the origin', () =>
+      Effect.runPromise(Effect.sync(() => {
         expect(
           blockPositionKeyOf(
             blockPosition(NEGATIVE_ZERO_COMPONENT, NEGATIVE_ZERO_COMPONENT, NEGATIVE_ZERO_COMPONENT),
@@ -39,11 +39,11 @@ describe('BlockPositionKey', () => {
       expect(isBlockPositionKey('-0,0,0')).toBe(false)
       expect(isBlockPositionKey('01,0,0')).toBe(false)
       expect(isBlockPositionKey('1e3,0,0')).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('rejects malformed, fractional, and unsafe external input', () =>
-    Effect.sync(() => {
+  it('rejects malformed, fractional, and unsafe external input', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const key of [
         '',
         '0,0',
@@ -57,13 +57,13 @@ describe('BlockPositionKey', () => {
         expect(isBlockPositionKey(key)).toBe(false)
         expect(decodeBlockPositionKey(key)).toBeUndefined()
       }
-    }),
+    })),
   )
 
-  it.effect('fails loudly if JavaScript callers forge an invalid branded key', () =>
-    Effect.sync(() => {
+  it('fails loudly if JavaScript callers forge an invalid branded key', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(() => parseBlockPositionKey('0.5,0,0')).toThrow(TypeError)
       expect(() => blockPositionOfKey('0.5,0,0' as BlockPositionKey)).toThrow(TypeError)
-    }),
+    })),
   )
 })

@@ -5,14 +5,7 @@ export default defineConfig({
     environment: 'node',
     globals: false,
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        maxForks: '50%',
-        minForks: 1,
-        isolate: true,
-        singleFork: false,
-      },
-    },
+    maxWorkers: '50%',
     include: ['test/**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/coverage/**', '**/.git/**'],
     testTimeout: 10000,
@@ -40,7 +33,6 @@ export default defineConfig({
         // test/clock-and-frame.test.ts and enforced by `pnpm typecheck`.
         'src/domain/frame.ts',
       ],
-      all: true,
       reporter: ['text', 'json', 'html', 'lcov'],
       reportsDirectory: './coverage',
       // Require complete executable-source coverage. frame.ts is excluded above

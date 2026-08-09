@@ -33,9 +33,9 @@ mc-save は媒体フォーマットと保存先を所有し、同じ `Chunk` 型
 ## 2. コマンド
 
 ```console
-$ pnpm verify        # typecheck && lint && test
-$ pnpm test:coverage # カバレッジ計測。verify には含まれない（全メトリクス100%）
-$ pnpm package:verify # build、pack 済み tarball、clean consumer、公開 export / runtime
+$ nix develop --command pnpm verify         # typecheck && lint && test
+$ nix develop --command pnpm test:coverage  # verify 外。全メトリクス100%
+$ nix develop --command pnpm package:verify # build、pack 済み tarball、clean consumer、公開 export / runtime
 ```
 
 **`pnpm verify` はカバレッジを含まない。** `domain/` の分岐に触ったら、
@@ -46,11 +46,13 @@ $ pnpm package:verify # build、pack 済み tarball、clean consumer、公開 ex
 | --- | --- |
 | `pnpm typecheck` | `tsconfig.build.json` と `tsconfig.test.json` の両方を型検査 |
 | `pnpm lint` | oxlint（このリポジトリ唯一の lint / format 設定）。**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は `correctness`、`suspicious`、`perf`、`restriction` と個別ルールを `warn` にし、`style` は無効化している） |
-| `pnpm test` | vitest（`@effect/vitest` の `it.effect` が主 API） |
+| `pnpm test` | Vitest 4（native `it` と `Effect.runPromise` を直接利用） |
 | `pnpm test:coverage` | カバレッジ計測（Statements / Branches / Functions / Lines の閾値はすべて100%） |
 | `pnpm package:verify` | 生成 tarball の `files` / `exports`、clean consumer の import、`fixedClock` runtime を検証 |
 
-`pnpm` は `corepack` 経由で 11.17.0 を使う（`package.json` の `packageManager` でピン留め）。
+`pnpm` は `corepack` 経由で `package.json` の `packageManager` に記載したバージョンを使う。
+コマンド実行には、テスト 10 秒、hook 10 秒、package 検証の各 subprocess 30〜180 秒という
+用途別 timeout を設定している。無期限に待つ検証コマンドは追加しない。
 
 ## 性能ベンチマーク
 
@@ -69,7 +71,17 @@ $ nix develop --command node scripts/benchmark.mjs
 
 ## 3. テストの書き方
 
-- `@effect/vitest` の `it.effect` + `Effect.sync` を基本形とする。
+- `vitest` の native `it` に Effect をそのまま渡し、`Effect.runPromise` で実行する。
+  `@effect/vitest` や独自 Adapter は使用しない。
+  ```ts
+  it('preserves the invariant', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(actual).toStrictEqual(expected)
+    })),
+  )
+  ```
+- 同じ不変条件を複数の値で確認するときは、型付き fixture と `for...of` / `map` でケースを表にし、
+  テスト本体を一つの主張に保つ。テスト対象の実装詳細をテストごとに複製しない。
 - **テスト名は主張を日本語でも英語でもよいが、「何を守っているか」を書く。**
   `works correctly` ではなく `a block definition that omits a flag resolves to that flag documented default,
   which is what makes adding a flag a semver-MINOR change across all 16 repositories` のように、
@@ -93,6 +105,11 @@ mc-save 側で追加する。
 **カバレッジの4メトリクスすべてに100%の閾値を設定している。** 計測結果がどれか1つでも
 下回れば `pnpm test:coverage` は失敗する。
 
+実行対象は `src/index.ts` と `src/domain/**/*.ts` で、`src/domain/frame.ts` は型宣言だけの
+実行文を持たないため計測対象から除外している。その契約は `test/clock-and-frame.test.ts` と
+`pnpm typecheck` で検証する。これは未計測コードを隠す除外ではなく、V8 の 0% 表示による
+見かけ上の分母を避けるための明示的な型専用境界である。
+
 - `pnpm verify` は `typecheck && lint && test` のみを実行する
 - CI は `pnpm verify`、`pnpm test:coverage`、`pnpm package:verify` を実行する
 - ローカルでカバレッジを確認するときも `pnpm test:coverage` を使う
@@ -111,6 +128,8 @@ mc-save 側で追加する。
 - `ItemType` 173 種の公開
 - `Chunk` データ構造と codec、および round-trip test
 - Anvil の決定的な計画・適用、および versioned snapshot codec
+- Vitest 4 への移行（`@effect/vitest` 依存と `it.effect` API を削除）
+- 座標・Anvil・語彙表の data / logic 分離と TypeScript の厳格な型検査
 - `FrameServices` を `ClockPort` に固定した公開契約
 - `pnpm build` による型付き ESM と declaration の生成
 - Statements / Branches / Functions / Lines の100%カバレッジゲート

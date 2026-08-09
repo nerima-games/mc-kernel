@@ -16,7 +16,7 @@
  *     buffer byte with no block name in the caller — the hole the vertical
  *     slice spike could not fill.
  */
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 import { expectTypeOf } from 'vitest'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block-capabilities'
@@ -217,8 +217,8 @@ describe('id assignment is permanent', () => {
     ['dropper', number('122')],
   ]
 
-  it.effect('assigns exactly the pinned ids', () =>
-    Effect.sync(() => {
+  it('assigns exactly the pinned ids', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const [type, id] of PINNED_IDS) {
         expect(blockIdOf(type)).toBe(id)
         expect(blockTypeOfId(id)).toBe(type)
@@ -226,11 +226,11 @@ describe('id assignment is permanent', () => {
       expect(() => blockIdOf('not_a_block' as BlockType)).toThrow(
         'Block registry is missing a row for not_a_block',
       )
-    }),
+    })),
   )
 
-  it.effect('pins EVERY row, so a new block cannot enter the wire format unpinned', () =>
-    Effect.sync(() => {
+  it('pins EVERY row, so a new block cannot enter the wire format unpinned', () =>
+    Effect.runPromise(Effect.sync(() => {
       // Without this, `PINNED_IDS` protects only the rows somebody remembered
       // To add to it, and the id of a block added later is pinned by nothing —
       // Which is the same as not being pinned at all, discovered later.
@@ -239,11 +239,11 @@ describe('id assignment is permanent', () => {
 
       expect(new Set(pinned).size).toBe(pinned.length)
       expect([...pinned].sort()).toStrictEqual([...registered].sort())
-    }),
+    })),
   )
 
-  it.effect('agrees with mc-worldgen and mc-meshing on ids 0-10', () =>
-    Effect.sync(() => {
+  it('agrees with mc-worldgen and mc-meshing on ids 0-10', () =>
+    Effect.runPromise(Effect.sync(() => {
       // Transcribed from mc-worldgen/domain/biome.ts's `BLOCK` constant. Those
       // Repositories' golden fixtures are byte arrays containing these numbers.
       const worldgenBlock = {
@@ -275,27 +275,27 @@ describe('id assignment is permanent', () => {
       ] as const) {
         expect(blockIdOf(type)).toBe(expectedId)
       }
-    }),
+    })),
   )
 
-  it.effect('is a bijection: no duplicate id, no duplicate type', () =>
-    Effect.sync(() => {
+  it('is a bijection: no duplicate id, no duplicate type', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(new Set(BLOCK_IDS).size).toBe(BLOCK_REGISTRY.length)
       expect(new Set(BLOCK_REGISTRY.map((entry) => entry.definition.type)).size).toBe(BLOCK_REGISTRY.length)
-    }),
+    })),
   )
 
-  it.effect('covers the whole BlockType vocabulary, so roster and table cannot drift', () =>
-    Effect.sync(() => {
+  it('covers the whole BlockType vocabulary, so roster and table cannot drift', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(UNREGISTERED_BLOCK_TYPES).toStrictEqual([])
       for (const type of BLOCK_TYPES) {
         expect(blockTypeOfId(blockIdOf(type))).toBe(type)
       }
-    }),
+    })),
   )
 
-  it.effect('a BlockId only proves the byte fits the chunk buffer, not that a row claims it', () =>
-    Effect.sync(() => {
+  it('a BlockId only proves the byte fits the chunk buffer, not that a row claims it', () =>
+    Effect.runPromise(Effect.sync(() => {
       // `BlockId` validates against the chunk-buffer range (0-255,
       // `block-registry-types.ts`), not against the registry (0-122 today).
       // A registered id resolves normally:
@@ -311,11 +311,11 @@ describe('id assignment is permanent', () => {
         expect(resolvedBlockOfId(unregistered)).toBeUndefined()
         expect(isKnownBlockId(unregistered)).toBe(false)
       }
-    }),
+    })),
   )
 
-  it.effect('air is zero, because a zero-filled buffer must already be a valid chunk', () =>
-    Effect.sync(() => {
+  it('air is zero, because a zero-filled buffer must already be a valid chunk', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(AIR_BLOCK_ID).toBe(number('0'))
       expectTypeOf(isEmpty).toEqualTypeOf<(id: number) => boolean>()
       expect(isEmpty(AIR_BLOCK_ID)).toBe(true)
@@ -326,42 +326,42 @@ describe('id assignment is permanent', () => {
       for (const byte of fresh) {
         expect(blockTypeOfId(byte)).toBe('air')
       }
-    }),
+    })),
   )
 
-  it.effect('rejects ids the chunk buffer cannot hold', () =>
-    Effect.sync(() => {
+  it('rejects ids the chunk buffer cannot hold', () =>
+    Effect.runPromise(Effect.sync(() => {
       const blockId = BlockId
       expect(() => blockId(number('-1'))).toThrow()
       expect(() => blockId(BLOCK_ID_MAX + number('1'))).toThrow()
       expect(() => blockId(number('1.5'))).toThrow()
       expect(blockId(BLOCK_ID_MAX)).toBe(BLOCK_ID_MAX)
-    }),
+    })),
   )
 })
 
 describe('unknown-id fallbacks stay total even for non-byte numbers', () => {
-  it.effect('treats negative, fractional, and NaN ids as default-opacity blocks', () =>
-    Effect.sync(() => {
+  it('treats negative, fractional, and NaN ids as default-opacity blocks', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const unknown of [number('-1'), number('1.5'), Number.NaN]) {
         expect(transmitsLight(unknown)).toBe(false)
       }
-    }),
+    })),
   )
 })
 
 describe('reading behaviour off a chunk buffer byte', () => {
-  it.effect('answers tillable from the registry for dirt and grass_block only', () =>
-    Effect.sync(() => {
+  it('answers tillable from the registry for dirt and grass_block only', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(capabilityOfBlockId(blockIdOf('dirt'), 'tillable')).toBe(true)
       expect(capabilityOfBlockId(blockIdOf('grass_block'), 'tillable')).toBe(true)
       expect(capabilityOfBlockId(blockIdOf('stone'), 'tillable')).toBe(false)
       expect([...blockIdsWithCapability('tillable')]).toStrictEqual([blockIdOf('dirt'), blockIdOf('grass_block')])
-    }),
+    })),
   )
 
-  it.effect('answers fallsWhenUnsupported for sand and gravel and nothing else', () =>
-    Effect.sync(() => {
+  it('answers fallsWhenUnsupported for sand and gravel and nothing else', () =>
+    Effect.runPromise(Effect.sync(() => {
       // THE slice question. Note that no block NAME appears on the read side:
       // The input is a number that came out of a Uint8Array.
       expect(capabilityOfBlockId(number('5'), 'fallsWhenUnsupported')).toBe(true)
@@ -372,11 +372,11 @@ describe('reading behaviour off a chunk buffer byte', () => {
       expect(
         [...blockIdsWithCapability('fallsWhenUnsupported')].sort((firstId, secondId) => firstId - secondId),
       ).toStrictEqual([number('5'), number('8')])
-    }),
+    })),
   )
 
-  it.effect('keeps the five "non-solid" concepts apart, exactly as audit §4.9 requires', () =>
-    Effect.sync(() => {
+  it('keeps the five "non-solid" concepts apart, exactly as audit §4.9 requires', () =>
+    Effect.runPromise(Effect.sync(() => {
       const expectedCapabilities = [
         ['glass', 'passable', false],
         ['glass', 'suffocates', false],
@@ -392,11 +392,11 @@ describe('reading behaviour off a chunk buffer byte', () => {
       for (const [type, capability, expected] of expectedCapabilities) {
         expect(capabilitiesOfBlockId(blockIdOf(type))[capability]).toBe(expected)
       }
-    }),
+    })),
   )
 
-  it.effect('gives meshing its buckets as native Sets', () =>
-    Effect.sync(() => {
+  it('gives meshing its buckets as native Sets', () =>
+    Effect.runPromise(Effect.sync(() => {
       const transparentSolid = blockIdsWithOpacity('transparentSolid')
       expect(transparentSolid).toBeInstanceOf(Set)
       expect(transparentSolid.has(blockIdOf('glass'))).toBe(true)
@@ -409,11 +409,11 @@ describe('reading behaviour off a chunk buffer byte', () => {
       expect(fluid.has(blockIdOf('glass'))).toBe(false)
 
       expect(blockIdsWithCapability('fallsWhenUnsupported')).toBeInstanceOf(Set)
-    }),
+    })),
   )
 
-  it.effect('has a bucket for every opacity and every flag, inhabited or not', () =>
-    Effect.sync(() => {
+  it('has a bucket for every opacity and every flag, inhabited or not', () =>
+    Effect.runPromise(Effect.sync(() => {
       // Both tables are seeded from their enums rather than discovered from the
       // Rows. That distinction is the point: bucketing rows alone gives keys
       // For the values blocks HAPPEN to have, and the roster is deliberately
@@ -436,25 +436,25 @@ describe('reading behaviour off a chunk buffer byte', () => {
       const bucketed = BLOCK_OPACITIES.flatMap((opacity) => [...blockIdsWithOpacity(opacity)])
       expect(bucketed.length).toBe(BLOCK_IDS.length)
       expect(new Set(bucketed)).toStrictEqual(new Set(BLOCK_IDS))
-    }),
+    })),
   )
 
-  it.effect('reports light emission as a level and not as a boolean', () =>
-    Effect.sync(() => {
+  it('reports light emission as a level and not as a boolean', () =>
+    Effect.runPromise(Effect.sync(() => {
       // The one-level gap is why `emissive: boolean` was the wrong type.
       expect(propertyOfBlockId(blockIdOf('torch'), 'lightEmission')).toBe(number('14'))
       expect(propertyOfBlockId(blockIdOf('glowstone'), 'lightEmission')).toBe(number('15'))
       expect(propertyOfBlockId(blockIdOf('lava'), 'lightEmission')).toBe(number('15'))
       expect(propertyOfBlockId(blockIdOf('stone'), 'lightEmission')).toBe(number('0'))
-    }),
+    })),
   )
 
-  it.effect('reports WHICH fluid, not whether-fluid', () =>
-    Effect.sync(() => {
+  it('reports WHICH fluid, not whether-fluid', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(propertyOfBlockId(blockIdOf('water'), 'fluid')).toBe('water')
       expect(propertyOfBlockId(blockIdOf('lava'), 'fluid')).toBe('lava')
       expect(propertyOfBlockId(blockIdOf('stone'), 'fluid')).toBe('none')
-    }),
+    })),
   )
 })
 
@@ -469,8 +469,8 @@ describe('reading behaviour off a chunk buffer byte', () => {
  * until the day they do not.
  */
 describe('the named light readings', () => {
-  it.effect('are exactly the generic accessor, on every id in the byte range', () =>
-    Effect.sync(() => {
+  it('are exactly the generic accessor, on every id in the byte range', () =>
+    Effect.runPromise(Effect.sync(() => {
       // THE load-bearing assertion of this describe. It sweeps the whole
       // `Uint8Array` domain — registered rows, holes and unknown bytes alike —
       // So there is no id at which a named reading and the generic one can
@@ -480,11 +480,11 @@ describe('the named light readings', () => {
         expect(lightEmissionOfBlockId(id)).toBe(propertyOfBlockId(id, 'lightEmission'))
         expect(transmitsLight(id)).toBe(propertyOfBlockId(id, 'opacity') !== 'opaque')
       }
-    }),
+    })),
   )
 
-  it.effect('are TOTAL, so a corrupt or newer-build byte reads as an unlit opaque cube', () =>
-    Effect.sync(() => {
+  it('are TOTAL, so a corrupt or newer-build byte reads as an unlit opaque cube', () =>
+    Effect.runPromise(Effect.sync(() => {
       const unknown = number('200')
       expect(isKnownBlockId(unknown)).toBe(false)
 
@@ -497,11 +497,11 @@ describe('the named light readings', () => {
       // Rule reading light out of a chunk buffer has nowhere to put a failure.
       expect(opacityOfBlockId(number('-1'))).toBe('opaque')
       expect(lightEmissionOfBlockId(number('1.5'))).toBe(number('0'))
-    }),
+    })),
   )
 
-  it.effect('name every emitting row and no others', () =>
-    Effect.sync(() => {
+  it('name every emitting row and no others', () =>
+    Effect.runPromise(Effect.sync(() => {
       const emitting = BLOCK_IDS.filter((id) => lightEmissionOfBlockId(id) > number('0'))
 
       // Every emitter, with its level, in registry order. `EMISSIVE_TABLE`
@@ -548,11 +548,11 @@ describe('the named light readings', () => {
       // The one-level gap is the entire argument for the column being a number,
       // And a flattening edit has to fail somewhere.
       expect(lightEmissionOfBlockId(blockIdOf('torch'))).not.toBe(lightEmissionOfBlockId(blockIdOf('glowstone')))
-    }),
+    })),
   )
 
-  it.effect('keep the two columns independent — GLOWSTONE is opaque and emits 15', () =>
-    Effect.sync(() => {
+  it('keep the two columns independent — GLOWSTONE is opaque and emits 15', () =>
+    Effect.runPromise(Effect.sync(() => {
       // The row that forbids inferring either column from the other. A
       // Transcription that assumed "emitters are transparent" or "opaque blocks
       // Are dark" gets this wrong in whichever direction it guessed.
@@ -563,17 +563,17 @@ describe('the named light readings', () => {
       // And the mirror image: air transmits and emits nothing.
       expect(transmitsLight(AIR_BLOCK_ID)).toBe(true)
       expect(lightEmissionOfBlockId(AIR_BLOCK_ID)).toBe(number('0'))
-    }),
+    })),
   )
 
-  it.effect('returns the branded light-level type', () =>
-    Effect.sync(() => {
+  it('returns the branded light-level type', () =>
+    Effect.runPromise(Effect.sync(() => {
       expectTypeOf(lightEmissionOfBlockId(blockIdOf('torch'))).toEqualTypeOf<LightLevel>()
-    }),
+    })),
   )
 
-  it.effect('is NOT a synonym for passable — GLASS is the row that says so', () =>
-    Effect.sync(() => {
+  it('is NOT a synonym for passable — GLASS is the row that says so', () =>
+    Effect.runPromise(Effect.sync(() => {
       // Audit §4.9. If `opacity` agreed with an existing flag on every row it
       // Would not be a capability, it would be a spelling.
       const glass = blockIdOf('glass')
@@ -634,11 +634,11 @@ describe('the named light readings', () => {
       for (const crop of ['wheat_crop', 'potato_crop', 'nether_wart_crop'] as const) {
         expect(capabilityOfBlockId(blockIdOf(crop), 'passable')).toBe(false)
       }
-    }),
+    })),
   )
 
-  it.effect('is NOT a synonym for canSupportAttachments or validSpawnSurface either', () =>
-    Effect.sync(() => {
+  it('is NOT a synonym for canSupportAttachments or validSpawnSurface either', () =>
+    Effect.runPromise(Effect.sync(() => {
       // Both flags take BOTH values among the light-transmitting rows, which is
       // The shape of "independent" that a single example cannot show.
       const transmitting = BLOCK_IDS.filter((id) => transmitsLight(id))
@@ -657,11 +657,11 @@ describe('the named light readings', () => {
       // `stone_slab` transmits and is a spawn surface; `glass` transmits and is not.
       expect(capabilityOfBlockId(blockIdOf('stone_slab'), 'validSpawnSurface')).toBe(true)
       expect(capabilityOfBlockId(blockIdOf('glass'), 'validSpawnSurface')).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('is NOT a synonym for !suffocates either — the coincidence that used to hold is over', () =>
-    Effect.sync(() => {
+  it('is NOT a synonym for !suffocates either — the coincidence that used to hold is over', () =>
+    Effect.runPromise(Effect.sync(() => {
       // THIS TEST REPLACES A TRIPWIRE, AND THE TRIPWIRE FIRED AS DESIGNED.
       //
       // On the 36-row roster `transmitsLight(id)` happened to equal
@@ -717,11 +717,11 @@ describe('the named light readings', () => {
       // Derivable from each other; now the table shows it instead of asserting it.
       expect(transmitsLight(blockIdOf('glass'))).toBe(true)
       expect(capabilityOfBlockId(blockIdOf('glass'), 'suffocates')).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('agrees with the meshing buckets, which are built from the same column', () =>
-    Effect.sync(() => {
+  it('agrees with the meshing buckets, which are built from the same column', () =>
+    Effect.runPromise(Effect.sync(() => {
       // `blockIdsWithOpacity` pre-expands what `opacityOfBlockId` answers one id
       // At a time. mc-meshing takes the sets, mc-worldgen's light grid takes the
       // Predicate, and the two must not be able to disagree about one block.
@@ -734,13 +734,13 @@ describe('the named light readings', () => {
       const transmitting = new Set(BLOCK_IDS.filter((id) => transmitsLight(id)))
       const nonOpaque = new Set([...blockIdsWithOpacity('transparentSolid'), ...blockIdsWithOpacity('fluid')])
       expect(transmitting).toStrictEqual(nonOpaque)
-    }),
+    })),
   )
 })
 
 describe('unknown ids', () => {
-  it.effect('resolve to an ordinary opaque cube rather than failing', () =>
-    Effect.sync(() => {
+  it('resolve to an ordinary opaque cube rather than failing', () =>
+    Effect.runPromise(Effect.sync(() => {
       const unknown = number('200')
 
       expect(isKnownBlockId(unknown)).toBe(false)
@@ -751,11 +751,11 @@ describe('unknown ids', () => {
         expect(capabilityOfBlockId(unknown, flag)).toBe(BLOCK_CAPABILITY_DEFAULTS[flag])
       }
       expect(propertyOfBlockId(unknown, 'opacity')).toBe(BLOCK_PROPERTY_DEFAULTS.opacity)
-    }),
+    })),
   )
 
-  it.effect('yield a COMPLETE capability set, so no flag on a corrupt byte reads as undefined', () =>
-    Effect.sync(() => {
+  it('yield a COMPLETE capability set, so no flag on a corrupt byte reads as undefined', () =>
+    Effect.runPromise(Effect.sync(() => {
       // The singular reader is covered above; the plural one is what a caller
       // Uses when it wants several answers about one byte, and it is the one
       // That can go wrong quietly. `capabilitiesOfBlockId(byte).passable` must
@@ -765,11 +765,11 @@ describe('unknown ids', () => {
       // `true`.
       const unknown = number('200')
       expectUnknownCapabilityDefaults(unknown)
-    }),
+    })),
   )
 
-  it.effect('read as unknown from isKnownBlockId and resolvedBlockOfId alike, over the whole id space', () =>
-    Effect.sync(() => {
+  it('read as unknown from isKnownBlockId and resolvedBlockOfId alike, over the whole id space', () =>
+    Effect.runPromise(Effect.sync(() => {
       // These two spelled the range test separately until they were made one
       // Function, and this sweep is what holds them together. The case they
       // Could disagree about is a HOLE — an id below the table length with no
@@ -782,21 +782,21 @@ describe('unknown ids', () => {
       for (const id of BLOCK_IDS) {
         expect(isKnownBlockId(id)).toBe(true)
       }
-    }),
+    })),
   )
 
-  it.effect('narrow numbers to BlockId when known', () =>
-    Effect.sync(() => {
+  it('narrow numbers to BlockId when known', () =>
+    Effect.runPromise(Effect.sync(() => {
       const id = 2 as number
       if (!isKnownBlockId(id)) {
         throw new Error('expected known block id in type-narrowing test')
       }
       expectTypeOf(id).toEqualTypeOf<BlockId>()
-    }),
+    })),
   )
 
-  it.effect('are inert: an unknown block does not fall, burn, or let anything through', () =>
-    Effect.sync(() => {
+  it('are inert: an unknown block does not fall, burn, or let anything through', () =>
+    Effect.runPromise(Effect.sync(() => {
       // The failure mode of guessing wrong is a mystery block, never a player
       // Falling through the world or terrain deleting itself.
       const unknown = number('250')
@@ -804,23 +804,23 @@ describe('unknown ids', () => {
       expect(capabilityOfBlockId(unknown, 'flammable')).toBe(false)
       expect(capabilityOfBlockId(unknown, 'passable')).toBe(false)
       expect(capabilityOfBlockId(unknown, 'replaceable')).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('treats non-integers and out-of-range numbers the same way', () =>
-    Effect.sync(() => {
+  it('treats non-integers and out-of-range numbers the same way', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const value of [number('-1'), number('1.5'), Number.NaN, BLOCK_ID_MAX + number('1')]) {
         expect(isKnownBlockId(value)).toBe(false)
         expect(blockTypeOfId(value)).toBeUndefined()
         expect(capabilityOfBlockId(value, 'fallsWhenUnsupported')).toBe(false)
       }
-    }),
+    })),
   )
 })
 
 describe('the table states differences only', () => {
-  it.effect('resolves a definition with no overrides to the documented defaults', () =>
-    Effect.sync(() => {
+  it('resolves a definition with no overrides to the documented defaults', () =>
+    Effect.runPromise(Effect.sync(() => {
       // NO ROW IN THE TABLE IS BARE ANY MORE, and that is a deliberate reversal.
       //
       // The exemplar was `stone`, then `piston`. `piston` lost the job by being
@@ -852,11 +852,11 @@ describe('the table states differences only', () => {
           entry.definition.capabilities === globalThis.undefined && entry.definition.properties === globalThis.undefined,
       )
       expect(bare).toStrictEqual([])
-    }),
+    })),
   )
 
-  it.effect('resolves every registered id to a complete capability set', () =>
-    Effect.sync(() => {
+  it('resolves every registered id to a complete capability set', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const id of BLOCK_IDS) {
         const resolved = resolvedBlockOfId(id)
         expect(resolved).toBeDefined()
@@ -864,11 +864,11 @@ describe('the table states differences only', () => {
           expect(typeof resolved?.capabilities[flag]).toBe('boolean')
         }
       }
-    }),
+    })),
   )
 
-  it.effect('keeps the capability column aligned with resolved rows for every byte', () =>
-    Effect.sync(() => {
+  it('keeps the capability column aligned with resolved rows for every byte', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (let rawId = number('0'); rawId <= BLOCK_ID_MAX; rawId += number('1')) {
         const resolved = resolvedBlockOfId(rawId)
         expect(capabilitiesOfBlockId(rawId)).toStrictEqual(
@@ -880,7 +880,7 @@ describe('the table states differences only', () => {
           )
         }
       }
-    }),
+    })),
   )
 })
 
@@ -898,8 +898,8 @@ describe('the reference tables this roster transcribes', () => {
    * that was dropped in translation, and a per-block loop does not.
    */
 
-  it.effect('reproduces PASSABLE_BLOCK_IDS exactly — every member, and no extras', () =>
-    Effect.sync(() => {
+  it('reproduces PASSABLE_BLOCK_IDS exactly — every member, and no extras', () =>
+    Effect.runPromise(Effect.sync(() => {
       /**
        * `block-collision-predicates.ts:22-42`, the closed 19-member set audit §4.1
        * calls the centre of the physics side.
@@ -937,21 +937,21 @@ describe('the reference tables this roster transcribes', () => {
 
       expect([...passableTypes].sort()).toStrictEqual([...referencePassableBlocks].sort())
       expect(passableIds.size).toBe(number('19'))
-    }),
+    })),
   )
 
-  it.effect('keeps oak_leaves OUT of the passable set, which is the canopy bug itself', () =>
-    Effect.sync(() => {
+  it('keeps oak_leaves OUT of the passable set, which is the canopy bug itself', () =>
+    Effect.runPromise(Effect.sync(() => {
       // Named separately from the set comparison above because this is the one
       // Membership the reference explicitly warns about, and a test that only
       // Compares sorted arrays reports it as an unremarkable diff.
       expect(capabilityOfBlockId(blockIdOf('oak_leaves'), 'passable')).toBe(false)
       expect(blockIdsWithCapability('passable').has(blockIdOf('oak_leaves'))).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('gives every collision shape at least one block to be', () =>
-    Effect.sync(() => {
+  it('gives every collision shape at least one block to be', () =>
+    Effect.runPromise(Effect.sync(() => {
       // `COLLISION_SHAPES` was enumerated from the audit before any row could
       // Produce three of its five members. An uninhabited enum member is one
       // Mc-physics must branch on and can never test against
@@ -967,11 +967,11 @@ describe('the reference tables this roster transcribes', () => {
       expect(propertyOfBlockId(blockIdOf('cactus'), 'collisionShape')).toBe('cactus')
       expect(propertyOfBlockId(blockIdOf('pressure_plate'), 'collisionShape')).toBe('pressurePlate')
       expect(propertyOfBlockId(blockIdOf('stone_slab'), 'collisionShape')).toBe('slab')
-    }),
+    })),
   )
 
-  it.effect('separates rail from powered_rail, because the reference has two predicates', () =>
-    Effect.sync(() => {
+  it('separates rail from powered_rail, because the reference has two predicates', () =>
+    Effect.runPromise(Effect.sync(() => {
       // `isOnRail` (:184-195) accepts both; `isOnPoweredRail` (:197-201) accepts
       // Only one. Collapsing `railKind` to a boolean would lose the speed tier
       // That `minecart-mount.ts:45` reads.
@@ -987,11 +987,11 @@ describe('the reference tables this roster transcribes', () => {
       expect(capabilitiesOfBlockId(blockIdOf('rail'))).toStrictEqual(
         capabilitiesOfBlockId(blockIdOf('powered_rail')),
       )
-    }),
+    })),
   )
 
-  it.effect('does NOT break lily_pad in water, though it breaks the other waterside plants', () =>
-    Effect.sync(() => {
+  it('does NOT break lily_pad in water, though it breaks the other waterside plants', () =>
+    Effect.runPromise(Effect.sync(() => {
       // `WATER_BREAKABLE_BLOCK_TYPES` (`block-support.ts:34-44`) names
       // SUGAR_CANE and CACTUS individually and pointedly omits LILY_PAD, whose
       // Support rule IS water (:83). A "plants break in water" generalisation
@@ -999,11 +999,11 @@ describe('the reference tables this roster transcribes', () => {
       expect(capabilityOfBlockId(blockIdOf('lily_pad'), 'brokenByWaterFlow')).toBe(false)
       expect(capabilityOfBlockId(blockIdOf('sugar_cane'), 'brokenByWaterFlow')).toBe(true)
       expect(capabilityOfBlockId(blockIdOf('cactus'), 'brokenByWaterFlow')).toBe(true)
-    }),
+    })),
   )
 
-  it.effect('keeps oak_log off the spawn surface, which the default silently got wrong', () =>
-    Effect.sync(() => {
+  it('keeps oak_log off the spawn surface, which the default silently got wrong', () =>
+    Effect.runPromise(Effect.sync(() => {
       // REGRESSION. This row carried no `validSpawnSurface` override and so
       // Resolved to the default `true`, while the reference lists WOOD in
       // `NON_SPAWN_SURFACE_BLOCK_IDS` (`spawn-selection-search.ts:45`) AND in
@@ -1020,11 +1020,11 @@ describe('the reference tables this roster transcribes', () => {
       // Negative.
       expect(capabilityOfBlockId(blockIdOf('stone'), 'validSpawnSurface')).toBe(true)
       expect(capabilityOfBlockId(blockIdOf('snow'), 'validSpawnSurface')).toBe(true)
-    }),
+    })),
   )
 
-  it.effect('carries the plant friction of 0, which is NOT the default 0.6', () =>
-    Effect.sync(() => {
+  it('carries the plant friction of 0, which is NOT the default 0.6', () =>
+    Effect.runPromise(Effect.sync(() => {
       // `plantBlockProperties` (`blocks.config.terrain.ts:29-35`) sets friction
       // 0, and `getBlockFrictionAt` (`block-collision-predicates.ts:152-161`)
       // Reads it for whatever a player stands on. A row that omitted it would
@@ -1050,11 +1050,11 @@ describe('the reference tables this roster transcribes', () => {
       expect(propertyOfBlockId(blockIdOf('snow'), 'friction')).toBe(number('0.3'))
       expect(propertyOfBlockId(blockIdOf('sand'), 'friction')).toBe(number('0.5'))
       expect(propertyOfBlockId(blockIdOf('dirt'), 'friction')).toBe(number('0.6'))
-    }),
+    })),
   )
 
-  it.effect('classifies the reference footstep surfaces without making sound cues a kernel concern', () =>
-    Effect.sync(() => {
+  it('classifies the reference footstep surfaces without making sound cues a kernel concern', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(BLOCK_PROPERTY_DEFAULTS.footstepMaterial).toBe('default')
 
       for (const block of ['dirt', 'grass_block', 'farmland'] as const) {
@@ -1067,11 +1067,11 @@ describe('the reference tables this roster transcribes', () => {
         expect(propertyOfBlockId(blockIdOf(block), 'footstepMaterial')).toBe('stone')
       }
       expect(propertyOfBlockId(blockIdOf('glass'), 'footstepMaterial')).toBe('default')
-    }),
+    })),
   )
 
-  it.effect('puts hardness on the reference’s 0-100 scale, so the column can be compared to itself', () =>
-    Effect.sync(() => {
+  it('puts hardness on the reference’s 0-100 scale, so the column can be compared to itself', () =>
+    Effect.runPromise(Effect.sync(() => {
       // `historical design audit` §4.5.1 recorded that this column held two
       // Scales at once and left the choice open; §4.5.2 records how it was
       // Closed. The scale is the reference's, stated at
@@ -1118,12 +1118,12 @@ describe('the reference tables this roster transcribes', () => {
       for (const id of BLOCK_IDS) {
         expect(propertyOfBlockId(id, 'hardness')).toBeGreaterThanOrEqual(number('0'))
       }
-    }),
+    })),
   )
 
   describe('contact and movement properties', () => {
-    it.effect('slows an entity in a cobweb, and in nothing else', () =>
-      Effect.sync(() => {
+    it('slows an entity in a cobweb, and in nothing else', () =>
+      Effect.runPromise(Effect.sync(() => {
       // `movementDrag` had no inhabitant before this roster, so nothing checked
       // That the field survived resolution at all.
       const dragging = BLOCK_IDS.filter((id) => propertyOfBlockId(id, 'movementDrag') > number('0'))
@@ -1133,11 +1133,11 @@ describe('the reference tables this roster transcribes', () => {
       // Vertical multiplier (0.05, :20) has nowhere to go in a one-number field;
       // That loss is recorded at the registry row rather than rounded away here.
       expect(propertyOfBlockId(blockIdOf('cobweb'), 'movementDrag')).toBe(number('0.75'))
-      }),
+      })),
     )
 
-    it.effect('lets exactly one block hurt on contact, at the reference amount', () =>
-      Effect.sync(() => {
+    it('lets exactly one block hurt on contact, at the reference amount', () =>
+      Effect.runPromise(Effect.sync(() => {
       // CACTUS_DAMAGE = 1 and LAVA_DAMAGE = 4 (`environment-hazard.config.ts:7,26`).
       // Two damaging blocks with DIFFERENT amounts is what makes `contactDamage`
       // A number rather than a `hurts: boolean`.
@@ -1146,14 +1146,14 @@ describe('the reference tables this roster transcribes', () => {
 
       expect(propertyOfBlockId(blockIdOf('cactus'), 'contactDamage')).toBe(number('1'))
       expect(propertyOfBlockId(blockIdOf('lava'), 'contactDamage')).toBe(number('4'))
-      }),
+      })),
     )
   })
 })
 
 describe('the completed roster and additive gameplay vocabulary', () => {
-  it.effect('keeps the reference’s 120 plus two additions distinct and registered', () =>
-    Effect.sync(() => {
+  it('keeps the reference’s 120 plus two additions distinct and registered', () =>
+    Effect.runPromise(Effect.sync(() => {
       // `docs/testing.md` §5.2 re-derived the 120 from two hand-maintained
       // Arrays in the reference that agree as sets (`BlockTypeSchema` and
       // `INDEX_TO_BLOCK_TYPE`). The number is pinned here rather than only in
@@ -1173,11 +1173,11 @@ describe('the completed roster and additive gameplay vocabulary', () => {
         expect(blockTypeOfId(blockIdOf(type))).toBe(type)
       }
       expect(new Set(BLOCK_IDS).size).toBe(number('123'))
-    }),
+    })),
   )
 
-  it.effect('fits the chunk byte, which is what makes the ids a wire format at all', () =>
-    Effect.sync(() => {
+  it('fits the chunk byte, which is what makes the ids a wire format at all', () =>
+    Effect.runPromise(Effect.sync(() => {
       // 120 rows in a 256-value space. Worth an assertion rather than a comment:
       // The ceiling is a property of the `Uint8Array` chunk buffer, and the day
       // The roster crosses it the fix is a chunk-format migration in mc-save,
@@ -1186,11 +1186,11 @@ describe('the completed roster and additive gameplay vocabulary', () => {
         expect(id).toBeLessThanOrEqual(BLOCK_ID_MAX)
       }
       expect(Math.max(...BLOCK_IDS)).toBe(number('122'))
-    }),
+    })),
   )
 
-  it.effect('keeps the four ore columns independent, which no single flag could', () =>
-    Effect.sync(() => {
+  it('keeps the four ore columns independent, which no single flag could', () =>
+    Effect.runPromise(Effect.sync(() => {
       // The ore group is where four capabilities that LOOK correlated are
       // Decided by four different reference tables. If any pair were derived
       // From another, one of these would be impossible to write.
@@ -1217,11 +1217,11 @@ describe('the completed roster and additive gameplay vocabulary', () => {
       expect(propertyOfBlockId(blockIdOf('deepslate_iron_ore'), 'hardness')).toBe(number('60'))
       expect(propertyOfBlockId(iron, 'hardness')).toBe(number('50'))
       expect(propertyOfBlockId(blockIdOf('deepslate_iron_ore'), 'harvestTool').minTier).toBe('stone')
-    }),
+    })),
   )
 
-  it.effect('inhabits all four harvest tiers, so the ladder is a ladder and not a boolean', () =>
-    Effect.sync(() => {
+  it('inhabits all four harvest tiers, so the ladder is a ladder and not a boolean', () =>
+    Effect.runPromise(Effect.sync(() => {
       const tiers = new Set(BLOCK_IDS.map((id) => propertyOfBlockId(id, 'harvestTool').minTier))
       expect(tiers).toStrictEqual(new Set(['none', 'wooden', 'stone', 'iron', 'diamond']))
 
@@ -1230,11 +1230,11 @@ describe('the completed roster and additive gameplay vocabulary', () => {
       // A second diamond block would be a content decision, not a transcription.
       const diamondTier = BLOCK_IDS.filter((id) => propertyOfBlockId(id, 'harvestTool').minTier === 'diamond')
       expect(diamondTier.map((id) => blockTypeOfId(id))).toStrictEqual(['obsidian'])
-    }),
+    })),
   )
 
-  it.effect('transcribes the crop suffocation split instead of smoothing it', () =>
-    Effect.sync(() => {
+  it('transcribes the crop suffocation split instead of smoothing it', () =>
+    Effect.runPromise(Effect.sync(() => {
       // The sharpest disagreement in the reference, and the one most likely to
       // Be "fixed" by a well-meaning edit. `block-support.ts:20` defines the
       // Three crops as ONE set and every rule there treats them identically;
@@ -1256,11 +1256,11 @@ describe('the completed roster and additive gameplay vocabulary', () => {
         expect(capabilityOfBlockId(blockIdOf(crop), 'brokenByWaterFlow')).toBe(true)
         expect(capabilityOfBlockId(blockIdOf(crop), 'validSpawnSurface')).toBe(false)
       }
-    }),
+    })),
   )
 
-  it.effect('completes the closed reference tables it set out to complete', () =>
-    Effect.sync(() => {
+  it('completes the closed reference tables it set out to complete', () =>
+    Effect.runPromise(Effect.sync(() => {
       // The roster grew by CLOSED TABLES rather than by count (`domain/block-type.ts`).
       // These are the ones the last 84 finished, asserted as membership so that
       // "the table is complete" is checked rather than claimed.
@@ -1295,6 +1295,6 @@ describe('the completed roster and additive gameplay vocabulary', () => {
       // The whole reference table behind it rather than a single case.
       const slabs = BLOCK_IDS.filter((id) => propertyOfBlockId(id, 'collisionShape') === 'slab')
       expect(slabs.map((id) => blockTypeOfId(id))).toStrictEqual(['stone_slab', 'purpur_slab'])
-    }),
+    })),
   )
 })

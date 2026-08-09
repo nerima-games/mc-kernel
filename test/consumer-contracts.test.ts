@@ -6,7 +6,7 @@ import {
   WorldId,
 } from '../src/index.js'
 import { Effect, Layer } from 'effect'
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from 'vitest'
 
 const ONE = 1
 const TICKS_PER_SECOND = 60
@@ -15,8 +15,8 @@ const stageId = StageId
 const worldId = WorldId
 
 describe('consumer contracts', () => {
-  it.effect('provides the shared vocabulary used by composition and physics', () =>
-    Effect.sync(() => {
+  it('provides the shared vocabulary used by composition and physics', () =>
+    Effect.runPromise(Effect.sync(() => {
       const world: ReturnType<typeof WorldId> = worldId('overworld')
       const delta: ReturnType<typeof DeltaTimeSecs> = deltaTimeSecs(ONE / TICKS_PER_SECOND)
       const stage: StageRegistration = {
@@ -31,6 +31,6 @@ describe('consumer contracts', () => {
       expect(world).toBe('overworld')
       expect(delta).toBeCloseTo(ONE / TICKS_PER_SECOND)
       expect(Effect.runSync(module.frameStages)).toStrictEqual([stage])
-    }),
+    })),
   )
 })

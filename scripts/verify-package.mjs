@@ -6,36 +6,47 @@ import { spawnSync } from 'node:child_process'
 const root = resolve(import.meta.dirname, '..')
 const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
 const packageName = manifest.name
+const DEFAULT_COMMAND_TIMEOUT_MS = 120_000
 
-const run = (command, args, options = {}) => {
+const commandLabel = (command, args) => command + ' ' + args.join(' ')
+
+const run = (command, args, { timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS, ...options } = {}) => {
   const result = spawnSync(command, args, {
     cwd: root,
     encoding: 'utf8',
     stdio: 'inherit',
+    timeout: timeoutMs,
+    killSignal: 'SIGTERM',
     ...options,
   })
   if (result.error) {
-    throw result.error
+    throw new Error(commandLabel(command, args) + ' failed: ' + result.error.message)
+  }
+  if (result.signal) {
+    throw new Error(commandLabel(command, args) + ' terminated by ' + result.signal)
   }
   if (result.status !== 0) {
-    throw new Error(`${command} ${args.join(' ')} exited with status ${result.status}`)
+    throw new Error(commandLabel(command, args) + ' exited with status ' + result.status)
   }
   return result
 }
 
-const capture = (command, args, options = {}) => {
+const capture = (command, args, { timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS, ...options } = {}) => {
   const result = spawnSync(command, args, {
     cwd: root,
     encoding: 'utf8',
+    timeout: timeoutMs,
+    killSignal: 'SIGTERM',
     ...options,
   })
   if (result.error) {
-    throw result.error
+    throw new Error(commandLabel(command, args) + ' failed: ' + result.error.message)
+  }
+  if (result.signal) {
+    throw new Error(commandLabel(command, args) + ' terminated by ' + result.signal)
   }
   if (result.status !== 0) {
-    throw new Error(
-      `${command} ${args.join(' ')} exited with status ${result.status}\n${result.stdout ?? ''}${result.stderr ?? ''}`,
-    )
+    throw new Error(commandLabel(command, args) + ' exited with status ' + result.status + '\n' + (result.stdout ?? '') + (result.stderr ?? ''))
   }
   return result.stdout
 }
@@ -77,7 +88,7 @@ await mkdir(packDirectory)
 await mkdir(consumerDirectory)
 
 try {
-  run('pnpm', ['pack', '--pack-destination', packDirectory])
+  run('pnpm', ['pack', '--pack-destination', packDirectory], { timeoutMs: 60_000 })
 
   const archives = (await readdir(packDirectory)).filter((entry) => entry.endsWith('.tgz'))
   if (archives.length !== 1) {
@@ -91,7 +102,7 @@ try {
   }
 
   const archiveEntries = new Set(
-    capture('tar', ['-tzf', archivePath], { cwd: root })
+    capture('tar', ['-tzf', archivePath], { cwd: root, timeoutMs: 30_000 })
       .trim()
       .split('\n')
       .filter(Boolean),
@@ -105,6 +116,7 @@ try {
 
   run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', archivePath], {
     cwd: consumerDirectory,
+    timeoutMs: 180_000,
   })
 
   const probe = `
@@ -126,7 +138,7 @@ try {
     }
     console.log('verified ' + packageName + ' exports: ' + specifiers.join(', '));
   `
-  run('node', ['--input-type=module', '--eval', probe], { cwd: consumerDirectory })
+  run('node', ['--input-type=module', '--eval', probe], { cwd: consumerDirectory, timeoutMs: 30_000 })
 
   console.log(`verified package archive ${relative(root, archivePath)}`)
 } finally {

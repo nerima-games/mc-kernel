@@ -3,7 +3,7 @@ import { ClockPort, FixedClockLayer, monotonicSecs, wallClockEpochMillis } from 
 import { Context, Effect, Layer, Ref } from 'effect'
 import { DeltaTimeSecs, EpochMillis, MonotonicTimeSecs } from '../src/domain/quantities'
 import type { FrameServices, GameModule, StageRegistration } from '../src/domain/frame'
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from 'vitest'
 import { StageId } from '../src/domain/identifiers'
 import { position } from '../src/domain/coordinates'
 
@@ -38,30 +38,30 @@ const FIXED_AT = {
 }
 
 describe('ClockPort', () => {
-  it.effect('monotonicSecs reads the injected Port, which is why Date.now() can be banned outright', () =>
-    Effect.gen(function* readsInjectedMonotonicSeconds() {
+  it('monotonicSecs reads the injected Port, which is why Date.now() can be banned outright', () =>
+    Effect.runPromise(Effect.gen(function* readsInjectedMonotonicSeconds() {
       const now = yield* monotonicSecs
       expect(now).toBe(FIXED_MONOTONIC_SECS)
-    }).pipe(Effect.provide(fixedClockLayer(FIXED_AT))),
+    }).pipe(Effect.provide(fixedClockLayer(FIXED_AT)))),
   )
 
-  it.effect('wallClockEpochMillis reads the injected Port', () =>
-    Effect.gen(function* readsInjectedWallClockEpochMillis() {
+  it('wallClockEpochMillis reads the injected Port', () =>
+    Effect.runPromise(Effect.gen(function* readsInjectedWallClockEpochMillis() {
       const now = yield* wallClockEpochMillis
       expect(now).toBe(FIXED_WALL_CLOCK_EPOCH_MILLIS)
-    }).pipe(Effect.provide(fixedClockLayer(FIXED_AT))),
+    }).pipe(Effect.provide(fixedClockLayer(FIXED_AT)))),
   )
 
-  it.effect('a fixed clock is deterministic: repeated reads inside one effect return the same instant', () =>
-    Effect.gen(function* comparesRepeatedClockReads() {
+  it('a fixed clock is deterministic: repeated reads inside one effect return the same instant', () =>
+    Effect.runPromise(Effect.gen(function* comparesRepeatedClockReads() {
       const first = yield* monotonicSecs
       const second = yield* monotonicSecs
       expect(second).toBe(first)
-    }).pipe(Effect.provide(fixedClockLayer(FIXED_AT))),
+    }).pipe(Effect.provide(fixedClockLayer(FIXED_AT)))),
   )
 
-  it.effect('a test can substitute an advancing clock without any production code knowing', () =>
-    Effect.gen(function* substitutesAdvancingClock() {
+  it('a test can substitute an advancing clock without any production code knowing', () =>
+    Effect.runPromise(Effect.gen(function* substitutesAdvancingClock() {
       const ticks = yield* Ref.make(ZERO)
       const advancing = Layer.effect(
         ClockPort,
@@ -78,7 +78,7 @@ describe('ClockPort', () => {
       )
 
       expect(readings).toStrictEqual([ONE, TWO, THREE])
-    }),
+    })),
   )
 })
 
@@ -90,28 +90,28 @@ describe('CameraPoseSnapshot', () => {
     yawRadians: ZERO,
   }
 
-  it.effect('snapshotAgeSecs tells the renderer how stale the pose it is mirroring has become', () =>
-    Effect.sync(() => {
+  it('snapshotAgeSecs tells the renderer how stale the pose it is mirroring has become', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(snapshotAgeSecs(snapshot, monotonicTimeSecs(SLIGHTLY_LATER_SECS))).toBeCloseTo(EXPECTED_SNAPSHOT_AGE_SECS, TEN)
       expect(snapshotAgeSecs(snapshot, monotonicTimeSecs(CAPTURED_AT_SECS))).toBe(ZERO)
-    }),
+    })),
   )
 
-  it.effect('snapshotAgeSecs goes negative under clock skew rather than clamping the problem away', () =>
-    Effect.sync(() => {
+  it('snapshotAgeSecs goes negative under clock skew rather than clamping the problem away', () =>
+    Effect.runPromise(Effect.sync(() => {
         /*
          * A worker thread stamping a pose slightly ahead of the reader's clock is
          * a real condition worth surfacing; a DeltaTimeSecs brand would have
          * thrown here and hidden it.
          */
       expect(snapshotAgeSecs(snapshot, monotonicTimeSecs(CLOCK_SKEW_SECS))).toBeCloseTo(EXPECTED_CLOCK_SKEW_AGE_SECS, TEN)
-    }),
+    })),
   )
 })
 
 describe('GameModule / StageRegistration contract', () => {
-  it.effect('a module can declare stages, ordering edges and layers, and its stages run against FrameServices', () =>
-    Effect.gen(function* runsRegisteredStages() {
+  it('a module can declare stages, ordering edges and layers, and its stages run against FrameServices', () =>
+    Effect.runPromise(Effect.gen(function* runsRegisteredStages() {
       const observed = yield* Ref.make<ReadonlyArray<number>>([])
 
       const tick: StageRegistration = {
@@ -140,11 +140,11 @@ describe('GameModule / StageRegistration contract', () => {
       ).pipe(Effect.provide(fixedClockLayer(FIXED_AT)))
 
       expect(yield* Ref.get(observed)).toStrictEqual([EXPECTED_STAGE_READING])
-    }),
+    })),
   )
 
-  it.effect('`after` is optional, so a stage with no ordering constraints needs no ceremony', () =>
-    Effect.gen(function* runsUnorderedStage() {
+  it('`after` is optional, so a stage with no ordering constraints needs no ceremony', () =>
+    Effect.runPromise(Effect.gen(function* runsUnorderedStage() {
       const standalone: StageRegistration = {
         id: stageId('sim:standalone'),
         run: () => Effect.void,
@@ -152,7 +152,7 @@ describe('GameModule / StageRegistration contract', () => {
 
       expect(standalone.after).toBeUndefined()
       yield* standalone.run(deltaTimeSecs(ZERO)).pipe(Effect.provide(fixedClockLayer(FIXED_AT)))
-    }),
+    })),
   )
 
     /*
@@ -163,8 +163,8 @@ describe('GameModule / StageRegistration contract', () => {
      * which would have forced kernel to name mc-sim's and mc-render's services and
      * broken the tier model.
      */
-  it.effect('a module can acquire a service at REGISTRATION time and close over it', () =>
-    Effect.gen(function* acquiresServiceAtRegistrationTime() {
+  it('a module can acquire a service at REGISTRATION time and close over it', () =>
+    Effect.runPromise(Effect.gen(function* acquiresServiceAtRegistrationTime() {
         /*
          * Stands in for mc-sim's PlayerService: acquired once, then called every
          * frame. Note the shape of `cameraPose`: the ClockPort requirement is on
@@ -205,7 +205,7 @@ describe('GameModule / StageRegistration contract', () => {
       )
 
       expect(yield* Ref.get(seen)).toStrictEqual([EXPECTED_POSE_READING])
-    }),
+    })),
   )
 
     /*
@@ -214,15 +214,15 @@ describe('GameModule / StageRegistration contract', () => {
      * three parameters; if the default were removed, every mirror in the roster
      * would have to be edited in the same commit.
      */
-  it.effect('RRegister defaults to never, so the common module still writes three parameters', () =>
-    Effect.sync(() => {
+  it('RRegister defaults to never, so the common module still writes three parameters', () =>
+    Effect.runPromise(Effect.sync(() => {
       const threeParams: GameModule<never, never, never> = {
         frameStages: Effect.succeed([]),
         layers: Layer.empty,
       }
       const fourParams: GameModule<never, never, never, never> = threeParams
       expect(fourParams.layers).toBe(Layer.empty)
-    }),
+    })),
   )
 
     /*
@@ -231,8 +231,8 @@ describe('GameModule / StageRegistration contract', () => {
      * to be an explicit edit here. `Exclude` in both directions is what makes the
      * assertion an equality rather than a containment.
      */
-  it.effect('FrameServices is exactly ClockPort — the frozen answer, not a placeholder', () =>
-    Effect.sync(() => {
+  it('FrameServices is exactly ClockPort — the frozen answer, not a placeholder', () =>
+    Effect.runPromise(Effect.sync(() => {
       type NoWider = Exclude<FrameServices, ClockPort>
       type NoNarrower = Exclude<ClockPort, FrameServices>
       const widerIsEmpty: NoWider extends never ? true : false = true
@@ -240,6 +240,6 @@ describe('GameModule / StageRegistration contract', () => {
 
       expect(widerIsEmpty).toBe(true)
       expect(narrowerIsEmpty).toBe(true)
-    }),
+    })),
   )
 })

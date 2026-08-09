@@ -19,7 +19,7 @@
  *     repository, and it is cheap to lose the moment one answer starts
  *     depending on another row.
  */
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 import { expectTypeOf } from 'vitest'
 import { blockPropertiesOf, type BlockDefinition } from '../src/domain/block-definition'
@@ -148,18 +148,18 @@ const droppedItemTypes = (): ReadonlySet<string> => {
 }
 
 describe('ItemType is a closed literal union, exactly as BlockType is', () => {
-  it.effect('narrows a string that names a known item', () =>
-    Effect.sync(() => {
+  it('narrows a string that names a known item', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const item of VALIDATED_ITEM_TYPES) {
         expect(isItemType(item)).toBe(true)
       }
       expect(isItemType(ITEM_TYPES[FIRST_ITEM_TYPE_INDEX])).toBe(true)
       expect(isItemType('diamond_helmet')).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('rejects a string that does not, so a save file cannot smuggle one in', () =>
-    Effect.sync(() => {
+  it('rejects a string that does not, so a save file cannot smuggle one in', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(isItemType('unobtainium')).toBe(false)
       expect(isItemType('')).toBe(false)
       // Mc-sim's provisional roster is UPPER_SNAKE. Repointing it is a
@@ -168,13 +168,13 @@ describe('ItemType is a closed literal union, exactly as BlockType is', () => {
       expect(isItemType('STICK')).toBe(false)
       // `air` is a sentinel, not a thing (audit §6-6).
       expect(isItemType('air')).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('has no duplicate literal', () =>
-    Effect.sync(() => {
+  it('has no duplicate literal', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(new Set(ITEM_TYPES).size).toBe(ITEM_TYPES.length)
-    }),
+    })),
   )
 })
 
@@ -182,18 +182,18 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
   // The bracket form `[T] extends [U]` is deliberate: it suppresses the
   // Distribution a bare conditional would apply, so these are assertions about
   // The UNIONS rather than about their members one at a time.
-  it.effect('neither union is assignable to the other', () =>
-    Effect.sync(() => {
+  it('neither union is assignable to the other', () =>
+    Effect.runPromise(Effect.sync(() => {
       const itemIsNotABlock: [ItemType] extends [BlockType] ? false : true = true
       const blockIsNotAnItem: [BlockType] extends [ItemType] ? false : true = true
 
       expect(itemIsNotABlock).toBe(true)
       expect(blockIsNotAnItem).toBe(true)
-    }),
+    })),
   )
 
-  it.effect('each union keeps at least one member the other cannot express', () =>
-    Effect.sync(() => {
+  it('each union keeps at least one member the other cannot express', () =>
+    Effect.runPromise(Effect.sync(() => {
       // If either of these went empty, the assertion above would start holding
       // For the wrong reason (one roster having swallowed the other), and the
       // Distinction would become decorative without any test failing.
@@ -331,11 +331,11 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'nether_portal',
         'fire',
       ])
-    }),
+    })),
   )
 
-  it.effect('the mapping is one-directional: block -> item is partial, item -> block needs a proof', () =>
-    Effect.sync(() => {
+  it('the mapping is one-directional: block -> item is partial, item -> block needs a proof', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const item of PLACEABLE_ITEM_BLOCK_TYPES) {
         expect(itemOfBlock(item)).toBe(item)
         expect(isPlaceableItem(item)).toBe(true)
@@ -360,11 +360,11 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         expect(itemOfBlock(torch)).toBe('torch')
         expect(blockOfPlaceableItem(torch)).toBe('torch')
       }
-    }),
+    })),
   )
 
-  it.effect('the audit §6-8 intersection is derived, so it cannot go stale', () =>
-    Effect.sync(() => {
+  it('the audit §6-8 intersection is derived, so it cannot go stale', () =>
+    Effect.runPromise(Effect.sync(() => {
       // The reference's hand-written `BLOCK_ITEMS` was already missing entries
       // When the audit read it. This one is recomputed from both rosters here,
       // Which is the whole claim.
@@ -375,7 +375,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
       expect([...UNITEMISED_BLOCK_TYPES]).toStrictEqual(BLOCK_TYPES.filter((block) => !itemNames.has(block)))
 
       expect(PLACEABLE_ITEM_TYPES.length + NON_PLACEABLE_ITEM_TYPES.length).toBe(ITEM_TYPES.length)
-    }),
+    })),
   )
 })
 
@@ -521,18 +521,18 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
     ['wither_skeleton_skull', 'wither_skeleton_skull', 'wither_skeleton_skull'],
   ]
 
-  it.effect('covers the registry exactly, so a new block without a decision fails here', () =>
-    Effect.sync(() => {
+  it('covers the registry exactly, so a new block without a decision fails here', () =>
+    Effect.runPromise(Effect.sync(() => {
       const decided = EXPECTED_DROPS.map(([type]) => type)
       const registered = BLOCK_REGISTRY.map((entry) => entry.definition.type)
 
       expect(new Set(decided).size).toBe(decided.length)
       expect([...decided].sort()).toStrictEqual([...registered].sort())
-    }),
+    })),
   )
 
-  it.effect('answers each block the pinned way, from a chunk buffer byte', () =>
-    Effect.sync(() => {
+  it('answers each block the pinned way, from a chunk buffer byte', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const [type, bare, equipped] of EXPECTED_DROPS) {
         // No block name on the read side: the input is a number.
         const id = blockIdOf(type)
@@ -540,11 +540,11 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
           const context = dropContextFor(type)
         expect(dropOfBlockId(id, context)?.item ?? 'nothing').toBe(equipped)
       }
-    }),
+    })),
   )
 
-  it.effect('never yields a count of zero: "nothing" is undefined, not an empty stack', () =>
-    Effect.sync(() => {
+  it('never yields a count of zero: "nothing" is undefined, not an empty stack', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const id of BLOCK_IDS) {
         const drop = dropOfBlockId(id, FULLY_EQUIPPED)
           if (drop !== NO_DROP) {
@@ -552,33 +552,33 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
           expect(isItemType(drop.item)).toBe(true)
         }
       }
-    }),
+    })),
   )
 
-  it.effect('reports the fortune flag instead of rolling it, because kernel has no RNG', () =>
-    Effect.sync(() => {
+  it('reports the fortune flag instead of rolling it, because kernel has no RNG', () =>
+    Effect.runPromise(Effect.sync(() => {
       const glowstone = dropOfBlockId(blockIdOf('glowstone'), FULLY_EQUIPPED)
         expect(glowstone).toStrictEqual({ affectedByFortune: true, count: 2, item: 'glowstone_dust' })
 
       expect(dropOfBlockId(blockIdOf('dirt'))?.affectedByFortune).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('mints nothing out of a byte it cannot name', () =>
-    Effect.sync(() => {
+  it('mints nothing out of a byte it cannot name', () =>
+    Effect.runPromise(Effect.sync(() => {
       // Unlike `capabilityOfBlockId`, an unknown id does NOT fall back to the
       // Ordinary-cube defaults here: doing so would print items into an
       // Inventory from a corrupt chunk.
         for (const unknown of UNKNOWN_BLOCK_IDS) {
         expect(dropOfBlockId(unknown, FULLY_EQUIPPED)).toBeUndefined()
       }
-    }),
+    })),
   )
 })
 
 describe('the tool gate', () => {
-  it.effect('stone drops nothing without a pickaxe and cobblestone with one', () =>
-    Effect.sync(() => {
+  it('stone drops nothing without a pickaxe and cobblestone with one', () =>
+    Effect.runPromise(Effect.sync(() => {
       const stone = blockIdOf('stone')
 
       expect(dropOfBlockId(stone, BARE_HANDED)).toBeUndefined()
@@ -588,11 +588,11 @@ describe('the tool gate', () => {
         count: 1,
         item: 'cobblestone',
       })
-    }),
+    })),
   )
 
-  it.effect('gates on tier alone: the wrong tool family is slow, not fruitless', () =>
-    Effect.sync(() => {
+  it('gates on tier alone: the wrong tool family is slow, not fruitless', () =>
+    Effect.runPromise(Effect.sync(() => {
       // `dirt` declares `category: 'shovel'` and no minimum tier. Bare hands
       // Must still get the dirt — conflating the speed axis with the drop axis
       // Is the bug `domain/block-harvest.ts` is shaped to prevent.
@@ -600,22 +600,22 @@ describe('the tool gate', () => {
       expect(blockPropertiesOf({ type: 'dirt' }).harvestTool.category).toBe('none')
       expect(BLOCK_REGISTRY.find((entry) => entry.definition.type === 'dirt')?.definition.properties?.harvestTool)
         .toStrictEqual({ category: 'shovel', minTier: 'none' })
-    }),
+    })),
   )
 
-  it.effect('silk touch is a gate on glass, and only on glass', () =>
-    Effect.sync(() => {
+  it('silk touch is a gate on glass, and only on glass', () =>
+    Effect.runPromise(Effect.sync(() => {
       const glass = blockIdOf('glass')
 
       expect(dropOfBlockId(glass, { heldTier: 'diamond' })).toBeUndefined()
       expect(dropOfBlockId(glass, { silkTouch: true })?.item).toBe('glass')
       // Silk touch does not unlock a tier-gated block.
       expect(dropOfBlockId(blockIdOf('stone'), { silkTouch: true })).toBeUndefined()
-    }),
+    })),
   )
 
-  it.effect('silk touch substitutes the block for cobblestone, dirt, and raw ore drops', () =>
-    Effect.sync(() => {
+  it('silk touch substitutes the block for cobblestone, dirt, and raw ore drops', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(dropOfBlockId(blockIdOf('stone'), { heldTier: 'wooden', silkTouch: true })?.item).toBe('stone')
       expect(dropOfBlockId(blockIdOf('grass_block'), { silkTouch: true })?.item).toBe('grass_block')
       expect(dropOfBlockId(blockIdOf('iron_ore'), SILK_TOUCH)).toStrictEqual({
@@ -628,11 +628,11 @@ describe('the tool gate', () => {
         count: 4,
         item: 'deepslate_redstone_ore',
       })
-    }),
+    })),
   )
 
-  it.effect('resolveDropItem is about identity, not about permission', () =>
-    Effect.sync(() => {
+  it('resolveDropItem is about identity, not about permission', () =>
+    Effect.runPromise(Effect.sync(() => {
       // It answers "which item", never "does anything drop" — the tool gate is
       // `resolveDrop`'s job. Stone's rule names cobblestone whether or not the
       // Player could have mined it.
@@ -651,13 +651,13 @@ describe('the tool gate', () => {
       }
       expectTypeOf(DEFAULT_BLOCK_DROP.count).toEqualTypeOf<StackCountValue>()
       expectTypeOf(resolvedDrop.count).toEqualTypeOf<StackCountValue>()
-    }),
+    })),
   )
 })
 
 describe('additive safety', () => {
-  it.effect('no answer depends on any other row', () =>
-    Effect.sync(() => {
+  it('no answer depends on any other row', () =>
+    Effect.runPromise(Effect.sync(() => {
       // Recomputed from each definition ALONE, with no registry lookup. If this
       // Ever diverges, some answer has started depending on a neighbour, and
       // Adding a block would stop being a local edit.
@@ -669,11 +669,11 @@ describe('additive safety', () => {
           )
         }
       }
-    }),
+    })),
   )
 
-  it.effect('a block added with no drop decision inherits the documented default', () =>
-    Effect.sync(() => {
+  it('a block added with no drop decision inherits the documented default', () =>
+    Effect.runPromise(Effect.sync(() => {
       // The shape of the row a future block gets: `{ type }` and nothing else.
       // `docs/versioning.md` §5-2's claim is that such a row keeps working as
       // The model grows, which is only true if the omission resolves.
@@ -687,11 +687,11 @@ describe('additive safety', () => {
         count: 1,
         item: 'oak_planks',
       })
-    }),
+    })),
   )
 
-  it.effect('adding a block or an item changes no existing answer', () =>
-    Effect.sync(() => {
+  it('adding a block or an item changes no existing answer', () =>
+    Effect.runPromise(Effect.sync(() => {
       const before = BLOCK_IDS.map((id) => dropOfBlockId(id, FULLY_EQUIPPED))
 
       // The data a hypothetical new row would carry, exercised through the same
@@ -714,24 +714,24 @@ describe('additive safety', () => {
       expect(resolveDrop(hypotheticalTool, hypotheticalRule, 'oak_leaves', BARE_HANDED)).toBeUndefined()
 
       expect(BLOCK_IDS.map((id) => dropOfBlockId(id, FULLY_EQUIPPED))).toStrictEqual(before)
-    }),
+    })),
   )
 
-  it.effect('the harvest context grows without breaking callers: every member is optional', () =>
-    Effect.sync(() => {
+  it('the harvest context grows without breaking callers: every member is optional', () =>
+    Effect.runPromise(Effect.sync(() => {
       // `HarvestContext` is a PARAMETER, so a required member added later would
       // Break every call site in 14 repositories. The empty object being a
       // Legal context is that guarantee, spelled.
       const empty: HarvestContext = {}
       expect(empty).toStrictEqual(BARE_HANDED)
       expect(dropOfBlockId(blockIdOf('dirt'), empty)).toStrictEqual(dropOfBlockId(blockIdOf('dirt')))
-    }),
+    })),
   )
 })
 
 describe('the rule that keeps a `self` drop honest', () => {
-  it.effect('every row whose drop is `self` has an item form, so no row promises a drop it cannot make', () =>
-    Effect.sync(() => {
+  it('every row whose drop is `self` has an item form, so no row promises a drop it cannot make', () =>
+    Effect.runPromise(Effect.sync(() => {
       // THE INVARIANT THAT MAKES 65 NEW ITEM LITERALS NECESSARY RATHER THAN
       // TIDY, and the one this whole pair of rosters can go wrong in silently.
       //
@@ -766,11 +766,11 @@ describe('the rule that keeps a `self` drop honest', () => {
           drops: dropOfBlockId(entry.id, FULLY_EQUIPPED)?.item ?? 'nothing',
         }).toStrictEqual({ block: entry.definition.type, drops: entry.definition.type })
       }
-    }),
+    })),
   )
 
-  it.effect('`resolveDrop` still answers nothing for a `self` rule on a block with no item form', () =>
-    Effect.sync(() => {
+  it('`resolveDrop` still answers nothing for a `self` rule on a block with no item form', () =>
+    Effect.runPromise(Effect.sync(() => {
       // THIS ARM LOST ITS COVERAGE WHEN THE ROSTER WAS FIXED, and that is worth
       // Saying rather than quietly restoring.
       //
@@ -798,11 +798,11 @@ describe('the rule that keeps a `self` drop honest', () => {
         count: 1,
         item: 'dirt',
       })
-    }),
+    })),
   )
 
-  it.effect('the converse: a block that yields nothing says so in its rule, not by omission from ITEM_TYPES', () =>
-    Effect.sync(() => {
+  it('the converse: a block that yields nothing says so in its rule, not by omission from ITEM_TYPES', () =>
+    Effect.runPromise(Effect.sync(() => {
       // The other half of the rule in `domain/item-type.ts`. A block may
       // Legitimately drop nothing, but it has to be a DECISION in the row —
       // `count: 0` — rather than the side effect of a missing item literal.
@@ -836,11 +836,11 @@ describe('the rule that keeps a `self` drop honest', () => {
       // Ice to behave like glass, and it does not.
       expect(dropOfBlockId(blockIdOf('ice'), FULLY_EQUIPPED)).toBeUndefined()
       expect(dropOfBlockId(blockIdOf('glass'), FULLY_EQUIPPED)?.item).toBe('glass')
-    }),
+    })),
   )
 
-  it.effect('no item was added that no block and no earlier decision asked for', () =>
-    Effect.sync(() => {
+  it('no item was added that no block and no earlier decision asked for', () =>
+    Effect.runPromise(Effect.sync(() => {
       // The guard on the OTHER direction of the rule — the guessed-roster
       // Failure `domain/item-type.ts` exists to prevent. Every item literal must
       // Have one of three reasons, and "it seemed like a thing that exists" is
@@ -927,6 +927,6 @@ describe('the rule that keeps a `self` drop honest', () => {
       // Unexplained item cannot be hidden by adding a name to the exemption.
       expect([...EXPLICIT_NON_BLOCK_ITEMS].filter((name) => !ITEM_TYPES.includes(name as ItemType))).toStrictEqual([])
       expect([...EQUIPMENT_ITEMS]).toStrictEqual(IRON_ARMOUR_ITEM_TYPES)
-    }),
+    })),
   )
 })

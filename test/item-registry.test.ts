@@ -1,6 +1,6 @@
 /* eslint-disable max-statements, no-magic-numbers -- Permanent ids and encoded bytes are the contract under test. */
 /* eslint-disable sort-imports -- Keep the registry imports together above test runtime imports. */
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from 'vitest'
 import {
   ITEM_IDS,
   ITEM_REGISTRY,
@@ -52,8 +52,8 @@ const FISHING_ITEM_IDS = {
 } as const satisfies Readonly<Partial<Record<ItemType, number>>>
 
 describe('item registry', () => {
-  it.effect('covers the ItemType roster exactly once with dense permanent ids', () =>
-    Effect.sync(() => {
+  it('covers the ItemType roster exactly once with dense permanent ids', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(ITEM_REGISTRY.map(({ type }) => type)).toStrictEqual(ITEM_TYPES)
       expect(ITEM_IDS).toStrictEqual(ITEM_TYPES.map((_type, id) => id))
       expect(new Set(ITEM_REGISTRY.map(({ type }) => type)).size).toBe(ITEM_TYPES.length)
@@ -62,61 +62,61 @@ describe('item registry', () => {
       expect(itemIdOf('lily_pad')).toBe(126)
       expect(itemTypeOfId(126)).toBe('lily_pad')
       expect(itemTypeOfId(ItemId(126))).toBe('lily_pad')
-    }),
+    })),
   )
 
-  it.effect('appends each brewing item after every pre-existing item', () =>
-    Effect.sync(() => {
+  it('appends each brewing item after every pre-existing item', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const [type, id] of Object.entries(BREWING_ITEM_IDS)) {
         expect(itemIdOf(type as ItemType)).toBe(id)
         expect(itemTypeOfId(id)).toBe(type)
         expect(itemDefinitionOf(type as ItemType).id).toBe(id)
       }
-    }),
+    })),
   )
 
-  it.effect('appends the Eye of Ender without changing any existing permanent id', () =>
-    Effect.sync(() => {
+  it('appends the Eye of Ender without changing any existing permanent id', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(itemIdOf('ghast_tear')).toBe(134)
       expect(itemIdOf('eye_of_ender')).toBe(EYE_OF_ENDER_ITEM_ID)
       expect(itemTypeOfId(EYE_OF_ENDER_ITEM_ID)).toBe('eye_of_ender')
       expect(itemDefinitionOf('eye_of_ender').id).toBe(EYE_OF_ENDER_ITEM_ID)
-    }),
+    })),
   )
 
-  it.effect('appends the enchanted book after every pre-existing permanent id', () =>
-    Effect.sync(() => {
+  it('appends the enchanted book after every pre-existing permanent id', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(itemIdOf('eye_of_ender')).toBe(EYE_OF_ENDER_ITEM_ID)
       expect(itemIdOf('enchanted_book')).toBe(ENCHANTED_BOOK_ITEM_ID)
       expect(itemTypeOfId(ENCHANTED_BOOK_ITEM_ID)).toBe('enchanted_book')
       expect(itemDefinitionOf('enchanted_book').id).toBe(ENCHANTED_BOOK_ITEM_ID)
-    }),
+    })),
   )
 
-  it.effect('appends fluid and vehicle items without changing existing permanent ids', () =>
-    Effect.sync(() => {
+  it('appends fluid and vehicle items without changing existing permanent ids', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(itemIdOf('enchanted_book')).toBe(ENCHANTED_BOOK_ITEM_ID)
       for (const [type, id] of Object.entries(FLUID_AND_VEHICLE_ITEM_IDS)) {
         expect(itemIdOf(type as ItemType)).toBe(id)
         expect(itemTypeOfId(id)).toBe(type)
         expect(itemDefinitionOf(type as ItemType).id).toBe(id)
       }
-    }),
+    })),
   )
 
-  it.effect('appends fishing items without changing existing permanent ids', () =>
-    Effect.sync(() => {
+  it('appends fishing items without changing existing permanent ids', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(itemIdOf('minecart')).toBe(FLUID_AND_VEHICLE_ITEM_IDS.minecart)
       for (const [type, id] of Object.entries(FISHING_ITEM_IDS)) {
         expect(itemIdOf(type as ItemType)).toBe(id)
         expect(itemTypeOfId(id)).toBe(type)
         expect(itemDefinitionOf(type as ItemType).id).toBe(id)
       }
-    }),
+    })),
   )
 
-  it.effect('appends animal-interaction items without changing existing permanent ids', () =>
-    Effect.sync(() => {
+  it('appends animal-interaction items without changing existing permanent ids', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(itemIdOf('deepslate_emerald_ore')).toBe(169)
       expect(itemIdOf('shears')).toBe(170)
       expect(itemIdOf('wool')).toBe(171)
@@ -126,11 +126,11 @@ describe('item registry', () => {
       expect(itemTypeOfId(172)).toBe('dropper')
       expect(maxStackCountOfItem('shears')).toBe(1)
       expect(maxStackCountOfItem('wool')).toBe(64)
-    }),
+    })),
   )
 
-  it.effect('round-trips every registered item through its two-byte save and wire field', () =>
-    Effect.sync(() => {
+  it('round-trips every registered item through its two-byte save and wire field', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const type of ITEM_TYPES) {
         const bytes = encodeItemId(type)
         expect(ItemIdBytes(bytes)).toBe(bytes)
@@ -154,11 +154,11 @@ describe('item registry', () => {
       expect([...encodeItemId('shears')]).toStrictEqual([0, 170])
       expect([...encodeItemId('wool')]).toStrictEqual([0, 171])
       expect([...encodeItemId('dropper')]).toStrictEqual([0, 172])
-    }),
+    })),
   )
 
-  it.effect('accepts only complete bytes for registered item ids', () =>
-    Effect.sync(() => {
+  it('accepts only complete bytes for registered item ids', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(ItemIdBytes(new Uint8Array([0, 127]))).toStrictEqual(new Uint8Array([0, 127]))
       expect(ItemIdBytes(new Uint8Array([0, EYE_OF_ENDER_ITEM_ID]))).toStrictEqual(
         new Uint8Array([0, EYE_OF_ENDER_ITEM_ID]),
@@ -168,11 +168,13 @@ describe('item registry', () => {
       expect(() => ItemIdBytes(new Uint8Array([0, 127, 0]))).toThrow(/exactly 2 bytes/u)
       expect(() => ItemIdBytes(new Uint8Array([0, 173]))).toThrow(/registered item id/u)
       expect(() => ItemIdBytes(new Uint8Array([0xff, 0xff]))).toThrow(/registered item id/u)
-    }),
+    })),
   )
 
-  it.effect('recognises known and unknown uint16 item ids', () =>
-    Effect.sync(() => {
+  it('recognises known and unknown uint16 item ids', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(() => ItemId(-1)).toThrow()
+      expect(() => ItemId(0x10000)).toThrow()
       expect(isKnownItemId(134)).toBe(true)
       expect(isKnownItemId(EYE_OF_ENDER_ITEM_ID)).toBe(true)
       expect(isKnownItemId(ENCHANTED_BOOK_ITEM_ID)).toBe(true)
@@ -187,21 +189,21 @@ describe('item registry', () => {
       expect(isKnownItemId(173)).toBe(false)
       expect(isKnownItemId(-1)).toBe(false)
       expect(isKnownItemId(1.5)).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('narrows numbers to ItemId when known', () =>
-    Effect.sync(() => {
+  it('narrows numbers to ItemId when known', () =>
+    Effect.runPromise(Effect.sync(() => {
       const id = 134 as number
       if (!isKnownItemId(id)) {
         throw new Error('expected known item id in type-narrowing test')
       }
       expectTypeOf(id).toEqualTypeOf<ItemId>()
-    }),
+    })),
   )
 
-  it.effect('assigns the canonical 1, 16, and 64 stack limits', () =>
-    Effect.sync(() => {
+  it('assigns the canonical 1, 16, and 64 stack limits', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const type of [
         'water_bottle',
         'awkward_potion',
@@ -242,6 +244,6 @@ describe('item registry', () => {
       ] as const) {
         expect(maxStackCountOfItem(type)).toBe(64)
       }
-    }),
+    })),
   )
 })

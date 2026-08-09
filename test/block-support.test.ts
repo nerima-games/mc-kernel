@@ -36,7 +36,7 @@ import {
   needsOneOf,
   satisfiesSupportRule,
 } from '../src/domain/block-support'
-import { describe, expect, it } from '@effect/vitest'
+import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 
 const UNNAMED_BLOCK_TYPE = BLOCK_TYPES.at(BLOCK_TYPES.length)
@@ -53,34 +53,34 @@ const UNKNOWN_BLOCK_IDS = [UNKNOWN_BLOCK_ID, MAX_BLOCK_ID, NEGATIVE_BLOCK_ID, FR
 // ---------------------------------------------------------------------------
 
 describe('SupportRule — the three arms', () => {
-  it.effect('"none" is satisfied by anything, including a byte that names nothing', () =>
-    Effect.sync(() => {
+  it('"none" is satisfied by anything, including a byte that names nothing', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(satisfiesSupportRule(NEEDS_NO_SUPPORT, 'stone', true)).toBe(true)
       expect(satisfiesSupportRule(NEEDS_NO_SUPPORT, 'air', false)).toBe(true)
       expect(satisfiesSupportRule(NEEDS_NO_SUPPORT, UNNAMED_BLOCK_TYPE, false)).toBe(true)
-    }),
+    })),
   )
 
-  it.effect('"anySupporting" defers entirely to canSupportAttachments and ignores the name', () =>
-    Effect.sync(() => {
+  it('"anySupporting" defers entirely to canSupportAttachments and ignores the name', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(satisfiesSupportRule(NEEDS_ANY_SUPPORT, 'stone', true)).toBe(true)
       expect(satisfiesSupportRule(NEEDS_ANY_SUPPORT, 'stone', false)).toBe(false)
       // The name is not consulted, which is what makes this arm the reference's
       // Fallback rather than a fourteenth list: `block-support.ts:100` asks
       // `NON_SUPPORTING_BLOCK_TYPES` and nothing else.
       expect(satisfiesSupportRule(NEEDS_ANY_SUPPORT, UNNAMED_BLOCK_TYPE, true)).toBe(true)
-    }),
+    })),
   )
 
-  it.effect('"oneOf" consults the list and ignores canSupportAttachments', () =>
-    Effect.sync(() => {
+  it('"oneOf" consults the list and ignores canSupportAttachments', () =>
+    Effect.runPromise(Effect.sync(() => {
       const rule = needsOneOf('sand', 'cactus')
       expect(satisfiesSupportRule(rule, 'sand', false)).toBe(true)
       expect(satisfiesSupportRule(rule, 'cactus', false)).toBe(true)
       // `dirt` supports attachments and is still refused, which is the whole
       // Point of the column: the per-block list WINS over the negative set.
       expect(satisfiesSupportRule(rule, 'dirt', true)).toBe(false)
-    }),
+    })),
   )
 
   /*
@@ -91,15 +91,15 @@ describe('SupportRule — the three arms', () => {
    * is genuinely `true` for it, whereas no unnameable block can be a member of a
    * list of five names.
    */
-  it.effect('an unnameable block below holds up a torch and does not float a lily pad', () =>
-    Effect.sync(() => {
+  it('an unnameable block below holds up a torch and does not float a lily pad', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(satisfiesSupportRule(NEEDS_ANY_SUPPORT, UNNAMED_BLOCK_TYPE, true)).toBe(true)
       expect(satisfiesSupportRule(needsOneOf('water'), UNNAMED_BLOCK_TYPE, true)).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('isSupportSensitive is exactly "has a rule other than none"', () =>
-    Effect.sync(() => {
+  it('isSupportSensitive is exactly "has a rule other than none"', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(isSupportSensitive(NEEDS_NO_SUPPORT)).toBe(false)
       expect(isSupportSensitive(NEEDS_ANY_SUPPORT)).toBe(true)
       expect(isSupportSensitive(needsOneOf('farmland'))).toBe(true)
@@ -107,31 +107,31 @@ describe('SupportRule — the three arms', () => {
       // Nothing can hold up, which is a statable thing and not an absence.
       expect(isSupportSensitive(needsOneOf())).toBe(true)
       expect(satisfiesSupportRule(needsOneOf(), 'stone', true)).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('needsOneOf keeps the order it was given, so a row diffs against its source set', () =>
-    Effect.sync(() => {
+  it('needsOneOf keeps the order it was given, so a row diffs against its source set', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(needsOneOf('dirt', 'grass_block', 'sand', 'sugar_cane')).toStrictEqual({
         blocks: ['dirt', 'grass_block', 'sand', 'sugar_cane'],
         kind: 'oneOf',
       })
-    }),
+    })),
   )
 
-  it.effect('the default is "none", which is what makes adding this property semver-MINOR', () =>
-    Effect.sync(() => {
+  it('the default is "none", which is what makes adding this property semver-MINOR', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(BLOCK_PROPERTY_DEFAULTS.supportRule).toStrictEqual(NEEDS_NO_SUPPORT)
       expect(BLOCK_PROPERTY_NAMES).toContain('supportRule')
-    }),
+    })),
   )
 })
 
 describe('support-rule fallback totality', () => {
-  it.effect('rejects impossible support-rule kinds at the final default arm', () =>
-    Effect.sync(() => {
+  it('rejects impossible support-rule kinds at the final default arm', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(satisfiesSupportRule({ kind: 'invalid' } as never, 'stone', true)).toStrictEqual({ kind: 'invalid' })
-    }),
+    })),
   )
 })
 
@@ -174,8 +174,8 @@ const referenceSensitivity: ReadonlyArray<readonly [BlockType, boolean]> = [
 ]
 
 describe('the reference implementation’s block-support suite, ported as an oracle', () => {
-  it.effect('answers all thirteen of its support-rule cases the same way', () =>
-    Effect.sync(() => {
+  it('answers all thirteen of its support-rule cases the same way', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const [held, support, expected] of referenceCases) {
         expect({
           held,
@@ -183,18 +183,18 @@ describe('the reference implementation’s block-support suite, ported as an ora
           support,
         }).toStrictEqual({ held, stays: expected, support })
       }
-    }),
+    })),
   )
 
-  it.effect('answers all six of its sensitivity cases the same way', () =>
-    Effect.sync(() => {
+  it('answers all six of its sensitivity cases the same way', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const [held, expected] of referenceSensitivity) {
         expect({ held, sensitive: isSupportSensitiveBlockId(blockIdOf(held)) }).toStrictEqual({
           held,
           sensitive: expected,
         })
       }
-    }),
+    })),
   )
 
   /*
@@ -206,40 +206,40 @@ describe('the reference implementation’s block-support suite, ported as an ora
    * one cell it belongs on — and, having no list to check, allows it on stone.
    * mx-gameplay's F7 pinned exactly this pair as the current wrong behaviour.
    */
-  it.effect('a lily pad floats on water and does NOT sit on stone', () =>
-    Effect.sync(() => {
+  it('a lily pad floats on water and does NOT sit on stone', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(canBlockStaySupported(blockIdOf('lily_pad'), blockIdOf('water'))).toBe(true)
       expect(canBlockStaySupported(blockIdOf('lily_pad'), blockIdOf('stone'))).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('a cactus stands on sand and on a cactus, and on nothing else', () =>
-    Effect.sync(() => {
+  it('a cactus stands on sand and on a cactus, and on nothing else', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(canBlockStaySupported(blockIdOf('cactus'), blockIdOf('sand'))).toBe(true)
       expect(canBlockStaySupported(blockIdOf('cactus'), blockIdOf('cactus'))).toBe(true)
       expect(canBlockStaySupported(blockIdOf('cactus'), blockIdOf('dirt'))).toBe(false)
       expect(canBlockStaySupported(blockIdOf('cactus'), blockIdOf('stone'))).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('a sapling takes dirt, grass and farmland, and refuses stone', () =>
-    Effect.sync(() => {
+  it('a sapling takes dirt, grass and farmland, and refuses stone', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(canBlockStaySupported(blockIdOf('sapling'), blockIdOf('dirt'))).toBe(true)
       expect(canBlockStaySupported(blockIdOf('sapling'), blockIdOf('grass_block'))).toBe(true)
       expect(canBlockStaySupported(blockIdOf('sapling'), blockIdOf('farmland'))).toBe(true)
       expect(canBlockStaySupported(blockIdOf('sapling'), blockIdOf('stone'))).toBe(false)
-    }),
+    })),
   )
 
-  it.effect('sugar cane stacks on itself, and so does a cactus — the two self-referencing rules', () =>
-    Effect.sync(() => {
+  it('sugar cane stacks on itself, and so does a cactus — the two self-referencing rules', () =>
+    Effect.runPromise(Effect.sync(() => {
       expect(canBlockStaySupported(blockIdOf('sugar_cane'), blockIdOf('sugar_cane'))).toBe(true)
       expect(canBlockStaySupported(blockIdOf('sugar_cane'), blockIdOf('sand'))).toBe(true)
       expect(canBlockStaySupported(blockIdOf('sugar_cane'), blockIdOf('stone'))).toBe(false)
       // ...and they do not hold each other up, which is what a shared "plants
       // Stack" rule would have got wrong.
       expect(canBlockStaySupported(blockIdOf('cactus'), blockIdOf('sugar_cane'))).toBe(false)
-    }),
+    })),
   )
 })
 
@@ -292,17 +292,17 @@ const FALLS_THROUGH_TO_THE_NEGATIVE_LIST: ReadonlyArray<BlockType> = [
 ]
 
 describe('the supportRule column across the whole registry', () => {
-  it.effect('exactly twenty blocks are support-sensitive, and these are they', () =>
-    Effect.sync(() => {
+  it('exactly twenty blocks are support-sensitive, and these are they', () =>
+    Effect.runPromise(Effect.sync(() => {
       const sensitive = BLOCK_REGISTRY.filter((entry) => isSupportSensitiveBlockId(entry.id)).map(
         (entry) => entry.definition.type,
       )
       expect(sensitive).toStrictEqual(SUPPORT_SENSITIVE)
-    }),
+    })),
   )
 
-  it.effect('the other 103 require nothing below, so an ordinary cube is unaffected', () =>
-    Effect.sync(() => {
+  it('the other 103 require nothing below, so an ordinary cube is unaffected', () =>
+    Effect.runPromise(Effect.sync(() => {
       const indifferent = BLOCK_TYPES.filter((type) => !isSupportSensitiveBlockId(blockIdOf(type)))
       expect(indifferent.length).toBe(BLOCK_TYPES.length - SUPPORT_SENSITIVE.length)
       expect(indifferent.length).toBe(NON_SENSITIVE_BLOCK_COUNT)
@@ -312,7 +312,7 @@ describe('the supportRule column across the whole registry', () => {
         // Including air, which is what keeps a floating stone floating.
         expect(canBlockStaySupported(blockIdOf(type), blockIdOf('air'))).toBe(true)
       }
-    }),
+    })),
   )
 
   /*
@@ -322,8 +322,8 @@ describe('the supportRule column across the whole registry', () => {
    * been the easy mistake: five of the six are things that plausibly want
    * "dirt or stone", and the reference says only "anything that supports".
    */
-  it.effect('the six with no reference rule take the fallback arm and nothing more', () =>
-    Effect.sync(() => {
+  it('the six with no reference rule take the fallback arm and nothing more', () =>
+    Effect.runPromise(Effect.sync(() => {
       const fallback = SUPPORT_SENSITIVE.filter(
         (type) => supportRuleOfBlockId(blockIdOf(type)).kind === 'anySupporting',
       )
@@ -336,11 +336,11 @@ describe('the supportRule column across the whole registry', () => {
         expect(canBlockStaySupported(blockIdOf(type), blockIdOf('stone'))).toBe(true)
         expect(canBlockStaySupported(blockIdOf(type), blockIdOf('snow'))).toBe(false)
       }
-    }),
+    })),
   )
 
-  it.effect('the explicit support rules name only blocks that exist', () =>
-    Effect.sync(() => {
+  it('the explicit support rules name only blocks that exist', () =>
+    Effect.runPromise(Effect.sync(() => {
       const named = BLOCK_TYPES.flatMap((type) => {
         const rule = supportRuleOfBlockId(blockIdOf(type))
         if (rule.kind !== 'oneOf') {
@@ -366,11 +366,11 @@ describe('the supportRule column across the whole registry', () => {
         'sugar_cane',
         'water',
       ])
-    }),
+    })),
   )
 
-  it.effect('the seven surface plants share ONE rule, as the reference shares one set', () =>
-    Effect.sync(() => {
+  it('the seven surface plants share ONE rule, as the reference shares one set', () =>
+    Effect.runPromise(Effect.sync(() => {
       const plants: ReadonlyArray<BlockType> = [
         'sapling',
         'dandelion',
@@ -385,18 +385,18 @@ describe('the supportRule column across the whole registry', () => {
           needsOneOf('dirt', 'grass_block', 'farmland'),
         )
       }
-    }),
+    })),
   )
 
-  it.effect('keeps crop support aligned with vanilla farmland and soul sand rules', () =>
-    Effect.sync(() => {
+  it('keeps crop support aligned with vanilla farmland and soul sand rules', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const crop of ['wheat_crop', 'potato_crop'] as const) {
         expect(supportRuleOfBlockId(blockIdOf(crop))).toStrictEqual(needsOneOf('farmland'))
       }
       expect(supportRuleOfBlockId(blockIdOf('nether_wart_crop'))).toStrictEqual(needsOneOf('soul_sand'))
       expect(canBlockStaySupported(blockIdOf('nether_wart_crop'), blockIdOf('soul_sand'))).toBe(true)
       expect(canBlockStaySupported(blockIdOf('nether_wart_crop'), blockIdOf('farmland'))).toBe(false)
-    }),
+    })),
   )
 })
 
@@ -405,24 +405,24 @@ describe('the supportRule column across the whole registry', () => {
 // ---------------------------------------------------------------------------
 
 describe('the id-keyed readings are total', () => {
-  it.effect('an unknown byte requires nothing, is not sensitive, and stays where it is put', () =>
-    Effect.sync(() => {
+  it('an unknown byte requires nothing, is not sensitive, and stays where it is put', () =>
+    Effect.runPromise(Effect.sync(() => {
       for (const id of UNKNOWN_BLOCK_IDS) {
         expect(supportRuleOfBlockId(id)).toStrictEqual(NEEDS_NO_SUPPORT)
         expect(isSupportSensitiveBlockId(id)).toBe(false)
         expect(canBlockStaySupported(id, blockIdOf('air'))).toBe(true)
       }
-    }),
+    })),
   )
 
-  it.effect('an unknown byte BELOW reads as ordinary ground, matching capabilityOfBlockId', () =>
-    Effect.sync(() => {
+  it('an unknown byte BELOW reads as ordinary ground, matching capabilityOfBlockId', () =>
+    Effect.runPromise(Effect.sync(() => {
       // The fallback arm: an unknown byte resolves to an opaque cube, which
       // Supports attachments, so a torch stands on it.
       expect(canBlockStaySupported(blockIdOf('torch'), UNKNOWN_BLOCK_ID)).toBe(true)
       // The list arm: no unnameable block is a member of a list of names.
       expect(canBlockStaySupported(blockIdOf('lily_pad'), UNKNOWN_BLOCK_ID)).toBe(false)
       expect(canBlockStaySupported(blockIdOf('wheat_crop'), UNKNOWN_BLOCK_ID)).toBe(false)
-    }),
+    })),
   )
 })

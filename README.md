@@ -20,6 +20,11 @@ kernel は共有語彙そのものなので、どのリポジトリの依存許�
 逆に kernel は他のどのリポジトリも import できない。すべてのリポジトリが kernel に依存する以上、
 kernel が誰かに依存した時点で構造的に循環が生じるためである。
 
+実装は TypeScript の型と Effect のドメインロジックを中心に構成する。大きな語彙表は
+`*-data.ts` に不変データとして置き、guard・変換・検証などの処理は別モジュールに分ける。
+座標と Anvil の計画も責務ごとに分割し、公開 API は `src/index.ts` から明示的に再公開する。
+プラットフォーム固有の Adapter 層は kernel に置かない。
+
 詳細は **[docs/architecture.md](./docs/architecture.md)**（全 16 リポジトリの依存グラフ、推移閉包禁止、
 名詞/動詞ルール、kit の devDependency 専用ルール、stage 全順序の所有者）。
 
@@ -98,7 +103,7 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
 | `pnpm typecheck` | `tsconfig.build.json` と `tsconfig.test.json` の両方を型検査 |
 | `pnpm lint` | oxlint（このリポジトリ唯一の lint / format 設定。prettier も biome も .editorconfig も置かない）。**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は 5 カテゴリすべてと個別 67 ルールが `warn`、`error` は 4 つだけ。このフラグが無かった頃は実質その 4 つしかゲートになっていなかった） |
 | `pnpm lint:fix` | oxlint の自動修正 |
-| `pnpm test` | vitest（`@effect/vitest` の `it.effect` が主 API） |
+| `pnpm test` | Vitest 4（Effect のテストは native `it` と `Effect.runPromise` を直接利用） |
 | `pnpm test:watch` | vitest watch |
 | `pnpm test:coverage` | カバレッジ計測（全メトリクス100%。[docs/testing.md](./docs/testing.md) §4） |
 | `pnpm verify` | `typecheck && lint && test` |
@@ -130,6 +135,11 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
   [docs/public-api.md](./docs/public-api.md) §7 を参照。
 - **型付き ESM ビルドは実装済み。** `pnpm build` が `dist/` に JavaScript と declaration を生成し、
   `main` / `types` / `exports` はビルド成果物を指す。`files` には `dist/` とリリースに必要なメタデータだけを含める。
+- **データとロジックは分離している。** `block-type-data.ts` / `item-type-data.ts` は閉じた語彙表を保持し、
+  `block-type.ts` / `item-type.ts` は型と外部入力用の runtime guard を提供する。座標は primitive・key・変換・幾何・近傍、
+  Anvil は validation・transformation・orchestration に分割している。
+- **実行環境は Nix flake を正本とする。** `flake.nix` / `flake.lock` と `package.json` の `engines` / `packageManager` が
+  Node.js 24・pnpm 11・TypeScript 7 の境界を定義する。ASDF/asd や devenv の設定は置かず、環境定義を二重管理しない。
 - **配布境界のローカル検証は実装済み。** `pnpm package:verify` は実際に生成した tarball の
   `exports` 対象・`files` 内容・clean consumer からの import・`fixedClock` runtime を検査し、
   CI でも実行する。`.github/workflows/release.yaml` は `main` で package version が変わったときだけ、

@@ -193,3 +193,21 @@ kernel に標準順序表を置くと、順序を変えるたびに kernel を b
 
 mc-kernel は現在パッケージ分割しておらず、`domain/` 単一である。分割するとしてもリポジトリは増やさない
 （plan.md §5.3: core と block の分離は「ブロック追加が必ず両方を共変更する」ため棄却済み）。
+
+## 6. 2026年の内部モジュール境界
+
+リポジトリの公開パッケージ境界は一つのまま、実装ファイルは変更理由が異なる責務ごとに分ける。
+
+| 領域 | data | logic |
+| --- | --- | --- |
+| 語彙 | `domain/block-type-data.ts` / `item-type-data.ts` | `domain/block-type.ts` / `item-type.ts` の型・runtime guard |
+| 座標 | `domain/coordinate-primitives.ts` の定数・ブランド | key、近傍、変換、幾何を各モジュールに分離 |
+| Anvil | `domain/anvil-constants.ts` | validation、transformation、`anvil-planning.ts` の orchestration |
+
+`src/index.ts` はこの実装分割を隠し、消費側には意図した公開 API だけを提供する。内部モジュールを
+直接 import させるための Adapter や互換 shim は新設しない。公開 API を変える場合は、型検査・公開 API
+テスト・生成 tarball の clean consumer 検証を同じ変更で更新する。
+
+開発環境は `flake.nix` / `flake.lock` と `package.json` の `engines` / `packageManager` を正本とする。
+ASDF/asd、devenv、別の package-manager 用設定は置かない。Node.js 24 と pnpm 11 を前提に、Nix を使わない
+場合も同じバージョン境界を守る。
