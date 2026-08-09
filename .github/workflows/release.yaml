@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.event.before != '0000000000000000000000000000000000000000'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          registry-url: https://npm.pkg.github.com
+
+      - name: Set up Nix
+        uses: ./.github/actions/nix-setup
+        with:
+          cachix-cache: ${{ vars.CACHIX_CACHE }}
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Check whether the package version changed
+        id: version
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current_version="$(node --input-type=module --eval "import('./package.json', { with: { type: 'json' } }).then(({ default: packageJson }) => process.stdout.write(packageJson.version))")"
+          previous_version="$(git show "${BEFORE_SHA}:package.json" | node --input-type=module --eval "let source = ''; process.stdin.setEncoding('utf8'); process.stdin.on('data', (chunk) => { source += chunk }); process.stdin.on('end', () => process.stdout.write(JSON.parse(source).version))")"
+          if [[ "${current_version}" == "${previous_version}" ]]; then
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+            echo "package version unchanged (${current_version}); skipping publish"
+          else
+            echo "changed=true" >> "${GITHUB_OUTPUT}"
+            echo "package version changed: ${previous_version} -> ${current_version}"
+          fi
+
+      - name: Install dependencies
+        if: steps.version.outputs.changed == 'true'
+        run: nix develop --command pnpm install --frozen-lockfile
+
+      - name: Verify package and tests
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          nix develop --command pnpm verify
+          nix develop --command pnpm test:coverage
+          nix develop --command pnpm package:verify
+
+      - name: Publish to GitHub Packages
+        if: steps.version.outputs.changed == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: nix develop --command pnpm publish --no-git-checks

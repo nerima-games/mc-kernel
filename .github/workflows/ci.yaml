@@ -70,6 +70,12 @@ jobs:
       - name: Coverage (100% gate)
         run: nix develop --command pnpm test:coverage
 
+      # Exercise the exact packed bytes in a clean consumer before a release
+      # can be created. This catches export-map and files-allowlist mistakes
+      # that source tests cannot observe.
+      - name: Verify package boundary
+        run: nix develop --command pnpm package:verify
+
       - name: Upload coverage report
         if: always()
         # Pinned to a commit, not the mutable v6 tag (SUPPLY_CHAIN.md "アクションの固定").

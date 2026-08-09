@@ -66,7 +66,8 @@
     "pretest:coverage": "pnpm build",
     "test:coverage": "vitest run --coverage",
     "verify": "pnpm typecheck && pnpm lint && pnpm test",
-    "prepublishOnly": "pnpm verify"
+    "package:verify": "pnpm build && node scripts/verify-package.mjs",
+    "prepublishOnly": "pnpm verify && pnpm package:verify"
   },
   "dependencies": {
     "effect": "^3.22.1"
