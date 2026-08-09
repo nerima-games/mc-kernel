@@ -249,8 +249,8 @@ describe('the reference implementation’s block-support suite, ported as an ora
 
 /**
  * The nineteen rows of `SUPPORT_SENSITIVE_BLOCK_TYPES` (`block-support.ts:22-32`),
- * intersected with this roster — which is all of them, since the roster is the
- * reference's full 120.
+ * intersected with the current 123-row roster. The reference implementation
+ * contributes 120 rows; the kernel adds three explicit rows.
  *
  * Pinned as a LIST rather than a count. A count agrees with any nineteen blocks;
  * this is the membership, in registry order, and a row that gains or loses a

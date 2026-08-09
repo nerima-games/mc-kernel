@@ -710,7 +710,7 @@ describe('anvil item payload field validation', () => {
   it('rejects a custom name carrying a control character', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(snapshotAnvilState(state({
-        left: { ...item(), customName: 'bad name' as never },
+        left: { ...item(), customName: `bad${String.fromCharCode(0)}name` as never },
       }))).toStrictEqual({
         ok: false,
         issues: [{

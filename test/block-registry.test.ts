@@ -1152,9 +1152,9 @@ describe('the reference tables this roster transcribes', () => {
 })
 
 describe('the completed roster and additive gameplay vocabulary', () => {
-  it('keeps the reference’s 120 plus two additions distinct and registered', () =>
+  it('keeps the reference’s 120 plus three additions distinct and registered', () =>
     Effect.runPromise(Effect.sync(() => {
-      // `docs/testing.md` §5.2 re-derived the 120 from two hand-maintained
+      // `docs/testing.md` §5.2 re-derived the reference's 120 from two hand-maintained
       // Arrays in the reference that agree as sets (`BlockTypeSchema` and
       // `INDEX_TO_BLOCK_TYPE`). The number is pinned here rather than only in
       // Prose because prose is what gets re-quoted without being re-checked, and
@@ -1178,7 +1178,7 @@ describe('the completed roster and additive gameplay vocabulary', () => {
 
   it('fits the chunk byte, which is what makes the ids a wire format at all', () =>
     Effect.runPromise(Effect.sync(() => {
-      // 120 rows in a 256-value space. Worth an assertion rather than a comment:
+      // 123 rows in a 256-value space. Worth an assertion rather than a comment:
       // The ceiling is a property of the `Uint8Array` chunk buffer, and the day
       // The roster crosses it the fix is a chunk-format migration in mc-save,
       // Not a bigger number here.

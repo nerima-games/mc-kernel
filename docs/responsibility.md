@@ -43,7 +43,14 @@ domain/
   block-harvest.ts            # harvestTool / drops（struct 2 種を隔離）+ ドロップ解決
   block-definition.ts         # BlockDefinition と解決関数、実装/保留の台帳
   block-registry.ts           # 公開境界。数値 id ↔ BlockType と accessor
-  block-registry-entries.ts   # 宣言的なブロックレジストリ行
+  block-registry-entries.ts   # 宣言的なブロックレジストリの組み立て
+  block-registry-rules.ts     # 共有する既定値・support rule
+  block-registry-entries-foundation.ts         # 基礎ブロック
+  block-registry-entries-terrain.ts             # 地形ブロック
+  block-registry-entries-ores-and-blocks.ts     # 鉱石・基本ブロック
+  block-registry-entries-crops-and-redstone.ts  # 作物・レッドストーン
+  block-registry-entries-end.ts                 # エンド・特殊ブロック
+  block-registry-entries-structures-and-nether.ts # 構造物・ネザー
   block-registry-indexes.ts   # レジストリ行から導出する id-indexed lookup
   anvil.ts                    # Anvil の公開境界（計画・適用・snapshot codec）
   anvil-planning.ts           # Anvil の入力検証・修理・統合・最終計画
@@ -139,8 +146,9 @@ plan.md §2.3-5 により**依存は推移しない**ので、「下流のどこ
 何より、別表にすると plan.md §3.1 の「ブロック追加 = 定義テーブル 1 行」が
 **2 ファイル 2 行**になる。不変条件が壊れる。
 
-**`supportRule` も埋まった** —— block roster の完成が条件だったので、120 リテラルが揃った時点で
-書けるようになり、`domain/block-support.ts` として入った。`canBlockStaySupported(id, below)` が
+**`supportRule` も埋まった** —— 参照実装の 120 リテラルに対応し、kernel 独自の 3 行を加えた
+123 行の block roster が揃ったことで書けるようになり、`domain/block-support.ts` として入った。
+`canBlockStaySupported(id, below)` が
 その消費口で、mx-gameplay がフォールバックで代用していた per-block 規則をこれで置き換えた。
 
 `textureTiles` は保留のまま（`PENDING_CAPABILITIES`）。テクスチャアトラスの完成が条件で、

@@ -341,7 +341,8 @@ const PENDING_CAPABILITIES: ReadonlyArray<{ name, kind, why }> // 未実装 1 �
 ### 4-5. 未実装 1 件（`PENDING_CAPABILITIES`）
 
 `supportRule` はここにあったが**実装済み**になった（`domain/block-support.ts`、監査 §4.6.1）。
-保留理由は「block roster が無いと既定値を決められない」で、roster が 120 で完成した時点で消滅した。
+保留理由は「block roster が無いと既定値を決められない」で、参照実装の 120 リテラルを基礎に
+kernel の 123 行が完成した時点で消滅した。
 
 | 能力 | 種別 | 保留理由 |
 | --- | --- | --- |

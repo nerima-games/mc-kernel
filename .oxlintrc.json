@@ -32,7 +32,7 @@
     // Exception in this repo: the plan.md §4.1 contracts (StageRegistration, GameModule)
     // are reproduced verbatim as `interface` so the spec and the code read identically.
     "@typescript-eslint/consistent-type-definitions": ["warn", "type"],
-    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-explicit-any": "error",
     "@typescript-eslint/no-unused-vars": "warn",
     "@typescript-eslint/no-floating-promises": "warn",
     "@typescript-eslint/no-misused-new": "warn",

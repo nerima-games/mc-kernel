@@ -285,7 +285,8 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
       ])
 
       // The block half of the same ledger: 23 entries over 36 blocks before, 35
-      // Over 120 now. It grew far more slowly than the roster did, and its
+      // entries now. The block registry has 123 rows; the drop ledger is a
+      // separate, smaller set. It grew far more slowly than the roster did, and its
       // Composition changed completely — seven of the old entries turned out to
       // Be untranscribed drops rather than gaps (a block whose row says "yields
       // Itself" while its name is missing from `ITEM_TYPES` yields nothing,

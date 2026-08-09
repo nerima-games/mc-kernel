@@ -14,7 +14,7 @@ plan.md の 51/229 は再現できなかった。計数条件が書かれてい�
 **実測（2026-07-26、対象 `takeokunn/ts-minecraft`）**
 
 BlockType 名リテラルが**比較文脈**（`=== 'X'` / `!== 'X'` / `case 'X'`）に現れる箇所。
-`'X'` は `packages/core/domain/block-type.ts` の 120 リテラルに実際に含まれるものだけを数える。テストは除外。
+`'X'` は参照実装の `packages/core/domain/block-type.ts` にある 120 リテラルに実際に含まれるものだけを数える。テストは除外。
 
 ```console
 $ cd <ts-minecraft>

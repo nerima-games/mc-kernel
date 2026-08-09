@@ -129,58 +129,37 @@ export const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string> = [
 ]
 
 /**
- * Audited capabilities kernel does NOT implement yet, each with the reason and
- * the audit reference a future implementer needs.
+ * Audited capabilities that remain intentionally unmodeled.
  *
- * These are pending, not rejected. Every one of them can be added additively
- * (one row in the flag table or two lines in the property table) precisely
- * because the mechanism was built first.
+ * The kernel vocabulary and registry are now complete: both contain 123 rows.
+ * The reference implementation still defines 120 block kinds; the kernel adds
+ * the three explicit domain rows that the consuming API requires.
  *
- * ---------------------------------------------------------------------------
- * THREE OF THE FOUR HAVE LANDED; ONE MORE REMAINS. The roster arrived.
- * ---------------------------------------------------------------------------
+ * Implemented columns:
  *
- * Three of these entries said, in one form or another, that the capability
- * could not be given a meaningful default 「until the block roster exists」.
- * `./block-type` is now the reference's full 120 and `./block-registry` has a
- * row for every one, so that sentence has stopped being true. Recorded here
- * because a blocker that has silently expired is worse than a live one: it
- * keeps deterring work that nothing is actually preventing.
+ *   `supportRule`       `./block-support` carries the column and the registry
+ *     fills in all nineteen non-default rows. The default is `none`.
  *
- * What changed, capability by capability:
+ *   `footstepMaterial`  is a pure surface classification. Kernel deliberately
+ *     does not own cue IDs or audio playback; mc-audio remains the owner.
  *
- *   `supportRule`       IMPLEMENTED, and no longer on this list.
- *     `./block-support` carries the column and `./block-registry` fills in all
- *     nineteen non-default rows. Every block `block-support.ts:75-91` needs to
- *     name was in the roster — `farmland` (which all three crops require),
- *     `dirt`, `grass_block`, `sand`, `water`, `sugar_cane`, `cactus`,
- *     `lily_pad`. `farmland` was the last missing one, and its absence was what
- *     had made the rule unwritable.
+ *   `tillable`          is implemented in the kernel registry. Consumers use
+ *     the kernel column directly rather than maintaining a mirror.
  *
- *   `textureTiles`      UNBLOCKED as to the roster, but a design question
- *     survives it. Audit §4.8's objection — that the reference keeps a
- *     positional array indexed by storage index, double-managed against the
- *     definition table — is about the SHAPE and is untouched by the roster.
- *     "There is no block table yet" is no longer among the reasons to wait.
+ *   `textureTiles`      is unblocked as to the roster, but its positional
+ *     storage-index shape remains a separate design decision. It stays pending
+ *     until one authoritative tile representation is chosen.
  *
- *   `footstepMaterial`  IMPLEMENTED as a pure surface classification. Kernel
- *     deliberately does not own cue IDs or audio playback; mc-audio remains
- *     the owner of those concerns.
+ * Adding a capability is deliberately separate from the registry change. It is
+ * a semver-minor addition to a package fourteen repositories pin, so it should
+ * arrive as its own reviewable diff rather than being buried in the data table.
  *
- *   `tillable`          IMPLEMENTED in the kernel registry. mx-gameplay keeps a
- *     compatibility mirror until it consumes the next published kernel API.
- *
- * Implementing the remaining entries is deliberately separate from the roster
- * change. A capability is a semver-MINOR addition to a package fourteen
- * repositories pin, and it should arrive as its own reviewable diff rather than
- * buried in an 84-row table. `supportRule` and `tillable` arrived that way.
- *
- * Separately REJECTED, and therefore absent from both this list and the tables:
- * `properties.solid` and `faces`, which the reference's `BlockPropertiesSchema`
- * carries but which audit §7 verified are never read in production (`rg
- * '\.solid\b'` / `rg '\.faces\b'` -> 0 hits). Porting a field nobody reads
- * would have been the cheapest possible way to make the freeze wrong.
+ * Separately rejected, and therefore absent from both this list and the tables:
+ * `properties.solid` and `faces`, which the reference carries but which the
+ * audit verified are never read in production. Porting unread fields would make
+ * the public contract larger without adding behavior.
  */
+
 export const PENDING_CAPABILITIES: ReadonlyArray<{
   readonly name: string
   readonly kind: 'flag' | 'property'

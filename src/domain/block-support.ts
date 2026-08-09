@@ -23,7 +23,7 @@
  * a boolean plus a map:
  *
  *   `'none'`          the block requires nothing below. The default, and the
- *                     answer for 101 of the 120 rows.
+ *                     answer for 104 of the 123 rows.
  *   `'anySupporting'` it requires SOMETHING below, and any block that can hold
  *                     an attachment will do. This is the reference's fallback
  *                     arm, named.
