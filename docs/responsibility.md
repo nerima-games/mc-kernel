@@ -54,7 +54,7 @@ domain/
   clock.ts                    # ClockPort
   frame.ts                    # GameModule / StageRegistration / FrameServices
 scripts/
-  check-dependency-whitelist.ts   # 16 リポジトリ共通の境界ゲート（テンプレート）
+  verify-package.mjs              # pack 済み成果物の exports / install / runtime ゲート
 ```
 
 ## 3. 非スコープ（明示）
@@ -166,9 +166,10 @@ readonly silkTouchItem?: ItemType   // BlockDropRule に 1 メンバ
 そして同ファイルの変更規則（「新メンバは optional であるか、`BLOCK_PROPERTY_DEFAULTS` に
 既定値を持つこと」）を**満たしている**。14 の固定済み消費者のどれも壊さない。
 
-**実装時には公開面の凍結クロックも更新対象になった。**
-[versioning.md](./versioning.md) の 4 週間ロックの起点は `git log -1 -- api-lock.md` であり、
-`BlockDropRule` はその `api-lock.md` に**型本体が丸ごと転記されている**（現在 141 エントリ中の 1 つ）:
+**以下は旧 API ロック運用の歴史的記録である。**
+実装当時は公開面の凍結クロックも更新対象になり、
+[versioning.md](./versioning.md) の 4 週間ロックの起点を `git log -1 -- api-lock.md` で管理していた。
+`BlockDropRule` は当時の `api-lock.md` に型本体が丸ごと転記されていた（141 エントリ中の 1 つ）:
 
 ```ts
 type BlockDropRule = {

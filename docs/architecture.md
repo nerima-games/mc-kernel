@@ -1,7 +1,8 @@
 # アーキテクチャ
 
-出典: plan.md §2。本書は plan.md の構成を kernel 視点で読み直し、`scripts/check-dependency-whitelist.ts` が
-機械的に強制している内容と対応づけたもの。
+出典: plan.md §2。本書は plan.md の構成を kernel 視点で読み直したもの。
+全 16 リポジトリの graph は組織アーキテクチャの記録としてここに保持し、
+このリポジトリ自身の import 境界は `.oxlintrc.json` と `package.json` で検査する。
 
 ## 1. 4 階層
 
@@ -91,22 +92,24 @@ graph BT
   compose --> render
 ```
 
-この表は `scripts/check-dependency-whitelist.ts` の `REPOSITORY_POLICY.dependencyGraph` に転記されており、
-`test/check-dependency-whitelist.test.ts` が「16 行あること」「非循環であること」「全エッジの行先が存在すること」を検査している。
+この表は組織全体の依存 graph の記録であり、「16 行あること」「非循環であること」「全エッジの行先が存在すること」
+を判断する際の基準である。各リポジトリに graph 検査スクリプトを複製する方式は廃止し、
+このリポジトリでは直接依存の import 境界を `pnpm lint` で検査する。
 
 ### `dependencyGraph` に書かないもの（2 種類）
 
 | 書かないもの | 理由 |
 | --- | --- |
-| `@nerima-games/mc-kernel` を依存先として | kernel はどこからでも import 可（後述）。行に書くとノイズになるため `checkPolicyConfiguration` が拒否する |
+| `@nerima-games/mc-kernel` を依存先として | kernel はどこからでも import 可（後述）。組織 graph の記録には通常の edge として書かない |
 | `mx-gameplay -> mc-playground-kit` などの kit エッジ | kit は devDependency 専用であり**実行時エッジではない**。実行時グラフに載せると `kit -> render -> sim` と `gameplay -> sim` により循環に見えてしまう |
 
 ## 3. mc-kernel の位置づけ — 唯一の例外
 
 **mc-kernel は全リポジトリが import してよい。そして、そういうリポジトリは kernel だけである。**
 
-- kernel は共有語彙そのものなので、どのリポジトリの依存許可リストにも書かずに import できる（`check-dependency-whitelist.ts` rule 4）。
-  ただし `package.json` の `dependencies` への記載は必要 — 「どこからでも import 可」はポリシー上の免除であって、パッケージング上の免除ではない。
+- kernel は共有語彙そのものなので、組織 graph 上の通常の import 許可リストには載せない。
+  ただし `package.json` の `dependencies` への記載は必要 — 「どこからでも import 可」はポリシー上の免除であって、
+  パッケージング上の免除ではない。
 - 逆に **kernel は他のどのリポジトリにも依存できない**。全リポジトリが kernel に依存する以上、
   kernel が誰かに依存した時点で構造的に循環が生じる。`REPOSITORY_POLICY` の kernel 行が空集合であることがこれを保証する。
 
@@ -122,10 +125,9 @@ mc-render -> mc-sim -> mc-physics
 `mc-physics` が欲しければ直接依存として宣言する（`dependencyGraph` と `package.json` の両方に）。
 依存先の依存先に手を伸ばすのは、16 リポジトリ分割が静かにモノリスへ戻る経路そのものである。
 
-このルールはこのリポジトリのテストで実際に検査されている
-（`test/check-dependency-whitelist.test.ts` の `transitive closure against the real roster`）。
-kernel 自身の依存行は空なので kernel の席からはこのルールを踏めない。そのため検査関数には
-`PolicyView` を渡せるようにしてあり、「もしこのゲートが mc-render に置かれていたら何と言うか」をテストできる。
+このルールは組織 graph を更新・レビューするときの基準である。kernel 自身は他の
+`@nerima-games/*` パッケージを依存しないため、ローカルでは `.oxlintrc.json` の
+`no-restricted-imports` と `package.json` の依存宣言を検査すれば、kernel の層を保てる。
 
 ## 4. 設計ルール
 

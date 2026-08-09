@@ -395,9 +395,10 @@ const wallClockEpochMillis: Effect.Effect<EpochMillis, never, ClockPort>
 kernel はテスト用の固定実装だけを持ち、**実クロックを読むアダプタは持たない**。
 実装は利用側（ブラウザなら `performance` / Node なら `process.hrtime`）が注入する。
 
-壁時計の直接参照（`Date.now()` / `new Date()` / `performance.now()`）は
-`scripts/check-dependency-whitelist.ts` が全リポジトリで禁止している。
-Port を実装するアダプタだけは実クロックを読む必要があるため、その行に `mc-kernel-allow-time-source` を書くと除外される。
+壁時計の直接参照（`Date.now()` / `new Date()` / `performance.now()`）は kernel のシミュレーションコードに置かない。
+現行の自動 import 境界は `.oxlintrc.json` の `no-restricted-imports` と `pnpm lint` が担う一方、
+oxlint 0.12 はこの wall-clock の構文・プロパティ禁止を表現できないため、時刻ソースの禁止は設計規約として扱う。
+Port を実装するプラットフォームアダプタだけが実クロックを読み、kernel の利用側には `ClockPort` を注入する。
 
 ## 7. `GameModule` / `StageRegistration`（frame）
 

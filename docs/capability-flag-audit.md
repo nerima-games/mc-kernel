@@ -14,7 +14,7 @@ plan.md §3.1 は能力フラグとして `passable` / `fallsWhenUnsupported` / 
 1. `packages/core/domain/block-type.ts:3-132` の `BlockTypeSchema` から語彙を取得。**リテラル数 120**(plan.md の記述は概数)。
    - **2026-07-27 追記: この 120 は再計数して確認済み。**`Schema.Literal(...)`(`block-type.ts:4-131`)は
      コメント 8 行を除いて **120 リテラル / distinct 120 / 重複なし**。独立した手書き配列である
-     `INDEX_TO_BLOCK_TYPE`(`block-codec.ts:8-83`)も **120 / distinct 120** で、**両者の集合は完全に一致**する
+     `INDEX_TO_BLOCK_TYPE`(`block-registry-entries.ts` / `block-registry-indexes.ts`)も **120 / distinct 120** で、**両者の集合は完全に一致**する
      (対称差が空)。コメント行を除外せずに行数で数えると 128 になるので、その混同だけは避けること。
      重複を確認したのは、閉じたリテラル union では**メンバー集合が型そのもの**であり、重複があれば
      行数が型の大きさを過大に言うため。詳細は [testing.md](./testing.md) §5.2。

@@ -131,13 +131,15 @@ GLASS / LEAVES / SNOW の 3 行を参照実装のメンバーシップどおり�
 
 | # | 原則 | kernel での実現 | 状態 |
 | --- | --- | --- | --- |
-| 1 | **ブロック挙動 = 能力フラグ。** 名指し ID 判定の散乱を構造的に不可能にする | `block-capabilities.ts` / `block-properties.ts` / `block-definition.ts`。関数を置ける場所が無い | 実装済み（能力 24/28） |
+| 1 | **ブロック挙動 = 能力フラグ。** 名指し ID 判定の散乱を構造的に不可能にする | `block-capabilities.ts` / `block-properties.ts` / `block-definition.ts`。関数を置ける場所が無い | 実装済み（能力 27/28） |
 | 2 | **カメラ姿勢は sim 所有** | `CameraPoseSnapshot` を kernel の語彙として公開。`mc-render` は読むだけ | 型は実装済み。所有権の強制は `mc-sim` 側の仕事 |
 | 3 | **クロック注入による決定論。** 全シミュレーションが fast-forward 可能 | `ClockPort` + `fixedClock` / `FixedClockLayer`。実クロックアダプタは kernel に置かない | 実装済み |
-| 4 | **依存ホワイトリスト CI を初回コミットから** | `scripts/check-dependency-whitelist.ts`。16 リポジトリ共通テンプレート。全 16 行の roster 入り | 実装済み |
+| 4 | **依存境界を直接 import で検査する** | `.oxlintrc.json` の `no-restricted-imports` と `pnpm lint`。kernel は内部 `@nerima-games/*` に依存しない | 実装済み |
 
-「後付け不可能」の意味は、4 つとも**全リポジトリの書き方を規定する**ため、後から入れると全リポジトリを書き直すことになるから。
-特に 1 と 3 は、違反したコードが**動いてしまう**（テストも通る）ので、機械的な検査がないと必ず侵食される。
+「後付け不可能」の意味は、能力モデルと時刻の注入が**全リポジトリの書き方を規定する**ため、後から入れると全リポジトリを書き直すことになるから。
+特に能力モデルとクロックは、違反したコードが**動いてしまう**（テストも通る）ので、境界を機械的に守る必要がある。
+依存グラフそのものは org 共通のアーキテクチャ記録として管理し、このリポジトリの直接 import は
+`.oxlintrc.json` の `no-restricted-imports` と `pnpm lint` で検査する。全リポジトリの roster を複製するスクリプトは、記録と実行境界の二重管理を避けるため置かない。
 
 ## 5. パフォーマンス例外（plan.md §5.2）
 

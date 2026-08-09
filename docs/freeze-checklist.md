@@ -1,9 +1,13 @@
 # API 凍結チェックリスト（1.0.0 の前提条件）
 
 mc-kernel の公開 API を `1.0.0` として凍結する前に満たすべき条件。
-**(a) (b) (b') (c) はいずれも満たしている。** 下流実消費も `pnpm check:repoint` で通った。
+**(a) (b) (b') は現行の内部品質ゲートで満たしている。** (c) の下流実消費は、
+`mc-dev-meta` workspace で過去に実行した `pnpm check:repoint` の結果を下記に記録している。
+このリポジトリ単独で現在再実行できる検査ではないため、公開物の現在の境界は
+`pnpm package:verify` として別途検証する。
 型検査・lint・test・release build・4メトリクスの100%カバレッジという内部品質ゲートも満たしている。
-一方、GitHub Packages の publish job と公開 tarball の install 検証は未実装であり、公開完了とはまだ扱わない。
+一方、GitHub Packages の release workflow と、生成した tarball を検証するローカル境界ゲートは実装済みだが、
+実際の publish と公開レジストリからの install は未実行であり、公開完了とはまだ扱わない。
 
 **この判定に自動ゲートは存在しない。** 以前は「`api-lock.md` が 4 週間無変更であること」という
 日数計測ベースの自動ゲートを最後の関門としていたが、`api-lock.md` / `scripts/api-lock.ts` /
@@ -11,7 +15,7 @@ mc-kernel の公開 API を `1.0.0` として凍結する前に満たすべき�
 （[API_STANDARD.md §4](https://github.com/nerima-games/.github/blob/main/API_STANDARD.md#4-自動-apiロックスナップショットツールは使わない)）。
 1.0.0 への昇格は、計測期間や自動判定に代えて **maintainer（take）の裁量判断のみ**で行う
 （[RELEASE_STANDARD.md §4.2](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#42-新しい昇格ポリシー人間による裁量判断)）。
-残る実質的な未達成項目は、GitHub Packages への publish と公開物の install 検証、および
+残る実質的な未達成項目は、GitHub Packages への実 publish と公開物を公開レジストリから install する検証、および
 1.0.0 へ昇格する maintainer 判断である。
 
 凍結が特別扱いされる理由は [versioning.md](./versioning.md) §5 にある。
@@ -171,19 +175,21 @@ kernel 内のテストは kernel の想定どおりの stage しか書かない�
 「THREE カメラが正でシミュレーションが描画から視線を読む逆転構造」は、
 どちらのモジュールも単体では正しく見え、束ねて初めて逆転が見える種類の欠陥だった。
 
-### (c) 下流実消費 — ✅ 通った（経緯は残す）
+### (c) 下流実消費 — ✅ 過去検証済み（経緯は残す）
 
 **要件**: 下流リポジトリが少なくとも 1 つ、実際に kernel を消費して契約を確認していること
 ([versioning.md](./versioning.md) §2)。
 
-これは 2026-07-27 に**初めて機械的に測定された**。
+これは 2026-07-27 に `mc-dev-meta` workspace 上で**初めて機械的に測定された**記録である。
+この作業では外部 workspace を再取得していないため、以下はその時点の結果として扱う。
 測定手段は mc-dev-meta の `pnpm check:repoint` で、各ミラーのヘッダが約束している当の操作 —
 **ミラーファイルを消し、import を `@nerima-games/mc-kernel` に張り替え、`tsc` を走らせる** —
 を使い捨てコピーに対して実行する
 (`mc-dev-meta/docs/testing.md` §6.1、`mc-dev-meta/domain/repoint-plan.ts`)。
 
 **初回の結果: 3 リポジトリすべてで張り替えがコンパイルを通らなかった。** 合計 17 件。
-**現在は 17 件すべて修正済みで、`pnpm check:repoint` は緑、`KNOWN_REPOINT_FINDINGS` は空である。**
+**その測定時点では 17 件すべて修正済みで、`pnpm check:repoint` は緑、
+`KNOWN_REPOINT_FINDINGS` は空であった。**
 以下の分析は、何が起きたかの記録として残す —— 結論より経路のほうが再利用できるからである。
 
 | 下流 | shipped source (`tsconfig.build.json`) | test / preview |
@@ -236,9 +242,11 @@ shipped source は 1 行も要らない。作業内容は
 - 検証される: モジュール解決、`package.json#exports` マップ、`types` フィールド、
   バレルの再 export 形状、そして**全消費箇所での型の同一性**。
   張り替え先は `repos/` 内の実ディレクトリで、`exports` 経由で解決される。
-- 検証されない: **`files` と tarball の中身。** tarball は作られないので、
-  `domain/` を丸ごと落としたまま publish されるパッケージもこのゲートは通る。
-  mc-render は実際にそれを publish する一歩手前まで行っている。
+- 追加で検証される: `pnpm package:verify` は実際に tarball を作り、`files` の内容、`exports` の全 target、
+  clean consumer からの import、`fixedClock` の runtime を確認する。これにより、生成物を読まない
+  workspace の張り替えだけでは見つからないローカルの packaging 欠落を検出できる。
+- 検証されない: **公開レジストリから取得した tarball の install。** 実際の GitHub Packages の公開と、
+  公開後の registry install / runtime はまだ実行していない。
 - 検証されない: **振る舞い。** これは typecheck である。
   互いに型が付いたまま、関数の意味について食い違う 2 つのモジュールはありうる。
 
@@ -248,7 +256,8 @@ shipped source は 1 行も要らない。作業内容は
 - [x] (b) 縦切りスパイクが `GameModule` / `StageRegistration` / `FrameServices` を実消費者で検証している
 - [x] (b') その結果 `FrameServices` が確定し、プレースホルダである旨のコメントが消えている
 - [x] 内部の完成条件（[testing.md](./testing.md) §5 の typecheck / lint / test / build / coverage）を満たしている
-- [ ] GitHub Packages の publish job と公開 tarball の install 検証を完了している
+- [x] GitHub Packages の release workflow と、生成 tarball の `files` / `exports` / clean consumer / runtime ゲートが用意されている
+- [ ] GitHub Packages への実 publish と、公開レジストリから取得した tarball の install 検証を完了している
 - [ ] 1.0.0 へ昇格する maintainer 判断が完了している
 - [x] 下流リポジトリが少なくとも 1 つ、実際に kernel を消費して契約を確認している（[versioning.md](./versioning.md) §2）
       — **3 リポジトリ（mx-gameplay / mx-ui / mx-redstone）で、ミラーを削除し import を
@@ -262,12 +271,11 @@ shipped source は 1 行も要らない。作業内容は
       | 検証済み | 未検証 |
       | --- | --- |
       | ミラー削除後に import が解決すること | publish 済みパッケージの **install** |
-      | `exports` / `types` フィールド、ローカル `pnpm pack --dry-run` の候補確認 | 公開 tarball の **install** |
+      | `exports` / `types` フィールド、`pnpm package:verify` による実 tarball の `files` / export target / clean install / runtime | 公開 tarball の **install** |
       | 3 リポジトリの build / test / preview 全プロジェクトの型検査 | 実行時の挙動（`tsc` であって `vitest` ではない） |
 
       workspace の張り替えは publish の**リハーサルであって publish ではない**。
-      mc-render は一度、`files` が丸ごと 1 ディレクトリを落としたパッケージを
-      出荷しかけている —— このゲートはそれを捕まえない。
+      ただし、現在は `pnpm package:verify` が `files` の欠落をローカル tarball 上で検出する。
 
 **(歴史的経緯)** かつて plan.md §9 は「API ロックファイルのツール選定（api-extractor 相当の
 Effect-TS 互換手段）」を未決事項として挙げていた。`@microsoft/api-extractor` は mc-kernel の実コードで
@@ -279,7 +287,7 @@ Effect-TS 互換手段）」を未決事項として挙げていた。`@microsof
 **この自動ゲート（および `api-lock.md` / `scripts/api-lock.ts` 自体）は org 標準の変更により削除済みである。**
 1.0.0 への昇格は日数計測を伴わず、[RELEASE_STANDARD.md §4.2](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#42-新しい昇格ポリシー人間による裁量判断)
 が定めるとおり maintainer（take）の裁量判断のみで行う。内部品質の完成条件と下流実消費は満たしているが、
-publish job、公開 tarball の install 検証、1.0.0 昇格判断は別途完了させる必要がある。
+実際の公開・公開レジストリからの install 検証・1.0.0 昇格判断は別途完了させる必要がある。
 
 > **(歴史的経緯) 計測は過去に一度リセットされたことがある。** アイテム語彙の投入
 > （`domain/item-type.ts` / `domain/block-item.ts`、`BlockDropRule.item` の型変更、
@@ -313,8 +321,9 @@ publish job、公開 tarball の install 検証、1.0.0 昇格判断は別途完
 - `mc-playground-kit/domain/kernel-vocabulary.ts` は本改訂の時点でまだ旧形状
   （`frameStages` が配列）を持っている可能性がある。kit の所有者が追随する必要がある。
 - `mc-compose` は `FrameServices` を運んで discharge する側に変わった。
-  `mc-compose -> mc-render` のエッジが依存ホワイトリストに追加されている（下記 §なし、
-  `mc-compose/docs/architecture.md` §5 を参照）。
+  `mc-compose -> mc-render` のエッジは組織のアーキテクチャ記録で管理し、各リポジトリの
+  直接 import 境界はそれぞれの lint 設定で検査する（このリポジトリでは `.oxlintrc.json` と
+  `pnpm lint`）。
 
 ## 凍結後に変えられなくなるもの
 
