@@ -158,7 +158,8 @@ kernel が公開する形が下流の性能を決めるため記録しておく�
 kernel は「宣言的テーブル」と「index 展開済みルックアップ」の**両方**を公開し、消費側に `Set` / `HashSet` を組ませないこと。
 
 `BlockId` はすでに `Uint8Array` に対応する安定した密な数値 ID であり、
-`block-registry-data.ts` は宣言的なレジストリから id-indexed lookup columns を構築している。
+`block-registry-entries.ts` は宣言的なレジストリ行を保持し、`block-registry-indexes.ts` はそこから
+id-indexed lookup columns を構築している。
 `isEmpty(blockId)` はこの wire contract の id 0 を直接比較するため、空気判定で表や `Set` を引かない。
 
 **残課題。** 追加の index 展開済み lookup を公開する場合は、実際の下流ホットパスと測定結果を先に確定する。

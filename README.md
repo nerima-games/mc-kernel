@@ -34,9 +34,9 @@ kernel が誰かに依存した時点で構造的に循環が生じるためで�
 | [docs/public-api.md](./docs/public-api.md) | 公開 API 全体と、各横断型が**なぜ kernel にあるのか** |
 | [docs/capability-flag-audit.md](./docs/capability-flag-audit.md) | **能力フラグ監査（一次資料・能力モデルの権威）** |
 | [docs/design-notes.md](./docs/design-notes.md) | 参照実装の名指し判定散乱の実測、初日原則、「ブロック追加 = 1 行」不変条件 |
-| [docs/testing.md](./docs/testing.md) | 検証要件・完成条件・99% カバレッジゲートの投入時期 |
+| [docs/testing.md](./docs/testing.md) | 検証要件・完成条件・100% カバレッジゲート |
 | [docs/versioning.md](./docs/versioning.md) | 0.x → 1.0.0 方針、GitHub Packages、**加算的な能力追加がなぜ死活問題か** |
-| [docs/freeze-checklist.md](./docs/freeze-checklist.md) | 1.0.0 凍結の前提条件（監査 ✅ / 縦切りスパイク ❌） |
+| [docs/freeze-checklist.md](./docs/freeze-checklist.md) | 1.0.0 凍結の前提条件と、公開前に残る項目 |
 
 ## 依存ルール（16 リポジトリ共通）
 
@@ -97,12 +97,12 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
 | `pnpm lint:fix` | oxlint の自動修正 |
 | `pnpm test` | vitest（`@effect/vitest` の `it.effect` が主 API） |
 | `pnpm test:watch` | vitest watch |
-| `pnpm test:coverage` | カバレッジ計測（閾値は未設定。[docs/testing.md](./docs/testing.md) §4） |
+| `pnpm test:coverage` | カバレッジ計測（全メトリクス100%。[docs/testing.md](./docs/testing.md) §4） |
 | `pnpm verify` | `typecheck && lint && test` |
 
 ## 現状
 
-- **ブロック能力モデルは監査に整合済み。** `docs/capability-flag-audit.md` の 28 能力のうち **24 実装 / 4 保留**。
+- **ブロック能力モデルは監査に整合済み。** `docs/capability-flag-audit.md` の 28 能力のうち **27 実装 / 1 保留**。
   保留分は `PENDING_CAPABILITIES` に理由つきで記録され、テストが「実装済み + 保留 = 監査の 28」を検査している。
   plan.md §3.1 が boolean としていた 3 つ（`emissive` / `transparent` / `fluid`）は監査に従って
   `lightEmission: 0..15` / `opacity: 3 値` / `fluid: 'none'|'water'|'lava'` に修正済み。
@@ -124,10 +124,13 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
   同じスパイクで `GameModule.frameStages` が配列から Effect になり、`RRegister` パラメータが増えた。
   [docs/freeze-checklist.md](./docs/freeze-checklist.md) (b) と
   [docs/public-api.md](./docs/public-api.md) §7 を参照。
-- **ビルド／publish はまだない。** `exports` は TypeScript ソースを直接指している。
-  GitHub Packages への publish パイプラインは完成条件到達時に追加し、それまで `version` は `0.x` に留める
+- **型付き ESM ビルドは実装済み。** `pnpm build` が `dist/` に JavaScript と declaration を生成し、
+  `main` / `types` / `exports` はビルド成果物を指す。`files` には `dist/` とリリースに必要なメタデータだけを含める。
+- **GitHub Packages への実公開と、公開 tarball を install する検証は未実施。** `publishConfig` は設定済みだが、
+  publish job はまだ追加していないため、`version` は下流の実消費とリリース判断が完了するまで `0.x` に留める
   （[docs/versioning.md](./docs/versioning.md)）。
-- **カバレッジ閾値は未設定。** 計測とレポートは常に動かしており、99% ゲートは完成条件到達時に有効化する。
+- **カバレッジは全メトリクス100%を閾値にする。** `pnpm test:coverage` と CI のカバレッジゲートが
+  Statements / Branches / Functions / Lines を検査する（[docs/testing.md](./docs/testing.md) §4）。
 
 ## License
 

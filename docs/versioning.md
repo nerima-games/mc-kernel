@@ -4,7 +4,9 @@
 
 - **バージョン: `0.3.0`。**（`0.2.19` からの bump 理由は `Chunk.blocks` の `ChunkBlocks` 化という破壊的変更）
 - **最新の破壊的変更:** `Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks`。API の詳細は [public-api.md](./public-api.md) の「Chunk バイナリ形式」、変更履歴は [CHANGELOG.md](../CHANGELOG.md) の `0.3.0` を参照。
-- **publish パイプラインは無い。** `package.json` の `exports` は TypeScript ソースを直接指しており、ビルド成果物は存在しない。
+- **配布用 build は実装済み。** `pnpm build` が `src/` から型付き ESM と declaration / source map を `dist/` に生成し、
+  `package.json` の `main` / `types` / `exports` は `dist/` を指す。`files` も `dist/` と配布メタデータに限定している。
+- **publish パイプラインは未実装。** GitHub Packages への publish job と、公開 tarball を別環境で install する検証はまだ行っていない。
 - 開発中は `mc-dev-meta` workspace（16 リポジトリを `repos/` に clone して 1 つの pnpm workspace として束ねる）による
   `workspace:*` 解決でモノレポ同等の DX を得る（plan.md §6 Step 0-2）。
 
@@ -50,27 +52,31 @@ kernel の場合その差が全リポジトリに波及する。
 **`.npmrc` にはレジストリ設定が入っていない。** 現在の `.npmrc` は `fast-check` / `pure-rand` の
 hoist 設定だけであり、`@nerima-games:registry=` の行と認証トークンの受け渡しは publish パイプラインを追加するときに足す。
 
-## 4. build / publish パイプラインは完成時に追加する
+## 4. build / publish の現状
 
-現在 `tsconfig.base.json` は `noEmit: true` であり、全 tsconfig が検査専用である。
+検査用設定と配布用設定を分けている。`tsconfig.base.json` と `tsconfig.build.json` は `noEmit: true` の
+型検査用で、`tsconfig.release.json` だけが `noEmit: false` と `outDir: dist` を持つ唯一の emit 設定である。
 
-完成条件（[testing.md](./testing.md) §5）に到達した時点で以下を追加する:
+実装済みの配布準備:
 
-1. `tsconfig.build.json` を emit ありに変更し、`dist/` を生成する
-2. `package.json` の `main` / `types` / `exports` を `dist/` に向ける
-3. `files` から `src` を外し `dist` を入れる
-4. GitHub Actions に publish job を追加する（`RELEASE_STANDARD.md §3` の設計に従い、
-   changesets のリリース PR がバージョンを確定させた push でのみ発火する）
+1. `pnpm build` が `src/` から JavaScript、declaration、source map を `dist/` に生成する
+2. `package.json` の root export と `domain/block-registry`、`domain/chunk` の subpath export が `dist/` を指す
+3. `files` が `dist`、`tsconfig.base.json`、`LICENSE`、`README.md` に限定される
+4. `prepublishOnly` が `pnpm verify` を実行し、publish 前の型検査・lint・テストを必須にする
+
+未実装のリリース作業:
+
+1. `RELEASE_STANDARD.md §3` に従う GitHub Actions publish job
+2. 公開済み tarball を install して import と runtime を確認する独立検証
 
 **changesets 自体は導入済み。** `.changeset/config.json`（`access: restricted`、`baseBranch: main`、
 `@changesets/changelog-github`）と `@changesets/cli` devDependency は
-org 標準（[RELEASE_STANDARD.md §1](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#1-changesets-導入)）
-に従い先行して導入した。上記リストが「完成時に追加する」と言っているのは、
-publish job の新設と `dist/` への切り替えのみである。
+org 標準（[RELEASE_STANDARD.md §1](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#1-changesets-導入)）に従う。
+バージョン bump と CHANGELOG 生成は changesets に一本化し、上記の未実装項目は publish job と
+公開物の install 検証に限定される。
 
-**先にやらない理由**: ビルド成果物を介すと型エラーがビルド時にしか出なくなり、
-16 リポジトリを 1 つの workspace で開発している間の DX が落ちる。
-また `exports` の形を先に固めると、パッケージ分割（plan.md §2.4 の「パッケージは自由に細かく」）の余地が狭まる。
+**開発時の扱い**: 通常の `pnpm typecheck` は source を直接検査し、release build は `pnpm build` として
+明示的に実行する。これにより開発中の型検査で `src/` が生成物に置き換わることはない。
 
 ## 5. なぜ**加算的な能力追加**がここまで重要なのか
 
@@ -250,10 +256,10 @@ api-extractor のレポートを再生成したところ、**バイト単位で�
 [freeze-checklist.md](./freeze-checklist.md) の「凍結後に変えられなくなるもの」は
 `ClockPort` の Tag 文字列そのものを名指ししている。ロックすべき当のものが写らない。
 
-副次的なコスト（上記より軽いが実在する）:
+副次的なコスト（上記より軽いが実在する、当時の検討記録）:
 
-- api-extractor は `.d.ts` を食う。本リポジトリ群にビルド段はない（`tsconfig.build.json` は `noEmit: true`、
-  `exports` は TypeScript ソースを直指し）ので、まず declaration emit をディスクに配線する必要がある。
+- api-extractor は `.d.ts` を食う。当時は配布用の declaration emit が無かったため、まず emit をディスクに
+  配線する必要があった。この検討後、現在の配布 build は §4 の `tsconfig.release.json` に移行した。
 - 16 の公開リポジトリに 47 パッケージの推移的依存と、リポジトリごとの `api-extractor.json` が増える。
 - `ae-missing-release-tag` が `@public` タグの無い export 全部で発火する。mc-kernel だけで警告 70 件、
   実行結果は "completed with errors"。設定 1 行で黙らせられるが、満たすには全リポジトリの全 export にタグが要る。
@@ -262,11 +268,13 @@ api-extractor が**正しくやっていたこと**は採用した: 名前でソ
 ハッシュではなくシグネチャを出す（レビュアが読める）。ノイズ耐性テスト（本体編集・非公開ヘルパ追加・
 barrel 並べ替え・devDependency bump）は api-extractor も**全部通っている**。差が出たのは検出側だけである。
 
-### 7-2. 仕組み
+### 7-2. 仕組み（廃止済み API lock の記録）
 
-1. `tsconfig.build.json`（typecheck ゲートと同じ出荷ソース）から Program を作る。
-2. declaration emit を**メモリ上で**走らせる。ディスクには何も書かないので「ビルド段が無い」性質は保たれる。
-   `dist/` も `.d.ts` も `.gitignore` の追加行も発生しない。
+以下は現在は廃止された API lock generator の設計記録である。配布 build と publish の現行方針は §4 を正とする。
+
+1. 当時の `tsconfig.build.json`（typecheck ゲートと同じ出荷ソース）から Program を作る。
+2. declaration emit を**メモリ上で**走らせた。ディスクには何も書かないため、当時の「配布 build が無い」
+   状態を保ったまま API を検査できた。
 3. その仮想 `.d.ts` 群でもう一度 Program を作り、`index.d.ts` の export を型検査器に問う。
    これが公開面の正本である（`export *` を辿り、`export type` を尊重し、barrel が出していないものを除く）。
 4. 各 export を tsc が出した通りのテキストで、名前順にレンダリングする。

@@ -20,6 +20,7 @@
 | ブロック能力モデル | 能力フラグ表（boolean）+ プロパティ表（型付き値）+ `BlockDefinition` |
 | 横断 Port | `ClockPort` |
 | 横断スナップショット | `CameraPoseSnapshot` |
+| Anvil 変換 | 決定的な変換計画・適用、および versioned state snapshot codec |
 | モジュール契約 | `GameModule` / `StageRegistration` / `FrameServices` |
 
 ## 2. 内部構成
@@ -41,7 +42,14 @@ domain/
   block-properties.ts         # 型付きプロパティ表
   block-harvest.ts            # harvestTool / drops（struct 2 種を隔離）+ ドロップ解決
   block-definition.ts         # BlockDefinition と解決関数、実装/保留の台帳
-  block-registry.ts           # 数値 id ↔ BlockType、ブロック表、id キーの引き
+  block-registry.ts           # 公開境界。数値 id ↔ BlockType と accessor
+  block-registry-entries.ts   # 宣言的なブロックレジストリ行
+  block-registry-indexes.ts   # レジストリ行から導出する id-indexed lookup
+  anvil.ts                    # Anvil の公開境界（計画・適用・snapshot codec）
+  anvil-planning.ts           # Anvil の入力検証・修理・統合・最終計画
+  anvil-primitives.ts         # Anvil の branded primitive と境界定数
+  anvil-normalization.ts      # エンチャントの正規化
+  anvil-snapshot-codec.ts     # versioned snapshot の encode / decode
   camera.ts                   # CameraPoseSnapshot
   clock.ts                    # ClockPort
   frame.ts                    # GameModule / StageRegistration / FrameServices
@@ -63,7 +71,7 @@ kernel が持ってよい「サービスらしきもの」は **Port（インタ
 `ClockPort` は Context.Tag と型と、テスト用の固定実装（`fixedClock` / `FixedClockLayer`）を持つが、
 実クロックを読むアダプタは持たない。実装は利用側が注入する。
 
-### 3-2. ~~ブロックテーブルを持たない~~ → **持つことになった**（`domain/block-registry.ts`）
+### 3-2. ~~ブロックテーブルを持たない~~ → **持つことになった**（公開境界は `domain/block-registry.ts`）
 
 この節はもともとこう書かれていた:
 

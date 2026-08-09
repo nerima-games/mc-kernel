@@ -19,6 +19,7 @@ mc-kernel は `domain/` しか持たない（純粋関数・型・データテ�
 | 公開バレルの再エクスポート | 実装済み | `test/public-api.test.ts` |
 | 依存ゲート | 実装済み | `test/check-dependency-whitelist.test.ts` |
 | Chunk データ構造とコーデックのラウンドトリップ | 実装済み | `test/chunk.test.ts` |
+| Anvil の計画・適用と versioned snapshot codec | 実装済み | `test/anvil.test.ts` |
 
 `Chunk` データ構造と versioned codec は mc-kernel が所有する。mc-worldgen は生成・ロード・dirty 管理を、
 mc-save は媒体フォーマットと保存先を所有し、同じ `Chunk` 型を境界で利用する。
@@ -32,20 +33,21 @@ mc-save は媒体フォーマットと保存先を所有し、同じ `Chunk` 型
 
 ```console
 $ pnpm verify        # typecheck && lint && test
-$ pnpm test:coverage # カバレッジ計測。verify には含まれない
+$ pnpm test:coverage # カバレッジ計測。verify には含まれない（全メトリクス100%）
 ```
 
-**`pnpm verify` はカバレッジを含まない。** `domain/` の分岐に触ったら、必要に応じて
-`pnpm test:coverage` を別途実行すること。カバレッジ閾値は現在設定していない。
+**`pnpm verify` はカバレッジを含まない。** `domain/` の分岐に触ったら、
+`pnpm test:coverage` を別途実行すること。カバレッジの Statements / Branches / Functions / Lines は
+すべて100%を閾値として設定している。
 
 | コマンド | 内容 |
 | --- | --- |
 | `pnpm typecheck` | `tsconfig.build.json` と `tsconfig.test.json` の両方を型検査 |
 | `pnpm lint` | oxlint（このリポジトリ唯一の lint / format 設定）。**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は `correctness`、`suspicious`、`perf`、`restriction` と個別ルールを `warn` にし、`style` は無効化している） |
 | `pnpm test` | vitest（`@effect/vitest` の `it.effect` が主 API） |
-| `pnpm test:coverage` | カバレッジ計測（閾値は未設定） |
+| `pnpm test:coverage` | カバレッジ計測（Statements / Branches / Functions / Lines の閾値はすべて100%） |
 
-`pnpm` は `corepack` 経由で 9.15.0 を使う（`package.json` の `packageManager` でピン留め）。
+`pnpm` は `corepack` 経由で 11.17.0 を使う（`package.json` の `packageManager` でピン留め）。
 
 ## 3. テストの書き方
 
@@ -70,14 +72,16 @@ mc-save 側で追加する。
 
 ## 4. カバレッジ
 
-**カバレッジ閾値は未設定である。** 計測結果は確認するが、現時点では閾値で失敗させない。
+**カバレッジの4メトリクスすべてに100%の閾値を設定している。** 計測結果がどれか1つでも
+下回れば `pnpm test:coverage` は失敗する。
 
 - `pnpm verify` は `typecheck && lint && test` のみを実行する
-- カバレッジ確認が必要な変更では `pnpm test:coverage` を別途実行する
-- 現在の運用は「計測はするが、Coverage threshold では fail させない」
+- CI は `pnpm verify` に続けて `pnpm test:coverage` を実行する
+- ローカルでカバレッジを確認するときも `pnpm test:coverage` を使う
 
-カバレッジの扱いは完成判定ではなく運用ルールとして管理する。この文書では
-「coverage をいつ gate にするか」ではなく、「いま何が自動で検証され、何が別実行か」を正として記録する。
+カバレッジは完成判定の一部であり、空のテスト選択や生成物を読まないチェックを合格扱いにしない。
+測定時は Vitest が実際にテストファイルとソースを読み込んだこと、4メトリクスの結果が閾値を満たすことを
+確認する。`verify` と coverage は別コマンドだが、CI では両方を実行する。
 
 ## 5. 現時点の到達状況
 
@@ -88,11 +92,14 @@ mc-save 側で追加する。
 - `BlockType` 123 種の公開
 - `ItemType` 173 種の公開
 - `Chunk` データ構造と codec、および round-trip test
+- Anvil の決定的な計画・適用、および versioned snapshot codec
 - `FrameServices` を `ClockPort` に固定した公開契約
+- `pnpm build` による型付き ESM と declaration の生成
+- Statements / Branches / Functions / Lines の100%カバレッジゲート
 
 未完了:
 
-- カバレッジ threshold の導入
-- build / publish パイプラインの整備
+- GitHub Packages の publish job と、公開 tarball を install する検証
+- 1.0.0 へ昇格する maintainer 判断（下流の実消費後に行う）
 
-したがって、この文書は「完成済み」を宣言する場所ではなく、**現行の検証運用と未完了項目**を記録する場所として扱う。
+したがって、内部の品質ゲートは完了しているが、公開物を伴うリリース完了はまだ宣言しない。

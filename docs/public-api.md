@@ -493,6 +493,52 @@ stage は時間を読まずに進めず、かつグローバルから読んで�
 **この別名を広げるのは stage の *提供者*（ランタイムを組む人）にとって破壊的変更である**（stage の *著者* にとってはそうではない）。
 1.0.0 で凍結され、広げるのは MAJOR である。
 
+## Anvil 変換と snapshot codec
+
+Anvil API は `src/index.ts` から `@nerima-games/mc-kernel` のルート barrel を通じて公開される。
+公開境界は `anvil.ts` に残し、計画、入力境界の primitive、正規化、versioned snapshot の codec は
+内部モジュールへ分離している。消費者は内部ファイルを直接 import しない。
+
+```typescript
+type AnvilState = {
+  readonly left: AnvilItemPayload | null
+  readonly right: AnvilInputStack | null
+  readonly rename: AnvilCustomName | null
+  readonly experienceLevels: number
+}
+
+type AnvilPlan =
+  | {
+      readonly ok: true
+      readonly output: CanonicalAnvilItemPayload
+      readonly levelCost: number
+      readonly materialCost: StackCount
+    }
+  | {
+      readonly ok: false
+      readonly reason: Exclude<AnvilRejectionReason, 'insufficient-experience'>
+      readonly issues: ReadonlyArray<AnvilValidationIssue>
+    }
+
+planAnvil(state, rules): AnvilPlan
+applyAnvil(state, rules): AnvilApplyResult
+snapshotAnvilState(state): AnvilSnapshotResult
+decodeAnvilSnapshot(value): AnvilSnapshotResult
+decodeAnvilSnapshotString(encoded): AnvilSnapshotResult
+encodeAnvilSnapshot(state): AnvilSnapshotEncodingResult
+```
+
+`planAnvil` は入力とルールを検証したうえで、出力、経験値コスト、材料消費数を決定する。
+`applyAnvil` は計画を再利用し、経験値不足も含めた適用結果を返す。どちらも入力を変更せず、
+拒否時は `reason` と `issues` を返す。
+
+snapshot は version `1` の canonical state として encode / decode される。`decodeAnvilSnapshot` は
+外部値を `unknown` として受け取り、JSON の形、数値の安全性、item、enchantment、custom name、
+余分なフィールドを検証してから canonical state を返す。`decodeAnvilSnapshotString` は JSON 文字列の
+境界、`encodeAnvilSnapshot` は canonical snapshot の生成と JSON 化を担当する。
+`AnvilEnchantmentId`、`AnvilCustomName`、`AnvilSnapshotString` は境界で検証する branded constructor、
+`isAnvilSnapshotString` は文字列の型ガードである。
+
 ## Chunk バイナリ形式
 
 `chunk(coord, height, blocks)` は 16×16 の縦列 Chunk を構築する。`blocks` 引数は

@@ -2,6 +2,8 @@
 
 mc-kernel の公開 API を `1.0.0` として凍結する前に満たすべき条件。
 **(a) (b) (b') (c) はいずれも満たしている。** 下流実消費も `pnpm check:repoint` で通った。
+型検査・lint・test・release build・4メトリクスの100%カバレッジという内部品質ゲートも満たしている。
+一方、GitHub Packages の publish job と公開 tarball の install 検証は未実装であり、公開完了とはまだ扱わない。
 
 **この判定に自動ゲートは存在しない。** 以前は「`api-lock.md` が 4 週間無変更であること」という
 日数計測ベースの自動ゲートを最後の関門としていたが、`api-lock.md` / `scripts/api-lock.ts` /
@@ -9,8 +11,8 @@ mc-kernel の公開 API を `1.0.0` として凍結する前に満たすべき�
 （[API_STANDARD.md §4](https://github.com/nerima-games/.github/blob/main/API_STANDARD.md#4-自動-apiロックスナップショットツールは使わない)）。
 1.0.0 への昇格は、計測期間や自動判定に代えて **maintainer（take）の裁量判断のみ**で行う
 （[RELEASE_STANDARD.md §4.2](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#42-新しい昇格ポリシー人間による裁量判断)）。
-残る実質的な未達成項目は「完成条件（[testing.md](./testing.md) §5）を満たしているか」のみであり、
-これは下記チェックリストに残る唯一の未達成項目である。
+残る実質的な未達成項目は、GitHub Packages への publish と公開物の install 検証、および
+1.0.0 へ昇格する maintainer 判断である。
 
 凍結が特別扱いされる理由は [versioning.md](./versioning.md) §5 にある。
 kernel は 14 リポジトリからピン留めされ、破壊的変更は深さ 5 の republish カスケードを起こす。
@@ -245,7 +247,9 @@ shipped source は 1 行も要らない。作業内容は
 - [x] (a) 能力フラグ監査が完了している
 - [x] (b) 縦切りスパイクが `GameModule` / `StageRegistration` / `FrameServices` を実消費者で検証している
 - [x] (b') その結果 `FrameServices` が確定し、プレースホルダである旨のコメントが消えている
-- [ ] 完成条件（[testing.md](./testing.md) §5）を満たしている
+- [x] 内部の完成条件（[testing.md](./testing.md) §5 の typecheck / lint / test / build / coverage）を満たしている
+- [ ] GitHub Packages の publish job と公開 tarball の install 検証を完了している
+- [ ] 1.0.0 へ昇格する maintainer 判断が完了している
 - [x] 下流リポジトリが少なくとも 1 つ、実際に kernel を消費して契約を確認している（[versioning.md](./versioning.md) §2）
       — **3 リポジトリ（mx-gameplay / mx-ui / mx-redstone）で、ミラーを削除し import を
       `@nerima-games/mc-kernel` に張り替え、各リポジトリが宣言する全プロジェクトを実際に
@@ -258,7 +262,7 @@ shipped source は 1 行も要らない。作業内容は
       | 検証済み | 未検証 |
       | --- | --- |
       | ミラー削除後に import が解決すること | publish 済みパッケージの **install** |
-      | `exports` / `types` フィールド | `files` と tarball の中身 |
+      | `exports` / `types` フィールド、ローカル `pnpm pack --dry-run` の候補確認 | 公開 tarball の **install** |
       | 3 リポジトリの build / test / preview 全プロジェクトの型検査 | 実行時の挙動（`tsc` であって `vitest` ではない） |
 
       workspace の張り替えは publish の**リハーサルであって publish ではない**。
@@ -274,9 +278,8 @@ Effect-TS 互換手段）」を未決事項として挙げていた。`@microsof
 
 **この自動ゲート（および `api-lock.md` / `scripts/api-lock.ts` 自体）は org 標準の変更により削除済みである。**
 1.0.0 への昇格は日数計測を伴わず、[RELEASE_STANDARD.md §4.2](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#42-新しい昇格ポリシー人間による裁量判断)
-が定めるとおり maintainer（take）の裁量判断のみで行う。残る実質的な未達成項目は「完成条件
-（[testing.md](./testing.md) §5）を満たしているか」だけであり、下流実消費（本チェックリストの
-最後の項目）は既に満たされている。
+が定めるとおり maintainer（take）の裁量判断のみで行う。内部品質の完成条件と下流実消費は満たしているが、
+publish job、公開 tarball の install 検証、1.0.0 昇格判断は別途完了させる必要がある。
 
 > **(歴史的経緯) 計測は過去に一度リセットされたことがある。** アイテム語彙の投入
 > （`domain/item-type.ts` / `domain/block-item.ts`、`BlockDropRule.item` の型変更、
