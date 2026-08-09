@@ -549,6 +549,19 @@ describe('anvil snapshot codec', () => {
 
       expect(snapshotAnvilState(state({
         right: {
+          payload: 'invalid' as never,
+          count: 1,
+        },
+      }))).toStrictEqual({
+        ok: false,
+        issues: [{
+          path: '$.state.right.payload',
+          reason: 'must be an object',
+        }],
+      })
+
+      expect(snapshotAnvilState(state({
+        right: {
           payload: item({ item: 'enchanted_book', durability: null }),
           count: 0,
         },
