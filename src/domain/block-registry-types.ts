@@ -1,4 +1,4 @@
-import type { BlockDefinition } from './block-definition'
+import type { BlockDefinition } from './block-definition.js'
 import { Brand } from 'effect'
 
 /**

@@ -1,7 +1,7 @@
 /* eslint-disable sort-imports -- Keep domain imports adjacent and external Brand last. */
 /** Stable item ids, stack metadata, and their two-byte storage encoding. */
-import { ITEM_TYPES, type ItemType } from './item-type'
-import { MAX_STACK_COUNT } from './quantities'
+import { ITEM_TYPES, type ItemType } from './item-type.js'
+import { MAX_STACK_COUNT } from './quantities.js'
 import { Brand } from 'effect'
 
 export type ItemId = number & Brand.Brand<'ItemId'>

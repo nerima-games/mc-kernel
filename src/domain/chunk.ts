@@ -1,7 +1,7 @@
 /* eslint-disable max-statements, no-magic-numbers -- Constants define the fixed binary wire format. */
 import { Brand } from 'effect'
-import { BlockState, blockState } from './block-state'
-import { CHUNK_SIZE_XZ, type ChunkCoord, chunkCoord } from './coordinates'
+import { BlockState, blockState } from './block-state.js'
+import { CHUNK_SIZE_XZ, type ChunkCoord, chunkCoord } from './coordinates.js'
 
 export const CHUNK_CODEC_VERSION = 1
 export const CHUNK_HEADER_BYTES = 24

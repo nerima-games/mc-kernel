@@ -1,7 +1,7 @@
 /* eslint-disable complexity, curly, init-declarations, max-statements, no-continue, no-control-regex, no-magic-numbers, no-nested-ternary, no-ternary, no-undefined, prefer-destructuring, sort-keys -- Validation and deterministic anvil rules intentionally expose the complete wire contract in one module. */
-import { type ItemType, isItemType } from './item-type'
-import { maxStackCountOfItem } from './item-registry'
-import { StackCount } from './quantities'
+import { type ItemType, isItemType } from './item-type.js'
+import { maxStackCountOfItem } from './item-registry.js'
+import { StackCount } from './quantities.js'
 import { Brand } from 'effect'
 
 export const ANVIL_SNAPSHOT_VERSION = 1 as const
@@ -182,7 +182,7 @@ export const AnvilCustomName = (value: string): AnvilCustomName => {
 }
 
 const compareIds = (left: AnvilEnchantment, right: AnvilEnchantment): number =>
-  left.id < right.id ? -1 : left.id > right.id ? 1 : 0
+  Number(left.id > right.id) - Number(left.id < right.id)
 
 const canonicalEnchantments = (
   enchantments: ReadonlyArray<AnvilEnchantment>,

@@ -3,5 +3,5 @@ export {
   blockPositionOfKey,
   decodeBlockPositionKey,
   isBlockPositionKey,
-} from './coordinates'
-export type { BlockPositionKey } from './coordinates'
+} from './coordinates.js'
+export type { BlockPositionKey } from './coordinates.js'

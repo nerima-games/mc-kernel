@@ -19,9 +19,9 @@
  * is worth more than local style consistency.
  */
 import type { Effect, Layer } from 'effect'
-import type { ClockPort } from './clock'
-import type { DeltaTimeSecs } from './quantities'
-import type { StageId } from './identifiers'
+import type { ClockPort } from './clock.js'
+import type { DeltaTimeSecs } from './quantities.js'
+import type { StageId } from './identifiers.js'
 
 /**
  * The context every frame stage may assume is present. SETTLED — `ClockPort`,

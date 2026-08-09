@@ -38,7 +38,7 @@
  * vertical-slice spike.
  */
 import { Context, Effect, Layer } from 'effect'
-import type { EpochMillis, MonotonicTimeSecs } from './quantities'
+import type { EpochMillis, MonotonicTimeSecs } from './quantities.js'
 
 const createContextTag = Context.Tag
 

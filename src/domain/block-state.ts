@@ -1,5 +1,5 @@
-import { BLOCK_IDS, BLOCK_ID_MAX, isKnownBlockId } from './block-registry'
-import type { BlockId } from './block-registry-types'
+import { BLOCK_IDS, BLOCK_ID_MAX, isKnownBlockId } from './block-registry.js'
+import type { BlockId } from './block-registry-types.js'
 
 const MIN_INDEX = 0
 const INDEX_INCREMENT = 1

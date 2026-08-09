@@ -325,22 +325,24 @@ describe('public API surface', () => {
 
   it.effect('supports documented package subpath exports', () =>
     Effect.promise(async () => {
+      const packageRootPath = '@nerima-games/mc-kernel'
       const blockRegistryPath = '@nerima-games/mc-kernel/domain/block-registry'
       const chunkPath = '@nerima-games/mc-kernel/domain/chunk'
-      const [blockRegistryModule, chunkModule] = await Promise.all([
+      const [packageRoot, blockRegistryModule, chunkModule] = await Promise.all([
+        import(packageRootPath),
         import(blockRegistryPath),
         import(chunkPath),
       ])
 
-      expect(blockRegistryModule.blockIdOf).toBe(kernel.blockIdOf)
-      expect(blockRegistryModule.BLOCK_REGISTRY).toBe(kernel.BLOCK_REGISTRY)
-      expect(chunkModule.encodeChunk).toBe(kernel.encodeChunk)
-      expect(chunkModule.decodeChunk).toBe(kernel.decodeChunk)
-      expect(chunkModule.EncodedChunk).toBe(kernel.EncodedChunk)
-      expect(chunkModule.CHUNK_CODEC_VERSION).toBe(kernel.CHUNK_CODEC_VERSION)
-      expect(chunkModule.ChunkBlocks).toBe(kernel.ChunkBlocks)
-      expect(chunkModule.MAX_CHUNK_HEIGHT).toBe(kernel.MAX_CHUNK_HEIGHT)
-      expect(chunkModule.chunkBlockCount).toBe(kernel.chunkBlockCount)
+      expect(blockRegistryModule.blockIdOf).toBe(packageRoot.blockIdOf)
+      expect(blockRegistryModule.BLOCK_REGISTRY).toBe(packageRoot.BLOCK_REGISTRY)
+      expect(chunkModule.encodeChunk).toBe(packageRoot.encodeChunk)
+      expect(chunkModule.decodeChunk).toBe(packageRoot.decodeChunk)
+      expect(chunkModule.EncodedChunk).toBe(packageRoot.EncodedChunk)
+      expect(chunkModule.CHUNK_CODEC_VERSION).toBe(packageRoot.CHUNK_CODEC_VERSION)
+      expect(chunkModule.ChunkBlocks).toBe(packageRoot.ChunkBlocks)
+      expect(chunkModule.MAX_CHUNK_HEIGHT).toBe(packageRoot.MAX_CHUNK_HEIGHT)
+      expect(chunkModule.chunkBlockCount).toBe(packageRoot.chunkBlockCount)
     }),
   )
   it.effect('exports the canonical Eye of Ender item identity', () =>

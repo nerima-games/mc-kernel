@@ -30,7 +30,7 @@ describe('consumer contracts', () => {
 
       expect(world).toBe('overworld')
       expect(delta).toBeCloseTo(ONE / TICKS_PER_SECOND)
-      expect(module.frameStages).toBeDefined()
+      expect(Effect.runSync(module.frameStages)).toStrictEqual([stage])
     }),
   )
 })

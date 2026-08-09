@@ -52,9 +52,9 @@
     "newLine": "lf",
     "stripInternal": true,
 
-    // No build step yet (see README 現状). Every tsconfig here is check-only;
-    // `package.json#exports` points at TypeScript source. The emitting
-    // build/publish pipeline is added when this repo reaches completion.
+    // The default remains check-only. `tsconfig.release.json` is the sole
+    // emitting configuration, so source imports stay type-safe while the
+    // published package exposes only generated JavaScript and declarations.
     "noEmit": true,
 
   }

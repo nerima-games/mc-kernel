@@ -68,7 +68,7 @@
  * must be optional or must come with a default. Never both required and
  * defaultless.
  */
-import type { BlockType } from './block-type'
+import type { BlockType } from './block-type.js'
 
 /**
  * What a block needs underneath it.
