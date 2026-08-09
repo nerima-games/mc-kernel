@@ -2,7 +2,8 @@
 
 ## 1. 現状
 
-- **バージョン: `0.2.0`。**（`0.1.0` からの bump 理由は §6-1）
+- **バージョン: `0.3.0`。**（`0.2.19` からの bump 理由は `Chunk.blocks` の `ChunkBlocks` 化という破壊的変更）
+- **最新の破壊的変更:** `Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks`。API の詳細は [public-api.md](./public-api.md) の「Chunk バイナリ形式」、変更履歴は [CHANGELOG.md](../CHANGELOG.md) の `0.3.0` を参照。
 - **publish パイプラインは無い。** `package.json` の `exports` は TypeScript ソースを直接指しており、ビルド成果物は存在しない。
 - 開発中は `mc-dev-meta` workspace（16 リポジトリを `repos/` に clone して 1 つの pnpm workspace として束ねる）による
   `workspace:*` 解決でモノレポ同等の DX を得る（plan.md §6 Step 0-2）。
