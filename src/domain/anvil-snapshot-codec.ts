@@ -1,4 +1,4 @@
-/* eslint-disable complexity, curly, init-declarations, max-statements, no-continue, no-control-regex, no-magic-numbers, no-nested-ternary, no-ternary, no-undefined, prefer-destructuring, sort-keys -- Snapshot validation reports every wire-level issue with its exact path. */
+/* eslint-disable no-magic-numbers, no-undefined, no-ternary, prefer-destructuring, sort-keys -- Snapshot validation reports every wire-level issue with its exact path. */
 import {
   ANVIL_SNAPSHOT_VERSION,
   AnvilCustomName,
@@ -15,6 +15,7 @@ import { StackCount } from './quantities.js'
 import type {
   AnvilDurability,
   AnvilEnchantment,
+  AnvilCustomName as AnvilCustomNameType,
   AnvilSnapshotEncodingResult,
   AnvilSnapshotResult,
   AnvilEnchantmentId as AnvilEnchantmentIdType,
@@ -27,6 +28,88 @@ import type {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const decodeDurability = (
+  value: unknown,
+  path: string,
+  issues: Array<AnvilValidationIssue>,
+): AnvilDurability | null | undefined => {
+  if (value === null) return null
+  if (
+    isRecord(value) &&
+    isPositiveSafeInteger(value['current']) &&
+    isPositiveSafeInteger(value['max']) &&
+    value['current'] <= value['max']
+  ) {
+    return { current: value['current'], max: value['max'] }
+  }
+
+  issues.push({ path, reason: 'must be null or valid remaining durability' })
+  return
+}
+
+const decodeCustomName = (
+  value: unknown,
+  path: string,
+  issues: Array<AnvilValidationIssue>,
+): AnvilCustomNameType | null | undefined => {
+  if (value === null) return null
+  if (typeof value === 'string' && isCustomName(value)) return AnvilCustomName(value)
+
+  issues.push({ path, reason: 'must be null or a valid custom name' })
+  return
+}
+
+const decodeEnchantment = (
+  candidate: unknown,
+  path: string,
+  seen: Set<AnvilEnchantmentIdType>,
+  issues: Array<AnvilValidationIssue>,
+): AnvilEnchantment | undefined => {
+  if (!isRecord(candidate)) {
+    issues.push({ path, reason: 'must be an object' })
+    return
+  }
+
+  const id = candidate['id']
+  const level = candidate['level']
+  if (!isEnchantmentId(id)) {
+    issues.push({ path: `${path}.id`, reason: 'must be a canonical enchantment id' })
+    return
+  }
+  if (!isPositiveSafeInteger(level)) {
+    issues.push({ path: `${path}.level`, reason: 'must be a positive safe integer' })
+    return
+  }
+
+  const canonicalId = AnvilEnchantmentId(id)
+  if (seen.has(canonicalId)) {
+    issues.push({ path: `${path}.id`, reason: 'must be unique' })
+    return
+  }
+
+  seen.add(canonicalId)
+  return { id: canonicalId, level }
+}
+
+const decodeEnchantments = (
+  value: unknown,
+  path: string,
+  issues: Array<AnvilValidationIssue>,
+): Array<AnvilEnchantment> => {
+  if (!Array.isArray(value)) {
+    issues.push({ path, reason: 'must be an array' })
+    return []
+  }
+
+  const seen = new Set<AnvilEnchantmentIdType>()
+  const enchantments: Array<AnvilEnchantment> = []
+  for (const [index, candidate] of value.entries()) {
+    const enchantment = decodeEnchantment(candidate, `${path}.${String(index)}`, seen, issues)
+    if (enchantment !== undefined) enchantments.push(enchantment)
+  }
+  return enchantments
+}
 
 const decodeItemPayload = (
   value: unknown,
@@ -42,21 +125,7 @@ const decodeItemPayload = (
   const item = typeof itemValue === 'string' && isItemType(itemValue) ? itemValue : undefined
   if (item === undefined) issues.push({ path: `${path}.item`, reason: 'must be a known item type' })
 
-  const durabilityValue = value['durability']
-  let durability: AnvilDurability | null | undefined
-  if (durabilityValue === null) {
-    durability = null
-  } else if (
-    isRecord(durabilityValue) &&
-    isPositiveSafeInteger(durabilityValue['current']) &&
-    isPositiveSafeInteger(durabilityValue['max']) &&
-    durabilityValue['current'] <= durabilityValue['max']
-  ) {
-    durability = { current: durabilityValue['current'], max: durabilityValue['max'] }
-  }
-  if (durability === undefined) {
-    issues.push({ path: `${path}.durability`, reason: 'must be null or valid remaining durability' })
-  }
+  const durability = decodeDurability(value['durability'], `${path}.durability`, issues)
 
   const repairCostValue = value['repairCost'] ?? 0
   const repairCost = isNonNegativeSafeInteger(repairCostValue) ? repairCostValue : undefined
@@ -64,47 +133,8 @@ const decodeItemPayload = (
     issues.push({ path: `${path}.repairCost`, reason: 'must be a non-negative safe integer' })
   }
 
-  const customNameValue = value['customName'] ?? null
-  const customName = customNameValue === null
-    ? null
-    : typeof customNameValue === 'string' && isCustomName(customNameValue)
-    ? AnvilCustomName(customNameValue)
-    : undefined
-  if (customName === undefined) {
-    issues.push({ path: `${path}.customName`, reason: 'must be null or a valid custom name' })
-  }
-
-  const enchantmentsValue = value['enchantments']
-  const enchantments: Array<AnvilEnchantment> = []
-  if (!Array.isArray(enchantmentsValue)) {
-    issues.push({ path: `${path}.enchantments`, reason: 'must be an array' })
-  } else {
-    const seen = new Set<AnvilEnchantmentIdType>()
-    for (const [index, candidate] of enchantmentsValue.entries()) {
-      const candidatePath = `${path}.enchantments.${String(index)}`
-      if (!isRecord(candidate)) {
-        issues.push({ path: candidatePath, reason: 'must be an object' })
-        continue
-      }
-      const id = candidate['id']
-      const level = candidate['level']
-      if (!isEnchantmentId(id)) {
-        issues.push({ path: `${candidatePath}.id`, reason: 'must be a canonical enchantment id' })
-        continue
-      }
-      if (!isPositiveSafeInteger(level)) {
-        issues.push({ path: `${candidatePath}.level`, reason: 'must be a positive safe integer' })
-        continue
-      }
-      const canonicalId = AnvilEnchantmentId(id)
-      if (seen.has(canonicalId)) {
-        issues.push({ path: `${candidatePath}.id`, reason: 'must be unique' })
-        continue
-      }
-      seen.add(canonicalId)
-      enchantments.push({ id: canonicalId, level })
-    }
-  }
+  const customName = decodeCustomName(value['customName'] ?? null, `${path}.customName`, issues)
+  const enchantments = decodeEnchantments(value['enchantments'], `${path}.enchantments`, issues)
 
   if (
     item === undefined ||
@@ -122,6 +152,36 @@ const decodeItemPayload = (
   }
 }
 
+const decodeRightInput = (
+  value: unknown,
+  path: string,
+  issues: Array<AnvilValidationIssue>,
+): CanonicalAnvilState['right'] | undefined => {
+  if (value === null) return null
+  if (!isRecord(value)) {
+    issues.push({ path, reason: 'must be null or an input stack' })
+    return
+  }
+
+  const payload = decodeItemPayload(value['payload'], `${path}.payload`, issues)
+  const countValue = value['count']
+  if (!isPositiveSafeInteger(countValue)) {
+    issues.push({ path: `${path}.count`, reason: 'must be a positive safe integer' })
+    return
+  }
+  if (payload !== undefined && countValue > maxStackCountOfItem(payload.item)) {
+    issues.push({ path: `${path}.count`, reason: 'exceeds the item stack limit' })
+    return
+  }
+  if (payload !== undefined && payload.durability !== null && countValue !== 1) {
+    issues.push({ path: `${path}.count`, reason: 'durable item payloads cannot stack' })
+    return
+  }
+  if (payload === undefined) return
+
+  return { payload, count: StackCount(countValue) }
+}
+
 const decodeState = (
   value: unknown,
   path: string,
@@ -135,35 +195,9 @@ const decodeState = (
   const leftValue = value['left']
   const left = leftValue === null ? null : decodeItemPayload(leftValue, `${path}.left`, issues)
 
-  const rightValue = value['right']
-  let right: CanonicalAnvilState['right'] | undefined
-  if (rightValue === null) {
-    right = null
-  } else if (!isRecord(rightValue)) {
-    issues.push({ path: `${path}.right`, reason: 'must be null or an input stack' })
-  } else {
-    const payload = decodeItemPayload(rightValue['payload'], `${path}.right.payload`, issues)
-    const countValue = rightValue['count']
-    if (!isPositiveSafeInteger(countValue)) {
-      issues.push({ path: `${path}.right.count`, reason: 'must be a positive safe integer' })
-    } else if (payload !== undefined && countValue > maxStackCountOfItem(payload.item)) {
-      issues.push({ path: `${path}.right.count`, reason: 'exceeds the item stack limit' })
-    } else if (payload !== undefined && payload.durability !== null && countValue !== 1) {
-      issues.push({ path: `${path}.right.count`, reason: 'durable item payloads cannot stack' })
-    } else if (payload !== undefined) {
-      right = { payload, count: StackCount(countValue) }
-    }
-  }
+  const right = decodeRightInput(value['right'], `${path}.right`, issues)
 
-  const renameValue = value['rename']
-  const rename = renameValue === null
-    ? null
-    : typeof renameValue === 'string' && isCustomName(renameValue)
-    ? AnvilCustomName(renameValue)
-    : undefined
-  if (rename === undefined) {
-    issues.push({ path: `${path}.rename`, reason: 'must be null or a valid custom name' })
-  }
+  const rename = decodeCustomName(value['rename'], `${path}.rename`, issues)
 
   const experienceLevelsValue = value['experienceLevels']
   const experienceLevels = isNonNegativeSafeInteger(experienceLevelsValue)
