@@ -1,12 +1,12 @@
 {
   "$schema": "https://oxc-project.github.io/oxc/schema/linter.json",
-  // oxlint is the ONLY lint/format configuration in this repository.
+  // oxlint is the only JavaScript/TypeScript lint configuration in this repository.
   // There is deliberately no prettier, no biome and no .editorconfig.
   //
-  // NOTE on the `Date.now()` ban: oxlint 0.12 does not implement `no-restricted-syntax`
+  // NOTE on the `Date.now()` ban: the Nix-provided oxlint does not implement `no-restricted-syntax`
   // or `no-restricted-properties`, and while `no-restricted-globals` is listed by
   // `oxlint --rules` it is not implemented either (no checkmark). Verified empirically
-  // against oxlint 0.12.0: a file containing `Date.now()` produces 0 diagnostics under
+  // against the Nix-provided version: a file containing `Date.now()` produces no diagnostics under
   // all three rules. `scripts/check-dependency-whitelist.ts`, which used to enforce this
   // ban, was retired org-wide in favour of oxlint's `no-restricted-imports`
   // (DEPENDENCY_POLICY.md §5); there is currently no automated enforcement of the
@@ -18,7 +18,7 @@
   },
   "settings": {
     "typescript": {
-      "version": "5.9"
+      "version": "7.0"
     }
   },
   "plugins": [],
@@ -77,7 +77,7 @@
     "no-sync": "warn",
 
     // Style
-    // NOTE: as of oxlint 1.76.0, oxlint does not implement any ESLint-core
+    // NOTE: the Nix-provided oxlint does not implement any ESLint-core
     // *formatting* rules at all (array-bracket-spacing, block-spacing,
     // brace-style, camelcase, comma-dangle, comma-spacing, comma-style,
     // computed-property-spacing, eol-last, func-call-spacing, indent,
@@ -87,7 +87,7 @@
     // object-curly-spacing, one-var, operator-linebreak, padded-blocks,
     // quote-props, semi-spacing, space-before-blocks, space-infix-ops,
     // space-unary-ops, spaced-comment). Verified empirically against oxlint
-    // 1.76.0: `oxlint --rules --format=json` lists 847 rules total and none
+    // `oxlint --rules --format=json` lists the supported rules and none
     // of the names above appear under any plugin/scope; `oxlint
     // --print-config` hard-fails ("Rule 'X' not found in plugin 'eslint'")
     // if any of them are present in this file. This was previously masked
@@ -106,7 +106,7 @@
     "default-case": "warn",
     "default-case-last": "warn",
     "no-empty-character-class": "warn",
-    // Declared for intent and for the day oxlint implements it; inert in 0.12
+    // Declared for intent and for the day oxlint implements it; currently inert
     // (see the `Date.now()` note above — there is no other enforcement of this ban).
     "no-restricted-globals": ["warn", "name", "open", "close", "event"],
     "no-restricted-imports": [

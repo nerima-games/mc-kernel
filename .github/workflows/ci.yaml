@@ -37,36 +37,26 @@ jobs:
           node-version: "24"
           cache: "pnpm"
 
-      - name: Install dependencies
-        # --ignore-scripts: pnpm runs postinstall, and a fork PR can edit
-        # package.json and the lockfile consistently and still satisfy
-        # --frozen-lockfile. Nothing here needs a lifecycle script.
-        run: pnpm install --frozen-lockfile --ignore-scripts
-
-      - name: Type check
-        run: pnpm typecheck
-
-      # oxlint is provided by the Nix devShell (flake.nix), not a package.json
-      # devDependency — see flake.nix's comment on why. Installing Nix just for
-      # this one step is the org-wide trade-off (DEPENDENCY_POLICY.md §5
-      # "前提条件"): one pinned oxlint version instead of 16 repos each
-      # independently drifting on their own npm-resolved version.
+      # Keep CI's toolchain identical to the documented local environment.
       - name: Set up Nix
         uses: ./.github/actions/nix-setup
         with:
           cachix-cache: ${{ vars.CACHIX_CACHE }}
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      # oxlint's no-restricted-imports (.oxlintrc.json) is the enforcement mechanism
-      # for the Tier1 dependency policy (DEPENDENCY_POLICY.md §5) — this replaces
-      # the retired scripts/check-dependency-whitelist.ts + pnpm check:deps.
-      - name: Lint
-        run: nix develop --command pnpm lint
+      - name: Install dependencies
+        # pnpm-workspace.yaml allows only the esbuild build required by the
+        # dependency graph; keeping lifecycle scripts enabled preserves that
+        # explicit policy and matches local frozen installs.
+        run: nix develop --command pnpm install --frozen-lockfile
 
-      - name: Test
-        run: pnpm test
+      # verify covers typecheck, lint, and the unit suite. The test lifecycle
+      # also builds the release artifact first, so a clean checkout exercises
+      # the same package boundary as a consumer.
+      - name: Verify
+        run: nix develop --command pnpm verify
 
-      # The 99% gate (docs/testing.md §5 row 7), and it is this step that
+      # The 100% gate (docs/testing.md §5 row 7), and it is this step that
       # enforces it. No extra flag is needed and none should be added: the
       # thresholds live in vitest.config.ts, and `vitest run --coverage` exits
       # non-zero by itself when any of the four falls below. Keeping the numbers
@@ -77,8 +67,8 @@ jobs:
       # NOTE: `pnpm verify` deliberately does NOT include this step — it runs
       # `pnpm test` without coverage. Run `pnpm test:coverage` before pushing if
       # you have touched a branch in src/domain/.
-      - name: Coverage (99% gate)
-        run: pnpm test:coverage
+      - name: Coverage (100% gate)
+        run: nix develop --command pnpm test:coverage
 
       - name: Upload coverage report
         if: always()

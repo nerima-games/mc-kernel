@@ -21,6 +21,12 @@
       pkgsFor = system: nixpkgs.legacyPackages.${system};
     in
     {
+      # Keep Nix formatting available to both supported systems. This makes
+      # `nix fmt -- --check flake.nix` part of the repository's own flake
+      # contract. The explicit file argument makes the check work with
+      # nixfmt's file-oriented CLI as well as editor integrations.
+      formatter = forAllSystems (system: (pkgsFor system).nixfmt);
+
       devShells = forAllSystems (
         system:
         let
