@@ -50,14 +50,15 @@ kernel が誰かに依存した時点で構造的に循環が生じるためで�
 | mc-playground-kit は devDependency 専用 | `dependencies` に入れてはならない。実行時依存になると、出荷ビルドから入力処理が消える |
 | 壁時計の直読み禁止 | 時刻はすべて注入された Clock Port から取得する |
 
-`scripts/check-dependency-whitelist.ts` は 16 リポジトリ共通のテンプレートである。
-姉妹リポジトリへ移植する際は、ファイル冒頭で囲ってある `REPOSITORY_POLICY` 定数だけを書き換えればよい。
-それ以外の部分はそのままコピーする。
+全 16 リポジトリの依存グラフは組織アーキテクチャの記録として
+[docs/architecture.md](./docs/architecture.md) に残している。一方、各リポジトリに同じ
+roster をコピーする旧来の実行スクリプトは廃止した。現在このリポジトリで機械的に検査する
+境界は、`.oxlintrc.json` の `no-restricted-imports` と `package.json` の直接依存宣言である。
+`pnpm lint` は `effect` と `@nerima-games/*` の内部実装への不正な import を拒否する。
 
-`REPOSITORY_POLICY.dependencyGraph` には **plan.md §2.1 の全 16 リポジトリ**が転記されている。
-これにより、このリポジトリのコピーだけで組織全体の循環を検出でき、
-推移閉包違反にも「なぜ違反なのか」の経路つきで説明できる。
-`test/check-dependency-whitelist.test.ts` が roster の非循環性と各ルールを検査している。
+組織全体の循環・推移閉包は組織側の依存グラフ管理で扱い、このリポジトリの lint は
+ローカルな import 境界に集中させる。こうして、実際のソースと同じ場所にある検査だけが
+現在の CI の品質ゲートになる。
 
 ### 壁時計直読み禁止の実装方法
 
@@ -65,13 +66,15 @@ oxlint 0.12 は `no-restricted-syntax` も `no-restricted-properties` も実装�
 `no-restricted-globals` は `oxlint --rules` の一覧に出るものの実装されていない
 （0.12.0 で実測確認済み。3 ルールすべてを設定した状態でも診断が 0 件）。
 
-そのため禁止は **`scripts/check-dependency-whitelist.ts` 側で実装**している。
-コメント・文字列リテラル・正規表現リテラルの中身はマスクされるので誤検知しない。
+そのため `Date.now()` / `new Date()` / `performance.now()` の禁止を oxlint の設定で
+機械的に表現することはできない。これは Clock Port を注入する設計ルールとして維持し、
+プロセス全体の時計を読むのはプラットフォーム・アダプタの境界だけに限定する。
 
-Clock Port の実装アダプタ自身だけは実クロックを読む必要があるため、
-その行に `mc-kernel-allow-time-source` コメントを付けると除外される。
+Clock Port の実装アダプタ自身だけは実クロックを読む必要がある。現行の oxlint では
+この構文的な例外を機械判定できないため、アダプタ境界のレビューで確認する。
 
-oxlint が該当ルールを実装したら .oxlintrc.json 側へ移す。
+oxlint が該当ルールを実装したときは、実測したバージョンと CI の出力を確認したうえで
+`.oxlintrc.json` 側へ移す。
 
 ## 開発
 
@@ -99,6 +102,7 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
 | `pnpm test:watch` | vitest watch |
 | `pnpm test:coverage` | カバレッジ計測（全メトリクス100%。[docs/testing.md](./docs/testing.md) §4） |
 | `pnpm verify` | `typecheck && lint && test` |
+| `pnpm package:verify` | `pnpm pack` の実体を clean consumer に install し、全 export と runtime を検査 |
 
 ## 現状
 
@@ -126,8 +130,12 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
   [docs/public-api.md](./docs/public-api.md) §7 を参照。
 - **型付き ESM ビルドは実装済み。** `pnpm build` が `dist/` に JavaScript と declaration を生成し、
   `main` / `types` / `exports` はビルド成果物を指す。`files` には `dist/` とリリースに必要なメタデータだけを含める。
-- **GitHub Packages への実公開と、公開 tarball を install する検証は未実施。** `publishConfig` は設定済みだが、
-  publish job はまだ追加していないため、`version` は下流の実消費とリリース判断が完了するまで `0.x` に留める
+- **配布境界のローカル検証は実装済み。** `pnpm package:verify` は実際に生成した tarball の
+  `exports` 対象・`files` 内容・clean consumer からの import・`fixedClock` runtime を検査し、
+  CI でも実行する。`.github/workflows/release.yaml` は `main` で package version が変わったときだけ、
+  verify・coverage・package boundary 検証後に GitHub Packages へ publish する。
+- **GitHub Packages への実公開と、公開レジストリからの install は未実施。** そのため、
+  `version` は下流の実消費とリリース判断が完了するまで `0.x` に留める
   （[docs/versioning.md](./docs/versioning.md)）。
 - **カバレッジは全メトリクス100%を閾値にする。** `pnpm test:coverage` と CI のカバレッジゲートが
   Statements / Branches / Functions / Lines を検査する（[docs/testing.md](./docs/testing.md) §4）。

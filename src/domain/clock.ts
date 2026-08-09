@@ -1,25 +1,14 @@
 /**
  * The clock Port.
  *
- * PRE-AUDIT FIRST CUT (叩き台).
+ * Simulation code must not read a process-global clock directly.
  *
- * ---------------------------------------------------------------------------
- * This is the reason `Date.now()` is banned repository-wide
- * ---------------------------------------------------------------------------
+ * A direct read makes replay and fast-forward nondeterministic, so time is
+ * obtained through this Port and supplied as a Layer.
  *
- * A direct global time read makes the calling code untestable (its behaviour
- * depends on when the test happens to run), unreproducible (a replayed input
- * log produces a different simulation), and impossible to run at anything other
- * than wall-clock speed. Every reading of time therefore comes from this Port,
- * which is injected as a Layer.
- *
- * The ban is enforced by `pnpm check:deps`
- * (`scripts/check-dependency-whitelist.ts`), not by oxlint — oxlint 0.12 does
- * not implement the rules that could express it. See .oxlintrc.json for detail.
- *
- * The one legitimate place to read a global clock is the adapter that
- * *implements* this Port, in whichever repository owns the platform layer. That
- * single line opts out with the escape-hatch comment the check script defines.
+ * The one legitimate place for a global clock read is the platform adapter that
+ * implements this Port. That adapter belongs to the consuming platform; the
+ * kernel exports only the domain vocabulary and deterministic fixed clock.
  *
  * ---------------------------------------------------------------------------
  * Two clocks, deliberately

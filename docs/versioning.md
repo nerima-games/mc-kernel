@@ -6,7 +6,7 @@
 - **最新の破壊的変更:** `Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks`。API の詳細は [public-api.md](./public-api.md) の「Chunk バイナリ形式」、変更履歴は [CHANGELOG.md](../CHANGELOG.md) の `0.3.0` を参照。
 - **配布用 build は実装済み。** `pnpm build` が `src/` から型付き ESM と declaration / source map を `dist/` に生成し、
   `package.json` の `main` / `types` / `exports` は `dist/` を指す。`files` も `dist/` と配布メタデータに限定している。
-- **publish パイプラインは未実装。** GitHub Packages への publish job と、公開 tarball を別環境で install する検証はまだ行っていない。
+- **リリースパイプラインは構成済み。** `.github/workflows/release.yaml` は `main` への push で package version の変更を確認し、変更時だけ verify / coverage / package boundary 検証を通して GitHub Packages に publish する。実際の公開操作と公開レジストリからの install はまだ行っていない。
 - 開発中は `mc-dev-meta` workspace（16 リポジトリを `repos/` に clone して 1 つの pnpm workspace として束ねる）による
   `workspace:*` 解決でモノレポ同等の DX を得る（plan.md §6 Step 0-2）。
 
@@ -49,8 +49,9 @@ kernel の場合その差が全リポジトリに波及する。
 }
 ```
 
-**`.npmrc` にはレジストリ設定が入っていない。** 現在の `.npmrc` は `fast-check` / `pure-rand` の
-hoist 設定だけであり、`@nerima-games:registry=` の行と認証トークンの受け渡しは publish パイプラインを追加するときに足す。
+**`.npmrc` には認証情報を置かない。** 現在の `.npmrc` は `fast-check` / `pure-rand` の hoist 設定だけである。
+publish workflow の `setup-node` が GitHub Packages の registry を設定し、publish step だけが `GITHUB_TOKEN` を
+一時的に `NODE_AUTH_TOKEN` として受け取るため、開発用ファイルに registry や秘密情報を複製しない。
 
 ## 4. build / publish の現状
 
@@ -62,12 +63,14 @@ hoist 設定だけであり、`@nerima-games:registry=` の行と認証トーク
 1. `pnpm build` が `src/` から JavaScript、declaration、source map を `dist/` に生成する
 2. `package.json` の root export と `domain/block-registry`、`domain/chunk` の subpath export が `dist/` を指す
 3. `files` が `dist`、`tsconfig.base.json`、`LICENSE`、`README.md` に限定される
-4. `prepublishOnly` が `pnpm verify` を実行し、publish 前の型検査・lint・テストを必須にする
+4. `prepublishOnly` が `pnpm verify` と `pnpm package:verify` を実行し、publish 前の型検査・lint・テスト・実 tarball 境界検証を必須にする
 
-未実装のリリース作業:
+構成済みのリリース導線:
 
-1. `RELEASE_STANDARD.md §3` に従う GitHub Actions publish job
-2. 公開済み tarball を install して import と runtime を確認する独立検証
+1. `RELEASE_STANDARD.md §3` に従う `.github/workflows/release.yaml`。`main` への push と package version の変更を条件にする
+2. `pnpm package:verify` による、生成した tarball の `files` / `exports`、clean consumer の import、`fixedClock` runtime の検証
+
+実際の GitHub Packages への publish と、公開済み tarball を公開レジストリから install して import / runtime を確認する作業は、認証と外部状態を伴うため未実行である。
 
 **changesets 自体は導入済み。** `.changeset/config.json`（`access: restricted`、`baseBranch: main`、
 `@changesets/changelog-github`）と `@changesets/cli` devDependency は
@@ -132,8 +135,8 @@ const sand: BlockDefinition = { type: 'sand', capabilities: { fallsWhenUnsupport
 2. **`BlockCapabilityFlag` に対する `default` 節なしの網羅 `switch` を書かない。**
    `BLOCK_CAPABILITY_FLAGS` を回す。
 
-いずれも現在は規約であり機械検査していない。実際に破られたら
-`scripts/check-dependency-whitelist.ts` の検査に昇格させる。
+いずれも現在は規約であり、能力の網羅性までは機械検査していない。依存境界の直接 import は
+`.oxlintrc.json` の `no-restricted-imports` と `pnpm lint` で検査する。
 
 ### 5-4. 型を最初から正しくしておく理由も同じ
 

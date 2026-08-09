@@ -17,7 +17,8 @@ mc-kernel は `domain/` しか持たない（純粋関数・型・データテ�
 | `BlockDefinition` 不変条件 | 実装済み | `test/block-definition.test.ts` |
 | クロック Port / フレーム契約 | 実装済み | `test/clock-and-frame.test.ts` |
 | 公開バレルの再エクスポート | 実装済み | `test/public-api.test.ts` |
-| 依存ゲート | 実装済み | `test/check-dependency-whitelist.test.ts` |
+| 依存境界 | 実装済み | `.oxlintrc.json` / `pnpm lint` |
+| 公開パッケージ境界 | 実装済み | `scripts/verify-package.mjs` / `pnpm package:verify` |
 | Chunk データ構造とコーデックのラウンドトリップ | 実装済み | `test/chunk.test.ts` |
 | Anvil の計画・適用と versioned snapshot codec | 実装済み | `test/anvil.test.ts` |
 
@@ -34,6 +35,7 @@ mc-save は媒体フォーマットと保存先を所有し、同じ `Chunk` 型
 ```console
 $ pnpm verify        # typecheck && lint && test
 $ pnpm test:coverage # カバレッジ計測。verify には含まれない（全メトリクス100%）
+$ pnpm package:verify # build、pack 済み tarball、clean consumer、公開 export / runtime
 ```
 
 **`pnpm verify` はカバレッジを含まない。** `domain/` の分岐に触ったら、
@@ -46,6 +48,7 @@ $ pnpm test:coverage # カバレッジ計測。verify には含まれない（�
 | `pnpm lint` | oxlint（このリポジトリ唯一の lint / format 設定）。**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は `correctness`、`suspicious`、`perf`、`restriction` と個別ルールを `warn` にし、`style` は無効化している） |
 | `pnpm test` | vitest（`@effect/vitest` の `it.effect` が主 API） |
 | `pnpm test:coverage` | カバレッジ計測（Statements / Branches / Functions / Lines の閾値はすべて100%） |
+| `pnpm package:verify` | 生成 tarball の `files` / `exports`、clean consumer の import、`fixedClock` runtime を検証 |
 
 `pnpm` は `corepack` 経由で 11.17.0 を使う（`package.json` の `packageManager` でピン留め）。
 
@@ -76,7 +79,7 @@ mc-save 側で追加する。
 下回れば `pnpm test:coverage` は失敗する。
 
 - `pnpm verify` は `typecheck && lint && test` のみを実行する
-- CI は `pnpm verify` に続けて `pnpm test:coverage` を実行する
+- CI は `pnpm verify`、`pnpm test:coverage`、`pnpm package:verify` を実行する
 - ローカルでカバレッジを確認するときも `pnpm test:coverage` を使う
 
 カバレッジは完成判定の一部であり、空のテスト選択や生成物を読まないチェックを合格扱いにしない。
@@ -96,10 +99,11 @@ mc-save 側で追加する。
 - `FrameServices` を `ClockPort` に固定した公開契約
 - `pnpm build` による型付き ESM と declaration の生成
 - Statements / Branches / Functions / Lines の100%カバレッジゲート
+- `pnpm package:verify` による、実際に生成した tarball の `files` / `exports`、clean consumer の import、`fixedClock` runtime の検証
 
 未完了:
 
-- GitHub Packages の publish job と、公開 tarball を install する検証
+- GitHub Packages への実 publish と、公開レジストリから取得した tarball の install 検証
 - 1.0.0 へ昇格する maintainer 判断（下流の実消費後に行う）
 
 したがって、内部の品質ゲートは完了しているが、公開物を伴うリリース完了はまだ宣言しない。
