@@ -1,13 +1,12 @@
 /**
  * Stable public import path for block-id lookup and query APIs.
  *
- * The registry data owns the dense, chunk-buffer-oriented lookup tables. This
- * module intentionally contains no derived state so consumers have one
- * canonical implementation while retaining their existing import path.
+ * The registry entries own declarative data, while the index module owns all
+ * derived state and query logic. This facade preserves the stable public path.
  */
+export { BLOCK_REGISTRY } from './block-registry-entries.js'
 export {
   BLOCK_IDS,
-  BLOCK_REGISTRY,
   UNREGISTERED_BLOCK_TYPES,
   blockIdOf,
   blockIdsWithCapability,
@@ -25,6 +24,6 @@ export {
   resolvedBlockOfId,
   supportRuleOfBlockId,
   transmitsLight,
-} from './block-registry-data.js'
+} from './block-registry-indexes.js'
 export { AIR_BLOCK_ID, BLOCK_ID_MAX, BlockId, isEmpty } from './block-registry-types.js'
 export type { BlockRegistryEntry } from './block-registry-types.js'
