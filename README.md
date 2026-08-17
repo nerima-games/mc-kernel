@@ -6,7 +6,8 @@
 
 ## 依存
 
-なし。`effect` のみに依存し、`@nerima-games/*` のどのリポジトリにも依存しない。
+なし。`effect` のみに `peerDependencies` として依存し（理由は「現状」節参照）、
+`@nerima-games/*` のどのリポジトリにも依存しない。
 
 これは設計上の制約であり、`.oxlintrc.json` の `no-restricted-imports` と
 `pnpm lint` の `--deny-warnings` で機械的に強制されている。
@@ -67,19 +68,31 @@ roster をコピーする旧来の実行スクリプトは廃止した。現在�
 
 ### 壁時計直読み禁止の実装方法
 
-oxlint 0.12 は `no-restricted-syntax` も `no-restricted-properties` も実装しておらず、
-`no-restricted-globals` は `oxlint --rules` の一覧に出るものの実装されていない
-（0.12.0 で実測確認済み。3 ルールすべてを設定した状態でも診断が 0 件）。
+devShell の oxlint（`nix develop --command oxlint --version` で確認できる）は
+`no-restricted-syntax` も `no-restricted-properties` も `no-restricted-globals` も実装していない
+（`oxlint --rules | grep no-restricted` が空を返すことで確認できる）。したがって
+`Date.now()` / `new Date()` / `performance.now()` の禁止を oxlint の設定だけで
+機械的に表現することはできない。
 
-そのため `Date.now()` / `new Date()` / `performance.now()` の禁止を oxlint の設定で
-機械的に表現することはできない。これは Clock Port を注入する設計ルールとして維持し、
-プロセス全体の時計を読むのはプラットフォーム・アダプタの境界だけに限定する。
+**そのぶんを ast-grep が担っている。** `sgconfig.yml` と `.ast-grep/rules/no-wall-clock-read.yml` が
+`src/**/*.ts` に対する構造マッチのルールを定義し、`pnpm lint` は
+`oxlint --deny-warnings src test && ast-grep scan` として両方を実行する。
+**壁時計の直読みは oxlint の穴を埋める形で `pnpm lint` の一部として機械的にハード失敗するようになった。**
+`flake.nix` の devShell は oxlint と同じ理由で `pkgs.ast-grep` も提供する
+（実行可能ファイルのバージョンを再現可能な devShell 側に置く）。
 
-Clock Port の実装アダプタ自身だけは実クロックを読む必要がある。現行の oxlint では
-この構文的な例外を機械判定できないため、アダプタ境界のレビューで確認する。
+**grep ではなく構造マッチである理由**: このリポジトリは壁時計禁止の理由をコード内コメントで
+説明している（`src/domain/clock.ts` のヘッダなど）。テキスト検索はそのコメント自身を
+違反として拾ってしまうが、ast-grep の AST パターンは実際の呼び出し式だけにマッチし、
+コメントや文字列リテラル中の同じ文字列には反応しない。
+
+Clock Port を実装するプラットフォーム・アダプタだけが実クロックを読んでよいが、
+kernel はそのアダプタ自体を持たない。したがって `src/` 内の正しい壁時計直読み件数は常に 0 であり、
+レビューではなくこのゲートがそれを保証する。ベンチマーク計測器（`scripts/benchmark.mjs`）は
+`src/` の外にあり出荷経路に含まれないため対象外（[docs/testing.md](./docs/testing.md) 性能ベンチマーク節）。
 
 oxlint が該当ルールを実装したときは、実測したバージョンと CI の出力を確認したうえで
-`.oxlintrc.json` 側へ移す。
+`.oxlintrc.json` 側へ移し、`.ast-grep/rules/no-wall-clock-read.yml` を退役させる。
 
 ## 開発
 
@@ -101,7 +114,7 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
 | コマンド | 内容 |
 | --- | --- |
 | `pnpm typecheck` | `tsconfig.build.json` と `tsconfig.test.json` の両方を型検査 |
-| `pnpm lint` | oxlint（このリポジトリ唯一の lint / format 設定。prettier も biome も .editorconfig も置かない）。**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は 5 カテゴリすべてと個別 67 ルールが `warn`、`error` は 4 つだけ。このフラグが無かった頃は実質その 4 つしかゲートになっていなかった） |
+| `pnpm lint` | oxlint と ast-grep（このリポジトリ唯一の lint / format 設定。prettier も biome も .editorconfig も置かない）。`oxlint --deny-warnings src test && ast-grep scan` として両方を実行する。oxlint は**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は `correctness` / `suspicious` / `perf` / `restriction` の 4 カテゴリと個別ルールの大半を `warn` にし、`style` は無効化、`error` は少数だけ。このフラグが無かった頃は実質その `error` のルールしかゲートになっていなかった。`.oxlintrc.json` は JSONC なのでコメント行を除いてから数える必要がある。正確な内訳はそうやって `.oxlintrc.json` を参照）。ast-grep は oxlint が実装していない壁時計禁止を補う（下記） |
 | `pnpm lint:fix` | oxlint の自動修正 |
 | `pnpm test` | Vitest 4（Effect のテストは native `it` と `Effect.runPromise` を直接利用） |
 | `pnpm test:watch` | vitest watch |
@@ -144,9 +157,15 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
   `exports` 対象・`files` 内容・clean consumer からの import・`fixedClock` runtime を検査し、
   CI でも実行する。`.github/workflows/release.yaml` は `main` で package version が変わったときだけ、
   verify・coverage・package boundary 検証後に GitHub Packages へ publish する。
-- **GitHub Packages への実公開と、公開レジストリからの install は未実施。** そのため、
+- **GitHub Packages への実公開は既に行われている**（`0.2.0`〜`0.2.18` の 19 バージョン）。
+  一方、現在の `version` である `0.3.0` は release workflow の version 検出方式の穴により
+  まだ publish されておらず、公開レジストリから取得した tarball の install 検証も未実施である。
   `version` は下流の実消費とリリース判断が完了するまで `0.x` に留める
   （[docs/versioning.md](./docs/versioning.md)）。
+- **`effect` は `peerDependencies` に置く。** kernel は `Context.Tag`（`ClockPort`）と Effect 値を
+  export するため、消費側と同じ `effect` インスタンスでなければならない。これは消費側にとって
+  破壊的変更である（`effect` を自前で宣言していない消費コードは壊れる）。詳細は
+  [docs/versioning.md](./docs/versioning.md) §1-1。
 - **カバレッジは全メトリクス100%を閾値にする。** `pnpm test:coverage` と CI のカバレッジゲートが
   Statements / Branches / Functions / Lines を検査する（[docs/testing.md](./docs/testing.md) §4）。
 

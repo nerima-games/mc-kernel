@@ -49,6 +49,13 @@ $ nix develop --command pnpm package:verify # build、pack 済み tarball、clea
 | `pnpm test` | Vitest 4（native `it` と `Effect.runPromise` を直接利用） |
 | `pnpm test:coverage` | カバレッジ計測（Statements / Branches / Functions / Lines の閾値はすべて100%） |
 | `pnpm package:verify` | 生成 tarball の `files` / `exports`、clean consumer の import、`fixedClock` runtime を検証 |
+| `pnpm audit` | CI のゲート。**意図的に `--prod` を付けない** |
+
+**`pnpm audit` は `--prod` なしで CI に配線している。** ランタイム依存は `effect` 1 つだけなので、
+`pnpm audit --prod` は "No known vulnerabilities" と出やすく、それは devDependencies 側の脆弱性に
+ついて何も言っていない合格である。木全体を対象にすることで devDependencies の advisory も拾い、
+見つかった場合は `pnpm-workspace.yaml` の `overrides` で該当の transitive package を固定する
+（ゲートを黙らせるために対象を絞ることはしない）。
 
 `pnpm` は `corepack` 経由で `package.json` の `packageManager` に記載したバージョンを使う。
 コマンド実行には、テスト 10 秒、hook 10 秒、package 検証の各 subprocess 30〜180 秒という
@@ -137,7 +144,12 @@ mc-save 側で追加する。
 
 未完了:
 
-- GitHub Packages への実 publish と、公開レジストリから取得した tarball の install 検証
+- **現在の `package.json` バージョンの publish。** GitHub Packages への publish 自体は
+  `0.2.0`〜`0.2.18` の 19 バージョンで既に行われている。一方、現在の `package.json` が指す
+  `0.3.0` は release ワークフローの version 検出方式の穴により publish されないまま残っている
+  （経緯は [versioning.md](./versioning.md) §4）
+- 公開レジストリから取得した tarball の install 検証（`pnpm package:verify` はローカル `pnpm pack` の
+  tarball しか見ておらず、GitHub Packages から取得した tarball ではない）
 - 1.0.0 へ昇格する maintainer 判断（下流の実消費後に行う）
 
 したがって、内部の品質ゲートは完了しているが、公開物を伴うリリース完了はまだ宣言しない。

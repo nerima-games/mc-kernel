@@ -2,13 +2,45 @@
 
 ## 1. 現状
 
-- **バージョン: `0.3.0`。**（`0.2.19` からの bump 理由は `Chunk.blocks` の `ChunkBlocks` 化という破壊的変更）
+- **バージョン: `0.3.0`。** 理由は `Chunk.blocks` の `ChunkBlocks` 化という破壊的変更。
+  `0.2.19` は changesets が一度 CHANGELOG に書き出したが、`package.json` の version として
+  コミットされる前に `0.3.0` の変更へ合流し、独立した version にはならなかった
+  （変更履歴は [CHANGELOG.md](../CHANGELOG.md) を参照）。
 - **最新の破壊的変更:** `Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks`。API の詳細は [public-api.md](./public-api.md) の「Chunk バイナリ形式」、変更履歴は [CHANGELOG.md](../CHANGELOG.md) の `0.3.0` を参照。
 - **配布用 build は実装済み。** `pnpm build` が `src/` から型付き ESM と declaration / source map を `dist/` に生成し、
   `package.json` の `main` / `types` / `exports` は `dist/` を指す。`files` も `dist/` と配布メタデータに限定している。
-- **リリースパイプラインは構成済み。** `.github/workflows/release.yaml` は `main` への push で package version の変更を確認し、変更時だけ verify / coverage / package boundary 検証を通して GitHub Packages に publish する。実際の公開操作と公開レジストリからの install はまだ行っていない。
+- **GitHub Packages への公開は既に行われている。** `0.2.0` から `0.2.18` までの 19 バージョンが
+  `https://npm.pkg.github.com` に public visibility で公開済みである（`gh api
+  /orgs/nerima-games/packages/npm/mc-kernel/versions` で確認できる）。
+  **一方、現在の `package.json` が指す `0.3.0` はまだ公開されていない。** 原因は §3 で述べる
+  release ワークフローの version 検出方式にあり、`0.3.0` へのバージョン変更を検出できる push が
+  一度も発生していないためである。「GitHub Packages への公開自体」と「公開レジストリから取得した
+  tarball を install して runtime を確認する検証」は別の未達成事項であり、後者は 1 バージョンも
+  実施していない（§4）。
 - 開発中は `mc-dev-meta` workspace（16 リポジトリを `repos/` に clone して 1 つの pnpm workspace として束ねる）による
   `workspace:*` 解決でモノレポ同等の DX を得る（plan.md §6 Step 0-2）。
+
+### 1-1. `effect` を `peerDependencies` に移した理由（破壊的変更）
+
+**`effect` は `dependencies` ではなく `peerDependencies` で宣言する**（`devDependencies` にはローカル
+ビルド用に残す）。mc-kernel は `Context.Tag`（`ClockPort`）と Effect 値を公開 API として export するため、
+消費側が使う `effect` インスタンスと**同一**でなければ Layer 解決が壊れる。
+
+実測: `effect` の異なるマイナーバージョン（例: 3.22.1 と 3.19.0）を同居させると `Context.Tag` の解決自体は
+成功するが、`Effect` の実行時に
+`WARN: Executing an Effect versioned 3.22.1 with a Runtime of version 3.19.0, you may want to dedupe the effect dependencies`
+という警告が出る。さらに `effect` は既に 4.x を `rc` / `beta` dist-tag で公開しており、消費側が
+先に 4 系へ移行した場合、kernel が `effect` を `dependencies: ^3.22.1` のまま持っていると
+`effect` 3 系の 2 つ目のコピーが黙ってインストールされる。
+
+Effect org 自身のパッケージ（`@effect/platform` / `@effect/schema` / `@effect/cli` /
+`@effect/experimental` / `@effect/vitest`）はいずれも `effect` を `peerDependencies` として宣言しており、
+`dependencies` にしているものは無い（`npm view <pkg> peerDependencies dependencies` で確認できる）。
+
+**これは消費側にとって破壊的変更である。** `peerDependencies` は自動インストールされないため、
+消費側は `effect` を自分の `package.json` に明示的に宣言する必要がある。すでに `effect` に
+依存している 15 リポジトリでは通常は無変更で済むが、`effect` を宣言していない状態で
+mc-kernel だけを頼りに `effect` を得ていた消費コードがあれば、そこは壊れる。
 
 ## 2. 0.x に留める方針
 
@@ -40,7 +72,9 @@ kernel の場合その差が全リポジトリに波及する。
 ## 3. 公開先
 
 **GitHub Packages**（`https://npm.pkg.github.com`、`access: restricted`）。
-`package.json` の `publishConfig` に設定済みだが、**publish 自体はまだ実行されない**。
+`package.json` の `publishConfig` に設定済みで、**publish 自体は既に実行されている**
+（`0.2.0`〜`0.2.18` の 19 バージョン、§1 参照）。`0.3.0` が未公開なのは publish の仕組みが
+動いていないからではなく、次節が説明する version 検出の穴によるものである。
 
 ```json
 "publishConfig": {
@@ -67,16 +101,35 @@ publish workflow の `setup-node` が GitHub Packages の registry を設定し�
 
 構成済みのリリース導線:
 
-1. `RELEASE_STANDARD.md §3` に従う `.github/workflows/release.yaml`。`main` への push と package version の変更を条件にする
+1. `RELEASE_STANDARD.md §3` に従う `.github/workflows/release.yaml`。`main` への push を受けて
+   `detect` ジョブが package version の変更を確認し、変更したときだけ `publish` ジョブが
+   verify / coverage / package boundary 検証を経て GitHub Packages へ publish する。
+   publish の成否に関わらず `tag` ジョブが `v<version>` タグを push 済みコミットへ打つ
+   （19 バージョンが公開されている一方、タグは `v0.2.18` の 1 つしか無く、
+   どのコミットがどの版かを辿れなかったための追加）。
 2. `pnpm package:verify` による、生成した tarball の `files` / `exports`、clean consumer の import、`fixedClock` runtime の検証
 
-実際の GitHub Packages への publish と、公開済み tarball を公開レジストリから install して import / runtime を確認する作業は、認証と外部状態を伴うため未実行である。
+**`detect` ジョブは `package.json` の version を `github.event.before` 時点のコミットと比較して判定する。**
+これには構造的な穴が 1 つある: 2026-08-10 にこのワークフローを追加した時点で、`package.json` は
+既に `0.3.0` だった（`0.2.18` からの一連のバンプ後）。したがって「version が変わった」という
+遷移をワークフローが一度も観測できず、以後 `main` へ何を push しても `0.3.0` は publish されない
+状態が続いている。次にバージョンを動かすコミット（次の changesets リリースサイクル）が
+main に着地すれば、その新しいバージョンは正しく検出されて publish される。**`0.3.0` 自体を
+publish するには、手動 publish か、workflow_dispatch のような別のトリガーが必要になる。**
+
+実際に GitHub Packages へ publish された `0.2.0`〜`0.2.18` の 19 バージョンと、これから追随する
+バージョンとは別に、**公開レジストリから tarball を取得して install し、import / runtime を確認する
+作業は 1 バージョンも実行していない。** `pnpm package:verify` が検証するのはローカルで `pnpm pack`
+した tarball であり、実際に GitHub Packages から取得した tarball ではない。この差は
+[freeze-checklist.md](./freeze-checklist.md) の該当チェック項目が明示している。
 
 **changesets 自体は導入済み。** `.changeset/config.json`（`access: restricted`、`baseBranch: main`、
-`@changesets/changelog-github`）と `@changesets/cli` devDependency は
+`@changesets/changelog-github`）と `@changesets/cli` の devDependency は
 org 標準（[RELEASE_STANDARD.md §1](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#1-changesets-導入)）に従う。
-バージョン bump と CHANGELOG 生成は changesets に一本化し、上記の未実装項目は publish job と
-公開物の install 検証に限定される。
+バージョンは `package.json` の該当フィールドを直接参照する（drift しやすい生の数字はここに書かない）。
+バージョン bump と CHANGELOG 生成は changesets に一本化している。上記のとおり publish job 自体は
+稼働しており未実装ではない —— 残る欠落は「`0.3.0` を検出させる次の bump」と
+「公開レジストリから取得した tarball の install 検証」の 2 点である。
 
 **開発時の扱い**: 通常の `pnpm typecheck` は source を直接検査し、release build は `pnpm build` として
 明示的に実行する。これにより開発中の型検査で `src/` が生成物に置き換わることはない。
