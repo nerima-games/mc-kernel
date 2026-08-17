@@ -2,11 +2,10 @@ import {
   CHUNK_SIZE_XZ,
   blockPosition,
   chunkCoord,
-  localAxis,
+  LocalAxis,
   normalizeZero,
   type BlockPosition,
   type ChunkCoord,
-  type LocalAxis,
   type Position,
 } from './coordinate-primitives.js'
 
@@ -39,9 +38,9 @@ export const chunkCoordOfBlock = (value: BlockPosition): ChunkCoord =>
 
 /** The chunk-local address of a block cell. */
 export const localCoordOfBlock = (value: BlockPosition): LocalBlockCoord => ({
-  lx: localAxis(normalizeZero(floorMod(value.x, CHUNK_SIZE_XZ))),
+  lx: LocalAxis(normalizeZero(floorMod(value.x, CHUNK_SIZE_XZ))),
   ly: value.y,
-  lz: localAxis(normalizeZero(floorMod(value.z, CHUNK_SIZE_XZ))),
+  lz: LocalAxis(normalizeZero(floorMod(value.z, CHUNK_SIZE_XZ))),
 })
 
 /** Inverse of `chunkCoordOfBlock` + `localCoordOfBlock`. */
