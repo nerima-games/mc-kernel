@@ -6,14 +6,15 @@ mc-kernel の公開 API を `1.0.0` として凍結する前に満たすべき�
 このリポジトリ単独で現在再実行できる検査ではないため、公開物の現在の境界は
 `pnpm package:verify` として別途検証する。
 型検査・lint・test・release build・4メトリクスの100%カバレッジという内部品質ゲートも満たしている。
-**GitHub Packages への実 publish は既に行われている**（`0.2.0`〜`0.2.18` の 19 バージョン）。
-一方、現在の `package.json` が指す `0.3.0` は release workflow の version 検出方式の穴により
-publish されないまま残っている。経緯は [versioning.md](./versioning.md) §1 / §4 を参照。
+**GitHub Packages への実 publish は行われており、現在の最新は `0.4.0` である。**
+`0.3.0` は release workflow の version 検出方式の穴により publish されないまま飛ばされた。
+経緯は [versioning.md](./versioning.md) §1 / §4 を参照。
 
-### 公開レジストリからの install 検証を実施した結果 —— 公開物は壊れている
+### 公開レジストリからの install 検証を実施した結果 —— `0.4.0` 未満の公開物は壊れている
 
-本書は長らくこの検証を「未実施」として残していた。実施したところ、**公開済みのパッケージは
-Node から import できない**ことが判明した。
+本書は長らくこの検証を「未実施」として残していた。実施したところ、**当時公開されていた
+パッケージはいずれも Node から import できない**ことが判明した。
+**`0.4.0` がこれを直した最初の版である**（下記チェックリスト）。以下はその経緯の記録である。
 
 空のプロジェクトに `npm install @nerima-games/mc-kernel@0.2.18` して import すると、Node は
 `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING` で失敗する。公開されている `package.json` は
@@ -41,8 +42,8 @@ Node から import できない**ことが判明した。
 （[API_STANDARD.md §4](https://github.com/nerima-games/.github/blob/main/API_STANDARD.md#4-自動-apiロックスナップショットツールは使わない)）。
 1.0.0 への昇格は、計測期間や自動判定に代えて **maintainer（take）の裁量判断のみ**で行う
 （[RELEASE_STANDARD.md §4.2](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#42-新しい昇格ポリシー人間による裁量判断)）。
-残る実質的な未達成項目は、`0.3.0` を実際に publish させる次のバージョン変更、公開物を公開レジストリから
-install する検証、および 1.0.0 へ昇格する maintainer 判断である。
+残る実質的な未達成項目は **1.0.0 へ昇格する maintainer 判断のみ**である。
+公開レジストリからの install 検証は実施済みで、`0.4.0` がそれに合格している（下記）。
 
 凍結が特別扱いされる理由は [versioning.md](./versioning.md) §5 にある。
 kernel は 14 リポジトリからピン留めされ、破壊的変更は深さ 5 の republish カスケードを起こす。
@@ -287,11 +288,13 @@ shipped source は 1 行も要らない。作業内容は
 - [x] GitHub Packages への実 publish を行っている（`0.2.0`〜`0.2.18` の 19 バージョン。[versioning.md](./versioning.md) §1）
 - [x] 公開レジストリから取得した tarball の install 検証を実施した（`pnpm package:verify` はローカル
       `pnpm pack` の tarball のみを見ており、この検証を代替しない）
-- [ ] **その検証に合格する版が公開されている。** 現時点では合格していない。公開済みの 19 バージョンは
-      いずれも生の TypeScript を出荷しており Node から import できず、`dist` を含む修正版は
-      release workflow の version 検出方式の穴により一度も publish されていない（本書冒頭）。
-      **1.0.0 の前に、まず読み込める版を 1 つ公開する必要がある。**
-- [ ] 1.0.0 へ昇格する maintainer 判断が完了している
+- [x] **その検証に合格する版が公開されている** —— `0.4.0`。公開後にレジストリから install し直して
+      確認した: root import が 158 export を解決し、`domain/block-registry` と `domain/chunk` の
+      両 subpath も解決し、`fixedClock` / Chunk コーデックのラウンドトリップ / 座標変換が実際に動く。
+      公開された manifest は `main: ./dist/index.js`、`exports` は 3 target、
+      `peerDependencies` に `effect`。
+      **これ以前の 19 バージョンはいずれも Node から import できない**（本書冒頭）。
+- [ ] 1.0.0 へ昇格する maintainer 判断が完了している —— **これが唯一の残件である。**
 - [x] 下流リポジトリが少なくとも 1 つ、実際に kernel を消費して契約を確認している（[versioning.md](./versioning.md) §2）
       — **3 リポジトリ（mx-gameplay / mx-ui / mx-redstone）で、ミラーを削除し import を
       `@nerima-games/mc-kernel` に張り替え、各リポジトリが宣言する全プロジェクトを実際に
