@@ -25,41 +25,72 @@
 
 ## 2. 内部構成
 
-**`domain/` のみ。型・純粋関数・データテーブルだけを置く。**
-
-現在の構成:
+**`domain/` のみ。型・純粋関数・データテーブルだけを置く。** ファイル分割の方針（data と logic を分ける、
+struct は別ファイルに隔離する、公開境界と派生インデックスを分ける）は
+[architecture.md](./architecture.md) §6 が正で、ここはその結果としての一覧を保守する。
+現在のファイル数は `find src/domain -name '*.ts' | wc -l` で確認できる（この一覧の行数と一致するはず）。
 
 ```
 index.ts                      # 公開バレル。他 15 リポジトリはここを import する
 domain/
   identifiers.ts              # WorldId / StageId
   quantities.ts               # StackCount / DeltaTimeSecs / MonotonicTimeSecs / EpochMillis
-  coordinates.ts              # Position / BlockPosition / ChunkCoord / LocalBlockCoord / AABB
-  block-type.ts               # BlockType 語彙
-  item-type.ts                # ItemType 語彙（block-type.ts と同形）
-  block-item.ts               # ブロック↔アイテムの橋（監査 §6-8 の交差を導出で解く）
-  block-capabilities.ts       # boolean 能力フラグ表
-  block-properties.ts         # 型付きプロパティ表
-  block-harvest.ts            # harvestTool / drops（struct 2 種を隔離）+ ドロップ解決
-  block-definition.ts         # BlockDefinition と解決関数、実装/保留の台帳
-  block-registry.ts           # 公開境界。数値 id ↔ BlockType と accessor
-  block-registry-entries.ts   # 宣言的なブロックレジストリの組み立て
-  block-registry-rules.ts     # 共有する既定値・support rule
-  block-registry-entries-foundation.ts         # 基礎ブロック
-  block-registry-entries-terrain.ts             # 地形ブロック
-  block-registry-entries-ores-and-blocks.ts     # 鉱石・基本ブロック
-  block-registry-entries-crops-and-redstone.ts  # 作物・レッドストーン
-  block-registry-entries-end.ts                 # エンド・特殊ブロック
+
+  # 座標系: primitive・key・変換・幾何・近傍を責務ごとに分離（architecture.md §6）
+  coordinates.ts               # 公開語彙（Position / BlockPosition / ChunkCoord / LocalBlockCoord / AABB）
+  coordinate-primitives.ts     # CHUNK_SIZE_XZ 等の定数とブランド型
+  coordinate-keys.ts           # BlockPositionKey / ChunkKey の正準文字列キー化
+  coordinate-conversions.ts    # チャンクローカル座標などの変換
+  coordinate-geometry.ts       # AABB と交差判定
+  coordinate-neighbours.ts     # 隣接ブロックの走査順
+
+  # ブロック/アイテム語彙: データと型・guard を分離（architecture.md §6）
+  block-type-data.ts           # BLOCK_TYPES の閉じたデータテーブル
+  block-type.ts                # BlockType 型と外部入力用 runtime guard
+  item-type-data.ts            # ITEM_TYPES の閉じたデータテーブル
+  item-type.ts                 # ItemType 型と外部入力用 runtime guard
+  block-item.ts                # ブロック↔アイテムの橋（監査 §6-8 の交差を導出で解く）
+  item-registry.ts             # ItemId の数値 wire ID とスタック上限
+
+  # ブロック能力モデル
+  block-capabilities.ts        # boolean 能力フラグ表
+  block-properties.ts          # 型付きプロパティ表
+  block-support.ts             # supportRule の値と判定（監査 §4.6）
+  block-harvest.ts             # harvestTool / drops（struct 2 種を隔離）+ ドロップ解決
+  block-definition.ts          # BlockDefinition と解決関数、実装/保留の台帳
+
+  # ブロックレジストリ: 宣言的データと派生インデックスを分離（architecture.md §6）
+  block-registry.ts            # 公開境界。数値 id ↔ BlockType と accessor
+  block-registry-types.ts      # BlockId 型と AIR_BLOCK_ID
+  block-registry-entries.ts    # 宣言的なブロックレジストリの組み立て
+  block-registry-entries-foundation.ts            # 基礎ブロック
+  block-registry-entries-passable.ts              # passable な非 full 衝突形状のブロック群
+  block-registry-entries-collision-shapes.ts      # その他の非 full 衝突形状のブロック群
+  block-registry-entries-terrain.ts               # 地形ブロック
+  block-registry-entries-ores-and-blocks.ts       # 鉱石・基本ブロック
+  block-registry-entries-crops-and-redstone.ts    # 作物・レッドストーン
+  block-registry-entries-end.ts                   # エンド・特殊ブロック
   block-registry-entries-structures-and-nether.ts # 構造物・ネザー
-  block-registry-indexes.ts   # レジストリ行から導出する id-indexed lookup
-  anvil.ts                    # Anvil の公開境界（計画・適用・snapshot codec）
-  anvil-planning.ts           # Anvil の入力検証・修理・統合・最終計画
-  anvil-primitives.ts         # Anvil の branded primitive と境界定数
-  anvil-normalization.ts      # エンチャントの正規化
-  anvil-snapshot-codec.ts     # versioned snapshot の encode / decode
-  camera.ts                   # CameraPoseSnapshot
-  clock.ts                    # ClockPort
-  frame.ts                    # GameModule / StageRegistration / FrameServices
+  block-registry-rules.ts      # レジストリ行が共有する既定値
+  block-registry-indexes.ts    # レジストリ行から導出する id-indexed lookup
+  block-state.ts               # 登録済み BlockId のみを許す owned バッファ（BlockState）
+
+  # Chunk データ構造とコーデック
+  chunk.ts                     # Chunk / ChunkHeight / EncodedChunk と versioned codec
+
+  # Anvil: validation・transformation・orchestration を分離（architecture.md §6）
+  anvil.ts                     # Anvil の公開境界（計画・適用・snapshot codec）
+  anvil-constants.ts           # 境界定数（ANVIL_TOO_EXPENSIVE_LEVEL 等）
+  anvil-primitives.ts          # Anvil の branded primitive と境界定数
+  anvil-normalization.ts       # エンチャントの正規化
+  anvil-validation.ts          # 入力検証と拒否理由
+  anvil-transformation.ts      # 修理・統合・repair cost の計算
+  anvil-planning.ts            # 検証と計算を束ねた最終計画
+  anvil-snapshot-codec.ts      # versioned snapshot の encode / decode
+
+  camera.ts                    # CameraPoseSnapshot
+  clock.ts                     # ClockPort
+  frame.ts                     # GameModule / StageRegistration / FrameServices
 scripts/
   verify-package.mjs              # pack 済み成果物の exports / install / runtime ゲート
 ```

@@ -44,6 +44,27 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
+    // A type-only import must say so. The emitted JavaScript then follows from
+    // the import statement alone, with no whole-program analysis deciding which
+    // specifiers survive — which is what a package shipping ESM to fifteen
+    // consumers wants.
+    "verbatimModuleSyntax": true,
+    // Nothing that needs a runtime transform to have meaning: no enum, no
+    // namespace, no parameter property. The domain is types and const data
+    // already, so this pins the property rather than requesting a change.
+    "erasableSyntaxOnly": true,
+    // A side-effect import that resolves to nothing is an error, not a no-op.
+    "noUncheckedSideEffectImports": true,
+    // `isolatedDeclarations` is deliberately absent, and this is the record of
+    // why so the question is not reopened from scratch. It would suit a package
+    // freezing its API — every exported type written down rather than inferred,
+    // so a changed return type shows up as a source diff instead of a quietly
+    // different .d.ts. But it cannot express Effect's Tag idiom:
+    // `class ClockPort extends Context.Tag('...')<ClockPort, ClockService>() {}`
+    // extends a call expression, and a declaration emitted without looking at
+    // other files cannot name that base (TS9021). Working around it would mean
+    // declaring the Port some way other than the one Effect documents, which is
+    // a worse trade than leaving the flag off.
     "moduleDetection": "force",
     "resolvePackageJsonExports": true,
     "resolvePackageJsonImports": true,

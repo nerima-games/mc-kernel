@@ -41,12 +41,21 @@
           # oxlint is intentionally supplied by Nix rather than package.json.
           # This keeps the executable version in the reproducible development
           # shell and avoids a second package-manager lockfile entry.
+          #
+          # ast-grep is here for the same reason, and covers what oxlint cannot:
+          # it implements none of no-restricted-syntax, no-restricted-properties
+          # or no-restricted-globals, so the org-wide ban on reading a
+          # process-global clock had no mechanical gate. `.ast-grep/rules/`
+          # holds that gate. Structural matching is the point — the ban is
+          # documented in prose beside the code it governs, and a textual check
+          # would fail its own documentation.
           default = pkgs.mkShell {
             packages = [
               pkgs.nodejs_24
               pkgs.corepack_24
               pkgs.typescript-language-server
               pkgs.oxlint
+              pkgs.ast-grep
             ];
 
             shellHook = ''

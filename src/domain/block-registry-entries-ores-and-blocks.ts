@@ -6,6 +6,42 @@ import { DEFAULT_BLOCK_DROP } from './block-harvest.js'
 import { NEEDS_WOODEN_PICKAXE, NEEDS_STONE_PICKAXE, NEEDS_IRON_PICKAXE } from './block-registry-rules.js'
 
 export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> = [
+  // ---------------------------------------------------------------------------
+  // ids 50-63: ores (`blocks.config.ores.ts`, `harvestable-blocks.ts`)
+  // ---------------------------------------------------------------------------
+  //
+  // Fourteen rows in seven stone/deepslate pairs, and the group that finally
+  // makes four separate capabilities carry different information at once.
+  //
+  //   `harvestTool.minTier`  the reference's four-stage union ladder. Coal is
+  //     wooden; iron and lapis are stone; gold, redstone, diamond and emerald
+  //     are iron. Deepslate variants sit at the SAME tier as their stone twins —
+  //     the ladder pairs them explicitly — so deepslate is harder (60 vs 50) but
+  //     not gated higher. Two axes, one of which moves and one of which does not.
+  //
+  //   `drops.item`   `INVENTORY_DROP_OVERRIDES`. Not one ore drops itself, and
+  //     iron and gold drop RAW ore rather than an ingot.
+  //
+  //   `xpOnBreak`    `ORE_XP_TABLE` (`blocks.config.ores.ts:29-37`). Coal 5,
+  //     lapis 5, redstone 5, diamond 7, emerald 7 — and IRON AND GOLD ZERO,
+  //     with the reference's reason written at :8-10: they drop raw ore and the
+  //     experience is paid at the furnace. A row here that quietly gave iron ore
+  //     5 would be indistinguishable from a typo and would pay the player twice.
+  //
+  //   `drops.count`  `BLOCK_BASE_DROP_COUNT` (:204-215) gives redstone and lapis
+  //     4 and everything else 1. The reference's note explains the choice: vanilla
+  //     rolls 4-5 and 4-9, and it takes the deterministic MINIMUM so that breaking
+  //     a block stays replayable. Kernel needs that property even more than the
+  //     reference does — `StageRegistration.run` has no source of randomness.
+  //
+  //   `affectedByFortune`  `FORTUNE_ORE_BLOCKS` (:270-276), which holds ten of
+  //     the fourteen. IRON AND GOLD ORE ARE ABSENT, and that is not the same set
+  //     as "the ores with zero XP" even though it happens to contain the same
+  //     four. Transcribed as two independent facts, because they are two lists.
+  //
+  // `redstone_ore` and `deepslate_redstone_ore` also emit light: 9, from
+  // `EMISSIVE_LEVEL_OVERRIDES` (`light.ts:24-35`). Nine, not fifteen — an ore
+  // that glows dimly is exactly the case a boolean `emissive` could not express.
   {
     id: BlockId(50),
     definition: {
@@ -247,32 +283,4 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
   },
   { id: BlockId(69), definition: { type: 'lapis_block', properties: { hardness: 50, friction: 0.8 } } },
   { id: BlockId(70), definition: { type: 'emerald_block', properties: { hardness: 65, friction: 0.8 } } },
-
-  // ---------------------------------------------------------------------------
-  // ids 71-73: crops (`CROP_BLOCK_TYPES`, `block-support.ts:20`)
-  // ---------------------------------------------------------------------------
-  //
-  // READ THE `suffocates` COLUMN BEFORE COPYING THESE ROWS. The three crops are
-  // ONE set everywhere in `block-support.ts` and are treated identically by every
-  // rule there — and `NON_SUFFOCATING_BLOCKS` splits them:
-  //
-  //   WHEAT_CROP        listed (`environment-hazard.config.ts:48`)
-  //   NETHER_WART_CROP  listed (:49)
-  //   POTATO_CROP       *** NOT LISTED ***
-  //
-  // So the reference suffocates a player standing inside a potato and not inside
-  // wheat. This row TRANSCRIBES that, and does not infer the missing entry, for
-  // the reason the `PASSABLE_BLOCK_IDS` group above already gives: audit §4.7
-  // licenses inferring `suffocates: false` from `passable: true`, and CROPS ARE
-  // NOT PASSABLE — none of the three is in `PASSABLE_BLOCK_IDS`, so a crop is a
-  // solid full cube for collision and the implication does not apply. There is
-  // no rule that lets kernel fill this in, only a hunch, and a hunch that
-  // silently makes three rows agree is how a table stops being a transcription.
-  //
-  // This is a NEW instance of the disagreement audit §4.9 measured, and it is
-  // the sharpest one yet: the other cases disagree between tables about blocks
-  // that differ, whereas this splits a set the source itself defines as a set.
-  //
-  // `supportRule` is what these rows actually wanted, and they have it. Wheat
-  // and potatoes require farmland; nether wart requires soul sand.
 ]

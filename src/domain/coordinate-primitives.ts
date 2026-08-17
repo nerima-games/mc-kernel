@@ -8,32 +8,26 @@ export const CHUNK_SIZE_XZ = 16
 /** An integral world-space block coordinate on any axis. */
 export type BlockAxis = number & Brand.Brand<'BlockAxis'>
 
-export const blockAxis = Brand.refined<BlockAxis>(
+export const BlockAxis = Brand.refined<BlockAxis>(
   (value) => Number.isSafeInteger(value),
   (value) => Brand.error(`BlockAxis must be a safe integer, received ${value}`),
 )
 
-export { blockAxis as BlockAxis }
-
 /** An integral chunk-space coordinate on the X or Z axis. One step = CHUNK_SIZE_XZ blocks. */
 export type ChunkAxis = number & Brand.Brand<'ChunkAxis'>
 
-export const chunkAxis = Brand.refined<ChunkAxis>(
+export const ChunkAxis = Brand.refined<ChunkAxis>(
   (value) => Number.isSafeInteger(value),
   (value) => Brand.error(`ChunkAxis must be a safe integer, received ${value}`),
 )
 
-export { chunkAxis as ChunkAxis }
-
 /** A chunk-local horizontal coordinate: an integer in [0, CHUNK_SIZE_XZ - 1]. */
 export type LocalAxis = number & Brand.Brand<'LocalAxis'>
 
-export const localAxis = Brand.refined<LocalAxis>(
+export const LocalAxis = Brand.refined<LocalAxis>(
   (value) => Number.isInteger(value) && value >= ZERO && value < CHUNK_SIZE_XZ,
   (value) => Brand.error(`LocalAxis must be an integer in [0, ${CHUNK_SIZE_XZ - 1}], received ${value}`),
 )
-
-export { localAxis as LocalAxis }
 
 /** A continuous world-space point. Y is up. */
 export type Position = {
@@ -62,9 +56,9 @@ export const blockPositionFromAxes = (x: BlockAxis, y: BlockAxis, z: BlockAxis):
 
 export const blockPosition = (x: number, y: number, z: number): BlockPosition =>
   blockPositionFromAxes(
-    blockAxis(normalizeZero(x)),
-    blockAxis(normalizeZero(y)),
-    blockAxis(normalizeZero(z)),
+    BlockAxis(normalizeZero(x)),
+    BlockAxis(normalizeZero(y)),
+    BlockAxis(normalizeZero(z)),
   )
 
 /** The horizontal address of a chunk column. */
@@ -76,4 +70,4 @@ export type ChunkCoord = {
 export const chunkCoordFromAxes = (cx: ChunkAxis, cz: ChunkAxis): ChunkCoord => ({ cx, cz })
 
 export const chunkCoord = (cx: number, cz: number): ChunkCoord =>
-  chunkCoordFromAxes(chunkAxis(normalizeZero(cx)), chunkAxis(normalizeZero(cz)))
+  chunkCoordFromAxes(ChunkAxis(normalizeZero(cx)), ChunkAxis(normalizeZero(cz)))

@@ -4,7 +4,7 @@ import * as blockRegistry from '../src/domain/block-registry'
 import { BLOCK_TYPES, isBlockType } from '../src/domain/block-type'
 import { BLOCK_PROPERTY_DEFAULTS } from '../src/domain/block-properties'
 import { ITEM_REGISTRY, itemIdOf } from '../src/domain/item-registry'
-import { ITEM_TYPES, isItemType } from '../src/domain/item-type'
+import { ITEM_TYPES, type ItemType, isItemType } from '../src/domain/item-type'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 
@@ -29,6 +29,21 @@ const PUBLIC_ITEM_TYPES = [
   'shears',
   'wool',
 ] as const
+
+/**
+ * The shape shared by every "this item's barrel-exported metadata is what it
+ * should be" assertion below: known, stackable by the pinned amount, and not
+ * placeable. `id` is only checked where the test is pinning a stable numeric
+ * item id rather than merely a stack-size class.
+ */
+const expectCanonicalItem = (item: ItemType, { id, maxStack }: { readonly id?: number; readonly maxStack: number }) => {
+  expect(kernel.isItemType(item), item).toBe(true)
+  if (id !== undefined) {
+    expect(kernel.itemIdOf(item), item).toBe(id)
+  }
+  expect(kernel.maxStackCountOfItem(item), item).toBe(maxStack)
+  expect(kernel.isPlaceableItem(item), item).toBe(false)
+}
 
 describe('BlockType', () => {
   it('narrows a string that names a known block', () =>
@@ -355,31 +370,23 @@ describe('public API surface', () => {
 
   it('exports the canonical enchanted-book item identity', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(kernel.isItemType('enchanted_book')).toBe(true)
-      expect(kernel.itemIdOf('enchanted_book')).toBe(ENCHANTED_BOOK_ID)
-      expect(kernel.maxStackCountOfItem('enchanted_book')).toBe(SINGLE_ITEM_STACK)
-      expect(kernel.isPlaceableItem('enchanted_book')).toBe(false)
+      expectCanonicalItem('enchanted_book', { id: ENCHANTED_BOOK_ID, maxStack: SINGLE_ITEM_STACK })
     })),
   )
 
   it('exports fluid and vehicle item identities with canonical metadata', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(kernel.itemIdOf('bucket')).toBe(BUCKET_ID)
-      expect(kernel.maxStackCountOfItem('bucket')).toBe(BUCKET_MAX_STACK)
+      expectCanonicalItem('bucket', { id: BUCKET_ID, maxStack: BUCKET_MAX_STACK })
       for (const type of ['water_bucket', 'lava_bucket', 'oak_boat', 'minecart'] as const) {
-        expect(kernel.isItemType(type)).toBe(true)
-        expect(kernel.maxStackCountOfItem(type)).toBe(SINGLE_ITEM_STACK)
-        expect(kernel.isPlaceableItem(type)).toBe(false)
+        expectCanonicalItem(type, { maxStack: SINGLE_ITEM_STACK })
       }
     })),
   )
 
   it('exports fishing item identities with canonical metadata', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(kernel.itemIdOf('fishing_rod')).toBe(FISHING_ROD_ID)
-      expect(kernel.itemIdOf('saddle')).toBe(SADDLE_ID)
-      expect(kernel.maxStackCountOfItem('fishing_rod')).toBe(SINGLE_ITEM_STACK)
-      expect(kernel.maxStackCountOfItem('saddle')).toBe(SINGLE_ITEM_STACK)
+      expectCanonicalItem('fishing_rod', { id: FISHING_ROD_ID, maxStack: SINGLE_ITEM_STACK })
+      expectCanonicalItem('saddle', { id: SADDLE_ID, maxStack: SINGLE_ITEM_STACK })
       const stackableFishingItems = [
         'cod',
         'salmon',
@@ -391,9 +398,7 @@ describe('public API surface', () => {
         'name_tag',
       ] as const
       for (const type of stackableFishingItems) {
-        expect(kernel.isItemType(type)).toBe(true)
-        expect(kernel.maxStackCountOfItem(type)).toBe(STANDARD_ITEM_STACK)
-        expect(kernel.isPlaceableItem(type)).toBe(false)
+        expectCanonicalItem(type, { maxStack: STANDARD_ITEM_STACK })
       }
     })),
   )

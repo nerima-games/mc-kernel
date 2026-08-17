@@ -29,8 +29,6 @@
 import { Context, Effect, Layer } from 'effect'
 import type { EpochMillis, MonotonicTimeSecs } from './quantities.js'
 
-const createContextTag = Context.Tag
-
 export type ClockService = {
   /** Monotonic reading. Only differences between readings are meaningful. */
   readonly monotonicSecs: Effect.Effect<MonotonicTimeSecs>
@@ -38,7 +36,7 @@ export type ClockService = {
   readonly wallClockEpochMillis: Effect.Effect<EpochMillis>
 }
 
-export class ClockPort extends createContextTag('@nerima-games/mc-kernel/ClockPort')<ClockPort, ClockService>() {}
+export class ClockPort extends Context.Tag('@nerima-games/mc-kernel/ClockPort')<ClockPort, ClockService>() {}
 
 /**
  * A clock frozen at a given instant.

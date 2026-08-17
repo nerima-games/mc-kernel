@@ -1,4 +1,4 @@
-/** Registry entries 71-86; the numeric order is the wire-level BlockId order. */
+/** Registry entries 71-85; the numeric order is the wire-level BlockId order. */
 import { BlockId } from './block-registry-types.js'
 import type { BlockRegistryEntry } from './block-registry-types.js'
 import { DEFAULT_BLOCK_DROP } from './block-harvest.js'
@@ -6,6 +6,33 @@ import { NEEDS_ANY_SUPPORT } from './block-support.js'
 import { DROPS_NOTHING, NEEDS_FARMLAND, NEEDS_SOUL_SAND } from './block-registry-rules.js'
 
 export const BLOCK_REGISTRY_CROPS_AND_REDSTONE: ReadonlyArray<BlockRegistryEntry> = [
+  // ---------------------------------------------------------------------------
+  // ids 71-73: crops (`CROP_BLOCK_TYPES`, `block-support.ts:20`)
+  // ---------------------------------------------------------------------------
+  //
+  // READ THE `suffocates` COLUMN BEFORE COPYING THESE ROWS. The three crops are
+  // ONE set everywhere in `block-support.ts` and are treated identically by every
+  // rule there — and `NON_SUFFOCATING_BLOCKS` splits them:
+  //
+  //   WHEAT_CROP        listed (`environment-hazard.config.ts:48`)
+  //   NETHER_WART_CROP  listed (:49)
+  //   POTATO_CROP       *** NOT LISTED ***
+  //
+  // So the reference suffocates a player standing inside a potato and not inside
+  // wheat. This row TRANSCRIBES that, and does not infer the missing entry, for
+  // the reason the `PASSABLE_BLOCK_IDS` group above already gives: audit §4.7
+  // licenses inferring `suffocates: false` from `passable: true`, and CROPS ARE
+  // NOT PASSABLE — none of the three is in `PASSABLE_BLOCK_IDS`, so a crop is a
+  // solid full cube for collision and the implication does not apply. There is
+  // no rule that lets kernel fill this in, only a hunch, and a hunch that
+  // silently makes three rows agree is how a table stops being a transcription.
+  //
+  // This is a NEW instance of the disagreement audit §4.9 measured, and it is
+  // the sharpest one yet: the other cases disagree between tables about blocks
+  // that differ, whereas this splits a set the source itself defines as a set.
+  //
+  // `supportRule` is what these rows actually wanted, and they have it. Wheat
+  // and potatoes require farmland; nether wart requires soul sand.
   {
     id: BlockId(71),
     definition: {
@@ -163,49 +190,4 @@ export const BLOCK_REGISTRY_CROPS_AND_REDSTONE: ReadonlyArray<BlockRegistryEntry
   { id: BlockId(83), definition: { type: 'dispenser', properties: { hardness: 60 } } },
   { id: BlockId(84), definition: { type: 'hopper', properties: { hardness: 55 } } },
   { id: BlockId(85), definition: { type: 'piston_head', properties: { hardness: 1, drops: DROPS_NOTHING } } },
-
-  // ---------------------------------------------------------------------------
-  // ids 86-102: The End (`blocks.config.end.ts`)
-  // ---------------------------------------------------------------------------
-  //
-  // THE HARDNESS VALUES IN THIS GROUP ARE ON A DIFFERENT SCALE FROM EVERY OTHER
-  // GROUP, AND THAT IS THE REFERENCE'S DOING. `blocks.config.end.ts` builds its
-  // rows through one helper and passes vanilla floats to it — `PURPUR_BLOCK` 1.5,
-  // `SHULKER_BOX` 2, `DRAGON_EGG` 3, `ENDER_CHEST` 22.5, `CHORUS_FLOWER` 0.4 —
-  // while `END_STONE_BRICKS` in the same array is 45, which is the 0-100 scale.
-  // Twelve of thirteen on one scale, one on the other, in one file.
-  //
-  // Transcribed, not converted. The reference's own float-to-scale mapping is a
-  // hand-made ordering (0.5->8, 1.5->25, 2.0->35, 3.0->50, 50->90), not a
-  // formula, so "converting" would mean choosing numbers — content invented to
-  // make a column look tidy. The visible consequence: purpur reads as SOFTER
-  // than dirt. That is what the source says, it is recorded in audit §4.5.2, and
-  // it is the reason `historical design audit` says this column may not be
-  // compared across group boundaries.
-  //
-  // TWO VALUES ARE OUTSIDE THE DOCUMENTED 0-100 RANGE, in opposite directions:
-  //
-  //   `end_portal_frame` / `_filled` are 9000. The reference's spelling of
-  //     "unbreakable", above `bedrock`'s 100. Kept verbatim: it is monotone with
-  //     the rest of the column (bigger is harder), so it is comparable even
-  //     though it is off the end of the stated range.
-  //
-  //   `end_gateway` is -1 in the reference, and that one is NOT kept. A negative
-  //     hardness is not "very hard": `computeBreakTicks` (`break-speed.ts:29-31`)
-  //     returns 0 for `hardness <= 0`, so -1 means INSTANT, which is the exact
-  //     opposite of the intent and is a bug in the reference. This row says 0,
-  //     which is behaviourally identical to -1 under that function and is inside
-  //     the range the column claims. The bug is recorded rather than inherited,
-  //     and `end_gateway` drops nothing anyway (`endBlockDrops` maps it to AIR).
-  //
-  // `purpur_slab` is the second member of `SLAB_BLOCK_IDS`
-  // (`block-collision-predicates.ts:56-59`). `collisionShape: 'slab'` now has
-  // the complete two-member set behind it that the reference has.
-  //
-  // Ten of the seventeen are in `NON_SUFFOCATING_BLOCKS` and seven of those are
-  // also in `NON_SPAWN_SURFACE_BLOCK_IDS`, but the two sets are NOT nested here:
-  // `dragon_egg`, `ender_chest`, `purpur_slab`, `purpur_stairs` and `shulker_box`
-  // are non-suffocating and ARE valid spawn surfaces. Another five rows where
-  // collapsing the two flags into one would change behaviour.
-  { id: BlockId(86), definition: { type: 'end_stone', properties: { hardness: 45 } } },
 ]

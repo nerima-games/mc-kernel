@@ -1,14 +1,12 @@
 import { Brand } from 'effect'
 
 import {
-  blockAxis,
+  BlockAxis,
   blockPositionFromAxes,
-  chunkAxis,
+  ChunkAxis,
   chunkCoordFromAxes,
   normalizeZero,
-  type BlockAxis,
   type BlockPosition,
-  type ChunkAxis,
   type ChunkCoord,
 } from './coordinate-primitives.js'
 
@@ -51,9 +49,9 @@ const parseBlockPositionKey = (value: string): ParsedBlockPositionKey | undefine
   }
 
   return [
-    blockAxis(normalizeZero(coordinates[ZERO])),
-    blockAxis(normalizeZero(coordinates[UNIT_STEP])),
-    blockAxis(normalizeZero(coordinates[2])),
+    BlockAxis(normalizeZero(coordinates[ZERO])),
+    BlockAxis(normalizeZero(coordinates[UNIT_STEP])),
+    BlockAxis(normalizeZero(coordinates[2])),
   ]
 }
 
@@ -108,7 +106,7 @@ const parseChunkKey = (value: string): ParsedChunkKey | undefined => {
     return undefined
   }
 
-  return [chunkAxis(normalizeZero(coordinates[ZERO])), chunkAxis(normalizeZero(coordinates[UNIT_STEP]))]
+  return [ChunkAxis(normalizeZero(coordinates[ZERO])), ChunkAxis(normalizeZero(coordinates[UNIT_STEP]))]
 }
 
 /** Produces the canonical, allocation-minimal key for a chunk coordinate. */

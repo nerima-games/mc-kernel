@@ -6,8 +6,11 @@ mc-kernel の公開 API を `1.0.0` として凍結する前に満たすべき�
 このリポジトリ単独で現在再実行できる検査ではないため、公開物の現在の境界は
 `pnpm package:verify` として別途検証する。
 型検査・lint・test・release build・4メトリクスの100%カバレッジという内部品質ゲートも満たしている。
-一方、GitHub Packages の release workflow と、生成した tarball を検証するローカル境界ゲートは実装済みだが、
-実際の publish と公開レジストリからの install は未実行であり、公開完了とはまだ扱わない。
+**GitHub Packages への実 publish は既に行われている**（`0.2.0`〜`0.2.18` の 19 バージョン）。
+一方、現在の `package.json` が指す `0.3.0` は release workflow の version 検出方式の穴により
+publish されないまま残っており、公開レジストリから取得した tarball を install して確認する検証も
+まだ 1 バージョンも実施していない。経緯は [versioning.md](./versioning.md) §1 / §4 を参照。
+どちらも「公開完了」とはまだ扱わない理由である。
 
 **この判定に自動ゲートは存在しない。** 以前は「`api-lock.md` が 4 週間無変更であること」という
 日数計測ベースの自動ゲートを最後の関門としていたが、`api-lock.md` / `scripts/api-lock.ts` /
@@ -15,8 +18,8 @@ mc-kernel の公開 API を `1.0.0` として凍結する前に満たすべき�
 （[API_STANDARD.md §4](https://github.com/nerima-games/.github/blob/main/API_STANDARD.md#4-自動-apiロックスナップショットツールは使わない)）。
 1.0.0 への昇格は、計測期間や自動判定に代えて **maintainer（take）の裁量判断のみ**で行う
 （[RELEASE_STANDARD.md §4.2](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#42-新しい昇格ポリシー人間による裁量判断)）。
-残る実質的な未達成項目は、GitHub Packages への実 publish と公開物を公開レジストリから install する検証、および
-1.0.0 へ昇格する maintainer 判断である。
+残る実質的な未達成項目は、`0.3.0` を実際に publish させる次のバージョン変更、公開物を公開レジストリから
+install する検証、および 1.0.0 へ昇格する maintainer 判断である。
 
 凍結が特別扱いされる理由は [versioning.md](./versioning.md) §5 にある。
 kernel は 14 リポジトリからピン留めされ、破壊的変更は深さ 5 の republish カスケードを起こす。
@@ -258,7 +261,9 @@ shipped source は 1 行も要らない。作業内容は
 - [x] (b') その結果 `FrameServices` が確定し、プレースホルダである旨のコメントが消えている
 - [x] 内部の完成条件（[testing.md](./testing.md) §5 の typecheck / lint / test / build / coverage）を満たしている
 - [x] GitHub Packages の release workflow と、生成 tarball の `files` / `exports` / clean consumer / runtime ゲートが用意されている
-- [ ] GitHub Packages への実 publish と、公開レジストリから取得した tarball の install 検証を完了している
+- [x] GitHub Packages への実 publish を行っている（`0.2.0`〜`0.2.18` の 19 バージョン。[versioning.md](./versioning.md) §1）
+- [ ] 現在の `package.json` バージョン（`0.3.0`）が publish されている（release workflow の version 検出方式の穴により未publish。[versioning.md](./versioning.md) §4）
+- [ ] 公開レジストリから取得した tarball の install 検証を完了している（`pnpm package:verify` はローカル `pnpm pack` の tarball のみを見ており、この検証を代替しない）
 - [ ] 1.0.0 へ昇格する maintainer 判断が完了している
 - [x] 下流リポジトリが少なくとも 1 つ、実際に kernel を消費して契約を確認している（[versioning.md](./versioning.md) §2）
       — **3 リポジトリ（mx-gameplay / mx-ui / mx-redstone）で、ミラーを削除し import を

@@ -66,6 +66,40 @@ const aabb / aabbOfBlock / aabbIntersects / aabbContainsPoint
 
 連続座標と格子座標を同じ `{x,y,z}` にしていると、この不一致は型検査を通り抜けて実行時に「浮く」として現れる。
 
+### 2-bis. 座標のキー化（coordinate-keys）
+
+`Map` のキーや保存フォーマットに座標を使うリポジトリ（チャンクストア、dirty 集合、ネットワーク差分）向けの
+正準文字列表現。`0.2.19` で出荷済み。
+
+```typescript
+type BlockPositionKey = string & Brand.Brand<'BlockPositionKey'>   // 正準形式 "x,y,z"
+type ChunkKey         = string & Brand.Brand<'ChunkKey'>           // 正準形式 "cx,cz"
+
+const blockPositionKeyOf(value: BlockPosition): BlockPositionKey
+const BlockPositionKey(value: string): BlockPositionKey            // 検証して throw する constructor
+const isBlockPositionKey(value: string): value is BlockPositionKey
+const blockPositionOfKey(value: BlockPositionKey): BlockPosition   // 検証済み値専用、不正なら throw
+const decodeBlockPositionKey(value: string): BlockPosition | undefined  // 未検証の外部入力専用
+
+const chunkKeyOf(value: ChunkCoord): ChunkKey
+const ChunkKey(value: string): ChunkKey
+const isChunkKey(value: string): value is ChunkKey
+const chunkCoordOfKey(value: ChunkKey): ChunkCoord
+const decodeChunkKey(value: string): ChunkCoord | undefined
+```
+
+**正準形は 1 つだけ。** `"1,2,3"` は valid だが `"01,2,3"` や `" 1,2,3"` は invalid ——
+整数の再文字列化と入力テキストが一致することを要求する（`hasCanonicalIntegerText`）。
+これにより同じ座標は常に同じキー文字列になり、キーの文字列比較がそのまま座標の等価性比較になる。
+負の 0 は `normalizeZero` で正の 0 に畳んでおり、`-0` と `0` が異なるキーになる事故を防ぐ。
+
+**「検証して例外」と「未検証入力を安全に読む」を関数を分けて表現している。**
+`blockPositionOfKey` / `chunkCoordOfKey` はすでに `BlockPositionKey` / `ChunkKey` 型を持つ
+（＝どこかで検証済みの）値を受け取る前提の全域関数に近い形をしており、
+`decodeBlockPositionKey` / `decodeChunkKey` は生の `string`（ネットワークやセーブファイルからの
+未検証入力）を受け取り、失敗を `undefined` で表す部分関数である。呼び出し側が
+どちらの信頼境界にいるかを型シグネチャで区別できる。
+
 ## 3. ブロック語彙（block-type）
 
 ```typescript
@@ -90,6 +124,7 @@ plan.md §5.3 は「core と block の分離」を「ブロック追加が必ず
 
 ```typescript
 type BlockId = number & Brand.Brand<'BlockId'>
+const BLOCK_ID_MAX = 255   // Uint8Array の 1 バイトに収まる上限
 const AIR_BLOCK_ID: BlockId = 0
 const isEmpty: (id: number) => boolean
 ```
@@ -97,6 +132,51 @@ const isEmpty: (id: number) => boolean
 `BlockId` はチャンクの `Uint8Array` に格納する安定した密な数値 ID である。`isEmpty` の引数は
 意図的に `number` とし、チャンクバッファから読み出した未ブランドの値を直接受け取る。
 空気は ID 0 だけであり、判定はレジストリ lookup ではなく定数比較で行う。
+
+### 3-1-bis. 数値 ID ↔ 語彙の変換とホットパス lookup（block-registry / block-registry-indexes）
+
+```typescript
+type BlockRegistryEntry = { readonly id: BlockId; readonly definition: BlockDefinition }
+const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry>   // 123 行、id 昇順
+const BLOCK_IDS: ReadonlyArray<BlockId>                    // BLOCK_REGISTRY から取り出した id 列
+const UNREGISTERED_BLOCK_TYPES: ReadonlyArray<BlockType>   // レジストリに行が無い語彙（現状は空）
+
+const blockIdOf(type: BlockType): BlockId                       // 行が無ければ throw
+const blockTypeOfId(id: number): BlockType | undefined
+const isKnownBlockId(id: number): id is BlockId
+const resolvedBlockOfId(id: number): ResolvedBlock | undefined
+```
+
+`block-registry.ts` は安定した公開 import path であり、実データは `block-registry-entries*.ts`
+（地形・鉱石・作物とレッドストーン・構造物とネザー・エンドの 5 ファイルに分割）に、
+派生インデックスと lookup ロジックは `block-registry-indexes.ts` に分離している。
+データ行を見るのにインデックス実装を読む必要をなくすための分割であり、公開 API は変わらない。
+
+**チャンクバイトから直接読む関数群。** いずれも `resolveBlock` で定義を都度組み立てるのではなく、
+`BLOCK_REGISTRY` から起動時に一度だけ構築した `Uint8Array` / `ReadonlySet` の列を引く。
+チャンク全体のメッシュ生成・光伝播・落下判定など、ブロックあたり 1 回以上呼ばれるホットパス向け。
+
+```typescript
+const capabilitiesOfBlockId(id: number): BlockCapabilities
+const propertyOfBlockId<K extends BlockPropertyName>(id: number, name: K): BlockProperties[K]
+const opacityOfBlockId(id: number): BlockOpacity
+const lightEmissionOfBlockId(id: number): LightLevel
+const transmitsLight(id: number): boolean                       // opacityOfBlockId(id) !== 'opaque'
+const supportRuleOfBlockId(id: number): SupportRule
+const isSupportSensitiveBlockId(id: number): boolean
+const canBlockStaySupported(id: number, supportBelow: number): boolean
+const blockIdsWithCapability(flag: BlockCapabilityFlag): ReadonlySet<number>
+const blockIdsWithOpacity(opacity: BlockOpacity): ReadonlySet<number>
+```
+
+未知の `id`（登録済み範囲外、または範囲内でも空き番）に対する既定の答えは一貫して
+「普通の不透明立方体」である —— `capabilitiesOfBlockId` / `propertyOfBlockId` 系は
+`BLOCK_CAPABILITY_DEFAULTS` / `BLOCK_PROPERTY_DEFAULTS` にフォールバックし、
+`isKnownBlockId` / `isSupportSensitiveBlockId` は `false` を返す。§4-3-bis の `dropOfBlockId` だけが
+この既定から外れて `undefined` を返す（理由はそちらに書いてある）。
+
+`blockIdsWithCapability` / `blockIdsWithOpacity` は `Set` を毎回組み立てず、起動時に構築した
+同一インスタンスを返す。呼び出し側が変更してはならない共有オブジェクトである。
 
 ## 3-bis. アイテム語彙とブロック↔アイテムの橋（item-type / block-item）
 
@@ -155,6 +235,42 @@ plan.md §3.1 の主張は「挙動は名前比較ではなく能力から読む
 綴りは `BLOCK_TYPES` に合わせた `lower_snake_case`。**mc-sim の暫定文字列は `UPPER_SNAKE`**
 （`'OAK_PLANKS'` / `'STICK'`）なので、repoint は型の付け替えであると同時に**大小文字の付け替え**でもある。
 
+### 3-bis-2. アイテムの数値 wire ID（item-registry）
+
+`BlockId` と対になる、アイテム側の永続数値 ID とその 2 バイト wire 表現。
+
+```typescript
+type ItemId = number & Brand.Brand<'ItemId'>
+type ItemIdBytes = Uint8Array & Brand.Brand<'ItemIdBytes'>
+type ItemDefinition = { readonly id: ItemId; readonly type: ItemType; readonly maxStackCount: ItemStackLimit }
+
+const ITEM_ID_MAX = 0xffff   // unsigned 16-bit
+const ITEM_ID_BYTES = 2
+
+const ITEM_REGISTRY: ReadonlyArray<ItemDefinition>   // ITEM_TYPES と同じ並び、配列添字が id
+const ITEM_IDS: ReadonlyArray<ItemId>
+
+const isKnownItemId(id: number): id is ItemId
+const itemDefinitionOf(type: ItemType): ItemDefinition
+const maxStackCountOfItem(type: ItemType): ItemStackLimit
+const itemIdOf(type: ItemType): ItemId
+const itemTypeOfId(id: ItemId): ItemType
+const itemTypeOfId(id: number): ItemType | undefined   // オーバーロード：未検証の数値には部分関数
+
+const encodeItemId(type: ItemType): ItemIdBytes         // network byte order（big-endian）で書き出す
+const decodeItemId(bytes: ItemIdBytes): ItemType
+const ItemIdBytes(bytes: Uint8Array): ItemIdBytes       // 長さと既知 id を検証する branded constructor
+```
+
+**id は `ITEM_TYPES` の配列添字であり、密かつ追加専用（append-only）。** 新しいアイテムは必ず
+`ITEM_TYPES` の末尾に足す。途中挿入や並べ替えは既存の全 id を付け替える破壊的変更になる。
+`BlockId` が `Uint8Array` の 1 バイトに収まる 256 通りに縛られるのに対し、`ItemId` は
+`unsigned 16-bit`（0..65535）を確保してあり、173 種の現行語彙に対して十分な余裕を持つ。
+
+`maxStackCountOfItem` の答えは 3 段階（`MAX_STACK_COUNT`=64 / 16 / 1）で、道具・防具・薬品・ボート等
+1 個までしか重ならないアイテムの集合と、雪玉・エンダーパール・バケツの 16 個上限を
+`item-registry.ts` 内の 2 つの `Set` で持つ。それ以外は既定の 64。
+
 ## 4. ブロック能力モデル
 
 **権威は `docs/capability-flag-audit.md`。** 監査 §3 の表は 28 行（§7 の本文は「26 能力」と書いており、これは監査内部の不整合。表を採用している）。
@@ -176,7 +292,7 @@ const resolveBlockCapabilities(overrides): BlockCapabilities
 const capabilityOf(overrides, flag): boolean
 ```
 
-実装済み 11 フラグ:
+実装済み 12 フラグ:
 
 | フラグ | 既定 | 根拠 |
 | --- | --- | --- |
@@ -188,6 +304,7 @@ const capabilityOf(overrides, flag): boolean
 | `pistonImmovable` | `false` | plan.md §3.12 |
 | `brokenByWaterFlow` | `false` | 監査 §4.6 `block-support.ts:34-45` |
 | `climbable` | `false` | 監査 §4.1 `block-collision-predicates.ts:177-182` |
+| `tillable` | `false` | 監査 §4.8 / §5-20 `block-service.config.ts:264-267`。クワで耕地に変換できるか |
 | `suffocates` | **`true`** | 監査 §4.7 `environment-hazard.config.ts:39-85` |
 | `canSupportAttachments` | **`true`** | 監査 §4.6 `block-support.ts:47-61` |
 | `validSpawnSurface` | **`true`** | 監査 §4.8 `spawn-selection-search.ts:41-60` |
@@ -210,7 +327,7 @@ const resolveBlockProperties(overrides): BlockProperties
 const propertyOf<K>(overrides, name: K): BlockProperties[K]
 ```
 
-実装済み 13 プロパティ:
+実装済み 15 プロパティ:
 
 | プロパティ | 型 | 既定 | 根拠 |
 | --- | --- | --- | --- |
@@ -219,6 +336,7 @@ const propertyOf<K>(overrides, name: K): BlockProperties[K]
 | `fluid` | `'none' \| 'water' \| 'lava'` | `'none'` | 監査 §4.2 |
 | `collisionShape` | `'full'\|'slab'\|'cactus'\|'pressurePlate'\|'none'` | `'full'` | 監査 §4.1 |
 | `renderKind` | `'cube'\|'cross'\|'cactus'\|'rail'\|'lilyPad'\|'fluid'` | `'cube'` | 監査 §4.8 |
+| `footstepMaterial` | `'default'\|'grass'\|'wood'\|'stone'` | `'default'` | 監査 §4.8。純粋な表面分類で、効果音 ID や再生は mc-audio が所有する |
 | `hardness` | `number` | `8` | 監査 §4.5 `blocks.config.terrain.ts:9-14` |
 | `friction` | `number` | `0.6` | 監査 §4.5 `DEFAULT_BLOCK_FRICTION` |
 | `contactDamage` | `number` | `0` | 監査 §4.7（LAVA=4 / CACTUS=1） |
@@ -227,13 +345,53 @@ const propertyOf<K>(overrides, name: K): BlockProperties[K]
 | `railKind` | `'none'\|'normal'\|'powered'` | `'none'` | 監査 §4.1 `:184-201` |
 | `harvestTool` | `HarvestToolRequirement` | `{category:'none', minTier:'none'}` | 監査 §4.5 |
 | `drops` | `BlockDropRule` | `{item:'self', count:1, ...}` | 監査 §4.5 |
+| `supportRule` | `SupportRule` | `NEEDS_NO_SUPPORT`（`{kind:'none'}`） | 監査 §4.6。§4-2-bis 参照 |
 
-補助 API: `BLOCK_OPACITIES` / `FLUID_KINDS` / `COLLISION_SHAPES` / `RENDER_KINDS` / `RAIL_KINDS` /
-`LIGHT_LEVEL_MIN` / `LIGHT_LEVEL_MAX` / `isLightLevel` / `clampLightLevel`。
+補助 API: `BLOCK_OPACITIES` / `FLUID_KINDS` / `COLLISION_SHAPES` / `RENDER_KINDS` / `FOOTSTEP_MATERIALS` /
+`RAIL_KINDS` / `LIGHT_LEVEL_MIN` / `LIGHT_LEVEL_MAX` / `isLightLevel` / `clampLightLevel`。
+
+### 4-2-bis. `SupportRule` の値 — `domain/block-support.ts`
+
+`supportRule` プロパティの値型そのものは、能力監査 §4.6 が挙げる 3 つのテーブル
+（sensitive か / per-block の許可リスト / それ以外の既定）を 1 列に畳んだ判別共用体である。
+
+```typescript
+type SupportRule =
+  | { readonly kind: 'none' }                                    // 直下に何も要求しない（既定）
+  | { readonly kind: 'anySupporting' }                           // canSupportAttachments な任意のブロックでよい
+  | { readonly kind: 'oneOf'; readonly blocks: ReadonlyArray<BlockType> }  // 直下が名指しリストのどれかである必要がある
+
+const NEEDS_NO_SUPPORT: SupportRule       // { kind: 'none' } の名前付き定数。プロパティの既定値そのもの
+const NEEDS_ANY_SUPPORT: SupportRule      // { kind: 'anySupporting' } の名前付き定数
+const needsOneOf(...blocks: ReadonlyArray<BlockType>): SupportRule
+
+const isSupportSensitive(rule: SupportRule): boolean   // rule.kind !== 'none'
+const satisfiesSupportRule(
+  rule: SupportRule,
+  blockBelow: BlockType | undefined,
+  belowSupportsAttachments: boolean,
+): boolean
+```
+
+**`isSupportSensitive` は独立したフラグではなく `SupportRule` からの導出。** 「sensitive だがリストが無い」
+「リストはあるが sensitive でない」という、2 つの真偽値を独立に持てば作れてしまう無意味な組み合わせを
+型で作れなくしている。3 つ目のテーブルである `canSupportAttachments` 能力フラグ（§4-1）とは別のファイルに
+分けてあり、`satisfiesSupportRule` が両方を引数として受け取って合成する（`blockBelow` が `undefined` の
+ときは `'oneOf'` アームだけが偽になり、`'anySupporting'` アームは偽にならない —— 未知のブロックは
+「普通の不透明立方体」として扱われ、それは支え能力を持つため）。
+
+`domain/block-registry.ts` の `canBlockStaySupported(id, supportBelow)` はこの純関数を
+id ベースの lookup に配線したものである（§3-1-bis）。
 
 ### 4-3. struct 2 種を隔離した理由 — `domain/block-harvest.ts`
 
 ```typescript
+const HARVEST_TOOL_CATEGORIES = ['none', 'pickaxe', 'axe', 'shovel', 'hoe', 'shears', 'sword'] as const
+type HarvestToolCategory = (typeof HARVEST_TOOL_CATEGORIES)[number]
+
+const HARVEST_TIERS = ['none', 'wooden', 'stone', 'iron', 'diamond'] as const
+type HarvestTier = (typeof HARVEST_TIERS)[number]   // 宣言順が採掘力の順（none が最弱）
+
 type HarvestToolRequirement = { readonly category: HarvestToolCategory; readonly minTier: HarvestTier }
 type BlockDropRule = { readonly item: ItemType | 'self'; readonly count: number
                        readonly requiresSilkTouch: boolean; readonly affectedByFortune: boolean }
@@ -502,6 +660,15 @@ Anvil API は `src/index.ts` から `@nerima-games/mc-kernel` のルート barre
 内部モジュールへ分離している。消費者は内部ファイルを直接 import しない。
 
 ```typescript
+const ANVIL_TOO_EXPENSIVE_LEVEL = 40      // これ以上のコストは "Too Expensive" として拒否
+const ANVIL_REPAIR_BONUS_RATIO = 0.12     // 素材修理 1 個あたりの回復割合
+const ANVIL_SNAPSHOT_VERSION = 1 as const
+const ANVIL_MAX_CUSTOM_NAME_LENGTH = 50
+
+const isAnvilEnchantmentId(value: string): value is AnvilEnchantmentId
+const isAnvilCustomName(value: string): value is AnvilCustomName
+const nextAnvilRepairCost(repairCost: number): number   // "prior work penalty": repairCost * 2 + 1
+
 type AnvilState = {
   readonly left: AnvilItemPayload | null
   readonly right: AnvilInputStack | null
@@ -539,9 +706,27 @@ snapshot は version `1` の canonical state として encode / decode される
 余分なフィールドを検証してから canonical state を返す。`decodeAnvilSnapshotString` は JSON 文字列の
 境界、`encodeAnvilSnapshot` は canonical snapshot の生成と JSON 化を担当する。
 `AnvilEnchantmentId`、`AnvilCustomName`、`AnvilSnapshotString` は境界で検証する branded constructor、
-`isAnvilSnapshotString` は文字列の型ガードである。
+`isAnvilSnapshotString` / `isAnvilEnchantmentId` / `isAnvilCustomName` はそれぞれの非 throw な型ガードである
+（不正な値を例外ではなく `false` で扱いたい呼び出し側向け）。
+
+`nextAnvilRepairCost` は素材修理・エンチャント本合成の双方で経験値レベルコストが加算されていく
+"prior work penalty" を進める関数（`cost * 2 + 1`、`Number.MAX_SAFE_INTEGER` で飽和）。
+結合先が `ANVIL_TOO_EXPENSIVE_LEVEL` を超えると `planAnvil` が `'too-expensive'` として拒否する。
 
 ## Chunk バイナリ形式
+
+```typescript
+const CHUNK_CODEC_VERSION = 1
+const CHUNK_HEADER_BYTES = 24
+const MAX_CHUNK_HEIGHT = 0xffff
+
+type ChunkHeight = number & Brand.Brand<'ChunkHeight'>   // 整数、1..MAX_CHUNK_HEIGHT
+type EncodedChunk = Uint8Array & Brand.Brand<'EncodedChunk'>
+
+const ChunkHeight(value: number): ChunkHeight             // 範囲外なら RangeError
+const EncodedChunk(encoded: Uint8Array): EncodedChunk      // ヘッダー・寸法・長さを検証する constructor
+const chunkBlockCount(height: ChunkHeight): number          // CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * height
+```
 
 `chunk(coord, height, blocks)` は 16×16 の縦列 Chunk を構築する。`blocks` 引数は
 `16 * 16 * height` バイトの生 `Uint8Array` を取り、各バイトは登録済みの `BlockId` でなければならない。
@@ -559,6 +744,7 @@ class BlockState {
   toBytes(): Uint8Array
   copyTo(target: Uint8Array, offset?: number): void
 }
+const blockState(bytes: Uint8Array): BlockState   // BlockState.fromBytes のラッパー。全バイトを登録済み BlockId として検証する
 ```
 
 `chunk()` / `decodeChunk()` は入力バイト列を構築時に一度だけ検証し、以後は `ChunkBlocks` 経由でのみ
@@ -568,10 +754,11 @@ class BlockState {
 必要な消費者（ワイヤ送信、コピー）は `toBytes()`（新規コピーを返す）または `copyTo(target, offset?)`
 （呼び出し側バッファへ範囲チェック付きで書き込み、割り当てを増やさない）を使う。
 
-`encodeChunk` / `decodeChunk` は固定 24 バイトヘッダーとブロック列を用いる。
-ヘッダーは magic (`MCHK`)、codec version、幅・奥行き、height、符号付き 32-bit の `cx` / `cz`、
+`encodeChunk` / `decodeChunk` は固定 `CHUNK_HEADER_BYTES`（24）バイトヘッダーとブロック列を用いる。
+ヘッダーは magic (`MCHK`)、`CHUNK_CODEC_VERSION`、幅・奥行き、height、符号付き 32-bit の `cx` / `cz`、
 payload 長を little-endian で保持する。decoder は magic、version、寸法、長さ、未知の BlockId、
-末尾の余剰データを破損として拒否する。
+末尾の余剰データを破損として拒否する。`EncodedChunk` はこの検証を通過した生バイト列に対する
+branded 型で、`encodeChunk` の戻り値と `decodeChunk` への入力の両方に使われる。
 
 ### `after` が存在しない stage を指したとき
 

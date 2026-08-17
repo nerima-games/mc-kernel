@@ -51,6 +51,42 @@ const FISHING_ITEM_IDS = {
   tropical_fish: 145,
 } as const satisfies Readonly<Partial<Record<ItemType, number>>>
 
+/**
+ * Same invariant on every group below: a batch of items appended at once
+ * round-trips through `itemIdOf` / `itemTypeOfId` / `itemDefinitionOf` at its
+ * pinned id. Each `it` still names its own batch and its own "did not disturb
+ * what came before" check; only this shared three-way agreement is factored
+ * out.
+ */
+const expectAppendedItemIds = (ids: Readonly<Partial<Record<ItemType, number>>>) => {
+  for (const [type, id] of Object.entries(ids)) {
+    expect(itemIdOf(type as ItemType), type).toBe(id)
+    expect(itemTypeOfId(id), type).toBe(type)
+    expect(itemDefinitionOf(type as ItemType).id, type).toBe(id)
+  }
+}
+
+const EXPECTED_ENCODED_ITEM_ID_BYTES: ReadonlyArray<readonly [ItemType, number]> = [
+  ['water_bottle', 127],
+  ['ghast_tear', 134],
+  ['eye_of_ender', EYE_OF_ENDER_ITEM_ID],
+  ['enchanted_book', ENCHANTED_BOOK_ITEM_ID],
+  ['bucket', 137],
+  ['water_bucket', 138],
+  ['lava_bucket', 139],
+  ['oak_boat', 140],
+  ['minecart', 141],
+  ['fishing_rod', 142],
+  ['saddle', 151],
+  ['soul_soil', 152],
+  ['wither_skeleton_skull', 153],
+  ['nether_star', 154],
+  ['bone_meal', 155],
+  ['shears', 170],
+  ['wool', 171],
+  ['dropper', 172],
+]
+
 describe('item registry', () => {
   it('covers the ItemType roster exactly once with dense permanent ids', () =>
     Effect.runPromise(Effect.sync(() => {
@@ -67,11 +103,7 @@ describe('item registry', () => {
 
   it('appends each brewing item after every pre-existing item', () =>
     Effect.runPromise(Effect.sync(() => {
-      for (const [type, id] of Object.entries(BREWING_ITEM_IDS)) {
-        expect(itemIdOf(type as ItemType)).toBe(id)
-        expect(itemTypeOfId(id)).toBe(type)
-        expect(itemDefinitionOf(type as ItemType).id).toBe(id)
-      }
+      expectAppendedItemIds(BREWING_ITEM_IDS)
     })),
   )
 
@@ -96,22 +128,14 @@ describe('item registry', () => {
   it('appends fluid and vehicle items without changing existing permanent ids', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(itemIdOf('enchanted_book')).toBe(ENCHANTED_BOOK_ITEM_ID)
-      for (const [type, id] of Object.entries(FLUID_AND_VEHICLE_ITEM_IDS)) {
-        expect(itemIdOf(type as ItemType)).toBe(id)
-        expect(itemTypeOfId(id)).toBe(type)
-        expect(itemDefinitionOf(type as ItemType).id).toBe(id)
-      }
+      expectAppendedItemIds(FLUID_AND_VEHICLE_ITEM_IDS)
     })),
   )
 
   it('appends fishing items without changing existing permanent ids', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(itemIdOf('minecart')).toBe(FLUID_AND_VEHICLE_ITEM_IDS.minecart)
-      for (const [type, id] of Object.entries(FISHING_ITEM_IDS)) {
-        expect(itemIdOf(type as ItemType)).toBe(id)
-        expect(itemTypeOfId(id)).toBe(type)
-        expect(itemDefinitionOf(type as ItemType).id).toBe(id)
-      }
+      expectAppendedItemIds(FISHING_ITEM_IDS)
     })),
   )
 
@@ -136,24 +160,9 @@ describe('item registry', () => {
         expect(ItemIdBytes(bytes)).toBe(bytes)
         expect(decodeItemId(bytes)).toBe(type)
       }
-      expect([...encodeItemId('water_bottle')]).toStrictEqual([0, 127])
-      expect([...encodeItemId('ghast_tear')]).toStrictEqual([0, 134])
-      expect([...encodeItemId('eye_of_ender')]).toStrictEqual([0, EYE_OF_ENDER_ITEM_ID])
-      expect([...encodeItemId('enchanted_book')]).toStrictEqual([0, ENCHANTED_BOOK_ITEM_ID])
-      expect([...encodeItemId('bucket')]).toStrictEqual([0, 137])
-      expect([...encodeItemId('water_bucket')]).toStrictEqual([0, 138])
-      expect([...encodeItemId('lava_bucket')]).toStrictEqual([0, 139])
-      expect([...encodeItemId('oak_boat')]).toStrictEqual([0, 140])
-      expect([...encodeItemId('minecart')]).toStrictEqual([0, 141])
-      expect([...encodeItemId('fishing_rod')]).toStrictEqual([0, 142])
-      expect([...encodeItemId('saddle')]).toStrictEqual([0, 151])
-      expect([...encodeItemId('soul_soil')]).toStrictEqual([0, 152])
-      expect([...encodeItemId('wither_skeleton_skull')]).toStrictEqual([0, 153])
-      expect([...encodeItemId('nether_star')]).toStrictEqual([0, 154])
-      expect([...encodeItemId('bone_meal')]).toStrictEqual([0, 155])
-      expect([...encodeItemId('shears')]).toStrictEqual([0, 170])
-      expect([...encodeItemId('wool')]).toStrictEqual([0, 171])
-      expect([...encodeItemId('dropper')]).toStrictEqual([0, 172])
+      for (const [type, id] of EXPECTED_ENCODED_ITEM_ID_BYTES) {
+        expect([...encodeItemId(type)], type).toStrictEqual([0, id])
+      }
     })),
   )
 
