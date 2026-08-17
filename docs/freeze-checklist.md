@@ -8,9 +8,32 @@ mc-kernel の公開 API を `1.0.0` として凍結する前に満たすべき�
 型検査・lint・test・release build・4メトリクスの100%カバレッジという内部品質ゲートも満たしている。
 **GitHub Packages への実 publish は既に行われている**（`0.2.0`〜`0.2.18` の 19 バージョン）。
 一方、現在の `package.json` が指す `0.3.0` は release workflow の version 検出方式の穴により
-publish されないまま残っており、公開レジストリから取得した tarball を install して確認する検証も
-まだ 1 バージョンも実施していない。経緯は [versioning.md](./versioning.md) §1 / §4 を参照。
-どちらも「公開完了」とはまだ扱わない理由である。
+publish されないまま残っている。経緯は [versioning.md](./versioning.md) §1 / §4 を参照。
+
+### 公開レジストリからの install 検証を実施した結果 —— 公開物は壊れている
+
+本書は長らくこの検証を「未実施」として残していた。実施したところ、**公開済みのパッケージは
+Node から import できない**ことが判明した。
+
+空のプロジェクトに `npm install @nerima-games/mc-kernel@0.2.18` して import すると、Node は
+`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING` で失敗する。公開されている `package.json` は
+
+```json
+{ "main": "./src/index.ts", "types": "./src/index.ts", "exports": { ".": "./src/index.ts" },
+  "files": ["src", "tsconfig.base.json", "LICENSE", "README.md"] }
+```
+
+であり、**生の TypeScript を出荷していて `dist` を含まず、subpath export も存在しない**。
+`@nerima-games/mc-kernel/domain/chunk` は `exports` に定義が無いと報告される。
+
+19 バージョンすべてが、型付き ESM ビルドを導入したコミットより前のものである。つまり
+**修正は既にこのリポジトリにあるが、一度も公開されていない** —— publish できたはずの
+バージョン変更が、上記の version 検出の穴によって publish されなかったためである。
+
+**`pnpm package:verify` はこれを検出できない。** あのゲートは作業ツリーから tarball を pack して
+検査するので、これから出荷する manifest は見るが、**既にレジストリに乗っている manifest は見ない**。
+公開物が壊れたままでもローカルのゲートは緑になる。これを見つける検査は型検査ではなく、
+レジストリからの install → 実際の import → runtime 呼び出しである。
 
 **この判定に自動ゲートは存在しない。** 以前は「`api-lock.md` が 4 週間無変更であること」という
 日数計測ベースの自動ゲートを最後の関門としていたが、`api-lock.md` / `scripts/api-lock.ts` /
@@ -249,8 +272,8 @@ shipped source は 1 行も要らない。作業内容は
 - 追加で検証される: `pnpm package:verify` は実際に tarball を作り、`files` の内容、`exports` の全 target、
   clean consumer からの import、`fixedClock` の runtime を確認する。これにより、生成物を読まない
   workspace の張り替えだけでは見つからないローカルの packaging 欠落を検出できる。
-- 検証されない: **公開レジストリから取得した tarball の install。** 実際の GitHub Packages の公開と、
-  公開後の registry install / runtime はまだ実行していない。
+- 検証されない: **公開レジストリから取得した tarball の install。** これは本書冒頭で別途実施し、
+  **公開物が Node から import できないことが判明した**。ローカルのどのゲートもこれを見つけられない。
 - 検証されない: **振る舞い。** これは typecheck である。
   互いに型が付いたまま、関数の意味について食い違う 2 つのモジュールはありうる。
 
@@ -262,8 +285,12 @@ shipped source は 1 行も要らない。作業内容は
 - [x] 内部の完成条件（[testing.md](./testing.md) §5 の typecheck / lint / test / build / coverage）を満たしている
 - [x] GitHub Packages の release workflow と、生成 tarball の `files` / `exports` / clean consumer / runtime ゲートが用意されている
 - [x] GitHub Packages への実 publish を行っている（`0.2.0`〜`0.2.18` の 19 バージョン。[versioning.md](./versioning.md) §1）
-- [ ] 現在の `package.json` バージョン（`0.3.0`）が publish されている（release workflow の version 検出方式の穴により未publish。[versioning.md](./versioning.md) §4）
-- [ ] 公開レジストリから取得した tarball の install 検証を完了している（`pnpm package:verify` はローカル `pnpm pack` の tarball のみを見ており、この検証を代替しない）
+- [x] 公開レジストリから取得した tarball の install 検証を実施した（`pnpm package:verify` はローカル
+      `pnpm pack` の tarball のみを見ており、この検証を代替しない）
+- [ ] **その検証に合格する版が公開されている。** 現時点では合格していない。公開済みの 19 バージョンは
+      いずれも生の TypeScript を出荷しており Node から import できず、`dist` を含む修正版は
+      release workflow の version 検出方式の穴により一度も publish されていない（本書冒頭）。
+      **1.0.0 の前に、まず読み込める版を 1 つ公開する必要がある。**
 - [ ] 1.0.0 へ昇格する maintainer 判断が完了している
 - [x] 下流リポジトリが少なくとも 1 つ、実際に kernel を消費して契約を確認している（[versioning.md](./versioning.md) §2）
       — **3 リポジトリ（mx-gameplay / mx-ui / mx-redstone）で、ミラーを削除し import を
