@@ -1,2 +1,13 @@
 allowBuilds:
   esbuild: true
+
+# pnpm 11 reads overrides here, not from a `pnpm` field in package.json — that
+# field is silently ignored and the advisory stays open.
+#
+# nanoid reaches the tree only through vitest -> vite -> postcss, which is a
+# devDependency chain and never ships. It is pinned anyway because `pnpm audit`
+# is a release gate, and a gate with a standing exception stops being read.
+# Upgrading vitest does not clear it: vitest is already at its latest release.
+# Drop this entry once postcss depends on a patched nanoid on its own.
+overrides:
+  nanoid@<3.3.18: '>=3.3.18'
