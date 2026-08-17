@@ -29,6 +29,29 @@ import type {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
+/**
+ * Reject a key this format does not define.
+ *
+ * The snapshot carries an explicit version, and that is the mechanism a new
+ * field arrives through. So an extra key at a version this decoder recognises
+ * is not a newer format being read by an older reader — it is corruption, or a
+ * producer that disagrees with this one. Accepting it silently would turn
+ * either into missing state rather than a reported failure, and the shape
+ * freezes at 1.0.0.
+ */
+const rejectUnknownKeys = (
+  value: Record<string, unknown>,
+  known: ReadonlyArray<string>,
+  path: string,
+  issues: Array<AnvilValidationIssue>,
+): void => {
+  for (const key of Object.keys(value)) {
+    if (!known.includes(key)) {
+      issues.push({ path: `${path}.${key}`, reason: 'is not a field of this format' })
+    }
+  }
+}
+
 const decodeDurability = (
   value: unknown,
   path: string,
@@ -41,6 +64,7 @@ const decodeDurability = (
     isPositiveSafeInteger(value['max']) &&
     value['current'] <= value['max']
   ) {
+    rejectUnknownKeys(value, ['current', 'max'], path, issues)
     return { current: value['current'], max: value['max'] }
   }
 
@@ -88,6 +112,7 @@ const decodeEnchantment = (
     return
   }
 
+  rejectUnknownKeys(candidate, ['id', 'level'], path, issues)
   seen.add(canonicalId)
   return { id: canonicalId, level }
 }
@@ -120,6 +145,8 @@ const decodeItemPayload = (
     issues.push({ path, reason: 'must be an object' })
     return
   }
+
+  rejectUnknownKeys(value, ['item', 'durability', 'enchantments', 'repairCost', 'customName'], path, issues)
 
   const itemValue = value['item']
   const item = typeof itemValue === 'string' && isItemType(itemValue) ? itemValue : undefined
@@ -163,6 +190,8 @@ const decodeRightInput = (
     return
   }
 
+  rejectUnknownKeys(value, ['payload', 'count'], path, issues)
+
   const payload = decodeItemPayload(value['payload'], `${path}.payload`, issues)
   const countValue = value['count']
   if (!isPositiveSafeInteger(countValue)) {
@@ -191,6 +220,8 @@ const decodeState = (
     issues.push({ path, reason: 'must be an object' })
     return
   }
+
+  rejectUnknownKeys(value, ['left', 'right', 'rename', 'experienceLevels'], path, issues)
 
   const leftValue = value['left']
   const left = leftValue === null ? null : decodeItemPayload(leftValue, `${path}.left`, issues)
@@ -224,6 +255,7 @@ export const snapshotAnvilState = (state: AnvilState): AnvilSnapshotResult => {
 export const decodeAnvilSnapshot = (value: unknown): AnvilSnapshotResult => {
   const issues: Array<AnvilValidationIssue> = []
   if (!isRecord(value)) return { ok: false, issues: [{ path: '$', reason: 'must be an object' }] }
+  rejectUnknownKeys(value, ['version', 'state'], '$', issues)
   if (value['version'] !== ANVIL_SNAPSHOT_VERSION) {
     issues.push({ path: '$.version', reason: `must be ${String(ANVIL_SNAPSHOT_VERSION)}` })
   }

@@ -604,6 +604,78 @@ describe('anvil snapshot codec', () => {
   )
 })
 
+describe('anvil snapshot decoding is closed to fields the format does not define', () => {
+  /**
+   * The snapshot carries a version, so a field this decoder does not know is
+   * never "a newer format" — that is what the version is for. It is corruption
+   * or a producer that disagrees with this one, and accepting it would drop the
+   * value silently instead of reporting it. Every level of the shape is checked
+   * because the wire format freezes at 1.0.0 and a level left open stays open.
+   */
+  const validPayload = { item: 'iron_sword', durability: { current: 100, max: 250 }, enchantments: [] }
+  const validState = { left: validPayload, right: null, rename: null, experienceLevels: 30 }
+  const snapshotOf = (decoded: unknown): unknown => ({ version: ANVIL_SNAPSHOT_VERSION, state: decoded })
+
+  it('names the offending path at every level of the shape rather than ignoring the key', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const cases: ReadonlyArray<{ readonly name: string; readonly input: unknown; readonly path: string }> = [
+        {
+          name: 'an extra key beside version and state',
+          input: { version: ANVIL_SNAPSHOT_VERSION, state: validState, bogus: 1 },
+          path: '$.bogus',
+        },
+        {
+          name: 'an extra key on the state',
+          input: snapshotOf({ ...validState, bogus: 1 }),
+          path: '$.state.bogus',
+        },
+        {
+          name: 'an extra key on an item payload',
+          input: snapshotOf({ ...validState, left: { ...validPayload, bogus: 1 } }),
+          path: '$.state.left.bogus',
+        },
+        {
+          name: 'an extra key on durability',
+          input: snapshotOf({
+            ...validState,
+            left: { ...validPayload, durability: { current: 100, max: 250, bogus: 1 } },
+          }),
+          path: '$.state.left.durability.bogus',
+        },
+        {
+          name: 'an extra key on an enchantment',
+          input: snapshotOf({
+            ...validState,
+            left: { ...validPayload, enchantments: [{ id: 'efficiency', level: 1, bogus: 1 }] },
+          }),
+          path: '$.state.left.enchantments.0.bogus',
+        },
+        {
+          name: 'an extra key on the right input stack',
+          input: snapshotOf({ ...validState, right: { payload: validPayload, count: 1, bogus: 1 } }),
+          path: '$.state.right.bogus',
+        },
+      ]
+
+      for (const { name, input, path } of cases) {
+        expect(decodeAnvilSnapshot(input), name).toStrictEqual({
+          ok: false,
+          issues: [{ path, reason: 'is not a field of this format' }],
+        })
+      }
+    })),
+  )
+
+  it('still accepts the same payloads once the undefined field is removed, so the check is not rejecting valid shapes', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const accepted = decodeAnvilSnapshot(
+        snapshotOf({ ...validState, right: { payload: validPayload, count: 1 } }),
+      )
+      expect(accepted.ok).toBe(true)
+    })),
+  )
+})
+
 describe('anvil branded boundary throwing constructors', () => {
   it('throws instead of returning a branded value for text the guard rejects', () =>
     Effect.runPromise(Effect.sync(() => {
