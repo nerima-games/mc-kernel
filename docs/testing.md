@@ -33,22 +33,23 @@ mc-save は媒体フォーマットと保存先を所有し、同じ `Chunk` 型
 ## 2. コマンド
 
 ```console
-$ nix develop --command pnpm verify         # typecheck && lint && test
-$ nix develop --command pnpm test:coverage  # verify 外。全メトリクス100%
-$ nix develop --command pnpm package:verify # build、pack 済み tarball、clean consumer、公開 export / runtime
+$ nix develop --command pnpm verify         # scripts:check && typecheck && lint && test:coverage
+$ nix develop --command pnpm test:coverage  # coverage 単独実行も可。全メトリクス100%
+$ nix develop --command pnpm package:verify # build、pack 済み tarball、clean consumer、公開 export / runtime / declaration
 ```
 
-**`pnpm verify` はカバレッジを含まない。** `domain/` の分岐に触ったら、
-`pnpm test:coverage` を別途実行すること。カバレッジの Statements / Branches / Functions / Lines は
-すべて100%を閾値として設定している。
+**`pnpm verify` はカバレッジを含む。** `domain/` の分岐に触れたときも、通常は
+`pnpm verify` だけで型検査・lint・テスト・カバレッジを検証できる。カバレッジの Statements /
+Branches / Functions / Lines はすべて100%を閾値として設定している。
 
 | コマンド | 内容 |
 | --- | --- |
+| `pnpm scripts:check` | 配布・ベンチマーク用 `.mjs` スクリプトを Node.js の構文検査に通す |
 | `pnpm typecheck` | `tsconfig.build.json` と `tsconfig.test.json` の両方を型検査 |
 | `pnpm lint` | oxlint（このリポジトリ唯一の lint / format 設定）。**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は `correctness`、`suspicious`、`perf`、`restriction` と個別ルールを `warn` にし、`style` は無効化している） |
 | `pnpm test` | Vitest 4（native `it` と `Effect.runPromise` を直接利用） |
 | `pnpm test:coverage` | カバレッジ計測（Statements / Branches / Functions / Lines の閾値はすべて100%） |
-| `pnpm package:verify` | 生成 tarball の `files` / `exports`、clean consumer の import、`fixedClock` runtime を検証 |
+| `pnpm package:verify` | 生成 tarball の `files` / `exports`、clean consumer の runtime import・declaration compile、`fixedClock` runtime・tool rule resolution を検証 |
 | `pnpm audit` | CI のゲート。**意図的に `--prod` を付けない** |
 
 **`pnpm audit` は `--prod` なしで CI に配線している。** ランタイム依存は `effect` 1 つだけなので、
@@ -117,22 +118,23 @@ mc-save 側で追加する。
 `pnpm typecheck` で検証する。これは未計測コードを隠す除外ではなく、V8 の 0% 表示による
 見かけ上の分母を避けるための明示的な型専用境界である。
 
-- `pnpm verify` は `typecheck && lint && test` のみを実行する
-- CI は `pnpm verify`、`pnpm test:coverage`、`pnpm package:verify` を実行する
-- ローカルでカバレッジを確認するときも `pnpm test:coverage` を使う
+- `pnpm verify` は `scripts:check && typecheck && lint && test:coverage` を実行する
+- CI は `pnpm verify` と `pnpm package:verify` を実行する
+- カバレッジだけを再確認するときは `pnpm test:coverage` を単独で使える
 
 カバレッジは完成判定の一部であり、空のテスト選択や生成物を読まないチェックを合格扱いにしない。
 測定時は Vitest が実際にテストファイルとソースを読み込んだこと、4メトリクスの結果が閾値を満たすことを
-確認する。`verify` と coverage は別コマンドだが、CI では両方を実行する。
+確認する。`verify` がこのゲートを必ず通過するため、ローカルと CI の判定を分離しない。
 
 ## 5. 現時点の到達状況
 
 実装済み:
 
-- `pnpm verify` を基準に typecheck / lint / test を回す運用
+- `pnpm verify` を基準に typecheck / lint / test / coverage を回す運用
 - 能力フラグ監査と、それに対応する registry / property / support rule の実装
 - `BlockType` 123 種の公開
-- `ItemType` 173 種の公開
+- `ItemType` 186 種の公開
+- `block-break-speed.test.ts` による硬度 lookup、道具倍率、効率、既定速度の公式式検証
 - `Chunk` データ構造と codec、および round-trip test
 - Anvil の決定的な計画・適用、および versioned snapshot codec
 - Vitest 4 への移行（`@effect/vitest` 依存と `it.effect` API を削除）
@@ -140,16 +142,14 @@ mc-save 側で追加する。
 - `FrameServices` を `ClockPort` に固定した公開契約
 - `pnpm build` による型付き ESM と declaration の生成
 - Statements / Branches / Functions / Lines の100%カバレッジゲート
-- `pnpm package:verify` による、実際に生成した tarball の `files` / `exports`、clean consumer の import、`fixedClock` runtime の検証
+- `pnpm package:verify` による、実際に生成した tarball の `files` / `exports`、clean consumer の runtime import・declaration compile、`fixedClock` runtime の検証
 
-未完了:
+現時点の残課題（公開運用・外部判断）:
 
-- **現在の `package.json` バージョンの publish。** GitHub Packages への publish 自体は
-  `0.2.0`〜`0.2.18` の 19 バージョンで既に行われている。一方、現在の `package.json` が指す
-  `0.3.0` は release ワークフローの version 検出方式の穴により publish されないまま残っている
-  （経緯は [versioning.md](./versioning.md) §4）
-- 公開レジストリから取得した tarball の install 検証（`pnpm package:verify` はローカル `pnpm pack` の
-  tarball しか見ておらず、GitHub Packages から取得した tarball ではない）
+- `0.4.0` が現在の公開版であり、`0.3.0` は version 検出方式の穴による履歴上のスキップである
+  （経緯は [versioning.md](./versioning.md) §4）。
+- 公開レジストリから取得した `0.4.0` tarball の install / import / runtime 検証は実施済みである。
+  `pnpm package:verify` は引き続きローカル `pnpm pack` の tarball 境界を検証する。
 - 1.0.0 へ昇格する maintainer 判断（下流の実消費後に行う）
 
-したがって、内部の品質ゲートは完了しているが、公開物を伴うリリース完了はまだ宣言しない。
+したがって、内部品質ゲートと `0.4.0` の公開物検証は完了しているが、1.0.0 昇格はまだ宣言しない。

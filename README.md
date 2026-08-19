@@ -36,7 +36,7 @@ kernel が誰かに依存した時点で構造的に循環が生じるためで�
 | ドキュメント | 内容 |
 | --- | --- |
 | [docs/architecture.md](./docs/architecture.md) | 4 階層、全 16 リポジトリの依存グラフ、kernel が唯一の例外である理由 |
-| [docs/responsibility.md](./docs/responsibility.md) | 責務と、**明示的な非スコープ**（サービス実装を持たない / ブロックテーブルを持たない 等） |
+| [docs/responsibility.md](./docs/responsibility.md) | 責務と、**明示的な非スコープ**（状態を持つサービス実装を置かない / renderer 固有資産を置かない 等） |
 | [docs/public-api.md](./docs/public-api.md) | 公開 API 全体と、各横断型が**なぜ kernel にあるのか** |
 | [docs/capability-flag-audit.md](./docs/capability-flag-audit.md) | **能力フラグ監査（一次資料・能力モデルの権威）** |
 | [docs/design-notes.md](./docs/design-notes.md) | 参照実装の名指し判定散乱の実測、初日原則、「ブロック追加 = 1 行」不変条件 |
@@ -113,19 +113,20 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
 
 | コマンド | 内容 |
 | --- | --- |
+| `pnpm scripts:check` | 配布・ベンチマーク用 `.mjs` スクリプトを Node.js の構文検査に通す |
 | `pnpm typecheck` | `tsconfig.build.json` と `tsconfig.test.json` の両方を型検査 |
 | `pnpm lint` | oxlint と ast-grep（このリポジトリ唯一の lint / format 設定。prettier も biome も .editorconfig も置かない）。`oxlint --deny-warnings src test && ast-grep scan` として両方を実行する。oxlint は**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は `correctness` / `suspicious` / `perf` / `restriction` の 4 カテゴリと個別ルールの大半を `warn` にし、`style` は無効化、`error` は少数だけ。このフラグが無かった頃は実質その `error` のルールしかゲートになっていなかった。`.oxlintrc.json` は JSONC なのでコメント行を除いてから数える必要がある。正確な内訳はそうやって `.oxlintrc.json` を参照）。ast-grep は oxlint が実装していない壁時計禁止を補う（下記） |
 | `pnpm lint:fix` | oxlint の自動修正 |
 | `pnpm test` | Vitest 4（Effect のテストは native `it` と `Effect.runPromise` を直接利用） |
 | `pnpm test:watch` | vitest watch |
 | `pnpm test:coverage` | カバレッジ計測（全メトリクス100%。[docs/testing.md](./docs/testing.md) §4） |
-| `pnpm verify` | `typecheck && lint && test` |
-| `pnpm package:verify` | `pnpm pack` の実体を clean consumer に install し、全 export と runtime を検査 |
+| `pnpm verify` | `scripts:check && typecheck && lint && test:coverage` |
+| `pnpm package:verify` | `pnpm pack` の実体を clean consumer に install し、全 export、runtime、型付き declaration consumer を検査 |
 
 ## 現状
 
-- **ブロック能力モデルは監査に整合済み。** `docs/capability-flag-audit.md` の 28 能力のうち **27 実装 / 1 保留**。
-  保留分は `PENDING_CAPABILITIES` に理由つきで記録され、テストが「実装済み + 保留 = 監査の 28」を検査している。
+- **ブロック能力モデルは監査に整合済み。** `docs/capability-flag-audit.md` の 28 能力のうち **27 は kernel 実装 / 1 は下流所有**。
+  下流所有の境界は `DOWNSTREAM_CAPABILITIES` に所有者と理由つきで記録され、テストが「実装済み + 下流所有 = 監査の 28」を検査している。
   plan.md §3.1 が boolean としていた 3 つ（`emissive` / `transparent` / `fluid`）は監査に従って
   `lightEmission: 0..15` / `opacity: 3 値` / `fluid: 'none'|'water'|'lava'` に修正済み。
   詳細は [docs/public-api.md](./docs/public-api.md) §4。
@@ -134,12 +135,15 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
   経緯と論拠は [docs/responsibility.md](./docs/responsibility.md) §3-2 と当該ファイルのヘッダにある。
 - **`BlockType` とレジストリは 123 種を収録している。** 参照実装の 120 リテラルを基礎に、kernel が必要とする
   `soul_soil`、`wither_skeleton_skull`、`dropper` を加えた。追加時はリテラルだけでなくレジストリ行と能力を同時に定義する。
-- **`ItemType` を公開した**（`domain/item-type.ts`、173 種。鉄防具 4 種とつるはし・クワ各 4 tier を含む）。plan.md §3.1 が挙げていながら
+- **`ItemType` を公開した**（`domain/item-type.ts`、186 種。鉄防具 4 種とつるはし・シャベル・斧・クワ・剣の木/石/鉄/ダイヤ/金 tier を含む）。plan.md §3.1 が挙げていながら
   書かれていなかった語彙で、欠落のあいだに mc-sim / mc-playground-kit / mx-ui がそれぞれ暫定の
   `type ItemId = string` を置いていた。`domain/block-item.ts` がブロック↔アイテムの橋
   （監査 §6-8 の `ItemType ∩ BlockType` を導出で解く）を、`dropOfBlockId` が
   「壊したブロックのバイト → インベントリに入るアイテム」を担う。
   詳細は [docs/public-api.md](./docs/public-api.md) §3-bis と §4-3。
+- **公式 `minecraft:tool` の順序付きルール解決と採掘時間計算を公開した**（`domain/tool-component.ts` / `domain/block-break-speed.ts`）。
+  `speed`、`correct_for_drops`、`default_mining_speed`、`damage_per_block` を型付きの純粋 API で扱う。
+  プレイヤー操作の進行状態、耐久の消費適用、ドロップ生成、サーバー権威判定は上位 gameplay の責務である。
 - **`Chunk` データ構造と versioned codec は実装済み。** `domain/chunk.ts` の
   `Chunk` / `encodeChunk` / `decodeChunk` とラウンドトリップテストが所有する。
 - **`FrameServices` は確定した — `ClockPort` だけ。** 縦切りスパイクを通した結果であり、プレースホルダではない。
@@ -154,19 +158,20 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
 - **実行環境は Nix flake を正本とする。** `flake.nix` / `flake.lock` と `package.json` の `engines` / `packageManager` が
   Node.js 24・pnpm 11・TypeScript 7 の境界を定義する。ASDF/asd や devenv の設定は置かず、環境定義を二重管理しない。
 - **配布境界のローカル検証は実装済み。** `pnpm package:verify` は実際に生成した tarball の
-  `exports` 対象・`files` 内容・clean consumer からの import・`fixedClock` runtime を検査し、
+  `exports` 対象・`files` 内容・clean consumer からの import・`fixedClock` runtime・型付き declaration consumer を検査し、
   CI でも実行する。`.github/workflows/release.yaml` は `main` で package version が変わったときだけ、
-  verify・coverage・package boundary 検証後に GitHub Packages へ publish する。
-- **GitHub Packages への実公開は既に行われている**（`0.2.0`〜`0.2.18` の 19 バージョン）。
-  一方、現在の `version` である `0.3.0` は release workflow の version 検出方式の穴により
-  まだ publish されておらず、公開レジストリから取得した tarball の install 検証も未実施である。
+  verify・package boundary 検証後に GitHub Packages へ publish する。
+- **GitHub Packages への実公開は行われており、現在の `version` は `0.4.0` である。**
+  `0.3.0` は release workflow の version 検出方式の穴により公開されなかった履歴上の中間版であり、
+  `0.4.0` は Node.js からロード可能な修正版として公開されている。公開レジストリから取得した
+  `0.4.0` tarball の install / import / runtime 検証も [freeze-checklist.md](./docs/freeze-checklist.md) に記録済みである。
   `version` は下流の実消費とリリース判断が完了するまで `0.x` に留める
   （[docs/versioning.md](./docs/versioning.md)）。
 - **`effect` は `peerDependencies` に置く。** kernel は `Context.Tag`（`ClockPort`）と Effect 値を
   export するため、消費側と同じ `effect` インスタンスでなければならない。これは消費側にとって
   破壊的変更である（`effect` を自前で宣言していない消費コードは壊れる）。詳細は
   [docs/versioning.md](./docs/versioning.md) §1-1。
-- **カバレッジは全メトリクス100%を閾値にする。** `pnpm test:coverage` と CI のカバレッジゲートが
+- **カバレッジは全メトリクス100%を閾値にする。** `pnpm verify`（内部で `pnpm test:coverage` を実行）と CI のカバレッジゲートが
   Statements / Branches / Functions / Lines を検査する（[docs/testing.md](./docs/testing.md) §4）。
 
 ## License

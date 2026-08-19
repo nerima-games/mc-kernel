@@ -16,8 +16,9 @@
 | 幾何 | `AABB` と交差判定 |
 | ブロック語彙 | `BlockType` リテラル型と網羅性チェック |
 | アイテム語彙 | `ItemType` リテラル型と網羅性チェック |
-| ブロック↔アイテム橋渡し | `PlaceableItemType`（= `ItemType ∩ BlockType`、監査 §6-8）と `drops` の解決 |
+| ブロック↔アイテム橋渡し | `PlaceableItemType`（`ItemType ∩ BlockType` + 名前付き設置例外、監査 §6-8）と `drops` の解決 |
 | ブロック能力モデル | 能力フラグ表（boolean）+ プロパティ表（型付き値）+ `BlockDefinition` |
+| 掘削ルールと採掘時間 | 公式 `minecraft:tool` の順序付きルール解決、ブロック硬度と道具速度から tick 数を求める純粋関数（操作状態・権威判定は上位） |
 | 横断 Port | `ClockPort` |
 | 横断スナップショット | `CameraPoseSnapshot` |
 | Anvil 変換 | 決定的な変換計画・適用、および versioned state snapshot codec |
@@ -49,15 +50,18 @@ domain/
   block-type.ts                # BlockType 型と外部入力用 runtime guard
   item-type-data.ts            # ITEM_TYPES の閉じたデータテーブル
   item-type.ts                 # ItemType 型と外部入力用 runtime guard
-  block-item.ts                # ブロック↔アイテムの橋（監査 §6-8 の交差を導出で解く）
+  block-item.ts                # ブロック↔アイテムの橋（交差を導出し、設置名の例外を明示）
   item-registry.ts             # ItemId の数値 wire ID とスタック上限
+  block-break-speed-data.ts    # 公式の道具倍率テーブル
+  block-break-speed.ts         # 硬度 lookup と採掘時間計算
+  tool-component.ts            # minecraft:tool の順序付き rule 解決
 
   # ブロック能力モデル
   block-capabilities.ts        # boolean 能力フラグ表
   block-properties.ts          # 型付きプロパティ表
   block-support.ts             # supportRule の値と判定（監査 §4.6）
   block-harvest.ts             # harvestTool / drops（struct 2 種を隔離）+ ドロップ解決
-  block-definition.ts          # BlockDefinition と解決関数、実装/保留の台帳
+  block-definition.ts          # BlockDefinition と解決関数、実装/下流境界の台帳
 
   # ブロックレジストリ: 宣言的データと派生インデックスを分離（architecture.md §6）
   block-registry.ts            # 公開境界。数値 id ↔ BlockType と accessor
@@ -109,7 +113,7 @@ kernel が持ってよい「サービスらしきもの」は **Port（インタ
 `ClockPort` は Context.Tag と型と、テスト用の固定実装（`fixedClock` / `FixedClockLayer`）を持つが、
 実クロックを読むアダプタは持たない。実装は利用側が注入する。
 
-### 3-2. ~~ブロックテーブルを持たない~~ → **持つことになった**（公開境界は `domain/block-registry.ts`）
+### 3-2. ブロックテーブルを持つ（公開境界は `domain/block-registry.ts`）
 
 この節はもともとこう書かれていた:
 
@@ -159,13 +163,8 @@ plan.md §2.3-5 により**依存は推移しない**ので、「下流のどこ
 
 #### ~~依然として持たないもの~~ → `drops` / `harvestTool` は**埋まった**
 
-この節はもともとこう書かれていた:
-
-> `drops` / `harvestTool` の実データ、`textureTiles`、`supportRule`。
-> どれもアイテム名簿かテクスチャアトラスと同時に決まるもので、
-> `PENDING_CAPABILITIES`（`domain/block-definition.ts`）に理由つきで記録されている。
-
-**アイテム名簿が来た**（`domain/item-type.ts`）ので、前半 2 つの保留理由は消えた。
+この節で残っている下流境界は `textureTiles` だけである。`drops` / `harvestTool` は
+**アイテム名簿が来た**（`domain/item-type.ts`）ことで kernel に実装でき、
 `BLOCK_REGISTRY` の各行が自分のドロップと道具要件を宣言している。
 
 **なぜ別テーブルにしなかったか。** 監査 §3 は `drops` / `harvestTool` を
@@ -182,8 +181,12 @@ plan.md §2.3-5 により**依存は推移しない**ので、「下流のどこ
 `canBlockStaySupported(id, below)` が
 その消費口で、mx-gameplay がフォールバックで代用していた per-block 規則をこれで置き換えた。
 
-`textureTiles` は保留のまま（`PENDING_CAPABILITIES`）。テクスチャアトラスの完成が条件で、
-アイテム名簿でも block roster でも解けない —— 残っているのは監査 §4.8 の「二重管理」という形の問題である。
+`textureTiles` は kernel が担当する未定義 property ではなく renderer 所有の境界である。renderer の
+`block-texture-map` はアトラスのレイアウト、面ごとの tile 割当、画像 asset をまとめて扱い、
+kernel の数値 id ではなく renderer の名前 lookup を入口にする。kernel の registry 順序と
+renderer の map 順序は同一ではなく、renderer 固有の asset 集合もあるため、kernel に storage-index
+の数値列を追加すると第二の source of truth になる。この判断と所有者は
+`DOWNSTREAM_CAPABILITIES`（`domain/block-definition.ts`）に記録している。
 
 **`drops` が表現しないと決めたもの**（いずれも監査が置き場所を決めている）:
 
@@ -233,6 +236,8 @@ kernel に置けば順序変更のたびに全リポジトリが bump される�
 
 監査 §6 が「フラグに還元できない残余」として 10 項目挙げている。これらは kernel に置かない。
 
+ただし、公式 `minecraft:tool` のデータ形を既知の `BlockType` 配列へ正規化した後の順序付き rule 解決と、ブロック硬度・道具速度から tick 数を求める副作用のない計算は例外である。複数 consumer が同じ式を必要とする共有ドメインロジックとして `tool-component.ts` と `block-break-speed.ts` に置く。タグ文字列の展開、プレイヤー操作の進行状態、耐久の消費適用、ドロップ生成、サーバー権威判定は上位が所有する。
+
 | 残余 | 置き場所 | 理由 |
 | --- | --- | --- |
 | 右クリック UI ルーティング（CRAFTING_TABLE→作業台画面 等） | `mx-ui` | `interactable: boolean` に潰すと画面選択の情報が消える |
@@ -245,7 +250,8 @@ kernel に置けば順序変更のたびに全リポジトリが bump される�
 
 将来これらが能力フラグへ流れ込まないよう、監査 §7 は「フラグではない拡張点」として
 `interactionId?: string` と `stateVariants?: { open?, lit?, filled? }` を明示的に分離しておくことを推奨している。
-**未実装**（`domain/block-definition.ts` には無い）。導入する際は能力フラグ表ではなく `BlockDefinition` の独立フィールドとして足すこと。
+kernel の能力フラグとしては定義しない（`domain/block-definition.ts` にも置かない）。導入する際は
+能力フラグ表ではなく `BlockDefinition` の独立フィールドとして足すこと。
 
 ### 3-5. 参照実装から**移植しない**と決めたもの
 

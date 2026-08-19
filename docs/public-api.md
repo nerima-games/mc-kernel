@@ -185,11 +185,11 @@ const ITEM_TYPES = ['stone', 'cobblestone', ..., 'snowball', 'sapling', ..., 'li
 type ItemType = (typeof ITEM_TYPES)[number]
 const isItemType = (value: string): value is ItemType
 
-type PlaceableItemType = ItemType & BlockType          // 監査 §6-8 の交差を型で解く
+type PlaceableItemType = (ItemType & BlockType) | 'redstone_dust' // 交差 + 名前付き設置例外
 const PLACEABLE_ITEM_TYPES / NON_PLACEABLE_ITEM_TYPES / UNITEMISED_BLOCK_TYPES
 const isPlaceableItem(item: ItemType): item is PlaceableItemType
 const itemOfBlock(block: BlockType): PlaceableItemType | undefined   // 部分関数
-const blockOfPlaceableItem(item: PlaceableItemType): BlockType       // 全域、ただし交差の上でだけ
+const blockOfPlaceableItem(item: PlaceableItemType): BlockType       // 全域、証明済みの設置 item 上だけ
 ```
 
 plan.md §3.1 は kernel の公開 API に 「`BlockType` / `ItemType`（リテラル型）」 を挙げていたが、
@@ -210,7 +210,8 @@ plan.md §3.1 の主張は「挙動は名前比較ではなく能力から読む
 | `BlockType` → `ItemType` | `air` / `water` / `lava` / `bedrock` / `snow` |
 
 `air` が入らないのは監査 §6-6（「`AIR` は『ブロックが無い』ことを表す番兵であり能力ではない」）の帰結である。
-2 つの union は**交差**するのであって入れ子ではない。
+2 つの union は**交差**するのであって入れ子ではない。`PlaceableItemType` はその交差に
+`redstone_dust`（`redstone_wire` を設置する名前付き例外）を加えた型である。
 `test/item-drops.test.ts` が `Exclude` で両方向をピン留めしている
 （`test/clock-and-frame.test.ts` の `FrameServices` と同じ手法）。片方の roster がもう片方を
 飲み込んだ瞬間に区別が飾りになるので、等式としてではなく**両方が空でないこと**として固定してある。
@@ -218,15 +219,16 @@ plan.md §3.1 の主張は「挙動は名前比較ではなく能力から読む
 **交差そのものが有用な型である。** 監査 §6-8 は参照実装の手書きリスト `BLOCK_ITEMS`
 （`first-person-held-item.ts:58-76`、監査時点で KELP / SEAGRASS / AMETHYST_* / RAIL が既に漏れていた）を見て
 「これは `ItemType ∩ BlockType` の導出であり、フラグではなく型レベルで解決すべき」と結論している。
-`PLACEABLE_ITEM_TYPES` は 2 つの roster から**計算**されるので、第 3 の名簿が存在せず、陳腐化しようがない。
+`PLACEABLE_ITEM_TYPES` は item roster と block roster の交差に、明示した設置例外だけを加えて**計算**される。
+例外は `SPECIAL_BLOCK_BY_ITEM` / `SPECIAL_ITEM_BY_BLOCK` の対応表に限定されるため、別の手書き名簿としては増殖しない。
 
-**橋は名前一致で、例外は `drops` に置く。** ブロックのアイテム形はブロックと同じ名前を持つ
+**橋は名前一致を既定とし、設置名の例外は橋自身に置く。** ブロックのアイテム形はブロックと同じ名前を持つ
 （`dirt` ブロック → `dirt` アイテム）。同名でないブロックは自分の行でそう言う
-（`stone` → `cobblestone`、`grass_block` → `dirt`、`glowstone` → `glowstone_dust`）。
-つまりブロック個別の例外は、他のブロック個別の例外が既にいる場所（レジストリの行）にいる。
-第 2 の block→item 対応表は作らない。
+（`redstone_wire` ブロック → `redstone_dust` アイテム）。一方、採掘時の文脈依存ドロップ
+（`stone` → `cobblestone`、`grass_block` → `dirt`、`glowstone` → `glowstone_dust`）は
+引き続きレジストリ行の `drops` が所有する。設置形と破壊ドロップを同じ規則として扱わない。
 
-**`ITEM_TYPES` は 173 個。** ブロック形・ドロップ形、つるはし・クワ各 4 tier に加え、装備境界が必要とする
+**`ITEM_TYPES` は 186 個。** ブロック形・ドロップ形、つるはし・シャベル・斧・クワ・剣の木/石/鉄/ダイヤ/金 tier に加え、装備境界が必要とする
 `iron_helmet` / `iron_chestplate` / `iron_leggings` / `iron_boots` を語彙として持つ。
 スロット規則や装備挙動は上位パッケージが所有し、kernel はアイテム同一性だけを所有する。
 `supportRule` が配置条件を所有するようになったため、条件依存の草花・キノコ・サトウキビ・サボテン・睡蓮 10 種も
@@ -265,11 +267,80 @@ const ItemIdBytes(bytes: Uint8Array): ItemIdBytes       // 長さと既知 id �
 **id は `ITEM_TYPES` の配列添字であり、密かつ追加専用（append-only）。** 新しいアイテムは必ず
 `ITEM_TYPES` の末尾に足す。途中挿入や並べ替えは既存の全 id を付け替える破壊的変更になる。
 `BlockId` が `Uint8Array` の 1 バイトに収まる 256 通りに縛られるのに対し、`ItemId` は
-`unsigned 16-bit`（0..65535）を確保してあり、173 種の現行語彙に対して十分な余裕を持つ。
+`unsigned 16-bit`（0..65535）を確保してあり、186 種の現行語彙に対して十分な余裕を持つ。
 
 `maxStackCountOfItem` の答えは 3 段階（`MAX_STACK_COUNT`=64 / 16 / 1）で、道具・防具・薬品・ボート等
 1 個までしか重ならないアイテムの集合と、雪玉・エンダーパール・バケツの 16 個上限を
 `item-registry.ts` 内の 2 つの `Set` で持つ。それ以外は既定の 64。
+
+### 3-bis-3. ブロック採掘時間（block-break-speed）
+
+ブロック硬度と道具倍率から、破壊に必要な game tick 数を求める副作用のない計算を公開する。
+
+```typescript
+const TOOL_BREAK_SPEED: Readonly<Partial<Record<ItemType, number>>>
+const DEFAULT_MINING_SPEED: number  // 1
+type BreakTicksInput = {
+  /** 適用する道具ルールが通常ドロップを許すか */
+  readonly correctForDrops: boolean
+  readonly efficiencyLevel?: number
+  readonly hardness: number
+  /** 適用する道具ルールから解決済みの採掘速度 */
+  readonly miningSpeed: number
+  /** プレイヤーの `block_break_speed` 属性。既定値は 1 */
+  readonly playerBreakSpeed?: number
+}
+const computeBreakTicks: (input: BreakTicksInput) => number
+const blockHardnessOf: (blockType: BlockType) => number
+const miningSpeedOf: (tool?: ItemType) => number
+```
+
+`computeBreakTicks` は hardness が 0 以下なら 0 を返し、それ以外では次を切り上げる。
+
+`ceil(hardness × 3 / ((miningSpeed + efficiencyBonus) × playerBreakSpeed))`
+
+`efficiencyBonus` は `correctForDrops` が true で、かつ `efficiencyLevel` が指定されている場合だけ
+`efficiencyLevel² + 1` になる。`miningSpeed` は `resolveToolMiningProperties` で道具ルールから解決した値であり、
+`correctForDrops`（ドロップ可否）とは独立している。`miningSpeedOf` はこの kernel に収録された
+木/石/鉄/ダイヤ/金のつるはし・シャベル・斧の速度表を引く補助関数で、未指定または表にない道具は
+`DEFAULT_MINING_SPEED` (= 1) になる。
+
+`hardness` はこのプロジェクトの参照実装から転記した採掘時間の基数であり、Java Edition の vanilla
+hardness float をそのまま表す API ではない。The End の一部には出典側の尺度混在も残るため、境界と扱いは
+[capability audit §4.5](./capability-flag-audit.md#45-hardness-friction-harvesttool-drops-xponbreak) に固定する。
+
+公式 `minecraft:tool` の順序付き rule は `ToolComponent` と `resolveToolMiningProperties` で解決する。
+
+```typescript
+type ToolRule = {
+  readonly blocks: ReadonlyArray<BlockType>
+  readonly speed?: number
+  readonly correctForDrops?: boolean
+}
+type ToolComponent = {
+  readonly rules: ReadonlyArray<ToolRule>
+  readonly defaultMiningSpeed?: number
+  readonly damagePerBlock: number
+}
+type ResolvedToolMiningProperties = {
+  readonly miningSpeed: number
+  readonly correctForDrops: boolean
+  readonly damagePerBlock: number
+}
+const resolveToolMiningProperties: (
+  component: ToolComponent,
+  block: BlockType,
+) => ResolvedToolMiningProperties
+```
+
+`rules` は配列順に評価し、最初に対象ブロックを含む rule の各指定値を採用する。未指定の `speed` は
+`defaultMiningSpeed`（既定値 1）へ、未指定の `correctForDrops` は `false` へフォールバックする。
+`speed` と `defaultMiningSpeed` は有限の正数として検証し、`damagePerBlock` は 0 以上の整数として検証する。
+公式データの単一ブロック・ブロック一覧・タグは、データ取り込み側で既知の `BlockType` 配列へ展開して渡す。
+kernel はタグ名のレジストリやサービスアダプタを仮定しない。
+プレイヤー操作の進行状態、耐久の消費適用、ドロップ生成、サーバー権威判定は上位 gameplay が統合する。
+
+配布パッケージではこの API を `@nerima-games/mc-kernel` の root から公開する。`block-break-speed-data.ts` は実装用データであり、個別 subpath は公開しない。`pnpm package:verify` は pack 後の root import、型付き declaration consumer、hardness・break-tick・tool rule resolution の実値を検査する。
 
 ## 4. ブロック能力モデル
 
@@ -480,7 +551,7 @@ type ResolvedBlock = { readonly type: BlockType
 
 const blockCapabilitiesOf / blockPropertiesOf / resolveBlock
 const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string>          // 監査 §3 の 28 行
-const PENDING_CAPABILITIES: ReadonlyArray<{ name, kind, why }> // 未実装 1 件と理由
+const DOWNSTREAM_CAPABILITIES: ReadonlyArray<{ name, kind, owner, why }> // 下流所有 1 件と境界理由
 ```
 
 **加算安全性（additive safety）が全体の要**。定義は差分だけを書き、書かなかったものは文書化された既定に解決される。
@@ -496,17 +567,19 @@ const PENDING_CAPABILITIES: ReadonlyArray<{ name, kind, why }> // 未実装 1 �
    完全なレコードは能力が増えるたびに必須キーが増え、まさにこの設計が避けようとしている破壊が起きる。
 2. `BlockCapabilityFlag` に対する `default` 節なしの網羅 `switch` を書かない。`BLOCK_CAPABILITY_FLAGS` を回す。
 
-### 4-5. 未実装 1 件（`PENDING_CAPABILITIES`）
+### 4-5. 能力境界（`DOWNSTREAM_CAPABILITIES`）
 
-`supportRule` はここにあったが**実装済み**になった（`domain/block-support.ts`、監査 §4.6.1）。
-保留理由は「block roster が無いと既定値を決められない」で、参照実装の 120 リテラルを基礎に
-kernel の 123 行が完成した時点で消滅した。
+`supportRule` は実装済みになった（`domain/block-support.ts`、監査 §4.6.1）。
+監査 §4.8 の `textureTiles` は kernel が担当する未定義 property ではなく、renderer が所有する境界として
+分類する。renderer 側の tile assignment は面の役割から renderer 所有のアトラスへ対応づける構造で、
+画像 asset とレイアウトも renderer に属する。kernel の registry 順序と renderer の map 順序が異なるため、
+storage-index の数値列を kernel に複製すると第二の source of truth になる。
 
-| 能力 | 種別 | 保留理由 |
+| 能力 | 種別 | 所有者 | 境界理由 |
 | --- | --- | --- |
-| `textureTiles` | property | 監査 §4.8 が「既定なし」と明記。実 block roster と同時にしか入れられない |
+| `textureTiles` | property | renderer | アトラス・面別 tile 割当・画像 asset は renderer の責務。 |
 
-`test/block-definition.test.ts` が「実装済み 27 + 保留 1 = 監査の 28」を機械的に検査している。
+`test/block-definition.test.ts` が「実装済み 27 + 下流所有 1 = 監査の 28」を機械的に検査している。
 監査にあるものを黙って落とすことも、監査にないものを勝手に足すこともできない。
 
 ## 5. `CameraPoseSnapshot`（camera）
