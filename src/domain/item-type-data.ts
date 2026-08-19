@@ -336,4 +336,17 @@ export const ITEM_TYPES = [
 
   // Appended because item ids are permanent wire identities.
   'dropper',
+  'gold_pickaxe',
+  'wooden_shovel',
+  'stone_shovel',
+  'iron_shovel',
+  'diamond_shovel',
+  'gold_shovel',
+  'wooden_axe',
+  'stone_axe',
+  'iron_axe',
+  'diamond_axe',
+  'gold_axe',
+  'gold_hoe',
+  'gold_sword',
 ] as const

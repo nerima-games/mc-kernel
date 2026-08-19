@@ -9,6 +9,7 @@
 
 export * from './domain/block-capabilities.js'
 export * from './domain/anvil.js'
+export * from './domain/block-break-speed.js'
 export * from './domain/block-definition.js'
 export * from './domain/block-harvest.js'
 export * from './domain/block-item.js'
@@ -26,3 +27,4 @@ export * from './domain/identifiers.js'
 export * from './domain/item-registry.js'
 export * from './domain/item-type.js'
 export * from './domain/quantities.js'
+export * from './domain/tool-component.js'

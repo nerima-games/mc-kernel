@@ -135,7 +135,7 @@ export type BlockProperties = {
   readonly renderKind: RenderKind
   /** Sound material selected by the gameplay footstep rule. Audit §4.8. */
   readonly footstepMaterial: FootstepMaterial
-  /** Break-time base, 0..100. Audit §4.5, `break-speed.ts:6-43`. */
+  /** Non-negative reference-scale break-time base; preserved source outliers may exceed 100. */
   readonly hardness: number
   /** Surface friction, 0..1. Audit §4.5, `block-collision-predicates.ts:61-63,152-161`. */
   readonly friction: number

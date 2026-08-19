@@ -86,7 +86,7 @@ export const resolveBlock = (definition: BlockDefinition): ResolvedBlock => ({
 })
 
 // ---------------------------------------------------------------------------
-// Honesty ledger: what the audit found vs what kernel implements today
+// Capability ledger: what the audit found and where its authoritative data lives
 // ---------------------------------------------------------------------------
 
 /**
@@ -129,7 +129,7 @@ export const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string> = [
 ]
 
 /**
- * Audited capabilities that remain intentionally unmodeled.
+ * Audited capabilities whose authoritative data or consumer belongs downstream.
  *
  * The kernel vocabulary and registry are now complete: both contain 123 rows.
  * The reference implementation still defines 120 block kinds; the kernel adds
@@ -146,9 +146,11 @@ export const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string> = [
  *   `tillable`          is implemented in the kernel registry. Consumers use
  *     the kernel column directly rather than maintaining a mirror.
  *
- *   `textureTiles`      is unblocked as to the roster, but its positional
- *     storage-index shape remains a separate design decision. It stays pending
- *     until one authoritative tile representation is chosen.
+ *   `textureTiles`      belongs to the renderer. A tile assignment is a
+ *     face-role map into a renderer-owned atlas, not a block property that can
+ *     be derived from the kernel registry. The renderer also has to supply
+ *     assignments for its own asset set, so a numeric storage-index column
+ *     here would create a second, positional source of truth.
  *
  * Adding a capability is deliberately separate from the registry change. It is
  * a semver-minor addition to a package fourteen repositories pin, so it should
@@ -160,19 +162,20 @@ export const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string> = [
  * the public contract larger without adding behavior.
  */
 
-export const PENDING_CAPABILITIES: ReadonlyArray<{
+export const DOWNSTREAM_CAPABILITIES: ReadonlyArray<{
   readonly name: string
   readonly kind: 'flag' | 'property'
+  readonly owner: 'renderer'
   readonly why: string
 }> = [
   {
     kind: 'property',
     name: 'textureTiles',
+    owner: 'renderer',
     why:
-      'audit §4.8 (block-texture-map.config.ts:18). The audit records that this ' +
-      'is currently a positional array indexed by storage index, double-managed ' +
-      'against the definition table, and that it has no default at all. The ' +
-      'roster half of that is UNBLOCKED — the real block roster exists now — but ' +
-      'the double-management objection is about the shape and still stands.',
+      'audit §4.8 records a positional block-texture array, while the renderer ' +
+      'owns the atlas layout, face-role tile assignments, and image assets. ' +
+      'Moving that numeric table into the kernel would create a second source ' +
+      'of truth and would not define assets for kernel-only block rows.',
   },
 ]

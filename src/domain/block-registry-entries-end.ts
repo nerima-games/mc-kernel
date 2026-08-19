@@ -31,7 +31,7 @@ export const BLOCK_REGISTRY_END: ReadonlyArray<BlockRegistryEntry> = [
   //     though it is off the end of the stated range.
   //
   //   `end_gateway` is -1 in the reference, and that one is NOT kept. A negative
-  //     hardness is not "very hard": `computeBreakTicks` (`break-speed.ts:29-31`)
+  //     hardness is not "very hard": `computeBreakTicks` (`block-break-speed.ts`)
   //     returns 0 for `hardness <= 0`, so -1 means INSTANT, which is the exact
   //     opposite of the intent and is a bug in the reference. This row says 0,
   //     which is behaviourally identical to -1 under that function and is inside

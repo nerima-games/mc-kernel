@@ -168,6 +168,7 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
         lightEmission: 15,
         hardness: 0,
         friction: 0,
+        collisionShape: 'none',
         // Fire is the third of the three world-state rows. It is also the row
         // that says `flammable: false` and `fireSource: false` by saying nothing
         // — fire neither catches fire (`FLAMMABLE_BLOCK_TYPES` omits it) nor

@@ -17,7 +17,7 @@
  * or must come with a default in `BLOCK_PROPERTY_DEFAULTS`. Never both required
  * and defaultless.
  */
-import { itemOfBlock, type PlaceableItemType } from './block-item.js'
+import { itemOfBlock } from './block-item.js'
 import type { BlockType } from './block-type.js'
 import type { ItemType } from './item-type.js'
 import { StackCount, type StackCount as StackCountValue } from './quantities.js'
@@ -156,7 +156,7 @@ const NO_DROP_COUNT = 0
  * answers "which item", not "does anything drop"; `resolveDrop` below is the
  * function that answers both, and is what mining should call.
  */
-export function resolveDropItem(rule: BlockDropRule, brokenBlock: PlaceableItemType, silkTouch?: boolean): ItemType
+export function resolveDropItem(rule: BlockDropRule, brokenBlock: ItemType & BlockType, silkTouch?: boolean): ItemType
 export function resolveDropItem(rule: BlockDropRule, brokenBlock: BlockType, silkTouch?: boolean): ItemType | undefined
 export function resolveDropItem(
   rule: BlockDropRule,
