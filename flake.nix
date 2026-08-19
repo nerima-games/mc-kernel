@@ -1,5 +1,5 @@
 {
-  description = "mc-kernel: Shared vocabulary for the nerima-games Minecraft-clone rebuild: branded types, coordinates, block capability flags, frame contracts, and the clock Port.";
+  description = "mc-kernel: Minecraft domain data and pure logic for block/item registries, breaking, chunks, anvils, frame contracts, and the clock Port.";
 
   inputs = {
     # nixos-unstable, not nixpkgs-unstable: it advances only after the NixOS

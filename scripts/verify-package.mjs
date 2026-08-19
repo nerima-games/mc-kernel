@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -7,6 +7,7 @@ const root = resolve(import.meta.dirname, '..')
 const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
 const packageName = manifest.name
 const DEFAULT_COMMAND_TIMEOUT_MS = 120_000
+const typeScriptCompiler = join(root, 'node_modules', 'typescript', 'bin', 'tsc')
 
 const commandLabel = (command, args) => command + ' ' + args.join(' ')
 
@@ -80,6 +81,7 @@ const archiveEntryFor = (targetPath) => `package/${targetPath.replace(/^\.\//, '
 const importSpecifiers = exportEntries.map(([subpath]) =>
   subpath === '.' ? packageName : `${packageName}${subpath.slice(1)}`,
 )
+const peerDependencies = manifest.peerDependencies ?? {}
 
 const workspace = await mkdtemp(join(tmpdir(), 'mc-kernel-package-'))
 const packDirectory = join(workspace, 'pack')
@@ -114,6 +116,19 @@ try {
     }
   }
 
+  await writeFile(
+    join(consumerDirectory, 'package.json'),
+    JSON.stringify(
+      {
+        name: 'mc-kernel-package-consumer',
+        private: true,
+        type: 'module',
+        dependencies: peerDependencies,
+      },
+      null,
+      2,
+    ) + '\n',
+  )
   run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund', archivePath], {
     cwd: consumerDirectory,
     timeoutMs: 180_000,
@@ -131,6 +146,36 @@ try {
     if (typeof rootModule.fixedClock !== 'function') {
       throw new Error('The root export does not expose fixedClock');
     }
+    if (
+      typeof rootModule.computeBreakTicks !== 'function' ||
+      typeof rootModule.blockHardnessOf !== 'function' ||
+      typeof rootModule.miningSpeedOf !== 'function' ||
+      typeof rootModule.resolveToolMiningProperties !== 'function' ||
+      rootModule.DEFAULT_MINING_SPEED !== 1 ||
+      rootModule.TOOL_BREAK_SPEED === null ||
+      typeof rootModule.TOOL_BREAK_SPEED !== 'object'
+    ) {
+      throw new Error('The root export does not expose block break-speed APIs');
+    }
+    if (rootModule.blockHardnessOf('stone') !== 25) {
+      throw new Error('The root export returned an invalid stone hardness');
+    }
+    if (rootModule.miningSpeedOf('gold_pickaxe') !== 12) {
+      throw new Error('The root export returned an invalid resolved mining speed');
+    }
+    if (rootModule.computeBreakTicks({ correctForDrops: false, hardness: 1, miningSpeed: 1 }) !== 3) {
+      throw new Error('The root export returned an invalid break tick result');
+    }
+    const resolvedTool = rootModule.resolveToolMiningProperties(
+      { rules: [{ blocks: ['stone'], speed: 6, correctForDrops: true }], damagePerBlock: 1 },
+      'stone',
+    );
+    if (
+      JSON.stringify(resolvedTool) !==
+      JSON.stringify({ miningSpeed: 6, correctForDrops: true, damagePerBlock: 1 })
+    ) {
+      throw new Error('The root export returned invalid tool-component rule resolution');
+    }
     const clock = rootModule.fixedClock({ monotonicSecs: 1, wallClockEpochMillis: 2 });
     const monotonic = await Effect.runPromise(clock.monotonicSecs);
     if (monotonic !== 1) {
@@ -139,6 +184,61 @@ try {
     console.log('verified ' + packageName + ' exports: ' + specifiers.join(', '));
   `
   run('node', ['--input-type=module', '--eval', probe], { cwd: consumerDirectory, timeoutMs: 30_000 })
+
+  const typeConsumerSource = `
+import {
+  blockHardnessOf,
+  computeBreakTicks,
+  miningSpeedOf,
+  resolveToolMiningProperties,
+  type BlockType,
+  type ItemType,
+  type ToolComponent,
+} from ${JSON.stringify(packageName)}
+
+const block: BlockType = 'stone'
+const tool: ItemType = 'gold_pickaxe'
+const hardness = blockHardnessOf(block)
+const ticks = computeBreakTicks({ correctForDrops: true, hardness, miningSpeed: miningSpeedOf(tool) })
+const component: ToolComponent = { rules: [{ blocks: [block], speed: 2 }], damagePerBlock: 1 }
+const resolved = resolveToolMiningProperties(component, block)
+if (ticks < 0) {
+  throw new Error('Break ticks must be non-negative')
+}
+if (resolved.miningSpeed !== 2 || resolved.damagePerBlock !== 1) {
+  throw new Error('Tool component declaration consumer returned an invalid result')
+}
+`
+  if (typeConsumerSource.trim().length === 0) {
+    throw new Error('TypeScript consumer source must not be empty')
+  }
+  await writeFile(join(consumerDirectory, 'consumer.ts'), typeConsumerSource.trimStart())
+  await writeFile(
+    join(consumerDirectory, 'tsconfig.json'),
+    JSON.stringify(
+      {
+        compilerOptions: {
+          strict: true,
+          target: 'ES2022',
+          module: 'NodeNext',
+          moduleResolution: 'NodeNext',
+          noEmit: true,
+          skipLibCheck: false,
+        },
+        files: ['consumer.ts'],
+      },
+      null,
+      2,
+    ) + '\n',
+  )
+  run(process.execPath, [
+    typeScriptCompiler,
+    '--project',
+    join(consumerDirectory, 'tsconfig.json'),
+    '--pretty',
+    'false',
+  ], { cwd: consumerDirectory, timeoutMs: 30_000 })
+  console.log(`verified ${packageName} declaration consumer typecheck`)
 
   console.log(`verified package archive ${relative(root, archivePath)}`)
 } finally {

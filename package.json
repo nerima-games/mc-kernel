@@ -2,7 +2,7 @@
   "name": "@nerima-games/mc-kernel",
   "version": "0.4.0",
   "type": "module",
-  "description": "Shared vocabulary for the nerima-games Minecraft-clone rebuild: branded types, coordinates, block capability flags, frame contracts, and the clock Port.",
+  "description": "Core Minecraft domain data and pure logic for blocks, items, breaking, chunks, anvils, coordinates, and frame contracts.",
   "homepage": "https://github.com/nerima-games/mc-kernel#readme",
   "repository": {
     "type": "git",
@@ -65,7 +65,8 @@
     "test:watch": "vitest",
     "pretest:coverage": "pnpm build",
     "test:coverage": "vitest run --coverage",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test",
+    "scripts:check": "node --check scripts/benchmark.mjs && node --check scripts/verify-package.mjs",
+    "verify": "pnpm scripts:check && pnpm typecheck && pnpm lint && pnpm test:coverage",
     "package:verify": "pnpm build && node scripts/verify-package.mjs",
     "prepublishOnly": "pnpm verify && pnpm package:verify"
   },

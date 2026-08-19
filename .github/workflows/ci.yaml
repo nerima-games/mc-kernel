@@ -50,25 +50,11 @@ jobs:
         # explicit policy and matches local frozen installs.
         run: nix develop --command pnpm install --frozen-lockfile
 
-      # verify covers typecheck, lint, and the unit suite. The test lifecycle
-      # also builds the release artifact first, so a clean checkout exercises
-      # the same package boundary as a consumer.
+      # verify covers typecheck, lint, the unit suite, and the 100% coverage gate.
+      # Its test lifecycle also builds the release artifact; the next step checks
+      # that artifact from a clean consumer boundary.
       - name: Verify
         run: nix develop --command pnpm verify
-
-      # The 100% gate (docs/testing.md §5 row 7), and it is this step that
-      # enforces it. No extra flag is needed and none should be added: the
-      # thresholds live in vitest.config.ts, and `vitest run --coverage` exits
-      # non-zero by itself when any of the four falls below. Keeping the numbers
-      # in the config rather than here means `pnpm test:coverage` gates
-      # identically on a laptop and in CI, so the gate cannot be one that only
-      # ever fires after a push.
-      #
-      # NOTE: `pnpm verify` deliberately does NOT include this step — it runs
-      # `pnpm test` without coverage. Run `pnpm test:coverage` before pushing if
-      # you have touched a branch in src/domain/.
-      - name: Coverage (100% gate)
-        run: nix develop --command pnpm test:coverage
 
       # Exercise the exact packed bytes in a clean consumer before a release
       # can be created. This catches export-map and files-allowlist mistakes
