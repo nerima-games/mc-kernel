@@ -1,7 +1,7 @@
 import {
   AUDITED_CAPABILITY_NAMES,
+  DOWNSTREAM_CAPABILITIES,
   type BlockDefinition,
-  PENDING_CAPABILITIES,
   blockCapabilitiesOf,
   blockPropertiesOf,
   resolveBlock,
@@ -18,8 +18,8 @@ const IMPLEMENTED_PROPERTY_COUNT = 15
 const LAVA_CONTACT_DAMAGE = 4
 const MAXIMUM_LIGHT_EMISSION = 15
 const NO_DROPS = 0
-const PENDING_CAPABILITY_COUNT = 1
-const PENDING_CAPABILITY_MINIMUM_EXPLANATION_LENGTH = 20
+const DOWNSTREAM_CAPABILITY_COUNT = 1
+const DOWNSTREAM_CAPABILITY_MINIMUM_EXPLANATION_LENGTH = 20
 
 describe('adding a block is one table row plus flag settings (the design contract invariant)', () => {
   // THE named regression test for the design contract's closing requirement:
@@ -118,20 +118,20 @@ describe('resolveBlock', () => {
   )
 })
 
-describe('the implemented / pending ledger', () => {
-  it('the audited roster is exactly the implemented capabilities plus the pending ones', () =>
+describe('the implemented / downstream capability ledger', () => {
+  it('the audited roster is exactly the implemented capabilities plus downstream-owned ones', () =>
     Effect.runPromise(Effect.sync(() => {
       // Machine-checked honesty: nothing in the audit may be silently dropped,
       // And nothing may be invented that the audit did not find.
       const implemented = [...BLOCK_CAPABILITY_FLAGS, ...BLOCK_PROPERTY_NAMES]
-      const pending = PENDING_CAPABILITIES.map((entry) => entry.name)
+      const downstream = DOWNSTREAM_CAPABILITIES.map((entry) => entry.name)
 
-      expect([...implemented, ...pending].sort()).toStrictEqual([...AUDITED_CAPABILITY_NAMES].sort())
-      expect(new Set([...implemented, ...pending]).size).toBe(AUDITED_CAPABILITY_NAMES.length)
+      expect([...implemented, ...downstream].sort()).toStrictEqual([...AUDITED_CAPABILITY_NAMES].sort())
+      expect(new Set([...implemented, ...downstream]).size).toBe(AUDITED_CAPABILITY_NAMES.length)
     })),
   )
 
-  it('the audit table has 28 rows, of which 27 are implemented and 1 is pending', () =>
+  it('the audit table has 28 rows, of which 27 are implemented and 1 is downstream-owned', () =>
     Effect.runPromise(Effect.sync(() => {
       // Historical design audit §7 prose says "26"; its §3 table has 28
       // Rows. The table is what is implemented against, and the discrepancy is
@@ -139,23 +139,23 @@ describe('the implemented / pending ledger', () => {
       //
       // 24/4 until `supportRule` landed as `properties.supportRule`, then
       // `tillable` and `footstepMaterial` landed as additive properties.
-      // (`domain/block-support.ts`). The property count moved and the pending
-      // Count moved with it; the test ABOVE is the one that checks they moved
-      // Together, and these are the absolute numbers that catch a capability
-      // Being dropped from both lists at once.
+      // (`domain/block-support.ts`). The property count moved and the
+      // downstream boundary is kept explicit; the test ABOVE is the one that
+      // catches a capability being dropped from both lists at once.
       expect(AUDITED_CAPABILITY_NAMES).toHaveLength(AUDITED_CAPABILITY_COUNT)
       expect(BLOCK_CAPABILITY_FLAGS).toHaveLength(IMPLEMENTED_FLAG_COUNT)
       expect(BLOCK_PROPERTY_NAMES).toHaveLength(IMPLEMENTED_PROPERTY_COUNT)
-      expect(PENDING_CAPABILITIES).toHaveLength(PENDING_CAPABILITY_COUNT)
+      expect(DOWNSTREAM_CAPABILITIES).toHaveLength(DOWNSTREAM_CAPABILITY_COUNT)
     })),
   )
 
-  it('every pending capability states why it is pending', () =>
+  it('every downstream-owned capability states its owner and boundary', () =>
     Effect.runPromise(Effect.sync(() => {
-      for (const entry of PENDING_CAPABILITIES) {
-        expect(entry.why.length).toBeGreaterThan(PENDING_CAPABILITY_MINIMUM_EXPLANATION_LENGTH)
+      for (const entry of DOWNSTREAM_CAPABILITIES) {
+        expect(entry.why.length).toBeGreaterThan(DOWNSTREAM_CAPABILITY_MINIMUM_EXPLANATION_LENGTH)
         expect(['flag', 'property']).toContain(entry.kind)
-        // Not yet in either table — otherwise the ledger is lying.
+        expect(entry.owner).toBe('renderer')
+        // Not in either kernel table — otherwise the boundary ledger is lying.
         expect(BLOCK_CAPABILITY_FLAGS).not.toContain(entry.name)
         expect(BLOCK_PROPERTY_NAMES).not.toContain(entry.name)
       }
@@ -171,7 +171,7 @@ describe('the implemented / pending ledger', () => {
         expect(BLOCK_CAPABILITY_FLAGS).not.toContain(dead)
         expect(BLOCK_PROPERTY_NAMES).not.toContain(dead)
         expect(AUDITED_CAPABILITY_NAMES).not.toContain(dead)
-        expect(PENDING_CAPABILITIES.map((entry) => entry.name)).not.toContain(dead)
+        expect(DOWNSTREAM_CAPABILITIES.map((entry) => entry.name)).not.toContain(dead)
       }
     })),
   )

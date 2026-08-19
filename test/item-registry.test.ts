@@ -50,6 +50,210 @@ const FISHING_ITEM_IDS = {
   salmon: 144,
   tropical_fish: 145,
 } as const satisfies Readonly<Partial<Record<ItemType, number>>>
+const BREAK_SPEED_ITEM_IDS = {
+  diamond_axe: 182,
+  diamond_shovel: 177,
+  gold_axe: 183,
+  gold_hoe: 184,
+  gold_pickaxe: 173,
+  gold_shovel: 178,
+  gold_sword: 185,
+  iron_axe: 181,
+  iron_shovel: 176,
+  stone_axe: 180,
+  stone_shovel: 175,
+  wooden_axe: 179,
+  wooden_shovel: 174,
+} as const satisfies Readonly<Partial<Record<ItemType, number>>>
+
+const EXPECTED_ITEM_TYPES: ReadonlyArray<ItemType> = [
+  'stone',
+  'cobblestone',
+  'dirt',
+  'grass_block',
+  'sand',
+  'gravel',
+  'oak_log',
+  'oak_planks',
+  'oak_leaves',
+  'glass',
+  'torch',
+  'glowstone',
+  'piston',
+  'stick',
+  'bow',
+  'arrow',
+  'glowstone_dust',
+  'wooden_pickaxe',
+  'stone_pickaxe',
+  'iron_pickaxe',
+  'diamond_pickaxe',
+  'wooden_hoe',
+  'stone_hoe',
+  'iron_hoe',
+  'diamond_hoe',
+  'wooden_sword',
+  'stone_sword',
+  'iron_sword',
+  'diamond_sword',
+  'coal',
+  'iron_ingot',
+  'flint',
+  'gunpowder',
+  'blaze_powder',
+  'rotten_flesh',
+  'ender_pearl',
+  'flint_and_steel',
+  'fire_charge',
+  'iron_helmet',
+  'iron_chestplate',
+  'iron_leggings',
+  'iron_boots',
+  'granite',
+  'diorite',
+  'andesite',
+  'deepslate',
+  'obsidian',
+  'smooth_basalt',
+  'calcite',
+  'amethyst_block',
+  'sandstone',
+  'prismarine',
+  'soul_sand',
+  'coal_block',
+  'iron_block',
+  'gold_block',
+  'diamond_block',
+  'redstone_block',
+  'lapis_block',
+  'emerald_block',
+  'redstone_torch',
+  'lever',
+  'stone_button',
+  'repeater',
+  'redstone_lamp',
+  'observer',
+  'comparator',
+  'dispenser',
+  'hopper',
+  'end_stone',
+  'end_portal_frame',
+  'end_portal_frame_filled',
+  'chorus_flower',
+  'chorus_plant',
+  'dragon_egg',
+  'end_crystal',
+  'end_rod',
+  'end_stone_bricks',
+  'ender_chest',
+  'purpur_block',
+  'purpur_pillar',
+  'purpur_slab',
+  'purpur_stairs',
+  'shulker_box',
+  'crafting_table',
+  'furnace',
+  'chest',
+  'door',
+  'oak_stairs',
+  'anvil',
+  'cauldron',
+  'bed',
+  'enchanting_table',
+  'brewing_stand',
+  'tnt',
+  'nether_brick',
+  'netherrack',
+  'raw_iron',
+  'raw_gold',
+  'diamond',
+  'emerald',
+  'lapis_lazuli',
+  'redstone_dust',
+  'amethyst_shard',
+  'wheat_seeds',
+  'wheat',
+  'potato',
+  'nether_wart',
+  'ladder',
+  'kelp',
+  'seagrass',
+  'rail',
+  'powered_rail',
+  'pressure_plate',
+  'stone_slab',
+  'string',
+  'snowball',
+  'sapling',
+  'dandelion',
+  'poppy',
+  'brown_mushroom',
+  'red_mushroom',
+  'tall_grass',
+  'fern',
+  'sugar_cane',
+  'cactus',
+  'lily_pad',
+  'water_bottle',
+  'awkward_potion',
+  'potion_of_swiftness',
+  'potion_of_poison',
+  'potion_of_regeneration',
+  'sugar',
+  'spider_eye',
+  'ghast_tear',
+  'eye_of_ender',
+  'enchanted_book',
+  'bucket',
+  'water_bucket',
+  'lava_bucket',
+  'oak_boat',
+  'minecart',
+  'fishing_rod',
+  'cod',
+  'salmon',
+  'tropical_fish',
+  'pufferfish',
+  'bowl',
+  'leather',
+  'bone',
+  'name_tag',
+  'saddle',
+  'soul_soil',
+  'wither_skeleton_skull',
+  'nether_star',
+  'bone_meal',
+  'coal_ore',
+  'iron_ore',
+  'gold_ore',
+  'diamond_ore',
+  'redstone_ore',
+  'lapis_ore',
+  'emerald_ore',
+  'deepslate_coal_ore',
+  'deepslate_iron_ore',
+  'deepslate_gold_ore',
+  'deepslate_diamond_ore',
+  'deepslate_redstone_ore',
+  'deepslate_lapis_ore',
+  'deepslate_emerald_ore',
+  'shears',
+  'wool',
+  'dropper',
+  'gold_pickaxe',
+  'wooden_shovel',
+  'stone_shovel',
+  'iron_shovel',
+  'diamond_shovel',
+  'gold_shovel',
+  'wooden_axe',
+  'stone_axe',
+  'iron_axe',
+  'diamond_axe',
+  'gold_axe',
+  'gold_hoe',
+  'gold_sword',
+]
 
 /**
  * Same invariant on every group below: a batch of items appended at once
@@ -85,14 +289,28 @@ const EXPECTED_ENCODED_ITEM_ID_BYTES: ReadonlyArray<readonly [ItemType, number]>
   ['shears', 170],
   ['wool', 171],
   ['dropper', 172],
+  ['gold_pickaxe', 173],
+  ['wooden_shovel', 174],
+  ['stone_shovel', 175],
+  ['iron_shovel', 176],
+  ['diamond_shovel', 177],
+  ['gold_shovel', 178],
+  ['wooden_axe', 179],
+  ['stone_axe', 180],
+  ['iron_axe', 181],
+  ['diamond_axe', 182],
+  ['gold_axe', 183],
+  ['gold_hoe', 184],
+  ['gold_sword', 185],
 ]
 
 describe('item registry', () => {
   it('covers the ItemType roster exactly once with dense permanent ids', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(ITEM_REGISTRY.map(({ type }) => type)).toStrictEqual(ITEM_TYPES)
-      expect(ITEM_IDS).toStrictEqual(ITEM_TYPES.map((_type, id) => id))
-      expect(new Set(ITEM_REGISTRY.map(({ type }) => type)).size).toBe(ITEM_TYPES.length)
+      expect(ITEM_TYPES).toStrictEqual(EXPECTED_ITEM_TYPES)
+      expect(ITEM_REGISTRY.map(({ type }) => type)).toStrictEqual(EXPECTED_ITEM_TYPES)
+      expect(ITEM_IDS).toStrictEqual(EXPECTED_ITEM_TYPES.map((_type, id) => id))
+      expect(new Set(ITEM_REGISTRY.map(({ type }) => type)).size).toBe(EXPECTED_ITEM_TYPES.length)
       expect(itemIdOf(ITEM_TYPES[0])).toBe(0)
       expect(itemIdOf('stick')).toBe(13)
       expect(itemIdOf('lily_pad')).toBe(126)
@@ -153,6 +371,13 @@ describe('item registry', () => {
     })),
   )
 
+  it('appends the remaining mining-tool vocabulary without changing existing permanent ids', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(itemIdOf('dropper')).toBe(172)
+      expectAppendedItemIds(BREAK_SPEED_ITEM_IDS)
+    })),
+  )
+
   it('round-trips every registered item through its two-byte save and wire field', () =>
     Effect.runPromise(Effect.sync(() => {
       for (const type of ITEM_TYPES) {
@@ -168,6 +393,8 @@ describe('item registry', () => {
 
   it('accepts only complete bytes for registered item ids', () =>
     Effect.runPromise(Effect.sync(() => {
+      const padded = Uint8Array.from([0xff, 0, 127, 0xff])
+      expect(ItemIdBytes(padded.subarray(1, 3))).toStrictEqual(new Uint8Array([0, 127]))
       expect(ItemIdBytes(new Uint8Array([0, 127]))).toStrictEqual(new Uint8Array([0, 127]))
       expect(ItemIdBytes(new Uint8Array([0, EYE_OF_ENDER_ITEM_ID]))).toStrictEqual(
         new Uint8Array([0, EYE_OF_ENDER_ITEM_ID]),
@@ -175,7 +402,7 @@ describe('item registry', () => {
       expect(() => ItemIdBytes(new Uint8Array())).toThrow(/exactly 2 bytes/u)
       expect(() => ItemIdBytes(new Uint8Array([0]))).toThrow(/exactly 2 bytes/u)
       expect(() => ItemIdBytes(new Uint8Array([0, 127, 0]))).toThrow(/exactly 2 bytes/u)
-      expect(() => ItemIdBytes(new Uint8Array([0, 173]))).toThrow(/registered item id/u)
+      expect(() => ItemIdBytes(new Uint8Array([0, 186]))).toThrow(/registered item id/u)
       expect(() => ItemIdBytes(new Uint8Array([0xff, 0xff]))).toThrow(/registered item id/u)
     })),
   )
@@ -195,7 +422,8 @@ describe('item registry', () => {
       expect(isKnownItemId(170)).toBe(true)
       expect(isKnownItemId(171)).toBe(true)
       expect(isKnownItemId(172)).toBe(true)
-      expect(isKnownItemId(173)).toBe(false)
+      expect(isKnownItemId(185)).toBe(true)
+      expect(isKnownItemId(186)).toBe(false)
       expect(isKnownItemId(-1)).toBe(false)
       expect(isKnownItemId(1.5)).toBe(false)
     })),
@@ -226,6 +454,19 @@ describe('item registry', () => {
         'minecart',
         'fishing_rod',
         'saddle',
+        'gold_pickaxe',
+        'wooden_shovel',
+        'stone_shovel',
+        'iron_shovel',
+        'diamond_shovel',
+        'gold_shovel',
+        'wooden_axe',
+        'stone_axe',
+        'iron_axe',
+        'diamond_axe',
+        'gold_axe',
+        'gold_hoe',
+        'gold_sword',
       ] as const) {
         expect(maxStackCountOfItem(type)).toBe(1)
       }

@@ -12,7 +12,7 @@
  *   - the tool gate actually gates (stone bare-handed yields nothing);
  *   - `ItemType` and `BlockType` do not silently interconvert, pinned with
  *     `Exclude` in both directions the way `test/clock-and-frame.test.ts` pins
- *     `FrameServices`;
+ *     `FrameServices`; placement also keeps the explicit redstone exception;
  *   - additive safety — a block or item added without touching an existing
  *     entry changes no existing answer. That property is what
  *     `docs/versioning.md` §5 calls the most important design constraint in the
@@ -118,6 +118,7 @@ const VALIDATED_ITEM_TYPES = [
 ]
 
 const PLACEABLE_ITEM_BLOCK_TYPES = ['dirt', 'cobblestone', ...SUPPORT_SENSITIVE_PLANT_ITEM_TYPES, 'torch'] as const satisfies ReadonlyArray<BlockType>
+const SPECIAL_PLACEABLE_ITEM_TYPES = ['redstone_dust'] as const satisfies ReadonlyArray<ItemType>
 
 const dropContextFor = (type: BlockType): HarvestContext => {
   if (type === 'glass') {
@@ -245,7 +246,6 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'diamond',
         'emerald',
         'lapis_lazuli',
-        'redstone_dust',
         'amethyst_shard',
         'wheat_seeds',
         'wheat',
@@ -282,6 +282,19 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'bone_meal',
         'shears',
         'wool',
+        'gold_pickaxe',
+        'wooden_shovel',
+        'stone_shovel',
+        'iron_shovel',
+        'diamond_shovel',
+        'gold_shovel',
+        'wooden_axe',
+        'stone_axe',
+        'iron_axe',
+        'diamond_axe',
+        'gold_axe',
+        'gold_hoe',
+        'gold_sword',
       ])
 
       // The block half of the same ledger: 23 entries over 36 blocks before, 35
@@ -322,7 +335,6 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'wheat_crop',
         'potato_crop',
         'nether_wart_crop',
-        'redstone_wire',
         'redstone_lamp_lit',
         'piston_head',
         'end_portal',
@@ -345,6 +357,12 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         }
       }
 
+      for (const item of SPECIAL_PLACEABLE_ITEM_TYPES) {
+        expect(isPlaceableItem(item)).toBe(true)
+        expect(blockOfPlaceableItem(item)).toBe('redstone_wire')
+      }
+      expect(itemOfBlock('redstone_wire')).toBe('redstone_dust')
+
       // No item form. Not a failure — a real answer.
       for (const block of UNITEMISED_EXAMPLE_BLOCK_TYPES) {
         expect(itemOfBlock(block)).toBeUndefined()
@@ -364,16 +382,21 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
     })),
   )
 
-  it('the audit §6-8 intersection is derived, so it cannot go stale', () =>
+  it('the audit §6-8 intersection plus named exceptions is derived, so it cannot go stale', () =>
     Effect.runPromise(Effect.sync(() => {
       // The reference's hand-written `BLOCK_ITEMS` was already missing entries
-      // When the audit read it. This one is recomputed from both rosters here,
-      // Which is the whole claim.
+      // when the audit read it. The identity case is recomputed from both
+      // rosters here, with the one differently named placement pair spelled out
+      // as the independent exception.
       const blockNames = new Set<string>(BLOCK_TYPES)
-      expect([...PLACEABLE_ITEM_TYPES]).toStrictEqual(ITEM_TYPES.filter((item) => blockNames.has(item)))
+      expect([...PLACEABLE_ITEM_TYPES]).toStrictEqual(
+        ITEM_TYPES.filter((item) => blockNames.has(item) || item === 'redstone_dust'),
+      )
 
       const itemNames = new Set<string>(ITEM_TYPES)
-      expect([...UNITEMISED_BLOCK_TYPES]).toStrictEqual(BLOCK_TYPES.filter((block) => !itemNames.has(block)))
+      expect([...UNITEMISED_BLOCK_TYPES]).toStrictEqual(
+        BLOCK_TYPES.filter((block) => !itemNames.has(block) && block !== 'redstone_wire'),
+      )
 
       expect(PLACEABLE_ITEM_TYPES.length + NON_PLACEABLE_ITEM_TYPES.length).toBe(ITEM_TYPES.length)
     })),
@@ -869,8 +892,21 @@ describe('the rule that keeps a `self` drop honest', () => {
         'stone_pickaxe',
         'iron_pickaxe',
         'diamond_pickaxe',
+        'gold_pickaxe',
+        'wooden_shovel',
+        'stone_shovel',
+        'iron_shovel',
+        'diamond_shovel',
+        'gold_shovel',
+        'wooden_axe',
+        'stone_axe',
+        'iron_axe',
+        'diamond_axe',
+        'gold_axe',
         ...HOE_ITEM_TYPES,
+        'gold_hoe',
         ...SWORD_ITEM_TYPES,
+        'gold_sword',
         'iron_ingot',
         'flint',
         'gunpowder',

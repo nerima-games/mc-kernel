@@ -3,6 +3,13 @@ import type { BlockRegistryEntry } from '../src/domain/block-registry'
 import * as blockRegistry from '../src/domain/block-registry'
 import { BLOCK_TYPES, isBlockType } from '../src/domain/block-type'
 import { BLOCK_PROPERTY_DEFAULTS } from '../src/domain/block-properties'
+import {
+  blockHardnessOf,
+  computeBreakTicks,
+  DEFAULT_MINING_SPEED,
+  miningSpeedOf,
+  TOOL_BREAK_SPEED,
+} from '../src/domain/block-break-speed'
 import { ITEM_REGISTRY, itemIdOf } from '../src/domain/item-registry'
 import { ITEM_TYPES, type ItemType, isItemType } from '../src/domain/item-type'
 import { describe, expect, it } from 'vitest'
@@ -154,6 +161,13 @@ describe('public API surface', () => {
         'itemTypeOfId',
         'encodeItemId',
         'decodeItemId',
+        // Pure block-break-speed data and logic
+        'DEFAULT_MINING_SPEED',
+        'TOOL_BREAK_SPEED',
+        'blockHardnessOf',
+        'computeBreakTicks',
+        'miningSpeedOf',
+        'resolveToolMiningProperties',
         // Deterministic anvil planning, application, and persistence boundary
         'ANVIL_SNAPSHOT_VERSION',
         'ANVIL_TOO_EXPENSIVE_LEVEL',
@@ -219,7 +233,7 @@ describe('public API surface', () => {
         'blockPropertiesOf',
         'resolveBlock',
         'AUDITED_CAPABILITY_NAMES',
-        'PENDING_CAPABILITIES',
+        'DOWNSTREAM_CAPABILITIES',
         // Block registry — the numeric-id codec and the table
         'BlockId',
         'BLOCK_ID_MAX',
@@ -275,6 +289,11 @@ describe('public API surface', () => {
       expect(kernel.ITEM_TYPES).toBe(ITEM_TYPES)
       expect(kernel.ITEM_REGISTRY).toBe(ITEM_REGISTRY)
       expect(kernel.itemIdOf).toBe(itemIdOf)
+      expect(kernel.DEFAULT_MINING_SPEED).toBe(DEFAULT_MINING_SPEED)
+      expect(kernel.TOOL_BREAK_SPEED).toBe(TOOL_BREAK_SPEED)
+      expect(kernel.blockHardnessOf).toBe(blockHardnessOf)
+      expect(kernel.computeBreakTicks).toBe(computeBreakTicks)
+      expect(kernel.miningSpeedOf).toBe(miningSpeedOf)
       for (const itemType of PUBLIC_ITEM_TYPES) {
         expect(kernel.isItemType(itemType)).toBe(true)
       }
@@ -365,6 +384,14 @@ describe('public API surface', () => {
       expect(kernel.isItemType('eye_of_ender')).toBe(true)
       expect(kernel.itemIdOf('eye_of_ender')).toBe(kernel.itemDefinitionOf('eye_of_ender').id)
       expect(kernel.isPlaceableItem('eye_of_ender')).toBe(false)
+    })),
+  )
+
+  it('exports the canonical redstone dust placement bridge', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(kernel.isPlaceableItem('redstone_dust')).toBe(true)
+      expect(kernel.blockOfPlaceableItem('redstone_dust')).toBe('redstone_wire')
+      expect(kernel.itemOfBlock('redstone_wire')).toBe('redstone_dust')
     })),
   )
 

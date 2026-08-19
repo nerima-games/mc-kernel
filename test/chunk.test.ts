@@ -39,6 +39,21 @@ describe('chunk binary codec', () => {
     })),
   )
 
+  it('decodes a chunk from a non-zero-offset byte view', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const source = chunk(chunkCoord(-17, 23), height, sampleBlocks())
+      const encoded = encodeChunk(source)
+      const padded = new Uint8Array(encoded.length + 2)
+      padded.set(encoded, 1)
+
+      const decoded = decodeChunk(padded.subarray(1, encoded.length + 1))
+
+      expect(decoded.coord).toStrictEqual(source.coord)
+      expect(decoded.height).toBe(source.height)
+      expect(decoded.blocks.toBytes()).toStrictEqual(source.blocks.toBytes())
+    })),
+  )
+
   it('writes the fixed header fields', () =>
     Effect.runPromise(Effect.sync(() => {
       const encoded = encodeChunk(chunk(chunkCoord(-17, 23), height, sampleBlocks()))
