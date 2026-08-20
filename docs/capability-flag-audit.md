@@ -154,7 +154,7 @@ kernel 側では `src/domain/tool-component.ts` が、既知の `BlockType` 配�
 プレイヤーが立っているブロックの値を読むため、全て挙動の差である。
 石の 0.8 / 砂の 0.5 / 雪の 0.3 / 氷の 0.98 が全て 0.6 になっていた。
 
-両列とも `test/block-registry.test.ts` がブロックごとに参照実装の値で固定した。
+両列とも `test/block-registry-reference-tables.test.ts` がブロックごとに参照実装の値で固定した。
 
 #### 4.5.2 既知の尺度境界(2026-07-27 記録): 参照実装の `hardness` 列自体に尺度が 2 つある
 
@@ -367,7 +367,7 @@ kernel はこの境界を明示したうえで転記しており、**尺度変�
 #### 4.10.3 `transmitsLight` と `!suffocates` の一致は崩れた
 
 36 行時点では全行で `opacity !== 'opaque'` と `!suffocates` が一致しており、
-`test/block-registry.test.ts` が「一致しているが依存してはならない」として空集合を固定していた。
+`test/block-registry-reference-tables.test.ts` が「一致しているが依存してはならない」として空集合を固定していた。
 **現行 kernel の 123 行では 10 行が分離する**（両方向に）:
 
 - **不透明なのに窒息しない**: `farmland` / `ender_chest` / `shulker_box` /

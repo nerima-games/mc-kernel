@@ -15,6 +15,9 @@ mc-kernel は `domain/` しか持たない（純粋関数・型・データテ�
 | プロパティ表の整合 | 実装済み | `test/block-properties.test.ts` |
 | `supportRule`（直下に何を要求するか） | 実装済み | `test/block-support.test.ts`。参照実装の `block-support.test.ts` の 13 + 6 ケースをオラクルとして移植 |
 | `BlockDefinition` 不変条件 | 実装済み | `test/block-definition.test.ts` |
+| `minecraft:tool` の順序付き rule 解決 | 実装済み | `test/tool-component.test.ts` |
+| ブロック採掘速度と tick 計算 | 実装済み | `test/block-break-speed.test.ts` |
+| ブロック registry の参照テーブル | 実装済み | `test/block-registry-reference-tables.test.ts` |
 | クロック Port / フレーム契約 | 実装済み | `test/clock-and-frame.test.ts` |
 | 公開バレルの再エクスポート | 実装済み | `test/public-api.test.ts` |
 | 依存境界 | 実装済み | `.oxlintrc.json` / `pnpm lint` |
