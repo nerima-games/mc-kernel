@@ -156,7 +156,7 @@ plan.md §2.3-5 により**依存は推移しない**ので、「下流のどこ
 #### id は永久である
 
 セーブファイルは id を保存するので、id はワイヤフォーマットであって配列添字ではない。
-`BLOCK_REGISTRY` は全 id を**リテラルで**書き、`test/block-registry-reference-tables.test.ts` が
+`BLOCK_REGISTRY` は全 id を**リテラルで**書き、`test/block-registry.test.ts` が
 1 つずつピン留めしている。id 0-10 は mc-worldgen / mc-meshing が既に出荷している番号
 （`BLOCK.SAND === 5`）を kernel が**採用した**ものである。逆にしなかったのは、
 あちらの golden fixture がその番号で生成済みだからである。

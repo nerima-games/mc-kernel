@@ -367,7 +367,7 @@ kernel はこの境界を明示したうえで転記しており、**尺度変�
 #### 4.10.3 `transmitsLight` と `!suffocates` の一致は崩れた
 
 36 行時点では全行で `opacity !== 'opaque'` と `!suffocates` が一致しており、
-`test/block-registry-reference-tables.test.ts` が「一致しているが依存してはならない」として空集合を固定していた。
+`test/block-registry.test.ts` が「一致しているが依存してはならない」として空集合を固定していた。
 **現行 kernel の 123 行では 10 行が分離する**（両方向に）:
 
 - **不透明なのに窒息しない**: `farmland` / `ender_chest` / `shulker_box` /
