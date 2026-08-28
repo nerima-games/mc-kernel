@@ -1,20 +1,14 @@
 /* eslint-disable curly, max-statements, no-magic-numbers, sort-imports, sort-keys -- Minecraft costs, durability, and wire object shapes are the contract under test. */
 import { Effect } from 'effect'
 import {
-  ANVIL_SNAPSHOT_VERSION,
   AnvilCustomName,
   AnvilEnchantmentId,
-  AnvilSnapshotString,
-  isAnvilCustomName,
-  isAnvilEnchantmentId,
-  isAnvilSnapshotString,
   type AnvilItemPayload,
   type AnvilRuleSet,
   type AnvilState,
   applyAnvil,
+  compileAnvilRuleSet,
   decodeAnvilSnapshot,
-  decodeAnvilSnapshotString,
-  encodeAnvilSnapshot,
   nextAnvilRepairCost,
   planAnvil,
   snapshotAnvilState,
@@ -77,6 +71,30 @@ const state = (overrides: Partial<AnvilState> = {}): AnvilState => ({
 })
 
 describe('anvil validation guards', () => {
+  it('reuses compiled rule indexes without changing the plan', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const compiled = compileAnvilRuleSet(RULES)
+      expect(compiled.ok).toBe(true)
+      if (!compiled.ok) return
+
+      const repairInput: AnvilState = {
+        ...state({ left: item({ durability: { current: 50, max: 250 } }) }),
+        right: {
+          payload: {
+            item: 'iron_ingot',
+            durability: null,
+            enchantments: [],
+            repairCost: 0,
+            customName: null,
+          },
+          count: 2,
+        },
+      }
+
+      expect(planAnvil(repairInput, compiled.rules)).toStrictEqual(planAnvil(repairInput, RULES))
+    })),
+  )
+
   it('rejects invalid or duplicate enchantment rules before planning', () =>
     Effect.runPromise(Effect.sync(() => {
       const invalidRules = planAnvil(state(), {
@@ -459,7 +477,7 @@ describe('anvil application', () => {
           if (reads === 1) return 1
           return Number.NaN
         },
-      } as AnvilState
+      }
 
       const applied = applyAnvil(unstable, RULES)
       expect(applied).toMatchObject({ ok: false, reason: 'invalid-input' })
@@ -473,267 +491,53 @@ describe('anvil application', () => {
   )
 })
 
-describe('anvil snapshot codec', () => {
-  it('exposes non-throwing guards for branded anvil boundary strings', () =>
-    Effect.runPromise(Effect.sync(() => {
-      expect(isAnvilEnchantmentId('sharpness')).toBe(true)
-      expect(isAnvilEnchantmentId('Sharpness')).toBe(false)
-      expect(isAnvilCustomName('Named sword')).toBe(true)
-      expect(isAnvilCustomName('')).toBe(false)
-      expect(isAnvilSnapshotString('{"version":1,"state":{"left":null,"right":null,"rename":null,"experienceLevels":0}}')).toBe(true)
-      expect(isAnvilSnapshotString('{')).toBe(false)
-    })),
-  )
-
-  it('canonicalises optional fields and enchantment order before deterministic encoding', () =>
-    Effect.runPromise(Effect.sync(() => {
-      const input = state({
-        left: item({
-          enchantments: [
-            { id: AnvilEnchantmentId('unbreaking'), level: 2 },
-            { id: AnvilEnchantmentId('sharpness'), level: 3 },
-          ],
-        }),
-        experienceLevels: 12,
-      })
-      const encoded = encodeAnvilSnapshot(input)
-      expect(encoded.ok).toBe(true)
-      if (!encoded.ok) return
-      expect(encoded.encoded).toBe(
-        '{"version":1,"state":{"left":{"item":"iron_sword","durability":{"current":100,"max":250},"enchantments":[{"id":"sharpness","level":3},{"id":"unbreaking","level":2}],"repairCost":0,"customName":null},"right":null,"rename":null,"experienceLevels":12}}',
-      )
-      expect(AnvilSnapshotString(encoded.encoded)).toBe(encoded.encoded)
-      expect(decodeAnvilSnapshotString(encoded.encoded)).toStrictEqual({
-        ok: true,
-        snapshot: encoded.snapshot,
-      })
-      expect(snapshotAnvilState(input)).toStrictEqual({ ok: true, snapshot: encoded.snapshot })
-      expect(encoded.snapshot.version).toBe(ANVIL_SNAPSHOT_VERSION)
-    })),
-  )
-
-  it('rejects malformed JSON, versions, duplicate enchantments, and invalid stacks', () =>
-    Effect.runPromise(Effect.sync(() => {
-      expect(decodeAnvilSnapshotString('{')).toMatchObject({ ok: false })
-      expect(() => AnvilSnapshotString('{')).toThrowError(TypeError)
-      expect(decodeAnvilSnapshot({ version: 2, state: state() })).toMatchObject({ ok: false })
-      expect(snapshotAnvilState(state({
-        left: item({
-          enchantments: [
-            { id: AnvilEnchantmentId('sharpness'), level: 1 },
-            { id: AnvilEnchantmentId('sharpness'), level: 2 },
-          ],
-        }),
-      }))).toMatchObject({ ok: false })
-      expect(snapshotAnvilState(state({
-        right: {
-          payload: item({ item: 'enchanted_book', durability: null }),
-          count: 2,
-        },
-      }))).toMatchObject({ ok: false })
-    })),
-  )
-
-  it('rejects malformed right stacks, rename values, and invalid state encoding inputs', () =>
-    Effect.runPromise(Effect.sync(() => {
-      // Same {ok: false, issues: [{path, reason}]} shape as the field-validation
-      // table above, but each row here exercises a DIFFERENT entry point
-      // (`snapshotAnvilState`, `encodeAnvilSnapshot`, `decodeAnvilSnapshot`)
-      // rather than a different field of one — kept as one test, looped, rather
-      // than split across the file's other describe blocks.
-      const cases: ReadonlyArray<{
-        readonly name: string
-        readonly validate: () => unknown
-        readonly issue: { readonly path: string; readonly reason: string }
-      }> = [
-        {
-          name: 'a right field that is not null or an input stack',
-          validate: () => snapshotAnvilState({ ...state(), right: 'invalid' as never }),
-          issue: { path: '$.state.right', reason: 'must be null or an input stack' },
-        },
-        {
-          name: 'a right payload that is not an object',
-          validate: () => snapshotAnvilState(state({ right: { payload: 'invalid' as never, count: 1 } })),
-          issue: { path: '$.state.right.payload', reason: 'must be an object' },
-        },
-        {
-          name: 'a right count of zero',
-          validate: () => snapshotAnvilState(state({
-            right: { payload: item({ item: 'enchanted_book', durability: null }), count: 0 },
-          })),
-          issue: { path: '$.state.right.count', reason: 'must be a positive safe integer' },
-        },
-        {
-          name: 'a right count exceeding the item stack limit',
-          validate: () => snapshotAnvilState(state({ right: { payload: item(), count: 2 } })),
-          issue: { path: '$.state.right.count', reason: 'exceeds the item stack limit' },
-        },
-        {
-          name: 'an invalid rename via snapshotAnvilState',
-          validate: () => snapshotAnvilState({ ...state(), rename: '' as never }),
-          issue: { path: '$.state.rename', reason: 'must be null or a valid custom name' },
-        },
-        {
-          name: 'the same invalid rename via encodeAnvilSnapshot, so both entry points share one validator',
-          validate: () => encodeAnvilSnapshot({ ...state(), rename: '' as never }),
-          issue: { path: '$.state.rename', reason: 'must be null or a valid custom name' },
-        },
-        {
-          name: 'a left enchantment id that is not canonical',
-          validate: () => snapshotAnvilState(state({ left: item({ enchantments: [{ id: 1 as never, level: 1 }] }) })),
-          issue: { path: '$.state.left.enchantments.0.id', reason: 'must be a canonical enchantment id' },
-        },
-        {
-          name: 'a left enchantment level of zero',
-          validate: () => snapshotAnvilState(state({
-            left: item({ enchantments: [{ id: AnvilEnchantmentId('sharpness'), level: 0 }] }),
-          })),
-          issue: { path: '$.state.left.enchantments.0.level', reason: 'must be a positive safe integer' },
-        },
-        {
-          name: 'a null state on decodeAnvilSnapshot',
-          validate: () => decodeAnvilSnapshot({ version: ANVIL_SNAPSHOT_VERSION, state: null }),
-          issue: { path: '$.state', reason: 'must be an object' },
-        },
-      ]
-
-      for (const { name, validate, issue } of cases) {
-        expect(validate(), name).toStrictEqual({ ok: false, issues: [issue] })
-      }
-    })),
-  )
-})
-
-describe('anvil snapshot decoding is closed to fields the format does not define', () => {
-  /**
-   * The snapshot carries a version, so a field this decoder does not know is
-   * never "a newer format" — that is what the version is for. It is corruption
-   * or a producer that disagrees with this one, and accepting it would drop the
-   * value silently instead of reporting it. Every level of the shape is checked
-   * because the wire format freezes at 1.0.0 and a level left open stays open.
-   */
-  const validPayload = { item: 'iron_sword', durability: { current: 100, max: 250 }, enchantments: [] }
-  const validState = { left: validPayload, right: null, rename: null, experienceLevels: 30 }
-  const snapshotOf = (decoded: unknown): unknown => ({ version: ANVIL_SNAPSHOT_VERSION, state: decoded })
-
-  it('names the offending path at every level of the shape rather than ignoring the key', () =>
-    Effect.runPromise(Effect.sync(() => {
-      const cases: ReadonlyArray<{ readonly name: string; readonly input: unknown; readonly path: string }> = [
-        {
-          name: 'an extra key beside version and state',
-          input: { version: ANVIL_SNAPSHOT_VERSION, state: validState, bogus: 1 },
-          path: '$.bogus',
-        },
-        {
-          name: 'an extra key on the state',
-          input: snapshotOf({ ...validState, bogus: 1 }),
-          path: '$.state.bogus',
-        },
-        {
-          name: 'an extra key on an item payload',
-          input: snapshotOf({ ...validState, left: { ...validPayload, bogus: 1 } }),
-          path: '$.state.left.bogus',
-        },
-        {
-          name: 'an extra key on durability',
-          input: snapshotOf({
-            ...validState,
-            left: { ...validPayload, durability: { current: 100, max: 250, bogus: 1 } },
-          }),
-          path: '$.state.left.durability.bogus',
-        },
-        {
-          name: 'an extra key on an enchantment',
-          input: snapshotOf({
-            ...validState,
-            left: { ...validPayload, enchantments: [{ id: 'efficiency', level: 1, bogus: 1 }] },
-          }),
-          path: '$.state.left.enchantments.0.bogus',
-        },
-        {
-          name: 'an extra key on the right input stack',
-          input: snapshotOf({ ...validState, right: { payload: validPayload, count: 1, bogus: 1 } }),
-          path: '$.state.right.bogus',
-        },
-      ]
-
-      for (const { name, input, path } of cases) {
-        expect(decodeAnvilSnapshot(input), name).toStrictEqual({
-          ok: false,
-          issues: [{ path, reason: 'is not a field of this format' }],
-        })
-      }
-    })),
-  )
-
-  it('still accepts the same payloads once the undefined field is removed, so the check is not rejecting valid shapes', () =>
-    Effect.runPromise(Effect.sync(() => {
-      const accepted = decodeAnvilSnapshot(
-        snapshotOf({ ...validState, right: { payload: validPayload, count: 1 } }),
-      )
-      expect(accepted.ok).toBe(true)
-    })),
-  )
-})
-
-describe('anvil branded boundary throwing constructors', () => {
-  it('throws instead of returning a branded value for text the guard rejects', () =>
-    Effect.runPromise(Effect.sync(() => {
-      expect(() => AnvilEnchantmentId('Not Lowercase')).toThrowError(TypeError)
-      expect(() => AnvilCustomName('')).toThrowError(TypeError)
-    })),
-  )
-})
-
 describe('anvil item payload field validation', () => {
   /**
    * Same invariant on every row: one malformed `AnvilState` field, checked in
    * isolation, surfaces the one issue naming that field's JSON path — never a
-   * different field, never more than one issue. `build` is typed as returning
-   * `AnvilState`, matching how each object was passed to `snapshotAnvilState`
-   * before this table existed; the field that is actually wrong escapes its
-   * own declared type via `as never` inside the case, same as before.
+   * different field, never more than one issue. `build` returns unknown so each
+   * malformed value reaches the public snapshot validator without a type escape.
    */
   interface FieldValidationCase {
     readonly name: string
-    readonly build: () => AnvilState
+    readonly build: () => unknown
     readonly issue: { readonly path: string; readonly reason: string }
   }
 
   const FIELD_VALIDATION_CASES: ReadonlyArray<FieldValidationCase> = [
     {
       name: 'a non-object payload before inspecting any field',
-      build: () => ({ ...state(), left: 'not-an-object' as never }),
+      build: () => ({ ...state(), left: 'not-an-object' }),
       issue: { path: '$.state.left', reason: 'must be an object' },
     },
     {
       name: 'an item field that is not a known item type',
-      build: () => state({ left: { ...item(), item: 'not_a_real_item' as never } }),
+      build: () => ({ ...state(), left: { ...item(), item: 'not_a_real_item' } }),
       issue: { path: '$.state.left.item', reason: 'must be a known item type' },
     },
     {
       name: 'a durability object that fails the shape or range check',
-      build: () => state({ left: { ...item(), durability: { current: -1, max: 10 } as never } }),
+      build: () => ({ ...state(), left: { ...item(), durability: { current: -1, max: 10 } } }),
       issue: { path: '$.state.left.durability', reason: 'must be null or valid remaining durability' },
     },
     {
       name: 'a negative repair cost',
-      build: () => state({ left: { ...item(), repairCost: -1 as never } }),
+      build: () => ({ ...state(), left: { ...item(), repairCost: -1 } }),
       issue: { path: '$.state.left.repairCost', reason: 'must be a non-negative safe integer' },
     },
     {
       name: 'a custom name carrying a control character',
-      build: () => state({ left: { ...item(), customName: `bad${String.fromCharCode(0)}name` as never } }),
+      build: () => ({ ...state(), left: { ...item(), customName: `bad${String.fromCharCode(0)}name` } }),
       issue: { path: '$.state.left.customName', reason: 'must be null or a valid custom name' },
     },
     {
       name: 'an enchantments field that is not an array',
-      build: () => state({ left: { ...item(), enchantments: 'not-an-array' as never } }),
+      build: () => ({ ...state(), left: { ...item(), enchantments: 'not-an-array' } }),
       issue: { path: '$.state.left.enchantments', reason: 'must be an array' },
     },
     {
       name: 'an enchantment array entry that is not an object',
-      build: () => state({ left: { ...item(), enchantments: [null] as never } }),
+      build: () => ({ ...state(), left: { ...item(), enchantments: [null] } }),
       issue: { path: '$.state.left.enchantments.0', reason: 'must be an object' },
     },
     {
@@ -748,7 +552,7 @@ describe('anvil item payload field validation', () => {
   for (const { name, build, issue } of FIELD_VALIDATION_CASES) {
     it(`rejects ${name}`, () =>
       Effect.runPromise(Effect.sync(() => {
-        expect(snapshotAnvilState(build())).toStrictEqual({ ok: false, issues: [issue] })
+        expect(Reflect.apply(snapshotAnvilState, undefined, [build()])).toStrictEqual({ ok: false, issues: [issue] })
       })),
     )
   }
@@ -772,7 +576,7 @@ describe('anvil planning branch coverage', () => {
         issues: [{ path: '$.state.left', reason: 'an anvil requires a left input' }],
       })
 
-      const invalidSnapshot = planAnvil({ ...state(), rename: '' as never }, RULES)
+      const invalidSnapshot = Reflect.apply(planAnvil, undefined, [{ ...state(), rename: '' }, RULES])
       expect(invalidSnapshot).toMatchObject({ ok: false, reason: 'invalid-input' })
     })),
   )

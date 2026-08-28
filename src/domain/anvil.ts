@@ -10,6 +10,7 @@ import {
   isAnvilEnchantmentId as narrowAnvilEnchantmentId,
 } from './anvil-primitives.js'
 import { planAnvil } from './anvil-planning.js'
+import type { CompiledAnvilRuleSet } from './anvil-validation.js'
 import {
   AnvilSnapshotString as createAnvilSnapshotString,
   decodeAnvilSnapshot,
@@ -19,8 +20,8 @@ import {
   snapshotAnvilState,
 } from './anvil-snapshot-codec.js'
 
-export const ANVIL_SNAPSHOT_VERSION = snapshotVersion
-export const ANVIL_MAX_CUSTOM_NAME_LENGTH = maxCustomNameLength
+export const ANVIL_SNAPSHOT_VERSION: typeof snapshotVersion = snapshotVersion
+export const ANVIL_MAX_CUSTOM_NAME_LENGTH: typeof maxCustomNameLength = maxCustomNameLength
 
 export type AnvilEnchantmentId = string & Brand.Brand<'AnvilEnchantmentId'>
 export type AnvilCustomName = string & Brand.Brand<'AnvilCustomName'>
@@ -94,6 +95,8 @@ export type AnvilRuleSet = {
   readonly repairMaterials?: ReadonlyArray<AnvilRepairMaterialRule>
 }
 
+export type AnvilRuleInput = AnvilRuleSet | CompiledAnvilRuleSet
+
 export type AnvilValidationIssue = {
   readonly path: string
   readonly reason: string
@@ -153,16 +156,16 @@ export type AnvilApplyResult =
     }
 
 /** Narrow external text to a canonical enchantment id without throwing. */
-export const isAnvilEnchantmentId = narrowAnvilEnchantmentId
+export const isAnvilEnchantmentId: typeof narrowAnvilEnchantmentId = narrowAnvilEnchantmentId
 
 /** Narrow external text to a canonical custom name without throwing. */
-export const isAnvilCustomName = narrowAnvilCustomName
+export const isAnvilCustomName: typeof narrowAnvilCustomName = narrowAnvilCustomName
 
-export const AnvilEnchantmentId = createAnvilEnchantmentId
+export const AnvilEnchantmentId: typeof createAnvilEnchantmentId = createAnvilEnchantmentId
 
-export const AnvilCustomName = createAnvilCustomName
+export const AnvilCustomName: typeof createAnvilCustomName = createAnvilCustomName
 
-export const AnvilSnapshotString = createAnvilSnapshotString
+export const AnvilSnapshotString: typeof createAnvilSnapshotString = createAnvilSnapshotString
 
 export {
   decodeAnvilSnapshot,
@@ -175,12 +178,19 @@ export {
 export {
   ANVIL_REPAIR_BONUS_RATIO,
   ANVIL_TOO_EXPENSIVE_LEVEL,
+  compileAnvilRuleSet,
   nextAnvilRepairCost,
 } from './anvil-planning.js'
 
+export type {
+  AnvilRuleSetCompilation,
+  CompiledAnvilEnchantmentRule,
+  CompiledAnvilRuleSet,
+} from './anvil-validation.js'
+
 export { planAnvil }
 
-export const applyAnvil = (state: AnvilState, rules: AnvilRuleSet): AnvilApplyResult => {
+export const applyAnvil = (state: AnvilState, rules: AnvilRuleInput): AnvilApplyResult => {
   const plan = planAnvil(state, rules)
   if (!plan.ok) {
     return { ...plan, state }

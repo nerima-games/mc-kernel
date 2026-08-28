@@ -4,9 +4,11 @@ import type {
   AnvilEnchantmentRule,
   AnvilPlan,
   AnvilRejectionReason,
+  AnvilRepairMaterialRule,
   AnvilRuleSet,
   CanonicalAnvilItemPayload,
 } from './anvil.js'
+import type { ItemType } from './item-type.js'
 import type { StackCount } from './quantities.js'
 
 export type AnvilPlanFailure = Extract<AnvilPlan, { readonly ok: false }>
@@ -15,6 +17,28 @@ export type CanonicalAnvilStateRight = {
   readonly payload: CanonicalAnvilItemPayload
   readonly count: StackCount
 }
+
+export type CompiledAnvilEnchantmentRule = {
+  readonly id: AnvilEnchantmentId
+  readonly maxLevel: number
+  readonly applicableItems: ReadonlySet<ItemType>
+  readonly incompatibleWith: ReadonlySet<AnvilEnchantmentId>
+  readonly conflictingWith: ReadonlySet<AnvilEnchantmentId>
+  readonly costPerLevel: number
+}
+
+type MutableCompiledAnvilEnchantmentRule = Omit<CompiledAnvilEnchantmentRule, 'conflictingWith'> & {
+  readonly conflictingWith: Set<AnvilEnchantmentId>
+}
+
+export type CompiledAnvilRuleSet = {
+  readonly enchantments: ReadonlyMap<AnvilEnchantmentId, CompiledAnvilEnchantmentRule>
+  readonly repairMaterials: ReadonlyMap<ItemType, ReadonlyMap<ItemType, AnvilRepairMaterialRule>>
+}
+
+export type AnvilRuleSetCompilation =
+  | { readonly ok: true; readonly rules: CompiledAnvilRuleSet }
+  | AnvilPlanFailure
 
 export const rejection = (
   reason: Exclude<AnvilRejectionReason, 'insufficient-experience'>,
@@ -25,19 +49,19 @@ export const rejection = (
 export const conflicts = (
   leftId: AnvilEnchantmentId,
   rightId: AnvilEnchantmentId,
-  definitions: ReadonlyMap<AnvilEnchantmentId, AnvilEnchantmentRule>,
+  definitions: ReadonlyMap<AnvilEnchantmentId, CompiledAnvilEnchantmentRule>,
 ): boolean => {
   if (leftId === rightId) return false
 
   return (
-    definitions.get(leftId)?.incompatibleWith.includes(rightId) === true ||
-    definitions.get(rightId)?.incompatibleWith.includes(leftId) === true
+    definitions.get(leftId)?.conflictingWith.has(rightId) === true ||
+    definitions.get(rightId)?.conflictingWith.has(leftId) === true
   )
 }
 
 const validateEnchantmentSet = (
   payload: CanonicalAnvilItemPayload,
-  definitions: ReadonlyMap<AnvilEnchantmentId, AnvilEnchantmentRule>,
+  definitions: ReadonlyMap<AnvilEnchantmentId, CompiledAnvilEnchantmentRule>,
   sourceBook: boolean,
 ): AnvilPlanFailure | undefined => {
   for (const [index, enchantment] of payload.enchantments.entries()) {
@@ -45,7 +69,7 @@ const validateEnchantmentSet = (
     if (definition === undefined || enchantment.level > definition.maxLevel) {
       return rejection('invalid-enchantment', `$.enchantments.${String(index)}`, 'is unregistered or exceeds its level cap')
     }
-    if (!sourceBook && !definition.applicableItems.includes(payload.item)) {
+    if (!sourceBook && !definition.applicableItems.has(payload.item)) {
       return rejection('invalid-enchantment', `$.enchantments.${String(index)}`, 'does not apply to this item')
     }
     if (payload.enchantments.some((other) => conflicts(enchantment.id, other.id, definitions))) {
@@ -58,9 +82,7 @@ const validateEnchantmentSet = (
 
 export const validateRuleSet = (
   rules: AnvilRuleSet,
-):
-  | { readonly ok: true; readonly definitions: ReadonlyMap<AnvilEnchantmentId, AnvilEnchantmentRule> }
-  | AnvilPlanFailure => {
+): AnvilRuleSetCompilation => {
   const definitions = new Map<AnvilEnchantmentId, AnvilEnchantmentRule>()
 
   for (const [index, rule] of rules.enchantments.entries()) {
@@ -77,19 +99,48 @@ export const validateRuleSet = (
     definitions.set(rule.id, rule)
   }
 
+  const repairMaterials = new Map<ItemType, Map<ItemType, AnvilRepairMaterialRule>>()
   for (const [index, rule] of (rules.repairMaterials ?? []).entries()) {
     if (!isPositiveSafeInteger(rule.durabilityPerUnit)) {
       return rejection('invalid-rules', `$.rules.repairMaterials.${String(index)}`, 'durabilityPerUnit must be positive')
     }
+    const byMaterial = repairMaterials.get(rule.target) ?? new Map<ItemType, AnvilRepairMaterialRule>()
+    if (!byMaterial.has(rule.material)) byMaterial.set(rule.material, rule)
+    repairMaterials.set(rule.target, byMaterial)
   }
 
-  return { ok: true, definitions }
+  const compiledDefinitions = new Map<AnvilEnchantmentId, MutableCompiledAnvilEnchantmentRule>()
+  for (const rule of definitions.values()) {
+    compiledDefinitions.set(rule.id, {
+      id: rule.id,
+      maxLevel: rule.maxLevel,
+      applicableItems: new Set(rule.applicableItems),
+      incompatibleWith: new Set(rule.incompatibleWith),
+      conflictingWith: new Set(rule.incompatibleWith),
+      costPerLevel: rule.costPerLevel ?? 1,
+    })
+  }
+  for (const rule of definitions.values()) {
+    for (const incompatibleId of rule.incompatibleWith) {
+      compiledDefinitions.get(incompatibleId)?.conflictingWith.add(rule.id)
+    }
+  }
+
+  return {
+    ok: true,
+    rules: {
+      enchantments: compiledDefinitions,
+      repairMaterials,
+    },
+  }
 }
+
+export const compileAnvilRuleSet = (rules: AnvilRuleSet): AnvilRuleSetCompilation => validateRuleSet(rules)
 
 export const validateInputEnchantments = (
   left: CanonicalAnvilItemPayload,
   right: CanonicalAnvilStateRight | null,
-  definitions: ReadonlyMap<AnvilEnchantmentId, AnvilEnchantmentRule>,
+  definitions: ReadonlyMap<AnvilEnchantmentId, CompiledAnvilEnchantmentRule>,
 ): AnvilPlanFailure | undefined => {
   const leftFailure = validateEnchantmentSet(left, definitions, left.item === 'enchanted_book')
   if (leftFailure !== undefined) return leftFailure

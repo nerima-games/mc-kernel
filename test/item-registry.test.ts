@@ -60,10 +60,65 @@ const BREAK_SPEED_ITEM_IDS = {
   gold_sword: 185,
   iron_axe: 181,
   iron_shovel: 176,
+  netherite_axe: 188,
+  netherite_hoe: 189,
+  netherite_pickaxe: 186,
+  netherite_shovel: 187,
+  netherite_sword: 190,
   stone_axe: 180,
   stone_shovel: 175,
   wooden_axe: 179,
   wooden_shovel: 174,
+} as const satisfies Readonly<Partial<Record<ItemType, number>>>
+const SMITHING_ITEM_IDS = {
+  diamond_boots: 198,
+  diamond_chestplate: 196,
+  diamond_helmet: 195,
+  diamond_leggings: 197,
+  gold_ingot: 191,
+  netherite_boots: 202,
+  netherite_chestplate: 200,
+  netherite_helmet: 199,
+  netherite_ingot: 193,
+  netherite_leggings: 201,
+  netherite_scrap: 192,
+  netherite_upgrade_smithing_template: 194,
+} as const satisfies Readonly<Partial<Record<ItemType, number>>>
+
+const FOOD_COMPONENT_ITEM_IDS = {
+  apple: 205,
+  baked_potato: 206,
+  beef: 207,
+  beetroot: 208,
+  beetroot_soup: 209,
+  bread: 210,
+  carrot: 211,
+  chicken: 212,
+  chorus_fruit: 213,
+  cooked_beef: 214,
+  cooked_chicken: 215,
+  cooked_cod: 216,
+  cooked_mutton: 217,
+  cooked_porkchop: 218,
+  cooked_rabbit: 219,
+  cooked_salmon: 220,
+  cookie: 221,
+  dried_kelp: 222,
+  enchanted_golden_apple: 223,
+  glass_bottle: 224,
+  glow_berries: 225,
+  golden_apple: 226,
+  golden_carrot: 227,
+  honey_bottle: 228,
+  melon_slice: 229,
+  mushroom_stew: 230,
+  mutton: 231,
+  poisonous_potato: 232,
+  porkchop: 233,
+  pumpkin_pie: 234,
+  rabbit: 235,
+  rabbit_stew: 236,
+  sweet_berries: 237,
 } as const satisfies Readonly<Partial<Record<ItemType, number>>>
 
 const EXPECTED_ITEM_TYPES: ReadonlyArray<ItemType> = [
@@ -253,6 +308,100 @@ const EXPECTED_ITEM_TYPES: ReadonlyArray<ItemType> = [
   'gold_axe',
   'gold_hoe',
   'gold_sword',
+  'netherite_pickaxe',
+  'netherite_shovel',
+  'netherite_axe',
+  'netherite_hoe',
+  'netherite_sword',
+  'gold_ingot',
+  'netherite_scrap',
+  'netherite_ingot',
+  'netherite_upgrade_smithing_template',
+  'diamond_helmet',
+  'diamond_chestplate',
+  'diamond_leggings',
+  'diamond_boots',
+  'netherite_helmet',
+  'netherite_chestplate',
+  'netherite_leggings',
+  'netherite_boots',
+  'book',
+  'paper',
+  'apple',
+  'baked_potato',
+  'beef',
+  'beetroot',
+  'beetroot_soup',
+  'bread',
+  'carrot',
+  'chicken',
+  'chorus_fruit',
+  'cooked_beef',
+  'cooked_chicken',
+  'cooked_cod',
+  'cooked_mutton',
+  'cooked_porkchop',
+  'cooked_rabbit',
+  'cooked_salmon',
+  'cookie',
+  'dried_kelp',
+  'enchanted_golden_apple',
+  'glass_bottle',
+  'glow_berries',
+  'golden_apple',
+  'golden_carrot',
+  'honey_bottle',
+  'melon_slice',
+  'mushroom_stew',
+  'mutton',
+  'poisonous_potato',
+  'porkchop',
+  'pumpkin_pie',
+  'rabbit',
+  'rabbit_stew',
+  'sweet_berries',
+  'written_book',
+  'writable_book',
+  'filled_map',
+  'firework_star',
+  'firework_rocket',
+  'decorated_pot',
+  'shield',
+  'brick',
+  'feather',
+  'gold_nugget',
+  'black_dye',
+  'blue_dye',
+  'brown_dye',
+  'cyan_dye',
+  'gray_dye',
+  'green_dye',
+  'light_blue_dye',
+  'light_gray_dye',
+  'lime_dye',
+  'magenta_dye',
+  'orange_dye',
+  'pink_dye',
+  'purple_dye',
+  'red_dye',
+  'white_dye',
+  'yellow_dye',
+  'black_banner',
+  'blue_banner',
+  'brown_banner',
+  'cyan_banner',
+  'gray_banner',
+  'green_banner',
+  'light_blue_banner',
+  'light_gray_banner',
+  'lime_banner',
+  'magenta_banner',
+  'orange_banner',
+  'pink_banner',
+  'purple_banner',
+  'red_banner',
+  'white_banner',
+  'yellow_banner',
 ]
 
 /**
@@ -263,10 +412,12 @@ const EXPECTED_ITEM_TYPES: ReadonlyArray<ItemType> = [
  * out.
  */
 const expectAppendedItemIds = (ids: Readonly<Partial<Record<ItemType, number>>>) => {
-  for (const [type, id] of Object.entries(ids)) {
-    expect(itemIdOf(type as ItemType), type).toBe(id)
+  for (const type of ITEM_TYPES) {
+    const id = ids[type]
+    if (id === undefined) continue
+    expect(itemIdOf(type), type).toBe(id)
     expect(itemTypeOfId(id), type).toBe(type)
-    expect(itemDefinitionOf(type as ItemType).id, type).toBe(id)
+    expect(itemDefinitionOf(type).id, type).toBe(id)
   }
 }
 
@@ -302,6 +453,58 @@ const EXPECTED_ENCODED_ITEM_ID_BYTES: ReadonlyArray<readonly [ItemType, number]>
   ['gold_axe', 183],
   ['gold_hoe', 184],
   ['gold_sword', 185],
+  ['netherite_pickaxe', 186],
+  ['netherite_shovel', 187],
+  ['netherite_axe', 188],
+  ['netherite_hoe', 189],
+  ['netherite_sword', 190],
+  ['gold_ingot', 191],
+  ['netherite_scrap', 192],
+  ['netherite_ingot', 193],
+  ['netherite_upgrade_smithing_template', 194],
+  ['diamond_helmet', 195],
+  ['diamond_chestplate', 196],
+  ['diamond_leggings', 197],
+  ['diamond_boots', 198],
+  ['netherite_helmet', 199],
+  ['netherite_chestplate', 200],
+  ['netherite_leggings', 201],
+  ['netherite_boots', 202],
+  ['book', 203],
+  ['paper', 204],
+  ['apple', 205],
+  ['baked_potato', 206],
+  ['beef', 207],
+  ['beetroot', 208],
+  ['beetroot_soup', 209],
+  ['bread', 210],
+  ['carrot', 211],
+  ['chicken', 212],
+  ['chorus_fruit', 213],
+  ['cooked_beef', 214],
+  ['cooked_chicken', 215],
+  ['cooked_cod', 216],
+  ['cooked_mutton', 217],
+  ['cooked_porkchop', 218],
+  ['cooked_rabbit', 219],
+  ['cooked_salmon', 220],
+  ['cookie', 221],
+  ['dried_kelp', 222],
+  ['enchanted_golden_apple', 223],
+  ['glass_bottle', 224],
+  ['glow_berries', 225],
+  ['golden_apple', 226],
+  ['golden_carrot', 227],
+  ['honey_bottle', 228],
+  ['melon_slice', 229],
+  ['mushroom_stew', 230],
+  ['mutton', 231],
+  ['poisonous_potato', 232],
+  ['porkchop', 233],
+  ['pumpkin_pie', 234],
+  ['rabbit', 235],
+  ['rabbit_stew', 236],
+  ['sweet_berries', 237],
 ]
 
 describe('item registry', () => {
@@ -334,12 +537,32 @@ describe('item registry', () => {
     })),
   )
 
+  it('rejects an ItemType value absent from the registry', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(() => Reflect.apply(itemDefinitionOf, undefined, ['unobtainium'])).toThrow('Item registry is missing a row')
+    })),
+  )
+
   it('appends the enchanted book after every pre-existing permanent id', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(itemIdOf('eye_of_ender')).toBe(EYE_OF_ENDER_ITEM_ID)
       expect(itemIdOf('enchanted_book')).toBe(ENCHANTED_BOOK_ITEM_ID)
       expect(itemTypeOfId(ENCHANTED_BOOK_ITEM_ID)).toBe('enchanted_book')
       expect(itemDefinitionOf('enchanted_book').id).toBe(ENCHANTED_BOOK_ITEM_ID)
+    })),
+  )
+
+  it('appends the plain book and paper after the enchanted book without changing permanent ids', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(itemIdOf('enchanted_book')).toBe(ENCHANTED_BOOK_ITEM_ID)
+      expectAppendedItemIds({ book: 203, paper: 204 })
+    })),
+  )
+
+  it('appends food component items after paper without changing permanent ids', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(itemIdOf('paper')).toBe(204)
+      expectAppendedItemIds(FOOD_COMPONENT_ITEM_IDS)
     })),
   )
 
@@ -378,11 +601,19 @@ describe('item registry', () => {
     })),
   )
 
+  it('appends smithing materials and armour without changing existing permanent ids', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(itemIdOf('netherite_sword')).toBe(190)
+      expectAppendedItemIds(SMITHING_ITEM_IDS)
+    })),
+  )
+
   it('round-trips every registered item through its two-byte save and wire field', () =>
     Effect.runPromise(Effect.sync(() => {
       for (const type of ITEM_TYPES) {
         const bytes = encodeItemId(type)
-        expect(ItemIdBytes(bytes)).toBe(bytes)
+        expect(ItemIdBytes(bytes)).toStrictEqual(bytes)
+        expect(ItemIdBytes(bytes)).not.toBe(bytes)
         expect(decodeItemId(bytes)).toBe(type)
       }
       for (const [type, id] of EXPECTED_ENCODED_ITEM_ID_BYTES) {
@@ -402,8 +633,19 @@ describe('item registry', () => {
       expect(() => ItemIdBytes(new Uint8Array())).toThrow(/exactly 2 bytes/u)
       expect(() => ItemIdBytes(new Uint8Array([0]))).toThrow(/exactly 2 bytes/u)
       expect(() => ItemIdBytes(new Uint8Array([0, 127, 0]))).toThrow(/exactly 2 bytes/u)
-      expect(() => ItemIdBytes(new Uint8Array([0, 186]))).toThrow(/registered item id/u)
+      expect(() => ItemIdBytes(new Uint8Array([1, 24]))).toThrow(/registered item id/u)
       expect(() => ItemIdBytes(new Uint8Array([0xff, 0xff]))).toThrow(/registered item id/u)
+    })),
+  )
+
+  it('owns validated byte inputs', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const input = Uint8Array.from([0, itemIdOf('stone')])
+      const bytes = ItemIdBytes(input)
+
+      input[1] = itemIdOf('dirt')
+
+      expect(decodeItemId(bytes)).toBe('stone')
     })),
   )
 
@@ -423,7 +665,16 @@ describe('item registry', () => {
       expect(isKnownItemId(171)).toBe(true)
       expect(isKnownItemId(172)).toBe(true)
       expect(isKnownItemId(185)).toBe(true)
-      expect(isKnownItemId(186)).toBe(false)
+      expect(isKnownItemId(190)).toBe(true)
+      expect(isKnownItemId(191)).toBe(true)
+      expect(isKnownItemId(194)).toBe(true)
+      expect(isKnownItemId(202)).toBe(true)
+      expect(isKnownItemId(203)).toBe(true)
+      expect(isKnownItemId(204)).toBe(true)
+      expect(isKnownItemId(205)).toBe(true)
+      expect(isKnownItemId(224)).toBe(true)
+      expect(isKnownItemId(279)).toBe(true)
+      expect(isKnownItemId(280)).toBe(false)
       expect(isKnownItemId(-1)).toBe(false)
       expect(isKnownItemId(1.5)).toBe(false)
     })),
@@ -431,7 +682,7 @@ describe('item registry', () => {
 
   it('narrows numbers to ItemId when known', () =>
     Effect.runPromise(Effect.sync(() => {
-      const id = 134 as number
+      const id: number = 134
       if (!isKnownItemId(id)) {
         throw new Error('expected known item id in type-narrowing test')
       }
@@ -467,12 +718,29 @@ describe('item registry', () => {
         'gold_axe',
         'gold_hoe',
         'gold_sword',
+        'netherite_pickaxe',
+        'netherite_shovel',
+        'netherite_axe',
+        'netherite_hoe',
+        'netherite_sword',
+        'diamond_helmet',
+        'diamond_chestplate',
+        'diamond_leggings',
+        'diamond_boots',
+        'netherite_helmet',
+        'netherite_chestplate',
+        'netherite_leggings',
+        'netherite_boots',
+        'beetroot_soup',
+        'mushroom_stew',
+        'rabbit_stew',
       ] as const) {
         expect(maxStackCountOfItem(type)).toBe(1)
       }
       expect(maxStackCountOfItem('ender_pearl')).toBe(16)
       expect(maxStackCountOfItem('snowball')).toBe(16)
       expect(maxStackCountOfItem('bucket')).toBe(16)
+      expect(maxStackCountOfItem('honey_bottle')).toBe(16)
       for (const type of [
         'sugar',
         'spider_eye',
@@ -491,6 +759,39 @@ describe('item registry', () => {
         'soul_soil',
         'wither_skeleton_skull',
         'nether_star',
+        'gold_ingot',
+        'netherite_scrap',
+        'netherite_ingot',
+        'book',
+        'paper',
+        'apple',
+        'baked_potato',
+        'beef',
+        'beetroot',
+        'bread',
+        'carrot',
+        'chicken',
+        'chorus_fruit',
+        'cooked_beef',
+        'cooked_chicken',
+        'cooked_cod',
+        'cooked_mutton',
+        'cooked_porkchop',
+        'cooked_rabbit',
+        'cooked_salmon',
+        'cookie',
+        'dried_kelp',
+        'enchanted_golden_apple',
+        'glass_bottle',
+        'glow_berries',
+        'golden_apple',
+        'golden_carrot',
+        'melon_slice',
+        'mutton',
+        'poisonous_potato',
+        'porkchop',
+        'pumpkin_pie',
+        'sweet_berries',
       ] as const) {
         expect(maxStackCountOfItem(type)).toBe(64)
       }
