@@ -64,6 +64,7 @@
     "no-implied-eval": "error",
     "no-redeclare": "warn",
     "no-shadow": "warn",
+    "no-underscore-dangle": ["warn", { "allow": ["_tag"] }],
     "no-unreachable-loop": "warn",
     "no-unused-private-class-members": "warn",
 

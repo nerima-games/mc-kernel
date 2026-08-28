@@ -1,0 +1,20 @@
+{
+  // Keep the published domain's platform-neutral lib intact while checking
+  // imported dependency declarations against the standard Web API types they
+  // reference.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM"],
+    "skipLibCheck": false
+  },
+  "include": ["src/index.ts", "src/domain/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "coverage",
+    "dist",
+    "test/**",
+    "scripts/**",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
+}

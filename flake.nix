@@ -1,5 +1,5 @@
 {
-  description = "mc-kernel: Minecraft domain data and pure logic for block/item registries, breaking, chunks, anvils, frame contracts, and the clock Port.";
+  description = "mc-kernel: Minecraft domain data and pure logic for block/item registries, recipes, cooking, brewing, stonecutting, smithing, grindstones, crops, dimensions, Java and Bedrock mining, breaking, chunks, anvils, coordinates, projectiles, explosions, TNT, camera, time, weather, vitals, frame timing, and clock ports.";
 
   inputs = {
     # nixos-unstable, not nixpkgs-unstable: it advances only after the NixOS

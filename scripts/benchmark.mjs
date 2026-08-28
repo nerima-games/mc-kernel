@@ -3,6 +3,7 @@ import { performance } from 'node:perf_hooks'
 import {
   AnvilCustomName,
   AnvilEnchantmentId,
+  compileAnvilRuleSet,
   decodeAnvilSnapshotString,
   encodeAnvilSnapshot,
   planAnvil,
@@ -75,6 +76,11 @@ const anvilRules = {
       costPerLevel: 2,
     },
   ],
+}
+
+const compiledAnvilRules = compileAnvilRuleSet(anvilRules)
+if (!compiledAnvilRules.ok) {
+  throw new Error('The benchmark requires valid anvil rules')
 }
 
 const anvilState = {
@@ -216,7 +222,7 @@ const anvilPlanning = () => {
   let checksum = 0
 
   for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
-    const plan = planAnvil(anvilState, anvilRules)
+    const plan = planAnvil(anvilState, compiledAnvilRules.rules)
     if (!plan.ok) throw new Error('The benchmark produced an invalid anvil plan')
     checksum += plan.levelCost + plan.materialCost
     checksum += plan.output.enchantments.reduce((total, enchantment) => total + enchantment.level, 0)
