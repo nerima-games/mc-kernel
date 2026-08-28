@@ -21,6 +21,7 @@ kernel の実装に落とし込んだもの。
 | [architecture.md](./architecture.md) | 4 階層アーキテクチャ、全 16 リポジトリの依存グラフ、kernel が唯一の例外である理由、名詞/動詞ルール、kit の devDependency 専用ルール、stage 全順序の所有者 | 全リポジトリの実装者 |
 | [responsibility.md](./responsibility.md) | mc-kernel の責務と、**明示的な非スコープ** | kernel に何かを足したくなった人 |
 | [public-api.md](./public-api.md) | 公開 API の全体像と、**各横断型がなぜ kernel にあるのか** | kernel を利用する全リポジトリ |
+| [consumer-migration.md](./consumer-migration.md) | 下流の重複定義を kernel の正本へ移行する契約と、kernel に残さない責務 | 下流リポジトリの実装者 |
 | [capability-flag-audit.md](./capability-flag-audit.md) | **能力フラグ監査（一次資料）。** 参照実装を実測して必要な能力集合を確定したもの。本リポジトリの能力モデルの権威 | 能力フラグを追加/変更する人 |
 | [design-notes.md](./design-notes.md) | 参照実装の失敗（名指し判定の散乱）の実測、初日から焼き込む設計原則、「ブロック追加 = 定義テーブル 1 行」不変条件 | 設計判断の背景を知りたい人 |
 | [testing.md](./testing.md) | 検証要件、完成条件、100% カバレッジゲート | CI / テストを触る人 |
@@ -39,5 +40,4 @@ kernel の実装に落とし込んだもの。
 
 `capability-flag-audit.md` だけは**調査報告書**であり、他と性質が違う。
 参照実装 `takeokunn/ts-minecraft` を ripgrep で実測した一次資料であって、本リポジトリの設計判断より上位にある。
-実装と食い違った場合は監査が正しく、実装を直す。監査自身の誤り（§3 の表は 28 行だが §7 の本文は「26 能力」と書いている）も、
-解消せずそのまま記録してある。
+実装と食い違った場合は監査が正しく、実装を直す。能力数は §3 の表を正とし、§7 の記述も同じ数に統一してある。

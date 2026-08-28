@@ -15,23 +15,30 @@ mc-kernel は `domain/` しか持たない（純粋関数・型・データテ�
 | プロパティ表の整合 | 実装済み | `test/block-properties.test.ts` |
 | `supportRule`（直下に何を要求するか） | 実装済み | `test/block-support.test.ts`。参照実装の `block-support.test.ts` の 13 + 6 ケースをオラクルとして移植 |
 | `BlockDefinition` 不変条件 | 実装済み | `test/block-definition.test.ts` |
+| `ItemStack` の数量・stack limit | 実装済み | `test/item-stack.test.ts` |
+| 装備スロット・耐久・破損遷移 | 実装済み | `test/equipment.test.ts` |
+| shaped / shapeless recipe の matching | 実装済み | `test/recipe.test.ts` |
+| furnace / blast furnace / smoker の調理状態遷移 | 実装済み | `test/smelting.test.ts` |
+| brewing stand の recipe matching と状態遷移 | 実装済み | `test/brewing.test.ts` |
+| smithing transform / trim の matching と適用 | 実装済み | `test/smithing.test.ts` |
+| 砥石の単体除去・二入力修理・呪い保持・本変換 | 実装済み | `test/grindstone.test.ts` |
+| vanilla enchantment の Anvil rule・適用対象・競合・計画 | 実装済み | `test/enchantment.test.ts` |
+| enchantment table の level cost・候補・3 offers | 実装済み | `test/enchantment-table.test.ts` |
 | `minecraft:tool` の順序付き rule 解決 | 実装済み | `test/tool-component.test.ts` |
 | ブロック採掘速度と tick 計算 | 実装済み | `test/block-break-speed.test.ts` |
+| Bedrock `minecraft:digger` / `minecraft:destructible_by_mining` | 実装済み | `test/bedrock-mining.test.ts` |
 | ブロック registry の参照テーブル | 実装済み | `test/block-registry-reference-tables.test.ts` |
 | クロック Port / フレーム契約 | 実装済み | `test/clock-and-frame.test.ts` |
+| フレーム delta の clamp / loss | 実装済み | `test/frame-timing.test.ts` |
 | 公開バレルの再エクスポート | 実装済み | `test/public-api.test.ts` |
 | 依存境界 | 実装済み | `.oxlintrc.json` / `pnpm lint` |
 | 公開パッケージ境界 | 実装済み | `scripts/verify-package.mjs` / `pnpm package:verify` |
 | Chunk データ構造とコーデックのラウンドトリップ | 実装済み | `test/chunk.test.ts` |
-| Anvil の計画・適用と versioned snapshot codec | 実装済み | `test/anvil.test.ts` |
+| Anvil の計画・適用 | 実装済み | `test/anvil.test.ts` |
+| Anvil の versioned snapshot codec | 実装済み | `test/anvil-snapshot.test.ts` |
 
 `Chunk` データ構造と versioned codec は mc-kernel が所有する。mc-worldgen は生成・ロード・dirty 管理を、
 mc-save は媒体フォーマットと保存先を所有し、同じ `Chunk` 型を境界で利用する。
-
-> この行は一度「未実装。完成条件には含まれる」のまま §5 と食い違った。**1 つの文書の中に
-> 同じことを述べる場所が 2 つあれば、片方を直したとき他方が古くなる** —— この組織が
-> `SCAN_ROOTS` / 出荷ソース述語 / `package.json` `files` / e2e-triage で 4 度やった失敗と同じ形で、
-> 今回は自分の編集がその 2 つ目を作った。
 
 ## 2. コマンド
 
@@ -47,12 +54,12 @@ Branches / Functions / Lines はすべて100%を閾値として設定してい�
 
 | コマンド | 内容 |
 | --- | --- |
-| `pnpm scripts:check` | 配布・ベンチマーク用 `.mjs` スクリプトを Node.js の構文検査に通す |
+| `pnpm scripts:check` | 配布・ベンチマーク用 `.mjs` スクリプトを Node.js の構文検査に通し、`src/` と `test/` の `unknown` / `any` / `never` への型アサーション、`@ts-ignore` / `@ts-expect-error` / `@ts-nocheck`、non-null assertion の再混入を検出 |
 | `pnpm typecheck` | `tsconfig.build.json` と `tsconfig.test.json` の両方を型検査 |
-| `pnpm lint` | oxlint（このリポジトリ唯一の lint / format 設定）。**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は `correctness`、`suspicious`、`perf`、`restriction` と個別ルールを `warn` にし、`style` は無効化している） |
+| `pnpm lint` | oxlint と ast-grep（このリポジトリ唯一の lint / format 設定）。**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は `correctness`、`suspicious`、`perf`、`restriction` と個別ルールを `warn` にし、`style` は無効化している）。ast-grep は壁時計直読みと `as const` 以外の型アサーション、型アサーション構文、non-null assertion を拒否する |
 | `pnpm test` | Vitest 4（native `it` と `Effect.runPromise` を直接利用） |
 | `pnpm test:coverage` | カバレッジ計測（Statements / Branches / Functions / Lines の閾値はすべて100%） |
-| `pnpm package:verify` | 生成 tarball の `files` / `exports`、clean consumer の runtime import・declaration compile、`fixedClock` runtime・tool rule resolution を検証 |
+| `pnpm package:verify` | `src/index.ts` と `package.json` の公開 domain subpath 対応、生成 tarball の `files` / `exports`、clean consumer の root / Bedrock subpath runtime import・declaration compile、`fixedClock` runtime・Java / Bedrock rule resolution を検証 |
 | `pnpm audit` | CI のゲート。**意図的に `--prod` を付けない** |
 
 **`pnpm audit` は `--prod` なしで CI に配線している。** ランタイム依存は `effect` 1 つだけなので、
@@ -136,16 +143,18 @@ mc-save 側で追加する。
 - `pnpm verify` を基準に typecheck / lint / test / coverage を回す運用
 - 能力フラグ監査と、それに対応する registry / property / support rule の実装
 - `BlockType` 123 種の公開
-- `ItemType` 186 種の公開
+- `ItemType` 205 種の公開
 - `block-break-speed.test.ts` による硬度 lookup、道具倍率、効率、既定速度の公式式検証
+- Bedrock `minecraft:digger` / `minecraft:destructible_by_mining` の descriptor、tag query、状態値、既定値、item-specific speed 検証
 - `Chunk` データ構造と codec、および round-trip test
 - Anvil の決定的な計画・適用、および versioned snapshot codec
+- 砥石の単体除去・二入力修理・呪い保持・本変換の決定的な計画
 - Vitest 4 への移行（`@effect/vitest` 依存と `it.effect` API を削除）
 - 座標・Anvil・語彙表の data / logic 分離と TypeScript の厳格な型検査
 - `FrameServices` を `ClockPort` に固定した公開契約
 - `pnpm build` による型付き ESM と declaration の生成
 - Statements / Branches / Functions / Lines の100%カバレッジゲート
-- `pnpm package:verify` による、実際に生成した tarball の `files` / `exports`、clean consumer の runtime import・declaration compile、`fixedClock` runtime の検証
+- `pnpm package:verify` による、実際に生成した tarball の `files` / `exports`、clean consumer の root / Bedrock subpath runtime import・declaration compile、`fixedClock` と Java / Bedrock mining resolution の検証
 
 現時点の残課題（公開運用・外部判断）:
 

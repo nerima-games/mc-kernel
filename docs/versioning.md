@@ -92,7 +92,7 @@ publish workflow の `setup-node` が GitHub Packages の registry を設定し�
 実装済みの配布準備:
 
 1. `pnpm build` が `src/` から JavaScript、declaration、source map を `dist/` に生成する
-2. `package.json` の root export と `domain/block-registry`、`domain/chunk` の subpath export が `dist/` を指す
+2. `package.json` の root export と、公開している各 `domain/*` subpath export が対応する `dist/` の JavaScript と型宣言を指す
 3. `files` が `dist`、`tsconfig.base.json`、`LICENSE`、`README.md` に限定される
 4. `prepublishOnly` が `pnpm verify` と `pnpm package:verify` を実行し、publish 前の型検査・lint・テスト・カバレッジ・実 tarball 境界検証を必須にする
 
@@ -100,8 +100,8 @@ publish workflow の `setup-node` が GitHub Packages の registry を設定し�
 
 1. `RELEASE_STANDARD.md §3` に従う `.github/workflows/release.yaml`。`main` への push を受けて
    `detect` ジョブが package version の変更を確認し、変更したときだけ `publish` ジョブが
-   verify / coverage / package boundary 検証を経て GitHub Packages へ publish する。
-   publish の成否に関わらず `tag` ジョブが `v<version>` タグを push 済みコミットへ打つ
+   verify（coverage を含む）/ package boundary 検証を経て GitHub Packages へ publish する。
+   `publish` が成功した場合だけ `tag` ジョブが `v<version>` タグを publish 済みコミットへ打つ
    （19 バージョンが公開されている一方、タグは `v0.2.18` の 1 つしか無く、
    どのコミットがどの版かを辿れなかったための追加）。
 2. `pnpm package:verify` による、生成した tarball の `files` / `exports`、clean consumer の runtime import・declaration compile、`fixedClock` runtime の検証
@@ -169,8 +169,8 @@ const sand: BlockDefinition = { type: 'sand', capabilities: { fallsWhenUnsupport
 
 - `BlockCapabilityFlag` は `BLOCK_CAPABILITY_DEFAULTS` から**導出**されている。既定値を決めずにフラグを追加することが型レベルで不可能。
 - `BLOCK_PROPERTY_DEFAULTS: BlockProperties` の型注釈により、既定値のないプロパティはコンパイルエラー。
-- `resolveBlockCapabilities` は未知のキーを**拒否せず無視する**。これにより、
-  古い kernel にピン留めされたリポジトリが新しい kernel 向けに書かれたデータを読んでも壊れない。
+- `resolveBlockCapabilities` と `resolveBlockProperties` は未知のキーを**拒否する**。このリポジトリは
+  後方互換性を契約に含めず、スペルミスや未対応のデータを黙って受け入れない。
 
 ### 5-3. 消費側が守らないと保証が失われる 2 点
 
@@ -199,7 +199,7 @@ plan.md §3.1 が boolean と書いていた 3 つ（`emissive` / `transparent` 
 
 ### 5-5. struct 2 種は別ファイル + API ロック
 
-`harvestTool` と `drops` は struct であり最も揺れやすい。監査 §7 の指示どおり `domain/block-harvest.ts` に隔離してある。
+`harvestTool` と `drops` は struct であり最も揺れやすい。監査 §7 の指示どおり、公開境界を `domain/block-harvest.ts` に隔離し、型・既定値は `domain/block-harvest-data.ts` に分離してある。
 **このファイルを変更するときのルール**: 新メンバーは optional にするか、既定値を伴うこと。必須かつ既定値なしは禁止。
 
 ## 6. bump の判断基準

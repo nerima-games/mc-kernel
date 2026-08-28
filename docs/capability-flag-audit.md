@@ -45,7 +45,7 @@ asset 境界として下流所有に固定した。ここでの「解決」は�
 | `opacity` | enum `opaque\|transparentSolid\|fluid` | kernel 実装 | `src/domain/block-properties.ts` |
 | `lightEmission` | number 0–15 | kernel 実装 | `src/domain/block-properties.ts` |
 | `pistonImmovable` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
-| `hardness` | number | kernel 実装 | `src/domain/block-properties.ts`, `src/domain/block-break-speed.ts` |
+| `hardness` | number (`-1` sentinel or non-negative reference scale) | kernel 実装 | `src/domain/block-properties.ts`, `src/domain/block-break-speed.ts` |
 | `friction` | number 0–1 | kernel 実装 | `src/domain/block-properties.ts` |
 | `harvestTool` | struct `{category, minTier}` | kernel 実装 | `src/domain/block-properties.ts` |
 | `supportRule` | enum/struct | kernel 実装 | `src/domain/block-properties.ts` |
@@ -63,6 +63,9 @@ asset 境界として下流所有に固定した。ここでの「解決」は�
 | `footstepMaterial` | enum `grass\|wood\|stone\|default` | kernel 実装 | `src/domain/block-properties.ts` |
 | `tillable` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
 | `textureTiles` | struct `{top, bottom, side}` | 下流所有 | `src/domain/block-definition.ts` の `DOWNSTREAM_CAPABILITIES` |
+
+`src/domain/block-properties.ts` はこの公開パスを保つ薄いバレルであり、プロパティの値 vocabulary・型・既定値は
+`src/domain/block-property-data.ts`、外部入力の検証と解決は `src/domain/block-property-validation.ts` が所有する。
 
 ## 4. 各能力の根拠と提案セマンティクス
 
@@ -99,9 +102,10 @@ asset 境界として下流所有に固定した。ここでの「解決」は�
 
 `packages/block/domain/block.ts:9-15` の `BlockPropertiesSchema` は既に `hardness: number` と `friction: number` を持つ。`packages/block/domain/break-speed.ts:6-10` が hardness テーブルを構築し、:29-43 `computeBreakTicks` が道具倍率と合成。`packages/game/domain/block-collision-predicates.ts:61-63,152-161` が friction を物理へ流す。
 
-kernel 側では `src/domain/tool-component.ts` が、既知の `BlockType` 配列へ正規化済みの公式 `minecraft:tool` の順序付き rule（`speed` / `correct_for_drops` / `default_mining_speed` / `damage_per_block`）を解決し、`src/domain/block-break-speed-data.ts` と `src/domain/block-break-speed.ts` が道具倍率表、registry からの hardness lookup、純粋な tick 計算を所有する。タグ文字列の展開、プレイヤー操作の進行状態、耐久の消費適用、ドロップ生成、サーバー権威判定は上位 gameplay の責務である。
+kernel 側では `src/domain/tool-component.ts` が Java Edition 公式 `minecraft:tool` の単一ブロック・ブロック配列・`#` 付きタグを含む順序付き rule（`speed` / `correct_for_drops` / `default_mining_speed` / `damage_per_block` / `can_destroy_blocks_in_creative`）を検証・解決する。タグ membership は `ToolResolutionContext.blockTags` の `ReadonlyMap<ToolBlockTag, ReadonlySet<BlockType>>` として明示的に渡し、実行時には Map-like / Set-like の反復可能な値も受理する。`src/domain/block-break-speed-data.ts` と `src/domain/block-break-speed.ts` は道具倍率表、registry からの hardness lookup、純粋な tick 計算を所有する。`src/domain/bedrock-mining.ts` は Bedrock Edition の `minecraft:digger` と `minecraft:destructible_by_mining` を Java 契約とは別の純粋なデータ解決として所有し、ブロック状態・タグ query・アイテム別速度を検証する。`src/domain/equipment.ts` は装備スナップショット内の耐久値検証と純粋な減少・破損遷移を所有する。タグ membership の構築、プレイヤー操作の進行状態、効率適用以外のゲームプレイ統合、採掘イベントへの耐久適用、ドロップ生成、サーバー権威判定は上位 gameplay の責務である。
+`src/domain/enchantment-data.ts` / `src/domain/enchantment.ts` は現在の `ItemType` roster に対応する 32 種の vanilla enchantment rule と Anvil の計画・適用を、`src/domain/enchantment-table-data.ts` / `src/domain/enchantment-table.ts` は enchantability、level cost、3 offers の純粋な計算を所有する。乱数 seed、経験値・ラピスラズリ・インベントリ消費、付与結果の保存、GUI、サーバー権威は上位 gameplay の責務であり、全バージョン・全エディションの完全な registry はこの監査の対象外である。
 
-道具要件は `packages/world/domain/harvestable-blocks.ts:14-67` の 4 段階 HashSet(wooden→stone→iron→diamond)+ `packages/world/domain/block-utils.ts:22-27` `canHarvestBlock` / :32-63 `isEffectiveTool`(axe/shovel カテゴリ)。ゲートは `packages/world/application/block-service-break-helpers.ts:65,158`。**ティア(ドロップ可否)とカテゴリ(速度ボーナス)は別軸**なので struct 化する。
+道具要件は `packages/world/domain/harvestable-blocks.ts:14-67` の 4 段階 HashSet(wooden→stone→iron→diamond) を基礎に、kernel が Java Edition の netherite tier を拡張している。`packages/world/domain/block-utils.ts:22-27` `canHarvestBlock` / :32-63 `isEffectiveTool`(axe/shovel カテゴリ)。ゲートは `packages/world/application/block-service-break-helpers.ts:65,158`。**ティア(ドロップ可否)とカテゴリ(速度ボーナス)は別軸**なので struct 化する。
 
 ドロップは `packages/world/application/block-service.config.ts:151-187` `INVENTORY_DROP_OVERRIDES`(29 エントリ)、:192-197 `blockDropsBaseItem`(ICE のみ false)、:204-215 `BLOCK_BASE_DROP_COUNT`、:270-276 `FORTUNE_ORE_BLOCKS`、`packages/app/.../interaction-break-handler.shared.ts:9` `NEVER_DROPPED_BLOCK_TYPES`。経験値は `packages/block/domain/blocks.config.ores.ts:8-45`。
 
@@ -181,23 +185,21 @@ kernel はこの境界を明示したうえで転記しており、**尺度変�
 **目に見える帰結**: purpur は土（8）より柔らかく読める。これは出典がそう言っている。
 
 **したがって `hardness` 列はグループ境界を越えて比較してはならない。**
-0-100 尺度に乗っているのは The End 以外の 103 行であり、The End の 17 行は別尺度である。
+0-100 尺度に乗っているのは The End 以外の 103 行であり、The End の 17 行は別尺度または不破壊センチネルである。
 
 ##### 範囲外の 2 値
 
 旧監査文書は `domain/block-properties.ts` の `hardness` を「0..100」と述べていたが、
-現行の `src/domain/block-properties.ts` は「非負の参照尺度」としており、
+現行の `src/domain/block-property-data.ts` は「`-1` または非負の参照尺度」としており、
 参照実装には両側にはみ出す値がある。扱いを分けた:
 
 - **`END_PORTAL_FRAME` / `_FILLED` = 9000**: そのまま転記した。
   参照実装の「破壊不能」の綴りで、`bedrock` の 100 より上。
   **列の単調性（大きいほど硬い）を保つので、範囲外でも比較可能**である。
-- **`END_GATEWAY` = -1**: **転記しなかった。0 にした。**
-  負の hardness は「とても硬い」ではない。`computeBreakTicks`（`src/domain/block-break-speed.ts`）は
-  `hardness <= 0` で 0 を返すので、**-1 は「即座に壊れる」を意味し、意図の正反対**である。
-  これは参照実装のバグである。0 は同関数の下で -1 と挙動が同一かつ範囲内なので、
-  バグを継承せずに挙動を転記できる。なお `end_gateway` は `endBlockDrops` が
-  `AIR` に写すのでいずれにせよ何も落とさない。
+- **`END_GATEWAY` = -1**: **不破壊センチネルとして転記した。**
+  `computeBreakTicks`（`src/domain/block-break-speed.ts`）は `-1` を `Infinity`、
+  `0` を即時破壊として分ける。`-1` 未満の値は境界で拒否する。なお `end_gateway` は
+  `endBlockDrops` が `AIR` に写すのでいずれにせよ何も落とさない。
 
 #### 4.5.3 `INVENTORY_DROP_OVERRIDES` は 24 エントリではなく 29 エントリ
 
@@ -440,7 +442,7 @@ plan.md §3.1 / §3.12 に列挙されていないが、参照実装の挙動に
 
 ## 7. kernel API への含意
 
-- **`BlockDefinition` は現行の `BlockPropertiesSchema`(`block.ts:9-15`、5 フィールド)では足りない。** 上記 26 能力を持つフラットな struct にする。
+- **`BlockDefinition` は現行の `BlockPropertiesSchema`(`block.ts:9-15`、5 フィールド)では足りない。** 上記 28 能力を持つフラットな struct にする。
 - **現行 `properties.solid` と `faces` は production で一度も読まれていない**(`rg '\.solid\b'` / `rg '\.faces\b'` が production でヒット 0)。空フィールドを移植せず、`passable` / `renderKind` に統合すること。
 - **既定値は「普通の不透明立方体」に倒す。** 全フラグに既定を持たせ、定義テーブルは差分のみ記述する(`blocks.config.terrain.ts:9-24` の `defaultBlockProperties` / `defaultBlockFaces` の方式を踏襲)。これにより新フラグ追加が **加算的**になり、下流の再ビルドを伴う破壊的変更を避けられる。
 - **ホットパスは index 配列に事前展開する。** 参照実装は `light.ts:49-60`(`Uint8Array`)、`plant-mesh.ts:36-43`(`makeLookup`)、`block-collision-predicates.ts:61-63` で既にこの形をとっている。kernel は「宣言的テーブル」と「index 展開済みルックアップ」の両方を公開し、消費側に `Set`/`HashSet` を組ませない。
