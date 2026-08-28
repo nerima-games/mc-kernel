@@ -62,6 +62,12 @@ Branches / Functions / Lines はすべて100%を閾値として設定してい�
 | `pnpm package:verify` | `src/index.ts` と `package.json` の公開 domain subpath 対応、生成 tarball の `files` / `exports`、clean consumer の root / Bedrock subpath runtime import・declaration compile、`fixedClock` runtime・Java / Bedrock rule resolution を検証 |
 | `pnpm audit` | CI のゲート。**意図的に `--prod` を付けない** |
 
+**`package:verify` の subpath 突き合わせは名前付き再エクスポートも数える。** `src/index.ts` が
+`export * from './domain/x.js'` と書いた module だけを数えると、star export が語彙衝突を起こすために
+名前付きで再エクスポートしている module（`domain/cooking` は smelting の語彙と衝突する）が
+「`package.json` にだけある余分な subpath」として報告される。公開されているかどうかは
+再エクスポートの書き方で決まらないので、両方の形を数える。
+
 **`pnpm audit` は `--prod` なしで CI に配線している。** ランタイム依存は `effect` 1 つだけなので、
 `pnpm audit --prod` は "No known vulnerabilities" と出やすく、それは devDependencies 側の脆弱性に
 ついて何も言っていない合格である。木全体を対象にすることで devDependencies の advisory も拾い、

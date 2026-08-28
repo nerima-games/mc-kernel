@@ -140,7 +140,7 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
   経緯と論拠は [docs/responsibility.md](./docs/responsibility.md) §3-2 と当該ファイルのヘッダにある。
 - **`BlockType` とレジストリは 123 種を収録している。** 参照実装の 120 リテラルを基礎に、kernel が必要とする
   `soul_soil`、`wither_skeleton_skull`、`dropper` を加えた。追加時はリテラルだけでなくレジストリ行と能力を同時に定義する。
-- **`ItemType` を公開した**（`domain/item-type.ts`、205 種。鉄防具 4 種とつるはし・シャベル・斧・クワ・剣の木/石/鉄/ダイヤ/金/ネザライト tier、鍛造素材・テンプレート・防具、紙を含む）。plan.md §3.1 が挙げていながら
+- **`ItemType` を公開した**（`domain/item-type.ts`。鉄防具 4 種とつるはし・シャベル・斧・クワ・剣の木/石/鉄/ダイヤ/金/ネザライト tier、鍛造素材・テンプレート・防具、紙、16 色の染料と旗、書物、花火、盾を含む）。roster の正本は `test/item-registry.test.ts` が固定している明示リストであり、件数はここに書かない——追加は名前として review に現れるべきものである。plan.md §3.1 が挙げていながら
   書かれていなかった語彙で、欠落のあいだに mc-sim / mc-playground-kit / mx-ui がそれぞれ暫定の
   `type ItemId = string` を置いていた。`domain/block-item.ts` がブロック↔アイテムの橋
   （監査 §6-8 の `ItemType ∩ BlockType` を導出で解く）を、`dropOfBlockId` が
@@ -156,6 +156,10 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
 - **石切台を公開した**（`domain/stonecutting.ts`）。現行の ItemType roster で実証できる石切台レシピを、exact/tag ingredient、priority、入力消費、station 境界付きの純粋な照合・適用として扱う。対応済み公式データ表は全エディション・全バージョンの完全な registry を意味しない。
 - **鍛造を公開した**（`domain/smithing.ts`）。公式の netherite transform と trim recipe の型・tag・入力検証・結果適用を、搬送や UI を含まない値ベースの変換として扱う。
 - **砥石を公開した**（`domain/grindstone.ts` / `domain/grindstone-data.ts`）。単体除去、二入力修理、通常エンチャント除去、呪い保持、エンチャント本の本変換、耐久回復、スタック制約、経験値コストを純粋な計画として扱う。
+- **special recipe 10 種を公開した**（`domain/crafting-special.ts` / `domain/crafting-special-data.ts`）。Minecraft がデータではなくコードで持っている染色・付与・バナー複製・本の複製・飾り壺・花火・地図拡張・盾装飾を、他の recipe と同じ照合と適用として扱い、対応する Java document の decoder も持つ。バナー複製が模様側のバナーを消費しないこと、花火の色が染料テーブル由来であること（赤は `#b02e26`）など vanilla 固有の規則は [docs/public-api.md](./docs/public-api.md) §3-ter-4 にある。GUI、スロット搬送、経験値、サーバー権威は上位層の責務である。
+- **item component の値そのものを公開した**（`domain/item-component-values.ts` ほか）。vanilla が定義する component 値ごとにコンストラクタと `unknown` 境界の guard を対にし、属性 modifier・戦闘・防御・エンチャントは下流が個別に触るため `domain/item-attribute-modifiers` / `domain/item-combat` / `domain/item-defense` / `domain/item-enchantments` に subpath を分けている。効果の適用と GUI は上位層の責務である。
+- **ネザーポータルの枠を公開した**（`domain/portal.ts`）。着火位置からの枠検出と、寸法指定の枠生成を、ブロック id を返す 1 本の関数だけを受け取る純粋計算として扱う。ワールドへの書き込みとポータル間の紐付けは上位層の責務である。
+- **data pack layer の共通機構を公開した**（`domain/data-pack-registry.ts`）。recipe registry と Sulfur Cube archetype registry が同じ「複数 pack を format と priority で重ねる」機構を必要とし、どちらか一方に置くと依存の向きが壊れるため kernel が所有する。
 - **昼夜と天候の純粋モデルを公開した**（`domain/time-of-day.ts` / `domain/weather.ts`）。`TimeState` / `WeatherState` の境界検証・正規化と、昼夜の進行・時刻設定・月齢・昼夜判定を kernel が所有する。状態サービス、カウントダウン、ゲームループは上位層の責務である。
 - **プレイヤー vitals の純粋モデルを公開した**（`domain/vitals.ts`）。体力・飢餓・飽和・経験値・リスポーン・外部入力の検証と UI 向け表示変換を、状態サービスやタイマーから分離して kernel が所有する。
 - **カメラ姿勢の純粋モデルを公開した**（`domain/camera-pose.ts`）。`PlayerPose` の pitch clamp、look 更新、eye-level snapshot、forward vector を `CameraPoseSnapshot` と分離し、姿勢の所有と renderer mirror は上位層に残す。

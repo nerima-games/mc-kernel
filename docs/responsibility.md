@@ -12,7 +12,7 @@
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 識別子                  | `WorldId` / `StageId` などのブランデッド型                                                                                                                                                                                                                                                         |
 | データパック registry   | namespaced resource location、format/priority、対象 format の layer 選択、registry path mapping。JSON の読み出し・pack filesystem の所有は上位層                                                                                                                                                   |
-| JSON と component patch | 有限・非循環な `JsonValue`、namespaced な item component patch、Java crafting recipe JSON の厳格な decoder。JSON の読み出し、pack filesystem、未対応の公式 schema は上位層                                                                                                                         |
+| JSON と component patch | 有限・非循環な `JsonValue`、`TextComponent`、namespaced な item component patch、crafting / cooking / stonecutting / smithing / transmute / special の各 Java recipe document の厳格な decoder。JSON の読み出し、pack filesystem、未対応の公式 schema は上位層                                      |
 | 数量                    | `StackCount` / `DeltaTimeSecs` / `MonotonicTimeSecs` / `CooldownSeconds` / `EpochMillis`                                                                                                                                                                                                           |
 | 座標系                  | `Position`（連続）/ `BlockPosition`（格子）/ `ChunkCoord` / `LocalBlockCoord`、およびそれらの変換                                                                                                                                                                                                  |
 | 幾何                    | `AABB` と交差判定                                                                                                                                                                                                                                                                                  |
@@ -23,6 +23,9 @@
 | アイテム語彙            | `ItemType` リテラル型と網羅性チェック                                                                                                                                                                                                                                                              |
 | ブロック↔アイテム橋渡し | `PlaceableItemType`（`ItemType ∩ BlockType` + 名前付き設置例外、監査 §6-8）と `drops` の解決                                                                                                                                                                                                       |
 | ItemStack とレシピ      | `ItemStack` / `Slot` の数量境界、shaped / shapeless recipe の値型・tag・priority 照合と同梱データ                                                                                                                                                                                                  |
+| special recipe          | 染色・付与・バナー複製・本の複製・飾り壺・花火 3 種・地図拡張・盾装飾の照合と適用、および対応する Java document の decoder。GUI・スロット搬送・経験値・サーバー権威は上位                                                                                                                          |
+| item component の値     | vanilla が定義する component 値ごとのコンストラクタと `unknown` 境界 guard、属性 modifier・戦闘・防御・エンチャントの値。効果の適用と GUI は上位                                                                                                                                                   |
+| インベントリ            | 36 スロットの追加・除去・集計と保存値の検証。搬送サービス・所有権・コンテナ状態は上位                                                                                                                                                                                                              |
 | ホットバー              | プレイヤーインベントリ末尾 9 スロットの選択範囲、循環、インベントリスロット投影。選択状態・入力・UI は上位                                                                                                                                                                                         |
 | 装備と耐久              | 6 スロット装備スナップショット、装備可能スロット・最大耐久カタログ、装備検証・交換・純粋な耐久減少／破損遷移                                                                                                                                                                                       |
 | 食料                    | food component の栄養値・最終 saturation・食用条件、consumable component の使用動作・食後効果、`use_remainder` / `use_cooldown` と、ItemStack／Vitals に対する純粋な摂取結果・単調時計による使用間隔判定                                                                                           |
@@ -43,6 +46,11 @@
 | フレーム時間            | `clampFrameDelta` / `frameDeltaBetween` / `frameDeltaLossSecs` / `frameDeltaLossBetween` の純粋な経過時間計算                                                                                                                                                                                      |
 | ブロック能力モデル      | 能力フラグ表（boolean）+ プロパティ表（型付き値）+ `BlockDefinition`                                                                                                                                                                                                                               |
 | 掘削ルールと採掘時間    | Java Edition の公式 `minecraft:tool` の順序付き rule 解決と、ブロック硬度・道具速度から tick 数を求める純粋関数。Bedrock の `minecraft:digger` / `minecraft:destructible_by_mining` は descriptor、tag query、状態値、item-specific speed の解決までを所有（操作状態・権威判定・ドロップ等は上位） |
+| Entity と属性           | `EntityType` の閉じた語彙、attribute の値域・既定値・modifier 適用、Entity の純粋な状態操作。spawn/despawn・AI・ネットワークは上位                                                                                                                                                                 |
+| ワールドの純粋更新      | `BlockWorld` の読み書き値、流体伝播、redstone の source/wire/device 評価と 1 tick 更新。world interface・tick queue・イベント bus・永続化形式は上位                                                                                                                                                |
+| ネザーポータル          | 着火位置からの枠検出と寸法指定の枠生成。ワールドへの書き込み、ポータル間の紐付け、移動は上位                                                                                                                                                                                                       |
+| 乗り物                  | 乗り物 snapshot の値型と検証。実体の所有・物理・入力は上位                                                                                                                                                                                                                                        |
+| Sulfur Cube             | archetype の tag・registry 識別子、JSON の境界検証と正規化。物理・爆発・接触イベントの実行は上位                                                                                                                                                                                                   |
 | 横断 Port               | `ClockPort`                                                                                                                                                                                                                                                                                        |
 | 横断スナップショット    | `CameraPoseSnapshot`                                                                                                                                                                                                                                                                               |
 | Anvil 変換              | 決定的な変換計画・適用、および versioned state snapshot codec                                                                                                                                                                                                                                      |
@@ -70,10 +78,21 @@ domain/
   coordinate-neighbours.ts     # 隣接ブロックの走査順
   projectile-collision.ts      # 線分と AABB の区間衝突
   projectile.ts                 # Arrow の純粋な弾道状態遷移
+  explosion-data.ts             # 爆発の定数と値型
   explosion.ts                  # 爆発の純粋な計画と Entity 効果
+  primed-tnt-data.ts           # 着火済み TNT の定数と値型
   primed-tnt.ts                # 着火済み TNT の fuse と爆発計画
   wither-data.ts                # Wither の定数と値型
   wither.ts                     # Wither の summon/lifecycle/damage/skull 純粋則
+  vehicle.ts                    # 乗り物 snapshot の値型と検証
+
+  # Entity: 語彙・属性・操作を分離（architecture.md §6）
+  entity-types.ts              # EntityType の閉じた語彙と runtime guard
+  entity-attributes-data.ts    # attribute の値域・既定値のデータ表
+  entity-attributes-validation.ts # attribute の境界検証
+  entity-attributes.ts         # attribute の解決と modifier 適用
+  entity-operations.ts         # Entity の純粋な状態操作
+  entity.ts                    # Entity の公開バレル
 
   # ブロック/アイテム語彙: データと型・guard を分離（architecture.md §6）
   block-type-data.ts           # BLOCK_TYPES の閉じたデータテーブル
@@ -89,15 +108,60 @@ domain/
   bedrock-mining-descriptors.ts # Bedrock の ID/state/tag descriptor と query 解決
   bedrock-mining.ts            # Bedrock digger/destructible_by_mining の検証・解決
   json-value.ts                # 有限・非循環 JSON 値の guard、decoder、構造的比較
+  text-component-data.ts       # TextComponent の値型と style vocabulary
+  text-component-validation.ts # 外部入力の TextComponent 検証
+  text-component.ts            # TextComponent の公開境界
   item-component-patch.ts      # namespaced item component patch の immutable decoder と比較
   item-stack.ts                # ItemStack / Slot と数量・スタック上限の検証
   equipment-data.ts            # 装備スロット、装備可能アイテム、耐久値のデータ表
   equipment.ts                 # 装備スナップショット、スロット操作、耐久検証・遷移
+
+  # item component: 値ごとに data・validation・logic を分離（architecture.md §6）
+  item-components-data.ts      # component id・rarity・既定値のデータ表
+  item-components-validation.ts # 解決済み ItemComponents の境界検証
+  item-components.ts           # item ごとの component 解決（公開境界）
+  item-component-values-data.ts       # 各 component が取りうる値の型
+  item-component-values-validation.ts # 各 component 値の runtime guard
+  item-component-values.ts     # 各 component 値のコンストラクタ（公開境界）
+  item-attribute-modifiers-data.ts       # attribute modifier の値型と slot vocabulary
+  item-attribute-modifiers-validation.ts # attribute modifier の境界検証
+  item-attribute-modifiers.ts  # attribute modifier component の構築
+  item-combat-data.ts          # 攻撃 component（use_effects / swing / attack_range 等）の値型
+  item-combat-validation.ts    # 攻撃 component の境界検証
+  item-combat.ts               # 攻撃 component の構築
+  item-defense-data.ts         # 防御 component（damage_resistant / blocks_attacks）の値型
+  item-defense-validation.ts   # 防御 component の境界検証
+  item-defense.ts              # 防御 component の構築
+  item-enchantments-data.ts    # 付与済み／保管済みエンチャントの値型
+  item-enchantments-validation.ts # エンチャント component の境界検証
+  item-enchantments.ts         # エンチャント component の構築
+  item-tool-data.ts            # item ごとの既定 tool component のデータ表
+  item-tool.ts                 # item-aware な tool component 解決
+  weapon-data.ts               # minecraft:weapon の値型と既定値
+  weapon-validation.ts         # weapon component の境界検証
+  weapon.ts                    # weapon component の構築
+  consumable-validation.ts     # consumable component の境界検証
+  use-cooldown-validation.ts   # use_cooldown component の境界検証
+
+  # コンテナ: データ表と操作を分離（architecture.md §6）
+  inventory-data.ts            # 36 スロットの容量とスロット型
+  inventory.ts                 # 追加・除去・集計・保存値の検証
+  hotbar-data.ts               # 9 スロットの選択範囲と定数
+  hotbar.ts                    # 選択の clamp・循環・インベントリ投影
   recipe-data.ts               # shaped / shapeless recipe の値型と境界検証
   recipe-matching.ts           # station・tag・pattern・priority の純粋な照合
   recipe-json.ts                # Java crafting recipe JSON の strict decoder と data-pack path
   recipe-vanilla-data.ts       # kernel が同梱する crafting recipe のデータ表
   recipe.ts                    # recipe の公開バレル
+  recipe-registry.ts           # recipe の data-pack layer と format/priority 選択
+  crafting-data.ts             # 作業台 recipe の値型と grid 境界
+  crafting.ts                  # 作業台 recipe の照合・適用
+  crafting-special-data.ts     # コードで定義される 10 種の special recipe の値型・構築・guard
+  crafting-special.ts          # special recipe の照合・適用と染料の混色
+  cooking-data.ts              # 可搬な cooking recipe の値型と構築
+  cooking.ts                   # cooking recipe の照合・適用
+  transmute-data.ts            # crafting transmute の値型・material 範囲・構築
+  transmute.ts                 # transmute recipe の照合・適用
   food-data.ts                 # food component と食後効果のデータ表
   food.ts                      # 食用条件・摂取・食器変換の純粋なロジック
   consumable-data.ts           # consumable / use_remainder component の型・既定値・構築 options
@@ -105,13 +169,16 @@ domain/
   use-cooldown-data.ts         # use_cooldown component の型
   use-cooldown.ts              # cooldown の構築と単調時計による期限判定
   smelting-data.ts             # 調理 station・レシピ・燃料のデータ表
+  smelting-indexes.ts          # 調理レシピの入力索引
   smelting.ts                  # FurnaceState と調理時間の純粋な状態遷移
   brewing-data.ts              # 醸造定数と potion recipe のデータ表
+  brewing-indexes.ts           # 醸造レシピの入力索引
   brewing.ts                   # BrewingState と醸造時間の純粋な状態遷移
   dimension.ts                 # Overworld・Nether・End の語彙と runtime guard
   crop-data.ts                 # 作物・土壌・成熟時間・保証ドロップのデータ表
   crop.ts                      # 作付け判定・成熟・成長・骨粉・収穫結果の純粋なロジック
   smithing-data.ts             # 鍛造 station・transform・trim recipe のデータ表
+  smithing-indexes.ts          # 鍛造レシピの入力索引
   smithing.ts                  # SmithingOperation と鍛造結果の純粋な変換
   grindstone-data.ts           # 砥石の呪い・耐久ボーナス・経験値コストのデータ表
   grindstone.ts                # 砥石の単体除去・二入力修理・結果計画
@@ -170,6 +237,28 @@ domain/
   block-registry-rules.ts      # レジストリ行が共有する既定値
   block-registry-indexes.ts    # レジストリ行から導出する id-indexed lookup
   block-state.ts               # 登録済み BlockId のみを許す owned バッファ（BlockState）
+
+  # ワールドの純粋更新: world・fluid・redstone を責務ごとに分離（architecture.md §6）
+  block-world.ts               # 位置引きのブロック読み書きを持つ純粋な world 値
+  fluid-data.ts                # 流体の種類・流量・定数のデータ表
+  fluid-state.ts               # FluidState の値型と world からの導出
+  fluid-update.ts              # 1 tick 分の流体伝播
+  fluid.ts                     # 流体の公開バレル
+  redstone-data.ts             # 信号強度・device 種別・定数のデータ表
+  redstone-state.ts            # RedstoneState の値型
+  redstone-devices.ts          # repeater / comparator / observer 等の device 値
+  redstone-device-update.ts    # device 1 個分の出力計算
+  redstone-network.ts          # source・wire・device の伝播評価
+  redstone-update-types.ts     # 更新結果と change list の値型
+  redstone-update.ts           # 1 tick 分の redstone 更新
+  redstone.ts                  # redstone の公開バレル
+  portal-frame.ts              # ネザーポータル枠の検出と生成
+  portal.ts                    # portal の公開バレル
+
+  # Sulfur Cube: data・validation・logic を分離（architecture.md §6）
+  sulfur-cube-data.ts          # archetype の tag・registry・component 識別子
+  sulfur-cube-validation.ts    # archetype JSON の境界検証
+  sulfur-cube.ts               # archetype の正規化と公開境界
 
   # Chunk データ構造とコーデック
   chunk.ts                     # Chunk / ChunkHeight / EncodedChunk と versioned codec
