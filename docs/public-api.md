@@ -645,7 +645,8 @@ crafting transmute を同じ境界で厳格に decode する。これらの結�
 result の `components` は `ItemComponentPatch` になる。`recipeDataPath(id)` は namespaced recipe id を data-pack の canonical path へ変換し、
 `recipeDataPackLayer` / `recipeDataPackLayerFromUnknown` / `selectRecipes` は recipe id 付きの data-pack layer と format・priority による選択を提供する。
 旧 object-form ingredient、tag を含む alternative array、未知の recipe type、非 vanilla item、各 recipe type の未知キーは decoder で拒否する。
-`crafting_dye`、`crafting_imbue`、および個別の special recipe type は、専用の実行 semantics を追加できるまでこの decoder の対象外である。
+`crafting_dye` / `crafting_imbue` と個別の special recipe type も decode できる（§3-ter-4）。かつてこれらを対象外にしていたのは
+実行 semantics が無かったためで、その理由は解消した。
 全 recipe type・全 edition/version の完全な registry、JSON ファイルの読み出し、pack の適用順序は data-pack layer と上位層が所有する。
 
 ```typescript
@@ -677,7 +678,79 @@ const selectRecipes: (
 root のほか `@nerima-games/mc-kernel/domain/json-value`、`domain/item-component-patch`、`domain/recipe-json`、`domain/recipe-registry` subpath から利用できる。recipe result の item
 stack/components は [Minecraft Snapshot 24w10a](https://www.minecraft.net/pt-pt/article/minecraft-snapshot-24w10a) の item stack component 変更を、stonecutting / smithing /
 transmute の現在の JSON schema は [Minecraft Java Edition 26.1](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-1) を参照する。decoder の対応範囲を全 recipe
-registry と誤認しないよう、未対応 special recipe は明示的に拒否する。
+registry と誤認しないよう、未知の recipe type は明示的に拒否する。
+
+`mergeItemComponentPatches` は overload を持つ。右辺が定まっているときの結果は必ず定まるため、
+`ItemComponentPatch | undefined` を返す単一シグネチャだと呼び出し側に到達しない `undefined` 分岐が残る。
+検証と merge は patch を 2 回読むので、1 回目に答えて 2 回目に消える値（getter で作れる）は
+merge されずに `TypeError` になる。
+
+### 3-ter-4. special recipe（crafting-special）
+
+Minecraft がデータではなくコードで持っている 10 種の crafting recipe を、他の recipe と同じ
+「照合 → 適用」の形で扱う。`matchCraftingSpecialRecipe` は grid と recipe table から最初の一致を返し、
+`applyCraftingSpecial` は一致に加えて消費後の grid を返す。dye と imbue は個別の
+`matchesCraftingDyeRecipe` / `applyCraftingDye`（imbue も同型）からも扱える。
+
+```typescript
+type CraftingSpecialRecipe =
+  | CraftingDyeRecipe
+  | CraftingImbueRecipe
+  | CraftingBannerDuplicateRecipe
+  | CraftingBookCloningRecipe
+  | CraftingDecoratedPotRecipe
+  | CraftingFireworkRocketRecipe
+  | CraftingFireworkStarFadeRecipe
+  | CraftingFireworkStarRecipe
+  | CraftingMapExtendingRecipe
+  | CraftingShieldDecorationRecipe;
+
+const matchCraftingSpecialRecipes: (
+  grid: CraftGrid,
+  context?: RecipeMatchContext,
+  recipes?: CraftingSpecialRecipeTable,
+) => ReadonlyArray<Extract<CraftingSpecialMatch, { readonly _tag: "Match" }>>;
+const matchCraftingSpecialRecipe: (
+  grid: CraftGrid,
+  context?: RecipeMatchContext,
+  recipes?: CraftingSpecialRecipeTable,
+) => CraftingSpecialMatch;
+const applyCraftingSpecial: (
+  recipe: CraftingSpecialRecipe,
+  grid: CraftGrid,
+  context?: RecipeMatchContext,
+) => CraftingSpecialApplyResult;
+const mixCraftingDyeColor: (
+  target: DyedColorComponent | undefined,
+  dyes: ReadonlyArray<DyeColor>,
+) => number;
+```
+
+recipe 値は種類ごとのコンストラクタ（`craftingDyeRecipe`、`craftingBannerDuplicateRecipe`、…）で作る。
+id は namespaced な `ResourceLocation`、`category` は `RecipeCategory` の 4 値、`priority` は非負の safe integer、
+`tags` は station tag で、いずれも構築時に検証する。options 引数そのものが object でない場合も拒否する
+——spread は非 object を `{}` に潰すため、検査しなければ「誤った options」が「options 無し」になる。
+
+vanilla に合わせている規則のうち、実装から自明でないものは 3 つある。
+
+- **バナー複製は元のバナーを消費しない。** 消えるのは無地の複製先だけで、模様を持つ側は grid に残る。
+  ここが他の 2 入力 special recipe と違う唯一の点である。
+- **本の複製は generation を 1 つ進め、recipe の `allowedGenerations` の外にある本を拒否する。**
+  出力数は紙の枚数で決まり、出力スタック上限を超える組み合わせは一致しない。
+- **花火の色は染料テーブルから引く。** 赤は `#ff0000` ではなく vanilla の `#b02e26` である。
+  `mixCraftingDyeColor` は革の染色と同じ明度保存アルゴリズムで、ビット演算ではなく算術で packing する
+  （チャンネルは 0-255 に clamp 済みなので正確）。
+
+書き込まれた本のページとタイトルは JSON text component であり、素の文字列を受け付けるのは
+writable book の側だけである。
+
+`craftingDyeRecipeFromUnknown` から `craftingShieldDecorationRecipeFromUnknown` までの 10 個の decoder が
+それぞれの Java document を厳格に読む。どれも type 不一致・必須キー欠落・未知キーを拒否する
+——data pack は信頼できない入力であり、黙って無視されたキーは書いた人の意図と違う recipe になる。
+`portableRecipeFromUnknown` はこれらも含めて dispatch する。
+
+root のほか `@nerima-games/mc-kernel/domain/crafting-special` と `domain/crafting-special-data` subpath から
+利用できる。GUI、スロット搬送、経験値、サーバー権威は上位層の責務である。
 
 ### 3-quater. 調理と醸造
 
@@ -872,6 +945,44 @@ const isSulfurCubeContentComponent: (
 `attackRangeComponent` は Java Edition 1.21.11 の `minecraft:attack_range` を表し、公式 schema の `min_reach` / `max_reach` / `min_creative_reach` / `max_creative_reach` をそれぞれ `minReach` / `maxReach` / `minCreativeReach` / `maxCreativeReach` として公開する。既定値は順に 0 / 3 / 0 / 5、値域は 0..64 で、`hitboxMargin` は 0..1、`mobFactor` は 0..2 で検証する。`kineticWeaponComponent` と `piercingWeaponComponent` も同じ combat component model として root から利用できる。公式仕様は [Minecraft Java Edition 1.21.11](https://www.minecraft.net/en-us/article/minecraft-java-edition-1-21-11) と [Minecraft Java Edition 26.1](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-1) を参照する。
 
 `sulfurCubeContentComponent` は Java Edition 26.2 で追加された `minecraft:sulfur_cube_content` を表し、Sulfur Cube に吸収される item の resource location を検証して `ResourceLocation` に正規化する。`isSulfurCubeContentOptions` と `isSulfurCubeContentComponent` は保存データなどの `unknown` 境界を同じ条件で検証する。公式仕様は [Minecraft Java Edition 26.2](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-2) を参照する。
+
+### 3-quater-quater-ter. component 値そのもの（item-component-values）と属性・戦闘・防御・エンチャント
+
+`itemComponents` が解決するのは item ごとの component 集合で、個々の component が取りうる値の形は
+`domain/item-component-values` が所有する。dye、dyed_color、profile、bees、potion_contents、
+charged_projectiles、bundle_contents、container、written/writable book content、firework explosion、
+banner patterns、base color、map id、trim、tooltip display など、vanilla が定義する component 値ごとに
+コンストラクタと `unknown` 境界の guard を対にして公開する。
+
+対にしているのは境界の位置を 1 箇所に固定するためである。component 値はほぼ必ず外部（保存データ、
+data pack、ネットワーク）から来るので、guard を値の形の隣に置かないと検証が使用箇所ごとに散る。
+
+```typescript
+const DYE_COLORS: readonly DyeColor[]; // 16 色
+const FIREWORK_EXPLOSION_SHAPES: readonly FireworkExplosionShape[];
+const EQUIPPABLE_SLOTS: readonly EquippableSlot[];
+const MAP_DECORATION_TYPES: readonly MapDecorationType[];
+
+const dyeComponent: (value: unknown) => DyeComponent;
+const dyedColorComponent: (value: unknown) => DyedColorComponent;
+const potionContentsComponent: (
+  value?: PotionContentsOptions,
+) => PotionContentsComponent;
+const containerComponent: (value: unknown) => ContainerComponent;
+```
+
+属性・戦闘・防御・エンチャントは、component 値の中でも下流が個別に触るため subpath を分けている。
+
+- `domain/item-attribute-modifiers` —— `attributeModifier` / `attributeModifierDisplay` /
+  `attributeModifiersComponent`。modifier の slot、operation、表示名を検証済みの値として扱う。
+- `domain/item-combat` —— `useEffectsComponent`、`minimumAttackChargeComponent`、
+  `damageTypeComponent`、`swingAnimationComponent`、`attackRangeComponent`。
+- `domain/item-defense` —— `damageResistantComponent` と `blocksAttacksComponent`。
+  盾の受け値、無効化秒数、ダメージ低減表を扱う。
+- `domain/item-enchantments` —— `enchantmentsComponent` と `storedEnchantmentsComponent`。
+  付与済みと保管済み（エンチャント本）を別 component として区別する。
+
+いずれも値の検証だけを持ち、効果の適用、GUI、サーバー権威は上位層の責務である。
 
 ### 3-quater-quater-bis. Sulfur Cube archetype registry
 
@@ -1632,6 +1743,87 @@ const updateRedstone: (
 ```
 
 これらは world interface、tick queue、イベント bus、永続化形式を所有しない。下流は更新結果を自分の chunk・entity・network 境界へ適用する。
+
+### 5-sexies-bis. ネザーポータルの枠（portal）
+
+枠の検出と生成を、ブロックを読む 1 本の関数だけを受け取る純粋計算として扱う。
+`detectNetherPortal` は着火位置から枠を探して軸・内部セル・寸法を返し、`generatePortalLayout` は
+指定した寸法の黒曜石と内部セルの配置を返す。
+
+```typescript
+type BlockAt = (x: number, y: number, z: number) => number; // BlockId
+type PortalAxis = "x" | "z";
+type PortalFrame = Readonly<{
+  axis: PortalAxis;
+  width: number;
+  height: number;
+  interior: ReadonlyArray<BlockPosition>;
+}>;
+type PortalLayout = Readonly<{
+  frame: ReadonlyArray<BlockPosition>;
+  interior: ReadonlyArray<BlockPosition>;
+}>;
+
+const MIN_PORTAL_WIDTH: number; // 2
+const MAX_PORTAL_WIDTH: number; // 21
+const MIN_PORTAL_HEIGHT: number; // 3
+const MAX_PORTAL_HEIGHT: number; // 21
+
+const detectNetherPortal: (
+  blockAt: BlockAt,
+  ignition: BlockPosition,
+) => PortalFrame | undefined;
+const generatePortalLayout: (
+  origin: BlockPosition,
+  axis: PortalAxis,
+  width: number,
+  height: number,
+) => PortalLayout;
+```
+
+`BlockAt` が返すのは `BlockType` ではなく数値の `BlockId` である。枠の検出はチャンクバッファの
+バイトから直接答えられる必要があり、語彙への変換を挟むと呼び出し側にその変換を強いる。
+
+vanilla の寸法上限の外、黒曜石の欠落、内部が塞がっている枠、既に埋まっている着火位置は
+いずれも枠として成立しない。ワールドへの書き込み、ポータル間の紐付け、移動、
+チャンク読み込みは上位層の責務である。
+
+### 5-sexies-ter. data pack layer の共通機構（data-pack-registry）
+
+recipe registry と Sulfur Cube archetype registry が同じ形の「複数 pack を format と priority で
+重ねて 1 つの registry に解決する」機構を必要とするため、その土台をここに置く。
+どちらか一方の registry に置くと他方がそれに依存することになり、依存の向きが壊れる。
+
+```typescript
+type DataPackFormat = number & Brand.Brand<"DataPackFormat">;
+type DataPackPriority = number & Brand.Brand<"DataPackPriority">;
+
+const dataPackLayer: <T>(options: DataPackLayerOptions<T>) => DataPackLayer<T>;
+const dataPackLayerFromUnknown: <T>(
+  value: unknown,
+  decodeValue: (value: unknown) => T,
+) => DataPackLayer<T>;
+const dataPackLayerFromUnknownWithId: <T>(
+  value: unknown,
+  decodeValue: (id: string, value: unknown) => T,
+) => DataPackLayer<T>;
+const mapDataPackLayer: <Input, Output>(
+  layer: DataPackLayer<Input>,
+  mapValue: (value: Input) => Output,
+) => DataPackLayer<Output>;
+const selectDataPackRegistry: <T>(
+  layers: ReadonlyArray<DataPackLayer<T>>,
+  format: DataPackFormat,
+) => ReadonlyMap<NamespacedResourceLocation, T>;
+const dataPackResourcePath: (
+  registry: NamespacedResourceLocation,
+  id: NamespacedResourceLocation,
+) => string;
+```
+
+format が完全一致しない layer は選択から落ち、同じ id は priority の高い layer が勝つ。
+priority が同値のときは呼び出し側が渡した layer 順を保つ。同じ layer 内の id 重複は構築時に拒否する。
+pack の探索、JSON ファイルの読み出し、pack のインストール順は上位層の責務である。
 
 ## 5. `CameraPoseSnapshot`（camera）
 
