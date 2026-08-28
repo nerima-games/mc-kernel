@@ -49,7 +49,7 @@ import {
   type BlockPropertyOverrides,
   resolveBlockProperties,
 } from './block-properties.js'
-import type { BlockType } from './block-type.js'
+import { isBlockType, type BlockType } from './block-type.js'
 
 /**
  * One row of a block table.
@@ -70,20 +70,56 @@ export type ResolvedBlock = {
   readonly properties: BlockProperties
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const assertKnownDefinitionKeys = (definition: Record<string, unknown>): void => {
+  for (const key of Object.keys(definition)) {
+    if (!['type', 'capabilities', 'properties'].includes(key)) {
+      throw new TypeError(`unknown block definition field ${key}`)
+    }
+  }
+}
+
+function validateBlockDefinition(definition: unknown): asserts definition is BlockDefinition {
+  if (!isRecord(definition)) {
+    throw new TypeError('block definition must be an object')
+  }
+  assertKnownDefinitionKeys(definition)
+
+  if (!isBlockType(definition['type'])) {
+    throw new TypeError('BlockDefinition.type must be a registered BlockType')
+  }
+  if (definition['capabilities'] !== undefined && !isRecord(definition['capabilities'])) {
+    throw new TypeError('BlockDefinition.capabilities must be an object')
+  }
+  if (definition['properties'] !== undefined && !isRecord(definition['properties'])) {
+    throw new TypeError('BlockDefinition.properties must be an object')
+  }
+}
+
 /** Resolve a definition's capability flags, defaulting an absent field to the defaults. */
-export const blockCapabilitiesOf = (definition: BlockDefinition): BlockCapabilities =>
-  resolveBlockCapabilities(definition.capabilities ?? {})
+export const blockCapabilitiesOf = (definition: BlockDefinition): BlockCapabilities => {
+  validateBlockDefinition(definition)
+  return resolveBlockCapabilities(definition.capabilities ?? {})
+}
 
 /** Resolve a definition's typed properties, defaulting an absent field to the defaults. */
-export const blockPropertiesOf = (definition: BlockDefinition): BlockProperties =>
-  resolveBlockProperties(definition.properties ?? {})
+export const blockPropertiesOf = (definition: BlockDefinition): BlockProperties => {
+  validateBlockDefinition(definition)
+  return resolveBlockProperties(definition.properties ?? {})
+}
 
 /** Resolve both halves at once. */
-export const resolveBlock = (definition: BlockDefinition): ResolvedBlock => ({
-  capabilities: blockCapabilitiesOf(definition),
-  properties: blockPropertiesOf(definition),
-  type: definition.type,
-})
+export const resolveBlock = (definition: BlockDefinition): ResolvedBlock => {
+  validateBlockDefinition(definition)
+
+  return {
+    capabilities: resolveBlockCapabilities(definition.capabilities ?? {}),
+    properties: resolveBlockProperties(definition.properties ?? {}),
+    type: definition.type,
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Capability ledger: what the audit found and where its authoritative data lives
@@ -93,9 +129,8 @@ export const resolveBlock = (definition: BlockDefinition): ResolvedBlock => ({
  * The capability names `historical design audit` §3 enumerates, in the
  * order the audit's table lists them.
  *
- * The audit's §7 prose says "26 能力"; its §3 table has 28 rows. The table is
- * the more specific artefact and is what this constant mirrors. The
- * discrepancy is recorded rather than silently resolved.
+ * The audit's §3 table has 28 rows and is the authoritative capability list
+ * mirrored by this constant.
  */
 export const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string> = [
   'passable',
@@ -131,9 +166,11 @@ export const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string> = [
 /**
  * Audited capabilities whose authoritative data or consumer belongs downstream.
  *
- * The kernel vocabulary and registry are now complete: both contain 123 rows.
- * The reference implementation still defines 120 block kinds; the kernel adds
- * the three explicit domain rows that the consuming API requires.
+ * The kernel vocabulary and registry are internally complete for the supported
+ * data profile: both contain the same 123 rows. This is a curated shared
+ * vocabulary, not a claim that it covers every block in every Minecraft
+ * edition or release. The reference implementation defines 120 block kinds;
+ * the kernel adds the three explicit domain rows required by its consumers.
  *
  * Implemented columns:
  *

@@ -30,13 +30,10 @@ export const BLOCK_REGISTRY_END: ReadonlyArray<BlockRegistryEntry> = [
   //     the rest of the column (bigger is harder), so it is comparable even
   //     though it is off the end of the stated range.
   //
-  //   `end_gateway` is -1 in the reference, and that one is NOT kept. A negative
-  //     hardness is not "very hard": `computeBreakTicks` (`block-break-speed.ts`)
-  //     returns 0 for `hardness <= 0`, so -1 means INSTANT, which is the exact
-  //     opposite of the intent and is a bug in the reference. This row says 0,
-  //     which is behaviourally identical to -1 under that function and is inside
-  //     the range the column claims. The bug is recorded rather than inherited,
-  //     and `end_gateway` drops nothing anyway (`endBlockDrops` maps it to AIR).
+  //   `end_gateway` is -1 in the reference and is retained as the canonical
+  //     unbreakable sentinel. Zero is the distinct instant-break value in the
+  //     shared break-speed contract, and `end_gateway` drops nothing anyway
+  //     (`endBlockDrops` maps it to AIR).
   //
   // `purpur_slab` is the second member of `SLAB_BLOCK_IDS`
   // (`block-collision-predicates.ts:56-59`). `collisionShape: 'slab'` now has
@@ -117,7 +114,7 @@ export const BLOCK_REGISTRY_END: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'end_gateway',
       capabilities: { suffocates: false, validSpawnSurface: false },
-      properties: { opacity: 'transparentSolid', lightEmission: 15, hardness: 0, friction: 0, drops: DROPS_NOTHING },
+      properties: { opacity: 'transparentSolid', lightEmission: 15, hardness: -1, friction: 0, drops: DROPS_NOTHING },
     },
   },
   {

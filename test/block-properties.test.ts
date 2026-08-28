@@ -213,6 +213,83 @@ describe('light level branding', () => {
     })),
   )
 
+  it('rejects unknown and malformed property data at the public boundary', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const resolve = resolveBlockProperties
+
+      expect(() => Reflect.apply(resolve, undefined, [{ futureProperty: true }])).toThrow(
+        'unknown block property futureProperty',
+      )
+      expect(resolve({ hardness: -1 }).hardness).toBe(-1)
+      expect(() => resolve({ hardness: -2 })).toThrow(
+        'block property hardness must be a finite number greater than or equal to zero or -1',
+      )
+      expect(() => resolve({ friction: 2 })).toThrow('block property friction must be a finite number in [0, 1]')
+      expect(() => resolve({ friction: -1 })).toThrow(
+        'block property friction must be a finite number greater than or equal to zero',
+      )
+      expect(() =>
+        Reflect.apply(resolve, undefined, [{ harvestTool: { category: 'pickaxe', minTier: 'diamond', futureField: true } }]),
+      ).toThrow('unknown block property harvestTool field futureField')
+      expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, item: 'not-an-item' } }])).toThrow(
+        'block property drops item must be a registered ItemType or self',
+      )
+      expect(() => Reflect.apply(resolve, undefined, [{ supportRule: { blocks: ['stone'] } }])).toThrow(
+        'unknown block property supportRule kind undefined',
+      )
+      expect(() => Reflect.apply(resolve, undefined, [{ supportRule: { kind: 'oneOf', blocks: ['not-a-block'] } }])).toThrow(
+        'block property supportRule contains an unknown block type',
+      )
+      expect(() => Reflect.apply(propertyOf, undefined, [{ futureProperty: true }, 'hardness'])).toThrow(
+        'unknown block property futureProperty',
+      )
+    })),
+  )
+
+  it('rejects malformed values for every public property vocabulary', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const resolve = resolveBlockProperties
+
+      expect(() => Reflect.apply(resolve, undefined, [null])).toThrow('block property overrides must be an object')
+      expect(() => Reflect.apply(resolve, undefined, [{ opacity: 'future' }])).toThrow('unknown block property opacity future')
+      expect(() => Reflect.apply(resolve, undefined, [{ fluid: 'future' }])).toThrow('unknown block property fluid future')
+      expect(() => Reflect.apply(resolve, undefined, [{ collisionShape: 'future' }])).toThrow(
+        'unknown block property collisionShape future',
+      )
+      expect(() => Reflect.apply(resolve, undefined, [{ renderKind: 'future' }])).toThrow('unknown block property renderKind future')
+      expect(() => Reflect.apply(resolve, undefined, [{ footstepMaterial: 'future' }])).toThrow(
+        'unknown block property footstepMaterial future',
+      )
+      expect(() => Reflect.apply(resolve, undefined, [{ railKind: 'future' }])).toThrow('unknown block property railKind future')
+
+      expect(() => Reflect.apply(resolve, undefined, [{ harvestTool: null }])).toThrow('block property harvestTool must be an object')
+      expect(() => Reflect.apply(resolve, undefined, [{ harvestTool: { category: 'future', minTier: 'none' } }])).toThrow(
+        'unknown block property harvestTool category future',
+      )
+      expect(() => Reflect.apply(resolve, undefined, [{ harvestTool: { category: 'none', minTier: 'future' } }])).toThrow(
+        'unknown block property harvestTool tier future',
+      )
+
+      expect(() => Reflect.apply(resolve, undefined, [{ drops: null }])).toThrow('block property drops must be an object')
+      expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, silkTouchItem: 'future' } }])).toThrow(
+        'block property drops silkTouchItem must be a registered ItemType',
+      )
+      expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 'many' } }])).toThrow(
+        'block property drops count must be an integer',
+      )
+      expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, requiresSilkTouch: 'yes' } }])).toThrow(
+        'block property drops requiresSilkTouch must be a boolean',
+      )
+
+      expect(() => Reflect.apply(resolve, undefined, [{ supportRule: null }])).toThrow('block property supportRule must be an object')
+      expect(() => resolve({ supportRule: { kind: 'oneOf', blocks: [] } })).toThrow(
+        'block property supportRule blocks must contain at least one block',
+      )
+
+      expect(() => Reflect.apply(propertyOf, undefined, [{}, 'future'])).toThrow('unknown block property future')
+    })),
+  )
+
   it('exposes the public light-level constructor', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(LightLevel(3)).toBe(3)
@@ -272,7 +349,7 @@ describe('harvestTool and drops (the two struct fields, audit §7)', () => {
     })),
   )
 
-  it('the tier gate is ordered wooden < stone < iron < diamond', () =>
+  it('the tier gate is ordered wooden < stone < iron < diamond < netherite', () =>
     Effect.runPromise(Effect.sync(() => {
       const needsIron = { category: 'pickaxe', minTier: 'iron' } as const
       expect(satisfiesHarvestTier(needsIron, 'none')).toBe(false)
@@ -280,6 +357,7 @@ describe('harvestTool and drops (the two struct fields, audit §7)', () => {
       expect(satisfiesHarvestTier(needsIron, 'stone')).toBe(false)
       expect(satisfiesHarvestTier(needsIron, 'iron')).toBe(true)
       expect(satisfiesHarvestTier(needsIron, 'diamond')).toBe(true)
+      expect(satisfiesHarvestTier(needsIron, 'netherite')).toBe(true)
     })),
   )
 
@@ -290,13 +368,13 @@ describe('harvestTool and drops (the two struct fields, audit §7)', () => {
       // Array under test makes the assertion tautological: swapping `wooden`
       // And `stone` in the declaration moves the expectation with it and every
       // Sampled case above still passes, because those samples only ever ask
-      // About `iron`. The order IS the contract — it comes from the four-stage
+      // About `iron`. The order IS the contract — it comes from the five-stage
       // Ladder at `harvestable-blocks.ts:14-67` — so it is pinned as data here,
       // Exactly as `test/block-registry.test.ts` pins the block ids.
-      const LADDER = ['none', 'wooden', 'stone', 'iron', 'diamond'] as const
+      const LADDER = ['none', 'wooden', 'stone', 'iron', 'diamond', 'netherite'] as const
       expect(HARVEST_TIERS).toStrictEqual(LADDER)
 
-      // With the ladder pinned, the sweep closes the gate over all 5x5 pairs:
+      // With the ladder pinned, the sweep closes the gate over all 6x6 pairs:
       // A tool satisfies a requirement precisely when it sits no lower on it.
       // This also covers what the `Record` cast in `./block-harvest` asserts
       // And the type system cannot — that every tier has an entry at all.

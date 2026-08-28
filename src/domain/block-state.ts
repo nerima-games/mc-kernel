@@ -1,5 +1,5 @@
 import { BLOCK_IDS, BLOCK_ID_MAX, isKnownBlockId } from './block-registry.js'
-import type { BlockId } from './block-registry-types.js'
+import { BlockId } from './block-registry-types.js'
 
 const MIN_INDEX = 0
 const INDEX_INCREMENT = 1
@@ -28,12 +28,6 @@ const assertKnownBlockId = (blockId: number, index: number): void => {
   }
 }
 
-const assertKnownBlockByte = (blockId: number, index: number): void => {
-  if (KNOWN_BLOCK_ID_TABLE[blockId] !== BLOCK_ID_ENABLED) {
-    throw new RangeError(`Block state contains unknown block id ${blockId} at index ${index}`)
-  }
-}
-
 const assertCopyRange = (targetLength: number, sourceLength: number, offset: number): void => {
   if (!Number.isInteger(offset) || offset < MIN_INDEX || offset + sourceLength > targetLength) {
     throw new RangeError(
@@ -45,16 +39,21 @@ const assertCopyRange = (targetLength: number, sourceLength: number, offset: num
 /** An owned, registry-validated block buffer with checked mutation boundaries. */
 export class BlockState {
   readonly #bytes: Uint8Array
+  readonly #view: DataView
 
   static fromBytes(bytes: Uint8Array): BlockState {
-    for (let index = MIN_INDEX; index < bytes.length; index += INDEX_INCREMENT) {
-      assertKnownBlockByte(bytes[index]!, index)
+    const ownedBytes = bytes.slice()
+    for (const [index, blockId] of bytes.entries()) {
+      if (KNOWN_BLOCK_ID_TABLE[blockId] !== BLOCK_ID_ENABLED) {
+        throw new RangeError(`Block state contains unknown block id ${blockId} at index ${index}`)
+      }
     }
-    return new BlockState(bytes)
+    return new BlockState(ownedBytes)
   }
 
   private constructor(bytes: Uint8Array) {
-    this.#bytes = bytes.slice()
+    this.#bytes = bytes
+    this.#view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
     // Prevent runtime callers from shadowing the derived length getter.
     Object.freeze(this)
   }
@@ -66,7 +65,7 @@ export class BlockState {
   /** Read a known block id at a checked linear index. */
   get(index: number): BlockId {
     assertIndex(index, this.length)
-    return this.#bytes[index]! as BlockId
+    return BlockId(this.#view.getUint8(index))
   }
 
   /** Replace a block id after checking both the index and registry membership. */
@@ -82,7 +81,7 @@ export class BlockState {
   }
 
   /** Copy the state into a caller-owned destination without an element scan. */
-  copyTo(target: Uint8Array, offset = MIN_INDEX): void {
+  copyTo(target: Uint8Array, offset: number = MIN_INDEX): void {
     assertCopyRange(target.length, this.length, offset)
     target.set(this.#bytes, offset)
   }

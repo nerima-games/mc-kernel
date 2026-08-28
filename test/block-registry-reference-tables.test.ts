@@ -21,6 +21,7 @@ import { Effect } from 'effect'
 import {
   BLOCK_PROPERTY_DEFAULTS,
   COLLISION_SHAPES,
+  UNBREAKABLE_HARDNESS,
 } from '../src/domain/block-properties'
 import {
   BLOCK_IDS,
@@ -381,7 +382,7 @@ describe('the reference tables this roster transcribes', () => {
         ['obsidian', number('90')],
         ['purpur_block', number('1.5')],
         ['end_stone_bricks', number('45')],
-        ['end_gateway', number('0')],
+        ['end_gateway', UNBREAKABLE_HARDNESS],
       ] as const
       for (const [type, expectedHardness] of hardnessExpectations) {
         expect(propertyOfBlockId(blockIdOf(type), 'hardness')).toBe(expectedHardness)
@@ -405,12 +406,12 @@ describe('the reference tables this roster transcribes', () => {
       )
       // ...while its sibling in the SAME reference file is on the 0-100 scale,
       // Which is what makes this the reference's inconsistency and not kernel's.
-      // `end_gateway` is -1 in the reference. Kept as 0, which is behaviourally
-      // Identical under `computeBreakTicks` (`hardness <= 0` -> 0 ticks) and is
-      // Inside the range this column claims. A negative would have travelled to
-      // Consumers as a number smaller than "instant".
+      // `end_gateway` is -1 in the reference. Preserve it as the explicit
+      // unbreakable sentinel; `computeBreakTicks` distinguishes it from zero,
+      // which means instant break. Values below the sentinel are invalid.
       for (const id of BLOCK_IDS) {
-        expect(propertyOfBlockId(id, 'hardness')).toBeGreaterThanOrEqual(number('0'))
+        const hardness = propertyOfBlockId(id, 'hardness')
+        expect(hardness === UNBREAKABLE_HARDNESS || hardness >= 0).toBe(true)
       }
     })),
   )

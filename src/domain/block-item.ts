@@ -65,13 +65,19 @@ import { ITEM_TYPES, type ItemType } from './item-type.js'
  * This is what mx-gameplay's placement rule takes, and what mx-ui's hotbar
  * needs in order to decide whether a slot can render a block preview.
  */
-const SPECIAL_BLOCK_BY_ITEM = {
+const SPECIAL_BLOCK_BY_ITEM: { readonly redstone_dust: 'redstone_wire' } = {
   redstone_dust: 'redstone_wire',
-} as const satisfies Partial<Record<ItemType, BlockType>>
+}
 
-const SPECIAL_ITEM_BY_BLOCK = {
+const SPECIAL_ITEM_BY_BLOCK: { readonly redstone_wire: 'redstone_dust' } = {
   redstone_wire: 'redstone_dust',
-} as const satisfies Partial<Record<BlockType, ItemType>>
+}
+
+const isSpecialItem = (item: ItemType): item is keyof typeof SPECIAL_BLOCK_BY_ITEM =>
+  item === 'redstone_dust'
+
+const isSpecialBlock = (block: BlockType): block is keyof typeof SPECIAL_ITEM_BY_BLOCK =>
+  block === 'redstone_wire'
 
 export type PlaceableItemType = (ItemType & BlockType) | keyof typeof SPECIAL_BLOCK_BY_ITEM
 
@@ -79,10 +85,10 @@ const BLOCK_NAMES: ReadonlySet<string> = new Set<string>(BLOCK_TYPES)
 const ITEM_NAMES: ReadonlySet<string> = new Set<string>(ITEM_TYPES)
 
 const specialBlockOfItem = (item: ItemType): BlockType | undefined =>
-  SPECIAL_BLOCK_BY_ITEM[item as keyof typeof SPECIAL_BLOCK_BY_ITEM]
+  isSpecialItem(item) ? SPECIAL_BLOCK_BY_ITEM[item] : undefined
 
 const specialItemOfBlock = (block: BlockType): PlaceableItemType | undefined =>
-  SPECIAL_ITEM_BY_BLOCK[block as keyof typeof SPECIAL_ITEM_BY_BLOCK]
+  isSpecialBlock(block) ? SPECIAL_ITEM_BY_BLOCK[block] : undefined
 
 /** Does this item name a block that can be placed? */
 export const isPlaceableItem = (item: ItemType): item is PlaceableItemType =>
@@ -145,5 +151,9 @@ export const UNITEMISED_BLOCK_TYPES: ReadonlyArray<BlockType> = BLOCK_TYPES.filt
  * ItemType)` overload — that signature would invite `blockOfItem('stick')`, and
  * answering it would mean either a partial result nobody checks or a lie.
  */
-export const blockOfPlaceableItem = (item: PlaceableItemType): BlockType =>
-  specialBlockOfItem(item) ?? (item as BlockType)
+export const blockOfPlaceableItem = (item: PlaceableItemType): BlockType => {
+  if (isSpecialItem(item)) {
+    return SPECIAL_BLOCK_BY_ITEM[item]
+  }
+  return item
+}

@@ -1,8 +1,8 @@
 /** Registry entries 71-85; the numeric order is the wire-level BlockId order. */
 import { BlockId } from './block-registry-types.js'
 import type { BlockRegistryEntry } from './block-registry-types.js'
-import { DEFAULT_BLOCK_DROP } from './block-harvest.js'
-import { NEEDS_ANY_SUPPORT } from './block-support.js'
+import { DEFAULT_BLOCK_DROP } from './block-harvest-data.js'
+import { NEEDS_ANY_SUPPORT } from './block-support-data.js'
 import { DROPS_NOTHING, NEEDS_FARMLAND, NEEDS_SOUL_SAND } from './block-registry-rules.js'
 
 export const BLOCK_REGISTRY_CROPS_AND_REDSTONE: ReadonlyArray<BlockRegistryEntry> = [

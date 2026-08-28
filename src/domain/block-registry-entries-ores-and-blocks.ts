@@ -2,7 +2,7 @@
 import { BlockId } from './block-registry-types.js'
 import type { BlockRegistryEntry } from './block-registry-types.js'
 import { StackCount } from './quantities.js'
-import { DEFAULT_BLOCK_DROP } from './block-harvest.js'
+import { DEFAULT_BLOCK_DROP } from './block-harvest-data.js'
 import { NEEDS_WOODEN_PICKAXE, NEEDS_STONE_PICKAXE, NEEDS_IRON_PICKAXE } from './block-registry-rules.js'
 
 export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> = [
@@ -13,7 +13,8 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
   // Fourteen rows in seven stone/deepslate pairs, and the group that finally
   // makes four separate capabilities carry different information at once.
   //
-  //   `harvestTool.minTier`  the reference's four-stage union ladder. Coal is
+  //   `harvestTool.minTier`  the reference's four-stage union ladder, extended
+  //     by the kernel with Java Edition's netherite tier. Coal is
   //     wooden; iron and lapis are stone; gold, redstone, diamond and emerald
   //     are iron. Deepslate variants sit at the SAME tier as their stone twins —
   //     the ladder pairs them explicitly — so deepslate is harder (60 vs 50) but

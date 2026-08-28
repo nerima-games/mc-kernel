@@ -116,6 +116,29 @@ describe('resolveBlock', () => {
       expect(resolved.properties).toStrictEqual(blockPropertiesOf(glowstone))
     })),
   )
+
+  it('rejects a block type that only satisfies the compile-time type', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(() => Reflect.apply(resolveBlock, undefined, [{ type: 'not-a-block' }])).toThrow(
+        'BlockDefinition.type must be a registered BlockType',
+      )
+    })),
+  )
+
+  it('rejects malformed definition envelopes before resolving either half', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(() => Reflect.apply(resolveBlock, undefined, [null])).toThrow('block definition must be an object')
+      expect(() => Reflect.apply(resolveBlock, undefined, [{ type: 'stone', futureField: true }])).toThrow(
+        'unknown block definition field futureField',
+      )
+      expect(() => Reflect.apply(blockCapabilitiesOf, undefined, [{ type: 'stone', capabilities: [] }])).toThrow(
+        'BlockDefinition.capabilities must be an object',
+      )
+      expect(() => Reflect.apply(blockPropertiesOf, undefined, [{ type: 'stone', properties: null }])).toThrow(
+        'BlockDefinition.properties must be an object',
+      )
+    })),
+  )
 })
 
 describe('the implemented / downstream capability ledger', () => {
@@ -133,10 +156,6 @@ describe('the implemented / downstream capability ledger', () => {
 
   it('the audit table has 28 rows, of which 27 are implemented and 1 is downstream-owned', () =>
     Effect.runPromise(Effect.sync(() => {
-      // Historical design audit §7 prose says "26"; its §3 table has 28
-      // Rows. The table is what is implemented against, and the discrepancy is
-      // Recorded rather than quietly resolved.
-      //
       // 24/4 until `supportRule` landed as `properties.supportRule`, then
       // `tillable` and `footstepMaterial` landed as additive properties.
       // (`domain/block-support.ts`). The property count moved and the

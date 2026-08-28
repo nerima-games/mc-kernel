@@ -20,6 +20,9 @@ const EXPECTED_TOOL_BREAK_SPEED: ReadonlyArray<readonly [ItemType, number]> = [
   ['iron_axe', 6],
   ['iron_pickaxe', 6],
   ['iron_shovel', 6],
+  ['netherite_axe', 9],
+  ['netherite_pickaxe', 9],
+  ['netherite_shovel', 9],
   ['stone_axe', 4],
   ['stone_pickaxe', 4],
   ['stone_shovel', 4],
@@ -38,10 +41,12 @@ describe('block break speed', () => {
     })),
   )
 
-  it('returns zero ticks for non-positive hardness', () =>
+  it('distinguishes unbreakable and instantly breakable hardness', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(computeBreakTicks({ correctForDrops: false, hardness: 0, miningSpeed: DEFAULT_MINING_SPEED })).toBe(0)
-      expect(computeBreakTicks({ correctForDrops: false, hardness: -1, miningSpeed: DEFAULT_MINING_SPEED })).toBe(0)
+      expect(
+        computeBreakTicks({ correctForDrops: false, hardness: -1, miningSpeed: DEFAULT_MINING_SPEED }),
+      ).toBe(Number.POSITIVE_INFINITY)
     })),
   )
 
@@ -89,13 +94,24 @@ describe('block break speed', () => {
     })),
   )
 
-  it('rejects invalid resolved speed inputs', () =>
+  it('treats zero resolved speed as unbreakable and rejects negative speed', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => computeBreakTicks({ correctForDrops: true, hardness: 8, miningSpeed: 0 })).toThrow(
-        'miningSpeed must be greater than zero',
+      expect(() => Reflect.apply(computeBreakTicks, undefined, [null])).toThrow('break ticks input must be an object')
+      expect(computeBreakTicks({ correctForDrops: false, hardness: 8, miningSpeed: 0 })).toBe(Number.POSITIVE_INFINITY)
+      expect(() => computeBreakTicks({ correctForDrops: true, hardness: 8, miningSpeed: -1 })).toThrow(
+        'miningSpeed must be non-negative',
+      )
+      expect(() => computeBreakTicks({ correctForDrops: true, hardness: 8, miningSpeed: 1, playerBreakSpeed: 0 })).toThrow(
+        'playerBreakSpeed must be greater than zero',
+      )
+      expect(() => computeBreakTicks({ correctForDrops: true, hardness: -2, miningSpeed: 1 })).toThrow(
+        'hardness must be -1 or greater',
       )
       expect(() => computeBreakTicks({ correctForDrops: true, hardness: 8, miningSpeed: 1, efficiencyLevel: -1 })).toThrow(
         'efficiencyLevel must be a non-negative integer',
+      )
+      expect(() => Reflect.apply(computeBreakTicks, undefined, [{ correctForDrops: 'yes', hardness: 8, miningSpeed: 1 }])).toThrow(
+        'correctForDrops must be boolean',
       )
       expect(() => computeBreakTicks({ correctForDrops: true, hardness: Number.NaN, miningSpeed: 1 })).toThrow(
         'hardness must be finite',
