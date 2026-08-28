@@ -1,14 +1,19 @@
 import { canonicalEnchantments } from './anvil-normalization.js'
 import { ANVIL_REPAIR_BONUS_RATIO, ANVIL_TOO_EXPENSIVE_LEVEL } from './anvil-constants.js'
-import { conflicts, rejection, type AnvilPlanFailure, type CanonicalAnvilStateRight } from './anvil-validation.js'
+import {
+  conflicts,
+  rejection,
+  type AnvilPlanFailure,
+  type CanonicalAnvilStateRight,
+  type CompiledAnvilEnchantmentRule,
+  type CompiledAnvilRuleSet,
+} from './anvil-validation.js'
 import { StackCount } from './quantities.js'
 import type {
   AnvilDurability,
   AnvilEnchantment,
   AnvilEnchantmentId,
-  AnvilEnchantmentRule,
   AnvilPlan,
-  AnvilRuleSet,
   CanonicalAnvilItemPayload,
 } from './anvil.js'
 
@@ -79,12 +84,10 @@ const hasRepairMaterialState = (payload: CanonicalAnvilItemPayload): boolean =>
 const repairWithMaterial = (
   left: CanonicalAnvilItemPayload,
   right: CanonicalAnvilStateRight,
-  rules: AnvilRuleSet,
+  rules: CompiledAnvilRuleSet,
   transformation: TransformationState,
 ): TransformationResult | undefined => {
-  const repairRule = (rules.repairMaterials ?? []).find(
-    (candidate) => candidate.target === left.item && candidate.material === right.payload.item,
-  )
+  const repairRule = rules.repairMaterials.get(left.item)?.get(right.payload.item)
   if (repairRule === undefined || transformation.durability === null) return undefined
   if (hasRepairMaterialState(right.payload)) {
     return {
@@ -116,7 +119,7 @@ const repairWithMaterial = (
 export const repairOf = (
   left: CanonicalAnvilItemPayload,
   right: CanonicalAnvilStateRight,
-  rules: AnvilRuleSet,
+  rules: CompiledAnvilRuleSet,
   transformation: TransformationState,
 ): TransformationResult | undefined =>
   repairWithSameItem(left, right, transformation) ?? repairWithMaterial(left, right, rules, transformation)
@@ -147,11 +150,11 @@ const enchantmentsWith = (
 const mergeOneEnchantment = (
   left: CanonicalAnvilItemPayload,
   source: AnvilEnchantment,
-  definitions: ReadonlyMap<AnvilEnchantmentId, AnvilEnchantmentRule>,
+  definitions: ReadonlyMap<AnvilEnchantmentId, CompiledAnvilEnchantmentRule>,
   transformation: TransformationState,
 ): TransformationResult => {
   const definition = definitions.get(source.id)
-  if (definition === undefined || (left.item !== 'enchanted_book' && !definition.applicableItems.includes(left.item))) {
+  if (definition === undefined || (left.item !== 'enchanted_book' && !definition.applicableItems.has(left.item))) {
     return {
       failure: rejection('invalid-enchantment', '$.state.right.payload.enchantments', 'does not apply to the output item'),
     }
@@ -172,7 +175,7 @@ const mergeOneEnchantment = (
       enchantments: enchantmentsWith(transformation.enchantments, existing, source, mergedLevel),
       operationCost: safeAdd(
         transformation.operationCost,
-        mergedLevel * (definition.costPerLevel ?? 1),
+        mergedLevel * definition.costPerLevel,
       ),
       materialCost: StackCount(Math.max(transformation.materialCost, 1)),
       rightContributed: true,
@@ -183,7 +186,7 @@ const mergeOneEnchantment = (
 export const mergeEnchantments = (
   left: CanonicalAnvilItemPayload,
   right: CanonicalAnvilStateRight,
-  definitions: ReadonlyMap<AnvilEnchantmentId, AnvilEnchantmentRule>,
+  definitions: ReadonlyMap<AnvilEnchantmentId, CompiledAnvilEnchantmentRule>,
   transformation: TransformationState,
 ): TransformationResult | undefined => {
   if (right.payload.item !== 'enchanted_book' && right.payload.item !== left.item) return undefined

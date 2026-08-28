@@ -2,6 +2,7 @@
 import { Brand } from 'effect'
 import { BlockState, blockState } from './block-state.js'
 import { CHUNK_SIZE_XZ, type ChunkCoord, chunkCoord } from './coordinates.js'
+import { chunkCoordFromAxes } from './coordinate-primitives.js'
 
 export const CHUNK_CODEC_VERSION = 1
 export const CHUNK_HEADER_BYTES = 24
@@ -14,10 +15,29 @@ const MIN_INT32 = -0x80000000
 /** Vertical block count of a chunk column. Integer in [1, MAX_CHUNK_HEIGHT]. */
 export type ChunkHeight = number & Brand.Brand<'ChunkHeight'>
 export type ChunkBlocks = BlockState & Brand.Brand<'ChunkBlocks'>
-export type EncodedChunk = Uint8Array & Brand.Brand<'EncodedChunk'>
+const brandChunkBlocks = Brand.nominal<ChunkBlocks>()
+type ReadonlyByteArray = Omit<
+  Uint8Array,
+  | 'buffer'
+  | 'byteLength'
+  | 'byteOffset'
+  | 'copyWithin'
+  | 'fill'
+  | 'reverse'
+  | 'set'
+  | 'sort'
+  | 'subarray'
+> & {
+  readonly [index: number]: number
+}
+export type EncodedChunk = ReadonlyByteArray & Brand.Brand<'EncodedChunk'>
+const brandEncodedChunk = Brand.nominal<EncodedChunk>()
+
+type EncodedChunkInput = Uint8Array | EncodedChunk
+type RecordValue = Readonly<Record<string, unknown>>
 
 type ValidatedEncodedChunk = {
-  readonly encoded: EncodedChunk
+  readonly encoded: Uint8Array
   readonly height: ChunkHeight
   readonly view: DataView
 }
@@ -44,13 +64,22 @@ export type Chunk = {
 
 export const chunkBlockCount = (height: ChunkHeight): number => CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * height
 
-const assertCoord = (value: number, name: 'cx' | 'cz'): void => {
-  if (!Number.isInteger(value) || value < MIN_INT32 || value > MAX_INT32) {
+const isRecord = (value: unknown): value is RecordValue =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const assertCoord = (value: unknown, name: 'cx' | 'cz'): number => {
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < MIN_INT32 ||
+    value > MAX_INT32
+  ) {
     throw new RangeError(`Chunk ${name} must fit a signed 32-bit integer, received ${value}`)
   }
+  return value
 }
 
-const assertBlocks = (blocks: BlockState, height: ChunkHeight): void => {
+const assertBlocks = (blocks: unknown, height: ChunkHeight): BlockState => {
   if (!(blocks instanceof BlockState)) {
     throw new TypeError('Chunk blocks must be a BlockState')
   }
@@ -58,17 +87,22 @@ const assertBlocks = (blocks: BlockState, height: ChunkHeight): void => {
   if (blocks.length !== expected) {
     throw new RangeError(`Chunk block data length must be ${expected}, received ${blocks.length}`)
   }
+  return blocks
 }
 
 export const ChunkBlocks = (height: number, blocks: Uint8Array): ChunkBlocks => {
   const validatedHeight = ChunkHeight(height)
-  if (blocks.length !== chunkBlockCount(validatedHeight)) {
+  const expected = chunkBlockCount(validatedHeight)
+  if (blocks.length !== expected) {
     throw new RangeError(
-      `Chunk block data length must be ${chunkBlockCount(validatedHeight)}, received ${blocks.length}`,
+      `Chunk block data length must be ${expected}, received ${blocks.length}`,
     )
   }
-  return blockState(blocks) as ChunkBlocks
+  return brandChunkBlocks(blockState(blocks))
 }
+
+const chunkBlocksFromValidatedHeight = (blocks: Uint8Array): ChunkBlocks =>
+  brandChunkBlocks(blockState(blocks))
 
 const validateEncodedChunk = (
   encoded: Uint8Array,
@@ -76,7 +110,12 @@ const validateEncodedChunk = (
   if (encoded.length < CHUNK_HEADER_BYTES) {
     throw new RangeError(`Chunk data is shorter than the ${CHUNK_HEADER_BYTES}-byte header`)
   }
-  if (MAGIC.some((byte, index) => encoded[index] !== byte)) {
+  if (
+    encoded[0] !== MAGIC[0] ||
+    encoded[1] !== MAGIC[1] ||
+    encoded[2] !== MAGIC[2] ||
+    encoded[3] !== MAGIC[3]
+  ) {
     throw new Error('Invalid chunk magic')
   }
 
@@ -103,18 +142,56 @@ const validateEncodedChunk = (
     )
   }
 
-  return { encoded: encoded as EncodedChunk, height, view }
+  return { encoded, height, view }
 }
 
-export const EncodedChunk = (encoded: Uint8Array): EncodedChunk => {
-  return validateEncodedChunk(encoded).encoded
+const mutableBytesOf = (encoded: EncodedChunkInput): Uint8Array =>
+  encoded instanceof Uint8Array ? encoded : encoded.slice()
+
+export const EncodedChunk = (encoded: EncodedChunkInput): EncodedChunk => {
+  return brandEncodedChunk(validateEncodedChunk(mutableBytesOf(encoded)).encoded.slice())
 }
 
 const validatedChunk = (coord: ChunkCoord, height: ChunkHeight, blocks: ChunkBlocks): Chunk => ({
   blocks,
-  coord: chunkCoord(coord.cx, coord.cz),
+  coord,
   height,
 })
+
+type EncodableChunk = {
+  readonly coord: {
+    readonly cx: number
+    readonly cz: number
+  }
+  readonly height: ChunkHeight
+  readonly blocks: BlockState
+}
+
+const validateChunkForEncoding = (value: unknown): EncodableChunk => {
+  if (!isRecord(value)) {
+    throw new TypeError('Chunk must be an object')
+  }
+
+  const coord = value['coord']
+  if (!isRecord(coord)) {
+    throw new TypeError('Chunk coordinate must be an object')
+  }
+
+  const rawHeight = value['height']
+  if (typeof rawHeight !== 'number') {
+    throw new TypeError(`Chunk height must be a number, received ${rawHeight}`)
+  }
+
+  const height = ChunkHeight(rawHeight)
+  return {
+    blocks: assertBlocks(value['blocks'], height),
+    coord: {
+      cx: assertCoord(coord['cx'], 'cx'),
+      cz: assertCoord(coord['cz'], 'cz'),
+    },
+    height,
+  }
+}
 
 /** Construct a validated chunk without retaining the caller's mutable buffer. */
 export const chunk = (coord: ChunkCoord, height: number, blocks: Uint8Array): Chunk => {
@@ -122,35 +199,33 @@ export const chunk = (coord: ChunkCoord, height: number, blocks: Uint8Array): Ch
   assertCoord(coord.cz, 'cz')
   const validatedHeight = ChunkHeight(height)
   const validatedBlocks = ChunkBlocks(validatedHeight, blocks)
-  return validatedChunk(coord, validatedHeight, validatedBlocks)
+  return validatedChunk(chunkCoordFromAxes(coord.cx, coord.cz), validatedHeight, validatedBlocks)
 }
 
 /** Encode a chunk into the versioned little-endian kernel wire format. */
-export const encodeChunk = (value: Chunk): EncodedChunk => {
-  assertCoord(value.coord.cx, 'cx')
-  assertCoord(value.coord.cz, 'cz')
-  const height = ChunkHeight(value.height)
-  assertBlocks(value.blocks, height)
+export function encodeChunk(value: Chunk): EncodedChunk
+export function encodeChunk(value: Chunk): EncodedChunk {
+  const { blocks, coord, height } = validateChunkForEncoding(value)
 
-  const encoded = new Uint8Array(CHUNK_HEADER_BYTES + value.blocks.length)
+  const encoded = new Uint8Array(CHUNK_HEADER_BYTES + blocks.length)
   encoded.set(MAGIC, 0)
   const view = new DataView(encoded.buffer)
   view.setUint16(4, CHUNK_CODEC_VERSION, true)
   view.setUint16(6, CHUNK_SIZE_XZ, true)
   view.setUint16(8, CHUNK_SIZE_XZ, true)
   view.setUint16(10, height, true)
-  view.setInt32(12, value.coord.cx, true)
-  view.setInt32(16, value.coord.cz, true)
-  view.setUint32(20, value.blocks.length, true)
-  value.blocks.copyTo(encoded, CHUNK_HEADER_BYTES)
+  view.setInt32(12, coord.cx, true)
+  view.setInt32(16, coord.cz, true)
+  view.setUint32(20, blocks.length, true)
+  blocks.copyTo(encoded, CHUNK_HEADER_BYTES)
   // Every wire field was written from validated inputs; avoid revalidating this fresh buffer.
-  return encoded as EncodedChunk
+  return brandEncodedChunk(encoded)
 }
 
 /** Decode and validate a chunk. Trailing bytes and unknown registry ids are corruption. */
-export const decodeChunk = (encoded: Uint8Array): Chunk => {
-  const { encoded: validated, height, view } = validateEncodedChunk(encoded)
-  const blocks = ChunkBlocks(height, validated.subarray(CHUNK_HEADER_BYTES))
+export const decodeChunk = (encoded: EncodedChunkInput): Chunk => {
+  const { encoded: validated, height, view } = validateEncodedChunk(mutableBytesOf(encoded))
+  const blocks = chunkBlocksFromValidatedHeight(validated.subarray(CHUNK_HEADER_BYTES))
 
   return validatedChunk(chunkCoord(view.getInt32(12, true), view.getInt32(16, true)), height, blocks)
 }

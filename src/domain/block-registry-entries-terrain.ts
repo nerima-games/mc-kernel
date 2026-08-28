@@ -2,7 +2,7 @@
 import { BlockId } from './block-registry-types.js'
 import type { BlockRegistryEntry } from './block-registry-types.js'
 import { StackCount } from './quantities.js'
-import { DEFAULT_BLOCK_DROP } from './block-harvest.js'
+import { DEFAULT_BLOCK_DROP } from './block-harvest-data.js'
 import { DROPS_NOTHING, NEEDS_WOODEN_PICKAXE, NEEDS_DIAMOND_PICKAXE, FASTER_WITH_SHOVEL } from './block-registry-rules.js'
 
 export const BLOCK_REGISTRY_TERRAIN: ReadonlyArray<BlockRegistryEntry> = [

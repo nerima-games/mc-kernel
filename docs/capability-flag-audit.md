@@ -29,36 +29,43 @@ plan.md §3.1 は能力フラグとして `passable` / `fallsWhenUnsupported` / 
 
 ## 3. サマリ
 
-| capability | 型 | 答える問い | 出現数 | plan.md |
-|---|---|---|---|---|
-| `passable` | boolean | プレイヤー/Mob がすり抜けるか | 47 | ✅ |
-| `collisionShape` | enum `full\|slab\|cactus\|pressurePlate\|none` | 当たり判定の形状 | 4 | ❌ |
-| `fluid` | enum `none\|water\|lava` | 流体源か、どちらの流体か | 43 | ⚠️(boolean 想定) |
-| `fallsWhenUnsupported` | boolean | 下が空くと落下するか | 4 | ✅ |
-| `replaceable` | boolean | 設置/落下/流体が上書きできるか | 12 | ❌ |
-| `flammable` | boolean | 延焼するか | 3 | ✅ |
-| `fireSource` | boolean | 永続的な火を支えるか | 2 | ❌ |
-| `opacity` | enum `opaque\|transparentSolid\|fluid` | メッシュ分岐・光減衰 | 54 | ⚠️(boolean 想定) |
-| `lightEmission` | number 0–15 | 発光レベル | 10 | ⚠️(boolean 想定) |
-| `pistonImmovable` | boolean | ピストンが押せるか | 5 | ✅ (§3.12) |
-| `hardness` | number 0–100 | 破壊時間の基数 | 6 | ❌ |
-| `friction` | number 0–1 | 地表の摩擦 | 6 | ❌ |
-| `harvestTool` | struct `{category, minTier}` | ドロップに必要な道具 | 33 | ❌ |
-| `supportRule` | enum/struct | 直下に何を要求するか | 13 | ❌ |
-| `canSupportAttachments` | boolean | 付属ブロックの足場になるか | 13 | ❌ |
-| `brokenByWaterFlow` | boolean | 水流で破壊されるか | 7 | ❌ |
-| `suffocates` | boolean | 頭が埋まると窒息するか | 6 | ❌ |
-| `contactDamage` | number | 接触ダメージ量 | 8 | ❌ |
-| `climbable` | boolean | よじ登れるか | 5 | ❌ |
-| `railKind` | enum `none\|normal\|powered` | 乗り物の走行面か | 15 | ❌ |
-| `movementDrag` | number | 移動を減速させるか | 5 | ❌ |
-| `renderKind` | enum `cube\|cross\|cactus\|rail\|lilyPad\|fluid` | メッシュ生成の形状 | 15 | ❌ |
-| `validSpawnSurface` | boolean | スポーン/村の地面として使えるか | 4 | ❌ |
-| `drops` | struct `{item, silkTouchItem?, count, requiresSilkTouch, fortune}` | 破壊時のドロップ | 25 | ✅ (`block-harvest.ts`) |
-| `xpOnBreak` | number | 破壊時の経験値 | 6 | ❌ |
-| `footstepMaterial` | enum `grass\|wood\|stone\|default` | 足音の素材 | 9 | ✅ (`block-properties.ts`) |
-| `tillable` | boolean | クワで耕せるか | 2 | ✅ |
-| `textureTiles` | struct `{top, bottom, side}` | アトラスのどのタイルか | 2 | ❌ |
+監査対象 28 能力のうち 27 は kernel の定義テーブルで解決し、`textureTiles` だけは renderer の
+asset 境界として下流所有に固定した。ここでの「解決」は、各能力の意味と所有境界を確定したことを
+示し、上位 gameplay が必要とする全ての Minecraft ルールを kernel が代行することを意味しない。
+
+| capability | 型 | kernel 境界 | 根拠 |
+|---|---|---|---|
+| `passable` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
+| `collisionShape` | enum `full\|slab\|cactus\|pressurePlate\|none` | kernel 実装 | `src/domain/block-properties.ts` |
+| `fluid` | enum `none\|water\|lava` | kernel 実装 | `src/domain/block-properties.ts` |
+| `fallsWhenUnsupported` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
+| `replaceable` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
+| `flammable` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
+| `fireSource` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
+| `opacity` | enum `opaque\|transparentSolid\|fluid` | kernel 実装 | `src/domain/block-properties.ts` |
+| `lightEmission` | number 0–15 | kernel 実装 | `src/domain/block-properties.ts` |
+| `pistonImmovable` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
+| `hardness` | number (`-1` sentinel or non-negative reference scale) | kernel 実装 | `src/domain/block-properties.ts`, `src/domain/block-break-speed.ts` |
+| `friction` | number 0–1 | kernel 実装 | `src/domain/block-properties.ts` |
+| `harvestTool` | struct `{category, minTier}` | kernel 実装 | `src/domain/block-properties.ts` |
+| `supportRule` | enum/struct | kernel 実装 | `src/domain/block-properties.ts` |
+| `canSupportAttachments` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
+| `brokenByWaterFlow` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
+| `suffocates` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
+| `contactDamage` | number | kernel 実装 | `src/domain/block-properties.ts` |
+| `climbable` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
+| `railKind` | enum `none\|normal\|powered` | kernel 実装 | `src/domain/block-properties.ts` |
+| `movementDrag` | number | kernel 実装 | `src/domain/block-properties.ts` |
+| `renderKind` | enum `cube\|cross\|cactus\|rail\|lilyPad\|fluid` | kernel 実装 | `src/domain/block-properties.ts` |
+| `validSpawnSurface` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
+| `drops` | struct `{item, silkTouchItem?, count, requiresSilkTouch, fortune}` | kernel 実装 | `src/domain/block-harvest.ts` |
+| `xpOnBreak` | number | kernel 実装 | `src/domain/block-properties.ts` |
+| `footstepMaterial` | enum `grass\|wood\|stone\|default` | kernel 実装 | `src/domain/block-properties.ts` |
+| `tillable` | boolean | kernel 実装 | `src/domain/block-capabilities.ts` |
+| `textureTiles` | struct `{top, bottom, side}` | 下流所有 | `src/domain/block-definition.ts` の `DOWNSTREAM_CAPABILITIES` |
+
+`src/domain/block-properties.ts` はこの公開パスを保つ薄いバレルであり、プロパティの値 vocabulary・型・既定値は
+`src/domain/block-property-data.ts`、外部入力の検証と解決は `src/domain/block-property-validation.ts` が所有する。
 
 ## 4. 各能力の根拠と提案セマンティクス
 
@@ -95,16 +102,19 @@ plan.md §3.1 は能力フラグとして `passable` / `fallsWhenUnsupported` / 
 
 `packages/block/domain/block.ts:9-15` の `BlockPropertiesSchema` は既に `hardness: number` と `friction: number` を持つ。`packages/block/domain/break-speed.ts:6-10` が hardness テーブルを構築し、:29-43 `computeBreakTicks` が道具倍率と合成。`packages/game/domain/block-collision-predicates.ts:61-63,152-161` が friction を物理へ流す。
 
-道具要件は `packages/world/domain/harvestable-blocks.ts:14-67` の 4 段階 HashSet(wooden→stone→iron→diamond)+ `packages/world/domain/block-utils.ts:22-27` `canHarvestBlock` / :32-63 `isEffectiveTool`(axe/shovel カテゴリ)。ゲートは `packages/world/application/block-service-break-helpers.ts:65,158`。**ティア(ドロップ可否)とカテゴリ(速度ボーナス)は別軸**なので struct 化する。
+kernel 側では `src/domain/tool-component.ts` が Java Edition 公式 `minecraft:tool` の単一ブロック・ブロック配列・`#` 付きタグを含む順序付き rule（`speed` / `correct_for_drops` / `default_mining_speed` / `damage_per_block` / `can_destroy_blocks_in_creative`）を検証・解決する。タグ membership は `ToolResolutionContext.blockTags` の `ReadonlyMap<ToolBlockTag, ReadonlySet<BlockType>>` として明示的に渡し、実行時には Map-like / Set-like の反復可能な値も受理する。`src/domain/block-break-speed-data.ts` と `src/domain/block-break-speed.ts` は道具倍率表、registry からの hardness lookup、純粋な tick 計算を所有する。`src/domain/bedrock-mining.ts` は Bedrock Edition の `minecraft:digger` と `minecraft:destructible_by_mining` を Java 契約とは別の純粋なデータ解決として所有し、ブロック状態・タグ query・アイテム別速度を検証する。`src/domain/equipment.ts` は装備スナップショット内の耐久値検証と純粋な減少・破損遷移を所有する。タグ membership の構築、プレイヤー操作の進行状態、効率適用以外のゲームプレイ統合、採掘イベントへの耐久適用、ドロップ生成、サーバー権威判定は上位 gameplay の責務である。
+`src/domain/enchantment-data.ts` / `src/domain/enchantment.ts` は現在の `ItemType` roster に対応する 32 種の vanilla enchantment rule と Anvil の計画・適用を、`src/domain/enchantment-table-data.ts` / `src/domain/enchantment-table.ts` は enchantability、level cost、3 offers の純粋な計算を所有する。乱数 seed、経験値・ラピスラズリ・インベントリ消費、付与結果の保存、GUI、サーバー権威は上位 gameplay の責務であり、全バージョン・全エディションの完全な registry はこの監査の対象外である。
 
-ドロップは `packages/world/application/block-service.config.ts:151-187` `INVENTORY_DROP_OVERRIDES`(24 エントリ)、:192-197 `blockDropsBaseItem`(ICE のみ false)、:204-215 `BLOCK_BASE_DROP_COUNT`、:270-276 `FORTUNE_ORE_BLOCKS`、`packages/app/.../interaction-break-handler.shared.ts:9` `NEVER_DROPPED_BLOCK_TYPES`。経験値は `packages/block/domain/blocks.config.ores.ts:8-45`。
+道具要件は `packages/world/domain/harvestable-blocks.ts:14-67` の 4 段階 HashSet(wooden→stone→iron→diamond) を基礎に、kernel が Java Edition の netherite tier を拡張している。`packages/world/domain/block-utils.ts:22-27` `canHarvestBlock` / :32-63 `isEffectiveTool`(axe/shovel カテゴリ)。ゲートは `packages/world/application/block-service-break-helpers.ts:65,158`。**ティア(ドロップ可否)とカテゴリ(速度ボーナス)は別軸**なので struct 化する。
+
+ドロップは `packages/world/application/block-service.config.ts:151-187` `INVENTORY_DROP_OVERRIDES`(29 エントリ)、:192-197 `blockDropsBaseItem`(ICE のみ false)、:204-215 `BLOCK_BASE_DROP_COUNT`、:270-276 `FORTUNE_ORE_BLOCKS`、`packages/app/.../interaction-break-handler.shared.ts:9` `NEVER_DROPPED_BLOCK_TYPES`。経験値は `packages/block/domain/blocks.config.ores.ts:8-45`。
 
 - 既定値: `hardness=8`(`blocks.config.terrain.ts:9-14` の `defaultBlockProperties` に一致) / `friction=0.6`(同、`DEFAULT_BLOCK_FRICTION` と一致) / `harvestTool=undefined`(素手可) / `drops={item: 自身, count: 1}` / `xpOnBreak=0`。
 
 #### 4.5.1 解決済み(2026-07-27): `hardness` 列の尺度混在
 
-**この節は「未解決」として記録され、参照実装の語彙を 120 に対応し、kernel の 123 行を
-完成させる作業で決着した。**
+**この節は当初「未解決」として記録されていたが、参照実装の語彙を 120 に対応し、kernel の
+123 行を完成させる作業で決着した。**
 決着させざるを得なかった理由は、84 行を新しく足す側にあった —— 一方の尺度で 84 行、
 もう一方で 13 行という表は、列の値どうしを一切比較できない表である。
 
@@ -148,12 +158,12 @@ plan.md §3.1 は能力フラグとして `passable` / `fallsWhenUnsupported` / 
 プレイヤーが立っているブロックの値を読むため、全て挙動の差である。
 石の 0.8 / 砂の 0.5 / 雪の 0.3 / 氷の 0.98 が全て 0.6 になっていた。
 
-両列とも `test/block-registry.test.ts` がブロックごとに参照実装の値で固定した。
+両列とも `test/block-registry-reference-tables.test.ts` がブロックごとに参照実装の値で固定した。
 
-#### 4.5.2 未解決(2026-07-27 記録): 参照実装の `hardness` 列自体に尺度が 2 つある
+#### 4.5.2 既知の尺度境界(2026-07-27 記録): 参照実装の `hardness` 列自体に尺度が 2 つある
 
 §4.5.1 を解決した際に、**同じ欠陥が参照実装の側にもあることが分かった**。
-kernel はこれを転記しており、**変換していない**。
+kernel はこの境界を明示したうえで転記しており、**尺度変換はしていない**。
 
 `packages/block/domain/blocks.config.end.ts` は 13 エントリを 1 つのヘルパー経由で作るが、
 そのうち **12 個は vanilla の float**、1 個だけが 0-100 尺度である:
@@ -175,28 +185,27 @@ kernel はこれを転記しており、**変換していない**。
 **目に見える帰結**: purpur は土（8）より柔らかく読める。これは出典がそう言っている。
 
 **したがって `hardness` 列はグループ境界を越えて比較してはならない。**
-0-100 尺度に乗っているのは The End 以外の 103 行であり、The End の 17 行は別尺度である。
+0-100 尺度に乗っているのは The End 以外の 103 行であり、The End の 17 行は別尺度または不破壊センチネルである。
 
 ##### 範囲外の 2 値
 
-`domain/block-properties.ts` は `hardness` を「0..100」と述べているが、
+旧監査文書は `domain/block-properties.ts` の `hardness` を「0..100」と述べていたが、
+現行の `src/domain/block-property-data.ts` は「`-1` または非負の参照尺度」としており、
 参照実装には両側にはみ出す値がある。扱いを分けた:
 
 - **`END_PORTAL_FRAME` / `_FILLED` = 9000**: そのまま転記した。
   参照実装の「破壊不能」の綴りで、`bedrock` の 100 より上。
   **列の単調性（大きいほど硬い）を保つので、範囲外でも比較可能**である。
-- **`END_GATEWAY` = -1**: **転記しなかった。0 にした。**
-  負の hardness は「とても硬い」ではない。`computeBreakTicks`（`break-speed.ts:29-31`）は
-  `hardness <= 0` で 0 を返すので、**-1 は「即座に壊れる」を意味し、意図の正反対**である。
-  これは参照実装のバグである。0 は同関数の下で -1 と挙動が同一かつ範囲内なので、
-  バグを継承せずに挙動を転記できる。なお `end_gateway` は `endBlockDrops` が
-  `AIR` に写すのでいずれにせよ何も落とさない。
+- **`END_GATEWAY` = -1**: **不破壊センチネルとして転記した。**
+  `computeBreakTicks`（`src/domain/block-break-speed.ts`）は `-1` を `Infinity`、
+  `0` を即時破壊として分ける。`-1` 未満の値は境界で拒否する。なお `end_gateway` は
+  `endBlockDrops` が `AIR` に写すのでいずれにせよ何も落とさない。
 
 #### 4.5.3 `INVENTORY_DROP_OVERRIDES` は 24 エントリではなく 29 エントリ
 
 §4.5 の本文は「`block-service.config.ts:151-187` `INVENTORY_DROP_OVERRIDES`(24 エントリ)」と
 書いているが、**現在の参照実装では 29 ある**（機械的に数えた）。
-24 はおそらく監査時点の値で、その後 5 行増えたものである。
+24 は監査初期時点の値で、その後 5 行増えたものである。
 
 実害は無かった（kernel は個々の行を名指しで転記しており、総数に依存していない）が、
 **この文書がこの組織で 7 例目の「間違った測り方で正当化された数字」になるところだった**
@@ -250,7 +259,18 @@ kernel はこれを転記しており、**変換していない**。
 `packages/rendering/infrastructure/meshing/plant-mesh.ts:18-28` `CROSS_PLANT_IDS`(9 種)、:30-34 CACTUS/RAIL/POWERED_RAIL/LILY_PAD、:43 `plantMeshLookup`、:45 `isPlantMeshBlockId`(`greedy-meshing-algorithms.ts:40,79,118,157,196,235` の 6 方向ループが参照)。テクスチャは `packages/rendering/infrastructure/textures/block-texture-map.config.ts:18` `TILE_MAP`(storage index 順に約 119 行、面ごとのタイル番号)→ `block-texture-map.ts:12` `getTileIndex`。足音は `packages/app/.../physics-stage-survival/footstep-sound-data.ts:3,5,15` の 3 素材リスト → `footstep-sound-logic.ts:13,16`。スポーン面は `packages/app/application/main/spawn-selection-search.ts:41-60` と `packages/entity/application/village/village-placement-surface.ts:6-12`(ほぼ同内容の重複)。
 
 - 既定値: `renderKind='cube'` / `footstepMaterial='default'` / `validSpawnSurface=true` / `textureTiles` は必須(既定なし)。
-- `TILE_MAP` は **配列の位置で BlockType に対応**しており、定義テーブルと順序が二重管理になっている。kernel では `BlockDefinition` の一フィールドに統合すべき典型例。
+- `TILE_MAP` は **配列の位置で BlockType に対応**しており、参照実装では定義テーブルと順序が二重管理になっている。
+  この監査結果は renderer の asset 境界を示すものであり、kernel へ storage-index の数値列を複製する根拠にはしない。
+
+#### 4.8.1 kernel での境界
+
+現在の renderer は `block-texture-map` で面ごとの tile 割当を renderer 所有のアトラスへ対応づけ、
+画像 asset とアトラスのレイアウトも renderer が所有する。kernel の registry 順序と renderer の map 順序は
+同一ではなく、renderer 固有の asset 集合もあるため、参照実装の positional table を kernel の
+`BlockDefinition` に移すと第二の source of truth になる。
+
+したがって `textureTiles` は監査語彙には残すが、kernel の property ではなく
+`DOWNSTREAM_CAPABILITIES` に記録する renderer 所有の境界とする。kernel には placeholder や重複 table を置かない。
 
 ### 4.9 「非固体」概念の重複という重要な発見
 
@@ -377,7 +397,7 @@ kernel はこれを転記しており、**変換していない**。
 
 plan.md §3.1 / §3.12 に列挙されていないが、参照実装の挙動に**必須**のもの:
 
-1. `hardness` (number) — 採掘時間の基数。`break-speed.ts:6-43`
+1. `hardness` (number) — 採掘時間の基数。`src/domain/block-break-speed.ts`
 2. `friction` (number) — 地表摩擦。`block-collision-predicates.ts:61-63,152-161`
 3. `harvestTool` (struct) — ドロップ可否のティア + 速度カテゴリ。`harvestable-blocks.ts:14-67`, `block-utils.ts:22-63`
 4. `drops` (struct) — ドロップ品目/個数/シルクタッチ/幸運。`block-service.config.ts:151-276`
@@ -397,7 +417,7 @@ plan.md §3.1 / §3.12 に列挙されていないが、参照実装の挙動に
 18. `validSpawnSurface` (boolean) — `spawn-selection-search.ts:41-60`
 19. `footstepMaterial` (enum) — `footstep-sound-data.ts:3-23`
 20. `tillable` (boolean) — `block-service.config.ts:264-267`
-21. `textureTiles` (struct) — `block-texture-map.config.ts:18`(現状は index 順の別配列で二重管理)
+21. `textureTiles` (struct) — `block-texture-map.config.ts:18`（renderer 所有の index 順 asset table。kernel へ複製しない）
 
 さらに **plan.md にある 3 つは型が誤っている**:
 
@@ -422,7 +442,7 @@ plan.md §3.1 / §3.12 に列挙されていないが、参照実装の挙動に
 
 ## 7. kernel API への含意
 
-- **`BlockDefinition` は現行の `BlockPropertiesSchema`(`block.ts:9-15`、5 フィールド)では足りない。** 上記 26 能力を持つフラットな struct にする。
+- **`BlockDefinition` は現行の `BlockPropertiesSchema`(`block.ts:9-15`、5 フィールド)では足りない。** 上記 28 能力を持つフラットな struct にする。
 - **現行 `properties.solid` と `faces` は production で一度も読まれていない**(`rg '\.solid\b'` / `rg '\.faces\b'` が production でヒット 0)。空フィールドを移植せず、`passable` / `renderKind` に統合すること。
 - **既定値は「普通の不透明立方体」に倒す。** 全フラグに既定を持たせ、定義テーブルは差分のみ記述する(`blocks.config.terrain.ts:9-24` の `defaultBlockProperties` / `defaultBlockFaces` の方式を踏襲)。これにより新フラグ追加が **加算的**になり、下流の再ビルドを伴う破壊的変更を避けられる。
 - **ホットパスは index 配列に事前展開する。** 参照実装は `light.ts:49-60`(`Uint8Array`)、`plant-mesh.ts:36-43`(`makeLookup`)、`block-collision-predicates.ts:61-63` で既にこの形をとっている。kernel は「宣言的テーブル」と「index 展開済みルックアップ」の両方を公開し、消費側に `Set`/`HashSet` を組ませない。

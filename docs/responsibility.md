@@ -8,20 +8,45 @@
 
 具体的には以下を所有する。
 
-| 領域 | 内容 |
-| --- | --- |
-| 識別子 | `WorldId` / `StageId` などのブランデッド型 |
-| 数量 | `StackCount` / `DeltaTimeSecs` / `MonotonicTimeSecs` / `EpochMillis` |
-| 座標系 | `Position`（連続）/ `BlockPosition`（格子）/ `ChunkCoord` / `LocalBlockCoord`、およびそれらの変換 |
-| 幾何 | `AABB` と交差判定 |
-| ブロック語彙 | `BlockType` リテラル型と網羅性チェック |
-| アイテム語彙 | `ItemType` リテラル型と網羅性チェック |
-| ブロック↔アイテム橋渡し | `PlaceableItemType`（= `ItemType ∩ BlockType`、監査 §6-8）と `drops` の解決 |
-| ブロック能力モデル | 能力フラグ表（boolean）+ プロパティ表（型付き値）+ `BlockDefinition` |
-| 横断 Port | `ClockPort` |
-| 横断スナップショット | `CameraPoseSnapshot` |
-| Anvil 変換 | 決定的な変換計画・適用、および versioned state snapshot codec |
-| モジュール契約 | `GameModule` / `StageRegistration` / `FrameServices` |
+| 領域                    | 内容                                                                                                                                                                                                                                                                                               |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 識別子                  | `WorldId` / `StageId` などのブランデッド型                                                                                                                                                                                                                                                         |
+| データパック registry   | namespaced resource location、format/priority、対象 format の layer 選択、registry path mapping。JSON の読み出し・pack filesystem の所有は上位層                                                                                                                                                   |
+| JSON と component patch | 有限・非循環な `JsonValue`、namespaced な item component patch、Java crafting recipe JSON の厳格な decoder。JSON の読み出し、pack filesystem、未対応の公式 schema は上位層                                                                                                                         |
+| 数量                    | `StackCount` / `DeltaTimeSecs` / `MonotonicTimeSecs` / `CooldownSeconds` / `EpochMillis`                                                                                                                                                                                                           |
+| 座標系                  | `Position`（連続）/ `BlockPosition`（格子）/ `ChunkCoord` / `LocalBlockCoord`、およびそれらの変換                                                                                                                                                                                                  |
+| 幾何                    | `AABB` と交差判定                                                                                                                                                                                                                                                                                  |
+| 飛翔体                  | `Arrow` の弾道状態遷移、重力・drag・寿命、ブロック/Entity の AABB 連続区間衝突。Entity とワールド更新の所有は上位                                                                                                                                                                                  |
+| 爆発と着火済み TNT      | 有限上限付きの決定論的な爆発計画、抵抗・遮蔽・Entity exposure、TNT fuse の値遷移。ブロック変更・ダメージ適用・Entity 更新は上位                                                                                                                                                                    |
+| Wither                  | summon pattern matching、spawn charge、3D tracking/regen、armour/damage rule、skull descriptor、death/drop descriptor。Entity spawn/despawn、projectile application、world mutation は上位                                                                                                         |
+| ブロック語彙            | `BlockType` リテラル型と網羅性チェック                                                                                                                                                                                                                                                             |
+| アイテム語彙            | `ItemType` リテラル型と網羅性チェック                                                                                                                                                                                                                                                              |
+| ブロック↔アイテム橋渡し | `PlaceableItemType`（`ItemType ∩ BlockType` + 名前付き設置例外、監査 §6-8）と `drops` の解決                                                                                                                                                                                                       |
+| ItemStack とレシピ      | `ItemStack` / `Slot` の数量境界、shaped / shapeless recipe の値型・tag・priority 照合と同梱データ                                                                                                                                                                                                  |
+| ホットバー              | プレイヤーインベントリ末尾 9 スロットの選択範囲、循環、インベントリスロット投影。選択状態・入力・UI は上位                                                                                                                                                                                         |
+| 装備と耐久              | 6 スロット装備スナップショット、装備可能スロット・最大耐久カタログ、装備検証・交換・純粋な耐久減少／破損遷移                                                                                                                                                                                       |
+| 食料                    | food component の栄養値・最終 saturation・食用条件、consumable component の使用動作・食後効果、`use_remainder` / `use_cooldown` と、ItemStack／Vitals に対する純粋な摂取結果・単調時計による使用間隔判定                                                                                           |
+| 調理                    | furnace / blast furnace / smoker のレシピ・燃料・出力容量と、`FurnaceState` の純粋な時間遷移                                                                                                                                                                                                       |
+| 醸造                    | 3 本の bottle slot、ingredient、blaze powder fuel charge、20 秒の `BrewingState` 遷移                                                                                                                                                                                                              |
+| ディメンション          | Overworld・Nether・End の閉じた語彙と外部入力用 runtime guard                                                                                                                                                                                                                                      |
+| 作物                    | 作物定義、土壌・ディメンション適合、成熟、経過時間・骨粉による成長、成熟時の保証ドロップ。ランダム tick・ワールド更新・収穫イベントは上位                                                                                                                                                          |
+| 石切台                  | `StonecuttingRecipe` の exact/tag ingredient、priority、station 境界、入力消費と出力の純粋な照合・適用                                                                                                                                                                                             |
+| 鍛造                    | netherite transform / trim recipe の型・tag・入力検証と `SmithingOperation` の純粋な変換                                                                                                                                                                                                           |
+| 砥石                    | 単体・二入力のエンチャント除去、呪い保持、エンチャント本の本変換、耐久回復・スタック制約・経験値コストの純粋な計画                                                                                                                                                                                 |
+| エンチャント            | 現在の `ItemType` roster に対応する 32 種の Anvil rule・コスト・適用対象・競合、およびエンチャントテーブルの level cost / offer 候補。既存 Anvil primitive を直接利用し、経験値・インベントリ・GUI・乱数 seed は上位                                                                               |
+| 昼夜                    | `TimeState` の検証・正規化、時刻の進行・設定、昼夜・月齢・day length の純粋な計算。時計・状態サービス・ゲームループは上位                                                                                                                                                                          |
+| 天候                    | `Weather` / `WeatherState` の語彙・検証・正規化。天候の状態管理・タイマー・遷移サービスは上位                                                                                                                                                                                                      |
+| 設定値                  | `Settings` の描画距離・視野角・品質・音量・感度・key binding の値、既定値、検証・正規化・純粋な更新。画面、renderer preset、入力適用、保存は上位                                                                                                                                                   |
+| 統計・実績              | `Statistics` の counter / unlocked 値、記録・解放・検証・正規化。イベントの意味付け、achievement registry、プレイヤー状態、画面、保存は上位                                                                                                                                                        |
+| プレイヤー vitals       | `Vitals` の体力・飢餓・飽和・経験値・リスポーンの純粋な計算、外部入力の検証・正規化、`VitalsView` への変換。プレイヤー状態サービス、ダメージ源、タイマー、保存は上位                                                                                                                               |
+| カメラ姿勢              | `PlayerPose` の pitch clamp・look 更新・足元位置更新・目の高さ snapshot・forward vector。姿勢の所有、入力デバイス、描画反映は上位                                                                                                                                                                  |
+| フレーム時間            | `clampFrameDelta` / `frameDeltaBetween` / `frameDeltaLossSecs` / `frameDeltaLossBetween` の純粋な経過時間計算                                                                                                                                                                                      |
+| ブロック能力モデル      | 能力フラグ表（boolean）+ プロパティ表（型付き値）+ `BlockDefinition`                                                                                                                                                                                                                               |
+| 掘削ルールと採掘時間    | Java Edition の公式 `minecraft:tool` の順序付き rule 解決と、ブロック硬度・道具速度から tick 数を求める純粋関数。Bedrock の `minecraft:digger` / `minecraft:destructible_by_mining` は descriptor、tag query、状態値、item-specific speed の解決までを所有（操作状態・権威判定・ドロップ等は上位） |
+| 横断 Port               | `ClockPort`                                                                                                                                                                                                                                                                                        |
+| 横断スナップショット    | `CameraPoseSnapshot`                                                                                                                                                                                                                                                                               |
+| Anvil 変換              | 決定的な変換計画・適用、および versioned state snapshot codec                                                                                                                                                                                                                                      |
+| モジュール契約          | `GameModule` / `StageRegistration` / `FrameServices`                                                                                                                                                                                                                                               |
 
 ## 2. 内部構成
 
@@ -31,10 +56,10 @@ struct は別ファイルに隔離する、公開境界と派生インデック�
 現在のファイル数は `find src/domain -name '*.ts' | wc -l` で確認できる（この一覧の行数と一致するはず）。
 
 ```
-index.ts                      # 公開バレル。他 15 リポジトリはここを import する
+index.ts                      # 公開バレル。他の利用リポジトリはここを import する
 domain/
   identifiers.ts              # WorldId / StageId
-  quantities.ts               # StackCount / DeltaTimeSecs / MonotonicTimeSecs / EpochMillis
+  quantities.ts               # StackCount / DeltaTimeSecs / MonotonicTimeSecs / CooldownSeconds / EpochMillis
 
   # 座標系: primitive・key・変換・幾何・近傍を責務ごとに分離（architecture.md §6）
   coordinates.ts               # 公開語彙（Position / BlockPosition / ChunkCoord / LocalBlockCoord / AABB）
@@ -43,21 +68,92 @@ domain/
   coordinate-conversions.ts    # チャンクローカル座標などの変換
   coordinate-geometry.ts       # AABB と交差判定
   coordinate-neighbours.ts     # 隣接ブロックの走査順
+  projectile-collision.ts      # 線分と AABB の区間衝突
+  projectile.ts                 # Arrow の純粋な弾道状態遷移
+  explosion.ts                  # 爆発の純粋な計画と Entity 効果
+  primed-tnt.ts                # 着火済み TNT の fuse と爆発計画
+  wither-data.ts                # Wither の定数と値型
+  wither.ts                     # Wither の summon/lifecycle/damage/skull 純粋則
 
   # ブロック/アイテム語彙: データと型・guard を分離（architecture.md §6）
   block-type-data.ts           # BLOCK_TYPES の閉じたデータテーブル
   block-type.ts                # BlockType 型と外部入力用 runtime guard
   item-type-data.ts            # ITEM_TYPES の閉じたデータテーブル
   item-type.ts                 # ItemType 型と外部入力用 runtime guard
-  block-item.ts                # ブロック↔アイテムの橋（監査 §6-8 の交差を導出で解く）
+  block-item.ts                # ブロック↔アイテムの橋（交差を導出し、設置名の例外を明示）
   item-registry.ts             # ItemId の数値 wire ID とスタック上限
+  block-break-speed-data.ts    # 公式の道具倍率テーブル
+  block-break-speed.ts         # 硬度 lookup と採掘時間計算
+  tool-component.ts            # minecraft:tool の順序付き rule 解決
+  bedrock-mining-data.ts       # Bedrock 採掘 component の型・既定値・format version
+  bedrock-mining-descriptors.ts # Bedrock の ID/state/tag descriptor と query 解決
+  bedrock-mining.ts            # Bedrock digger/destructible_by_mining の検証・解決
+  json-value.ts                # 有限・非循環 JSON 値の guard、decoder、構造的比較
+  item-component-patch.ts      # namespaced item component patch の immutable decoder と比較
+  item-stack.ts                # ItemStack / Slot と数量・スタック上限の検証
+  equipment-data.ts            # 装備スロット、装備可能アイテム、耐久値のデータ表
+  equipment.ts                 # 装備スナップショット、スロット操作、耐久検証・遷移
+  recipe-data.ts               # shaped / shapeless recipe の値型と境界検証
+  recipe-matching.ts           # station・tag・pattern・priority の純粋な照合
+  recipe-json.ts                # Java crafting recipe JSON の strict decoder と data-pack path
+  recipe-vanilla-data.ts       # kernel が同梱する crafting recipe のデータ表
+  recipe.ts                    # recipe の公開バレル
+  food-data.ts                 # food component と食後効果のデータ表
+  food.ts                      # 食用条件・摂取・食器変換の純粋なロジック
+  consumable-data.ts           # consumable / use_remainder component の型・既定値・構築 options
+  consumable.ts                # food 定義の投影と動的な consume component/effect の純粋な構築
+  use-cooldown-data.ts         # use_cooldown component の型
+  use-cooldown.ts              # cooldown の構築と単調時計による期限判定
+  smelting-data.ts             # 調理 station・レシピ・燃料のデータ表
+  smelting.ts                  # FurnaceState と調理時間の純粋な状態遷移
+  brewing-data.ts              # 醸造定数と potion recipe のデータ表
+  brewing.ts                   # BrewingState と醸造時間の純粋な状態遷移
+  dimension.ts                 # Overworld・Nether・End の語彙と runtime guard
+  crop-data.ts                 # 作物・土壌・成熟時間・保証ドロップのデータ表
+  crop.ts                      # 作付け判定・成熟・成長・骨粉・収穫結果の純粋なロジック
+  smithing-data.ts             # 鍛造 station・transform・trim recipe のデータ表
+  smithing.ts                  # SmithingOperation と鍛造結果の純粋な変換
+  grindstone-data.ts           # 砥石の呪い・耐久ボーナス・経験値コストのデータ表
+  grindstone.ts                # 砥石の単体除去・二入力修理・結果計画
+  stonecutting-data.ts         # 石切台 recipe のデータ表と境界検証
+  stonecutting-indexes.ts      # 石切台 exact/tag ingredient の候補索引
+  stonecutting.ts              # 石切台 recipe の照合・入力消費・出力生成
+  enchantment-data.ts          # vanilla enchantment ID・Anvil cost・適用対象・競合のデータ表
+  enchantment.ts               # Anvil primitive と vanilla enchantment rule の接続
+  enchantment-table-data.ts    # エンチャントテーブルの重み・enchantability・定数のデータ表
+  enchantment-table.ts         # level cost と 3 offers の純粋な生成
+  time-of-day.ts               # TimeState と昼夜・月齢・時刻設定の純粋な計算
+  weather.ts                   # WeatherState の語彙・検証・正規化
+  settings-data.ts             # Settings の値型・既定値・境界のデータ表
+  settings.ts                  # Settings の検証・正規化・key binding 操作
+  statistics-data.ts           # Statistics の値型と空の既定値
+  statistics.ts                # counter / achievement の記録・解放・正規化
+  vitals-model.ts              # Vitals / VitalsView と公式の vitals 定数
+  vitals-number.ts             # vitals の数値境界・正規化補助
+  vitals-health.ts             # ダメージ・回復・死亡判定
+  vitals-hunger.ts             # 飢餓・飽和・食料 tick の純粋な遷移
+  vitals-experience.ts         # 経験値曲線・レベル・進捗
+  vitals-lifecycle.ts          # リスポーンの状態遷移
+  vitals-validation.ts         # 外部入力の検証・正規化
+  vitals-view.ts               # UI 向け VitalsView 変換
+  vitals.ts                    # vitals の公開バレル
+  camera-pose.ts               # PlayerPose の look・pitch clamp・eye position・forward vector
+  data-pack-registry.ts        # namespaced layer、format/priority、対象 format の優先順位解決、registry path mapping
+  sulfur-cube-registry.ts      # Sulfur Cube archetype の decoder と data-pack layer 選択 facade
 
   # ブロック能力モデル
-  block-capabilities.ts        # boolean 能力フラグ表
-  block-properties.ts          # 型付きプロパティ表
-  block-support.ts             # supportRule の値と判定（監査 §4.6）
-  block-harvest.ts             # harvestTool / drops（struct 2 種を隔離）+ ドロップ解決
-  block-definition.ts          # BlockDefinition と解決関数、実装/保留の台帳
+  block-capability-data.ts     # boolean 能力フラグの型・既定値・表
+  block-capabilities.ts        # 外部入力の検証・既定値解決。data を公開バレル
+  block-properties.ts          # 公開バレル
+  block-property-data.ts       # 値 vocabulary、型、既定値
+  block-property-validation.ts # 外部入力検証と既定値解決
+  block-support-data.ts        # supportRule の値 vocabulary と既定値
+  block-support.ts             # supportRule の判定（公開境界、監査 §4.6）
+  block-harvest-data.ts        # harvestTool / drops の型と既定値
+  block-harvest.ts             # harvestTool / drops の解決（公開境界）
+  block-interaction-data.ts    # 破壊・設置判定の型と不破壊判定閾値
+  block-interaction.ts         # 破壊・置換可能性・設置・アイテム配置橋の純粋な判定
+  block-definition.ts          # BlockDefinition と解決関数、実装/下流境界の台帳
 
   # ブロックレジストリ: 宣言的データと派生インデックスを分離（architecture.md §6）
   block-registry.ts            # 公開境界。数値 id ↔ BlockType と accessor
@@ -91,6 +187,7 @@ domain/
   camera.ts                    # CameraPoseSnapshot
   clock.ts                     # ClockPort
   frame.ts                     # GameModule / StageRegistration / FrameServices
+  frame-timing.ts              # frame delta の clamp と loss の純粋計算
 scripts/
   verify-package.mjs              # pack 済み成果物の exports / install / runtime ゲート
 ```
@@ -109,7 +206,10 @@ kernel が持ってよい「サービスらしきもの」は **Port（インタ
 `ClockPort` は Context.Tag と型と、テスト用の固定実装（`fixedClock` / `FixedClockLayer`）を持つが、
 実クロックを読むアダプタは持たない。実装は利用側が注入する。
 
-### 3-2. ~~ブロックテーブルを持たない~~ → **持つことになった**（公開境界は `domain/block-registry.ts`）
+プレイヤーの状態サービス、ダメージ源、食料タイマー、経験値の付与権限、保存形式は上位層が所有する。
+kernel の vitals API は値を受け取って次の値を返す純粋な計算と、外部入力の境界検証だけを提供する。
+
+### 3-2. ブロックテーブルを持つ（公開境界は `domain/block-registry.ts`）
 
 この節はもともとこう書かれていた:
 
@@ -129,11 +229,11 @@ kernel が持ってよい「サービスらしきもの」は **Port（インタ
 チャンクバッファの 1 バイトから能力を引きたいリポジトリは 3 つあり、
 依存グラフ上で互いに届かない:
 
-| リポジトリ | 何を引くか | 依存 |
-| --- | --- | --- |
-| `mc-meshing` | 数値 id ごとの `opacity`（`transparentBlockIds`、plan.md §3.3） | kernel のみ |
-| `mc-physics` | 数値 id ごとの `passable` / `collisionShape`（plan.md §3.4 は id 名指しを禁じている） | kernel のみ |
-| `mx-gameplay` | 数値 id ごとの `fallsWhenUnsupported`（plan.md §3.11） | sim / worldgen / audio |
+| リポジトリ    | kernel から何を引くか                                                                 | kernel 以外の責務依存  |
+| ------------- | ------------------------------------------------------------------------------------- | ---------------------- |
+| `mc-meshing`  | 数値 id ごとの `opacity`（`transparentBlockIds`、plan.md §3.3）                       | なし                   |
+| `mc-physics`  | 数値 id ごとの `passable` / `collisionShape`（plan.md §3.4 は id 名指しを禁じている） | なし                   |
+| `mx-gameplay` | 数値 id ごとの `fallsWhenUnsupported`（plan.md §3.11）                                | sim / worldgen / audio |
 
 plan.md §2.3-5 により**依存は推移しない**ので、「下流のどこか」は選択肢ではない。
 3 者から見えるリポジトリは mc-kernel しかなく、他に置けば表は 3 つになる。
@@ -159,13 +259,8 @@ plan.md §2.3-5 により**依存は推移しない**ので、「下流のどこ
 
 #### ~~依然として持たないもの~~ → `drops` / `harvestTool` は**埋まった**
 
-この節はもともとこう書かれていた:
-
-> `drops` / `harvestTool` の実データ、`textureTiles`、`supportRule`。
-> どれもアイテム名簿かテクスチャアトラスと同時に決まるもので、
-> `PENDING_CAPABILITIES`（`domain/block-definition.ts`）に理由つきで記録されている。
-
-**アイテム名簿が来た**（`domain/item-type.ts`）ので、前半 2 つの保留理由は消えた。
+この節で残っている下流境界は `textureTiles` だけである。`drops` / `harvestTool` は
+**アイテム名簿が来た**（`domain/item-type.ts`）ことで kernel に実装でき、
 `BLOCK_REGISTRY` の各行が自分のドロップと道具要件を宣言している。
 
 **なぜ別テーブルにしなかったか。** 監査 §3 は `drops` / `harvestTool` を
@@ -182,16 +277,20 @@ plan.md §2.3-5 により**依存は推移しない**ので、「下流のどこ
 `canBlockStaySupported(id, below)` が
 その消費口で、mx-gameplay がフォールバックで代用していた per-block 規則をこれで置き換えた。
 
-`textureTiles` は保留のまま（`PENDING_CAPABILITIES`）。テクスチャアトラスの完成が条件で、
-アイテム名簿でも block roster でも解けない —— 残っているのは監査 §4.8 の「二重管理」という形の問題である。
+`textureTiles` は kernel が担当する未定義 property ではなく renderer 所有の境界である。renderer の
+`block-texture-map` はアトラスのレイアウト、面ごとの tile 割当、画像 asset をまとめて扱い、
+kernel の数値 id ではなく renderer の名前 lookup を入口にする。kernel の registry 順序と
+renderer の map 順序は同一ではなく、renderer 固有の asset 集合もあるため、kernel に storage-index
+の数値列を追加すると第二の source of truth になる。この判断と所有者は
+`DOWNSTREAM_CAPABILITIES`（`domain/block-definition.ts`）に記録している。
 
 **`drops` が表現しないと決めたもの**（いずれも監査が置き場所を決めている）:
 
-| 事象 | 置き場所 | 理由 |
-| --- | --- | --- |
-| 乱数ドロップ（gravel → flint 10%、oak_leaves → sapling） | `mx-gameplay` | 監査 §6-9。kernel は純粋で RNG を持たない |
-| 幸運の倍率適用 | `mx-gameplay` | 同上。kernel は `affectedByFortune` を**運ぶ**だけ |
-| シルクタッチの**置換**（stone → stone、鉱石 → 鉱石） | **実装済み** | `BlockDropRule.silkTouchItem?: ItemType` を `domain/block-harvest.ts` で解決し、stone / grass_block / 14 種の鉱石を registry に登録。`requiresSilkTouch` の gate と置換を分離している。 |
+| 事象                                                     | 置き場所      | 理由                                                                                                                                                                                    |
+| -------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 乱数ドロップ（gravel → flint 10%、oak_leaves → sapling） | `mx-gameplay` | 監査 §6-9。kernel は純粋で RNG を持たない                                                                                                                                               |
+| 幸運の倍率適用                                           | `mx-gameplay` | 同上。kernel は `affectedByFortune` を**運ぶ**だけ                                                                                                                                      |
+| シルクタッチの**置換**（stone → stone、鉱石 → 鉱石）     | **実装済み**  | `BlockDropRule.silkTouchItem?: ItemType` を `domain/block-harvest.ts` で解決し、stone / grass_block / 14 種の鉱石を registry に登録。`requiresSilkTouch` の gate と置換を分離している。 |
 
 #### 3-2-1. シルクタッチ置換の実装記録
 
@@ -212,11 +311,11 @@ readonly silkTouchItem?: ItemType   // BlockDropRule に 1 メンバ
 
 ```ts
 type BlockDropRule = {
-    readonly item: ItemType | 'self';
-    readonly count: number;
-    readonly requiresSilkTouch: boolean;
-    readonly silkTouchItem?: ItemType;
-    readonly affectedByFortune: boolean;
+  readonly item: ItemType | "self";
+  readonly count: number;
+  readonly requiresSilkTouch: boolean;
+  readonly silkTouchItem?: ItemType;
+  readonly affectedByFortune: boolean;
 };
 ```
 
@@ -233,19 +332,22 @@ kernel に置けば順序変更のたびに全リポジトリが bump される�
 
 監査 §6 が「フラグに還元できない残余」として 10 項目挙げている。これらは kernel に置かない。
 
-| 残余 | 置き場所 | 理由 |
-| --- | --- | --- |
-| 右クリック UI ルーティング（CRAFTING_TABLE→作業台画面 等） | `mx-ui` | `interactable: boolean` に潰すと画面選択の情報が消える |
-| ドア状態遷移（`DOOR ⇄ DOOR_OPEN`） | `mx-gameplay` | ペア関係でありフラグではない |
+ただし、公式 Java `minecraft:tool` の単一ブロック・ブロック配列・`#` 付きタグを含む順序付き rule 解決、`ToolResolutionContext.blockTags` に渡された明示的な tag membership の解決、Bedrock `minecraft:digger` / `minecraft:destructible_by_mining` の descriptor・状態・tag query・item-specific speed の解決、およびブロック硬度・道具速度から tick 数を求める副作用のない計算は例外である。複数 consumer が同じ式を必要とする共有ドメインロジックとして `tool-component.ts`、`bedrock-mining-descriptors.ts`、`bedrock-mining.ts`、`block-break-speed.ts` に置く。装備スナップショット内の耐久検証と純粋な減少・破損遷移も `equipment.ts` に置く。tag membership の構築、プレイヤー操作の進行状態、採掘イベントへの耐久適用、ドロップ生成、サーバー権威判定は上位が所有する。
+
+| 残余                                                        | 置き場所      | 理由                                                         |
+| ----------------------------------------------------------- | ------------- | ------------------------------------------------------------ |
+| 右クリック UI ルーティング（CRAFTING_TABLE→作業台画面 等）  | `mx-ui`       | `interactable: boolean` に潰すと画面選択の情報が消える       |
+| ドア状態遷移（`DOOR ⇄ DOOR_OPEN`）                          | `mx-gameplay` | ペア関係でありフラグではない                                 |
 | 流体接触の生成規則（lava + water → OBSIDIAN / COBBLESTONE） | `mx-gameplay` | **2 セルの組み合わせ結果**であり単一ブロックの属性に落ちない |
-| ポータル枠の幾何検証 | `mc-worldgen` | 構造パターン照合 |
-| 道具 × ブロックの個別作用（エンダーアイ・火打石） | `mx-gameplay` | アイテム側のルール |
-| レッドストーン部品の後片付け集合 | `mx-redstone` | 当該モジュールのコンポーネント名簿 |
-| 作物のドロップ規則（熟度分岐 + 乱数） | `mx-gameplay` | `drops` では表現できない |
+| ポータル枠の幾何検証                                        | `mc-worldgen` | 構造パターン照合                                             |
+| 道具 × ブロックの個別作用（エンダーアイ・火打石）           | `mx-gameplay` | アイテム側のルール                                           |
+| レッドストーン部品の後片付け集合                            | `mx-redstone` | 当該モジュールのコンポーネント名簿                           |
+| 作物のドロップ規則（熟度分岐 + 乱数）                       | `mx-gameplay` | `drops` では表現できない                                     |
 
 将来これらが能力フラグへ流れ込まないよう、監査 §7 は「フラグではない拡張点」として
 `interactionId?: string` と `stateVariants?: { open?, lit?, filled? }` を明示的に分離しておくことを推奨している。
-**未実装**（`domain/block-definition.ts` には無い）。導入する際は能力フラグ表ではなく `BlockDefinition` の独立フィールドとして足すこと。
+kernel の能力フラグとしては定義しない（`domain/block-definition.ts` にも置かない）。導入する際は
+能力フラグ表ではなく `BlockDefinition` の独立フィールドとして足すこと。
 
 ### 3-5. 参照実装から**移植しない**と決めたもの
 

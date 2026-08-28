@@ -1,6 +1,5 @@
 import {
   ChunkKey as parseChunkKey,
-  type ChunkKey,
   chunkCoord,
   chunkCoordOfKey,
   chunkKeyOf,
@@ -56,7 +55,7 @@ describe('ChunkKey', () => {
   it('throws when a forged ChunkKey is malformed', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(() => parseChunkKey('0.5,0')).toThrow('Invalid ChunkKey: 0.5,0')
-      expect(() => chunkCoordOfKey('0.5,0' as ChunkKey)).toThrow('Invalid ChunkKey: 0.5,0')
+      expect(() => Reflect.apply(chunkCoordOfKey, undefined, ['0.5,0'])).toThrow('Invalid ChunkKey: 0.5,0')
     })),
   )
 })

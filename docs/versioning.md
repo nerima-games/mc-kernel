@@ -2,21 +2,18 @@
 
 ## 1. 現状
 
-- **バージョン: `0.3.0`。** 理由は `Chunk.blocks` の `ChunkBlocks` 化という破壊的変更。
+- **バージョン: `0.4.0`。** `Chunk.blocks` の `ChunkBlocks` 化を含む、Node.js からロード可能にする修正を公開した版である。
   `0.2.19` は changesets が一度 CHANGELOG に書き出したが、`package.json` の version として
   コミットされる前に `0.3.0` の変更へ合流し、独立した version にはならなかった
   （変更履歴は [CHANGELOG.md](../CHANGELOG.md) を参照）。
 - **最新の破壊的変更:** `Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks`。API の詳細は [public-api.md](./public-api.md) の「Chunk バイナリ形式」、変更履歴は [CHANGELOG.md](../CHANGELOG.md) の `0.3.0` を参照。
 - **配布用 build は実装済み。** `pnpm build` が `src/` から型付き ESM と declaration / source map を `dist/` に生成し、
   `package.json` の `main` / `types` / `exports` は `dist/` を指す。`files` も `dist/` と配布メタデータに限定している。
-- **GitHub Packages への公開は既に行われている。** `0.2.0` から `0.2.18` までの 19 バージョンが
-  `https://npm.pkg.github.com` に public visibility で公開済みである（`gh api
-  /orgs/nerima-games/packages/npm/mc-kernel/versions` で確認できる）。
-  **一方、現在の `package.json` が指す `0.3.0` はまだ公開されていない。** 原因は §3 で述べる
-  release ワークフローの version 検出方式にあり、`0.3.0` へのバージョン変更を検出できる push が
-  一度も発生していないためである。「GitHub Packages への公開自体」と「公開レジストリから取得した
-  tarball を install して runtime を確認する検証」は別の未達成事項であり、後者は 1 バージョンも
-  実施していない（§4）。
+- **GitHub Packages への公開は既に行われている。** `0.2.0` から `0.2.18` までの履歴上の版と
+  現在の `0.4.0` が `https://npm.pkg.github.com` に公開済みである（`publishConfig.access` は
+  `restricted`）。`0.3.0` は version 検出方式の穴により公開されなかった中間版である。
+  公開レジストリから取得した `0.4.0` tarball の install / import / runtime 検証は
+  [freeze-checklist.md](./freeze-checklist.md) に記録済みである（§4）。
 - 開発中は `mc-dev-meta` workspace（16 リポジトリを `repos/` に clone して 1 つの pnpm workspace として束ねる）による
   `workspace:*` 解決でモノレポ同等の DX を得る（plan.md §6 Step 0-2）。
 
@@ -73,7 +70,7 @@ kernel の場合その差が全リポジトリに波及する。
 
 **GitHub Packages**（`https://npm.pkg.github.com`、`access: restricted`）。
 `package.json` の `publishConfig` に設定済みで、**publish 自体は既に実行されている**
-（`0.2.0`〜`0.2.18` の 19 バージョン、§1 参照）。`0.3.0` が未公開なのは publish の仕組みが
+（`0.2.0`〜`0.2.18` と `0.4.0`、§1 参照）。`0.3.0` が未公開なのは publish の仕組みが
 動いていないからではなく、次節が説明する version 検出の穴によるものである。
 
 ```json
@@ -95,41 +92,36 @@ publish workflow の `setup-node` が GitHub Packages の registry を設定し�
 実装済みの配布準備:
 
 1. `pnpm build` が `src/` から JavaScript、declaration、source map を `dist/` に生成する
-2. `package.json` の root export と `domain/block-registry`、`domain/chunk` の subpath export が `dist/` を指す
+2. `package.json` の root export と、公開している各 `domain/*` subpath export が対応する `dist/` の JavaScript と型宣言を指す
 3. `files` が `dist`、`tsconfig.base.json`、`LICENSE`、`README.md` に限定される
-4. `prepublishOnly` が `pnpm verify` と `pnpm package:verify` を実行し、publish 前の型検査・lint・テスト・実 tarball 境界検証を必須にする
+4. `prepublishOnly` が `pnpm verify` と `pnpm package:verify` を実行し、publish 前の型検査・lint・テスト・カバレッジ・実 tarball 境界検証を必須にする
 
 構成済みのリリース導線:
 
 1. `RELEASE_STANDARD.md §3` に従う `.github/workflows/release.yaml`。`main` への push を受けて
    `detect` ジョブが package version の変更を確認し、変更したときだけ `publish` ジョブが
-   verify / coverage / package boundary 検証を経て GitHub Packages へ publish する。
-   publish の成否に関わらず `tag` ジョブが `v<version>` タグを push 済みコミットへ打つ
+   verify（coverage を含む）/ package boundary 検証を経て GitHub Packages へ publish する。
+   `publish` が成功した場合だけ `tag` ジョブが `v<version>` タグを publish 済みコミットへ打つ
    （19 バージョンが公開されている一方、タグは `v0.2.18` の 1 つしか無く、
    どのコミットがどの版かを辿れなかったための追加）。
-2. `pnpm package:verify` による、生成した tarball の `files` / `exports`、clean consumer の import、`fixedClock` runtime の検証
+2. `pnpm package:verify` による、生成した tarball の `files` / `exports`、clean consumer の runtime import・declaration compile、`fixedClock` runtime の検証
 
 **`detect` ジョブは `package.json` の version を `github.event.before` 時点のコミットと比較して判定する。**
-これには構造的な穴が 1 つある: 2026-08-10 にこのワークフローを追加した時点で、`package.json` は
-既に `0.3.0` だった（`0.2.18` からの一連のバンプ後）。したがって「version が変わった」という
-遷移をワークフローが一度も観測できず、以後 `main` へ何を push しても `0.3.0` は publish されない
-状態が続いている。次にバージョンを動かすコミット（次の changesets リリースサイクル）が
-main に着地すれば、その新しいバージョンは正しく検出されて publish される。**`0.3.0` 自体を
-publish するには、手動 publish か、workflow_dispatch のような別のトリガーが必要になる。**
+このワークフローを追加した時点で `package.json` は既に `0.3.0` だったため、`0.3.0` への遷移を
+検出できず、その版は公開されないまま履歴上スキップされた。以後の version bump は通常どおり
+検出・公開され、現在の `0.4.0` はその経路で公開された Node.js からロード可能な版である。
 
-実際に GitHub Packages へ publish された `0.2.0`〜`0.2.18` の 19 バージョンと、これから追随する
-バージョンとは別に、**公開レジストリから tarball を取得して install し、import / runtime を確認する
-作業は 1 バージョンも実行していない。** `pnpm package:verify` が検証するのはローカルで `pnpm pack`
-した tarball であり、実際に GitHub Packages から取得した tarball ではない。この差は
-[freeze-checklist.md](./freeze-checklist.md) の該当チェック項目が明示している。
+`pnpm package:verify` が検証するのはローカルで `pnpm pack` した tarball である。一方、公開レジストリ
+から取得した `0.4.0` tarball の install / import / runtime 検証は実施済みで、詳細を
+[freeze-checklist.md](./freeze-checklist.md) に記録している。
 
 **changesets 自体は導入済み。** `.changeset/config.json`（`access: restricted`、`baseBranch: main`、
 `@changesets/changelog-github`）と `@changesets/cli` の devDependency は
 org 標準（[RELEASE_STANDARD.md §1](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#1-changesets-導入)）に従う。
 バージョンは `package.json` の該当フィールドを直接参照する（drift しやすい生の数字はここに書かない）。
 バージョン bump と CHANGELOG 生成は changesets に一本化している。上記のとおり publish job 自体は
-稼働しており未実装ではない —— 残る欠落は「`0.3.0` を検出させる次の bump」と
-「公開レジストリから取得した tarball の install 検証」の 2 点である。
+稼働しており未実装ではない。`0.3.0` は履歴上のスキップとして扱い、現在の残課題は下流の実消費を
+踏まえた 1.0.0 昇格の maintainer 判断である。
 
 **開発時の扱い**: 通常の `pnpm typecheck` は source を直接検査し、release build は `pnpm build` として
 明示的に実行する。これにより開発中の型検査で `src/` が生成物に置き換わることはない。
@@ -177,8 +169,8 @@ const sand: BlockDefinition = { type: 'sand', capabilities: { fallsWhenUnsupport
 
 - `BlockCapabilityFlag` は `BLOCK_CAPABILITY_DEFAULTS` から**導出**されている。既定値を決めずにフラグを追加することが型レベルで不可能。
 - `BLOCK_PROPERTY_DEFAULTS: BlockProperties` の型注釈により、既定値のないプロパティはコンパイルエラー。
-- `resolveBlockCapabilities` は未知のキーを**拒否せず無視する**。これにより、
-  古い kernel にピン留めされたリポジトリが新しい kernel 向けに書かれたデータを読んでも壊れない。
+- `resolveBlockCapabilities` と `resolveBlockProperties` は未知のキーを**拒否する**。このリポジトリは
+  後方互換性を契約に含めず、スペルミスや未対応のデータを黙って受け入れない。
 
 ### 5-3. 消費側が守らないと保証が失われる 2 点
 
@@ -207,14 +199,14 @@ plan.md §3.1 が boolean と書いていた 3 つ（`emissive` / `transparent` 
 
 ### 5-5. struct 2 種は別ファイル + API ロック
 
-`harvestTool` と `drops` は struct であり最も揺れやすい。監査 §7 の指示どおり `domain/block-harvest.ts` に隔離してある。
+`harvestTool` と `drops` は struct であり最も揺れやすい。監査 §7 の指示どおり、公開境界を `domain/block-harvest.ts` に隔離し、型・既定値は `domain/block-harvest-data.ts` に分離してある。
 **このファイルを変更するときのルール**: 新メンバーは optional にするか、既定値を伴うこと。必須かつ既定値なしは禁止。
 
 ## 6. bump の判断基準
 
 > **`0.x` の間の読み替え（全 16 リポジトリ共通の方針）**
 >
-> 本リポジトリは `0.1.0` であり、下流が契約を実際に消費して確認するまで `0.x` から出ない。
+> 本リポジトリは現在 `0.4.0` であり、下流が契約を実際に消費して確認するまで `0.x` から出ない。
 > **semver では `0.x` の破壊的変更は major bump ではなく minor bump である**（`0.1.0` → `0.2.0`）。
 > したがって以下の MAJOR / MINOR / PATCH は **`1.0.0` 到達後の分類**であり、
 > `0.x` の間は次のように読み替える。

@@ -317,6 +317,45 @@ describe('capabilityOf', () => {
       expect(capabilityOf({ suffocates: false }, 'suffocates')).toBe(false)
     })),
   )
+
+  it('rejects forged non-boolean overrides', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const malformed = { passable: 'yes' }
+
+      expect(() => Reflect.apply(resolveBlockCapabilities, undefined, [malformed])).toThrow(
+        'block capability passable must be a boolean',
+      )
+      expect(() => Reflect.apply(capabilityOf, undefined, [malformed, 'passable'])).toThrow(
+        'block capability passable must be a boolean',
+      )
+    })),
+  )
+
+  it('rejects unknown override keys instead of silently accepting future data', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const malformed = { futureCapability: true }
+
+      expect(() => Reflect.apply(resolveBlockCapabilities, undefined, [malformed])).toThrow(
+        'unknown block capability futureCapability',
+      )
+      expect(() => Reflect.apply(capabilityOf, undefined, [malformed, 'passable'])).toThrow(
+        'unknown block capability futureCapability',
+      )
+    })),
+  )
+
+  it('rejects non-object override data at the public boundary', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const malformed = null
+
+      expect(() => Reflect.apply(resolveBlockCapabilities, undefined, [malformed])).toThrow(
+        'block capability overrides must be an object',
+      )
+      expect(() => Reflect.apply(capabilityOf, undefined, [malformed, 'passable'])).toThrow(
+        'block capability overrides must be an object',
+      )
+    })),
+  )
 })
 
 describe('the two mechanisms do not overlap', () => {
@@ -402,7 +441,9 @@ describe('audit §4.9, continued — the roster additions that make the argument
         suffocates: (id: number) => capabilityOfBlockId(id, 'suffocates'),
         validSpawnSurface: (id: number) => capabilityOfBlockId(id, 'validSpawnSurface'),
       } as const
-      const names = Object.keys(READINGS) as ReadonlyArray<keyof typeof READINGS>
+      const names = Object.keys(READINGS).filter(
+        (name): name is keyof typeof READINGS => name in READINGS,
+      )
 
       for (const left of names) {
         for (const right of names) {

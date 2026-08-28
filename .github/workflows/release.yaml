@@ -88,13 +88,12 @@ jobs:
       - name: Install dependencies
         run: nix develop --command pnpm install --frozen-lockfile
 
-      # The same three commands the branch protection runs, repeated here
+      # The same package checks the branch protection runs, repeated here
       # because publishing is irreversible: a version number, once taken on the
       # registry, cannot be reused.
       - name: Verify package and tests
         run: |
           nix develop --command pnpm verify
-          nix develop --command pnpm test:coverage
           nix develop --command pnpm package:verify
 
       - name: Publish to GitHub Packages

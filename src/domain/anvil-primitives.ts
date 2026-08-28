@@ -4,7 +4,7 @@ import type {
   AnvilEnchantmentId as AnvilEnchantmentIdType,
 } from './anvil.js'
 
-export const ANVIL_SNAPSHOT_VERSION = 1 as const
+export const ANVIL_SNAPSHOT_VERSION = 1
 export const ANVIL_MAX_CUSTOM_NAME_LENGTH = 50
 
 export const isNonNegativeSafeInteger = (value: unknown): value is number =>
@@ -33,7 +33,7 @@ export const AnvilEnchantmentId = (value: string): AnvilEnchantmentIdType => {
     throw new TypeError(`Invalid AnvilEnchantmentId: ${value}`)
   }
 
-  return value as AnvilEnchantmentIdType
+  return value
 }
 
 export const AnvilCustomName = (value: string): AnvilCustomNameType => {
@@ -41,5 +41,5 @@ export const AnvilCustomName = (value: string): AnvilCustomNameType => {
     throw new TypeError(`Invalid AnvilCustomName: ${value}`)
   }
 
-  return value as AnvilCustomNameType
+  return value
 }

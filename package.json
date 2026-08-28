@@ -2,7 +2,7 @@
   "name": "@nerima-games/mc-kernel",
   "version": "0.4.0",
   "type": "module",
-  "description": "Shared vocabulary for the nerima-games Minecraft-clone rebuild: branded types, coordinates, block capability flags, frame contracts, and the clock Port.",
+  "description": "Core Minecraft domain data and pure logic for blocks, items, recipes, food, cooking, brewing, stonecutting, smithing, grindstones, crops, dimensions, entities, fluids, redstone, portals, vehicles, Java and Bedrock mining, breaking, chunks, anvils, coordinates, projectiles, explosions, primed TNT, camera pose, time of day, weather, player vitals, frame timing, and frame contracts.",
   "homepage": "https://github.com/nerima-games/mc-kernel#readme",
   "repository": {
     "type": "git",
@@ -30,15 +30,405 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
+    "./domain/anvil": {
+      "types": "./dist/domain/anvil.d.ts",
+      "import": "./dist/domain/anvil.js",
+      "default": "./dist/domain/anvil.js"
+    },
+    "./domain/block-break-speed": {
+      "types": "./dist/domain/block-break-speed.d.ts",
+      "import": "./dist/domain/block-break-speed.js",
+      "default": "./dist/domain/block-break-speed.js"
+    },
+    "./domain/block-capabilities": {
+      "types": "./dist/domain/block-capabilities.d.ts",
+      "import": "./dist/domain/block-capabilities.js",
+      "default": "./dist/domain/block-capabilities.js"
+    },
+    "./domain/block-definition": {
+      "types": "./dist/domain/block-definition.d.ts",
+      "import": "./dist/domain/block-definition.js",
+      "default": "./dist/domain/block-definition.js"
+    },
+    "./domain/block-harvest": {
+      "types": "./dist/domain/block-harvest.d.ts",
+      "import": "./dist/domain/block-harvest.js",
+      "default": "./dist/domain/block-harvest.js"
+    },
+    "./domain/block-item": {
+      "types": "./dist/domain/block-item.d.ts",
+      "import": "./dist/domain/block-item.js",
+      "default": "./dist/domain/block-item.js"
+    },
+    "./domain/block-properties": {
+      "types": "./dist/domain/block-properties.d.ts",
+      "import": "./dist/domain/block-properties.js",
+      "default": "./dist/domain/block-properties.js"
+    },
+    "./domain/block-support": {
+      "types": "./dist/domain/block-support.d.ts",
+      "import": "./dist/domain/block-support.js",
+      "default": "./dist/domain/block-support.js"
+    },
+    "./domain/brewing": {
+      "types": "./dist/domain/brewing.d.ts",
+      "import": "./dist/domain/brewing.js",
+      "default": "./dist/domain/brewing.js"
+    },
+    "./domain/cooking": {
+      "types": "./dist/domain/cooking.d.ts",
+      "import": "./dist/domain/cooking.js",
+      "default": "./dist/domain/cooking.js"
+    },
+    "./domain/camera": {
+      "types": "./dist/domain/camera.d.ts",
+      "import": "./dist/domain/camera.js",
+      "default": "./dist/domain/camera.js"
+    },
+    "./domain/camera-pose": {
+      "types": "./dist/domain/camera-pose.d.ts",
+      "import": "./dist/domain/camera-pose.js",
+      "default": "./dist/domain/camera-pose.js"
+    },
     "./domain/block-registry": {
       "types": "./dist/domain/block-registry.d.ts",
       "import": "./dist/domain/block-registry.js",
       "default": "./dist/domain/block-registry.js"
     },
+    "./domain/block-interaction": {
+      "types": "./dist/domain/block-interaction.d.ts",
+      "import": "./dist/domain/block-interaction.js",
+      "default": "./dist/domain/block-interaction.js"
+    },
+    "./domain/block-state": {
+      "types": "./dist/domain/block-state.d.ts",
+      "import": "./dist/domain/block-state.js",
+      "default": "./dist/domain/block-state.js"
+    },
+    "./domain/block-world": {
+      "types": "./dist/domain/block-world.d.ts",
+      "import": "./dist/domain/block-world.js",
+      "default": "./dist/domain/block-world.js"
+    },
+    "./domain/block-type": {
+      "types": "./dist/domain/block-type.d.ts",
+      "import": "./dist/domain/block-type.js",
+      "default": "./dist/domain/block-type.js"
+    },
+    "./domain/bedrock-mining": {
+      "types": "./dist/domain/bedrock-mining.d.ts",
+      "import": "./dist/domain/bedrock-mining.js",
+      "default": "./dist/domain/bedrock-mining.js"
+    },
     "./domain/chunk": {
       "types": "./dist/domain/chunk.d.ts",
       "import": "./dist/domain/chunk.js",
       "default": "./dist/domain/chunk.js"
+    },
+    "./domain/clock": {
+      "types": "./dist/domain/clock.d.ts",
+      "import": "./dist/domain/clock.js",
+      "default": "./dist/domain/clock.js"
+    },
+    "./domain/coordinates": {
+      "types": "./dist/domain/coordinates.d.ts",
+      "import": "./dist/domain/coordinates.js",
+      "default": "./dist/domain/coordinates.js"
+    },
+    "./domain/data-pack-registry": {
+      "types": "./dist/domain/data-pack-registry.d.ts",
+      "import": "./dist/domain/data-pack-registry.js",
+      "default": "./dist/domain/data-pack-registry.js"
+    },
+    "./domain/crop": {
+      "types": "./dist/domain/crop.d.ts",
+      "import": "./dist/domain/crop.js",
+      "default": "./dist/domain/crop.js"
+    },
+    "./domain/dimension": {
+      "types": "./dist/domain/dimension.d.ts",
+      "import": "./dist/domain/dimension.js",
+      "default": "./dist/domain/dimension.js"
+    },
+    "./domain/entity": {
+      "types": "./dist/domain/entity.d.ts",
+      "import": "./dist/domain/entity.js",
+      "default": "./dist/domain/entity.js"
+    },
+    "./domain/sulfur-cube": {
+      "types": "./dist/domain/sulfur-cube.d.ts",
+      "import": "./dist/domain/sulfur-cube.js",
+      "default": "./dist/domain/sulfur-cube.js"
+    },
+    "./domain/sulfur-cube-registry": {
+      "types": "./dist/domain/sulfur-cube-registry.d.ts",
+      "import": "./dist/domain/sulfur-cube-registry.js",
+      "default": "./dist/domain/sulfur-cube-registry.js"
+    },
+    "./domain/equipment": {
+      "types": "./dist/domain/equipment.d.ts",
+      "import": "./dist/domain/equipment.js",
+      "default": "./dist/domain/equipment.js"
+    },
+    "./domain/enchantment": {
+      "types": "./dist/domain/enchantment.d.ts",
+      "import": "./dist/domain/enchantment.js",
+      "default": "./dist/domain/enchantment.js"
+    },
+    "./domain/enchantment-table": {
+      "types": "./dist/domain/enchantment-table.d.ts",
+      "import": "./dist/domain/enchantment-table.js",
+      "default": "./dist/domain/enchantment-table.js"
+    },
+    "./domain/grindstone": {
+      "types": "./dist/domain/grindstone.d.ts",
+      "import": "./dist/domain/grindstone.js",
+      "default": "./dist/domain/grindstone.js"
+    },
+    "./domain/identifiers": {
+      "types": "./dist/domain/identifiers.d.ts",
+      "import": "./dist/domain/identifiers.js",
+      "default": "./dist/domain/identifiers.js"
+    },
+    "./domain/explosion": {
+      "types": "./dist/domain/explosion.d.ts",
+      "import": "./dist/domain/explosion.js",
+      "default": "./dist/domain/explosion.js"
+    },
+    "./domain/fluid": {
+      "types": "./dist/domain/fluid.d.ts",
+      "import": "./dist/domain/fluid.js",
+      "default": "./dist/domain/fluid.js"
+    },
+    "./domain/fluid-update": {
+      "types": "./dist/domain/fluid-update.d.ts",
+      "import": "./dist/domain/fluid-update.js",
+      "default": "./dist/domain/fluid-update.js"
+    },
+    "./domain/food": {
+      "types": "./dist/domain/food.d.ts",
+      "import": "./dist/domain/food.js",
+      "default": "./dist/domain/food.js"
+    },
+    "./domain/consumable": {
+      "types": "./dist/domain/consumable.d.ts",
+      "import": "./dist/domain/consumable.js",
+      "default": "./dist/domain/consumable.js"
+    },
+    "./domain/use-cooldown": {
+      "types": "./dist/domain/use-cooldown.d.ts",
+      "import": "./dist/domain/use-cooldown.js",
+      "default": "./dist/domain/use-cooldown.js"
+    },
+    "./domain/frame": {
+      "types": "./dist/domain/frame.d.ts",
+      "import": "./dist/domain/frame.js",
+      "default": "./dist/domain/frame.js"
+    },
+    "./domain/frame-timing": {
+      "types": "./dist/domain/frame-timing.d.ts",
+      "import": "./dist/domain/frame-timing.js",
+      "default": "./dist/domain/frame-timing.js"
+    },
+    "./domain/item-components": {
+      "types": "./dist/domain/item-components.d.ts",
+      "import": "./dist/domain/item-components.js",
+      "default": "./dist/domain/item-components.js"
+    },
+    "./domain/item-component-patch": {
+      "types": "./dist/domain/item-component-patch.d.ts",
+      "import": "./dist/domain/item-component-patch.js",
+      "default": "./dist/domain/item-component-patch.js"
+    },
+    "./domain/item-component-values": {
+      "types": "./dist/domain/item-component-values.d.ts",
+      "import": "./dist/domain/item-component-values.js",
+      "default": "./dist/domain/item-component-values.js"
+    },
+    "./domain/json-value": {
+      "types": "./dist/domain/json-value.d.ts",
+      "import": "./dist/domain/json-value.js",
+      "default": "./dist/domain/json-value.js"
+    },
+    "./domain/text-component": {
+      "types": "./dist/domain/text-component.d.ts",
+      "import": "./dist/domain/text-component.js",
+      "default": "./dist/domain/text-component.js"
+    },
+    "./domain/item-attribute-modifiers": {
+      "types": "./dist/domain/item-attribute-modifiers.d.ts",
+      "import": "./dist/domain/item-attribute-modifiers.js",
+      "default": "./dist/domain/item-attribute-modifiers.js"
+    },
+    "./domain/item-combat": {
+      "types": "./dist/domain/item-combat.d.ts",
+      "import": "./dist/domain/item-combat.js",
+      "default": "./dist/domain/item-combat.js"
+    },
+    "./domain/item-defense": {
+      "types": "./dist/domain/item-defense.d.ts",
+      "import": "./dist/domain/item-defense.js",
+      "default": "./dist/domain/item-defense.js"
+    },
+    "./domain/item-enchantments": {
+      "types": "./dist/domain/item-enchantments.d.ts",
+      "import": "./dist/domain/item-enchantments.js",
+      "default": "./dist/domain/item-enchantments.js"
+    },
+    "./domain/item-stack": {
+      "types": "./dist/domain/item-stack.d.ts",
+      "import": "./dist/domain/item-stack.js",
+      "default": "./dist/domain/item-stack.js"
+    },
+    "./domain/item-registry": {
+      "types": "./dist/domain/item-registry.d.ts",
+      "import": "./dist/domain/item-registry.js",
+      "default": "./dist/domain/item-registry.js"
+    },
+    "./domain/item-type": {
+      "types": "./dist/domain/item-type.d.ts",
+      "import": "./dist/domain/item-type.js",
+      "default": "./dist/domain/item-type.js"
+    },
+    "./domain/inventory": {
+      "types": "./dist/domain/inventory.d.ts",
+      "import": "./dist/domain/inventory.js",
+      "default": "./dist/domain/inventory.js"
+    },
+    "./domain/hotbar": {
+      "types": "./dist/domain/hotbar.d.ts",
+      "import": "./dist/domain/hotbar.js",
+      "default": "./dist/domain/hotbar.js"
+    },
+    "./domain/quantities": {
+      "types": "./dist/domain/quantities.d.ts",
+      "import": "./dist/domain/quantities.js",
+      "default": "./dist/domain/quantities.js"
+    },
+    "./domain/recipe": {
+      "types": "./dist/domain/recipe.d.ts",
+      "import": "./dist/domain/recipe.js",
+      "default": "./dist/domain/recipe.js"
+    },
+    "./domain/recipe-json": {
+      "types": "./dist/domain/recipe-json.d.ts",
+      "import": "./dist/domain/recipe-json.js",
+      "default": "./dist/domain/recipe-json.js"
+    },
+    "./domain/recipe-registry": {
+      "types": "./dist/domain/recipe-registry.d.ts",
+      "import": "./dist/domain/recipe-registry.js",
+      "default": "./dist/domain/recipe-registry.js"
+    },
+    "./domain/crafting": {
+      "types": "./dist/domain/crafting.d.ts",
+      "import": "./dist/domain/crafting.js",
+      "default": "./dist/domain/crafting.js"
+    },
+    "./domain/crafting-special-data": {
+      "types": "./dist/domain/crafting-special-data.d.ts",
+      "import": "./dist/domain/crafting-special-data.js",
+      "default": "./dist/domain/crafting-special-data.js"
+    },
+    "./domain/crafting-special": {
+      "types": "./dist/domain/crafting-special.d.ts",
+      "import": "./dist/domain/crafting-special.js",
+      "default": "./dist/domain/crafting-special.js"
+    },
+    "./domain/projectile": {
+      "types": "./dist/domain/projectile.d.ts",
+      "import": "./dist/domain/projectile.js",
+      "default": "./dist/domain/projectile.js"
+    },
+    "./domain/primed-tnt": {
+      "types": "./dist/domain/primed-tnt.d.ts",
+      "import": "./dist/domain/primed-tnt.js",
+      "default": "./dist/domain/primed-tnt.js"
+    },
+    "./domain/portal": {
+      "types": "./dist/domain/portal.d.ts",
+      "import": "./dist/domain/portal.js",
+      "default": "./dist/domain/portal.js"
+    },
+    "./domain/redstone": {
+      "types": "./dist/domain/redstone.d.ts",
+      "import": "./dist/domain/redstone.js",
+      "default": "./dist/domain/redstone.js"
+    },
+    "./domain/redstone-network": {
+      "types": "./dist/domain/redstone-network.d.ts",
+      "import": "./dist/domain/redstone-network.js",
+      "default": "./dist/domain/redstone-network.js"
+    },
+    "./domain/redstone-update": {
+      "types": "./dist/domain/redstone-update.d.ts",
+      "import": "./dist/domain/redstone-update.js",
+      "default": "./dist/domain/redstone-update.js"
+    },
+    "./domain/smelting": {
+      "types": "./dist/domain/smelting.d.ts",
+      "import": "./dist/domain/smelting.js",
+      "default": "./dist/domain/smelting.js"
+    },
+    "./domain/settings": {
+      "types": "./dist/domain/settings.d.ts",
+      "import": "./dist/domain/settings.js",
+      "default": "./dist/domain/settings.js"
+    },
+    "./domain/smithing": {
+      "types": "./dist/domain/smithing.d.ts",
+      "import": "./dist/domain/smithing.js",
+      "default": "./dist/domain/smithing.js"
+    },
+    "./domain/statistics": {
+      "types": "./dist/domain/statistics.d.ts",
+      "import": "./dist/domain/statistics.js",
+      "default": "./dist/domain/statistics.js"
+    },
+    "./domain/stonecutting": {
+      "types": "./dist/domain/stonecutting.d.ts",
+      "import": "./dist/domain/stonecutting.js",
+      "default": "./dist/domain/stonecutting.js"
+    },
+    "./domain/transmute": {
+      "types": "./dist/domain/transmute.d.ts",
+      "import": "./dist/domain/transmute.js",
+      "default": "./dist/domain/transmute.js"
+    },
+    "./domain/time-of-day": {
+      "types": "./dist/domain/time-of-day.d.ts",
+      "import": "./dist/domain/time-of-day.js",
+      "default": "./dist/domain/time-of-day.js"
+    },
+    "./domain/tool-component": {
+      "types": "./dist/domain/tool-component.d.ts",
+      "import": "./dist/domain/tool-component.js",
+      "default": "./dist/domain/tool-component.js"
+    },
+    "./domain/weapon": {
+      "types": "./dist/domain/weapon.d.ts",
+      "import": "./dist/domain/weapon.js",
+      "default": "./dist/domain/weapon.js"
+    },
+    "./domain/vitals": {
+      "types": "./dist/domain/vitals.d.ts",
+      "import": "./dist/domain/vitals.js",
+      "default": "./dist/domain/vitals.js"
+    },
+    "./domain/vehicle": {
+      "types": "./dist/domain/vehicle.d.ts",
+      "import": "./dist/domain/vehicle.js",
+      "default": "./dist/domain/vehicle.js"
+    },
+    "./domain/weather": {
+      "types": "./dist/domain/weather.d.ts",
+      "import": "./dist/domain/weather.js",
+      "default": "./dist/domain/weather.js"
+    },
+    "./domain/wither": {
+      "types": "./dist/domain/wither.d.ts",
+      "import": "./dist/domain/wither.js",
+      "default": "./dist/domain/wither.js"
     }
   },
   "files": [
@@ -56,7 +446,8 @@
     "kernel"
   ],
   "scripts": {
-    "typecheck": "tsc -p tsconfig.build.json --pretty false && tsc -p tsconfig.test.json --pretty false",
+    "typecheck:dependencies": "tsc -p tsconfig.dependency-check.json --pretty false",
+    "typecheck": "pnpm typecheck:dependencies && tsc -p tsconfig.build.json --pretty false && tsc -p tsconfig.test.json --pretty false",
     "build": "tsc -p tsconfig.release.json --pretty false",
     "lint": "oxlint --deny-warnings src test && ast-grep scan",
     "lint:fix": "oxlint --fix src test",
@@ -65,7 +456,10 @@
     "test:watch": "vitest",
     "pretest:coverage": "pnpm build",
     "test:coverage": "vitest run --coverage",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test",
+    "benchmark": "pnpm build && node scripts/benchmark.mjs",
+    "typecheck:safety": "node scripts/check-type-safety.mjs",
+    "scripts:check": "node --check scripts/benchmark.mjs && node --check scripts/check-type-safety.mjs && node --check scripts/verify-package.mjs && pnpm typecheck:safety",
+    "verify": "pnpm scripts:check && pnpm typecheck && pnpm lint && pnpm test:coverage",
     "package:verify": "pnpm build && node scripts/verify-package.mjs",
     "prepublishOnly": "pnpm verify && pnpm package:verify"
   },
@@ -74,11 +468,11 @@
   },
   "devDependencies": {
     "@changesets/changelog-github": "^1.0.0",
-    "@changesets/cli": "^3.0.0",
+    "@changesets/cli": "^3.0.1",
     "@types/node": "^26.2.0",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "effect": "^3.22.1",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }

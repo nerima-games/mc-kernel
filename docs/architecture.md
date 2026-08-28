@@ -203,6 +203,9 @@ mc-kernel は現在パッケージ分割しておらず、`domain/` 単一であ
 | 語彙 | `domain/block-type-data.ts` / `item-type-data.ts` | `domain/block-type.ts` / `item-type.ts` の型・runtime guard |
 | 座標 | `domain/coordinate-primitives.ts` の定数・ブランド | key、近傍、変換、幾何を各モジュールに分離 |
 | Anvil | `domain/anvil-constants.ts` | validation、transformation、`anvil-planning.ts` の orchestration |
+| ブロックプロパティ | `domain/block-property-data.ts` の vocabulary、型、既定値 | `domain/block-property-validation.ts` の外部入力検証・既定値解決。`block-properties.ts` は公開バレル |
+| ブロック能力 | `domain/block-capability-data.ts` の boolean 能力・型・既定値 | `domain/block-capabilities.ts` の外部入力検証・既定値解決。data を再公開 |
+| ブロック相互作用 | `domain/block-interaction-data.ts` の判定結果型と不破壊判定閾値 | `domain/block-interaction.ts` の破壊・置換可能性・設置判定と registry / harvest / item bridge の合成 |
 | ブロックレジストリ | `domain/block-registry-entries*.ts`（地形・鉱石・構造物などのフラグメント）、`block-registry-rules.ts` | 派生インデックスと検索は `block-registry-indexes.ts`、安定した公開パスは `block-registry.ts` |
 
 `src/index.ts` はこの実装分割を隠し、消費側には意図した公開 API だけを提供する。内部モジュールを

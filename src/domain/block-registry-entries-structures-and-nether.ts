@@ -1,8 +1,8 @@
 /** Registry entries 103-122; the numeric order is the wire-level BlockId order. */
 import { BlockId } from './block-registry-types.js'
 import type { BlockRegistryEntry } from './block-registry-types.js'
-import { DEFAULT_BLOCK_DROP } from './block-harvest.js'
-import { NEEDS_ANY_SUPPORT } from './block-support.js'
+import { DEFAULT_BLOCK_DROP } from './block-harvest-data.js'
+import { NEEDS_ANY_SUPPORT } from './block-support-data.js'
 import { DROPS_NOTHING, NEEDS_WOODEN_PICKAXE, FASTER_WITH_AXE } from './block-registry-rules.js'
 
 export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEntry> = [
@@ -168,6 +168,7 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
         lightEmission: 15,
         hardness: 0,
         friction: 0,
+        collisionShape: 'none',
         // Fire is the third of the three world-state rows. It is also the row
         // that says `flammable: false` and `fireSource: false` by saying nothing
         // — fire neither catches fire (`FLAMMABLE_BLOCK_TYPES` omits it) nor

@@ -127,10 +127,14 @@ describe('SupportRule — the three arms', () => {
   )
 })
 
-describe('support-rule fallback totality', () => {
-  it('rejects impossible support-rule kinds at the final default arm', () =>
+describe('support-rule input validation', () => {
+  it('rejects malformed support-rule values at the public boundary', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(satisfiesSupportRule({ kind: 'invalid' } as never, 'stone', true)).toStrictEqual({ kind: 'invalid' })
+      expect(() => Reflect.apply(satisfiesSupportRule, undefined, [{ kind: 'invalid' }, 'stone', true])).toThrow('Unknown support rule kind')
+      expect(() => Reflect.apply(satisfiesSupportRule, undefined, [null, 'stone', true])).toThrow('Unknown support rule kind')
+      expect(() => Reflect.apply(satisfiesSupportRule, undefined, [{ kind: 'oneOf', blocks: ['not-a-block'] }, 'stone', true])).toThrow(
+        'Unknown support rule kind',
+      )
     })),
   )
 })

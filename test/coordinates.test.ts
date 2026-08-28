@@ -137,13 +137,13 @@ describe('world <-> chunk coordinate conversion', () => {
 })
 
 describe('face fallback totality', () => {
-  it('keeps the final fallback arms total for invalid face values', () =>
+  it('rejects invalid face values at the public boundary', () =>
     Effect.runPromise(Effect.sync(() => {
-      const invalidFace = 'sideways' as never
+      const invalidFace = 'sideways'
       const source = blockPosition(TEN, TWENTY, THIRTY)
 
-      expect(oppositeBlockFace(invalidFace)).toBe('sideways')
-      expect(adjacentBlockPosition(source, invalidFace)).toBe('sideways')
+      expect(() => Reflect.apply(oppositeBlockFace, undefined, [invalidFace])).toThrow('Unknown block face')
+      expect(() => Reflect.apply(adjacentBlockPosition, undefined, [source, invalidFace])).toThrow('Unknown block face')
     })),
   )
 })

@@ -4,7 +4,7 @@ mc-kernel の公開 API を `1.0.0` として凍結する前に満たすべき�
 **(a) (b) (b') は現行の内部品質ゲートで満たしている。** (c) の下流実消費は、
 `mc-dev-meta` workspace で過去に実行した `pnpm check:repoint` の結果を下記に記録している。
 このリポジトリ単独で現在再実行できる検査ではないため、公開物の現在の境界は
-`pnpm package:verify` として別途検証する。
+`pnpm package:verify` として別途検証する（clean consumer の runtime import と declaration compile を含む）。
 型検査・lint・test・release build・4メトリクスの100%カバレッジという内部品質ゲートも満たしている。
 **GitHub Packages への実 publish は行われており、現在の最新は `0.4.0` である。**
 `0.3.0` は release workflow の version 検出方式の穴により publish されないまま飛ばされた。
@@ -62,7 +62,7 @@ kernel は 14 リポジトリからピン留めされ、破壊的変更は深さ
 
 判明したこと:
 
-- 必要な能力は **28**（監査 §3 の表。§7 の本文は「26」と書いており、これは監査内部の不整合）。
+- 必要な能力は **28**（監査 §3 の表）。
   plan.md §3.1 + §3.12 が挙げていたのは 7 つで、**21 が欠落**していた。
 - plan.md が挙げた 7 つのうち **3 つは型が誤っていた**
   （`emissive` は 0..15 の数値、`transparent` は 3 値、`fluid` は 3 値）。
@@ -70,14 +70,18 @@ kernel は 14 リポジトリからピン留めされ、破壊的変更は深さ
 - `properties.solid` と `faces` は production で **0 回**しか読まれていない。移植しない。
 - フラグに還元できない残余が 10 種類ある（監査 §6）。kernel には置かず体験モジュールに残す。
 
-kernel での対応状況: **27 実装 / 1 保留**。保留 1 件は `PENDING_CAPABILITIES` に理由つきで記録され、
-`test/block-definition.test.ts` が「実装済み + 保留 = 監査の 28」を機械的に検査している。
-（`supportRule` は保留から実装へ移った —— 監査 §4.6.1、`domain/block-support.ts`）
+kernel での対応状況: **27 実装 / 1 下流所有**。下流所有 1 件は
+`DOWNSTREAM_CAPABILITIES` に所有者と理由つきで記録され、`test/block-definition.test.ts` が
+「実装済み + 下流所有 = 監査の 28」を機械的に検査している。`textureTiles` は renderer の
+アトラス・面別 tile 割当・画像 asset に属するため、kernel の block property には置かない。
+（`supportRule` は実装済み —— 監査 §4.6.1、`domain/block-support.ts`）
 
 なお、監査が完了したことは「能力集合が凍結できる」を意味するが、当時は
-**「ブロックテーブルが完成した」は意味しなかった**。現在は registry も完成し、
-`BlockType` 語彙は **123 / 123** に達している（[testing.md](./testing.md) §5 条件 4）。
-この 123 行は参照実装の 120 リテラルに、kernel で必要な 3 行を加えたものである。
+**「ブロックテーブルが完成した」は意味しなかった**。現在は、対応する curated shared
+data profile の内部 registry が完成し、`BlockType` 語彙は **123 / 123** に達している
+（[testing.md](./testing.md) §5 条件 4）。これは全エディション・全リリースの公式 registry
+を網羅したという意味ではない。この 123 行は参照実装の 120 リテラルに、kernel で必要な
+3 行を加えたものである。
 旧段落が「120 中 18」と言い続けていたのは、状態を 2 箇所に書いた文書の常で、
 片方だけが更新されたためである。
 
@@ -268,16 +272,18 @@ shipped source は 1 行も要らない。作業内容は
 
 #### ✅ になったときに、それが主張しないこと
 
-`check:repoint` が緑であることは、**publish されたパッケージを install した検証ではない**。
+`check:repoint` が緑であることは、**publish されたパッケージを install した検証を兼ねない**。
 
 - 検証される: モジュール解決、`package.json#exports` マップ、`types` フィールド、
   バレルの再 export 形状、そして**全消費箇所での型の同一性**。
   張り替え先は `repos/` 内の実ディレクトリで、`exports` 経由で解決される。
 - 追加で検証される: `pnpm package:verify` は実際に tarball を作り、`files` の内容、`exports` の全 target、
-  clean consumer からの import、`fixedClock` の runtime を確認する。これにより、生成物を読まない
+  clean consumer からの runtime import、declaration compile、`fixedClock` の runtime を確認する。これにより、生成物を読まない
   workspace の張り替えだけでは見つからないローカルの packaging 欠落を検出できる。
-- 検証されない: **公開レジストリから取得した tarball の install。** これは本書冒頭で別途実施し、
-  **公開物が Node から import できないことが判明した**。ローカルのどのゲートもこれを見つけられない。
+- `check:repoint` だけでは検証されない: **公開レジストリから取得した tarball の install。**
+  これは本書冒頭で別途実施し、`0.4.0` は install / import / runtime に合格した。
+  `0.4.0` より前の公開物が Node から import できないことも判明しており、ローカルの
+  workspace 張り替えだけではこの差を見つけられない。
 - 検証されない: **振る舞い。** これは typecheck である。
   互いに型が付いたまま、関数の意味について食い違う 2 つのモジュールはありうる。
 
@@ -287,7 +293,7 @@ shipped source は 1 行も要らない。作業内容は
 - [x] (b) 縦切りスパイクが `GameModule` / `StageRegistration` / `FrameServices` を実消費者で検証している
 - [x] (b') その結果 `FrameServices` が確定し、プレースホルダである旨のコメントが消えている
 - [x] 内部の完成条件（[testing.md](./testing.md) §5 の typecheck / lint / test / build / coverage）を満たしている
-- [x] GitHub Packages の release workflow と、生成 tarball の `files` / `exports` / clean consumer / runtime ゲートが用意されている
+- [x] GitHub Packages の release workflow と、生成 tarball の `files` / `exports` / clean consumer runtime / declaration compile / runtime ゲートが用意されている
 - [x] GitHub Packages への実 publish を行っている（`0.2.0`〜`0.2.18` の 19 バージョン。[versioning.md](./versioning.md) §1）
 - [x] 公開レジストリから取得した tarball の install 検証を実施した（`pnpm package:verify` はローカル
       `pnpm pack` の tarball のみを見ており、この検証を代替しない）
@@ -322,14 +328,15 @@ shipped source は 1 行も要らない。作業内容は
       **このチェックが主張していないこと**（過大なチェックは未チェックより悪い。
       1.0.0 を切る日に読まれるのはこの行だからである）:
 
-      | 検証済み | 未検証 |
-      | --- | --- |
-      | ミラー削除後に import が解決すること | publish 済みパッケージの **install** |
-      | `exports` / `types` フィールド、`pnpm package:verify` による実 tarball の `files` / export target / clean install / runtime | 公開 tarball の **install** |
-      | 3 リポジトリの build / test / preview 全プロジェクトの型検査 | 実行時の挙動（`tsc` であって `vitest` ではない） |
+| 検証済み | 未検証 |
+| --- | --- |
+| ミラー削除後に import が解決すること | `0.4.0` より前の公開パッケージの **install** |
+| `exports` / `types` フィールド、`pnpm package:verify` による実 tarball の `files` / export target / clean install / runtime、公開 `0.4.0` の install / import / runtime | `0.4.0` より前の公開 tarball の **install** |
+| 3 リポジトリの build / test / preview 全プロジェクトの型検査 | 実行時の挙動（`tsc` であって `vitest` ではない） |
 
-      workspace の張り替えは publish の**リハーサルであって publish ではない**。
-      ただし、現在は `pnpm package:verify` が `files` の欠落をローカル tarball 上で検出する。
+workspace の張り替えは publish の**リハーサルであって publish ではない**。
+ただし、現在は `0.4.0` の公開物検証を別途実施しており、`pnpm package:verify` は
+`files` の欠落をローカル tarball 上で検出する。
 
 **(歴史的経緯)** かつて plan.md §9 は「API ロックファイルのツール選定（api-extractor 相当の
 Effect-TS 互換手段）」を未決事項として挙げていた。`@microsoft/api-extractor` は mc-kernel の実コードで
@@ -340,8 +347,8 @@ Effect-TS 互換手段）」を未決事項として挙げていた。`@microsof
 
 **この自動ゲート（および `api-lock.md` / `scripts/api-lock.ts` 自体）は org 標準の変更により削除済みである。**
 1.0.0 への昇格は日数計測を伴わず、[RELEASE_STANDARD.md §4.2](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#42-新しい昇格ポリシー人間による裁量判断)
-が定めるとおり maintainer（take）の裁量判断のみで行う。内部品質の完成条件と下流実消費は満たしているが、
-実際の公開・公開レジストリからの install 検証・1.0.0 昇格判断は別途完了させる必要がある。
+が定めるとおり maintainer（take）の裁量判断のみで行う。内部品質の完成条件・下流実消費・公開レジストリからの
+`0.4.0` install 検証は満たしている。1.0.0 への昇格はまだ宣言していない。
 
 > **(歴史的経緯) 計測は過去に一度リセットされたことがある。** アイテム語彙の投入
 > （`domain/item-type.ts` / `domain/block-item.ts`、`BlockDropRule.item` の型変更、

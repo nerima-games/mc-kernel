@@ -1,7 +1,7 @@
 /** Registry entries 33-35; the numeric order is the wire-level BlockId order. */
 import { BlockId } from './block-registry-types.js'
 import type { BlockRegistryEntry } from './block-registry-types.js'
-import { NEEDS_ANY_SUPPORT } from './block-support.js'
+import { NEEDS_ANY_SUPPORT } from './block-support-data.js'
 import { NEEDS_SAND_OR_CACTUS, NEEDS_WOODEN_PICKAXE } from './block-registry-rules.js'
 
 export const BLOCK_REGISTRY_COLLISION_SHAPES: ReadonlyArray<BlockRegistryEntry> = [
@@ -71,11 +71,9 @@ export const BLOCK_REGISTRY_COLLISION_SHAPES: ReadonlyArray<BlockRegistryEntry> 
   },
   {
     // `SLAB_BLOCK_IDS` (`block-collision-predicates.ts:56-59`) holds two
-    // members, `PURPUR_SLAB` and `STONE_SLAB`; only the second is in this
-    // roster, so `collisionShape: 'slab'` is inhabited but its reference table
-    // is not yet complete. Recorded so the next roster pass knows the shape is
-    // already exercised and `purpur_slab` is about the End dimension, not about
-    // collision.
+    // members, `PURPUR_SLAB` and `STONE_SLAB`. This fragment owns the stone
+    // slab row; the End fragment owns `purpur_slab` at id 100, so both reference
+    // rows carry `collisionShape: 'slab'`.
     //
     // `validSpawnSurface` is left at the default `true`: `STONE_SLAB` is one of
     // the five blocks `NON_SPAWN_SURFACE_BLOCK_IDS` omits (see the block comment

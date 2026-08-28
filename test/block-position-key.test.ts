@@ -1,5 +1,4 @@
 import {
-  type BlockPositionKey,
   BlockPositionKey as parseBlockPositionKey,
   blockPosition,
   blockPositionKeyOf,
@@ -63,7 +62,7 @@ describe('BlockPositionKey', () => {
   it('fails loudly if JavaScript callers forge an invalid branded key', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(() => parseBlockPositionKey('0.5,0,0')).toThrow(TypeError)
-      expect(() => blockPositionOfKey('0.5,0,0' as BlockPositionKey)).toThrow(TypeError)
+      expect(() => Reflect.apply(blockPositionOfKey, undefined, ['0.5,0,0'])).toThrow(TypeError)
     })),
   )
 })

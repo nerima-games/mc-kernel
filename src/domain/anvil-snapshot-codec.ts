@@ -1,4 +1,5 @@
 /* eslint-disable no-magic-numbers, no-undefined, no-ternary, prefer-destructuring, sort-keys -- Snapshot validation reports every wire-level issue with its exact path. */
+import { Brand } from 'effect'
 import {
   ANVIL_SNAPSHOT_VERSION,
   AnvilCustomName,
@@ -25,6 +26,8 @@ import type {
   CanonicalAnvilItemPayload,
   CanonicalAnvilState,
 } from './anvil.js'
+
+const brandAnvilSnapshotString = Brand.nominal<AnvilSnapshotStringType>()
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -262,7 +265,8 @@ const decodeState = (
   return { left, right, rename, experienceLevels }
 }
 
-export const snapshotAnvilState = (state: AnvilState): AnvilSnapshotResult => {
+export function snapshotAnvilState(state: AnvilState): AnvilSnapshotResult
+export function snapshotAnvilState(state: AnvilState): AnvilSnapshotResult {
   const issues: Array<AnvilValidationIssue> = []
   const decoded = decodeState(state, '$.state', issues)
   return decoded === undefined || issues.length > 0
@@ -285,7 +289,7 @@ export const decodeAnvilSnapshot = (value: unknown): AnvilSnapshotResult => {
 
 export const decodeAnvilSnapshotString = (encoded: string): AnvilSnapshotResult => {
   try {
-    return decodeAnvilSnapshot(JSON.parse(encoded) as unknown)
+    return decodeAnvilSnapshot(JSON.parse(encoded))
   } catch {
     return { ok: false, issues: [{ path: '$', reason: 'must be valid JSON' }] }
   }
@@ -301,10 +305,11 @@ export const AnvilSnapshotString = (value: string): AnvilSnapshotStringType => {
     throw new TypeError(`Invalid AnvilSnapshotString: ${value}`)
   }
 
-  return value as AnvilSnapshotStringType
+  return brandAnvilSnapshotString(value)
 }
 
-export const encodeAnvilSnapshot = (state: AnvilState): AnvilSnapshotEncodingResult => {
+export function encodeAnvilSnapshot(state: AnvilState): AnvilSnapshotEncodingResult
+export function encodeAnvilSnapshot(state: AnvilState): AnvilSnapshotEncodingResult {
   const snapshot = snapshotAnvilState(state)
   if (!snapshot.ok) return snapshot
 
@@ -312,6 +317,6 @@ export const encodeAnvilSnapshot = (state: AnvilState): AnvilSnapshotEncodingRes
   // Re-entering AnvilSnapshotString here would parse and validate this fresh
   // snapshot a second time, while the public constructor still validates text
   // supplied by callers.
-  const encoded = JSON.stringify(snapshot.snapshot) as AnvilSnapshotStringType
+  const encoded = brandAnvilSnapshotString(JSON.stringify(snapshot.snapshot))
   return { ok: true, encoded, snapshot: snapshot.snapshot }
 }

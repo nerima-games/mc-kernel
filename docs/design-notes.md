@@ -132,7 +132,7 @@ GLASS / LEAVES / SNOW の 3 行を参照実装のメンバーシップどおり�
 | # | 原則 | kernel での実現 | 状態 |
 | --- | --- | --- | --- |
 | 1 | **ブロック挙動 = 能力フラグ。** 名指し ID 判定の散乱を構造的に不可能にする | `block-capabilities.ts` / `block-properties.ts` / `block-definition.ts`。関数を置ける場所が無い | 実装済み（能力 27/28） |
-| 2 | **カメラ姿勢は sim 所有** | `CameraPoseSnapshot` を kernel の語彙として公開。`mc-render` は読むだけ | 型は実装済み。所有権の強制は `mc-sim` 側の仕事 |
+| 2 | **カメラ姿勢は sim 所有** | `CameraPoseSnapshot` と `camera-pose` の純粋計算を kernel の語彙として公開。`mc-render` は読むだけ | 型と計算は実装済み。所有権の強制は `mc-sim` 側の仕事 |
 | 3 | **クロック注入による決定論。** 全シミュレーションが fast-forward 可能 | `ClockPort` + `fixedClock` / `FixedClockLayer`。実クロックアダプタは kernel に置かない | 実装済み |
 | 4 | **依存境界を直接 import で検査する** | `.oxlintrc.json` の `no-restricted-imports` と `pnpm lint`。kernel は内部 `@nerima-games/*` に依存しない | 実装済み |
 

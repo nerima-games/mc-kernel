@@ -21,6 +21,7 @@ const hasCanonicalIntegerText = (texts: ReadonlyArray<string>, values: ReadonlyA
 
 /** The canonical wire/key representation of a block position: `x,y,z`. */
 export type BlockPositionKey = string & Brand.Brand<'BlockPositionKey'>
+const brandBlockPositionKey = Brand.nominal<BlockPositionKey>()
 
 type ParsedBlockPositionKey = readonly [x: BlockAxis, y: BlockAxis, z: BlockAxis]
 
@@ -57,7 +58,7 @@ const parseBlockPositionKey = (value: string): ParsedBlockPositionKey | undefine
 
 /** Serialize a block position into its canonical, allocation-minimal key. */
 export const blockPositionKeyOf = (value: BlockPosition): BlockPositionKey =>
-  `${String(value.x)},${String(value.y)},${String(value.z)}` as BlockPositionKey
+  brandBlockPositionKey(`${String(value.x)},${String(value.y)},${String(value.z)}`)
 
 /** Validate external text before it becomes a branded block-position key. */
 export const BlockPositionKey = (value: string): BlockPositionKey => {
@@ -65,7 +66,7 @@ export const BlockPositionKey = (value: string): BlockPositionKey => {
     throw new TypeError(`Invalid BlockPositionKey: ${value}`)
   }
 
-  return value as BlockPositionKey
+  return brandBlockPositionKey(value)
 }
 
 /** Narrow an external string after validating its complete canonical format. */
@@ -89,6 +90,7 @@ export const decodeBlockPositionKey = (value: string): BlockPosition | undefined
 
 /** The canonical wire/key representation of a chunk column: `cx,cz`. */
 export type ChunkKey = string & Brand.Brand<'ChunkKey'>
+const brandChunkKey = Brand.nominal<ChunkKey>()
 
 type ParsedChunkKey = readonly [cx: ChunkAxis, cz: ChunkAxis]
 
@@ -110,7 +112,7 @@ const parseChunkKey = (value: string): ParsedChunkKey | undefined => {
 }
 
 /** Produces the canonical, allocation-minimal key for a chunk coordinate. */
-export const chunkKeyOf = (value: ChunkCoord): ChunkKey => `${String(value.cx)},${String(value.cz)}` as ChunkKey
+export const chunkKeyOf = (value: ChunkCoord): ChunkKey => brandChunkKey(`${String(value.cx)},${String(value.cz)}`)
 
 /** Validate external text before it becomes a branded chunk key. */
 export const ChunkKey = (value: string): ChunkKey => {
@@ -118,7 +120,7 @@ export const ChunkKey = (value: string): ChunkKey => {
     throw new TypeError(`Invalid ChunkKey: ${value}`)
   }
 
-  return value as ChunkKey
+  return brandChunkKey(value)
 }
 
 /** True only for the single canonical spelling of a safe-integer chunk key. */
