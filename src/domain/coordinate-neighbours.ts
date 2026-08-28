@@ -11,54 +11,58 @@ export const BLOCK_FACES = ['down', 'up', 'north', 'south', 'west', 'east'] as c
 export type BlockFace = (typeof BLOCK_FACES)[number]
 
 /** Horizontal faces in the traversal order already used by gameplay rules. */
-export const HORIZONTAL_BLOCK_FACES = ['west', 'east', 'north', 'south'] as const satisfies ReadonlyArray<BlockFace>
+export const HORIZONTAL_BLOCK_FACES: readonly ['west', 'east', 'north', 'south'] = [
+  'west',
+  'east',
+  'north',
+  'south',
+]
 
 const BLOCK_FACE_LOOKUP: ReadonlySet<string> = new Set(BLOCK_FACES)
 
-/** Boundary guard for faces read from save files, network frames, or commands. */
-export const isBlockFace = (value: string): value is BlockFace => BLOCK_FACE_LOOKUP.has(value)
-
-/** The face reached by crossing a block through `face`. */
-export const oppositeBlockFace = (face: BlockFace): BlockFace => {
-  switch (face) {
-    case 'down':
-      return 'up'
-    case 'up':
-      return 'down'
-    case 'north':
-      return 'south'
-    case 'south':
-      return 'north'
-    case 'west':
-      return 'east'
-    case 'east':
-      return 'west'
-    default:
-      return face satisfies never
-  }
+const BLOCK_FACE_OPPOSITES: Readonly<Record<BlockFace, BlockFace>> = {
+  down: 'up',
+  up: 'down',
+  north: 'south',
+  south: 'north',
+  west: 'east',
+  east: 'west',
 }
 
-const NEGATIVE_UNIT_STEP = -1
+const BLOCK_FACE_STEPS: Readonly<Record<BlockFace, readonly [number, number, number]>> = {
+  down: [0, -1, 0],
+  up: [0, 1, 0],
+  north: [0, 0, -1],
+  south: [0, 0, 1],
+  west: [-1, 0, 0],
+  east: [1, 0, 0],
+}
+
+/** Boundary guard for faces read from save files, network frames, or commands. */
+export const isBlockFace = (value: unknown): value is BlockFace =>
+  typeof value === 'string' && BLOCK_FACE_LOOKUP.has(value)
+
+/** The face reached by crossing a block through `face`. */
+export function oppositeBlockFace(face: BlockFace): BlockFace
+export function oppositeBlockFace(face: BlockFace): BlockFace {
+  if (!isBlockFace(face)) {
+    throw new TypeError('Unknown block face')
+  }
+
+  return BLOCK_FACE_OPPOSITES[face]
+}
+
 const UNIT_STEP = 1
 
 /** The block cell touching `source` across `face`. */
-export const adjacentBlockPosition = (source: BlockPosition, face: BlockFace): BlockPosition => {
-  switch (face) {
-    case 'down':
-      return blockPosition(source.x, source.y + NEGATIVE_UNIT_STEP, source.z)
-    case 'up':
-      return blockPosition(source.x, source.y + UNIT_STEP, source.z)
-    case 'north':
-      return blockPosition(source.x, source.y, source.z + NEGATIVE_UNIT_STEP)
-    case 'south':
-      return blockPosition(source.x, source.y, source.z + UNIT_STEP)
-    case 'west':
-      return blockPosition(source.x + NEGATIVE_UNIT_STEP, source.y, source.z)
-    case 'east':
-      return blockPosition(source.x + UNIT_STEP, source.y, source.z)
-    default:
-      return face satisfies never
+export function adjacentBlockPosition(source: BlockPosition, face: BlockFace): BlockPosition
+export function adjacentBlockPosition(source: BlockPosition, face: BlockFace): BlockPosition {
+  if (!isBlockFace(face)) {
+    throw new TypeError('Unknown block face')
   }
+
+  const [dx, dy, dz] = BLOCK_FACE_STEPS[face]
+  return blockPosition(source.x + dx, source.y + dy, source.z + dz)
 }
 
 /** Horizontal neighbours in west, east, north, south order. */

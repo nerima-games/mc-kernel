@@ -1,4 +1,5 @@
 /* eslint-disable max-statements, no-magic-numbers, sort-imports -- Group test framework before subject imports. */
+import { runInNewContext } from 'node:vm'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 import {
@@ -27,6 +28,9 @@ const sampleBlocks = (): Uint8Array => {
   return blocks
 }
 
+const isUint8Array = (value: unknown): value is Uint8Array =>
+  ArrayBuffer.isView(value) && Object.prototype.toString.call(value) === '[object Uint8Array]'
+
 describe('chunk binary codec', () => {
   it('round-trips coordinates, height, and block data', () =>
     Effect.runPromise(Effect.sync(() => {
@@ -44,7 +48,7 @@ describe('chunk binary codec', () => {
       const source = chunk(chunkCoord(-17, 23), height, sampleBlocks())
       const encoded = encodeChunk(source)
       const padded = new Uint8Array(encoded.length + 2)
-      padded.set(encoded, 1)
+      padded.set(encoded.slice(), 1)
 
       const decoded = decodeChunk(padded.subarray(1, encoded.length + 1))
 
@@ -54,10 +58,30 @@ describe('chunk binary codec', () => {
     })),
   )
 
+  it('decodes a typed array from another runtime realm', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const source = chunk(chunkCoord(-17, 23), height, sampleBlocks())
+      const encoded = encodeChunk(source)
+      const foreignBytes: unknown = runInNewContext('Uint8Array.from(values)', {
+        values: Array.from(encoded.slice()),
+      })
+
+      if (!isUint8Array(foreignBytes)) {
+        throw new TypeError('runtime realm did not produce a Uint8Array')
+      }
+
+      const decoded = decodeChunk(foreignBytes)
+
+      expect(decoded.coord).toStrictEqual(source.coord)
+      expect(decoded.height).toBe(source.height)
+      expect(Array.from(decoded.blocks.toBytes())).toStrictEqual(Array.from(source.blocks.toBytes()))
+    })),
+  )
+
   it('writes the fixed header fields', () =>
     Effect.runPromise(Effect.sync(() => {
       const encoded = encodeChunk(chunk(chunkCoord(-17, 23), height, sampleBlocks()))
-      const view = new DataView(encoded.buffer)
+      const view = new DataView(encoded.slice().buffer)
 
       expect(new TextDecoder().decode(encoded.slice(0, 4))).toBe('MCHK')
       expect(view.getUint16(4, true)).toBe(CHUNK_CODEC_VERSION)
@@ -105,8 +129,9 @@ describe('chunk binary codec', () => {
       source.blocks.set(0, blockIdOf('water'))
       expect(encoded[CHUNK_HEADER_BYTES]).toBe(blockIdOf('stone'))
 
-      const decoded = decodeChunk(encoded)
-      encoded[CHUNK_HEADER_BYTES] = blockIdOf('water')
+      const mutableEncoded = encoded.slice()
+      const decoded = decodeChunk(mutableEncoded)
+      mutableEncoded[CHUNK_HEADER_BYTES] = blockIdOf('water')
       expect(decoded.blocks.get(0)).toBe(blockIdOf('stone'))
     })),
   )
@@ -149,7 +174,7 @@ describe('chunk binary codec', () => {
 
       expect(() => Object.defineProperty(state, 'length', { value: 0 })).toThrow(TypeError)
       expect(state.length).toBe(length)
-      expect(new DataView(encodeChunk(source).buffer).getUint32(20, true)).toBe(length)
+      expect(new DataView(encodeChunk(source).slice().buffer).getUint32(20, true)).toBe(length)
     })),
   )
 
@@ -171,17 +196,33 @@ describe('chunk binary codec', () => {
     Effect.runPromise(Effect.sync(() => {
       const coord = chunkCoord(0, 0)
 
-      expect(() => encodeChunk({
+      expect(() => Reflect.apply(encodeChunk, undefined, [{
         coord,
         height,
-        blocks: { length: blockCount } as never,
-      })).toThrow(/must be a BlockState/)
+        blocks: { length: blockCount },
+      }])).toThrow(/must be a BlockState/)
 
-      expect(() => encodeChunk({
+      expect(() => Reflect.apply(encodeChunk, undefined, [{
         coord,
         height: ChunkHeight(1),
-        blocks: blockState(sampleBlocks()) as never,
-      })).toThrow(/block data length must be/)
+        blocks: blockState(sampleBlocks()),
+      }])).toThrow(/block data length must be/)
+    })),
+  )
+
+  it('rejects malformed unknown encoding inputs at the public boundary', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(() => Reflect.apply(encodeChunk, undefined, [null])).toThrow('Chunk must be an object')
+      expect(() => Reflect.apply(encodeChunk, undefined, [[]])).toThrow('Chunk must be an object')
+      expect(() => Reflect.apply(encodeChunk, undefined, [{ coord: null, height, blocks: blockState(sampleBlocks()) }]))
+        .toThrow('Chunk coordinate must be an object')
+      expect(() => Reflect.apply(encodeChunk, undefined, [{ coord: chunkCoord(0, 0), height: '2', blocks: blockState(sampleBlocks()) }]))
+        .toThrow('Chunk height must be a number')
+      expect(() => Reflect.apply(encodeChunk, undefined, [{
+        coord: { cx: '0', cz: 0 },
+        height,
+        blocks: blockState(sampleBlocks()),
+      }])).toThrow(/cx/)
     })),
   )
 

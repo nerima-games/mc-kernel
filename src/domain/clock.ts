@@ -36,7 +36,10 @@ export type ClockService = {
   readonly wallClockEpochMillis: Effect.Effect<EpochMillis>
 }
 
-export class ClockPort extends Context.Tag('@nerima-games/mc-kernel/ClockPort')<ClockPort, ClockService>() {}
+const ClockPortBase: Context.TagClass<ClockPort, '@nerima-games/mc-kernel/ClockPort', ClockService> =
+  Context.Tag('@nerima-games/mc-kernel/ClockPort')<ClockPort, ClockService>()
+
+export class ClockPort extends ClockPortBase {}
 
 /**
  * A clock frozen at a given instant.

@@ -8,7 +8,7 @@ export const CHUNK_SIZE_XZ = 16
 /** An integral world-space block coordinate on any axis. */
 export type BlockAxis = number & Brand.Brand<'BlockAxis'>
 
-export const BlockAxis = Brand.refined<BlockAxis>(
+export const BlockAxis: Brand.Brand.Constructor<BlockAxis> = Brand.refined<BlockAxis>(
   (value) => Number.isSafeInteger(value),
   (value) => Brand.error(`BlockAxis must be a safe integer, received ${value}`),
 )
@@ -16,7 +16,7 @@ export const BlockAxis = Brand.refined<BlockAxis>(
 /** An integral chunk-space coordinate on the X or Z axis. One step = CHUNK_SIZE_XZ blocks. */
 export type ChunkAxis = number & Brand.Brand<'ChunkAxis'>
 
-export const ChunkAxis = Brand.refined<ChunkAxis>(
+export const ChunkAxis: Brand.Brand.Constructor<ChunkAxis> = Brand.refined<ChunkAxis>(
   (value) => Number.isSafeInteger(value),
   (value) => Brand.error(`ChunkAxis must be a safe integer, received ${value}`),
 )
@@ -24,7 +24,7 @@ export const ChunkAxis = Brand.refined<ChunkAxis>(
 /** A chunk-local horizontal coordinate: an integer in [0, CHUNK_SIZE_XZ - 1]. */
 export type LocalAxis = number & Brand.Brand<'LocalAxis'>
 
-export const LocalAxis = Brand.refined<LocalAxis>(
+export const LocalAxis: Brand.Brand.Constructor<LocalAxis> = Brand.refined<LocalAxis>(
   (value) => Number.isInteger(value) && value >= ZERO && value < CHUNK_SIZE_XZ,
   (value) => Brand.error(`LocalAxis must be an integer in [0, ${CHUNK_SIZE_XZ - 1}], received ${value}`),
 )
