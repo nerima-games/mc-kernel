@@ -1,5 +1,97 @@
 # @nerima-games/mc-kernel
 
+## 0.5.0
+
+### Minor Changes
+
+- [#39](https://github.com/nerima-games/mc-kernel/pull/39) [`b35a300`](https://github.com/nerima-games/mc-kernel/commit/b35a300872458f1f3bc17d1c4ae3b70b9538daf5) Thanks [@takeokunn](https://github.com/takeokunn)! - **Three new shared-vocabulary domains, plus a memory-regression fix with no public-behaviour change.**
+  
+  ## New domains (MINOR: new types and functions)
+  
+  `domain/game-mode`, `domain/game-rule`, and `domain/damage-type` are now public, each exported from the
+  root barrel and its own `@nerima-games/mc-kernel/domain/*` subpath.
+  
+  - `game-mode` follows the `status-effect` / `biome` three-file shape (closed vocabulary + a per-member value
+    table): `GameMode` (`survival`/`creative`/`adventure`/`spectator`) and `Difficulty`
+    (`peaceful`/`easy`/`normal`/`hard`), each with a `*Properties` table (break/place/fly permission, block
+    collision, damage, hunger consumption, hostile-spawn eligibility, and damage/hunger multipliers). Mode
+    switching permission itself stays with the upper layer.
+  - `game-rule` follows the `settings` two-file shape (bounded defaults, normalisation and pure update in one
+    module rather than a separate `-validation.ts`): the subset of vanilla gamerules a world-simulation tick
+    actually branches on — daylight/weather cycling, mob spawning/griefing, `keepInventory`, fire spread,
+    `doInsomnia`, natural regeneration, immediate respawn, the four damage-source toggles, random tick speed,
+    entity cramming, the sleep-skip threshold, and the mob spawn radius. Announcement/log/admin rules
+    (`showDeathMessages`, `reducedDebugInfo`, …) are excluded — nothing in a physics or entity tick reads them.
+  - `damage-type` publishes Java Edition 1.21's closed `DamageType` vocabulary (armour-reduction eligibility,
+    invulnerability-bypass, `kind`, difficulty scaling) but deliberately **excludes** the raw-damage-to-final-
+    damage mitigation calculation. See `docs/responsibility.md` §3-7 for why the vocabulary passes the kernel-
+    admission test (`mc-audio` picks a hurt sound and `mx-ui` renders a death message from the same type, and
+    the two cannot reach each other on the dependency graph) while the mitigation arithmetic does not (its only
+    identified consumer, `mx-gameplay`, reaches kernel through an ordinary dependency edge) — and the re-open
+    condition under which that could change.
+  
+  ## Internal (PATCH: no public-behaviour change)
+  
+  **`domain/block-registry-indexes.ts`'s dense id-indexed lookup tables are now sized from the highest
+  registered block id, not from `BlockId`'s type ceiling (`BLOCK_ID_MAX`).** The two answer different questions
+  — `BLOCK_ID_MAX` is what a `BlockId` may be, the table length is how long the lookup arrays must be — and they
+  coincided only while the registry filled the whole 16-bit id space introduced by the `Chunk` v2 wire format
+  (previous changeset). Every capability-flag and property column was already pre-filled with that flag's or
+  property's documented default before registry rows overwrote their own id, and every accessor now falls back
+  to the same documented default for any id outside the (now shorter) table — so the answer for every id is
+  unchanged; only resident memory shrinks, restoring `block-registry`'s import cost to its pre-widening value.
+  No caller-visible signature, type, or default changed, so this ships as PATCH despite touching a file with a
+  public re-export surface.
+  
+  ## Package is `0.x`
+  
+  Per `docs/versioning.md` §6, "new type or function" classifies MINOR both before and after `1.0.0`, so the
+  three new domains set this changeset's bump. The registry-indexes fix is PATCH on its own and does not raise
+  that bump — changesets records the highest classification present in a release, not an additional one.
+
+- [#39](https://github.com/nerima-games/mc-kernel/pull/39) [`b35a300`](https://github.com/nerima-games/mc-kernel/commit/b35a300872458f1f3bc17d1c4ae3b70b9538daf5) Thanks [@takeokunn](https://github.com/takeokunn)! - **Eight new shared-vocabulary domains, and two MAJOR-classified changes buried inside them: a changed default and a changed wire format.**
+  
+  ## New domains (MINOR: new types and functions)
+  
+  `domain/random-source`, `domain/status-effect`, `domain/entity-type`, `domain/biome`,
+  `domain/light`, `domain/heightmap`, `domain/block-entity`, and `domain/tag-membership` are now
+  public, each exported from the root barrel and its own `@nerima-games/mc-kernel/domain/*`
+  subpath. Every one satisfies `docs/responsibility.md` §3-2's admission test: at least two
+  repositories need the vocabulary and cannot reach each other through the dependency graph
+  (`mc-noise` / `mc-meshing` / `mc-physics` / `mc-save` / `mc-audio` are the five repositories with
+  no edge but kernel). See `docs/public-api.md` for the full surface of each.
+  
+  ## Breaking (MAJOR per `docs/versioning.md` §6, shipped as a `0.x` minor bump)
+  
+  **`ingredientMatches`'s default for an omitted `itemTags` argument changed from an empty map to
+  `VANILLA_ITEM_TAG_MEMBERSHIPS`** (`src/domain/recipe-data.ts:466`, consumed at four call sites in
+  `src/domain/recipe-matching.ts`). Previously, calling `ingredientMatches` without an explicit
+  `itemTags` meant every tag ingredient silently failed to match. It now resolves against the
+  kernel's vanilla tag table (`domain/tag-membership.ts`). `docs/versioning.md` §6 classifies a
+  default-value change as MAJOR ("下流の挙動が黙って変わる。最も危険") because it changes the
+  behaviour of every caller that never wrote anything — exactly the risk that classification exists
+  to flag. A caller that depended on the old empty-default behaviour (tag ingredients never
+  matching) must now pass an empty `Map` explicitly.
+  
+  **The `Chunk` wire format gained a v2 encoding** (`src/domain/chunk.ts`). Block elements widen
+  from 8-bit to 16-bit; `encodeChunk` always emits v2 and never re-emits v1, though `decodeChunk`
+  still reads v1 bytes through a compatibility path. The payload-length header field at byte offset
+  20 changes meaning from an element count to a byte count — the two were indistinguishable under
+  v1's one-byte elements, but diverge now. `decodeChunk` validates each 16-bit element against the
+  block registry before narrowing it to the one-byte-per-element shape `BlockState` stores, so a
+  corrupt id above 255 cannot alias a valid id through truncation. `BlockId` numbering itself is
+  unchanged (`BLOCK.SAND === 5` still holds). Any code that parses encoded chunk bytes directly
+  (rather than through `encodeChunk` / `decodeChunk`) must account for the new element width and
+  payload-length semantics.
+  
+  ## Package is `0.x`
+  
+  Per `docs/versioning.md` §6, a `0.x` package reads MAJOR-classified changes as a **minor** bump
+  (`0.4.0` → `0.5.0`), not a major bump — hence `minor` above for both the tag-matching default and
+  the chunk wire format, alongside the eight new domains. `1.0.0` is deferred to a maintainer
+  decision made after downstream repositories actually consume this contract
+  (`docs/versioning.md` §2, §7).
+
 ## 0.4.0
 
 ### Minor Changes
