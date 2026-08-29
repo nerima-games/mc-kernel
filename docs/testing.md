@@ -33,9 +33,20 @@ mc-kernel は `domain/` しか持たない（純粋関数・型・データテ�
 | 公開バレルの再エクスポート | 実装済み | `test/public-api.test.ts` |
 | 依存境界 | 実装済み | `.oxlintrc.json` / `pnpm lint` |
 | 公開パッケージ境界 | 実装済み | `scripts/verify-package.mjs` / `pnpm package:verify` |
-| Chunk データ構造とコーデックのラウンドトリップ | 実装済み | `test/chunk.test.ts` |
+| Chunk データ構造とコーデックのラウンドトリップ（v1/v2 互換を含む） | 実装済み | `test/chunk.test.ts` |
 | Anvil の計画・適用 | 実装済み | `test/anvil.test.ts` |
 | Anvil の versioned snapshot codec | 実装済み | `test/anvil-snapshot.test.ts` |
+| 乱数契約（seed 決定性・scripted 実装） | 実装済み | `test/random-source.test.ts` |
+| ステータス効果の閉じた語彙と 3 重定義の射影 | 実装済み | `test/status-effect.test.ts` |
+| `EntityType` の閉じた語彙と runtime guard | 実装済み | `test/entity-type.test.ts` |
+| Biome の閉じた語彙・気候・tint 解決 | 実装済み | `test/biome.test.ts` |
+| 光量 2 チャンネルの伝播とコーデック | 実装済み | `test/light.test.ts` |
+| heightmap の不透明面・移動阻害面の導出 | 実装済み | `test/heightmap.test.ts` |
+| block entity の判別可能 union・容量・位置引き | 実装済み | `test/block-entity.test.ts` |
+| vanilla item tag membership と data pack layer 拡張 | 実装済み | `test/tag-membership.test.ts` |
+| ゲームモード・難易度の閉じた語彙と値表 | 実装済み | `test/game-mode.test.ts` |
+| gamerule の既定値・境界・検証・正規化・純粋な更新 | 実装済み | `test/game-rule.test.ts` |
+| ダメージ種別の閉じた語彙と種別ごとの値 | 実装済み | `test/damage-type.test.ts` |
 
 `Chunk` データ構造と versioned codec は mc-kernel が所有する。mc-worldgen は生成・ロード・dirty 管理を、
 mc-save は媒体フォーマットと保存先を所有し、同じ `Chunk` 型を境界で利用する。

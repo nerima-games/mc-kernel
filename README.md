@@ -130,6 +130,54 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
 
 ## 現状
 
+- **ゲームモード・難易度・gamerule・ダメージ種別を公開した**（`domain/game-mode` / `domain/game-rule` / `domain/damage-type`）。
+  `game-mode` は閉じた語彙 + メンバーごとの値表なので `status-effect` / `biome` と同じ 3 ファイル構成、
+  `game-rule` は既定値・境界・正規化を扱うので `settings` と同じ 2 ファイル構成にしている。両者の境界は
+  「`settings` は**このクライアント**の描画と入力の設定、`game-rule` は**シミュレーション全体**に効く権威的な状態」である。
+  `DamageType` は**語彙だけ**を持つ。生ダメージから最終ダメージを求める軽減計算は、
+  [docs/responsibility.md](./docs/responsibility.md) §3-7 に理由と**再開条件**つきで非スコープとして記録した。
+- **`BLOCK_ID_MAX` を上げたことによる常駐メモリ増を解消した。** id 索引テーブルを**型の上限**で採寸していたため、
+  上限を 255 から 65535 にした時点で能力フラグ・プロパティ列ごとの密配列がすべて 256 倍になり、
+  `block-registry` の import が計測時点で 15.83MB から 24.91MB へ増えていた。表の長さは登録済み id の最大値から
+  導出するよう分離し、main と同じ 15.83MB に戻している（`domain/block-registry-indexes.ts`）。
+  配列の本数は `BLOCK_CAPABILITY_FLAGS` と `BlockPropertyName` の列挙に従うので、ここでは数えない
+  ——追加はレビューに名前として現れるべきものである。
+  型の上限と表の長さは、格納幅が上限を決めていた間だけ同じ数だった。
+  併せて全アクセサに範囲ガードを入れた。V8 は配列の範囲外読み取りで遅いパスを取る——独立計測で
+  `Uint8Array` 約 2.8 倍、plain `Array` 約 1.8 倍——ので、ガード無しで表を縮めると `registryQueries` は
+  かえって遅くなる。**ただしこの根拠には条件が付く。** `scripts/benchmark.mjs` の `registryQueries` は
+  id を 0..32767 から引くのに登録済みは 123 件しかなく、クエリのほぼ全部が範囲外に落ちる。
+  実際のチャンクのブロック id は `BlockState` が構築時に検証するのでほぼ全部が範囲内で、
+  その分布ではガードは 1 回あたり約 0.25ns の純増になる（基準 1.46ns/call、15/15 ペアで再現）。
+  ガードは現状のベンチマークでは正味の利得だが、**そのベンチマークの入力分布は本番と逆である**。
+  再検討するならチャンク形状の id 分布で測り直すこと。
+
+- **共有語彙を 8 領域拡張した。** いずれも「その語彙を必要とする消費者が 2 つ以上あり、依存グラフ上で互いに届かない」
+  という [docs/responsibility.md](./docs/responsibility.md) §3-2 の判定条件を満たすものだけを入れている。判定の主語になるのは
+  kernel 以外にエッジを持たない 5 リポジトリ（`mc-noise` / `mc-meshing` / `mc-physics` / `mc-save` / `mc-audio`）である。
+  `domain/random-source`（乱数契約）、`domain/status-effect`、`domain/entity-type`、`domain/biome`、`domain/light`、
+  `domain/heightmap`、`domain/block-entity`、`domain/tag-membership`。
+  この条件を満たさなかったため**入れなかった**ものもある。ネットワーク packet 語彙は消費者が `mx-multiplayer` 1 つなので
+  当該リポジトリが所有し、SoundEvent registry は `mx-gameplay` と `mx-ui` が `mc-audio` に直接依存できるため `mc-audio` が所有する。
+- **乱数の境界を「源を持たない」に改めた。** 以前は「kernel は純粋で RNG を持たない」と書いていたが、
+  `domain/enchantment-table.ts` が当時すでに乱数を引数で受け取っており、記述と実装が食い違っていた。
+  `domain/random-source.ts` が `ClockPort` と同型の契約・seed 生成器・テスト用 scripted 実装を持ち、実エントロピーのアダプタは持たない。
+  詳細は [docs/responsibility.md](./docs/responsibility.md) §3-1。
+- **ステータス効果の 3 重定義を 1 つに畳んだ。** `FoodStatusEffectName`（`StatusEffectName` からの `Extract` で
+  閉じた union）、`ConsumableStatusEffect`（`ResourceLocation`）、`PotionContentsComponent` が同じ概念を独立に綴っていた。
+  これは [docs/design-notes.md](./docs/design-notes.md) §1-2 が参照実装の致命傷として記録した「同じ概念が複数箇所で
+  独立に列挙され、メンバーシップがずれる」現象が kernel 内部で再現したものである。既存の公開シグネチャは変えず、
+  3 つを `domain/status-effect` への射影にした。`minecraft:` を綴る箇所は 1 つになった。
+- **`EntityType` の閉じた語彙を実装した**（`domain/entity-type.ts`）。
+  [docs/responsibility.md](./docs/responsibility.md) が以前から責務として宣言していながら存在しなかった語彙で、
+  実在したのは `EntityKind` という網羅性チェックの効かない開いた branded string だけだった。
+  `EntityKind` は modding 入口として残し、閉じた語彙をその上に載せている。
+- **`Chunk` のブロック表現を 16 bit へ広げ、codec を v2 にした**（`domain/chunk.ts` / `domain/block-state.ts`）。
+  id の数値は変えていない（`BLOCK.SAND === 5` は 5 のまま）ので、v1 で encode されたバイト列は decode 互換パスで読める。
+  オフセット 20 の payload length フィールドは v2 で**バイト数**を意味する。8 bit のときは要素数と一致していて両義的だったが、
+  16 bit では一致しないため、encode・検証・v1/v2 の分岐の 3 箇所を明示的に揃えた。
+  v2 の decode は narrowing の**前**に 16 bit 値を registry 検証にかけるので、壊れた id が切り捨てで有効 id に化けることはない。
+
 - **ブロック能力モデルは監査に整合済み。** `docs/capability-flag-audit.md` の 28 能力のうち **27 は kernel 実装 / 1 は下流所有**。
   下流所有の境界は `DOWNSTREAM_CAPABILITIES` に所有者と理由つきで記録され、テストが「実装済み + 下流所有 = 監査の 28」を検査している。
   plan.md §3.1 が boolean としていた 3 つ（`emissive` / `transparent` / `fluid`）は監査に従って
