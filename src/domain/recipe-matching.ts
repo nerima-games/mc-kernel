@@ -14,6 +14,7 @@ import {
 import { VANILLA_CRAFTING_RECIPES } from "./recipe-vanilla-data.js";
 import type { ItemStack } from "./item-stack.js";
 import type { ItemType } from "./item-type.js";
+import { VANILLA_ITEM_TAG_MEMBERSHIPS } from "./tag-membership.js";
 
 export type RecipeMatch =
   | {
@@ -54,7 +55,6 @@ export type RecipeConflict = {
   readonly reason: RecipeConflictReason;
 };
 
-const EMPTY_ITEM_TAGS: ItemTagMemberships = new Map();
 const EMPTY_RECIPE_CONTEXT: RecipeMatchContext = {};
 
 type RecordValue = Readonly<Record<string, unknown>>;
@@ -234,7 +234,7 @@ const shapedIngredientAssignments = (
   if (bounds === undefined) {
     return undefined;
   }
-  const itemTags = context.itemTags ?? EMPTY_ITEM_TAGS;
+  const itemTags = context.itemTags ?? VANILLA_ITEM_TAG_MEMBERSHIPS;
   const firstOffsetX = bounds.minX;
   const firstOffsetY = bounds.minY;
   const lastOffsetX = bounds.maxX - recipe.pattern.width + 1;
@@ -279,7 +279,7 @@ export const matchesShaped = (
   if (bounds === undefined) {
     return false;
   }
-  const itemTags = context.itemTags ?? EMPTY_ITEM_TAGS;
+  const itemTags = context.itemTags ?? VANILLA_ITEM_TAG_MEMBERSHIPS;
   const firstOffsetX = bounds.minX;
   const firstOffsetY = bounds.minY;
   const lastOffsetX = bounds.maxX - recipe.pattern.width + 1;
@@ -327,7 +327,7 @@ export function matchesShapeless(
   ) {
     return false;
   }
-  const itemTags = context.itemTags ?? EMPTY_ITEM_TAGS;
+  const itemTags = context.itemTags ?? VANILLA_ITEM_TAG_MEMBERSHIPS;
   let failedStates: Set<number> | undefined;
   // The grid bound makes the integer state key cheaper than a Set of occupied slots.
   // oxlint-disable-next-line no-bitwise
@@ -431,7 +431,7 @@ const shapelessIngredientAssignments = (
     return undefined;
   }
 
-  const itemTags = context.itemTags ?? EMPTY_ITEM_TAGS;
+  const itemTags = context.itemTags ?? VANILLA_ITEM_TAG_MEMBERSHIPS;
   const assignments: Array<RecipeIngredientAssignment> = [];
   const failedStates = new Set<number>();
   // CraftGrid is bounded to 3×3, so a bitmask replaces Set allocation during backtracking.

@@ -120,10 +120,45 @@
       "import": "./dist/domain/bedrock-mining.js",
       "default": "./dist/domain/bedrock-mining.js"
     },
+    "./domain/biome": {
+      "types": "./dist/domain/biome.d.ts",
+      "import": "./dist/domain/biome.js",
+      "default": "./dist/domain/biome.js"
+    },
+    "./domain/block-entity": {
+      "types": "./dist/domain/block-entity.d.ts",
+      "import": "./dist/domain/block-entity.js",
+      "default": "./dist/domain/block-entity.js"
+    },
     "./domain/chunk": {
       "types": "./dist/domain/chunk.d.ts",
       "import": "./dist/domain/chunk.js",
       "default": "./dist/domain/chunk.js"
+    },
+    "./domain/heightmap": {
+      "types": "./dist/domain/heightmap.d.ts",
+      "import": "./dist/domain/heightmap.js",
+      "default": "./dist/domain/heightmap.js"
+    },
+    "./domain/light": {
+      "types": "./dist/domain/light.d.ts",
+      "import": "./dist/domain/light.js",
+      "default": "./dist/domain/light.js"
+    },
+    "./domain/random-source": {
+      "types": "./dist/domain/random-source.d.ts",
+      "import": "./dist/domain/random-source.js",
+      "default": "./dist/domain/random-source.js"
+    },
+    "./domain/status-effect": {
+      "types": "./dist/domain/status-effect.d.ts",
+      "import": "./dist/domain/status-effect.js",
+      "default": "./dist/domain/status-effect.js"
+    },
+    "./domain/tag-membership": {
+      "types": "./dist/domain/tag-membership.d.ts",
+      "import": "./dist/domain/tag-membership.js",
+      "default": "./dist/domain/tag-membership.js"
     },
     "./domain/clock": {
       "types": "./dist/domain/clock.d.ts",
@@ -145,6 +180,21 @@
       "import": "./dist/domain/crop.js",
       "default": "./dist/domain/crop.js"
     },
+    "./domain/damage-type": {
+      "types": "./dist/domain/damage-type.d.ts",
+      "import": "./dist/domain/damage-type.js",
+      "default": "./dist/domain/damage-type.js"
+    },
+    "./domain/game-mode": {
+      "types": "./dist/domain/game-mode.d.ts",
+      "import": "./dist/domain/game-mode.js",
+      "default": "./dist/domain/game-mode.js"
+    },
+    "./domain/game-rule": {
+      "types": "./dist/domain/game-rule.d.ts",
+      "import": "./dist/domain/game-rule.js",
+      "default": "./dist/domain/game-rule.js"
+    },
     "./domain/dimension": {
       "types": "./dist/domain/dimension.d.ts",
       "import": "./dist/domain/dimension.js",
@@ -154,6 +204,11 @@
       "types": "./dist/domain/entity.d.ts",
       "import": "./dist/domain/entity.js",
       "default": "./dist/domain/entity.js"
+    },
+    "./domain/entity-type": {
+      "types": "./dist/domain/entity-type.d.ts",
+      "import": "./dist/domain/entity-type.js",
+      "default": "./dist/domain/entity-type.js"
     },
     "./domain/sulfur-cube": {
       "types": "./dist/domain/sulfur-cube.d.ts",

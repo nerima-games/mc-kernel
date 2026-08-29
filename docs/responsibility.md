@@ -51,6 +51,16 @@
 | ネザーポータル          | 着火位置からの枠検出と寸法指定の枠生成。ワールドへの書き込み、ポータル間の紐付け、移動は上位                                                                                                                                                                                                       |
 | 乗り物                  | 乗り物 snapshot の値型と検証。実体の所有・物理・入力は上位                                                                                                                                                                                                                                        |
 | Sulfur Cube             | archetype の tag・registry 識別子、JSON の境界検証と正規化。物理・爆発・接触イベントの実行は上位                                                                                                                                                                                                   |
+| 乱数契約                | `RandomSource` の契約、seed から決定的に導出する生成器、テスト用の scripted 実装。環境エントロピーを読むアダプタは持たない（§3-1）                                                                                                                                                                  |
+| ステータス効果          | Java Edition 1.21 の mob effect の閉じた語彙と、効果ごとの beneficial/harmful・粒子色・amplifier 上限。`FoodStatusEffectName` / `ConsumableStatusEffect` / `PotionContentsComponent` はこの語彙への射影。効果の適用と tick 進行は上位                                                               |
+| Biome                   | Java Edition 1.21 の biome の閉じた語彙と、気温・降水量・降水種別・草/葉/水の tint・ディメンション適合。生成・分布・noise パラメータは `mc-worldgen`、tint の描画は `mc-render`                                                                                                                    |
+| 光量                    | block light / sky light の 2 チャンネル、チャンク 1 個分の light volume と独自 codec、`lightEmission` / `opacity` からの純粋な伝播。チャンク跨ぎの伝播キュー、再計算スケジューリング、時刻による sky light 減衰の適用は上位                                                                        |
+| Block entity            | `BlockPosition` に紐づく付帯状態の判別可能 union（格納コンテナ・かまど・醸造台・看板）、コンテナ容量、位置引きの純粋な参照・更新。搬送・所有権・GUI・永続化媒体は上位                                                                                                                              |
+| Heightmap               | `Chunk` から導出する不透明面・移動阻害面の heightmap。キャッシュ・無効化・再計算スケジューリングは持たない                                                                                                                                                                                        |
+| tag membership          | 同梱 roster の範囲での vanilla item tag membership と、data pack layer による tag 拡張。`ingredientMatches` の既定値がこの表を指す                                                                                                                                                                 |
+| ゲームモードと難易度    | `GameMode`（survival / creative / adventure / spectator）と `Difficulty`（peaceful / easy / normal / hard）の閉じた語彙、およびモード・難易度ごとの値（破壊/設置/飛行の可否、衝突の適用、被ダメージ、空腹消費、敵対 spawn 可否、ダメージ・空腹の倍率）。モード切替の権限判定は上位                 |
+| gamerule                | シミュレーションの tick が読む gamerule の既定値・境界・検証・正規化・純粋な更新。コマンド解釈と永続化は上位。告知・ログ系の rule は持たない                                                                                                                                                       |
+| ダメージ種別            | Java Edition 1.21 の `DamageType` の閉じた語彙と、種別ごとの armour 軽減可否・無敵時間の貫通・kind。**軽減計算そのものは持たない**（§3-7）                                                                                                                                                         |
 | 横断 Port               | `ClockPort`                                                                                                                                                                                                                                                                                        |
 | 横断スナップショット    | `CameraPoseSnapshot`                                                                                                                                                                                                                                                                               |
 | Anvil 変換              | 決定的な変換計画・適用、および versioned state snapshot codec                                                                                                                                                                                                                                      |
@@ -87,7 +97,7 @@ domain/
   vehicle.ts                    # 乗り物 snapshot の値型と検証
 
   # Entity: 語彙・属性・操作を分離（architecture.md §6）
-  entity-types.ts              # EntityType の閉じた語彙と runtime guard
+  entity-types.ts              # EntityId、網羅性チェックの効かない開いた EntityKind（modding 入口）、roster の型と純粋な spawn/despawn/repair 補助
   entity-attributes-data.ts    # attribute の値域・既定値のデータ表
   entity-attributes-validation.ts # attribute の境界検証
   entity-attributes.ts         # attribute の解決と modifier 適用
@@ -273,6 +283,35 @@ domain/
   anvil-planning.ts            # 検証と計算を束ねた最終計画
   anvil-snapshot-codec.ts      # versioned snapshot の encode / decode
 
+  # 共有語彙の拡張（下流 3 リポジトリ以上が必要とし、kernel 以外で会えないもの）
+  random-source.ts             # RandomSource の契約・seed 生成器・scripted 実装（§3-1）
+  status-effect-data.ts        # Java 1.21 mob effect の閉じた語彙と効果ごとの値
+  status-effect-validation.ts  # 効果名・効果 id の境界検証
+  status-effect.ts             # ステータス効果の公開バレル
+  entity-type-data.ts          # ENTITY_TYPES の閉じたデータテーブル
+  entity-type.ts               # EntityType 型と外部入力用 runtime guard
+  biome-data.ts                # BIOME_TYPES と biome ごとの気温・降水量・tint（既定からの差分のみ記述）
+  biome-validation.ts          # 外部入力の biome 検証と既定値解決
+  biome.ts                     # biome の公開バレル
+  light-data.ts                # block/sky 2 チャンネルの light volume と独自 codec
+  light-update.ts              # 1 チャンク分の光量伝播
+  light.ts                     # 光量の公開バレル
+  heightmap.ts                 # Chunk から導出する不透明面・移動阻害面の heightmap
+  block-entity-data.ts         # コンテナ容量と BlockEntity の判別可能 union
+  block-entity-validation.ts   # 保存値の BlockEntity 検証
+  block-entity.ts              # 位置引きの参照・更新を持つ公開バレル
+  tag-membership-data.ts       # 同梱 roster の範囲での vanilla item tag membership
+  tag-membership.ts            # tag の参照と data pack layer による拡張
+
+  game-mode-data.ts            # GameMode / Difficulty の閉じた語彙と各値
+  game-mode-validation.ts      # 外部入力の GameMode / Difficulty 検証
+  game-mode.ts                 # ゲームモードと難易度の公開バレル
+  game-rule-data.ts            # gamerule の値型・既定値・境界
+  game-rule.ts                 # gamerule の検証・正規化・純粋な更新（settings.ts と同じ 2 ファイル構成）
+  damage-type-data.ts          # DamageType の閉じた語彙と種別ごとの値
+  damage-type-validation.ts    # 外部入力の DamageType 検証
+  damage-type.ts               # ダメージ種別の公開バレル
+
   camera.ts                    # CameraPoseSnapshot
   clock.ts                     # ClockPort
   frame.ts                     # GameModule / StageRegistration / FrameServices
@@ -294,6 +333,17 @@ kernel に置くと全リポジトリがそのサービスの都合に巻き込�
 kernel が持ってよい「サービスらしきもの」は **Port（インターフェース）だけ**である。
 `ClockPort` は Context.Tag と型と、テスト用の固定実装（`fixedClock` / `FixedClockLayer`）を持つが、
 実クロックを読むアダプタは持たない。実装は利用側が注入する。
+
+**乱数も同じ扱いである。** 以前この文書は「kernel は純粋で RNG を持たない」と書いていたが、
+それは実態と食い違っていた。`domain/enchantment-table.ts` の `generateEnchantmentTableOffers` は
+当時すでに乱数を引数で受け取っており、原則の唯一の例外として扱われていた。例外が 1 つある原則は、
+次の乱数需要（loot table・延焼・mob spawn）のたびに例外が増える。
+
+正しい境界は **「kernel は乱数の*源*を持たない」**である。`domain/random-source.ts` が
+`RandomSource` の契約と、seed から決定的に導出する生成器と、テスト用の scripted 実装を持つ。
+これは `ClockPort` と同型で、環境のエントロピーを読むアダプタは持たない。
+乱数を**引数として受け取る純粋関数**は kernel に置いてよい。同じ seed と同じ呼び出し順が
+同じ列を返すことが、リプレイと早送りが成立する条件である。
 
 プレイヤーの状態サービス、ダメージ源、食料タイマー、経験値の付与権限、保存形式は上位層が所有する。
 kernel の vitals API は値を受け取って次の値を返す純粋な計算と、外部入力の境界検証だけを提供する。
@@ -377,7 +427,7 @@ renderer の map 順序は同一ではなく、renderer 固有の asset 集合�
 
 | 事象                                                     | 置き場所      | 理由                                                                                                                                                                                    |
 | -------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 乱数ドロップ（gravel → flint 10%、oak_leaves → sapling） | `mx-gameplay` | 監査 §6-9。kernel は純粋で RNG を持たない                                                                                                                                               |
+| 乱数ドロップ（gravel → flint 10%、oak_leaves → sapling） | `mx-gameplay` | 監査 §6-9。**この理由は「kernel は RNG を持たない」から改めた**（§3-1）。kernel は `RandomSource` の契約を持つので、乱数を引数で受け取る drop 規則は表現できる。置き場所が下流なのは、消費者が `mx-gameplay` 1 つだと**推論**しているためであり、下流の実消費で 2 つ以上と分かれば kernel に移せる |
 | 幸運の倍率適用                                           | `mx-gameplay` | 同上。kernel は `affectedByFortune` を**運ぶ**だけ                                                                                                                                      |
 | シルクタッチの**置換**（stone → stone、鉱石 → 鉱石）     | **実装済み**  | `BlockDropRule.silkTouchItem?: ItemType` を `domain/block-harvest.ts` で解決し、stone / grass_block / 14 種の鉱石を registry に登録。`requiresSilkTouch` の gate と置換を分離している。 |
 
@@ -449,10 +499,34 @@ kernel の能力フラグとしては定義しない（`domain/block-definition.
 ### 3-6. `AIR` を能力で表現しない
 
 `AIR` は「ブロックが無い」ことを表す番兵であり、能力フラグではない。`BlockId` は
-`Uint8Array` の添字として使える安定した密な数値 ID なので、kernel は
+id 索引テーブルの添字として使える安定した密な数値 ID なので、kernel は
 `isEmpty(blockId)` を **id 0 の直接比較**として公開する。
+
+（チャンクバッファは codec v2 で 1 要素 2 バイトになったが、この節の主張は影響を受けない。
+`isEmpty` が引数に取るのは要素の**値**であって格納幅ではなく、`new Uint16Array(n)` も
+`new Uint8Array(n)` と同じくゼロ埋めなので、確保しただけのチャンクが空気で埋まるという
+下流の前提もそのまま成り立つ。）
 
 `isEmpty` の引数は `number` とする。下流はチャンクバッファから読み出した未ブランドの byte を
 そのまま渡せる必要があり、0 以外（範囲外・小数・`NaN` を含む）は空気ではない。
 この predicate はレジストリ lookup や能力表を引かず、公開された `AIR_BLOCK_ID` と同じ契約を共有する。
 `BlockIndex` 型や公開 mutable 配列を別に増やすものではない。
+
+### 3-7. ダメージの軽減計算を持たない（語彙は持つ）
+
+`DamageType` の**閉じた語彙**は kernel に置く。`mc-audio` が種別ごとの hurt sound を選び、
+`mx-ui` が死亡メッセージを組み立てる。両者は依存グラフ上で互いに届かず（`mc-audio` は kernel 以外に
+エッジを持たない）、§3-2 の判定条件を満たす。加えてこれは `domain/item-combat-data.ts` の
+`DamageTypeComponent = ResourceLocation` という**既存の素通しエイリアスを埋める**作業であり、
+責務表の「item component の値 … 戦闘 … の値」の行の内側にある。
+
+**一方、生ダメージ・防具値・靭性・保護・耐性から最終ダメージを求める計算は kernel に置かない。**
+同じ §3-2 の条件を当てると、確認できる消費者は `mx-gameplay` 1 つだけで、それは通常の依存エッジで
+kernel に届く。会うための場所を必要としていない。§1 の vitals 行と本節冒頭の §3-1 が
+「ダメージ源」を上位層に置いているのとも整合する。
+
+**再開条件**（これが満たされたら kernel に移してよい）:
+`mx-gameplay` 以外に軽減計算を必要とする消費者が名指しされ、その 2 者が依存グラフ上で
+互いに届かないこと。`docs/architecture.md` §4-1 が体験モジュール間のエッジをゼロと定めているので、
+2 つ目が `mx-ui`（防具ツールチップの実効防御表示）や `mx-multiplayer`（ダメージ予測）であれば
+条件は自動的に成立する。**判定可能な条件であり、無期限の保留ではない。**

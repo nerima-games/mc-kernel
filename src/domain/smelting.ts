@@ -132,6 +132,9 @@ function assertFuelTable(fuels: unknown): asserts fuels is FuelRuleTable {
   fuels.forEach(assertFuelRule)
 }
 
+// Field-for-field mirror of `isFurnaceState` in `./block-entity-validation.ts`,
+// including the derived bound `fuelTimeRemainingSecs <= fuelTimeTotalSecs`.
+// An edit to one invariant requires the matching edit there.
 function assertFurnaceState(value: unknown): asserts value is FurnaceState {
   if (!isRecord(value)) {
     throw new TypeError('Furnace state must be an object')

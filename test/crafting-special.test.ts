@@ -254,6 +254,27 @@ describe("crafting special recipes", () => {
     ).toBe("minecraft:a");
   });
 
+  it("resolves a genuine vanilla tag when itemTags is omitted from the match context", () => {
+    const vanillaTaggedRecipe = craftingDyeRecipe(
+      ResourceLocation("minecraft:vanilla_tag_dye"),
+      exactly("leather"),
+      tagged("#minecraft:trim_materials"),
+      itemStack("leather", 1),
+      { tags: [], priority: 0 },
+    );
+    const vanillaResolvedGrid = craftGrid(3, 3, [
+      itemStack("leather", 1, {
+        components: itemComponents("leather", { dyedColor: 0x123456 }),
+      }),
+      itemStack("redstone_dust", 1, {
+        components: itemComponents("redstone_dust", { dye: "red" }),
+      }),
+    ]);
+    expect(matchesCraftingDyeRecipe(vanillaTaggedRecipe, vanillaResolvedGrid)).toBe(
+      true,
+    );
+  });
+
   it("rejects invalid dye grids and returns a no-match result", () => {
     expect(
       matchesCraftingDyeRecipe(

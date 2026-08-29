@@ -4,13 +4,37 @@ import { BlockState, blockState } from './block-state.js'
 import { CHUNK_SIZE_XZ, type ChunkCoord, chunkCoord } from './coordinates.js'
 import { chunkCoordFromAxes } from './coordinate-primitives.js'
 
-export const CHUNK_CODEC_VERSION = 1
+/** Legacy 8-bit-per-block payload. Still decodable; never encoded again. */
+const CHUNK_CODEC_VERSION_V1 = 1
+export const CHUNK_CODEC_VERSION = 2
 export const CHUNK_HEADER_BYTES = 24
 export const MAX_CHUNK_HEIGHT = 0xffff
+
+/** Bytes per block element on the wire, keyed by codec version. */
+const CHUNK_BLOCK_ELEMENT_BYTES_V1 = 1
+const CHUNK_BLOCK_ELEMENT_BYTES_V2 = 2
 
 const MAGIC = [0x4d, 0x43, 0x48, 0x4b] as const // MCHK
 const MAX_INT32 = 0x7fffffff
 const MIN_INT32 = -0x80000000
+
+/**
+ * The payload-length header field (offset 20) is a BYTE count, not an
+ * element count. Under the retired 8-bit-per-element v1 format the two
+ * numbers were identical, which let the field's meaning stay implicit; v2's
+ * 16-bit elements make byte count and element count diverge, so this
+ * function is the single place that decides which one the field is and
+ * every reader/writer of offset 20 goes through it.
+ */
+const bytesPerBlockElement = (version: number): number => {
+  if (version === CHUNK_CODEC_VERSION_V1) {
+    return CHUNK_BLOCK_ELEMENT_BYTES_V1
+  }
+  if (version === CHUNK_CODEC_VERSION) {
+    return CHUNK_BLOCK_ELEMENT_BYTES_V2
+  }
+  throw new Error(`Unsupported chunk codec version ${version}`)
+}
 
 /** Vertical block count of a chunk column. Integer in [1, MAX_CHUNK_HEIGHT]. */
 export type ChunkHeight = number & Brand.Brand<'ChunkHeight'>
@@ -39,6 +63,7 @@ type RecordValue = Readonly<Record<string, unknown>>
 type ValidatedEncodedChunk = {
   readonly encoded: Uint8Array
   readonly height: ChunkHeight
+  readonly version: number
   readonly view: DataView
 }
 
@@ -121,9 +146,7 @@ const validateEncodedChunk = (
 
   const view = new DataView(encoded.buffer, encoded.byteOffset, encoded.byteLength)
   const version = view.getUint16(4, true)
-  if (version !== CHUNK_CODEC_VERSION) {
-    throw new Error(`Unsupported chunk codec version ${version}`)
-  }
+  const elementBytes = bytesPerBlockElement(version)
   const width = view.getUint16(6, true)
   const depth = view.getUint16(8, true)
   if (width !== CHUNK_SIZE_XZ || depth !== CHUNK_SIZE_XZ) {
@@ -131,8 +154,12 @@ const validateEncodedChunk = (
   }
 
   const height = ChunkHeight(view.getUint16(10, true))
+  // The payload-length field (offset 20) is a BYTE count: it must always
+  // equal `encoded.length - CHUNK_HEADER_BYTES`, so a declared length that
+  // disagrees with the buffer's actual size is rejected here rather than
+  // read past the end (or short) during decode.
   const payloadLength = view.getUint32(20, true)
-  const expected = chunkBlockCount(height)
+  const expected = chunkBlockCount(height) * elementBytes
   if (payloadLength !== expected) {
     throw new RangeError(`Chunk payload length must be ${expected}, header declares ${payloadLength}`)
   }
@@ -142,7 +169,7 @@ const validateEncodedChunk = (
     )
   }
 
-  return { encoded, height, view }
+  return { encoded, height, version, view }
 }
 
 const mutableBytesOf = (encoded: EncodedChunkInput): Uint8Array =>
@@ -207,7 +234,11 @@ export function encodeChunk(value: Chunk): EncodedChunk
 export function encodeChunk(value: Chunk): EncodedChunk {
   const { blocks, coord, height } = validateChunkForEncoding(value)
 
-  const encoded = new Uint8Array(CHUNK_HEADER_BYTES + blocks.length)
+  // blocks.copyTo speaks wire bytes directly (CHUNK_BLOCK_ELEMENT_BYTES_V2
+  // bytes per element, little-endian), so the payload length in bytes is
+  // blocks.length times that width, not blocks.length itself.
+  const payloadLength = blocks.length * CHUNK_BLOCK_ELEMENT_BYTES_V2
+  const encoded = new Uint8Array(CHUNK_HEADER_BYTES + payloadLength)
   encoded.set(MAGIC, 0)
   const view = new DataView(encoded.buffer)
   view.setUint16(4, CHUNK_CODEC_VERSION, true)
@@ -216,7 +247,7 @@ export function encodeChunk(value: Chunk): EncodedChunk {
   view.setUint16(10, height, true)
   view.setInt32(12, coord.cx, true)
   view.setInt32(16, coord.cz, true)
-  view.setUint32(20, blocks.length, true)
+  view.setUint32(20, payloadLength, true)
   blocks.copyTo(encoded, CHUNK_HEADER_BYTES)
   // Every wire field was written from validated inputs; avoid revalidating this fresh buffer.
   return brandEncodedChunk(encoded)
@@ -224,8 +255,17 @@ export function encodeChunk(value: Chunk): EncodedChunk {
 
 /** Decode and validate a chunk. Trailing bytes and unknown registry ids are corruption. */
 export const decodeChunk = (encoded: EncodedChunkInput): Chunk => {
-  const { encoded: validated, height, view } = validateEncodedChunk(mutableBytesOf(encoded))
-  const blocks = chunkBlocksFromValidatedHeight(validated.subarray(CHUNK_HEADER_BYTES))
+  const { encoded: validated, height, version, view } = validateEncodedChunk(mutableBytesOf(encoded))
+  const payload = validated.subarray(CHUNK_HEADER_BYTES)
+  // v1's payload is one byte per element, BlockState's legacy/friendly
+  // construction shape (fromBytes); v2's payload is already BlockState's own
+  // wire/storage shape (two bytes per element, little-endian), so it is
+  // registry-checked and adopted directly (fromElementBytes) with no
+  // intermediate byte array to narrow a value into and lose bits from.
+  const blocks =
+    version === CHUNK_CODEC_VERSION_V1
+      ? chunkBlocksFromValidatedHeight(payload)
+      : brandChunkBlocks(BlockState.fromElementBytes(payload, chunkBlockCount(height)))
 
   return validatedChunk(chunkCoord(view.getInt32(12, true), view.getInt32(16, true)), height, blocks)
 }

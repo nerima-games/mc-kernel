@@ -18,10 +18,11 @@ import {
   type ItemUseComponents,
   type UseRemainderComponent,
 } from './consumable-data.js'
-import { ResourceLocation } from './identifiers.js'
+import type { ResourceLocation } from './identifiers.js'
 import type { FoodStatusEffectName } from './food-data.js'
 import type { ItemType } from './item-type.js'
 import { ConsumeSeconds } from './quantities.js'
+import { statusEffectId } from './status-effect-data.js'
 
 export {
   CONSUMABLE_ANIMATIONS,
@@ -49,7 +50,7 @@ export {
   isUseRemainderComponent,
 } from './consumable-validation.js'
 
-const namespacedEffectIdOf = (name: FoodStatusEffectName): ResourceLocation => ResourceLocation(`minecraft:${name}`)
+const namespacedEffectIdOf = (name: FoodStatusEffectName): ResourceLocation => statusEffectId(name)
 
 const assertFinite = (name: string, value: number): void => {
   if (!Number.isFinite(value)) {

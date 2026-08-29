@@ -1,6 +1,15 @@
 import type { ItemType } from './item-type.js'
+import type { StatusEffectName } from './status-effect-data.js'
 
-export type FoodStatusEffectName =
+/**
+ * The vanilla food effects, `Extract`ed from the closed status-effect
+ * vocabulary (`./status-effect-data.js`) rather than restated: if one of
+ * these literals ever stopped being a member of `StatusEffectName`, `Extract`
+ * would silently drop it, and `test/status-effect.test.ts` pins the resulting
+ * member count against an explicit list so a drop shows up as a diff there.
+ */
+export type FoodStatusEffectName = Extract<
+  StatusEffectName,
   | 'absorption'
   | 'fire_resistance'
   | 'hunger'
@@ -8,6 +17,7 @@ export type FoodStatusEffectName =
   | 'poison'
   | 'regeneration'
   | 'resistance'
+>
 
 export type FoodStatusEffect = Readonly<{
   readonly kind: 'status'

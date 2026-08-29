@@ -268,4 +268,19 @@ describe("portable transmute recipes", () => {
       ),
     ).toEqual([recipe.id, rival.id]);
   });
+
+  it("resolves a genuine vanilla tag when itemTags is omitted from the match context", () => {
+    const vanillaTaggedRecipe = transmuteRecipe(
+      "minecraft:trim_material_transmute",
+      exactly("iron_block", 1),
+      tagged("#minecraft:trim_materials"),
+      itemStack("netherite_scrap", 1),
+    );
+    const vanillaGrid = craftGrid(3, 3, [
+      itemStack("iron_block", 1),
+      itemStack("diamond", 1),
+      undefined,
+    ]);
+    expect(matchesTransmuteRecipe(vanillaTaggedRecipe, vanillaGrid)).toBe(true);
+  });
 });

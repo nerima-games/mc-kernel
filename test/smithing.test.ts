@@ -137,11 +137,15 @@ describe('smithing recipe matching', () => {
       base: itemStack('diamond_helmet', 1),
       addition: itemStack('gold_ingot', 1),
     }), { station: SMITHING_STATION_TAG, itemTags: trimTags })).toBe(true)
+    // Deliberate behaviour change: an omitted itemTags now resolves to the
+    // kernel's vanilla tag table (tag-membership.ts) instead of an empty map,
+    // and diamond_helmet/gold_ingot/netherite_upgrade_smithing_template are
+    // genuine vanilla trim membership, so this now matches.
     expect(matchesSmithingRecipe(trimRecipe, smithingInput({
       template: itemStack('netherite_upgrade_smithing_template', 1),
       base: itemStack('diamond_helmet', 1),
       addition: itemStack('gold_ingot', 1),
-    }))).toBe(false)
+    }))).toBe(true)
 
     const lowPriority = smithingTransformRecipe('minecraft:z_low', exactly('stone'), exactly('stone'), exactly('stick'), itemStack('stone', 1), { priority: 1 })
     const samePriorityEarlier = smithingTransformRecipe('minecraft:a_same', exactly('stone'), exactly('stone'), exactly('stick'), itemStack('stick', 1), { priority: 1 })

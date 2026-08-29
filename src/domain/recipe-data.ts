@@ -5,6 +5,7 @@ import {
   type Slot,
 } from "./item-stack.js";
 import { isItemType, type ItemType } from "./item-type.js";
+import { VANILLA_ITEM_TAG_MEMBERSHIPS } from "./tag-membership.js";
 
 export const MAX_RECIPE_SIDE = 3;
 
@@ -117,8 +118,6 @@ type RecordValue = {
 
 const isRecord = (value: unknown): value is RecordValue =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-const EMPTY_ITEM_TAGS: ItemTagMemberships = new Map();
 
 const isIngredientCount = (count: unknown): count is number =>
   typeof count === "number" &&
@@ -464,7 +463,7 @@ export function ingredientMatches(
 export function ingredientMatches(
   ingredient: CraftingIngredient,
   item: ItemType,
-  itemTags: ItemTagMemberships = EMPTY_ITEM_TAGS,
+  itemTags: ItemTagMemberships = VANILLA_ITEM_TAG_MEMBERSHIPS,
 ): boolean {
   const normalized = normalizeCraftingIngredient(ingredient);
   if (normalized._tag === "AnyOf") {

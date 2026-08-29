@@ -4,6 +4,7 @@ import type { ConsumableEffect } from './consumable-data.js'
 import type { ItemStack } from './item-stack.js'
 import type { ItemType } from './item-type.js'
 import type { MapId } from './quantities.js'
+import { STATUS_EFFECT_NAMES, statusEffectId } from './status-effect-data.js'
 import type { TextComponent } from './text-component-data.js'
 
 export const DYE_COLORS = [
@@ -114,6 +115,17 @@ export type PotionEffectInstanceOptions = Readonly<{
   readonly showIcon?: boolean
   readonly hiddenEffect?: PotionEffectInstanceOptions
 }>
+
+/**
+ * Vanilla (non-modded) status-effect ids, projected from the closed
+ * vocabulary in `./status-effect-data.js`. `PotionEffectInstanceComponent.id`
+ * and `PotionContentsComponent.potion` stay typed as the wider
+ * `ResourceLocation` because a data pack may reference a custom effect; this
+ * list exists so `./item-component-values-validation.js` can guard the
+ * vanilla subset without rebuilding the vocabulary itself.
+ */
+export const VANILLA_STATUS_EFFECT_IDS: ReadonlyArray<ResourceLocation> =
+  STATUS_EFFECT_NAMES.map(statusEffectId)
 
 export type PotionContentsComponent = ResourceLocation | Readonly<{
   readonly potion?: ResourceLocation

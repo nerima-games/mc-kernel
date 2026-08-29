@@ -101,6 +101,9 @@ function assertRecipeTable(recipes: unknown): asserts recipes is BrewingRecipeTa
   recipes.forEach(assertRecipe)
 }
 
+// Field-for-field mirror of `isBrewingState` in `./block-entity-validation.ts`,
+// including the derived bound `brewProgressSecs <= BREWING_TIME_SECS`.
+// An edit to one invariant requires the matching edit there.
 function assertBrewingState(value: unknown): asserts value is BrewingState {
   if (!isRecord(value)) {
     throw new TypeError('Brewing state must be an object')

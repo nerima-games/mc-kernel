@@ -15,13 +15,16 @@ import {
   type EnchantmentTableRuleId,
 } from './enchantment-table-data.js'
 import { SUPPORTED_VANILLA_ENCHANTMENT_IDS } from './enchantment-data.js'
+import type { RandomSource } from './random-source.js'
 
 export * from './enchantment-table-data.js'
 
-export type EnchantmentTableRandom = Readonly<{
-  readonly nextInt: (bound: number) => number
-  readonly nextFloat: () => number
-}>
+/**
+ * An alias of `RandomSource` (see `random-source.ts`): the enchantment table
+ * needs no vocabulary beyond the shared contract, so it does not declare an
+ * independent structural type.
+ */
+export type EnchantmentTableRandom = RandomSource
 
 export type EnchantmentTableOffer = Readonly<{
   readonly levelCost: number

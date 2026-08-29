@@ -69,6 +69,17 @@ import * as redstoneUpdateModule from "../src/domain/redstone-update";
 import * as smithingModule from "../src/domain/smithing";
 import * as stonecuttingModule from "../src/domain/stonecutting";
 import * as transmuteModule from "../src/domain/transmute";
+import * as biomeModule from "../src/domain/biome";
+import * as blockEntityModule from "../src/domain/block-entity";
+import * as damageTypeModule from "../src/domain/damage-type";
+import * as gameModeModule from "../src/domain/game-mode";
+import * as gameRuleModule from "../src/domain/game-rule";
+import * as entityTypeModule from "../src/domain/entity-type";
+import * as heightmapModule from "../src/domain/heightmap";
+import * as lightModule from "../src/domain/light";
+import * as randomSourceModule from "../src/domain/random-source";
+import * as statusEffectModule from "../src/domain/status-effect";
+import * as tagMembershipModule from "../src/domain/tag-membership";
 import { describe, expect, it } from "vitest";
 import { Effect } from "effect";
 
@@ -3541,6 +3552,58 @@ describe("public API surface", () => {
         for (const type of stackableFishingItems) {
           expectCanonicalItem(type, { maxStack: STANDARD_ITEM_STACK });
         }
+      }),
+    ));
+});
+
+// A star export silently drops a name that two modules both export, so the
+// barrel can lose a binding without any tool reporting an error. Comparing the
+// identity of every runtime export against its owning module is what catches it.
+describe("shared vocabulary added for the downstream repositories", () => {
+  const newModules = {
+    biome: biomeModule,
+    "block-entity": blockEntityModule,
+    "damage-type": damageTypeModule,
+    "entity-type": entityTypeModule,
+    "game-mode": gameModeModule,
+    "game-rule": gameRuleModule,
+    heightmap: heightmapModule,
+    light: lightModule,
+    "random-source": randomSourceModule,
+    "status-effect": statusEffectModule,
+    "tag-membership": tagMembershipModule,
+  };
+
+  it("reaches every runtime export through the package barrel", () =>
+    Effect.runPromise(
+      Effect.sync(() => {
+        const barrel: Readonly<Record<string, unknown>> = kernel;
+        for (const [name, owner] of Object.entries(newModules)) {
+          const owned: Readonly<Record<string, unknown>> = owner;
+          const names = Object.keys(owned);
+          expect(names.length, `${name} exports nothing at runtime`).toBeGreaterThan(0);
+          for (const exported of names) {
+            expect(barrel[exported], `${name}.${exported}`).toBe(owned[exported]);
+          }
+        }
+      }),
+    ));
+
+  it("narrows the closed vocabularies and rejects values outside them", () =>
+    Effect.runPromise(
+      Effect.sync(() => {
+        expect(entityTypeModule.isEntityType("creeper")).toBe(true);
+        expect(entityTypeModule.isEntityType("not_an_entity")).toBe(false);
+        expect(statusEffectModule.isStatusEffectName("poison")).toBe(true);
+        expect(statusEffectModule.isStatusEffectName("not_an_effect")).toBe(false);
+        expect(biomeModule.isBiomeType("plains")).toBe(true);
+        expect(biomeModule.isBiomeType("not_a_biome")).toBe(false);
+        expect(damageTypeModule.isDamageTypeName("lava")).toBe(true);
+        expect(damageTypeModule.isDamageTypeName("not_a_damage_type")).toBe(false);
+        expect(gameModeModule.isGameMode("creative")).toBe(true);
+        expect(gameModeModule.isGameMode("not_a_mode")).toBe(false);
+        expect(gameModeModule.isDifficulty("hard")).toBe(true);
+        expect(gameModeModule.isDifficulty("not_a_difficulty")).toBe(false);
       }),
     ));
 });

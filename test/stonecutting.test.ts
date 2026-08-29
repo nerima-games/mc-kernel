@@ -139,6 +139,16 @@ describe('stonecutting', () => {
     expect(matchStonecuttingRecipe(itemStack('cobblestone', 1), {}, customRecipes)).toEqual({ _tag: 'NoMatch' })
   })
 
+  it('resolves a genuine vanilla tag when itemTags is omitted from the match context', () => {
+    const trimMaterialTag: RecipeItemTag = '#minecraft:trim_materials'
+    const vanillaTagRecipe = stonecuttingRecipe('minecraft:trim_material_cut', tagged(trimMaterialTag), itemStack('stone_slab', 1))
+
+    expect(matchStonecuttingRecipe(itemStack('iron_ingot', 1), {}, [vanillaTagRecipe])).toMatchObject({
+      _tag: 'Match',
+      recipe: vanillaTagRecipe,
+    })
+  })
+
   it('applies a matching recipe and preserves remaining input', () => {
     const oneInput = stonecuttingRecipe('minecraft:one', exactly('stone'), itemStack('stone_slab', 1))
     const twoInput = stonecuttingRecipe('minecraft:two', exactly('stone', 2), itemStack('stone_slab', 1))

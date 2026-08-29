@@ -84,6 +84,7 @@ import {
   type SuspiciousStewOptions,
   type SulfurCubeContentComponent,
   type SulfurCubeContentOptions,
+  VANILLA_STATUS_EFFECT_IDS,
   type TrimComponent,
   type TrimMaterialInlineOptions,
   type TrimPatternInlineOptions,
@@ -345,6 +346,20 @@ export const isPotionContentsComponent = (
   typeof value === 'string'
     ? isResourceLocation(value)
     : isPotionContentsObject(value, true)
+
+const VANILLA_STATUS_EFFECT_ID_SET: ReadonlySet<string> = new Set(VANILLA_STATUS_EFFECT_IDS)
+
+/**
+ * Narrows an effect id (e.g. `PotionEffectInstanceComponent.id`) to the
+ * vanilla status-effect vocabulary. `isPotionEffectInstanceFields` above
+ * accepts any well-formed `ResourceLocation` because a data pack may add
+ * its own effect; this guard is the opt-in check for callers that need to
+ * reject everything outside the closed vanilla roster
+ * (docs/architecture.md §6: the guard lives here, the vocabulary in
+ * `item-component-values-data.js`).
+ */
+export const isVanillaPotionEffectId = (value: unknown): value is ResourceLocation =>
+  isResourceLocation(value) && VANILLA_STATUS_EFFECT_ID_SET.has(value)
 
 const MAP_DECORATION_TYPE_SET: ReadonlySet<string> = new Set(MAP_DECORATION_TYPES)
 

@@ -15,6 +15,7 @@ import {
   type SwingAnimationComponent,
   type UseEffectsComponent,
 } from './item-combat-data.js'
+import { isDamageTypeId } from './damage-type-validation.js'
 
 type RecordValue = Record<string, unknown>
 
@@ -46,6 +47,18 @@ export const isMinimumAttackChargeComponent = (
 
 export const isDamageTypeComponent = (value: unknown): value is DamageTypeComponent =>
   typeof value === 'string' && ResourceLocation.is(value)
+
+/**
+ * Narrows a `DamageTypeComponent` value to the closed vanilla damage-type
+ * vocabulary. `isDamageTypeComponent` above accepts any well-formed
+ * `ResourceLocation` because a data pack may register its own damage type;
+ * this guard is the opt-in check for callers that need to reject everything
+ * outside the closed vanilla roster (docs/architecture.md §6: the guard
+ * lives here, the vocabulary in `damage-type-data.js`), mirroring
+ * `isVanillaPotionEffectId` in `item-component-values-validation.ts`.
+ */
+export const isVanillaDamageTypeComponent = (value: unknown): value is DamageTypeComponent =>
+  isDamageTypeComponent(value) && isDamageTypeId(value)
 
 export const isSwingAnimationComponent = (value: unknown): value is SwingAnimationComponent => {
   if (!isRecord(value) || !hasExactKeys(value, ['type', 'duration'])) {

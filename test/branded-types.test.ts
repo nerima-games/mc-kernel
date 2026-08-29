@@ -9,7 +9,7 @@ import {
   WeaponDisableBlockingSeconds,
 } from '../src/domain/quantities'
 import { Effect, Either } from 'effect'
-import { ResourceLocation, StageId, TagLocation, UUID, WorldId } from '../src/domain/identifiers'
+import { ResourceLocation, StageId, TagLocation, UUID, WorldId, vanillaId } from '../src/domain/identifiers'
 import { describe, expect, it } from 'vitest'
 
 const EMPTY_STACK_COUNT = 0
@@ -226,6 +226,14 @@ describe('identifiers', () => {
       expect(Either.isLeft(UUID.either('123e4567-e89b-12d3-a456-42661417400'))).toBe(true)
       expect(Either.isLeft(UUID.either('not-a-uuid'))).toBe(true)
       expect(() => UUID('not-a-uuid')).toThrow()
+    })),
+  )
+
+  it('vanillaId namespaces a bare name under minecraft:, the one spelling damageTypeId, statusEffectId, and crafting-special share', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(vanillaId('arrow')).toBe('minecraft:arrow')
+      expect(vanillaId('speed')).toBe('minecraft:speed')
+      expect(Either.isRight(ResourceLocation.either(vanillaId('brick')))).toBe(true)
     })),
   )
 })

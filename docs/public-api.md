@@ -136,13 +136,24 @@ plan.md §5.3 は「core と block の分離」を「ブロック追加が必ず
 
 ```typescript
 type BlockId = number & Brand.Brand<"BlockId">;
-const BLOCK_ID_MAX = 255; // Uint8Array の 1 バイトに収まる上限
+const BLOCK_ID_MAX = 0xffff; // BlockState の 2 バイト要素が表現できる上限
 const AIR_BLOCK_ID: BlockId = 0;
 const isEmpty: (id: number) => boolean;
 ```
 
-`BlockId` はチャンクの `Uint8Array` に格納する安定した密な数値 ID である。`isEmpty` の引数は
-意図的に `number` とし、チャンクバッファから読み出した未ブランドの値を直接受け取る。
+`BlockId` はチャンクバッファに格納する安定した密な数値 ID である。上限は**格納幅の都合ではなく
+レジストリ側の事実**になった。`BlockState` は 1 要素 2 バイトで保持するので（`domain/block-state.ts`
+の `BYTES_PER_ELEMENT`）、roster を 255 の先へ伸ばすのはレジストリ行の追加だけで済み、
+もう一度 chunk フォーマットを移行する必要はない。
+
+**上限と索引テーブルの大きさは別々の値である。** `domain/block-registry-indexes.ts` の能力・プロパティごとの
+密な配列は `BLOCK_ID_MAX + 1` ではなく、`BLOCK_REGISTRY` に登録済みの id の最大値 + 1（`BLOCK_ID_TABLE_LENGTH`）
+から構築する。`BLOCK_ID_MAX` が答えるのは「`BlockId` として許される値の上限」、`BLOCK_ID_TABLE_LENGTH` が答えるのは
+「このテーブルが何要素必要か」という別の問いであり、両者が一致していたのは格納幅が上限を決めていた間だけである。
+テーブル長を超える id はすべてのアクセサが `isWithinTable` で弾き、能力・プロパティの既定値に解決する。
+roster の追加でテーブル長は伸びるが、`BLOCK_ID_MAX` を動かさない限り常駐メモリはレジストリの大きさに比例する。
+
+`isEmpty` の引数は意図的に `number` とし、チャンクバッファから読み出した未ブランドの値を直接受け取る。
 空気は ID 0 だけであり、判定はレジストリ lookup ではなく定数比較で行う。
 
 ### 3-1-bis. 数値 ID ↔ 語彙の変換とホットパス lookup（block-registry / block-registry-indexes）
@@ -476,6 +487,18 @@ const resolveBedrockItemSpecificDestroySpeed: (
 `block-break-speed-data.ts` は実装用データであり個別 subpath を公開しない。`pnpm package:verify` は pack 後の root / subpath import、型付き declaration consumer、
 Java の hardness・break-tick・tool rule resolution と Bedrock の digger・indestructible・item-specific resolution の実値を検査する。
 
+### 3-bis-5. Entity 語彙（entity-type）
+
+`entity-type.ts` は `BlockType` / `ItemType` と同じ「閉じたリテラル union + runtime guard」の形で `EntityType` を公開する。attribute の値域・既定値・modifier 適用や Entity の純粋な状態操作は `entity-attributes*.ts` / `entity-operations.ts` / `entity.ts` が持ち、spawn/despawn・AI・ネットワークは上位層の責務である。
+
+```typescript
+const ENTITY_TYPES: ReadonlyArray<EntityType>; // Java Edition 1.21 の entity registry id と同一の閉じた集合
+type EntityType = (typeof ENTITY_TYPES)[number];
+const isEntityType: (value: unknown) => value is EntityType;
+```
+
+**既存の `entity-types.ts`（複数形）が持つ `EntityKind` は、この語彙とは別物として残る。** `EntityKind` は網羅性チェックの効かない開いた branded string で、modding が持ち込む未知の entity 名の入口として使う。`EntityType` はその上に載る閉じた語彙であり、`isEntityType` はセーブファイル・ネットワークフレーム・開発者コンソールからの値を検証する。`isBlockType` / `isItemType` と同じ shape で意図的に揃えてある——エンティティ名を保存する経路はブロック・アイテム名を保存する経路と同じだからである。
+
 ### 3-ter. ItemStack とレシピ
 
 `ItemStack` はアイテム種別と数量だけを持つ値であり、`itemStack` がアイテムごとの最大スタック数と数量の境界を検証する。
@@ -752,6 +775,40 @@ writable book の側だけである。
 root のほか `@nerima-games/mc-kernel/domain/crafting-special` と `domain/crafting-special-data` subpath から
 利用できる。GUI、スロット搬送、経験値、サーバー権威は上位層の責務である。
 
+### 3-ter-5. vanilla item tag membership（tag-membership）
+
+`tag-membership.ts` は同梱の item roster 範囲での vanilla item tag membership と、data pack layer による拡張を公開する。JSON の読み出しと pack filesystem の所有は上位層の責務である。
+
+```typescript
+type VanillaItemTagMembershipEntry = {
+  readonly tag: string;
+  readonly members: ReadonlyArray<ItemType>;
+};
+const VANILLA_ITEM_TAG_MEMBERSHIP_ENTRIES: ReadonlyArray<VanillaItemTagMembershipEntry>;
+const VANILLA_ITEM_TAG_MEMBERSHIPS: ItemTagMemberships;
+
+type ItemTagMembershipLayer = DataPackLayer<ReadonlySet<ItemType>>;
+const itemTagMembershipLayer: (
+  options: ItemTagMembershipLayerOptions,
+) => ItemTagMembershipLayer;
+const extendItemTagMemberships: (
+  base: ItemTagMemberships,
+  layers: ReadonlyArray<ItemTagMembershipLayer>,
+  format: DataPackFormat,
+) => ItemTagMemberships;
+const itemTagMembers: (
+  memberships: ItemTagMemberships,
+  tag: RecipeItemTag,
+) => ReadonlySet<ItemType>;
+const isTaggedItem: (
+  memberships: ItemTagMemberships,
+  tag: RecipeItemTag,
+  item: ItemType,
+) => boolean;
+```
+
+**`ingredientMatches`（recipe-matching.ts）が `itemTags` を省略したときの既定値が変わった。** 従来の既定は空の `Map` で、tag ingredient は常に不一致だった。既定は `VANILLA_ITEM_TAG_MEMBERSHIPS` に変わったため、`itemTags` を渡していなかった既存呼び出しの一致結果が変わりうる（`docs/versioning.md` の分類では既定値の変更は MAJOR）。収録範囲は同梱 recipe が実際に参照する tag（smithing trim recipe が使う 3 つ）に限定されており、全 recipe・全エディションの完全な tag registry ではない。`extendItemTagMemberships` は vanilla のタグファイルの挙動に合わせ、レイヤーの追加分を既存メンバーシップへ union する——`domain/data-pack-registry.ts` の `selectDataPackRegistry`（§5-sexies-ter）が採る最終 priority 勝ちの上書きとは異なる合成規則である。
+
 ### 3-quater. 調理と醸造
 
 調理は `FurnaceState` を入力と出力にする純粋な状態遷移で、furnace / blast furnace / smoker ごとのレシピ・燃料・出力容量を扱う。
@@ -983,6 +1040,31 @@ const containerComponent: (value: unknown) => ContainerComponent;
   付与済みと保管済み（エンチャント本）を別 component として区別する。
 
 いずれも値の検証だけを持ち、効果の適用、GUI、サーバー権威は上位層の責務である。
+
+### 3-quater-quater-quater. ステータス効果（status-effect）
+
+`status-effect.ts` は Java Edition 1.21 の mob effect の閉じた語彙と、効果ごとの beneficial/harmful・粒子色・amplifier 上限を公開する。効果の適用、tick 進行、粒子の実際の描画、`Vitals` への反映は上位層の責務である。
+
+```typescript
+const STATUS_EFFECT_AMPLIFIER_MAX = 255;
+const STATUS_EFFECT_NAMES: ReadonlyArray<StatusEffectName>;
+type StatusEffectName = (typeof STATUS_EFFECT_NAMES)[number];
+type StatusEffectDefinition = Readonly<{
+  readonly name: StatusEffectName;
+  readonly beneficial: boolean;
+  readonly particleColor: number;
+  readonly maxAmplifier: number;
+}>;
+const STATUS_EFFECT_DEFINITIONS: Readonly<Record<StatusEffectName, StatusEffectDefinition>>;
+const statusEffectId: (name: StatusEffectName) => ResourceLocation;
+const isStatusEffectName: (value: unknown) => value is StatusEffectName;
+const isStatusEffectId: (value: unknown) => value is ResourceLocation;
+const resolveStatusEffectDefinition: (value: unknown) => StatusEffectDefinition;
+```
+
+**3 重に綴られていた効果名を 1 つに畳んだ射影である。** `FoodStatusEffectName`（`food-data.ts`）、`ConsumableStatusEffect`（`consumable-data.ts`）、`PotionContentsComponent`（`item-component-values-data.ts`、直上の節）は同じ効果名の概念をそれぞれ独立に綴っていた。3 つとも既存の公開シグネチャは変えないまま、内部でこの語彙への射影に置き換えてある。`minecraft:` という namespace 文字列を組み立てる箇所は `statusEffectId` の 1 箇所だけになった。data pack が独自の custom effect id を持ち込める `PotionEffectInstanceComponent.id` はこの閉じた語彙より広い `ResourceLocation` のままだが、vanilla の部分集合だけを検査したい呼び出し側向けに `domain/item-component-values` が `VANILLA_STATUS_EFFECT_IDS` と `isVanillaPotionEffectId`（この語彙からの射影）を公開する。
+
+**なぜ kernel か**: 同じ効果名の集合を `mc-sim`（`Vitals` への適用）と `mx-gameplay`（食料・スープ・ポーション効果）が同一のメンバーシップで参照する必要があり、どちらか一方に置くと依存の向きが壊れる。
 
 ### 3-quater-quater-bis. Sulfur Cube archetype registry
 
@@ -1825,6 +1907,263 @@ format が完全一致しない layer は選択から落ち、同じ id は prio
 priority が同値のときは呼び出し側が渡した layer 順を保つ。同じ layer 内の id 重複は構築時に拒否する。
 pack の探索、JSON ファイルの読み出し、pack のインストール順は上位層の責務である。
 
+## 5-septies. Biome（biome）
+
+biome は Java Edition の閉じた biome 語彙と、気温・降水量・降水種別・草/葉/水の tint、対応ディメンションを biome ごとに解決する値表を公開する。地形生成、biome の空間分布、noise パラメータは `mc-worldgen` が、tint の実際の描画は `mc-render` が所有する。
+
+```typescript
+const BIOME_TYPES: ReadonlyArray<BiomeType>;
+type BiomeType = (typeof BIOME_TYPES)[number];
+const PRECIPITATION_KINDS: readonly ['none', 'rain', 'snow'];
+type PrecipitationKind = (typeof PRECIPITATION_KINDS)[number];
+const SNOW_TEMPERATURE_THRESHOLD = 0.15;
+const derivePrecipitationKind: (temperature: number) => 'rain' | 'snow';
+
+type BiomeProperties = {
+  readonly temperature: number;
+  readonly downfall: number;
+  readonly precipitation: PrecipitationKind;
+  readonly grassTint: number;
+  readonly foliageTint: number;
+  readonly waterTint: number;
+  readonly dimension: Dimension;
+};
+const BIOME_PROPERTY_DEFAULTS: BiomeProperties;
+type BiomePropertyOverrides = {
+  readonly temperature?: number;
+  readonly downfall?: number;
+  readonly precipitation?: 'none';
+  readonly grassTint?: number;
+  readonly foliageTint?: number;
+  readonly waterTint?: number;
+  readonly dimension?: Dimension;
+};
+
+const isBiomeType: (value: unknown) => value is BiomeType;
+const propertiesOfBiomeType: (biome: BiomeType) => BiomeProperties;
+const propertiesOfBiome: (biome: unknown) => BiomeProperties;
+```
+
+各行は `BIOME_PROPERTY_DEFAULTS`（温帯の平地気候）からの差分だけを書く——`BLOCK_REGISTRY` と同じ「差分のみ記述」の規約である。`precipitation` は `'none'` にしか override できない型になっており、雨と雪の切り替えは常に `temperature` から `derivePrecipitationKind` で導出するため、矛盾する override はコンパイルできない。
+
+**なぜ kernel か**: biome の気候値と tint は `mc-worldgen`（地形生成）と `mc-render`（tint 描画）の両方が同じ値を必要とし、どちらか一方に置くと依存の向きが壊れる。生成アルゴリズムそのもの、noise パラメータ、biome の空間分布は含まない。
+
+## 5-octies. 光量（light）
+
+light は block light と sky light の 2 チャンネルからなる 1 チャンク分の light volume と、専用の versioned codec、`lightEmission` / `opacity` からの純粋な 1 チャンク分の伝播を公開する。チャンク跨ぎの伝播キュー、再計算スケジューリング、時刻による sky light 減衰の適用は上位層の責務である。
+
+```typescript
+const LIGHT_VOLUME_CODEC_VERSION = 1;
+const LIGHT_VOLUME_HEADER_BYTES = 16;
+
+type LightVolumeHeight = number & Brand.Brand<'LightVolumeHeight'>; // 整数、Chunk の height と同じ上限
+const LightVolumeHeight: (value: number) => LightVolumeHeight;
+const lightVolumeCellCount: (height: LightVolumeHeight) => number;
+const lightVolumeIndexOf: (height: LightVolumeHeight, local: LocalBlockCoord) => number;
+
+class LightChannel {
+  get length(): number;
+  at(index: number): LightLevel;
+  toBytes(): Uint8Array;
+  copyTo(target: Uint8Array, offset?: number): void;
+}
+const lightChannel: (bytes: Uint8Array) => LightChannel;
+
+type LightVolume = {
+  readonly height: LightVolumeHeight;
+  readonly blockLight: LightChannel;
+  readonly skyLight: LightChannel;
+};
+const lightVolume: (height: number, blockLight: Uint8Array, skyLight: Uint8Array) => LightVolume;
+const blockLightAt: (volume: LightVolume, local: LocalBlockCoord) => LightLevel;
+const skyLightAt: (volume: LightVolume, local: LocalBlockCoord) => LightLevel;
+const encodeLightVolume: (volume: LightVolume) => Uint8Array;
+const decodeLightVolume: (encoded: Uint8Array) => LightVolume;
+
+type LightCellInput = Readonly<{ lightEmission: LightLevel; opacity: BlockOpacity }>;
+type LightVolumeSource = (local: LocalBlockCoord) => LightCellInput;
+type LightSeed = Readonly<{ local: LocalBlockCoord; level: LightLevel }>;
+type LightBoundarySeeds = Readonly<{
+  blockLight?: ReadonlyArray<LightSeed>;
+  skyLight?: ReadonlyArray<LightSeed>;
+}>;
+const updateLight: (
+  height: number,
+  source: LightVolumeSource,
+  boundarySeeds?: LightBoundarySeeds,
+) => LightVolume;
+```
+
+**light volume は `Chunk` バイナリ形式（本ドキュメント「Chunk バイナリ形式」節）のコーデックとは別の codec・別の magic (`MCLT`) を持ち、`chunk.ts` の codec には意図的に含めない。** これは `fluid-state.ts` と `redstone-state.ts` が導出済みの per-cell 状態を `Chunk` の codec の外に置いている前例と同じ判断である。`LightChannel` は `BlockState` と同じ理由で添字演算子を公開せず、範囲外の読み書きを `at` と構築時検証でその場の `RangeError` にする。`updateLight` は純粋で、チャンク境界の外から来る光量は `LightBoundarySeeds` として明示的に受け取る——境界の向こうのセルがどれだけ明るいかを自分では取得しない。
+
+## 5-nonies. Heightmap（heightmap）
+
+heightmap は `Chunk` の block データから導出する、列ごとの不透明面（sky-light の遮蔽用）と移動阻害面（設置・spawn 判定用）の 2 種類の heightmap を公開する。キャッシュ・無効化・再計算スケジューリングは持たない——呼び出し側が Chunk のブロックが変わるたびに再計算する。
+
+```typescript
+type ColumnHeight = number | undefined;
+type Heightmap = ReadonlyArray<ColumnHeight>;
+const heightmapColumnIndex: (lx: number, lz: number) => number;
+const opaqueHeightmapOf: (chunk: Chunk) => Heightmap;
+const motionBlockingHeightmapOf: (chunk: Chunk) => Heightmap;
+```
+
+移動阻害面は `passable` ではなく `collisionShape` を読む。感圧板のような「乗れるが通り抜けられる薄い箱」を `collisionShape` は表現できるが、boolean の `passable` だけではその区別ができない——設置・spawn 判定が必要とするのはまさにこの区別である。列の中に条件を満たすブロックが無ければ、その列の答えは `undefined` になる。
+
+## 5-decies. Block entity（block-entity）
+
+block entity は `BlockPosition` に紐づく付帯状態（格納コンテナ・かまど・醸造台・看板）を判別可能 union として公開し、コンテナ容量と位置引きの純粋な参照・更新を提供する。搬送、所有権、GUI、永続化媒体は上位層の責務である。
+
+```typescript
+const CHEST_SLOT_COUNT = 27;
+const LARGE_CHEST_SLOT_COUNT = 54;
+const HOPPER_SLOT_COUNT = 5;
+const DISPENSER_SLOT_COUNT = 9;
+const DROPPER_SLOT_COUNT = 9;
+const SHULKER_BOX_SLOT_COUNT = 27;
+const BARREL_SLOT_COUNT = 27;
+const STORAGE_CONTAINER_KINDS: ReadonlyArray<StorageContainerKind>;
+type StorageContainerKind = (typeof STORAGE_CONTAINER_KINDS)[number];
+const STORAGE_CONTAINER_CAPACITIES: Readonly<Record<StorageContainerKind, number>>;
+type StorageContainer = Readonly<{
+  kind: StorageContainerKind;
+  capacity: number;
+  slots: ReadonlyArray<Slot>;
+}>;
+
+type BlockEntity =
+  | Readonly<{ _tag: 'StorageContainer'; position: BlockPosition; container: StorageContainer }>
+  | Readonly<{ _tag: 'Furnace'; position: BlockPosition; state: FurnaceState }>
+  | Readonly<{ _tag: 'BrewingStand'; position: BlockPosition; state: BrewingState }>
+  | Readonly<{ _tag: 'Sign'; position: BlockPosition; text: TextComponent }>;
+type BlockEntityTag = BlockEntity['_tag'];
+
+const isBlockEntityPosition: (value: unknown) => value is BlockPosition;
+const isStorageContainer: (value: unknown) => value is StorageContainer;
+const isBlockEntity: (value: unknown) => value is BlockEntity;
+
+type BlockEntities = Readonly<{ entities: ReadonlyMap<BlockPositionKey, BlockEntity> }>;
+const emptyBlockEntities: () => BlockEntities;
+const blockEntityAt: (state: BlockEntities, position: BlockPosition) => BlockEntity | undefined;
+const setBlockEntity: (state: BlockEntities, entity: BlockEntity) => BlockEntities;
+const clearBlockEntity: (state: BlockEntities, position: BlockPosition) => BlockEntities;
+```
+
+`BlockEntities` の形は `fluid-state.ts` / `redstone-state.ts` が既に使っている「`BlockPositionKey` をキーにした `ReadonlyMap` を包み、`empty*` / `*At` / `set*` / `clear*` を揃える」collection 形をそのまま踏襲している——per-cell の派生状態を持つモジュールが同じ読み書きの語法を共有するためで、新しい形は発明していない。
+
+## 5-undecies. ゲームモードと難易度（game-mode）
+
+`GameMode` と `Difficulty` の閉じた語彙と、メンバーごとの値表（`GameModeProperties` / `DifficultyProperties`）を公開する。値表が答えるのは「そのモード・難易度で何が許可され何が起きるか」だけであり、プレイヤーのモードを実際に切り替えてよいかという権限判定は上位層の責務である。
+
+```typescript
+const GAME_MODES: readonly ['survival', 'creative', 'adventure', 'spectator'];
+type GameMode = (typeof GAME_MODES)[number];
+type GameModeProperties = Readonly<{
+  readonly mode: GameMode;
+  readonly mayBreakBlocks: boolean;
+  readonly mayPlaceBlocks: boolean;
+  readonly mayFly: boolean;
+  readonly hasBlockCollision: boolean;
+  readonly takesDamage: boolean;
+  readonly consumesHunger: boolean;
+}>;
+const GAME_MODE_PROPERTIES: Readonly<Record<GameMode, GameModeProperties>>;
+
+const DIFFICULTIES: readonly ['peaceful', 'easy', 'normal', 'hard'];
+type Difficulty = (typeof DIFFICULTIES)[number];
+type DifficultyProperties = Readonly<{
+  readonly difficulty: Difficulty;
+  readonly hostileMobsMaySpawn: boolean;
+  readonly damageMultiplier: number;
+  readonly hungerMultiplier: number;
+}>;
+const DIFFICULTY_PROPERTIES: Readonly<Record<Difficulty, DifficultyProperties>>;
+
+const isGameMode: (value: unknown) => value is GameMode;
+const isDifficulty: (value: unknown) => value is Difficulty;
+const resolveGameModeProperties: (value: unknown) => GameModeProperties;
+const resolveDifficultyProperties: (value: unknown) => DifficultyProperties;
+```
+
+`mayFly` は**モードが無条件に与える飛行**だけを指す。Survival/Adventure でエリトラ装備時に飛べることはアイテムの装備状態に依存する事実であり、Adventure モードの `can_break` / `can_place_on` によるブロック相互作用の制限はアイテムの data tag に依存する事実であって、どちらもモード自身の値ではないため値表に含めない。
+
+**なぜ kernel か**: `mode` と `difficulty` はシミュレーション権威側（`mx-gameplay`）と表示側（`mx-ui`）の両方が同じ値表を同じメンバーシップで参照する必要があり、どちらか一方に置くと依存の向きが壊れる。root のほか `domain/game-mode` subpath から利用できる。
+
+## 5-duodecies. gamerule（game-rule）
+
+`GameRules` は、シミュレーションの tick が実際に分岐で読む gamerule だけを対象にした既定値・境界・検証・正規化・純粋な更新を公開する。コマンドの構文解釈と永続化は上位層の責務である。
+
+```typescript
+const GAME_RULE_BOOLEAN_NAMES: ReadonlyArray<GameRuleBooleanName>;
+const GAME_RULE_INTEGER_NAMES: ReadonlyArray<GameRuleIntegerName>;
+type GameRules = Readonly<{
+  doDaylightCycle: boolean;
+  doWeatherCycle: boolean;
+  doMobSpawning: boolean;
+  mobGriefing: boolean;
+  keepInventory: boolean;
+  doFireTick: boolean;
+  doInsomnia: boolean;
+  naturalRegeneration: boolean;
+  doImmediateRespawn: boolean;
+  fallDamage: boolean;
+  fireDamage: boolean;
+  drowningDamage: boolean;
+  freezeDamage: boolean;
+  randomTickSpeed: number;
+  maxEntityCramming: number;
+  playersSleepingPercentage: number;
+  spawnRadius: number;
+}>;
+const DEFAULT_GAME_RULES: GameRules;
+const RANDOM_TICK_SPEED_MIN: number;
+const RANDOM_TICK_SPEED_MAX: number;
+const MAX_ENTITY_CRAMMING_MIN: number;
+const MAX_ENTITY_CRAMMING_MAX: number;
+const PLAYERS_SLEEPING_PERCENTAGE_MIN: number;
+const PLAYERS_SLEEPING_PERCENTAGE_MAX: number;
+const SPAWN_RADIUS_MIN: number;
+const SPAWN_RADIUS_MAX: number;
+
+const normaliseGameRules: (rules: unknown) => GameRules;
+const applyGameRules: (current: GameRules, patch: Partial<GameRules>) => GameRules;
+const isValidGameRules: (rules: unknown) => rules is GameRules;
+```
+
+対象は daylight/weather cycling、mob spawning と griefing、`keepInventory`、fire spread、`doInsomnia`（ファントムの出現可否）、natural regeneration、immediate respawn、4 種のダメージ源トグル、random tick speed、entity cramming、睡眠スキップ閾値、自然 mob spawn 半径である。`showDeathMessages` / `announceAdvancements` / `reducedDebugInfo` / `commandBlockOutput` など、chat・log の書式にしか効かない告知・ログ・コマンド系の rule は対象外とする——物理や entity の tick はどれも読まない。整数値の上下限（`*_MIN` / `*_MAX`）は vanilla が課す制限ではなく `settings-data.ts` の `MIN_RENDER_DISTANCE` 等と同じ、kernel が選んだ安全域である。
+
+**なぜ kernel か**: `settings` が**このクライアント**の描画・入力設定であるのに対し、`game-rule` は**シミュレーション全体**に効く権威的な状態であり、境界と正規化のロジックをワールドを持つ側（`mc-sim`）とルールを適用する側（`mx-gameplay`）の両方が同じ形で必要とする。root のほか `domain/game-rule` subpath から利用できる。
+
+## 5-terdecies. ダメージ種別（damage-type）
+
+`DamageType` は Java Edition 1.21 の閉じたダメージ種別語彙と、種別ごとの `armorReduces`（防具軽減の可否）・`bypassesInvulnerability`（無敵時間貫通の可否）・`kind`（fire/explosion/projectile/magic/fall/drowning/generic の分類）・`scalesWithDifficulty` を公開する。**生ダメージ・防具値・靭性・保護・耐性から最終ダメージを求める軽減計算はここに含めない。** その理由と再開条件は [responsibility.md](./responsibility.md) §3-7 にある——語彙は 2 つの独立した消費者を持つため kernel 適格だが、軽減計算の消費者は現時点で `mx-gameplay` 1 つしか確認できず、通常の依存エッジで kernel に届く。
+
+```typescript
+const DAMAGE_TYPE_NAMES: ReadonlyArray<DamageTypeName>;
+type DamageTypeName = (typeof DAMAGE_TYPE_NAMES)[number];
+const DAMAGE_TYPE_KINDS: readonly ['fire', 'explosion', 'projectile', 'magic', 'fall', 'drowning', 'generic'];
+type DamageTypeKind = (typeof DAMAGE_TYPE_KINDS)[number];
+type DamageTypeDefinition = Readonly<{
+  readonly name: DamageTypeName;
+  readonly armorReduces: boolean;
+  readonly bypassesInvulnerability: boolean;
+  readonly kind: DamageTypeKind;
+  readonly scalesWithDifficulty: boolean;
+}>;
+const DAMAGE_TYPE_DEFINITIONS: Readonly<Record<DamageTypeName, DamageTypeDefinition>>;
+const damageTypeId: (name: DamageTypeName) => ResourceLocation;
+
+const isDamageTypeName: (value: unknown) => value is DamageTypeName;
+const isDamageTypeId: (value: unknown) => value is ResourceLocation;
+const resolveDamageTypeDefinition: (value: unknown) => DamageTypeDefinition;
+```
+
+roster と各フィールドは `data/minecraft/damage_type/*.json` / `data/minecraft/tags/damage_type/*.json`（misode/mcmeta の `1.21-data` タグ)から読んだもので、`mace_smash`（1.21.2）のような後続バージョンの追加は含まない。`kind` は `is_fire` / `is_explosion` / `is_projectile` / `is_fall` / `is_drowning` タグの帰属から導出し、どのタグも持たない id は `generic` になる。
+
+`item-combat-data.ts` の `DamageTypeComponent = ResourceLocation` という既存の素通しエイリアスは、この語彙を使う `isVanillaDamageTypeComponent`（`item-combat-validation.ts`）で vanilla 部分集合への絞り込みができるようになった。既存の `isDamageTypeComponent` は任意の well-formed `ResourceLocation` を受け付けたままなので、data pack が独自に登録するダメージ種別は引き続き扱える。
+
+**なぜ kernel か**: `mc-audio` が種別ごとの hurt sound を選び、`mx-ui` が同じ種別から死亡メッセージを組み立てる。両者は依存グラフ上で互いに届かない（`mc-audio` は kernel 以外にエッジを持たない）ため、§3-2 の判定条件を満たす。root のほか `domain/damage-type` subpath から利用できる。
+
 ## 5. `CameraPoseSnapshot`（camera）
 
 ```typescript
@@ -1906,6 +2245,28 @@ kernel はテスト用の固定実装だけを持ち、**実クロックを読�
 現行の自動 import 境界は `.oxlintrc.json` の `no-restricted-imports` と `pnpm lint` が担う一方、
 oxlint 0.12 はこの wall-clock の構文・プロパティ禁止を表現できないため、時刻ソースの禁止は設計規約として扱う。
 Port を実装するプラットフォームアダプタだけが実クロックを読み、kernel の利用側には `ClockPort` を注入する。
+
+## 6-bis. 乱数契約（random-source）
+
+random-source は `RandomSource` の契約、seed から決定的に導出する生成器、そしてテスト用の scripted 実装を公開する。乱数を実引数として受け取る消費側の純粋関数は kernel に置いてよいが、乱数の**源**（`Math.random` や platform CSPRNG への直接アクセス）は上位層が注入する——`ClockPort` と同型の境界である。
+
+```typescript
+type RandomSource = Readonly<{
+  readonly nextInt: (bound: number) => number;
+  readonly nextFloat: () => number;
+}>;
+const seededRandomSource: (seed: number) => RandomSource;
+
+type RandomSourceScript = Readonly<{
+  readonly nextInts?: ReadonlyArray<number>;
+  readonly nextFloats?: ReadonlyArray<number>;
+}>;
+const fixedRandomSource: (script: RandomSourceScript) => RandomSource;
+```
+
+`seededRandomSource` は Park–Miller の「minimal standard」Lehmer 生成器（`state' = (state * 16807) mod (2^31 - 1)`）を実装する。modulus はメルセンヌ素数 `2^31 - 1`、乗数はそれを法とする原始根であり、この漸化式は `[1, modulus - 1]` の全値を巡ってから周期に入る。両者の積が `Number.MAX_SAFE_INTEGER` を超えないため、ビット演算や `BigInt` を使わない安全な整数演算だけで完結する。同じ seed と同じ呼び出し順は常に同じ値の列を返し、これがリプレイと早送りの前提になる。`fixedRandomSource` は `fixedClock` と対の scripted 実装で、指定した列を使い切ると黙って折り返したり既定値へフォールバックしたりせず例外を投げる。
+
+**`EnchantmentTableRandom`（§3-quinquies のエンチャントテーブル節）はこの `RandomSource` のエイリアスになった。** エンチャントテーブルの offer 生成は乱数を引数で受け取る既存の唯一の消費者であり、今後 loot table・延焼・mob spawn が同じ契約を必要としたときに `Math.random` の直接呼び出しへ逃げないための共有契約である（`docs/responsibility.md` §3-1）。
 
 ## 7. `GameModule` / `StageRegistration`（frame）
 
@@ -2070,7 +2431,7 @@ snapshot は version `1` の canonical state として encode / decode される
 ## Chunk バイナリ形式
 
 ```typescript
-const CHUNK_CODEC_VERSION = 1
+const CHUNK_CODEC_VERSION = 2
 const CHUNK_HEADER_BYTES = 24
 const MAX_CHUNK_HEIGHT = 0xffff
 
@@ -2107,6 +2468,23 @@ const blockState(bytes: Uint8Array): BlockState   // BlockState.fromBytes のラ
 バッファの不変条件（長さの範囲内であること・登録済み ID のみが書けること）を境界で強制する。生バイト列が
 必要な消費者（ワイヤ送信、コピー）は `toBytes()`（新規コピーを返す）または `copyTo(target, offset?)`
 （呼び出し側バッファへ範囲チェック付きで書き込み、割り当てを増やさない）を使う。
+
+**ワイヤは v1 と v2 に分かれ、v1 は decode 専用である。** `CHUNK_CODEC_VERSION`（現在 `2`）はブロック
+要素を 16-bit little-endian で書く現行フォーマットを指す。8-bit 1 要素だった v1 のバイト列は互換パスで
+引き続き decode できるが、`encodeChunk` は常に v2 を書き出す —— v1 として再 encode されることはない。
+`BlockId` の数値自体は変えていない（`BLOCK.SAND === 5` は 5 のまま）ので、v1 が保存していた id と v2 が
+書く id は同じ意味を持つ。両フォーマットの切り替えはヘッダーの `CHUNK_CODEC_VERSION` フィールドで判定する。
+
+**オフセット 20 の payload length フィールドは、v1 の「要素数」から v2 の「バイト数」へ意味が変わった。**
+8-bit 1 要素の v1 では要素数とバイト数が常に一致していたため、この違いは表面化しなかった。16-bit 2 バイト
+要素の v2 ではその 2 つが一致しなくなるため、`encodeChunk` の書き出し、`validateEncodedChunk` の検証、
+v1/v2 の decode 分岐の 3 箇所が同じ「バイト数」解釈を共有するよう明示的に揃えてある。
+
+**v2 の decode は narrowing の前に 16-bit 値を registry へ照会する。** `decodeChunk` は v2 payload を
+`BlockState` が要求する 1 バイト 1 要素の形へ詰め直す前に、各要素の 16-bit 値を丸ごと
+`isKnownBlockId` へ渡して検証する。先に切り詰めてから検証する順序だと、256 以上の壊れた id が下位バイトの
+一致によって有効な `BlockId` に化ける可能性があるため、narrowing より前に全幅の値で検査することが
+この保証の前提になっている。
 
 `encodeChunk` / `decodeChunk` は固定 `CHUNK_HEADER_BYTES`（24）バイトヘッダーとブロック列を用いる。
 ヘッダーは magic (`MCHK`)、`CHUNK_CODEC_VERSION`、幅・奥行き、height、符号付き 32-bit の `cx` / `cz`、
