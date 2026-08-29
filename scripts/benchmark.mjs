@@ -19,7 +19,7 @@ import {
   propertyOfBlockId,
   transmitsLight,
 } from '../dist/domain/block-registry.js'
-import { BlockState } from '../dist/domain/block-state.js'
+import { BYTES_PER_ELEMENT as BLOCK_STATE_BYTES_PER_ELEMENT, BlockState } from '../dist/domain/block-state.js'
 import { CHUNK_HEADER_BYTES, chunk, decodeChunk, encodeChunk } from '../dist/domain/chunk.js'
 
 const SAMPLE_COUNT = 9
@@ -149,7 +149,10 @@ const registryQueries = () => {
 }
 
 const blockStateConstruction = () => {
-  const target = new Uint8Array(blockBytes.length)
+  // copyTo writes wire bytes (BLOCK_STATE_BYTES_PER_ELEMENT bytes per
+  // element, little-endian), not one byte per element, so the destination
+  // must be sized in bytes: blockBytes.length is an element count.
+  const target = new Uint8Array(blockBytes.length * BLOCK_STATE_BYTES_PER_ELEMENT)
   let checksum = 0
 
   for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {

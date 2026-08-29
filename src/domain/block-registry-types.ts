@@ -4,16 +4,18 @@ import { Brand } from 'effect'
 /**
  * The storage encoding of a block inside a chunk buffer.
  *
- * One byte, because the chunk buffer is a `Uint8Array` (16 × 16 × 256 = 65,536
- * bytes per chunk in both the reference implementation and mc-worldgen). The
- * 256-value ceiling is therefore a fact about the chunk format and not a
- * pessimism about the block roster; widening it is a chunk-format migration and
- * belongs to mc-save, not here.
+ * Two bytes, little-endian — `BlockState`'s `BYTES_PER_ELEMENT`
+ * (`block-state.ts`), the v2 wire/storage element width. `BLOCK_ID_MAX` is
+ * therefore no longer a fact about storage capacity: storage already
+ * addresses every value up to the 16-bit ceiling below. It is now a fact
+ * about the registry — the largest id this file lets the registry assign —
+ * and raising it further, past that ceiling, would again be a chunk-format
+ * migration, because it would need a wider wire element than v2's two bytes.
  */
 export type BlockId = number & Brand.Brand<'BlockId'>
 
-/** Largest representable id, from the `Uint8Array` chunk buffer. */
-export const BLOCK_ID_MAX = 255
+/** Largest representable id: the 16-bit ceiling `BlockState`'s wire storage already supports. */
+export const BLOCK_ID_MAX = 0xffff
 const BLOCK_ID_MIN = 0
 
 export const BlockId: Brand.Brand.Constructor<BlockId> = Brand.refined<BlockId>(
