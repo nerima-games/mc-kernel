@@ -31,11 +31,22 @@ if (files.length === 0) {
   throw new Error('Type-safety check found no TypeScript source files')
 }
 
-const forbiddenPatterns = [
-  ['unsafe type assertion', /\bas\s+(?:unknown|any|never)\b/g],
-  ['TypeScript suppression', /@ts-(?:ignore|expect-error|nocheck)\b/g],
-  ['non-null assertion', /\b[A-Za-z_$][A-Za-z0-9_$]*!(?:\.|\?\.)|[)\]}]![.;,)]/g],
-]
+// Unsafe type assertions and non-null assertions used to be regex rules here,
+// matched against raw lines with no exclusion for string literals or
+// comments. That produced false positives on ordinary prose (a test titled
+// "...marks a gap as unknown..." failed the build on its title, not its
+// code). Both are now enforced structurally by .ast-grep/rules/no-type-assertion.yml,
+// which `pnpm lint` runs: it matches `as_expression`/`non_null_expression`
+// AST nodes, so it cannot fire on a comment or a string, and it also permits
+// `as const` (broader than this file's old keyword list of `unknown` / `any`
+// / `never`). A regex would only be the right tool again if the project
+// dropped ast-grep or needed to scan files ast-grep's `language: TypeScript`
+// config does not cover.
+//
+// `@ts-ignore` / `@ts-expect-error` / `@ts-nocheck` have no ast-grep
+// equivalent (they are comments, not AST nodes with distinguishing
+// structure), so that rule stays here.
+const forbiddenPatterns = [['TypeScript suppression', /@ts-(?:ignore|expect-error|nocheck)\b/g]]
 const findings = []
 
 for (const file of files.sort()) {
