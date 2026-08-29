@@ -1,6 +1,6 @@
 /**
  * Closed biome vocabulary and per-biome climate/tint table for the Java
- * Edition biome roster.
+ * Edition 1.21 biome roster.
  *
  * This module is deliberately data-only. Runtime validation and default
  * resolution live in `./biome-validation` so the table can be read without
@@ -9,6 +9,19 @@
  * Each row states only its difference from `BIOME_PROPERTY_DEFAULTS`
  * (architecture.md §6, the same "differences only" convention as
  * `BLOCK_REGISTRY`), so a wrong row is a one-line error rather than a fork.
+ *
+ * The roster and every `temperature` / `downfall` / `has_precipitation` /
+ * `effects.water_color` / `effects.grass_color` / `effects.foliage_color`
+ * value were read from `data/minecraft/worldgen/biome/*.json` at the
+ * `1.21-data` tag of the misode/mcmeta registry mirror (the same source and
+ * tag `damage-type-data.ts` pins), not transcribed from an earlier draft of
+ * this table. Where upstream's `grass_color` / `foliage_color` is `null`,
+ * vanilla derives the tint from `temperature` and `downfall` through its own
+ * colour map (or, for the `swamp` / `dark_forest` grass modifiers, a further
+ * per-biome adjustment this kernel does not model); this table leaves such a
+ * biome's `grassTint` / `foliageTint` at the default rather than inventing a
+ * fixed value, per the "differences only" convention above
+ * (docs/responsibility.md §3-2).
  */
 import type { Dimension } from './dimension.js'
 
@@ -45,6 +58,9 @@ export const BIOME_TYPES = [
 
   // Desert
   'desert',
+
+  // Mushroom fields
+  'mushroom_fields',
 
   // Swamps
   'swamp',
@@ -201,7 +217,13 @@ export const BIOME_PROPERTY_OVERRIDES: Record<BiomeType, BiomePropertyOverrides>
   cold_ocean: { temperature: 0.5, downfall: 0.5, waterTint: 0x3d57d6 },
   deep_cold_ocean: { temperature: 0.5, downfall: 0.5, waterTint: 0x3d57d6 },
   frozen_ocean: { temperature: 0, downfall: 0.5, waterTint: 0x3938c9 },
-  deep_frozen_ocean: { temperature: 0, downfall: 0.5, waterTint: 0x3938c9 },
+  // Upstream's stored temperature is 0.5, not 0: vanilla's frozen surface
+  // (icebergs, packed ice) comes from the `frozen` temperature_modifier, a
+  // noise-based generation-time adjustment this table does not model
+  // (mc-worldgen's concern, not the kernel's climate table). Read literally,
+  // this makes deep_frozen_ocean derive `rain`, unlike frozen_ocean's `snow`
+  // — a real, verified asymmetry between the two biomes, not a bent value.
+  deep_frozen_ocean: { temperature: 0.5, downfall: 0.5, waterTint: 0x3938c9 },
 
   // ---------------------------------------------------------------------------
   // Rivers
@@ -213,7 +235,7 @@ export const BIOME_PROPERTY_OVERRIDES: Record<BiomeType, BiomePropertyOverrides>
   // Beaches and shores
   // ---------------------------------------------------------------------------
   beach: {},
-  snowy_beach: { temperature: 0.05, downfall: 0.3 },
+  snowy_beach: { temperature: 0.05, downfall: 0.3, waterTint: 0x3d57d6 },
   stony_shore: { temperature: 0.2, downfall: 0.3 },
 
   // ---------------------------------------------------------------------------
@@ -230,33 +252,43 @@ export const BIOME_PROPERTY_OVERRIDES: Record<BiomeType, BiomePropertyOverrides>
   desert: { temperature: 2, downfall: 0, precipitation: 'none' },
 
   // ---------------------------------------------------------------------------
-  // Swamps
+  // Mushroom fields
   // ---------------------------------------------------------------------------
-  swamp: { downfall: 0.9, grassTint: 0x6a7039, foliageTint: 0x6a7039, waterTint: 0x617b64 },
-  mangrove_swamp: { downfall: 0.9, grassTint: 0x8db127, foliageTint: 0x8db127, waterTint: 0x3b6338 },
+  mushroom_fields: { temperature: 0.9, downfall: 1 },
+
+  // ---------------------------------------------------------------------------
+  // Swamps — both use the `swamp` grass_color_modifier upstream, so
+  // grassTint is left at the default rather than a fixed value; only water
+  // and foliage are stored colours.
+  // ---------------------------------------------------------------------------
+  swamp: { downfall: 0.9, foliageTint: 0x6a7039, waterTint: 0x617b64 },
+  mangrove_swamp: { downfall: 0.9, foliageTint: 0x8db127, waterTint: 0x3a7a6a },
 
   // ---------------------------------------------------------------------------
   // Forests
   // ---------------------------------------------------------------------------
-  forest: { downfall: 0.8 },
-  flower_forest: { downfall: 0.8 },
+  forest: { temperature: 0.7, downfall: 0.8 },
+  flower_forest: { temperature: 0.7, downfall: 0.8 },
   birch_forest: { temperature: 0.6, downfall: 0.6 },
   old_growth_birch_forest: { temperature: 0.6, downfall: 0.6 },
-  dark_forest: { downfall: 0.8 },
+  // Upstream also carries a `dark_forest` grass_color_modifier this table
+  // does not model, so grassTint is left at the default rather than a fixed
+  // value (same reasoning as the swamp group above).
+  dark_forest: { temperature: 0.7, downfall: 0.8 },
 
   // ---------------------------------------------------------------------------
   // Taigas
   // ---------------------------------------------------------------------------
   taiga: { temperature: 0.25, downfall: 0.8 },
-  snowy_taiga: { temperature: -0.5, downfall: 0.4 },
+  snowy_taiga: { temperature: -0.5, downfall: 0.4, waterTint: 0x3d57d6 },
   old_growth_pine_taiga: { temperature: 0.3, downfall: 0.8 },
   old_growth_spruce_taiga: { temperature: 0.25, downfall: 0.8 },
 
   // ---------------------------------------------------------------------------
   // Savannas — hot and explicitly dry, like desert.
   // ---------------------------------------------------------------------------
-  savanna: { temperature: 1.2, downfall: 0, precipitation: 'none' },
-  savanna_plateau: { temperature: 1, downfall: 0, precipitation: 'none' },
+  savanna: { temperature: 2, downfall: 0, precipitation: 'none' },
+  savanna_plateau: { temperature: 2, downfall: 0, precipitation: 'none' },
 
   // ---------------------------------------------------------------------------
   // Windswept
@@ -296,8 +328,8 @@ export const BIOME_PROPERTY_OVERRIDES: Record<BiomeType, BiomePropertyOverrides>
   // ---------------------------------------------------------------------------
   // Mountains and peaks
   // ---------------------------------------------------------------------------
-  meadow: { temperature: 0.5, downfall: 0.8 },
-  cherry_grove: { temperature: 0.5, downfall: 0.8 },
+  meadow: { temperature: 0.5, downfall: 0.8, waterTint: 0x0e4ecf },
+  cherry_grove: { temperature: 0.5, downfall: 0.8, grassTint: 0xb6db61, foliageTint: 0xb6db61, waterTint: 0x5db7ef },
   grove: { temperature: -0.2, downfall: 0.8 },
   snowy_slopes: { temperature: -0.3, downfall: 0.9 },
   frozen_peaks: { temperature: -0.7, downfall: 0.9 },
@@ -307,7 +339,7 @@ export const BIOME_PROPERTY_OVERRIDES: Record<BiomeType, BiomePropertyOverrides>
   // ---------------------------------------------------------------------------
   // The empty biome
   // ---------------------------------------------------------------------------
-  the_void: {},
+  the_void: { temperature: 0.5, downfall: 0.5, precipitation: 'none' },
 
   // ---------------------------------------------------------------------------
   // Caves — generate within the overworld dimension.
@@ -326,11 +358,12 @@ export const BIOME_PROPERTY_OVERRIDES: Record<BiomeType, BiomePropertyOverrides>
   basalt_deltas: { temperature: 2, downfall: 0, precipitation: 'none', dimension: 'nether' },
 
   // ---------------------------------------------------------------------------
-  // The End — no weather, its own dimension.
+  // The End — no weather, its own dimension, and its own fixed climate
+  // (0.5/0.5, not the overworld-temperate default).
   // ---------------------------------------------------------------------------
-  the_end: { precipitation: 'none', dimension: 'end' },
-  small_end_islands: { precipitation: 'none', dimension: 'end' },
-  end_midlands: { precipitation: 'none', dimension: 'end' },
-  end_highlands: { precipitation: 'none', dimension: 'end' },
-  end_barrens: { precipitation: 'none', dimension: 'end' },
+  the_end: { temperature: 0.5, downfall: 0.5, precipitation: 'none', dimension: 'end' },
+  small_end_islands: { temperature: 0.5, downfall: 0.5, precipitation: 'none', dimension: 'end' },
+  end_midlands: { temperature: 0.5, downfall: 0.5, precipitation: 'none', dimension: 'end' },
+  end_highlands: { temperature: 0.5, downfall: 0.5, precipitation: 'none', dimension: 'end' },
+  end_barrens: { temperature: 0.5, downfall: 0.5, precipitation: 'none', dimension: 'end' },
 }

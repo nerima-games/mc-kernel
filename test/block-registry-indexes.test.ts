@@ -204,10 +204,7 @@ describe('block registry indexes', () => {
   // future registry that reserves or removes an id in the middle of its
   // range, so this drives that arm directly through the injectable fixture
   // rather than through real (currently gap-free) registry data.
-  // The title deliberately avoids the phrase "as" followed by "unknown":
-  // scripts/check-type-safety.mjs matches that textually, without excluding
-  // string literals, so a test named for the behaviour would fail the gate.
-  it('marks a gap in the resolved table unknown, not just an out-of-range id', () =>
+  it('marks a gap in the resolved table as unknown, not just an out-of-range id', () =>
     Effect.runPromise(Effect.sync(() => {
       const firstBlockId = BLOCK_IDS[0]
       if (firstBlockId === undefined) throw new Error('Block registry fixture must not be empty')

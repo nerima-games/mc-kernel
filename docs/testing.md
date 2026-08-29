@@ -65,7 +65,7 @@ Branches / Functions / Lines はすべて100%を閾値として設定してい�
 
 | コマンド | 内容 |
 | --- | --- |
-| `pnpm scripts:check` | 配布・ベンチマーク用 `.mjs` スクリプトを Node.js の構文検査に通し、`src/` と `test/` の `unknown` / `any` / `never` への型アサーション、`@ts-ignore` / `@ts-expect-error` / `@ts-nocheck`、non-null assertion の再混入を検出 |
+| `pnpm scripts:check` | 配布・ベンチマーク用 `.mjs` スクリプトを Node.js の構文検査に通し、`src/` と `test/` の `@ts-ignore` / `@ts-expect-error` / `@ts-nocheck` の再混入を検出（型アサーションと non-null assertion は `pnpm lint` の ast-grep が構造的に検出する。以前は本コマンドが行単位の正規表現で兼ねていたが、コメントや文字列も誤検出するため撤去した） |
 | `pnpm typecheck` | `tsconfig.build.json` と `tsconfig.test.json` の両方を型検査 |
 | `pnpm lint` | oxlint と ast-grep（このリポジトリ唯一の lint / format 設定）。**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は `correctness`、`suspicious`、`perf`、`restriction` と個別ルールを `warn` にし、`style` は無効化している）。ast-grep は壁時計直読みと `as const` 以外の型アサーション、型アサーション構文、non-null assertion を拒否する |
 | `pnpm test` | Vitest 4（native `it` と `Effect.runPromise` を直接利用） |

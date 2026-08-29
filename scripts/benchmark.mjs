@@ -46,9 +46,24 @@ if (BLOCK_IDS.length === 0 || BLOCK_ID_MAX < 0) {
   throw new Error('The benchmark requires a non-empty block registry')
 }
 
-const queryBytes = new Uint8Array(REGISTRY_QUERY_COUNT)
-for (let index = 0; index < queryBytes.length; index += 1) {
-  queryBytes[index] = index & BLOCK_ID_MAX
+// A chunk's block ids are validated by BlockState on construction (see
+// block-state.ts), so a downstream caller reading a chunk buffer meets ids
+// that are essentially all registered. Cycling through BLOCK_IDS mirrors
+// that traffic; the step of 17 matches the spread already used for
+// blockBytes below so both arrays exercise the registry non-sequentially.
+const registeredQueryIds = new Uint16Array(REGISTRY_QUERY_COUNT)
+for (let index = 0; index < registeredQueryIds.length; index += 1) {
+  registeredQueryIds[index] = BLOCK_IDS[(index * 17) % BLOCK_IDS.length]
+}
+
+// A decoder validating an untrusted chunk genuinely does meet unregistered
+// ids, so that path deserves its own measurement. `index & BLOCK_ID_MAX` is
+// effectively `index` itself here (index never exceeds REGISTRY_QUERY_COUNT
+// - 1, well under BLOCK_ID_MAX), so this draws ids spread across the whole
+// 16-bit id space, of which only BLOCK_IDS.length are actually registered.
+const unregisteredQueryIds = new Uint16Array(REGISTRY_QUERY_COUNT)
+for (let index = 0; index < unregisteredQueryIds.length; index += 1) {
+  unregisteredQueryIds[index] = index & BLOCK_ID_MAX
 }
 
 const blockBytes = new Uint8Array(BLOCK_STATE_BYTE_COUNT)
@@ -128,12 +143,12 @@ const anvilSnapshotChecksum = (snapshot) => {
   )
 }
 
-const registryQueries = () => {
+const runRegistryQueries = (ids) => {
   let checksum = 0
 
   for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
-    for (let index = 0; index < queryBytes.length; index += 1) {
-      const id = queryBytes[index]
+    for (let index = 0; index < ids.length; index += 1) {
+      const id = ids[index]
       const property = propertyOfBlockId(id, propertyNames[index % propertyNames.length])
       checksum += isKnownBlockId(id) ? 1 : 0
       checksum += capabilityOfBlockId(id, 'passable') ? 3 : 5
@@ -147,6 +162,15 @@ const registryQueries = () => {
 
   return checksum
 }
+
+// The realistic path: ids drawn from the registered set, matching a chunk
+// buffer that already passed BlockState's construction-time validation.
+const registryQueries = () => runRegistryQueries(registeredQueryIds)
+
+// The untrusted-input path: ids spread across the full id space, matching a
+// decoder that has not yet validated the chunk it is reading. Named and
+// reported separately so neither path is mistaken for the other.
+const registryQueriesUnregistered = () => runRegistryQueries(unregisteredQueryIds)
 
 const blockStateConstruction = () => {
   // copyTo writes wire bytes (BLOCK_STATE_BYTES_PER_ELEMENT bytes per
@@ -260,7 +284,7 @@ const benchmark = (name, run) => {
 console.log(
   JSON.stringify({
     iterations: ITERATIONS,
-    registryQueryCount: queryBytes.length,
+    registryQueryCount: registeredQueryIds.length,
     blockStateByteCount: blockBytes.length,
     results: {
       anvilPlanning: benchmark('anvil-planning', anvilPlanning),
@@ -271,6 +295,7 @@ console.log(
       chunkEncoding: benchmark('chunk-encoding', chunkEncoding),
       chunkRoundTrip: benchmark('chunk-round-trip', chunkRoundTrip),
       registryQueries: benchmark('registry-queries', registryQueries),
+      registryQueriesUnregistered: benchmark('registry-queries-unregistered', registryQueriesUnregistered),
     },
   }),
 )

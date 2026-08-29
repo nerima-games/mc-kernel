@@ -20,8 +20,9 @@ const KNOWN_BIOME: BiomeType = 'plains'
 const UNKNOWN_BIOME_NAME = 'not_a_biome'
 const NON_STRING_BIOME = 42
 
-const SWAMP_GRASS_TINT = 0x6a7039
+const SWAMP_FOLIAGE_TINT = 0x6a7039
 const BADLANDS_FOLIAGE_TINT = 0x9e814d
+const CHERRY_GROVE_GRASS_TINT = 0xb6db61
 
 const NETHER_BIOMES: ReadonlyArray<BiomeType> = [
   'nether_wastes',
@@ -49,9 +50,104 @@ const NO_PRECIPITATION_BIOMES: ReadonlyArray<BiomeType> = [
   'badlands',
   'eroded_badlands',
   'wooded_badlands',
+  'the_void',
   ...NETHER_BIOMES,
   ...END_BIOMES,
 ]
+
+/**
+ * Every field below was read from `data/minecraft/worldgen/biome/*.json` at
+ * the `1.21-data` tag of the misode/mcmeta registry mirror
+ * (https://github.com/misode/mcmeta/tree/1.21-data/data/minecraft/worldgen/biome),
+ * the same source and tag `test/damage-type.test.ts` pins its roster to —
+ * not transcribed from `biome-data.ts`. `water`/`grass`/`foliage` are the
+ * hex form of `effects.water_color` / `effects.grass_color` /
+ * `effects.foliage_color`; `null` means upstream stores no fixed colour
+ * there (vanilla derives it from temperature/downfall, or a further
+ * per-biome modifier), matching `biome-data.ts`'s "leave it at the default"
+ * convention.
+ */
+type UpstreamBiomeFixture = {
+  readonly biome: BiomeType
+  readonly temperature: number
+  readonly downfall: number
+  readonly hasPrecipitation: boolean
+  readonly water: number
+  readonly grass: number | null
+  readonly foliage: number | null
+}
+
+const UPSTREAM_BIOME_FIXTURES: ReadonlyArray<UpstreamBiomeFixture> = [
+  { biome: 'ocean', temperature: 0.5, downfall: 0.5, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'deep_ocean', temperature: 0.5, downfall: 0.5, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'warm_ocean', temperature: 0.5, downfall: 0.5, hasPrecipitation: true, water: 0x43d5ee, grass: null, foliage: null },
+  { biome: 'lukewarm_ocean', temperature: 0.5, downfall: 0.5, hasPrecipitation: true, water: 0x45adf2, grass: null, foliage: null },
+  { biome: 'deep_lukewarm_ocean', temperature: 0.5, downfall: 0.5, hasPrecipitation: true, water: 0x45adf2, grass: null, foliage: null },
+  { biome: 'cold_ocean', temperature: 0.5, downfall: 0.5, hasPrecipitation: true, water: 0x3d57d6, grass: null, foliage: null },
+  { biome: 'deep_cold_ocean', temperature: 0.5, downfall: 0.5, hasPrecipitation: true, water: 0x3d57d6, grass: null, foliage: null },
+  { biome: 'frozen_ocean', temperature: 0, downfall: 0.5, hasPrecipitation: true, water: 0x3938c9, grass: null, foliage: null },
+  // Upstream's stored temperature is 0.5; the frozen appearance comes from
+  // the `frozen` temperature_modifier (a generation-time noise adjustment
+  // outside biome-data.ts's scope), so 0.5 is the correct pin here, not 0.
+  { biome: 'deep_frozen_ocean', temperature: 0.5, downfall: 0.5, hasPrecipitation: true, water: 0x3938c9, grass: null, foliage: null },
+  { biome: 'river', temperature: 0.5, downfall: 0.5, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'frozen_river', temperature: 0, downfall: 0.5, hasPrecipitation: true, water: 0x3938c9, grass: null, foliage: null },
+  { biome: 'beach', temperature: 0.8, downfall: 0.4, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'snowy_beach', temperature: 0.05, downfall: 0.3, hasPrecipitation: true, water: 0x3d57d6, grass: null, foliage: null },
+  { biome: 'stony_shore', temperature: 0.2, downfall: 0.3, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'plains', temperature: 0.8, downfall: 0.4, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'sunflower_plains', temperature: 0.8, downfall: 0.4, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'snowy_plains', temperature: 0, downfall: 0.5, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'ice_spikes', temperature: 0, downfall: 0.5, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'desert', temperature: 2, downfall: 0, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'mushroom_fields', temperature: 0.9, downfall: 1, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'swamp', temperature: 0.8, downfall: 0.9, hasPrecipitation: true, water: 0x617b64, grass: null, foliage: 0x6a7039 },
+  { biome: 'mangrove_swamp', temperature: 0.8, downfall: 0.9, hasPrecipitation: true, water: 0x3a7a6a, grass: null, foliage: 0x8db127 },
+  { biome: 'forest', temperature: 0.7, downfall: 0.8, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'flower_forest', temperature: 0.7, downfall: 0.8, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'birch_forest', temperature: 0.6, downfall: 0.6, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'old_growth_birch_forest', temperature: 0.6, downfall: 0.6, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'dark_forest', temperature: 0.7, downfall: 0.8, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'taiga', temperature: 0.25, downfall: 0.8, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'snowy_taiga', temperature: -0.5, downfall: 0.4, hasPrecipitation: true, water: 0x3d57d6, grass: null, foliage: null },
+  { biome: 'old_growth_pine_taiga', temperature: 0.3, downfall: 0.8, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'old_growth_spruce_taiga', temperature: 0.25, downfall: 0.8, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'savanna', temperature: 2, downfall: 0, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'savanna_plateau', temperature: 2, downfall: 0, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'windswept_hills', temperature: 0.2, downfall: 0.3, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'windswept_gravelly_hills', temperature: 0.2, downfall: 0.3, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'windswept_forest', temperature: 0.2, downfall: 0.3, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'windswept_savanna', temperature: 2, downfall: 0, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'jungle', temperature: 0.95, downfall: 0.9, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'sparse_jungle', temperature: 0.95, downfall: 0.8, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'bamboo_jungle', temperature: 0.95, downfall: 0.9, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'badlands', temperature: 2, downfall: 0, hasPrecipitation: false, water: 0x3f76e4, grass: 0x90814d, foliage: 0x9e814d },
+  { biome: 'eroded_badlands', temperature: 2, downfall: 0, hasPrecipitation: false, water: 0x3f76e4, grass: 0x90814d, foliage: 0x9e814d },
+  { biome: 'wooded_badlands', temperature: 2, downfall: 0, hasPrecipitation: false, water: 0x3f76e4, grass: 0x90814d, foliage: 0x9e814d },
+  { biome: 'meadow', temperature: 0.5, downfall: 0.8, hasPrecipitation: true, water: 0x0e4ecf, grass: null, foliage: null },
+  { biome: 'cherry_grove', temperature: 0.5, downfall: 0.8, hasPrecipitation: true, water: 0x5db7ef, grass: 0xb6db61, foliage: 0xb6db61 },
+  { biome: 'grove', temperature: -0.2, downfall: 0.8, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'snowy_slopes', temperature: -0.3, downfall: 0.9, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'frozen_peaks', temperature: -0.7, downfall: 0.9, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'jagged_peaks', temperature: -0.7, downfall: 0.9, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'stony_peaks', temperature: 1, downfall: 0.3, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'the_void', temperature: 0.5, downfall: 0.5, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'dripstone_caves', temperature: 0.8, downfall: 0.4, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'lush_caves', temperature: 0.5, downfall: 0.5, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'deep_dark', temperature: 0.8, downfall: 0.4, hasPrecipitation: true, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'nether_wastes', temperature: 2, downfall: 0, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'crimson_forest', temperature: 2, downfall: 0, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'warped_forest', temperature: 2, downfall: 0, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'soul_sand_valley', temperature: 2, downfall: 0, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'basalt_deltas', temperature: 2, downfall: 0, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'the_end', temperature: 0.5, downfall: 0.5, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'small_end_islands', temperature: 0.5, downfall: 0.5, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'end_midlands', temperature: 0.5, downfall: 0.5, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'end_highlands', temperature: 0.5, downfall: 0.5, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'end_barrens', temperature: 0.5, downfall: 0.5, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+]
+
+const EXPECTED_UPSTREAM_BIOME_COUNT = 64
 
 describe('the biome vocabulary', () => {
   it('is non-empty and has no duplicate entries', () => {
@@ -136,14 +232,25 @@ describe('dimension assignment', () => {
 })
 
 describe('tint overrides', () => {
-  it('gives the swamp and badlands groups their vanilla fixed tints, not the default', () => {
+  it('gives the swamp and badlands groups their vanilla fixed foliage tints, not the default', () => {
     const swamp = propertiesOfBiomeType('swamp')
-    expect(swamp.grassTint).toBe(SWAMP_GRASS_TINT)
-    expect(swamp.grassTint).not.toBe(BIOME_PROPERTY_DEFAULTS.grassTint)
+    expect(swamp.foliageTint).toBe(SWAMP_FOLIAGE_TINT)
+    expect(swamp.foliageTint).not.toBe(BIOME_PROPERTY_DEFAULTS.foliageTint)
 
     const badlands = propertiesOfBiomeType('badlands')
     expect(badlands.foliageTint).toBe(BADLANDS_FOLIAGE_TINT)
     expect(badlands.foliageTint).not.toBe(BIOME_PROPERTY_DEFAULTS.foliageTint)
+  })
+
+  it('gives cherry_grove its own fixed grass tint, not the default', () => {
+    const cherryGrove = propertiesOfBiomeType('cherry_grove')
+    expect(cherryGrove.grassTint).toBe(CHERRY_GROVE_GRASS_TINT)
+    expect(cherryGrove.grassTint).not.toBe(BIOME_PROPERTY_DEFAULTS.grassTint)
+  })
+
+  it('leaves grassTint at the default for swamp and mangrove_swamp, since upstream has no fixed grass_color for either (it uses the swamp grass_color_modifier instead)', () => {
+    expect(propertiesOfBiomeType('swamp').grassTint).toBe(BIOME_PROPERTY_DEFAULTS.grassTint)
+    expect(propertiesOfBiomeType('mangrove_swamp').grassTint).toBe(BIOME_PROPERTY_DEFAULTS.grassTint)
   })
 
   it('leaves grass, foliage and water tint at the default for a biome that does not override them', () => {
@@ -152,6 +259,48 @@ describe('tint overrides', () => {
     expect(forest.foliageTint).toBe(BIOME_PROPERTY_DEFAULTS.foliageTint)
     expect(forest.waterTint).toBe(BIOME_PROPERTY_DEFAULTS.waterTint)
   })
+})
+
+describe('upstream roster (data/minecraft/worldgen/biome/*.json at the 1.21-data tag)', () => {
+  it('lists exactly the 64 upstream biome names, each unique', () => {
+    const upstreamNames = UPSTREAM_BIOME_FIXTURES.map((fixture) => fixture.biome)
+    expect(upstreamNames.length).toBe(EXPECTED_UPSTREAM_BIOME_COUNT)
+    expect(new Set(upstreamNames).size).toBe(EXPECTED_UPSTREAM_BIOME_COUNT)
+  })
+
+  it('matches BIOME_TYPES exactly, so a missing or renamed upstream biome fails here rather than silently', () => {
+    expect([...BIOME_TYPES].sort()).toStrictEqual(UPSTREAM_BIOME_FIXTURES.map((fixture) => fixture.biome).sort())
+  })
+})
+
+describe('resolved properties against the fetched upstream fixture (independent of biome-data.ts)', () => {
+  it.each(UPSTREAM_BIOME_FIXTURES)(
+    'resolves $biome to the upstream temperature, downfall and derived precipitation',
+    ({ biome, temperature, downfall, hasPrecipitation }) => {
+      const resolved = propertiesOfBiomeType(biome)
+      expect(resolved.temperature).toBe(temperature)
+      expect(resolved.downfall).toBe(downfall)
+      expect(resolved.precipitation).toBe(hasPrecipitation ? derivePrecipitationKind(temperature) : 'none')
+    },
+  )
+
+  it.each(UPSTREAM_BIOME_FIXTURES)('resolves $biome to the upstream water tint', ({ biome, water }) => {
+    expect(propertiesOfBiomeType(biome).waterTint).toBe(water)
+  })
+
+  it.each(UPSTREAM_BIOME_FIXTURES)(
+    'resolves $biome to the upstream grass tint when upstream fixes one, or the default when upstream derives it',
+    ({ biome, grass }) => {
+      expect(propertiesOfBiomeType(biome).grassTint).toBe(grass ?? BIOME_PROPERTY_DEFAULTS.grassTint)
+    },
+  )
+
+  it.each(UPSTREAM_BIOME_FIXTURES)(
+    'resolves $biome to the upstream foliage tint when upstream fixes one, or the default when upstream derives it',
+    ({ biome, foliage }) => {
+      expect(propertiesOfBiomeType(biome).foliageTint).toBe(foliage ?? BIOME_PROPERTY_DEFAULTS.foliageTint)
+    },
+  )
 })
 
 describe('isBiomeType', () => {
