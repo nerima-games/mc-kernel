@@ -36,6 +36,38 @@ import {
 } from '../src/domain/block-registry'
 const number = Number
 
+/**
+ * `BLOCK_ID_TABLE_LENGTH` itself is not exported — this is the same
+ * `reduce` `block-registry-indexes.ts` uses to compute it, applied to the
+ * public `BLOCK_IDS` list, so it tracks the registry rather than a
+ * hand-copied constant. `highestRegisteredId + 1` is the table length: every
+ * id from `0` through `highestRegisteredId` is either a registered row or a
+ * hole below the table's length, and every id above it is out-of-range.
+ */
+const highestRegisteredId = BLOCK_IDS.reduce((highest, id) => Math.max(highest, id), number('-1'))
+
+/**
+ * Every id above `highestRegisteredId` takes the identical `isWithinTable ===
+ * false` branch in every accessor `block-registry-indexes.ts` exports, so
+ * that region carries one bit of information no matter how many of its
+ * ~65,400 members a test visits. `test/block-registry-indexes.test.ts`'s
+ * 'resolves an id above the resized table exactly as a known-unregistered id
+ * resolves' already walks all 13 accessors at both ends of this region, so
+ * sweeps below sample it at its boundaries and midpoint instead of
+ * re-walking it byte by byte.
+ */
+const ABOVE_TABLE_SAMPLE_IDS: ReadonlyArray<number> = [
+  ...new Set([
+    highestRegisteredId + number('1'),
+    highestRegisteredId + number('2'),
+    Math.floor((highestRegisteredId + number('1') + BLOCK_ID_MAX) / number('2')),
+    BLOCK_ID_MAX - number('1'),
+    BLOCK_ID_MAX,
+  ]),
+]
+  .filter((id) => id > highestRegisteredId && id <= BLOCK_ID_MAX)
+  .sort((first, second) => first - second)
+
 const expectUnknownCapabilityDefaults = (unknown: number) => {
   const capabilities = capabilitiesOfBlockId(unknown)
   expect(capabilities).toStrictEqual({ ...BLOCK_CAPABILITY_DEFAULTS })
@@ -176,11 +208,18 @@ describe('reading behaviour off a chunk buffer byte', () => {
 describe('the named light readings', () => {
   it('are exactly the generic accessor, on every id in the byte range', () =>
     Effect.runPromise(Effect.sync(() => {
-      // THE load-bearing assertion of this describe. It sweeps the whole
-      // `Uint8Array` domain — registered rows, holes and unknown bytes alike —
-      // So there is no id at which a named reading and the generic one can
-      // Differ. Everything else below is a worked example of a consequence.
-      for (let id = number('0'); id <= BLOCK_ID_MAX; id += number('1')) {
+      // THE load-bearing assertion of this describe. It sweeps every
+      // registered row and every hole below the table's length exhaustively
+      // — so there is no id in that region at which a named reading and the
+      // generic one can differ — then samples the uniform above-table region
+      // at its boundaries and midpoint (see `ABOVE_TABLE_SAMPLE_IDS`).
+      // Everything else below is a worked example of a consequence.
+      for (let id = number('0'); id <= highestRegisteredId; id += number('1')) {
+        expect(opacityOfBlockId(id)).toBe(propertyOfBlockId(id, 'opacity'))
+        expect(lightEmissionOfBlockId(id)).toBe(propertyOfBlockId(id, 'lightEmission'))
+        expect(transmitsLight(id)).toBe(propertyOfBlockId(id, 'opacity') !== 'opaque')
+      }
+      for (const id of ABOVE_TABLE_SAMPLE_IDS) {
         expect(opacityOfBlockId(id)).toBe(propertyOfBlockId(id, 'opacity'))
         expect(lightEmissionOfBlockId(id)).toBe(propertyOfBlockId(id, 'lightEmission'))
         expect(transmitsLight(id)).toBe(propertyOfBlockId(id, 'opacity') !== 'opaque')
@@ -480,8 +519,17 @@ describe('unknown ids', () => {
       // Could disagree about is a HOLE — an id below the table length with no
       // Row, which a removed block leaves behind forever — and a caller that
       // Checks with one and reads with the other would then see a block that
-      // Exists and has no properties.
-      for (let id = number('-2'); id <= BLOCK_ID_MAX + number('2'); id += number('1')) {
+      // Exists and has no properties. Every id below the table length is
+      // walked exhaustively for exactly that reason: a hole can appear
+      // anywhere in that range; the two negative ids ride along in the same
+      // loop since they cost nothing extra. The region above the table is the
+      // expensive part — tens of thousands of ids that all take the identical
+      // `isWithinTable === false` branch — so that gets boundary and midpoint
+      // samples instead of a full walk.
+      for (let id = number('-2'); id <= highestRegisteredId; id += number('1')) {
+        expect(isKnownBlockId(id)).toBe(resolvedBlockOfId(id) !== globalThis.undefined)
+      }
+      for (const id of [...ABOVE_TABLE_SAMPLE_IDS, BLOCK_ID_MAX + number('1'), BLOCK_ID_MAX + number('2')]) {
         expect(isKnownBlockId(id)).toBe(resolvedBlockOfId(id) !== globalThis.undefined)
       }
       for (const id of BLOCK_IDS) {
@@ -574,7 +622,25 @@ describe('the table states differences only', () => {
 
   it('keeps the capability column aligned with resolved rows for every byte', () =>
     Effect.runPromise(Effect.sync(() => {
-      for (let rawId = number('0'); rawId <= BLOCK_ID_MAX; rawId += number('1')) {
+      // Registered rows and holes below the table's length each carry their
+      // own answer, so this walks that whole range exhaustively. Above the
+      // table every id takes the identical `isWithinTable === false` branch
+      // in both `capabilitiesOfBlockId`/`capabilityOfBlockId` and
+      // `resolvedBlockOfId`, so `ABOVE_TABLE_SAMPLE_IDS` — boundaries plus a
+      // midpoint — carries the same information as walking all ~65,400 of
+      // them would.
+      for (let rawId = number('0'); rawId <= highestRegisteredId; rawId += number('1')) {
+        const resolved = resolvedBlockOfId(rawId)
+        expect(capabilitiesOfBlockId(rawId)).toStrictEqual(
+          resolved?.capabilities ?? BLOCK_CAPABILITY_DEFAULTS,
+        )
+        for (const flag of BLOCK_CAPABILITY_FLAGS) {
+          expect(capabilityOfBlockId(rawId, flag)).toBe(
+            resolved?.capabilities[flag] ?? BLOCK_CAPABILITY_DEFAULTS[flag],
+          )
+        }
+      }
+      for (const rawId of ABOVE_TABLE_SAMPLE_IDS) {
         const resolved = resolvedBlockOfId(rawId)
         expect(capabilitiesOfBlockId(rawId)).toStrictEqual(
           resolved?.capabilities ?? BLOCK_CAPABILITY_DEFAULTS,

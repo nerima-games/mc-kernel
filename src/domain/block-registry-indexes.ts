@@ -23,9 +23,28 @@ import type { BlockType } from './block-type.js'
 import { BLOCK_TYPES } from './block-type.js'
 import { BLOCK_REGISTRY } from './block-registry-entries.js'
 import type { BlockRegistryEntry } from './block-registry-types.js'
-import { BLOCK_ID_MAX, BlockId } from './block-registry-types.js'
+import { BlockId } from './block-registry-types.js'
 
-const BLOCK_ID_TABLE_LENGTH = BLOCK_ID_MAX + 1
+/**
+ * Every dense lookup table below is sized to the highest REGISTERED id, not
+ * to `BlockId`'s type ceiling (`BLOCK_ID_MAX`). Those answer different
+ * questions: `BLOCK_ID_MAX` is "what may a `BlockId` be", this is "how long
+ * must this lookup array be" — they coincided only while the registry filled
+ * the whole 16-bit id space. An id at or above this length is simply
+ * out-of-range, and every accessor below already resolves an out-of-range
+ * read to its documented default via `noUncheckedIndexedAccess`.
+ */
+const BLOCK_ID_TABLE_LENGTH = BLOCK_REGISTRY.reduce((highest, entry) => Math.max(highest, entry.id), -1) + 1
+
+/**
+ * V8 takes a measurably slower path reading an out-of-bounds index than an
+ * in-bounds one, on both a plain `Array` and a typed array — confirmed by
+ * isolating each accessor and comparing a guarded read against a raw
+ * out-of-bounds read. Every accessor below checks this before indexing, so
+ * an out-of-range id returns its default without ever touching the
+ * now-much-shorter backing array.
+ */
+const isWithinTable = (id: number): boolean => id >= 0 && id < BLOCK_ID_TABLE_LENGTH
 
 const buildResolvedById = (): ReadonlyArray<ResolvedBlock | undefined> => {
   const table: Array<ResolvedBlock | undefined> = Array.from({ length: BLOCK_ID_TABLE_LENGTH }, () => undefined)
@@ -50,11 +69,18 @@ export const resolvedBlockAt = (id: number): ResolvedBlock => {
   return resolved
 }
 
-const buildKnownById = (): Uint8Array => {
-  const table = new Uint8Array(BLOCK_ID_TABLE_LENGTH)
+/**
+ * Exported only for focused invariant tests; the package surface is the
+ * stable registry facade. The current registry has no gap — every id from 0
+ * to the highest registered id is assigned — so the "unregistered but
+ * in-range" arm below is unreachable through the real `RESOLVED_BY_ID`; the
+ * optional parameter lets a test supply a sparse fixture to exercise it.
+ */
+export const buildKnownById = (resolvedById: ReadonlyArray<ResolvedBlock | undefined> = RESOLVED_BY_ID): Uint8Array => {
+  const table = new Uint8Array(resolvedById.length)
 
-  for (let id = 0; id < BLOCK_ID_TABLE_LENGTH; id += 1) {
-    table[id] = RESOLVED_BY_ID[id] === undefined ? 0 : 1
+  for (let id = 0; id < resolvedById.length; id += 1) {
+    table[id] = resolvedById[id] === undefined ? 0 : 1
   }
 
   return table
@@ -191,6 +217,42 @@ const buildPropertyColumns = (): PropertyColumns => {
 const PROPERTY_COLUMNS = buildPropertyColumns()
 
 /**
+ * Every `PROPERTY_COLUMNS` entry backed by a raw `Uint8Array` and left at its
+ * typed-array zero rather than explicitly filled with a
+ * `BLOCK_PROPERTY_DEFAULTS` value, paired with what that zero byte decodes
+ * to. `transmitsLight` is not listed here: it derives from `opacity` rather
+ * than filling a `BLOCK_PROPERTY_DEFAULTS` entry, and its build loop already
+ * calls `.fill(0)` explicitly instead of relying on the typed-array zero.
+ *
+ * A fresh `Uint8Array` zero-initialises every index a build loop does not
+ * assign, so a column built this way reads correctly for an unregistered id
+ * only when that zero happens to decode to the column's own documented
+ * default — true today for `lightEmission` (`0`) and `supportSensitive`
+ * (`false`), but not guaranteed for a future column built the same way.
+ * `block-registry-indexes.test.ts` iterates this to check the pairing
+ * directly, so a new entry with a mismatched default fails there instead of
+ * silently reading `0`.
+ */
+const byteToBoolean = (byte: number): boolean => byte === 1
+
+export const RAW_COLUMN_DEFAULTS: ReadonlyArray<{
+  readonly name: string
+  readonly zeroDecodesTo: unknown
+  readonly documentedDefault: unknown
+}> = [
+  {
+    name: 'lightEmission',
+    zeroDecodesTo: LightLevel(0),
+    documentedDefault: BLOCK_PROPERTY_DEFAULTS.lightEmission,
+  },
+  {
+    name: 'supportSensitive',
+    zeroDecodesTo: byteToBoolean(0),
+    documentedDefault: isSupportSensitive(BLOCK_PROPERTY_DEFAULTS.supportRule),
+  },
+]
+
+/**
  * Builds the vocabulary-to-id index and rejects an incomplete registry.
  * Exported only for focused invariant tests; the package surface is the
  * stable facade in `block-registry.ts`.
@@ -285,25 +347,29 @@ export const blockIdOf = (type: BlockType): BlockId => {
 
 /** Block id to its resolved definition, or `undefined` for an unknown byte. */
 export const blockTypeOfId = (id: number): BlockType | undefined =>
-  RESOLVED_BY_ID[id]?.type
+  isWithinTable(id) ? RESOLVED_BY_ID[id]?.type : undefined
 
 /** Block id to its fully resolved definition, or `undefined` when unknown. */
 export const resolvedBlockOfId = (id: number): ResolvedBlock | undefined =>
-  RESOLVED_BY_ID[id]
+  isWithinTable(id) ? RESOLVED_BY_ID[id] : undefined
 
 /** Whether this number names a block in the current registry. */
 export const isKnownBlockId = (id: number): id is BlockId =>
-  KNOWN_BY_ID[id] === 1
+  isWithinTable(id) && KNOWN_BY_ID[id] === 1
 
 /** Read one capability from a raw chunk-buffer byte. */
 export const capabilityOfBlockId = (id: number, flag: BlockCapabilityFlag): boolean => {
-  const value = CAPABILITIES_BY_ID.get(flag)?.[id]
+  const value = isWithinTable(id) ? CAPABILITIES_BY_ID.get(flag)?.[id] : undefined
 
   return value === undefined ? BLOCK_CAPABILITY_DEFAULTS[flag] : value === 1
 }
 
 /** Read one resolved property from a raw chunk-buffer byte. */
 export const propertyOfBlockId = <K extends BlockPropertyName>(id: number, name: K): BlockProperties[K] => {
+  if (!isWithinTable(id)) {
+    return BLOCK_PROPERTY_DEFAULTS[name]
+  }
+
   return PROPERTY_COLUMNS.byName[name][id] ?? BLOCK_PROPERTY_DEFAULTS[name]
 }
 
@@ -365,10 +431,14 @@ export const blockIdsWithOpacity = (opacity: BlockOpacity): ReadonlySet<number> 
 
 /** Read the meshing/light-attenuation class of a raw chunk-buffer byte. */
 export const opacityOfBlockId = (id: number): BlockOpacity =>
-  PROPERTY_COLUMNS.opacity[id] ?? BLOCK_PROPERTY_DEFAULTS.opacity
+  isWithinTable(id) ? (PROPERTY_COLUMNS.opacity[id] ?? BLOCK_PROPERTY_DEFAULTS.opacity) : BLOCK_PROPERTY_DEFAULTS.opacity
 
 /** Read the emitted light level of a raw chunk-buffer byte. */
 export const lightEmissionOfBlockId = (id: number): LightLevel => {
+  if (!isWithinTable(id)) {
+    return BLOCK_PROPERTY_DEFAULTS.lightEmission
+  }
+
   const value = PROPERTY_COLUMNS.lightEmission[id]
 
   return LightLevel(value === undefined ? BLOCK_PROPERTY_DEFAULTS.lightEmission : value)
@@ -376,16 +446,18 @@ export const lightEmissionOfBlockId = (id: number): LightLevel => {
 
 /** Whether light can cross the cell represented by a raw chunk-buffer byte. */
 export const transmitsLight = (id: number): boolean => {
-  return PROPERTY_COLUMNS.transmitsLight[id] === 1
+  return isWithinTable(id) && PROPERTY_COLUMNS.transmitsLight[id] === 1
 }
 
 /** Read the support rule of a raw chunk-buffer byte. */
 export const supportRuleOfBlockId = (id: number): SupportRule =>
-  PROPERTY_COLUMNS.supportRule[id] ?? BLOCK_PROPERTY_DEFAULTS.supportRule
+  isWithinTable(id)
+    ? (PROPERTY_COLUMNS.supportRule[id] ?? BLOCK_PROPERTY_DEFAULTS.supportRule)
+    : BLOCK_PROPERTY_DEFAULTS.supportRule
 
 /** Whether a raw chunk-buffer byte needs support below it. */
 export const isSupportSensitiveBlockId = (id: number): boolean =>
-  PROPERTY_COLUMNS.supportSensitive[id] === 1
+  isWithinTable(id) && PROPERTY_COLUMNS.supportSensitive[id] === 1
 
 /** Evaluate whether a block can remain supported by the byte below it. */
 export const canBlockStaySupported = (id: number, supportBelow: number): boolean => {
