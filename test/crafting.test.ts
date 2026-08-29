@@ -189,4 +189,31 @@ describe('crafting', () => {
     expect(matchRecipeWithAssignments([recipe], craftGrid(1, 1, ['stone']))).toEqual({ _tag: 'NoMatch' })
     expect(matchRecipeWithAssignments([recipe], craftGrid(2, 1, ['stone', undefined]))).toEqual({ _tag: 'NoMatch' })
   })
+
+  it('resolves a genuine vanilla tag when itemTags is omitted from the match context', () => {
+    const recipe = shapelessRecipe(
+      'minecraft:trim-material-mix',
+      [tagged('#minecraft:trim_materials'), exactly('stick')],
+      itemStack('torch', 1),
+    )
+    const grid = craftGrid(2, 1, ['iron_ingot', 'stick'])
+    const match = matchRecipeWithAssignments([recipe], grid)
+
+    expect(match._tag).toBe('Match')
+    if (match._tag === 'Match') {
+      expect(match.assignments).toEqual([
+        { slotIndex: 0, item: 'iron_ingot', ingredient: tagged('#minecraft:trim_materials') },
+        { slotIndex: 1, item: 'stick', ingredient: exactly('stick') },
+      ])
+    }
+
+    const inventory = inventoryWith([['iron_ingot', 1], ['stick', 1]])
+    const outcome = craftFromGrid(inventory, [recipe], grid)
+
+    expect(outcome.result).toEqual({
+      _tag: 'Crafted',
+      recipeId: 'minecraft:trim-material-mix',
+      output: itemStack('torch', 1),
+    })
+  })
 })

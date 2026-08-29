@@ -256,4 +256,21 @@ describe("portable cooking recipes", () => {
       remainingInput: undefined,
     });
   });
+
+  it("resolves a genuine vanilla tag when itemTags is omitted from the match context", () => {
+    const trimMaterialRecipe = cookingRecipe(
+      "minecraft:trim_material_smelt",
+      "furnace",
+      "#minecraft:trim_materials",
+      itemStack("netherite_ingot", 1),
+      200,
+      0,
+    );
+    expect(
+      matchCookingRecipe(itemStack("gold_ingot", 1), {}, [trimMaterialRecipe]),
+    ).toMatchObject({
+      _tag: "Match",
+      recipe: trimMaterialRecipe,
+    });
+  });
 });
