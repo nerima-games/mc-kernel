@@ -86,3 +86,13 @@ export const TagLocation: Brand.Brand.Constructor<TagLocation> =
         `TagLocation has invalid syntax, received ${JSON.stringify(value)}`,
       ),
   );
+
+/**
+ * The single place that spells `minecraft:<name>` for a vanilla id.
+ * `damageTypeId`, `statusEffectId`, and `crafting-special.ts`'s pot
+ * decoration ids all route through here rather than each building the
+ * string itself, which is what keeps the concept from drifting back into
+ * independent spellings (docs/design-notes.md §1).
+ */
+export const vanillaId = (name: string): ResourceLocation =>
+  ResourceLocation(`minecraft:${name}`);

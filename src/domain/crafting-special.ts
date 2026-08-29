@@ -46,7 +46,7 @@ import {
   type ItemTagMemberships,
   type RecipeMatchContext,
 } from "./recipe-data.js";
-import { ResourceLocation } from "./identifiers.js";
+import { vanillaId } from "./identifiers.js";
 import {
   CRAFTING_SPECIAL_STATION_TAG,
   isCraftingBannerDuplicateRecipe,
@@ -1033,7 +1033,7 @@ const craftingDecoratedPotMatch = (
     ) {
       return noMatch();
     }
-    decorations.push(ResourceLocation(`minecraft:${slot.item}`));
+    decorations.push(vanillaId(slot.item));
   }
   for (const [slotIndex, slot] of grid.cells.entries()) {
     if (!positionIndexes.has(slotIndex) && slot !== undefined) {
