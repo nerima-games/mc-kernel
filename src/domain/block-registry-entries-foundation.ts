@@ -336,7 +336,25 @@ export const BLOCK_REGISTRY_FOUNDATION: ReadonlyArray<BlockRegistryEntry> = [
         // gives `GLOWSTONE` 4. Left as it is rather than corrected in passing:
         // it is a content value, not a transcription error, and changing a drop
         // count is a gameplay change that should be reviewed on its own.
-        drops: { ...DEFAULT_BLOCK_DROP, item: 'glowstone_dust', count: StackCount(2), affectedByFortune: true },
+        //
+        // `silkTouchItem: 'glowstone'` was the missing row: every other block
+        // in this registry whose `item` differs from `'self'` on the ore-drop
+        // pattern (`stone`, `grass_block`, every ore + deepslate-ore row in
+        // `block-registry-entries-ores-and-blocks.ts`) carries a
+        // `silkTouchItem` override, and `resolveDropItem`
+        // (`block-harvest.ts:39`) substitutes it only when it is explicitly
+        // set — glowstone was the one row that fell through to `rule.item`
+        // (`glowstone_dust`) even under silk touch. mx-gameplay's
+        // `test/block-loot.test.ts:387-389,523-525` pins vanilla's actual
+        // behaviour: silk touch on glowstone yields the block itself, not the
+        // dust.
+        drops: {
+          ...DEFAULT_BLOCK_DROP,
+          item: 'glowstone_dust',
+          count: StackCount(2),
+          affectedByFortune: true,
+          silkTouchItem: 'glowstone',
+        },
       },
     },
   },
