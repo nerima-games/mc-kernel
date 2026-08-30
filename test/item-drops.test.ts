@@ -165,8 +165,8 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
     ['poppy', 'poppy', 'poppy'],
     ['brown_mushroom', 'brown_mushroom', 'brown_mushroom'],
     ['red_mushroom', 'red_mushroom', 'red_mushroom'],
-    ['tall_grass', 'tall_grass', 'tall_grass'],
-    ['fern', 'fern', 'fern'],
+    ['tall_grass', 'nothing', 'nothing'],
+    ['fern', 'nothing', 'nothing'],
     ['sugar_cane', 'sugar_cane', 'sugar_cane'],
     ['lily_pad', 'lily_pad', 'lily_pad'],
     ['kelp', 'kelp', 'kelp'],
@@ -301,7 +301,11 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
 
   it('reports the fortune flag instead of rolling it, because kernel has no RNG', () =>
     Effect.runPromise(Effect.sync(() => {
-      const glowstone = dropOfBlockId(blockIdOf('glowstone'), FULLY_EQUIPPED)
+      // `DIAMOND_PICKAXE`, not `FULLY_EQUIPPED`: this test is about the
+      // fortune flag, not silk touch, and `glowstone` now has a
+      // `silkTouchItem` (`glowstone`, not `glowstone_dust`) — the silk-touch
+      // case for glowstone is asserted separately, under "the tool gate".
+      const glowstone = dropOfBlockId(blockIdOf('glowstone'), DIAMOND_PICKAXE)
         expect(glowstone).toStrictEqual({ affectedByFortune: true, count: 2, item: 'glowstone_dust' })
 
       expect(dropOfBlockId(blockIdOf('dirt'))?.affectedByFortune).toBe(false)
@@ -372,6 +376,40 @@ describe('the tool gate', () => {
         count: 4,
         item: 'deepslate_redstone_ore',
       })
+      // `glowstone` was the one row missing `silkTouchItem` — see the
+      // registry comment at its definition. `count`/`affectedByFortune` stay
+      // the row's own (2, true), same as `deepslate_redstone_ore` above: only
+      // `item` is substituted. mx-gameplay's `test/block-loot.test.ts:387-389`
+      // confirms the qualitative fact (silk touch on glowstone yields the
+      // block, not the dust) though its own pre-repoint mirror forced
+      // `count: 1` blanket for every silk-touch drop — a simplification
+      // kernel's per-row model does not carry.
+      expect(dropOfBlockId(blockIdOf('glowstone'), SILK_TOUCH)).toStrictEqual({
+        affectedByFortune: true,
+        count: 2,
+        item: 'glowstone',
+      })
+    })),
+  )
+
+  it('tall_grass and fern yield nothing to a bare hand, unlike every other plant row', () =>
+    Effect.runPromise(Effect.sync(() => {
+      // Both fell through `PLANT_PROPERTIES` to the default "drops one of
+      // itself" until their registry rows gained an explicit `drops:
+      // DROPS_NOTHING`. mx-gameplay's `block-vocabulary.ts:638-639` mirror
+      // pinned this before its deletion; the small wheat-seed chance on a
+      // bare-hand break is a gameplay-layer bonus drop, not a kernel rule.
+      for (const plant of ['tall_grass', 'fern'] as const) {
+        expect(dropOfBlockId(blockIdOf(plant))).toBeUndefined()
+        expect(dropOfBlockId(blockIdOf(plant), FULLY_EQUIPPED)).toBeUndefined()
+      }
+
+      // The contrast case: every other cross-mesh plant row in the same file
+      // still drops itself, so this is a decision about these two rows and
+      // not an accidental blanket change to `PLANT_PROPERTIES`.
+      for (const plant of ['sapling', 'dandelion', 'poppy', 'brown_mushroom', 'red_mushroom'] as const) {
+        expect(dropOfBlockId(blockIdOf(plant))?.item).toBe(plant)
+      }
     })),
   )
 
@@ -551,11 +589,16 @@ describe('the rule that keeps a `self` drop honest', () => {
       // Legitimately drop nothing, but it has to be a DECISION in the row —
       // `count: 0` — rather than the side effect of a missing item literal.
       //
-      // The eleven blocks below are the roster's honest "nothing"s, and each
+      // The thirteen blocks below are the roster's honest "nothing"s, and each
       // Has a named reference table behind it. Everything else that yields
       // Nothing does so because its rule points at a different item, or because
       // It is one of the pre-existing passable rows whose drop was never
       // Transcribed as self.
+      //
+      // `tall_grass` and `fern` are the two most recent additions:
+      // mx-gameplay's `block-vocabulary.ts:638-639` mirror pinned
+      // `drops: DROPS_NOTHING` for exactly these two among the plant rows,
+      // before its pending deletion.
       const explicitlyNothing = BLOCK_REGISTRY.filter(
           (entry) => blockPropertiesOf(entry.definition).drops.count === ZERO,
       ).map((entry) => entry.definition.type)
@@ -566,6 +609,8 @@ describe('the rule that keeps a `self` drop honest', () => {
         'water',
         'oak_leaves',
         'lava',
+        'tall_grass',
+        'fern',
         'ice',
         'piston_head',
         'end_portal',

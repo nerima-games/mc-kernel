@@ -3,7 +3,7 @@ import { BlockId } from './block-registry-types.js'
 import type { BlockRegistryEntry } from './block-registry-types.js'
 import { DEFAULT_BLOCK_DROP } from './block-harvest-data.js'
 import { NEEDS_ANY_SUPPORT } from './block-support-data.js'
-import { SURFACE_PLANT_CAPABILITIES, PLANT_PROPERTIES, NEEDS_PLANTABLE_GROUND, NEEDS_SUGAR_CANE_GROUND, NEEDS_WATER } from './block-registry-rules.js'
+import { SURFACE_PLANT_CAPABILITIES, PLANT_PROPERTIES, DROPS_NOTHING, NEEDS_PLANTABLE_GROUND, NEEDS_SUGAR_CANE_GROUND, NEEDS_WATER } from './block-registry-rules.js'
 
 export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
   // -------------------------------------------------------------------------
@@ -168,6 +168,14 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
     },
   },
   {
+    // `drops: DROPS_NOTHING` was the missing row. Every OTHER row in this
+    // block falls through `PLANT_PROPERTIES` to the default "drops one of
+    // itself" — correct for sapling/dandelion/poppy/mushrooms, where a bare
+    // hand really does hand back the plant. Vanilla's tall grass and fern are
+    // the exception: bare-hand breaking yields nothing (the small wheat-seed
+    // chance lives downstream, in mx-gameplay's block-loot bonus-drop table,
+    // not here). mx-gameplay's `block-vocabulary.ts:638` pinned exactly this
+    // override before its deletion.
     id: BlockId(25),
     definition: {
       type: 'tall_grass',
@@ -175,11 +183,14 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
+        drops: DROPS_NOTHING,
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:10)
       }, // plant-mesh.ts:23
     },
   },
   {
+    // See the `tall_grass` row above — same rule, same reason.
+    // mx-gameplay's `block-vocabulary.ts:639` pinned it for fern too.
     id: BlockId(26),
     definition: {
       type: 'fern',
@@ -187,6 +198,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
+        drops: DROPS_NOTHING,
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:11)
       }, // plant-mesh.ts:24
     },
