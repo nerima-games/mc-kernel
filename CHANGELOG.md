@@ -1,5 +1,11 @@
 # @nerima-games/mc-kernel
 
+## 0.6.1
+
+### Patch Changes
+
+- [#49](https://github.com/nerima-games/mc-kernel/pull/49) [`63d4e7c`](https://github.com/nerima-games/mc-kernel/commit/63d4e7ccc993a736b74f32c974d52ba28724697a) Thanks [@takeokunn](https://github.com/takeokunn)! - Fix two block-registry drop-rule omissions: `glowstone` now carries `silkTouchItem: 'glowstone'` (silk touch previously still yielded `glowstone_dust`), and `tall_grass`/`fern` now resolve to `drops: DROPS_NOTHING` instead of falling through to "drops one of itself".
+
 ## 0.6.0
 
 ### Minor Changes
