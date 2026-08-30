@@ -11,33 +11,29 @@
   `package.json` の `main` / `types` / `exports` は `dist/` を指す。`files` も `dist/` と配布メタデータに限定している。
 - **GitHub Packages への公開は既に行われている。** `0.2.0` から `0.2.18` までの履歴上の版と
   現在の `0.4.0` が `https://npm.pkg.github.com` に公開済みである（`publishConfig.access` は
-  `restricted`）。`0.3.0` は version 検出方式の穴により公開されなかった中間版である。
+  Wave 0 で `restricted` から `public` に変更した。packages が public 化済みのため、`restricted`
+  のままだと新規 publish が private に戻り下流 CI が 403 になる）。`0.3.0` は version 検出方式の
+  穴により公開されなかった中間版である。
   公開レジストリから取得した `0.4.0` tarball の install / import / runtime 検証は
   [freeze-checklist.md](./freeze-checklist.md) に記録済みである（§4）。
 - 開発中は `mc-dev-meta` workspace（16 リポジトリを `repos/` に clone して 1 つの pnpm workspace として束ねる）による
   `workspace:*` 解決でモノレポ同等の DX を得る（plan.md §6 Step 0-2）。
 
-### 1-1. `effect` を `peerDependencies` に移した理由（破壊的変更）
+### 1-1. `effect` を exact-pinned `dependencies` として宣言する理由
 
-**`effect` は `dependencies` ではなく `peerDependencies` で宣言する**（`devDependencies` にはローカル
-ビルド用に残す）。mc-kernel は `Context.Tag`（`ClockPort`）と Effect 値を公開 API として export するため、
-消費側が使う `effect` インスタンスと**同一**でなければ Layer 解決が壊れる。
+**`effect` は `dependencies` に exact `3.22.1` で宣言する（Wave 0、org 全体のバージョンピン表）。**
+mc-kernel は `Brand.refined` を実行時に使うため、`effect` は型だけでなく実行時にも必要な依存である。
 
-実測: `effect` の異なるマイナーバージョン（例: 3.22.1 と 3.19.0）を同居させると `Context.Tag` の解決自体は
-成功するが、`Effect` の実行時に
-`WARN: Executing an Effect versioned 3.22.1 with a Runtime of version 3.19.0, you may want to dedupe the effect dependencies`
-という警告が出る。さらに `effect` は既に 4.x を `rc` / `beta` dist-tag で公開しており、消費側が
-先に 4 系へ移行した場合、kernel が `effect` を `dependencies: ^3.22.1` のまま持っていると
-`effect` 3 系の 2 つ目のコピーが黙ってインストールされる。
+以前は `peerDependencies` を検討していた: mc-kernel は `Context.Tag`（`ClockPort`）と Effect 値を
+公開 API として export するため、消費側が使う `effect` インスタンスと異なるバージョンが同居すると
+`Context.Tag` の解決自体は成功する一方、`Effect` の実行時に
+`WARN: Executing an Effect versioned X with a Runtime of version Y, you may want to dedupe the effect dependencies`
+という警告が出る、という version-mismatch リスクを懸念していたためである。
 
-Effect org 自身のパッケージ（`@effect/platform` / `@effect/schema` / `@effect/cli` /
-`@effect/experimental` / `@effect/vitest`）はいずれも `effect` を `peerDependencies` として宣言しており、
-`dependencies` にしているものは無い（`npm view <pkg> peerDependencies dependencies` で確認できる）。
-
-**これは消費側にとって破壊的変更である。** `peerDependencies` は自動インストールされないため、
-消費側は `effect` を自分の `package.json` に明示的に宣言する必要がある。すでに `effect` に
-依存している 15 リポジトリでは通常は無変更で済むが、`effect` を宣言していない状態で
-mc-kernel だけを頼りに `effect` を得ていた消費コードがあれば、そこは壊れる。
+**この懸念は Wave 0 の org 全体 exact ピンで解消された。** `effect@3.22.1` は 15 リポジトリ全部で
+`^`/`~` を使わない exact 一致が強制され（mc-dev-meta の `src/domain/toolchain.ts` の
+`TOOLCHAIN.dependencies.effect` と `pnpm check:toolchain` が全リポジトリを照合する）、
+range 指定自体が存在しないため複数バージョンが黙って同居する余地がない。
 
 ## 2. 0.x に留める方針
 
@@ -68,7 +64,7 @@ kernel の場合その差が全リポジトリに波及する。
 
 ## 3. 公開先
 
-**GitHub Packages**（`https://npm.pkg.github.com`、`access: restricted`）。
+**GitHub Packages**（`https://npm.pkg.github.com`、`access: public`）。
 `package.json` の `publishConfig` に設定済みで、**publish 自体は既に実行されている**
 （`0.2.0`〜`0.2.18` と `0.4.0`、§1 参照）。`0.3.0` が未公開なのは publish の仕組みが
 動いていないからではなく、次節が説明する version 検出の穴によるものである。
@@ -76,7 +72,7 @@ kernel の場合その差が全リポジトリに波及する。
 ```json
 "publishConfig": {
   "registry": "https://npm.pkg.github.com",
-  "access": "restricted"
+  "access": "public"
 }
 ```
 
@@ -115,7 +111,7 @@ publish workflow の `setup-node` が GitHub Packages の registry を設定し�
 から取得した `0.4.0` tarball の install / import / runtime 検証は実施済みで、詳細を
 [freeze-checklist.md](./freeze-checklist.md) に記録している。
 
-**changesets 自体は導入済み。** `.changeset/config.json`（`access: restricted`、`baseBranch: main`、
+**changesets 自体は導入済み。** `.changeset/config.json`（`access: public`、`baseBranch: main`、
 `@changesets/changelog-github`）と `@changesets/cli` の devDependency は
 org 標準（[RELEASE_STANDARD.md §1](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#1-changesets-導入)）に従う。
 バージョンは `package.json` の該当フィールドを直接参照する（drift しやすい生の数字はここに書かない）。

@@ -5,16 +5,17 @@ on:
     branches: [main]
   pull_request:
 
-# These are public repositories, so a fork PR runs this workflow. Nothing here
-# needs write access, and an unset block inherits an org default that is not
-# managed in Terraform.
+# These are public repositories, so a fork PR runs this workflow. `packages:
+# read` lets Install dependencies authenticate against GitHub Packages for
+# @nerima-games/* reads; nothing here needs write access.
 permissions:
   contents: read
+  packages: read
 
 jobs:
   ci:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -24,6 +25,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Setup pnpm
         # Pinned to a commit, not the mutable v4 tag: this is a third-party action
@@ -44,17 +46,58 @@ jobs:
           cachix-cache: ${{ vars.CACHIX_CACHE }}
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
+      # mc-kernel has no @nerima-games/* dependency of its own, but the
+      # registry lookup happens before pnpm knows that: @nerima-games:registry
+      # in .npmrc points every scoped resolution at GitHub Packages, which
+      # requires an authenticated request even for a public read.
+      - name: Configure GitHub Packages authentication
+        run: pnpm config set --location=user //npm.pkg.github.com/:_authToken "$NODE_AUTH_TOKEN"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install dependencies
         # pnpm-workspace.yaml allows only the esbuild build required by the
         # dependency graph; keeping lifecycle scripts enabled preserves that
         # explicit policy and matches local frozen installs.
         run: nix develop --command pnpm install --frozen-lockfile
 
-      # verify covers typecheck, lint, the unit suite, and the 100% coverage gate.
-      # Its test lifecycle also builds the release artifact; the next step checks
-      # that artifact from a clean consumer boundary.
+      # `pnpm test` (inside Verify, below) self-imports this package by its
+      # published name ("@nerima-games/mc-kernel" and its domain/* subpaths,
+      # test/public-api.test.ts "public API surface" describe block) to prove
+      # the exports map resolves the same way a consumer would see it — a
+      # check unique to this repository among the 15. That import goes
+      # through package.json's `exports`, which points at dist/, so dist/
+      # must exist before Verify runs. `pretest` used to build it; §2.3
+      # retired that hook org-wide, so this repository needs an explicit
+      # build step here instead. package:verify rebuilds dist/ later from a
+      # clean state, so this is not load-bearing for that step, only for the
+      # self-import test.
+      - name: Build
+        run: nix develop --command pnpm build
+
+      # verify covers typecheck, lint, and the unit suite (3 stages). Coverage
+      # and the dependency-boundary typecheck are their own steps below so a
+      # failure names which concern broke.
       - name: Verify
         run: nix develop --command pnpm verify
+
+      # Checks src/ against tsconfig.dependency-check.json's DOM-augmented lib
+      # so a dependency's declared Web API surface is caught even though the
+      # published domain itself stays platform-neutral (tsconfig.base.json).
+      - name: Verify dependency type boundary
+        run: nix develop --command pnpm typecheck:dependencies
+
+      - name: Changeset status
+        if: github.event_name == 'pull_request'
+        run: |
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qvE '^(docs/|\.github/)'; then
+            nix develop --command pnpm exec changeset status --since="origin/${{ github.base_ref }}"
+          else
+            echo "Only docs/ or .github/ changed; skipping changeset check."
+          fi
+
+      - name: Coverage
+        run: nix develop --command pnpm test:coverage
 
       # Exercise the exact packed bytes in a clean consumer before a release
       # can be created. This catches export-map and files-allowlist mistakes
