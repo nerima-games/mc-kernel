@@ -21,7 +21,7 @@ const config: ReturnType<typeof defineConfig> = defineConfig({
     coverage: {
       provider: 'v8',
       enabled: false,
-      include: ['src/index.ts', 'src/domain/**/*.ts'],
+      include: ['src/**/*.ts'],
       exclude: [
         '**/*.d.ts',
         '**/*.config.ts',

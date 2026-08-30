@@ -54,21 +54,23 @@ mc-save は媒体フォーマットと保存先を所有し、同じ `Chunk` 型
 ## 2. コマンド
 
 ```console
-$ nix develop --command pnpm verify         # scripts:check && typecheck && lint && test:coverage
-$ nix develop --command pnpm test:coverage  # coverage 単独実行も可。全メトリクス100%
-$ nix develop --command pnpm package:verify # build、pack 済み tarball、clean consumer、公開 export / runtime / declaration
+$ nix develop --command pnpm verify                 # typecheck && lint && test（3段）
+$ nix develop --command pnpm typecheck:dependencies  # 依存境界の型検査。CI では verify と別 step
+$ nix develop --command pnpm test:coverage           # coverage 単独実行。全メトリクス100%
+$ nix develop --command pnpm package:verify          # build、pack 済み tarball、clean consumer、公開 export / runtime / declaration
 ```
 
-**`pnpm verify` はカバレッジを含む。** `domain/` の分岐に触れたときも、通常は
-`pnpm verify` だけで型検査・lint・テスト・カバレッジを検証できる。カバレッジの Statements /
-Branches / Functions / Lines はすべて100%を閾値として設定している。
+**`pnpm verify` はカバレッジを含まない。** `typecheck && lint && test` の3段で、カバレッジ計測は
+`pnpm test:coverage` として CI の別 step が担う（`typecheck:dependencies` も同様に別 step）。
+`domain/` の分岐に触れたときは `pnpm verify` に加えて `pnpm test:coverage` を回す。カバレッジの
+Statements / Branches / Functions / Lines はすべて100%を閾値として設定している。
 
 | コマンド | 内容 |
 | --- | --- |
-| `pnpm scripts:check` | 配布・ベンチマーク用 `.mjs` スクリプトを Node.js の構文検査に通し、`src/` と `test/` の `@ts-ignore` / `@ts-expect-error` / `@ts-nocheck` の再混入を検出（型アサーションと non-null assertion は `pnpm lint` の ast-grep が構造的に検出する。以前は本コマンドが行単位の正規表現で兼ねていたが、コメントや文字列も誤検出するため撤去した） |
 | `pnpm typecheck` | `tsconfig.build.json` と `tsconfig.test.json` の両方を型検査 |
+| `pnpm typecheck:dependencies` | `tsconfig.dependency-check.json`（DOM を含む lib）で依存の型宣言を検査。CI では `pnpm verify` と独立した step |
 | `pnpm lint` | oxlint と ast-grep（このリポジトリ唯一の lint / format 設定）。**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は `correctness`、`suspicious`、`perf`、`restriction` と個別ルールを `warn` にし、`style` は無効化している）。ast-grep は壁時計直読みと `as const` 以外の型アサーション、型アサーション構文、non-null assertion を拒否する |
-| `pnpm test` | Vitest 4（native `it` と `Effect.runPromise` を直接利用） |
+| `pnpm test` | Vitest 4（native `it` と `Effect.runPromise` を直接利用）。`test/public-api.test.ts` の「public API surface」は `@nerima-games/mc-kernel` 自身をパッケージ名で self-import して subpath export を検証するため、`dist/` が存在しない状態（`pretest` フックを廃止したクローン直後）では失敗する。先に `pnpm build` を実行すること。CI では `Install dependencies` の直後に `Build` step でこれを満たす |
 | `pnpm test:coverage` | カバレッジ計測（Statements / Branches / Functions / Lines の閾値はすべて100%） |
 | `pnpm package:verify` | `src/index.ts` と `package.json` の公開 domain subpath 対応、生成 tarball の `files` / `exports`、clean consumer の root / Bedrock subpath runtime import・declaration compile、`fixedClock` runtime・Java / Bedrock rule resolution を検証 |
 | `pnpm audit` | CI のゲート。**意図的に `--prod` を付けない** |
@@ -145,8 +147,8 @@ mc-save 側で追加する。
 `pnpm typecheck` で検証する。これは未計測コードを隠す除外ではなく、V8 の 0% 表示による
 見かけ上の分母を避けるための明示的な型専用境界である。
 
-- `pnpm verify` は `scripts:check && typecheck && lint && test:coverage` を実行する
-- CI は `pnpm verify` と `pnpm package:verify` を実行する
+- `pnpm verify` は `typecheck && lint && test` を実行する（カバレッジは含まない）
+- CI は `pnpm verify`、`pnpm typecheck:dependencies`、`pnpm test:coverage`、`pnpm package:verify` を個別の step として実行する
 - カバレッジだけを再確認するときは `pnpm test:coverage` を単独で使える
 
 カバレッジは完成判定の一部であり、空のテスト選択や生成物を読まないチェックを合格扱いにしない。

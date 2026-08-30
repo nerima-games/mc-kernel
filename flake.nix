@@ -4,6 +4,13 @@
   inputs = {
     # nixos-unstable, not nixpkgs-unstable: it advances only after the NixOS
     # release tests pass, so it is less likely to land a broken build.
+    #
+    # flake.lock is pinned to rev 624af665 (2026-07-26) rather than the
+    # channel head: every revision from 2026-08-28 onward ships oxlint
+    # >=1.79.0, whose `no-redeclare` rule false-positives on the `type X` /
+    # `const X = Brand.refined<X>(...)` branded-type idiom used throughout
+    # src/domain (proven by A/B testing oxlint 1.75.0 vs 1.79.0 against the
+    # same source tree — 0 vs 59 warnings). Re-check on the next bump.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
@@ -59,9 +66,9 @@
             ];
 
             shellHook = ''
-              mkdir -p "$PWD/.corepack"
-              corepack enable --install-directory "$PWD/.corepack"
-              export PATH="$PWD/.corepack:$PATH"
+              corepackDir="$(mktemp -d "''${TMPDIR:-/tmp}/mc-kernel-corepack.XXXXXX")"
+              corepack enable --install-directory "$corepackDir"
+              export PATH="$corepackDir:$PATH"
             '';
           };
         }

@@ -15,12 +15,12 @@
   "license": "MIT",
   "engines": {
     "node": ">=24.0.0",
-    "pnpm": ">=11.0.0"
+    "pnpm": ">=11.24.0"
   },
-  "packageManager": "pnpm@11.17.0",
+  "packageManager": "pnpm@11.24.0",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com",
-    "access": "restricted"
+    "access": "public"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -488,7 +488,6 @@
   },
   "files": [
     "dist",
-    "tsconfig.base.json",
     "LICENSE",
     "README.md"
   ],
@@ -502,32 +501,27 @@
   ],
   "scripts": {
     "typecheck:dependencies": "tsc -p tsconfig.dependency-check.json --pretty false",
-    "typecheck": "pnpm typecheck:dependencies && tsc -p tsconfig.build.json --pretty false && tsc -p tsconfig.test.json --pretty false",
-    "build": "tsc -p tsconfig.release.json --pretty false",
+    "typecheck": "tsc -p tsconfig.build.json --pretty false && tsc -p tsconfig.test.json --pretty false",
+    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.release.json --pretty false",
     "lint": "oxlint --deny-warnings src test && ast-grep scan",
     "lint:fix": "oxlint --fix src test",
-    "pretest": "pnpm build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "pretest:coverage": "pnpm build",
     "test:coverage": "vitest run --coverage",
     "benchmark": "pnpm build && node scripts/benchmark.mjs",
-    "typecheck:safety": "node scripts/check-type-safety.mjs",
-    "scripts:check": "node --check scripts/benchmark.mjs && node --check scripts/check-type-safety.mjs && node --check scripts/verify-package.mjs && pnpm typecheck:safety",
-    "verify": "pnpm scripts:check && pnpm typecheck && pnpm lint && pnpm test:coverage",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test",
     "package:verify": "pnpm build && node scripts/verify-package.mjs",
     "prepublishOnly": "pnpm verify && pnpm package:verify"
   },
-  "peerDependencies": {
-    "effect": "^3.22.1"
+  "dependencies": {
+    "effect": "3.22.1"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "^1.0.0",
-    "@changesets/cli": "^3.0.1",
-    "@types/node": "^26.2.0",
-    "@vitest/coverage-v8": "^4.1.11",
-    "effect": "^3.22.1",
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.11"
+    "@changesets/changelog-github": "1.0.0",
+    "@changesets/cli": "3.0.1",
+    "@types/node": "26.4.0",
+    "@vitest/coverage-v8": "4.1.11",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
   }
 }

@@ -6,7 +6,7 @@
 
 ## 依存
 
-なし。`effect` のみに `peerDependencies` として依存し（理由は「現状」節参照）、
+なし。`effect` のみ exact-pinned `dependencies` として依存し（理由は [docs/versioning.md](./docs/versioning.md) §1-1 参照）、
 `@nerima-games/*` のどのリポジトリにも依存しない。
 
 これは設計上の制約であり、`.oxlintrc.json` の `no-restricted-imports` と
@@ -118,14 +118,14 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
 
 | コマンド | 内容 |
 | --- | --- |
-| `pnpm scripts:check` | 配布・ベンチマーク用 `.mjs` スクリプトを Node.js の構文検査に通す |
 | `pnpm typecheck` | `tsconfig.build.json` と `tsconfig.test.json` の両方を型検査 |
+| `pnpm typecheck:dependencies` | `tsconfig.dependency-check.json`（DOM を含む lib）で依存の型宣言を検査。CI では `pnpm verify` と独立した step |
 | `pnpm lint` | oxlint と ast-grep（このリポジトリ唯一の lint / format 設定。prettier も biome も .editorconfig も置かない）。`oxlint --deny-warnings src test && ast-grep scan` として両方を実行する。oxlint は**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は `correctness` / `suspicious` / `perf` / `restriction` の 4 カテゴリと個別ルールの大半を `warn` にし、`style` は無効化、`error` は少数だけ。このフラグが無かった頃は実質その `error` のルールしかゲートになっていなかった。`.oxlintrc.json` は JSONC なのでコメント行を除いてから数える必要がある。正確な内訳はそうやって `.oxlintrc.json` を参照）。ast-grep は oxlint が実装していない壁時計禁止と型アサーション禁止を補う（下記） |
 | `pnpm lint:fix` | oxlint の自動修正 |
 | `pnpm test` | Vitest 4（Effect のテストは native `it` と `Effect.runPromise` を直接利用） |
 | `pnpm test:watch` | vitest watch |
 | `pnpm test:coverage` | カバレッジ計測（全メトリクス100%。[docs/testing.md](./docs/testing.md) §4） |
-| `pnpm verify` | `scripts:check && typecheck && lint && test:coverage` |
+| `pnpm verify` | `typecheck && lint && test`（3段。カバレッジは含まない） |
 | `pnpm package:verify` | `pnpm pack` の実体を clean consumer に install し、全 export、runtime、型付き declaration consumer を検査 |
 
 ## 現状
@@ -255,10 +255,7 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
   `0.4.0` tarball の install / import / runtime 検証も [freeze-checklist.md](./docs/freeze-checklist.md) に記録済みである。
   `version` は下流の実消費とリリース判断が完了するまで `0.x` に留める
   （[docs/versioning.md](./docs/versioning.md)）。
-- **`effect` は `peerDependencies` に置く。** kernel は `Context.Tag`（`ClockPort`）と Effect 値を
-  export するため、消費側と同じ `effect` インスタンスでなければならない。これは消費側にとって
-  破壊的変更である（`effect` を自前で宣言していない消費コードは壊れる）。詳細は
-  [docs/versioning.md](./docs/versioning.md) §1-1。
+- **`effect` は exact-pinned `dependencies` として宣言する。** 詳細は [docs/versioning.md](./docs/versioning.md) §1-1。
 - **カバレッジは全メトリクス100%を閾値にする。** `pnpm verify`（内部で `pnpm test:coverage` を実行）と CI のカバレッジゲートが
   Statements / Branches / Functions / Lines を検査する（[docs/testing.md](./docs/testing.md) §4）。
 

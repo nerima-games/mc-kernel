@@ -119,8 +119,8 @@
         ],
         "patterns": [
           {
-            "regex": "^@nerima-games/.+",
-            "message": "mc-kernel is a Tier1 library (DEPENDENCY_POLICY.md) with zero internal org dependencies by definition; it must not depend on any @nerima-games/* package, including mc-kernel itself."
+            "group": ["@nerima-games/**"],
+            "message": "mc-kernel is Tier1 (DEPENDENCY_POLICY.md §1); only the listed packages may be imported."
           }
         ]
       }
