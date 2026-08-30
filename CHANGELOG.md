@@ -1,5 +1,11 @@
 # @nerima-games/mc-kernel
 
+## 0.5.1
+
+### Patch Changes
+
+- [#43](https://github.com/nerima-games/mc-kernel/pull/43) [`471591a`](https://github.com/nerima-games/mc-kernel/commit/471591a841679ecbdddd3ec6caff10c43103b4a2) Thanks [@takeokunn](https://github.com/takeokunn)! - Toolchain frozen to org pin set (TypeScript 7.0.2, vitest 4.1.11, effect 3.22.1, node 24, pnpm 11.24.0); build switched to tsc emit; release workflow added
+
 ## 0.5.0
 
 ### Minor Changes
