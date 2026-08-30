@@ -12,6 +12,7 @@ import type {
   ExplosionRequest,
 } from './explosion-data.js'
 import type { Position } from './coordinates.js'
+import { propertyOfBlockId } from './block-registry.js'
 
 export { DEFAULT_EXPLOSION_LIMITS }
 export type {
@@ -412,3 +413,23 @@ export const applyExplosionPlan = (plan: ExplosionPlan, commit: ExplosionCommit)
   }
   commit(mutation)
 }
+
+/**
+ * Whether the registered block survives an explosion of the given power
+ * (creeper/TNT-class "power" — the strength value a caller would otherwise
+ * pass as `ExplosionRequest.radius`) without being destroyed.
+ *
+ * This is the generalised, power-aware form of mx-gameplay's boolean mirror
+ * `resistsNormalExplosion(id)` (`block-vocabulary.ts:751-752`), which only
+ * ever asked about ordinary creeper/TNT-strength explosions. The mirror
+ * records exactly two blocks as resistant — `bedrock` (`:610`) and
+ * `obsidian` (`:649`) — both carrying `blastResistance: Infinity` in the
+ * registry, so this reads `true` for them at any finite power and `false`
+ * for every other block at any positive power, matching the mirror's
+ * boolean exactly for the case it covers. `blastResistance` is otherwise
+ * unvalidated beyond "non-negative or Infinity": no per-block table beyond
+ * these two overrides is transcribed here, because no source for one was
+ * available at the time this predicate was added.
+ */
+export const resistsExplosion = (id: number, power: number): boolean =>
+  propertyOfBlockId(id, 'blastResistance') >= power

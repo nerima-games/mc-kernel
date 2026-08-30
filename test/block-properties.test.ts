@@ -95,6 +95,7 @@ describe('block properties — the additive-safety guarantee, extended to non-bo
         lightEmission: LightLevel(0),
         fluid: 'none',
         collisionShape: 'full',
+        blastResistance: NO_PROPERTIES,
         contactDamage: NO_PROPERTIES,
         drops: { affectedByFortune: false, count: StackCount(1), item: 'self', requiresSilkTouch: false },
         footstepMaterial: 'default',
@@ -227,6 +228,16 @@ describe('light level branding', () => {
       expect(() => resolve({ friction: 2 })).toThrow('block property friction must be a finite number in [0, 1]')
       expect(() => resolve({ friction: -1 })).toThrow(
         'block property friction must be a finite number greater than or equal to zero',
+      )
+      expect(resolve({ blastResistance: Number.POSITIVE_INFINITY }).blastResistance).toBe(
+        Number.POSITIVE_INFINITY,
+      )
+      expect(resolve({ blastResistance: NO_PROPERTIES }).blastResistance).toBe(NO_PROPERTIES)
+      expect(() => resolve({ blastResistance: -1 })).toThrow(
+        'block property blastResistance must be a non-negative number or Infinity',
+      )
+      expect(() => resolve({ blastResistance: Number.NaN })).toThrow(
+        'block property blastResistance must be a non-negative number or Infinity',
       )
       expect(() =>
         Reflect.apply(resolve, undefined, [{ harvestTool: { category: 'pickaxe', minTier: 'diamond', futureField: true } }]),

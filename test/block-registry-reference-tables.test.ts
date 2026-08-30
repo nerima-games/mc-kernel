@@ -416,6 +416,27 @@ describe('the reference tables this roster transcribes', () => {
     })),
   )
 
+  it('blastResistance reproduces the mx-gameplay block-vocabulary.ts mirror of resistsNormalExplosion(id)', () =>
+    Effect.runPromise(Effect.sync(() => {
+      // mx-gameplay's mirror (`block-vocabulary.ts:589-590`) records
+      // `resistsNormalExplosion?: true` as a per-block override defaulting to
+      // absent/false, and flags exactly two of its 123 rows: `bedrock`
+      // (`:610`) and `obsidian` (`:649`). The predicate itself is at
+      // `block-vocabulary.ts:751-752`.
+      expect(BLOCK_PROPERTY_DEFAULTS.blastResistance).toBe(number('0'))
+      expect(propertyOfBlockId(blockIdOf('bedrock'), 'blastResistance')).toBe(Number.POSITIVE_INFINITY)
+      expect(propertyOfBlockId(blockIdOf('obsidian'), 'blastResistance')).toBe(Number.POSITIVE_INFINITY)
+
+      // Every other registered block is on the mirror's `false` side.
+      for (const id of BLOCK_IDS) {
+        const type = blockTypeOfId(id)
+        if (type !== 'bedrock' && type !== 'obsidian') {
+          expect(propertyOfBlockId(id, 'blastResistance')).toBe(number('0'))
+        }
+      }
+    })),
+  )
+
   describe('contact and movement properties', () => {
     it('slows an entity in a cobweb, and in nothing else', () =>
       Effect.runPromise(Effect.sync(() => {

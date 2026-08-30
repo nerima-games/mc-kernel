@@ -36,7 +36,15 @@ export const BLOCK_REGISTRY_TERRAIN: ReadonlyArray<BlockRegistryEntry> = [
     id: BlockId(40),
     definition: {
       type: 'obsidian',
-      properties: { hardness: 90, friction: 0.8, harvestTool: NEEDS_DIAMOND_PICKAXE },
+      // `blastResistance: Infinity` reproduces mx-gameplay's mirror
+      // (`block-vocabulary.ts:649`), which marks obsidian
+      // `resistsNormalExplosion: true` — kernel had no such column before.
+      properties: {
+        hardness: 90,
+        friction: 0.8,
+        blastResistance: Number.POSITIVE_INFINITY,
+        harvestTool: NEEDS_DIAMOND_PICKAXE,
+      },
     },
   },
   {

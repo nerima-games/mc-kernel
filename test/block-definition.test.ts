@@ -12,9 +12,9 @@ import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 import { StackCount } from '../src/domain/quantities'
 
-const AUDITED_CAPABILITY_COUNT = 28
+const AUDITED_CAPABILITY_COUNT = 29
 const IMPLEMENTED_FLAG_COUNT = 12
-const IMPLEMENTED_PROPERTY_COUNT = 15
+const IMPLEMENTED_PROPERTY_COUNT = 16
 const LAVA_CONTACT_DAMAGE = 4
 const MAXIMUM_LIGHT_EMISSION = 15
 const NO_DROPS = 0
@@ -154,13 +154,17 @@ describe('the implemented / downstream capability ledger', () => {
     })),
   )
 
-  it('the audit table has 28 rows, of which 27 are implemented and 1 is downstream-owned', () =>
+  it('the ledger has 29 rows, of which 28 are implemented and 1 is downstream-owned', () =>
     Effect.runPromise(Effect.sync(() => {
       // 24/4 until `supportRule` landed as `properties.supportRule`, then
       // `tillable` and `footstepMaterial` landed as additive properties.
       // (`domain/block-support.ts`). The property count moved and the
       // downstream boundary is kept explicit; the test ABOVE is the one that
       // catches a capability being dropped from both lists at once.
+      //
+      // `blastResistance` is the 29th row and the first NOT sourced from the
+      // historical audit — see `AUDITED_CAPABILITY_NAMES`'s doc comment for
+      // its provenance (the mx-gameplay `block-vocabulary.ts` mirror).
       expect(AUDITED_CAPABILITY_NAMES).toHaveLength(AUDITED_CAPABILITY_COUNT)
       expect(BLOCK_CAPABILITY_FLAGS).toHaveLength(IMPLEMENTED_FLAG_COUNT)
       expect(BLOCK_PROPERTY_NAMES).toHaveLength(IMPLEMENTED_PROPERTY_COUNT)

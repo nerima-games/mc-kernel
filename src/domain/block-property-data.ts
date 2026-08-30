@@ -87,6 +87,13 @@ export type BlockProperties = {
   readonly hardness: number
   /** Surface friction, 0..1. */
   readonly friction: number
+  /**
+   * How much explosive power a normal creeper/TNT-class explosion needs to
+   * destroy this block; `Infinity` for a block no such explosion can ever
+   * destroy. `./explosion.ts`'s `resistsExplosion(id, power)` reads this
+   * column directly.
+   */
+  readonly blastResistance: number
   /** Damage per contact tick. */
   readonly contactDamage: number
   /** Movement slowdown while inside. */
@@ -113,6 +120,7 @@ export const BLOCK_PROPERTY_DEFAULTS: BlockProperties = {
   footstepMaterial: 'default',
   hardness: 8,
   friction: 0.6,
+  blastResistance: 0,
   contactDamage: 0,
   movementDrag: 0,
   xpOnBreak: 0,

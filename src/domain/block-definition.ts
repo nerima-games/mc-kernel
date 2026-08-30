@@ -126,11 +126,18 @@ export const resolveBlock = (definition: BlockDefinition): ResolvedBlock => {
 // ---------------------------------------------------------------------------
 
 /**
- * The capability names `historical design audit` §3 enumerates, in the
- * order the audit's table lists them.
+ * The capability names `historical design audit` §3 enumerates (28 rows, in
+ * the order the audit's table lists them), plus post-audit additions that
+ * followed through a different channel but the same discipline: one default,
+ * ledger-checked completeness.
  *
- * The audit's §3 table has 28 rows and is the authoritative capability list
- * mirrored by this constant.
+ * `blastResistance` is the one post-audit row and carries no audit citation
+ * — the historical audit never examined explosions. It exists because
+ * mx-gameplay's `block-vocabulary.ts` mirror recorded a fact kernel itself
+ * lacked (`resistsNormalExplosion` for `bedrock`/`obsidian`), added here as a
+ * `blastResistance: number` column plus `explosion.ts`'s
+ * `resistsExplosion(id, power)`. `test/block-definition.test.ts` checks this
+ * ledger against 29 rows, 28 implemented and 1 downstream-owned.
  */
 export const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string> = [
   'passable',
@@ -161,6 +168,7 @@ export const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string> = [
   'footstepMaterial',
   'tillable',
   'textureTiles',
+  'blastResistance',
 ]
 
 /**

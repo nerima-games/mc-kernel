@@ -52,7 +52,15 @@ export const BLOCK_REGISTRY_FOUNDATION: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'bedrock',
       capabilities: { pistonImmovable: true },
-      properties: { hardness: 100, friction: 0.8, drops: DROPS_NOTHING },
+      // `blastResistance: Infinity` reproduces mx-gameplay's mirror
+      // (`block-vocabulary.ts:610`), which marks bedrock
+      // `resistsNormalExplosion: true` — kernel had no such column before.
+      properties: {
+        hardness: 100,
+        friction: 0.8,
+        blastResistance: Number.POSITIVE_INFINITY,
+        drops: DROPS_NOTHING,
+      },
     },
   },
   {
