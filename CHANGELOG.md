@@ -1,5 +1,15 @@
 # @nerima-games/mc-kernel
 
+## 0.6.0
+
+### Minor Changes
+
+- [#47](https://github.com/nerima-games/mc-kernel/pull/47) [`635b96e`](https://github.com/nerima-games/mc-kernel/commit/635b96ec89e16f2d1ebeb0faa431767058ca7a51) Thanks [@takeokunn](https://github.com/takeokunn)! - Add a `blastResistance` block property and `resistsExplosion(id, power)` predicate to `explosion.ts`. Reproduces mx-gameplay's `block-vocabulary.ts` mirror of `resistsNormalExplosion`, which flags `bedrock` and `obsidian` as immune to normal creeper/TNT explosions; every other block defaults to `blastResistance: 0`.
+
+### Patch Changes
+
+- [#46](https://github.com/nerima-games/mc-kernel/pull/46) [`97bc13a`](https://github.com/nerima-games/mc-kernel/commit/97bc13a2431cbf10f34fcc6e25bcb282a485c8cb) Thanks [@takeokunn](https://github.com/takeokunn)! - Complete the org toolchain devDependency pin set: knip 6.33.0 (its verify gate arrives in Wave 3; the pin belongs to the Wave 0 table) plus @effect/vitest 0.30.0 where it was missing.
+
 ## 0.5.1
 
 ### Patch Changes

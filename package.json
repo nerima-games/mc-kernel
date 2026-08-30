@@ -1,6 +1,6 @@
 {
   "name": "@nerima-games/mc-kernel",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "type": "module",
   "description": "Core Minecraft domain data and pure logic for blocks, items, recipes, food, cooking, brewing, stonecutting, smithing, grindstones, crops, dimensions, entities, fluids, redstone, portals, vehicles, Java and Bedrock mining, breaking, chunks, anvils, coordinates, projectiles, explosions, primed TNT, camera pose, time of day, weather, player vitals, frame timing, and frame contracts.",
   "homepage": "https://github.com/nerima-games/mc-kernel#readme",
