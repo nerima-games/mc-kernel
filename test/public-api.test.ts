@@ -750,6 +750,7 @@ describe("public API surface", () => {
           "DEFAULT_EXPLOSION_LIMITS",
           "planExplosion",
           "applyExplosionPlan",
+          "resistsExplosion",
           "DEFAULT_TNT_FUSE_SECS",
           "MAX_TNT_FUSE_ADVANCE_SECS",
           "primeTnt",
@@ -2101,6 +2102,7 @@ describe("public API surface", () => {
         expect(kernel.applyExplosionPlan).toBe(
           explosionModule.applyExplosionPlan,
         );
+        expect(kernel.resistsExplosion).toBe(explosionModule.resistsExplosion);
         expect(kernel.DEFAULT_TNT_FUSE_SECS).toBe(
           primedTntModule.DEFAULT_TNT_FUSE_SECS,
         );
@@ -3348,6 +3350,9 @@ describe("public API surface", () => {
         expect(explosionSubpath.planExplosion).toBe(packageRoot.planExplosion);
         expect(explosionSubpath.applyExplosionPlan).toBe(
           packageRoot.applyExplosionPlan,
+        );
+        expect(explosionSubpath.resistsExplosion).toBe(
+          packageRoot.resistsExplosion,
         );
         expect(explosionSubpath.DEFAULT_EXPLOSION_LIMITS).toBe(
           packageRoot.DEFAULT_EXPLOSION_LIMITS,

@@ -155,6 +155,10 @@ const buildPropertyValuesByName = (): PropertyColumnsByName => {
     ),
     hardness: Array.from({ length: BLOCK_ID_TABLE_LENGTH }, () => BLOCK_PROPERTY_DEFAULTS.hardness),
     friction: Array.from({ length: BLOCK_ID_TABLE_LENGTH }, () => BLOCK_PROPERTY_DEFAULTS.friction),
+    blastResistance: Array.from(
+      { length: BLOCK_ID_TABLE_LENGTH },
+      () => BLOCK_PROPERTY_DEFAULTS.blastResistance,
+    ),
     contactDamage: Array.from({ length: BLOCK_ID_TABLE_LENGTH }, () => BLOCK_PROPERTY_DEFAULTS.contactDamage),
     movementDrag: Array.from({ length: BLOCK_ID_TABLE_LENGTH }, () => BLOCK_PROPERTY_DEFAULTS.movementDrag),
     xpOnBreak: Array.from({ length: BLOCK_ID_TABLE_LENGTH }, () => BLOCK_PROPERTY_DEFAULTS.xpOnBreak),
@@ -175,6 +179,7 @@ const buildPropertyValuesByName = (): PropertyColumnsByName => {
     columns.footstepMaterial[entry.id] = properties.footstepMaterial
     columns.hardness[entry.id] = properties.hardness
     columns.friction[entry.id] = properties.friction
+    columns.blastResistance[entry.id] = properties.blastResistance
     columns.contactDamage[entry.id] = properties.contactDamage
     columns.movementDrag[entry.id] = properties.movementDrag
     columns.xpOnBreak[entry.id] = properties.xpOnBreak

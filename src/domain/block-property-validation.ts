@@ -65,6 +65,12 @@ const assertHardness = (value: unknown): void => {
   }
 }
 
+const assertBlastResistance = (value: unknown): void => {
+  if (typeof value !== 'number' || Number.isNaN(value) || value < 0) {
+    throw new RangeError('block property blastResistance must be a non-negative number or Infinity')
+  }
+}
+
 const assertBoolean = (name: string, value: unknown): void => {
   if (typeof value !== 'boolean') {
     throw new TypeError(`${name} must be a boolean`)
@@ -194,6 +200,9 @@ const validateNumericProperties = (overrides: BlockPropertyOverrides): void => {
   }
   if (overrides.xpOnBreak !== undefined) {
     assertFiniteNonNegative('block property xpOnBreak', overrides.xpOnBreak)
+  }
+  if (overrides.blastResistance !== undefined) {
+    assertBlastResistance(overrides.blastResistance)
   }
 }
 
