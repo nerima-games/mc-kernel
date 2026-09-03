@@ -28,10 +28,10 @@ export const BLOCK_REGISTRY_TERRAIN: ReadonlyArray<BlockRegistryEntry> = [
   //     name rather than by a tool gate or a silk-touch gate.
   //   `farmland` yields `dirt`, not itself, so it gets NO item form — see the
   //     rule at the top of the `ITEM_TYPES` additions.
-  { id: BlockId(36), definition: { type: 'granite', properties: { hardness: 25, friction: 0.8 } } },
-  { id: BlockId(37), definition: { type: 'diorite', properties: { hardness: 25, friction: 0.8 } } },
-  { id: BlockId(38), definition: { type: 'andesite', properties: { hardness: 25, friction: 0.8 } } },
-  { id: BlockId(39), definition: { type: 'deepslate', properties: { hardness: 50, friction: 0.8 } } },
+  { id: BlockId(36), definition: { type: 'granite', properties: { hardness: 25, friction: 0.8, footstepMaterial: 'stone' } } },
+  { id: BlockId(37), definition: { type: 'diorite', properties: { hardness: 25, friction: 0.8, footstepMaterial: 'stone' } } },
+  { id: BlockId(38), definition: { type: 'andesite', properties: { hardness: 25, friction: 0.8, footstepMaterial: 'stone' } } },
+  { id: BlockId(39), definition: { type: 'deepslate', properties: { hardness: 50, friction: 0.8, footstepMaterial: 'stone' } } },
   {
     id: BlockId(40),
     definition: {
@@ -42,6 +42,7 @@ export const BLOCK_REGISTRY_TERRAIN: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         hardness: 90,
         friction: 0.8,
+        footstepMaterial: 'stone',
         blastResistance: Number.POSITIVE_INFINITY,
         harvestTool: NEEDS_DIAMOND_PICKAXE,
       },
@@ -51,21 +52,21 @@ export const BLOCK_REGISTRY_TERRAIN: ReadonlyArray<BlockRegistryEntry> = [
     id: BlockId(41),
     definition: {
       type: 'smooth_basalt',
-      properties: { hardness: 30, friction: 0.8, harvestTool: NEEDS_WOODEN_PICKAXE },
+      properties: { hardness: 30, friction: 0.8, footstepMaterial: 'stone', harvestTool: NEEDS_WOODEN_PICKAXE },
     },
   },
   {
     id: BlockId(42),
     definition: {
       type: 'calcite',
-      properties: { hardness: 20, friction: 0.8, harvestTool: NEEDS_WOODEN_PICKAXE },
+      properties: { hardness: 20, friction: 0.8, footstepMaterial: 'stone', harvestTool: NEEDS_WOODEN_PICKAXE },
     },
   },
   {
     id: BlockId(43),
     definition: {
       type: 'amethyst_block',
-      properties: { hardness: 30, friction: 0.8, harvestTool: NEEDS_WOODEN_PICKAXE },
+      properties: { hardness: 30, friction: 0.8, footstepMaterial: 'stone', harvestTool: NEEDS_WOODEN_PICKAXE },
     },
   },
   {
@@ -76,19 +77,26 @@ export const BLOCK_REGISTRY_TERRAIN: ReadonlyArray<BlockRegistryEntry> = [
         lightEmission: 15,
         hardness: 15,
         friction: 0.8,
+        footstepMaterial: 'stone',
         harvestTool: NEEDS_WOODEN_PICKAXE,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'amethyst_shard', count: StackCount(4) },
       },
     },
   },
-  { id: BlockId(45), definition: { type: 'sandstone', properties: { hardness: 10 } } },
-  { id: BlockId(46), definition: { type: 'prismarine', properties: { hardness: 25, friction: 0.8 } } },
-  { id: BlockId(47), definition: { type: 'soul_sand', properties: { friction: 0.5 } } },
+  { id: BlockId(45), definition: { type: 'sandstone', properties: { hardness: 10, footstepMaterial: 'stone' } } },
+  { id: BlockId(46), definition: { type: 'prismarine', properties: { hardness: 25, friction: 0.8, footstepMaterial: 'stone' } } },
+  { id: BlockId(47), definition: { type: 'soul_sand', properties: { friction: 0.5, footstepMaterial: 'stone' } } },
   {
     id: BlockId(48),
     definition: {
       type: 'ice',
-      properties: { opacity: 'transparentSolid', hardness: 3, friction: 0.98, drops: DROPS_NOTHING },
+      properties: {
+        opacity: 'transparentSolid',
+        hardness: 3,
+        friction: 0.98,
+        footstepMaterial: 'stone',
+        drops: DROPS_NOTHING,
+      },
     },
   },
   {

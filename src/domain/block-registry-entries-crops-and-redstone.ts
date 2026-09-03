@@ -47,6 +47,7 @@ export const BLOCK_REGISTRY_CROPS_AND_REDSTONE: ReadonlyArray<BlockRegistryEntry
         opacity: 'transparentSolid',
         hardness: 0,
         friction: 0,
+        footstepMaterial: 'grass',
         drops: { ...DEFAULT_BLOCK_DROP, item: 'wheat_seeds' },
         supportRule: NEEDS_FARMLAND,
       },
@@ -61,6 +62,7 @@ export const BLOCK_REGISTRY_CROPS_AND_REDSTONE: ReadonlyArray<BlockRegistryEntry
         opacity: 'transparentSolid',
         hardness: 0,
         friction: 0,
+        footstepMaterial: 'grass',
         drops: { ...DEFAULT_BLOCK_DROP, item: 'potato' },
         supportRule: NEEDS_FARMLAND,
       },
@@ -80,6 +82,7 @@ export const BLOCK_REGISTRY_CROPS_AND_REDSTONE: ReadonlyArray<BlockRegistryEntry
         opacity: 'transparentSolid',
         hardness: 0,
         friction: 0,
+        footstepMaterial: 'grass',
         drops: { ...DEFAULT_BLOCK_DROP, item: 'nether_wart' },
         supportRule: NEEDS_SOUL_SAND,
       },
@@ -129,6 +132,7 @@ export const BLOCK_REGISTRY_CROPS_AND_REDSTONE: ReadonlyArray<BlockRegistryEntry
         opacity: 'transparentSolid',
         hardness: 0,
         friction: 0,
+        footstepMaterial: 'stone',
         drops: { ...DEFAULT_BLOCK_DROP, item: 'redstone_dust' },
         supportRule: NEEDS_ANY_SUPPORT, // block-support.ts:25, no entry at :75-89
       },
@@ -158,7 +162,7 @@ export const BLOCK_REGISTRY_CROPS_AND_REDSTONE: ReadonlyArray<BlockRegistryEntry
     definition: {
       type: 'lever',
       capabilities: { suffocates: false, validSpawnSurface: false },
-      properties: { opacity: 'transparentSolid', hardness: 5 },
+      properties: { opacity: 'transparentSolid', hardness: 5, footstepMaterial: 'stone' },
     },
   },
   {
@@ -166,7 +170,7 @@ export const BLOCK_REGISTRY_CROPS_AND_REDSTONE: ReadonlyArray<BlockRegistryEntry
     definition: {
       type: 'stone_button',
       capabilities: { suffocates: false, validSpawnSurface: false },
-      properties: { opacity: 'transparentSolid', hardness: 5 },
+      properties: { opacity: 'transparentSolid', hardness: 5, footstepMaterial: 'stone' },
     },
   },
   {
@@ -174,20 +178,28 @@ export const BLOCK_REGISTRY_CROPS_AND_REDSTONE: ReadonlyArray<BlockRegistryEntry
     definition: {
       type: 'repeater',
       capabilities: { suffocates: false, validSpawnSurface: false },
-      properties: { opacity: 'transparentSolid', hardness: 35 },
+      properties: { opacity: 'transparentSolid', hardness: 35, footstepMaterial: 'stone' },
     },
   },
-  { id: BlockId(79), definition: { type: 'redstone_lamp', properties: { hardness: 10 } } },
+  { id: BlockId(79), definition: { type: 'redstone_lamp', properties: { hardness: 10, footstepMaterial: 'stone' } } },
   {
     id: BlockId(80),
     definition: {
       type: 'redstone_lamp_lit',
-      properties: { lightEmission: 15, hardness: 10, drops: { ...DEFAULT_BLOCK_DROP, item: 'redstone_lamp' } },
+      properties: {
+        lightEmission: 15,
+        hardness: 10,
+        footstepMaterial: 'stone',
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'redstone_lamp' },
+      },
     },
   },
-  { id: BlockId(81), definition: { type: 'observer', properties: { hardness: 55 } } },
-  { id: BlockId(82), definition: { type: 'comparator', properties: { hardness: 5 } } },
-  { id: BlockId(83), definition: { type: 'dispenser', properties: { hardness: 60 } } },
-  { id: BlockId(84), definition: { type: 'hopper', properties: { hardness: 55 } } },
-  { id: BlockId(85), definition: { type: 'piston_head', properties: { hardness: 1, drops: DROPS_NOTHING } } },
+  { id: BlockId(81), definition: { type: 'observer', properties: { hardness: 55, footstepMaterial: 'stone' } } },
+  { id: BlockId(82), definition: { type: 'comparator', properties: { hardness: 5, footstepMaterial: 'stone' } } },
+  { id: BlockId(83), definition: { type: 'dispenser', properties: { hardness: 60, footstepMaterial: 'stone' } } },
+  { id: BlockId(84), definition: { type: 'hopper', properties: { hardness: 55, footstepMaterial: 'stone' } } },
+  {
+    id: BlockId(85),
+    definition: { type: 'piston_head', properties: { hardness: 1, footstepMaterial: 'stone', drops: DROPS_NOTHING } },
+  },
 ]

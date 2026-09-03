@@ -361,7 +361,54 @@ describe('the reference tables this roster transcribes', () => {
       for (const block of ['stone', 'gravel', 'sand', 'cobblestone', 'end_stone_bricks'] as const) {
         expect(propertyOfBlockId(blockIdOf(block), 'footstepMaterial')).toBe('stone')
       }
-      expect(propertyOfBlockId(blockIdOf('glass'), 'footstepMaterial')).toBe('default')
+      // No literal glass material exists in `FOOTSTEP_MATERIALS`; `stone` is
+      // the nearest hard-surface approximation kernel has rather than silence.
+      expect(propertyOfBlockId(blockIdOf('glass'), 'footstepMaterial')).toBe('stone')
+    })),
+  )
+
+  it('gives a non-default footstep material to every block a player can actually stand on', () =>
+    Effect.runPromise(Effect.sync(() => {
+      // The rows deliberately left at the silent default: true fluids (a
+      // swimmer has no footfall), decorative attachments a player passes
+      // through or never rests weight on (`torch`, `redstone_torch`,
+      // `cobweb`, `cactus`, `wither_skeleton_skull`), submerged plants nobody
+      // walks across (`kelp`, `seagrass`), and the teleporter/world-state rows
+      // that are drawn but never physically occupied (`end_portal`,
+      // `end_gateway`, `end_crystal`, `end_rod`, `nether_portal`, `fire`).
+      // Every other row must carry a real classification — this is the
+      // invariant the near-total silence bug (roughly 15 of 123 rows
+      // classified, everything else including `deepslate` falling through to
+      // `default`) would have failed.
+      const DELIBERATELY_SILENT_BLOCK_TYPES: ReadonlySet<BlockType> = new Set<BlockType>([
+        'air',
+        'water',
+        'lava',
+        'torch',
+        'redstone_torch',
+        'cobweb',
+        'kelp',
+        'seagrass',
+        'cactus',
+        'end_portal',
+        'end_gateway',
+        'end_crystal',
+        'end_rod',
+        'nether_portal',
+        'fire',
+        'wither_skeleton_skull',
+      ])
+      expect(DELIBERATELY_SILENT_BLOCK_TYPES.size).toBe(16)
+
+      for (const id of BLOCK_IDS) {
+        const type = blockTypeOfId(id)
+        const material = propertyOfBlockId(id, 'footstepMaterial')
+        if (type !== undefined && DELIBERATELY_SILENT_BLOCK_TYPES.has(type)) {
+          expect(material).toBe('default')
+        } else {
+          expect(material).not.toBe('default')
+        }
+      }
     })),
   )
 
