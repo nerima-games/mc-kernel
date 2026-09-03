@@ -50,6 +50,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
       properties: {
         hardness: 50,
         friction: 0.8,
+        footstepMaterial: 'stone',
         xpOnBreak: 5,
         harvestTool: NEEDS_WOODEN_PICKAXE,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'coal', silkTouchItem: 'coal_ore', affectedByFortune: true },
@@ -63,6 +64,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
       properties: {
         hardness: 50,
         friction: 0.8,
+        footstepMaterial: 'stone',
         harvestTool: NEEDS_STONE_PICKAXE,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_iron', silkTouchItem: 'iron_ore' },
       },
@@ -75,6 +77,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
       properties: {
         hardness: 50,
         friction: 0.8,
+        footstepMaterial: 'stone',
         harvestTool: NEEDS_IRON_PICKAXE,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_gold', silkTouchItem: 'gold_ore' },
       },
@@ -87,6 +90,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
       properties: {
         hardness: 50,
         friction: 0.8,
+        footstepMaterial: 'stone',
         xpOnBreak: 7,
         harvestTool: NEEDS_IRON_PICKAXE,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'diamond', silkTouchItem: 'diamond_ore', affectedByFortune: true },
@@ -101,6 +105,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
         lightEmission: 9,
         hardness: 50,
         friction: 0.8,
+        footstepMaterial: 'stone',
         xpOnBreak: 5,
         harvestTool: NEEDS_IRON_PICKAXE,
         drops: {
@@ -120,6 +125,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
       properties: {
         hardness: 50,
         friction: 0.8,
+        footstepMaterial: 'stone',
         xpOnBreak: 5,
         harvestTool: NEEDS_STONE_PICKAXE,
         drops: {
@@ -139,6 +145,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
       properties: {
         hardness: 50,
         friction: 0.8,
+        footstepMaterial: 'stone',
         xpOnBreak: 7,
         harvestTool: NEEDS_IRON_PICKAXE,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'emerald', silkTouchItem: 'emerald_ore', affectedByFortune: true },
@@ -152,6 +159,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
       properties: {
         hardness: 60,
         friction: 0.8,
+        footstepMaterial: 'stone',
         xpOnBreak: 5,
         harvestTool: NEEDS_WOODEN_PICKAXE,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'coal', silkTouchItem: 'deepslate_coal_ore', affectedByFortune: true },
@@ -165,6 +173,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
       properties: {
         hardness: 60,
         friction: 0.8,
+        footstepMaterial: 'stone',
         harvestTool: NEEDS_STONE_PICKAXE,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_iron', silkTouchItem: 'deepslate_iron_ore' },
       },
@@ -177,6 +186,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
       properties: {
         hardness: 60,
         friction: 0.8,
+        footstepMaterial: 'stone',
         harvestTool: NEEDS_IRON_PICKAXE,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'raw_gold', silkTouchItem: 'deepslate_gold_ore' },
       },
@@ -189,6 +199,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
       properties: {
         hardness: 60,
         friction: 0.8,
+        footstepMaterial: 'stone',
         xpOnBreak: 7,
         harvestTool: NEEDS_IRON_PICKAXE,
         drops: {
@@ -208,6 +219,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
         lightEmission: 9,
         hardness: 60,
         friction: 0.8,
+        footstepMaterial: 'stone',
         xpOnBreak: 5,
         harvestTool: NEEDS_IRON_PICKAXE,
         drops: {
@@ -227,6 +239,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
       properties: {
         hardness: 60,
         friction: 0.8,
+        footstepMaterial: 'stone',
         xpOnBreak: 5,
         harvestTool: NEEDS_STONE_PICKAXE,
         drops: {
@@ -246,6 +259,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
       properties: {
         hardness: 60,
         friction: 0.8,
+        footstepMaterial: 'stone',
         xpOnBreak: 7,
         harvestTool: NEEDS_IRON_PICKAXE,
         drops: {
@@ -271,17 +285,35 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> =
   // `redstone_block` emits light 15 (`EMISSIVE_LEVEL_OVERRIDES`, `light.ts:27`),
   // which makes it the third distinct emission level in the roster after
   // `torch` 14 and `redstone_ore` 9.
-  { id: BlockId(64), definition: { type: 'coal_block', properties: { hardness: 65, friction: 0.8 } } },
-  { id: BlockId(65), definition: { type: 'iron_block', properties: { hardness: 65, friction: 0.8 } } },
-  { id: BlockId(66), definition: { type: 'gold_block', properties: { hardness: 50, friction: 0.8 } } },
-  { id: BlockId(67), definition: { type: 'diamond_block', properties: { hardness: 65, friction: 0.8 } } },
+  {
+    id: BlockId(64),
+    definition: { type: 'coal_block', properties: { hardness: 65, friction: 0.8, footstepMaterial: 'stone' } },
+  },
+  {
+    id: BlockId(65),
+    definition: { type: 'iron_block', properties: { hardness: 65, friction: 0.8, footstepMaterial: 'stone' } },
+  },
+  {
+    id: BlockId(66),
+    definition: { type: 'gold_block', properties: { hardness: 50, friction: 0.8, footstepMaterial: 'stone' } },
+  },
+  {
+    id: BlockId(67),
+    definition: { type: 'diamond_block', properties: { hardness: 65, friction: 0.8, footstepMaterial: 'stone' } },
+  },
   {
     id: BlockId(68),
     definition: {
       type: 'redstone_block',
-      properties: { lightEmission: 15, hardness: 65, friction: 0.8 },
+      properties: { lightEmission: 15, hardness: 65, friction: 0.8, footstepMaterial: 'stone' },
     },
   },
-  { id: BlockId(69), definition: { type: 'lapis_block', properties: { hardness: 50, friction: 0.8 } } },
-  { id: BlockId(70), definition: { type: 'emerald_block', properties: { hardness: 65, friction: 0.8 } } },
+  {
+    id: BlockId(69),
+    definition: { type: 'lapis_block', properties: { hardness: 50, friction: 0.8, footstepMaterial: 'stone' } },
+  },
+  {
+    id: BlockId(70),
+    definition: { type: 'emerald_block', properties: { hardness: 65, friction: 0.8, footstepMaterial: 'stone' } },
+  },
 ]

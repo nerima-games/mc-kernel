@@ -44,13 +44,13 @@ export const BLOCK_REGISTRY_END: ReadonlyArray<BlockRegistryEntry> = [
   // `dragon_egg`, `ender_chest`, `purpur_slab`, `purpur_stairs` and `shulker_box`
   // are non-suffocating and ARE valid spawn surfaces. Another five rows where
   // collapsing the two flags into one would change behaviour.
-  { id: BlockId(86), definition: { type: 'end_stone', properties: { hardness: 45 } } },
+  { id: BlockId(86), definition: { type: 'end_stone', properties: { hardness: 45, footstepMaterial: 'stone' } } },
   {
     id: BlockId(87),
     definition: {
       type: 'end_portal_frame',
       capabilities: { suffocates: false },
-      properties: { lightEmission: 1, hardness: 9000 },
+      properties: { lightEmission: 1, hardness: 9000, footstepMaterial: 'stone' },
     },
   },
   {
@@ -58,7 +58,7 @@ export const BLOCK_REGISTRY_END: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'end_portal_frame_filled',
       capabilities: { suffocates: false },
-      properties: { lightEmission: 3, hardness: 9000 },
+      properties: { lightEmission: 3, hardness: 9000, footstepMaterial: 'stone' },
     },
   },
   {
@@ -82,7 +82,7 @@ export const BLOCK_REGISTRY_END: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'chorus_flower',
       capabilities: { suffocates: false, validSpawnSurface: false },
-      properties: { opacity: 'transparentSolid', hardness: 0.4, friction: 0 },
+      properties: { opacity: 'transparentSolid', hardness: 0.4, friction: 0, footstepMaterial: 'grass' },
     },
   },
   {
@@ -90,7 +90,7 @@ export const BLOCK_REGISTRY_END: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'chorus_plant',
       capabilities: { suffocates: false, validSpawnSurface: false },
-      properties: { opacity: 'transparentSolid', hardness: 0.4, friction: 0 },
+      properties: { opacity: 'transparentSolid', hardness: 0.4, friction: 0, footstepMaterial: 'grass' },
     },
   },
   {
@@ -98,7 +98,7 @@ export const BLOCK_REGISTRY_END: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'dragon_egg',
       capabilities: { suffocates: false },
-      properties: { opacity: 'transparentSolid', hardness: 3 },
+      properties: { opacity: 'transparentSolid', hardness: 3, footstepMaterial: 'stone' },
     },
   },
   {
@@ -131,17 +131,17 @@ export const BLOCK_REGISTRY_END: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'ender_chest',
       capabilities: { suffocates: false },
-      properties: { lightEmission: 15, hardness: 22.5 },
+      properties: { lightEmission: 15, hardness: 22.5, footstepMaterial: 'stone' },
     },
   },
-  { id: BlockId(98), definition: { type: 'purpur_block', properties: { hardness: 1.5 } } },
-  { id: BlockId(99), definition: { type: 'purpur_pillar', properties: { hardness: 1.5 } } },
+  { id: BlockId(98), definition: { type: 'purpur_block', properties: { hardness: 1.5, footstepMaterial: 'stone' } } },
+  { id: BlockId(99), definition: { type: 'purpur_pillar', properties: { hardness: 1.5, footstepMaterial: 'stone' } } },
   {
     id: BlockId(100),
     definition: {
       type: 'purpur_slab',
       capabilities: { suffocates: false },
-      properties: { opacity: 'transparentSolid', collisionShape: 'slab', hardness: 1.5 },
+      properties: { opacity: 'transparentSolid', collisionShape: 'slab', hardness: 1.5, footstepMaterial: 'stone' },
     },
   },
   {
@@ -149,7 +149,7 @@ export const BLOCK_REGISTRY_END: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'purpur_stairs',
       capabilities: { suffocates: false },
-      properties: { opacity: 'transparentSolid', hardness: 1.5 },
+      properties: { opacity: 'transparentSolid', hardness: 1.5, footstepMaterial: 'stone' },
     },
   },
   {
@@ -157,7 +157,7 @@ export const BLOCK_REGISTRY_END: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'shulker_box',
       capabilities: { suffocates: false },
-      properties: { hardness: 2 },
+      properties: { hardness: 2, footstepMaterial: 'stone' },
     },
   },
 ]

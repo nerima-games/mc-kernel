@@ -46,10 +46,13 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
     definition: {
       type: 'crafting_table',
       capabilities: { flammable: true },
-      properties: { hardness: 40, harvestTool: FASTER_WITH_AXE },
+      properties: { hardness: 40, footstepMaterial: 'wood', harvestTool: FASTER_WITH_AXE },
     },
   },
-  { id: BlockId(104), definition: { type: 'furnace', properties: { hardness: 55, friction: 0.8 } } },
+  {
+    id: BlockId(104),
+    definition: { type: 'furnace', properties: { hardness: 55, friction: 0.8, footstepMaterial: 'stone' } },
+  },
   {
     id: BlockId(105),
     definition: {
@@ -71,7 +74,12 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
     definition: {
       type: 'door_open',
       capabilities: { flammable: true, suffocates: false, validSpawnSurface: false },
-      properties: { opacity: 'transparentSolid', hardness: 15, drops: { ...DEFAULT_BLOCK_DROP, item: 'door' } },
+      properties: {
+        opacity: 'transparentSolid',
+        hardness: 15,
+        footstepMaterial: 'wood',
+        drops: { ...DEFAULT_BLOCK_DROP, item: 'door' },
+      },
     },
   },
   {
@@ -79,21 +87,21 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
     definition: {
       type: 'oak_stairs',
       capabilities: { flammable: true, suffocates: false },
-      properties: { opacity: 'transparentSolid', hardness: 35 },
+      properties: { opacity: 'transparentSolid', hardness: 35, footstepMaterial: 'wood' },
     },
   },
   {
     id: BlockId(109),
     definition: {
       type: 'anvil',
-      properties: { hardness: 75, harvestTool: NEEDS_WOODEN_PICKAXE },
+      properties: { hardness: 75, footstepMaterial: 'stone', harvestTool: NEEDS_WOODEN_PICKAXE },
     },
   },
   {
     id: BlockId(110),
     definition: {
       type: 'cauldron',
-      properties: { hardness: 35, harvestTool: NEEDS_WOODEN_PICKAXE },
+      properties: { hardness: 35, footstepMaterial: 'stone', harvestTool: NEEDS_WOODEN_PICKAXE },
     },
   },
   {
@@ -102,6 +110,7 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
       type: 'water_cauldron',
       properties: {
         hardness: 35,
+        footstepMaterial: 'stone',
         harvestTool: NEEDS_WOODEN_PICKAXE,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'cauldron' },
       },
@@ -112,7 +121,7 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
     definition: {
       type: 'bed',
       capabilities: { flammable: true, suffocates: false, validSpawnSurface: false },
-      properties: { opacity: 'transparentSolid', hardness: 10 },
+      properties: { opacity: 'transparentSolid', hardness: 10, footstepMaterial: 'wood' },
     },
   },
   {
@@ -120,24 +129,34 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
     definition: {
       type: 'enchanting_table',
       capabilities: { suffocates: false },
-      properties: { hardness: 30 },
+      properties: { hardness: 30, footstepMaterial: 'stone' },
     },
   },
   {
     id: BlockId(114),
     definition: {
       type: 'brewing_stand',
-      properties: { opacity: 'transparentSolid', hardness: 15 },
+      properties: { opacity: 'transparentSolid', hardness: 15, footstepMaterial: 'stone' },
     },
   },
-  { id: BlockId(115), definition: { type: 'tnt', capabilities: { flammable: true }, properties: { hardness: 0 } } },
-  { id: BlockId(116), definition: { type: 'nether_brick', properties: { hardness: 40 } } },
+  {
+    id: BlockId(115),
+    definition: {
+      type: 'tnt',
+      capabilities: { flammable: true },
+      properties: { hardness: 0, footstepMaterial: 'wood' },
+    },
+  },
+  {
+    id: BlockId(116),
+    definition: { type: 'nether_brick', properties: { hardness: 40, footstepMaterial: 'stone' } },
+  },
   {
     id: BlockId(117),
     definition: {
       type: 'netherrack',
       capabilities: { fireSource: true },
-      properties: { hardness: 5 },
+      properties: { hardness: 5, footstepMaterial: 'stone' },
     },
   },
   {
@@ -177,7 +196,7 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
       },
     },
   },
-  { id: BlockId(120), definition: { type: 'soul_soil', properties: { hardness: 5 } } },
+  { id: BlockId(120), definition: { type: 'soul_soil', properties: { hardness: 5, footstepMaterial: 'grass' } } },
   {
     id: BlockId(121),
     definition: {
@@ -194,5 +213,5 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
       },
     },
   },
-  { id: BlockId(122), definition: { type: 'dropper', properties: { hardness: 60 } } },
+  { id: BlockId(122), definition: { type: 'dropper', properties: { hardness: 60, footstepMaterial: 'stone' } } },
 ]

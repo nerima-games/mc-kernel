@@ -58,6 +58,7 @@ export const BLOCK_REGISTRY_FOUNDATION: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         hardness: 100,
         friction: 0.8,
+        footstepMaterial: 'stone',
         blastResistance: Number.POSITIVE_INFINITY,
         drops: DROPS_NOTHING,
       },
@@ -158,6 +159,7 @@ export const BLOCK_REGISTRY_FOUNDATION: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         hardness: 2,
         friction: 0.3,
+        footstepMaterial: 'grass',
         harvestTool: FASTER_WITH_SHOVEL,
         drops: { ...DEFAULT_BLOCK_DROP, item: 'snowball', count: StackCount(4) },
       },
@@ -282,6 +284,7 @@ export const BLOCK_REGISTRY_FOUNDATION: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         opacity: 'transparentSolid',
         hardness: 4,
+        footstepMaterial: 'stone',
         drops: { ...DEFAULT_BLOCK_DROP, requiresSilkTouch: true },
       },
     },
@@ -331,6 +334,7 @@ export const BLOCK_REGISTRY_FOUNDATION: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         lightEmission: 15,
         hardness: 4,
+        footstepMaterial: 'stone',
         // NOTE: `count: 2` is kernel's and diverges from the reference's
         // `BLOCK_BASE_DROP_COUNT` (`block-service.config.ts:204-215`), which
         // gives `GLOWSTONE` 4. Left as it is rather than corrected in passing:
@@ -385,7 +389,7 @@ export const BLOCK_REGISTRY_FOUNDATION: ReadonlyArray<BlockRegistryEntry> = [
     definition: {
       type: 'piston',
       capabilities: { validSpawnSurface: false },
-      properties: { hardness: 55 },
+      properties: { hardness: 55, footstepMaterial: 'stone' },
     },
   },
   {

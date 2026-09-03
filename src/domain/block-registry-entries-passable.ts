@@ -127,6 +127,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
+        footstepMaterial: 'grass',
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:6)
       }, // plant-mesh.ts:19
     },
@@ -139,6 +140,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
+        footstepMaterial: 'grass',
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:7)
       }, // plant-mesh.ts:20
     },
@@ -151,6 +153,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
+        footstepMaterial: 'grass',
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:8)
       }, // plant-mesh.ts:21
     },
@@ -163,6 +166,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
+        footstepMaterial: 'grass',
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:9)
       }, // plant-mesh.ts:22
     },
@@ -183,6 +187,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
+        footstepMaterial: 'grass',
         drops: DROPS_NOTHING,
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:10)
       }, // plant-mesh.ts:23
@@ -198,6 +203,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
+        footstepMaterial: 'grass',
         drops: DROPS_NOTHING,
         supportRule: NEEDS_PLANTABLE_GROUND, // block-support.ts:85-88 via SURFACE_PLANT_BLOCK_TYPES (:11)
       }, // plant-mesh.ts:24
@@ -225,6 +231,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
+        footstepMaterial: 'grass',
         supportRule: NEEDS_SUGAR_CANE_GROUND, // block-support.ts:82
       }, // plant-mesh.ts:25
     },
@@ -248,6 +255,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'lilyPad',
+        footstepMaterial: 'grass',
         supportRule: NEEDS_WATER, // block-support.ts:84
       }, // plant-mesh.ts:34
     },
@@ -308,6 +316,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
         railKind: 'normal', // block-collision-predicates.ts:184-195 (`isOnRail`)
         // hardness 7 / friction 0.6: blocks.config.crafted.ts (`block:rail`).
         hardness: 7,
+        footstepMaterial: 'stone',
         supportRule: NEEDS_ANY_SUPPORT, // block-support.ts:27, no entry at :75-89
       },
     },
@@ -332,6 +341,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
         renderKind: 'rail', // plant-mesh.ts:33
         railKind: 'powered', // block-collision-predicates.ts:197-201
         hardness: 7,
+        footstepMaterial: 'stone',
         supportRule: NEEDS_ANY_SUPPORT, // block-support.ts:28, no entry at :75-89
       },
     },

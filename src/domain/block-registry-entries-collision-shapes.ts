@@ -65,6 +65,7 @@ export const BLOCK_REGISTRY_COLLISION_SHAPES: ReadonlyArray<BlockRegistryEntry> 
         // nothing. hardness 5: blocks.config.crafted.ts.
         harvestTool: NEEDS_WOODEN_PICKAXE,
         hardness: 5,
+        footstepMaterial: 'stone',
         supportRule: NEEDS_ANY_SUPPORT, // block-support.ts:26, no entry at :75-89
       },
     },
@@ -95,6 +96,7 @@ export const BLOCK_REGISTRY_COLLISION_SHAPES: ReadonlyArray<BlockRegistryEntry> 
         collisionShape: 'slab', // block-collision-predicates.ts:56-59, applied at :138
         harvestTool: NEEDS_WOODEN_PICKAXE, // harvestable-blocks.ts:18
         hardness: 25,
+        footstepMaterial: 'stone',
       },
     },
   },
