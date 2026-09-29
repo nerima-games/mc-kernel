@@ -83,7 +83,7 @@ describe('Minecraft Java Edition 26.3 V-1 golden', () => {
         '--output',
         generatedPath,
       ], { cwd: process.cwd(), stdio: 'pipe' })
-      expect(readFileSync(generatedPath)).toEqual(readFileSync(join(process.cwd(), 'src', 'domain', 'vanilla-26-3-generated.ts')))
+      expect(readFileSync(generatedPath)).toEqual(readFileSync(join(process.cwd(), 'src', 'domain', 'world', 'vanilla-26-3-generated.ts')))
     } finally {
       rmSync(temporaryDirectory, { recursive: true, force: true })
     }

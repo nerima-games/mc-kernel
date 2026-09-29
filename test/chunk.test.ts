@@ -372,8 +372,8 @@ describe('chunk binary codec', () => {
     const WIDE_BLOCK_ID_VALUE = 300
 
     vi.resetModules()
-    vi.doMock('../src/domain/block-registry.js', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('../src/domain/block-registry')>()
+    vi.doMock('../src/domain/block/block-registry.js', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('../src/domain/block/block-registry')>()
       const wideBlockId = Brand.nominal<BlockId>()(WIDE_BLOCK_ID_VALUE)
 
       return {
@@ -407,7 +407,7 @@ describe('chunk binary codec', () => {
       const redecoded = wideChunkModule.decodeChunk(reencoded)
       expect(redecoded.blocks.get(0)).toBe(WIDE_BLOCK_ID_VALUE)
     } finally {
-      vi.doUnmock('../src/domain/block-registry.js')
+      vi.doUnmock('../src/domain/block/block-registry.js')
       vi.resetModules()
     }
   })
