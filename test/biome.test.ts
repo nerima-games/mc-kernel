@@ -145,9 +145,13 @@ const UPSTREAM_BIOME_FIXTURES: ReadonlyArray<UpstreamBiomeFixture> = [
   { biome: 'end_midlands', temperature: 0.5, downfall: 0.5, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
   { biome: 'end_highlands', temperature: 0.5, downfall: 0.5, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
   { biome: 'end_barrens', temperature: 0.5, downfall: 0.5, hasPrecipitation: false, water: 0x3f76e4, grass: null, foliage: null },
+  { biome: 'dappled_forest', temperature: 0.6, downfall: 0.6, hasPrecipitation: true, water: 0x375154, grass: 0xdf6827, foliage: 0xe68e30 },
+  { biome: 'pale_garden', temperature: 0.7, downfall: 0.8, hasPrecipitation: true, water: 0x76889d, grass: 0x778272, foliage: 0x878d76 },
+  { biome: 'sulfur_caves', temperature: 0.8, downfall: 0.4, hasPrecipitation: true, water: 0x34bf89, grass: 0xaba64f, foliage: null },
 ]
 
-const EXPECTED_UPSTREAM_BIOME_COUNT = 64
+// Count is derived from the pinned Java Edition 26.3 biome golden.
+const EXPECTED_UPSTREAM_BIOME_COUNT = 67
 
 describe('the biome vocabulary', () => {
   it('is non-empty and has no duplicate entries', () => {

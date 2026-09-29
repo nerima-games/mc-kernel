@@ -41,8 +41,10 @@
  * the current roster, not a placeholder.
  */
 import { ResourceLocation, vanillaId } from './identifiers.js'
+import { VANILLA_26_3_DAMAGE_TYPE_IDS } from './vanilla-26-3-generated.js'
 
-export const DAMAGE_TYPE_NAMES = [
+export const DAMAGE_TYPE_NAMES: typeof VANILLA_26_3_DAMAGE_TYPE_IDS = VANILLA_26_3_DAMAGE_TYPE_IDS
+/*
   'arrow',
   'bad_respawn_point',
   'cactus',
@@ -90,7 +92,7 @@ export const DAMAGE_TYPE_NAMES = [
   'wind_charge',
   'wither',
   'wither_skull',
-] as const
+] as const */
 
 export type DamageTypeName = (typeof DAMAGE_TYPE_NAMES)[number]
 
@@ -162,6 +164,10 @@ export const DAMAGE_TYPE_DEFINITIONS: Readonly<Record<DamageTypeName, DamageType
   wind_charge: Object.freeze({ name: 'wind_charge', armorReduces: true, bypassesInvulnerability: false, kind: 'projectile', scalesWithDifficulty: true }),
   wither: Object.freeze({ name: 'wither', armorReduces: false, bypassesInvulnerability: false, kind: 'generic', scalesWithDifficulty: true }),
   wither_skull: Object.freeze({ name: 'wither_skull', armorReduces: true, bypassesInvulnerability: false, kind: 'projectile', scalesWithDifficulty: true }),
+  ender_pearl: Object.freeze({ name: 'ender_pearl', armorReduces: true, bypassesInvulnerability: false, kind: 'fall', scalesWithDifficulty: true }),
+  mace_smash: Object.freeze({ name: 'mace_smash', armorReduces: true, bypassesInvulnerability: false, kind: 'generic', scalesWithDifficulty: true }),
+  spear: Object.freeze({ name: 'spear', armorReduces: true, bypassesInvulnerability: false, kind: 'projectile', scalesWithDifficulty: true }),
+  sulfur_cube_hot: Object.freeze({ name: 'sulfur_cube_hot', armorReduces: true, bypassesInvulnerability: false, kind: 'fire', scalesWithDifficulty: true }),
 })
 
 /**

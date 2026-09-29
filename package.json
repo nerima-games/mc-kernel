@@ -511,6 +511,8 @@
     "lint": "oxlint --deny-warnings src test && ast-grep scan",
     "lint:fix": "oxlint --fix src test",
     "test": "vitest run",
+    "check:conformance": "vitest run test/vanilla-26-3.test.ts",
+    "generate:vanilla": "node --experimental-strip-types scripts/generate-vanilla-tables.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "benchmark": "pnpm build && node scripts/benchmark.mjs",
