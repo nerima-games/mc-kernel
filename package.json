@@ -110,6 +110,11 @@
       "import": "./dist/domain/block-world.js",
       "default": "./dist/domain/block-world.js"
     },
+    "./domain/world-read-write": {
+      "types": "./dist/domain/world-read-write.d.ts",
+      "import": "./dist/domain/world-read-write.js",
+      "default": "./dist/domain/world-read-write.js"
+    },
     "./domain/block-type": {
       "types": "./dist/domain/block-type.d.ts",
       "import": "./dist/domain/block-type.js",
