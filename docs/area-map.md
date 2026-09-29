@@ -20,7 +20,7 @@ inventory for a one-time move.
 
 ## Areas
 
-The future layout has eleven area directories. A public entry point gets one
+The future layout has nine area directories. A public entry point gets one
 leaf barrel inside its area (`<area>/_<subpath>.ts` in the plan); internal
 data, validation, and implementation files stay beside that leaf barrel.
 Thus there are 92 public leaf barrels for 92 public subpaths. The area
