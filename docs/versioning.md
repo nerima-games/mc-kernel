@@ -2,11 +2,6 @@
 
 ## 1. 現状
 
-- **バージョン: `0.4.0`。** `Chunk.blocks` の `ChunkBlocks` 化を含む、Node.js からロード可能にする修正を公開した版である。
-  `0.2.19` は changesets が一度 CHANGELOG に書き出したが、`package.json` の version として
-  コミットされる前に `0.3.0` の変更へ合流し、独立した version にはならなかった
-  （変更履歴は [CHANGELOG.md](../CHANGELOG.md) を参照）。
-- **最新の破壊的変更:** `Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks`。API の詳細は [public-api.md](./public-api.md) の「Chunk バイナリ形式」、変更履歴は [CHANGELOG.md](../CHANGELOG.md) の `0.3.0` を参照。
 - **配布用 build は実装済み。** `pnpm build` が `src/` から型付き ESM と declaration / source map を `dist/` に生成し、
   `package.json` の `main` / `types` / `exports` は `dist/` を指す。`files` も `dist/` と配布メタデータに限定している。
 - **GitHub Packages への公開は既に行われている。** `0.2.0` から `0.2.18` までの履歴上の版と
@@ -202,7 +197,7 @@ plan.md §3.1 が boolean と書いていた 3 つ（`emissive` / `transparent` 
 
 > **`0.x` の間の読み替え（全 16 リポジトリ共通の方針）**
 >
-> 本リポジトリは現在 `0.4.0` であり、下流が契約を実際に消費して確認するまで `0.x` から出ない。
+> 本リポジトリは `0.x` の間、下流が契約を実際に消費して確認するまで `0.x` から出ない。
 > **semver では `0.x` の破壊的変更は major bump ではなく minor bump である**（`0.1.0` → `0.2.0`）。
 > したがって以下の MAJOR / MINOR / PATCH は **`1.0.0` 到達後の分類**であり、
 > `0.x` の間は次のように読み替える。
