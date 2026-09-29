@@ -1,6 +1,6 @@
 import { Brand } from 'effect'
-import { isDimension, type Dimension } from '../world/dimension.ts.js'
-import type { Position } from '../coordinates/coordinate-primitives.ts.js'
+import { isDimension, type Dimension } from '../world/dimension.js'
+import type { Position } from '../coordinates/coordinate-primitives.js'
 
 export const VEHICLE_TYPES = ['boat', 'minecart'] as const
 export type VehicleType = (typeof VEHICLE_TYPES)[number]

@@ -1,5 +1,5 @@
 import { type ItemType } from './item-type.js'
-import { StackCount } from '../time/quantities.ts.js'
+import { StackCount } from '../time/quantities.js'
 import { Brand } from 'effect'
 import {
   ANVIL_MAX_CUSTOM_NAME_LENGTH as maxCustomNameLength,

@@ -12,7 +12,7 @@ import {
   type DamageTypeDefinition,
   type DamageTypeName,
 } from './damage-type-data.js'
-import type { ResourceLocation } from '../text/identifiers.ts.js'
+import type { ResourceLocation } from '../text/identifiers.js'
 
 const DAMAGE_TYPE_NAME_SET: ReadonlySet<string> = new Set(DAMAGE_TYPE_NAMES)
 

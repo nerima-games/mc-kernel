@@ -1,6 +1,6 @@
-import { itemStack } from '../item/item-stack.ts.js'
-import type { ItemStack, Slot } from '../item/item-stack.ts.js'
-import type { ItemType } from '../item/item-type.ts.js'
+import { itemStack } from '../item/item-stack.js'
+import type { ItemStack, Slot } from '../item/item-stack.js'
+import type { ItemType } from '../item/item-type.js'
 
 export const BREWING_BOTTLE_SLOTS = 3
 export const BREWING_TIME_SECS = 20

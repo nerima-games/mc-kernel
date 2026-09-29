@@ -1,13 +1,13 @@
 import { Brand } from "effect";
 import { Either } from "effect";
 import { TaggedError } from "effect/Data";
-import { NamespacedResourceLocation } from "../text/identifiers.ts.js";
+import { NamespacedResourceLocation } from "../text/identifiers.js";
 import {
   isJsonValue,
   jsonValueFromUnknown,
   jsonValuesEqual,
   type JsonValue,
-} from "../text/json-value.ts.js";
+} from "../text/json-value.js";
 import { isItemComponents, itemComponentsSnapshot, type ItemComponents } from "./item-components-validation.js";
 export const ItemComponentPatchConflictError: new (args: { readonly componentKey: string }) => {
   readonly _tag: "ItemComponentPatchConflictError";

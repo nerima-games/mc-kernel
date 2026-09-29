@@ -2,8 +2,8 @@ import {
   CooldownSeconds,
   MonotonicTimeSecs,
   type MonotonicTimeSecs as MonotonicTimeSecsType,
-} from '../time/quantities.ts.js'
-import type { ResourceLocation } from '../text/identifiers.ts.js'
+} from '../time/quantities.js'
+import type { ResourceLocation } from '../text/identifiers.js'
 import type { UseCooldownComponent } from './use-cooldown-data.js'
 
 export type { UseCooldownComponent } from './use-cooldown-data.js'

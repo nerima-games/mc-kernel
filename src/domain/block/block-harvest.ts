@@ -14,7 +14,7 @@ import {
   type HarvestToolRequirement,
 } from './block-harvest-data.js'
 import type { BlockType } from './block-type.js'
-import type { ItemType } from '../item/item-type.ts.js'
+import type { ItemType } from '../item/item-type.js'
 
 export * from './block-harvest-data.js'
 

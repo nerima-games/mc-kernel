@@ -1,4 +1,4 @@
-import { dataPackResourcePath } from "../world/data-pack-registry.ts.js";
+import { dataPackResourcePath } from "../world/data-pack-registry.js";
 import {
   cookingRecipe,
   type CookingRecipe,
@@ -7,7 +7,7 @@ import {
 import {
   FIREWORK_EXPLOSION_SHAPES,
   type FireworkExplosionShape,
-} from "../item/item-component-values-data.ts.js";
+} from "../item/item-component-values-data.js";
 import {
   craftingBannerDuplicateRecipe,
   craftingBookCloningRecipe,
@@ -34,14 +34,14 @@ import {
   ResourceLocation,
   NamespacedResourceLocation,
   type NamespacedResourceLocation as NamespacedResourceLocationValue,
-} from "../text/identifiers.ts.js";
+} from "../text/identifiers.js";
 import {
   applyItemComponentPatch,
   itemComponentPatchFromUnknown,
-} from "../item/item-component-patch.ts.js";
-import { isItemType, type ItemType } from "../item/item-type.ts.js";
-import { itemComponents } from "../item/item-components.ts.js";
-import { itemStack } from "../item/item-stack.ts.js";
+} from "../item/item-component-patch.js";
+import { isItemType, type ItemType } from "../item/item-type.js";
+import { itemComponents } from "../item/item-components.js";
+import { itemStack } from "../item/item-stack.js";
 import {
   anyOf,
   shapelessRecipe,

@@ -5,10 +5,10 @@ import {
   type CropDefinition,
   type CropType,
 } from './crop-data.js'
-import { blockPosition, type BlockPosition } from '../coordinates/coordinate-primitives.ts.js'
+import { blockPosition, type BlockPosition } from '../coordinates/coordinate-primitives.js'
 import type { BlockType } from './block-type.js'
-import { isDimension, type Dimension } from '../world/dimension.ts.js'
-import type { ItemStack } from '../item/item-stack.ts.js'
+import { isDimension, type Dimension } from '../world/dimension.js'
+import type { ItemStack } from '../item/item-stack.js'
 
 export {
   BONE_MEAL_GROWTH_SECS,

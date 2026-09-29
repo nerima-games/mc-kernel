@@ -11,8 +11,8 @@ import type {
   ExplosionPlan,
   ExplosionRequest,
 } from './explosion-data.js'
-import type { Position } from '../coordinates/coordinates.ts.js'
-import { propertyOfBlockId } from '../block/block-registry.ts.js'
+import type { Position } from '../coordinates/coordinates.js'
+import { propertyOfBlockId } from '../block/block-registry.js'
 
 export { DEFAULT_EXPLOSION_LIMITS }
 export type {

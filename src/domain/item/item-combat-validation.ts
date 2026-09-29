@@ -1,4 +1,4 @@
-import { ResourceLocation } from '../text/identifiers.ts.js'
+import { ResourceLocation } from '../text/identifiers.js'
 import {
   AttackCharge,
   AttackHitboxMargin,
@@ -6,7 +6,7 @@ import {
   MobAttackRangeFactor,
   SwingAnimationDuration,
   UseSpeedMultiplier,
-} from '../time/quantities.ts.js'
+} from '../time/quantities.js'
 import {
   SWING_ANIMATION_TYPES,
   type AttackRangeComponent,
@@ -15,7 +15,7 @@ import {
   type SwingAnimationComponent,
   type UseEffectsComponent,
 } from './item-combat-data.js'
-import { isDamageTypeId } from '../entity/damage-type-validation.ts.js'
+import { isDamageTypeId } from '../entity/damage-type-validation.js'
 
 type RecordValue = Record<string, unknown>
 

@@ -1,6 +1,6 @@
 import { AIR_BLOCK_ID, type BlockId } from './block-registry.js'
-import { blockPositionKeyOf, type BlockPositionKey } from '../coordinates/coordinate-keys.ts.js'
-import type { BlockPosition } from '../coordinates/coordinate-primitives.ts.js'
+import { blockPositionKeyOf, type BlockPositionKey } from '../coordinates/coordinate-keys.js'
+import type { BlockPosition } from '../coordinates/coordinate-primitives.js'
 
 export type BlockWorld = ReadonlyMap<BlockPositionKey, BlockId>
 export type BlockReader = (position: BlockPosition) => BlockId

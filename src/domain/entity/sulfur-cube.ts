@@ -1,4 +1,4 @@
-import { ResourceLocation, TagLocation } from "../text/identifiers.ts.js";
+import { ResourceLocation, TagLocation } from "../text/identifiers.js";
 import { isSulfurCubeArchetypeOptions } from "./sulfur-cube-validation.js";
 import type {
   SulfurCubeArchetype,
@@ -9,7 +9,7 @@ import type {
   SulfurCubeKnockbackModifiers,
   SulfurCubeSoundSettings,
 } from "./sulfur-cube-data.js";
-import { AttributeModifierAmount } from "../time/quantities.ts.js";
+import { AttributeModifierAmount } from "../time/quantities.js";
 
 const explosionOf = (
   options: SulfurCubeArchetypeOptions["explosion"],

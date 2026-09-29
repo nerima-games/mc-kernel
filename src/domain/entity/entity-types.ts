@@ -1,5 +1,5 @@
 import { Brand } from 'effect'
-import { position, type Position } from '../coordinates/coordinate-primitives.ts.js'
+import { position, type Position } from '../coordinates/coordinate-primitives.js'
 
 export type EntityId = string & Brand.Brand<'EntityId'>
 

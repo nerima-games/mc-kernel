@@ -1,5 +1,5 @@
 import type { BrewingRecipe, BrewingRecipeTable } from './brewing-data.js'
-import type { ItemType } from '../item/item-type.ts.js'
+import type { ItemType } from '../item/item-type.js'
 
 export type BrewingRecipeIndex = ReadonlyMap<ItemType, ReadonlyMap<ItemType, BrewingRecipe>>
 

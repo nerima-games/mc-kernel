@@ -40,8 +40,8 @@
  * `never`, so this field is `true` for every entry — a verified fact about
  * the current roster, not a placeholder.
  */
-import { ResourceLocation, vanillaId } from '../text/identifiers.ts.js'
-import { VANILLA_26_3_DAMAGE_TYPE_IDS } from '../world/vanilla-26-3-generated.ts.js'
+import { ResourceLocation, vanillaId } from '../text/identifiers.js'
+import { VANILLA_26_3_DAMAGE_TYPE_IDS } from '../world/vanilla-26-3-generated.js'
 
 export const DAMAGE_TYPE_NAMES: typeof VANILLA_26_3_DAMAGE_TYPE_IDS = VANILLA_26_3_DAMAGE_TYPE_IDS
 /*

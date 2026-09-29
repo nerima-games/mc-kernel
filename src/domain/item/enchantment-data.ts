@@ -1,6 +1,6 @@
 import { AnvilEnchantmentId, type AnvilEnchantmentRule } from './anvil.js'
 import type { ItemType } from './item-type.js'
-import { VANILLA_26_3_ENCHANTMENT_IDS, VANILLA_26_3_ENCHANTMENT_MAX_LEVELS } from '../world/vanilla-26-3-generated.ts.js'
+import { VANILLA_26_3_ENCHANTMENT_IDS, VANILLA_26_3_ENCHANTMENT_MAX_LEVELS } from '../world/vanilla-26-3-generated.js'
 
 export const SUPPORTED_VANILLA_ENCHANTMENT_IDS: typeof VANILLA_26_3_ENCHANTMENT_IDS = VANILLA_26_3_ENCHANTMENT_IDS
 /*

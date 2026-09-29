@@ -1,4 +1,4 @@
-import { ResourceLocation } from '../text/identifiers.ts.js'
+import { ResourceLocation } from '../text/identifiers.js'
 import {
   ATTRIBUTE_MODIFIER_OPERATIONS,
   ATTRIBUTE_MODIFIER_SLOTS,
@@ -6,8 +6,8 @@ import {
   type AttributeModifierDisplay,
   type AttributeModifiersComponent,
 } from './item-attribute-modifiers-data.js'
-import { AttributeModifierAmount } from '../time/quantities.ts.js'
-import { isTextComponent } from '../text/text-component-validation.ts.js'
+import { AttributeModifierAmount } from '../time/quantities.js'
+import { isTextComponent } from '../text/text-component-validation.js'
 
 type RecordValue = Record<string, unknown>
 

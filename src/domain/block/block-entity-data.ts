@@ -10,11 +10,11 @@
  * module is deliberately data-only, in the same split `./block-property-data`
  * uses.
  */
-import type { BrewingState } from '../recipe/brewing.ts.js'
-import type { BlockPosition } from '../coordinates/coordinates.ts.js'
-import type { Slot } from '../item/item-stack.ts.js'
-import type { FurnaceState } from '../recipe/smelting.ts.js'
-import type { TextComponent } from '../text/text-component.ts.js'
+import type { BrewingState } from '../recipe/brewing.js'
+import type { BlockPosition } from '../coordinates/coordinates.js'
+import type { Slot } from '../item/item-stack.js'
+import type { FurnaceState } from '../recipe/smelting.js'
+import type { TextComponent } from '../text/text-component.js'
 
 // ---------------------------------------------------------------------------
 // Storage container capacities

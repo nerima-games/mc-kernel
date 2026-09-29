@@ -1,5 +1,5 @@
 /** Portable data contracts for item use and attack components. */
-import type { ResourceLocation } from '../text/identifiers.ts.js'
+import type { ResourceLocation } from '../text/identifiers.js'
 import type {
   AttackCharge,
   AttackHitboxMargin,
@@ -7,7 +7,7 @@ import type {
   MobAttackRangeFactor,
   SwingAnimationDuration,
   UseSpeedMultiplier,
-} from '../time/quantities.ts.js'
+} from '../time/quantities.js'
 
 export type UseEffectsComponent = Readonly<{
   readonly canSprint: boolean

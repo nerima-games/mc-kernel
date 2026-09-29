@@ -1,6 +1,6 @@
 import type { ItemType } from './item-type.js'
-import { ResourceLocation, type ResourceLocation as ResourceLocationType } from '../text/identifiers.ts.js'
-import { ConsumeSeconds, type ConsumeSeconds as ConsumeSecondsType } from '../time/quantities.ts.js'
+import { ResourceLocation, type ResourceLocation as ResourceLocationType } from '../text/identifiers.js'
+import { ConsumeSeconds, type ConsumeSeconds as ConsumeSecondsType } from '../time/quantities.js'
 
 export const CONSUMABLE_ANIMATIONS = [
   'none',

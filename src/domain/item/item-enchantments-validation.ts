@@ -1,10 +1,10 @@
-import { ResourceLocation } from '../text/identifiers.ts.js'
+import { ResourceLocation } from '../text/identifiers.js'
 import type {
   EnchantmentLevelMap,
   EnchantmentsComponent,
   StoredEnchantmentsComponent,
 } from './item-enchantments-data.js'
-import { EnchantmentLevel } from '../time/quantities.ts.js'
+import { EnchantmentLevel } from '../time/quantities.js'
 
 type RecordValue = Record<string, unknown>
 

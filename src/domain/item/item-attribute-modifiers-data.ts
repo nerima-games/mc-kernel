@@ -1,9 +1,9 @@
 /** Portable data contracts for current Java item attribute modifiers. */
-import type { ResourceLocation } from '../text/identifiers.ts.js'
-import type { AttributeModifierAmount } from '../time/quantities.ts.js'
-import type { TextComponent } from '../text/text-component-data.ts.js'
+import type { ResourceLocation } from '../text/identifiers.js'
+import type { AttributeModifierAmount } from '../time/quantities.js'
+import type { TextComponent } from '../text/text-component-data.js'
 
-export type { TextComponent, TextComponentObject, TextComponentValue } from '../text/text-component-data.ts.js'
+export type { TextComponent, TextComponentObject, TextComponentValue } from '../text/text-component-data.js'
 
 export const ATTRIBUTE_MODIFIER_OPERATIONS = [
   'add_value',

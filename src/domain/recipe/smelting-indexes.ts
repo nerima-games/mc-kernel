@@ -5,7 +5,7 @@ import type {
   SmeltingRecipe,
   SmeltingRecipeTable,
 } from './smelting-data.js'
-import type { ItemType } from '../item/item-type.ts.js'
+import type { ItemType } from '../item/item-type.js'
 
 type MutableSmeltingIndexes = {
   [station in CookingStation]: Map<ItemType, SmeltingRecipe>

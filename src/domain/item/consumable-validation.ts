@@ -12,7 +12,7 @@ import {
   type ItemUseComponents,
   type UseRemainderComponent,
 } from './consumable-data.js'
-import { ResourceLocation, type ResourceLocation as ResourceLocationValue } from '../text/identifiers.ts.js'
+import { ResourceLocation, type ResourceLocation as ResourceLocationValue } from '../text/identifiers.js'
 import { isItemType } from './item-type.js'
 
 type RecordValue = Record<string, unknown>

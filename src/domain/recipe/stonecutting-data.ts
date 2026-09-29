@@ -6,8 +6,8 @@ import {
   type IngredientInput,
   type RecipeId,
 } from "./recipe-data.js";
-import { isItemStack, itemStack, type ItemStack } from "../item/item-stack.ts.js";
-import { isItemType, type ItemType } from "../item/item-type.ts.js";
+import { isItemStack, itemStack, type ItemStack } from "../item/item-stack.js";
+import { isItemType, type ItemType } from "../item/item-type.js";
 
 export const STONECUTTING_STATION_TAG = "stonecutter";
 

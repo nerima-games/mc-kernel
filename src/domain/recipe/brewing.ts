@@ -13,8 +13,8 @@ import {
   VANILLA_BREWING_RECIPES,
 } from './brewing-data.js'
 import { buildBrewingRecipeIndex, cachedBrewingRecipeIndex, type BrewingRecipeIndex } from './brewing-indexes.js'
-import { isItemStack, itemStackWithCount, type Slot } from '../item/item-stack.ts.js'
-import { isItemType } from '../item/item-type.ts.js'
+import { isItemStack, itemStackWithCount, type Slot } from '../item/item-stack.js'
+import { isItemType } from '../item/item-type.js'
 
 export {
   BREWING_BOTTLE_SLOTS,

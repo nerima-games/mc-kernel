@@ -1,4 +1,4 @@
-import { type DeltaTimeSecs } from '../time/quantities.ts.js'
+import { type DeltaTimeSecs } from '../time/quantities.js'
 import {
   EXHAUSTION_PER_POINT,
   EXHAUSTION_PER_REGEN,

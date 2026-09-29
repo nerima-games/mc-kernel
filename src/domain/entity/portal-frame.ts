@@ -1,5 +1,5 @@
-import { blockIdOf } from '../block/block-registry.ts.js'
-import { blockPosition, type BlockPosition } from '../coordinates/coordinate-primitives.ts.js'
+import { blockIdOf } from '../block/block-registry.js'
+import { blockPosition, type BlockPosition } from '../coordinates/coordinate-primitives.js'
 
 export type BlockAt = (x: number, y: number, z: number) => number
 export type PortalAxis = 'x' | 'z'

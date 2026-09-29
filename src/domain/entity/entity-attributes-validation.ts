@@ -1,4 +1,4 @@
-import { Bounciness, EntityPhysicsModifier, EntityVisibilityDistance, KnockbackResistance } from '../time/quantities.ts.js'
+import { Bounciness, EntityPhysicsModifier, EntityVisibilityDistance, KnockbackResistance } from '../time/quantities.js'
 import type { EntityAttributeOptions, EntityAttributes } from './entity-attributes-data.js'
 
 type RecordValue = Record<string, unknown>

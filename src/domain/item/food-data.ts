@@ -1,5 +1,5 @@
 import type { ItemType } from './item-type.js'
-import type { StatusEffectName } from '../entity/status-effect-data.ts.js'
+import type { StatusEffectName } from '../entity/status-effect-data.js'
 
 /**
  * The vanilla food effects, `Extract`ed from the closed status-effect

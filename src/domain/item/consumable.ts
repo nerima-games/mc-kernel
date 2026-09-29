@@ -18,11 +18,11 @@ import {
   type ItemUseComponents,
   type UseRemainderComponent,
 } from './consumable-data.js'
-import type { ResourceLocation } from '../text/identifiers.ts.js'
+import type { ResourceLocation } from '../text/identifiers.js'
 import type { FoodStatusEffectName } from './food-data.js'
 import type { ItemType } from './item-type.js'
-import { ConsumeSeconds } from '../time/quantities.ts.js'
-import { statusEffectId } from '../entity/status-effect-data.ts.js'
+import { ConsumeSeconds } from '../time/quantities.js'
+import { statusEffectId } from '../entity/status-effect-data.js'
 
 export {
   CONSUMABLE_ANIMATIONS,

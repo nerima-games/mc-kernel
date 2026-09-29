@@ -12,9 +12,9 @@ import {
   type ShapelessRecipe,
 } from "./recipe-data.js";
 import { VANILLA_CRAFTING_RECIPES } from "./recipe-vanilla-data.js";
-import type { ItemStack } from "../item/item-stack.ts.js";
-import type { ItemType } from "../item/item-type.ts.js";
-import { VANILLA_ITEM_TAG_MEMBERSHIPS } from "../world/tag-membership.ts.js";
+import type { ItemStack } from "../item/item-stack.js";
+import type { ItemType } from "../item/item-type.js";
+import { VANILLA_ITEM_TAG_MEMBERSHIPS } from "../world/tag-membership.js";
 
 export type RecipeMatch =
   | {

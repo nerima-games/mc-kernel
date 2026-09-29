@@ -24,8 +24,8 @@ import {
 } from './block-property-data.js'
 import { HARVEST_TIERS, HARVEST_TOOL_CATEGORIES } from './block-harvest-data.js'
 import { isBlockType } from './block-type.js'
-import { isItemType } from '../item/item-type.ts.js'
-import { MAX_STACK_COUNT } from '../time/quantities.ts.js'
+import { isItemType } from '../item/item-type.js'
+import { MAX_STACK_COUNT } from '../time/quantities.js'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)

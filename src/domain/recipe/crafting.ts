@@ -1,6 +1,6 @@
-import { addItemStack, countOf, removeItem } from '../item/inventory.ts.js'
-import type { Inventory } from '../item/inventory-data.ts.js'
-import type { ItemType } from '../item/item-type.ts.js'
+import { addItemStack, countOf, removeItem } from '../item/inventory.js'
+import type { Inventory } from '../item/inventory-data.js'
+import type { ItemType } from '../item/item-type.js'
 import {
   matchRecipeWithAssignments,
   type CraftGrid,

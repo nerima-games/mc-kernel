@@ -1,5 +1,5 @@
 /** Portable data contracts for current Java item enchantment components. */
-import type { EnchantmentLevel } from '../time/quantities.ts.js'
+import type { EnchantmentLevel } from '../time/quantities.js'
 
 export type EnchantmentLevelMap = Readonly<Record<string, EnchantmentLevel>>
 

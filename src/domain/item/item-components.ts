@@ -174,14 +174,14 @@ import {
   MaxDamage,
   MaxStackSize,
   RepairCost,
-} from '../time/quantities.ts.js'
+} from '../time/quantities.js'
 import { isToolComponent, type ToolComponent } from './tool-component.js'
 import type { WeaponComponent } from './weapon-data.js'
 import { isWeaponComponent } from './weapon-validation.js'
 import type {
   AdditionalTradeCost,
   PotionDurationScale,
-} from '../time/quantities.ts.js'
+} from '../time/quantities.js'
 import type {
   AttackRangeComponent,
   DamageTypeComponent,
@@ -203,10 +203,10 @@ import type {
   EnchantmentsComponent,
   StoredEnchantmentsComponent,
 } from './item-enchantments-data.js'
-import { ResourceLocation } from '../text/identifiers.ts.js'
-import { isTextComponent } from '../text/text-component-validation.ts.js'
-import { textComponent } from '../text/text-component.ts.js'
-import type { TextComponent } from '../text/text-component-data.ts.js'
+import { ResourceLocation } from '../text/identifiers.js'
+import { isTextComponent } from '../text/text-component-validation.js'
+import { textComponent } from '../text/text-component.js'
+import type { TextComponent } from '../text/text-component-data.js'
 
 export {
   ITEM_COMPONENT_IDS,

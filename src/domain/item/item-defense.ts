@@ -1,5 +1,5 @@
 /** Constructors and guards for Java item defense components. */
-import { ResourceLocation, TagLocation } from '../text/identifiers.ts.js'
+import { ResourceLocation, TagLocation } from '../text/identifiers.js'
 import type {
   BlocksAttacksComponent,
   DamageReductionRule,
@@ -15,7 +15,7 @@ import {
   ItemDamageBase,
   ItemDamageFactor,
   ItemDamageThreshold,
-} from '../time/quantities.ts.js'
+} from '../time/quantities.js'
 import type {
   ResourceLocationProvider,
   ResourceLocationProviderInput,

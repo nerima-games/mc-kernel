@@ -1,6 +1,6 @@
 import { Brand } from "effect";
 
-import { NamespacedResourceLocation } from "../text/identifiers.ts.js";
+import { NamespacedResourceLocation } from "../text/identifiers.js";
 
 const DATA_PACK_FORMAT_MIN = 0;
 const DATA_PACK_PRIORITY_MIN = 0;

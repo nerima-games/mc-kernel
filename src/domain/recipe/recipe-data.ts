@@ -3,9 +3,9 @@ import {
   itemStack,
   type ItemStack,
   type Slot,
-} from "../item/item-stack.ts.js";
-import { isItemType, type ItemType } from "../item/item-type.ts.js";
-import { VANILLA_ITEM_TAG_MEMBERSHIPS } from "../world/tag-membership.ts.js";
+} from "../item/item-stack.js";
+import { isItemType, type ItemType } from "../item/item-type.js";
+import { VANILLA_ITEM_TAG_MEMBERSHIPS } from "../world/tag-membership.js";
 
 export const MAX_RECIPE_SIDE = 3;
 

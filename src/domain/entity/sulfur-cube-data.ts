@@ -1,9 +1,9 @@
-import { ResourceLocation, TagLocation } from '../text/identifiers.ts.js'
+import { ResourceLocation, TagLocation } from '../text/identifiers.js'
 import type {
   ResourceLocation as ResourceLocationValue,
   TagLocation as TagLocationValue,
-} from '../text/identifiers.ts.js'
-import type { AttributeModifierAmount } from '../time/quantities.ts.js'
+} from '../text/identifiers.js'
+import type { AttributeModifierAmount } from '../time/quantities.js'
 
 export const SULFUR_CUBE_ARCHETYPE_REGISTRY: ResourceLocation = ResourceLocation(
   'minecraft:sulfur_cube_archetype',

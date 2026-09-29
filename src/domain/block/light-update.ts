@@ -1,7 +1,7 @@
 import type { BlockOpacity, LightLevel } from './block-property-data.js'
 import { clampLightLevel, LIGHT_LEVEL_MIN } from './block-property-data.js'
-import type { LocalBlockCoord } from '../coordinates/coordinate-conversions.ts.js'
-import { BlockAxis, CHUNK_SIZE_XZ, LocalAxis } from '../coordinates/coordinate-primitives.ts.js'
+import type { LocalBlockCoord } from '../coordinates/coordinate-conversions.js'
+import { BlockAxis, CHUNK_SIZE_XZ, LocalAxis } from '../coordinates/coordinate-primitives.js'
 import {
   lightVolume,
   lightVolumeCellCount,

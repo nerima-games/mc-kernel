@@ -1,4 +1,4 @@
-import { ResourceLocation } from '../text/identifiers.ts.js'
+import { ResourceLocation } from '../text/identifiers.js'
 import type {
   BlocksAttacksComponent,
   DamageReductionRule,
@@ -15,7 +15,7 @@ import {
   ItemDamageBase,
   ItemDamageFactor,
   ItemDamageThreshold,
-} from '../time/quantities.ts.js'
+} from '../time/quantities.js'
 
 type RecordValue = Record<string, unknown>
 

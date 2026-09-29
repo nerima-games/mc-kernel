@@ -1,9 +1,9 @@
 /* eslint-disable no-magic-numbers -- Constants define the fixed binary wire format, mirroring src/domain/chunk.ts. */
 import { Brand } from 'effect'
 import { isLightLevel, LightLevel } from './block-property-data.js'
-import { MAX_CHUNK_HEIGHT } from '../world/chunk.ts.js'
-import type { LocalBlockCoord } from '../coordinates/coordinate-conversions.ts.js'
-import { CHUNK_SIZE_XZ } from '../coordinates/coordinate-primitives.ts.js'
+import { MAX_CHUNK_HEIGHT } from '../world/chunk.js'
+import type { LocalBlockCoord } from '../coordinates/coordinate-conversions.js'
+import { CHUNK_SIZE_XZ } from '../coordinates/coordinate-primitives.js'
 
 export const LIGHT_VOLUME_CODEC_VERSION = 1
 export const LIGHT_VOLUME_HEADER_BYTES = 16

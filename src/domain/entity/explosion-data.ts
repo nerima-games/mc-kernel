@@ -1,4 +1,4 @@
-import type { Position } from '../coordinates/coordinates.ts.js'
+import type { Position } from '../coordinates/coordinates.js'
 
 export type ExplosionBlockPosition = Position
 

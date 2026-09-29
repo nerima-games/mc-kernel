@@ -15,7 +15,7 @@ import {
   isItemStack,
   itemStackWithCount,
   type ItemStack,
-} from "../item/item-stack.ts.js";
+} from "../item/item-stack.js";
 
 export type CookingMatch =
   | {

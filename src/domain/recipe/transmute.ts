@@ -11,8 +11,8 @@ import {
   itemStackWithCount,
   transmuteItemStack,
   type ItemStack,
-} from "../item/item-stack.ts.js";
-import { isItemType } from "../item/item-type.ts.js";
+} from "../item/item-stack.js";
+import { isItemType } from "../item/item-type.js";
 import {
   isTransmuteRecipe,
   type TransmuteRecipe,

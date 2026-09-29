@@ -1,4 +1,4 @@
-import { ResourceLocation, TagLocation } from '../text/identifiers.ts.js'
+import { ResourceLocation, TagLocation } from '../text/identifiers.js'
 import {
   SULFUR_CUBE_ATTRIBUTE_MODIFIER_OPERATIONS,
   type SulfurCubeArchetype,
@@ -14,7 +14,7 @@ import {
   type SulfurCubeSoundSettings,
   type SulfurCubeSoundSettingsOptions,
 } from './sulfur-cube-data.js'
-import { AttributeModifierAmount } from '../time/quantities.ts.js'
+import { AttributeModifierAmount } from '../time/quantities.js'
 
 type RecordValue = Record<string, unknown>
 

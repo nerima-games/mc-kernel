@@ -24,8 +24,8 @@ import {
   maxStackCountForStack,
   type ItemStack,
   type Slot,
-} from '../item/item-stack.ts.js'
-import { isItemType } from '../item/item-type.ts.js'
+} from '../item/item-stack.js'
+import { isItemType } from '../item/item-type.js'
 
 export {
   COOKING_STATIONS,

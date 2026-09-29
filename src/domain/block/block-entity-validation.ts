@@ -15,7 +15,7 @@ import {
   BREWING_TIME_SECS,
   type BrewingBottles,
   type BrewingState,
-} from '../recipe/brewing.ts.js'
+} from '../recipe/brewing.js'
 import {
   STORAGE_CONTAINER_CAPACITIES,
   STORAGE_CONTAINER_KINDS,
@@ -23,10 +23,10 @@ import {
   type StorageContainer,
   type StorageContainerKind,
 } from './block-entity-data.js'
-import type { BlockPosition } from '../coordinates/coordinates.ts.js'
-import { isItemStack, type Slot } from '../item/item-stack.ts.js'
-import { COOKING_STATIONS, type CookingStation, type FurnaceState } from '../recipe/smelting.ts.js'
-import { isTextComponent } from '../text/text-component.ts.js'
+import type { BlockPosition } from '../coordinates/coordinates.js'
+import { isItemStack, type Slot } from '../item/item-stack.js'
+import { COOKING_STATIONS, type CookingStation, type FurnaceState } from '../recipe/smelting.js'
+import { isTextComponent } from '../text/text-component.js'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)

@@ -1,5 +1,5 @@
 /** Constructors and guards for current Java item enchantment components. */
-import { ResourceLocation } from '../text/identifiers.ts.js'
+import { ResourceLocation } from '../text/identifiers.js'
 import {
   isEnchantmentLevelMap,
   isEnchantmentsComponent,
@@ -10,7 +10,7 @@ import type {
   EnchantmentsComponent,
   StoredEnchantmentsComponent,
 } from './item-enchantments-data.js'
-import { EnchantmentLevel } from '../time/quantities.ts.js'
+import { EnchantmentLevel } from '../time/quantities.js'
 
 export type EnchantmentLevelMapOptions = Readonly<Record<string, number>>
 

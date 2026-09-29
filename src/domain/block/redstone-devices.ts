@@ -3,7 +3,7 @@ import {
   HORIZONTAL_BLOCK_FACES,
   isBlockFace,
   type BlockFace,
-} from '../coordinates/coordinate-neighbours.ts.js'
+} from '../coordinates/coordinate-neighbours.js'
 
 export type HorizontalRedstoneFace = (typeof HORIZONTAL_BLOCK_FACES)[number]
 

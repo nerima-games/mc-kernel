@@ -1,7 +1,7 @@
-import { DIMENSIONS, type Dimension } from '../world/dimension.ts.js'
-import { itemStack, type ItemStack } from '../item/item-stack.ts.js'
+import { DIMENSIONS, type Dimension } from '../world/dimension.js'
+import { itemStack, type ItemStack } from '../item/item-stack.js'
 import type { BlockType } from './block-type.js'
-import type { ItemType } from '../item/item-type.ts.js'
+import type { ItemType } from '../item/item-type.js'
 
 export const CROP_TYPES: readonly ['wheat_crop', 'potato_crop', 'nether_wart_crop'] = [
   'wheat_crop',

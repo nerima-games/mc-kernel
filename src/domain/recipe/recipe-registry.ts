@@ -3,9 +3,9 @@ import {
   dataPackLayerFromUnknownWithId,
   dataPackResourcePath,
   selectDataPackRegistry,
-} from "../world/data-pack-registry.ts.js";
-import type { DataPackFormat, DataPackLayer } from "../world/data-pack-registry.ts.js";
-import { NamespacedResourceLocation } from "../text/identifiers.ts.js";
+} from "../world/data-pack-registry.js";
+import type { DataPackFormat, DataPackLayer } from "../world/data-pack-registry.js";
+import { NamespacedResourceLocation } from "../text/identifiers.js";
 import {
   portableRecipeFromUnknown,
   type PortableRecipe,

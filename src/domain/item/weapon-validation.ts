@@ -1,4 +1,4 @@
-import { ItemDamage, WeaponDisableBlockingSeconds } from '../time/quantities.ts.js'
+import { ItemDamage, WeaponDisableBlockingSeconds } from '../time/quantities.js'
 import type { WeaponComponent } from './weapon-data.js'
 
 type RecordValue = Record<string, unknown>

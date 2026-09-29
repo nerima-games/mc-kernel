@@ -1,7 +1,7 @@
-import { ResourceLocation, TagLocation, UUID } from '../text/identifiers.ts.js'
+import { ResourceLocation, TagLocation, UUID } from '../text/identifiers.js'
 import { isItemType } from './item-type.js'
 import { isConsumableEffect } from './consumable-validation.js'
-import { isTextComponent } from '../text/text-component-validation.ts.js'
+import { isTextComponent } from '../text/text-component-validation.js'
 import {
   DYE_COLORS,
   FIREWORK_EXPLOSION_SHAPES,
@@ -99,7 +99,7 @@ import {
   type WrittenBookPageOptions,
   EQUIPPABLE_SLOTS,
 } from './item-component-values-data.js'
-import { AdditionalTradeCost, MapId, PotionDurationScale } from '../time/quantities.ts.js'
+import { AdditionalTradeCost, MapId, PotionDurationScale } from '../time/quantities.js'
 
 type RecordValue = Record<string, unknown>
 

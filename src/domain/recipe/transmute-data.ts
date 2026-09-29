@@ -3,8 +3,8 @@ import {
   itemStack,
   maxStackCountForStack,
   type ItemStack,
-} from "../item/item-stack.ts.js";
-import { type ItemType } from "../item/item-type.ts.js";
+} from "../item/item-stack.js";
+import { type ItemType } from "../item/item-type.js";
 import {
   craftingIngredient,
   isCraftingIngredient,

@@ -1,4 +1,4 @@
-import type { ItemType } from '../item/item-type.ts.js'
+import type { ItemType } from '../item/item-type.js'
 import type { SmithingRecipe, SmithingRecipeTable } from './smithing-data.js'
 
 export type SmithingRecipeIndex = {

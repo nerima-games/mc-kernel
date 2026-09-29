@@ -4,9 +4,9 @@ import {
   mapDataPackLayer,
   selectDataPackRegistry,
   dataPackLayerFromUnknown,
-} from "../world/data-pack-registry.ts.js";
-import type { DataPackFormat, DataPackLayer } from "../world/data-pack-registry.ts.js";
-import { NamespacedResourceLocation } from "../text/identifiers.ts.js";
+} from "../world/data-pack-registry.js";
+import type { DataPackFormat, DataPackLayer } from "../world/data-pack-registry.js";
+import { NamespacedResourceLocation } from "../text/identifiers.js";
 import {
   SULFUR_CUBE_ARCHETYPE_REGISTRY,
   type SulfurCubeArchetype,

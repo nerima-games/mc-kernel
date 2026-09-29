@@ -1,6 +1,6 @@
-import { blockNeighbours } from '../coordinates/coordinate-neighbours.ts.js'
-import type { BlockPosition } from '../coordinates/coordinate-primitives.ts.js'
-import type { BlockPositionKey } from '../coordinates/coordinate-keys.ts.js'
+import { blockNeighbours } from '../coordinates/coordinate-neighbours.js'
+import type { BlockPosition } from '../coordinates/coordinate-primitives.js'
+import type { BlockPositionKey } from '../coordinates/coordinate-keys.js'
 import { type BlockWorld, blockAt, setBlockAt } from './block-world.js'
 import {
   type DevicePowerContext,

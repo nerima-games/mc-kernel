@@ -21,7 +21,7 @@
 import type { Effect, Layer } from 'effect'
 import type { ClockPort } from './clock.js'
 import type { DeltaTimeSecs } from './quantities.js'
-import type { StageId } from '../text/identifiers.ts.js'
+import type { StageId } from '../text/identifiers.js'
 
 /**
  * The context every frame stage may assume is present. SETTLED — `ClockPort`,

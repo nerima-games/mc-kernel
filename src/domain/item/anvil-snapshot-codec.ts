@@ -12,7 +12,7 @@ import {
 import { canonicalEnchantments } from './anvil-normalization.js'
 import { maxStackCountOfItem } from './item-registry.js'
 import { isItemType } from './item-type.js'
-import { StackCount } from '../time/quantities.ts.js'
+import { StackCount } from '../time/quantities.js'
 import type {
   AnvilDurability,
   AnvilEnchantment,

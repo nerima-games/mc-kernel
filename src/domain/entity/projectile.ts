@@ -1,5 +1,5 @@
-import type { AABB } from '../coordinates/coordinate-geometry.ts.js'
-import { position, type Position } from '../coordinates/coordinate-primitives.ts.js'
+import type { AABB } from '../coordinates/coordinate-geometry.js'
+import { position, type Position } from '../coordinates/coordinate-primitives.js'
 import { segmentAABB, type SegmentHit } from './projectile-collision.js'
 
 export const ARROW_GRAVITY = 9.81

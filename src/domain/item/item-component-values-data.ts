@@ -1,11 +1,11 @@
 /** Portable data contracts for simple Java item components. */
-import type { ResourceLocation, TagLocation, UUID } from '../text/identifiers.ts.js'
+import type { ResourceLocation, TagLocation, UUID } from '../text/identifiers.js'
 import type { ConsumableEffect } from './consumable-data.js'
 import type { ItemStack } from './item-stack.js'
 import type { ItemType } from './item-type.js'
-import type { MapId } from '../time/quantities.ts.js'
-import { STATUS_EFFECT_NAMES, statusEffectId } from '../entity/status-effect-data.ts.js'
-import type { TextComponent } from '../text/text-component-data.ts.js'
+import type { MapId } from '../time/quantities.js'
+import { STATUS_EFFECT_NAMES, statusEffectId } from '../entity/status-effect-data.js'
+import type { TextComponent } from '../text/text-component-data.js'
 
 export const DYE_COLORS = [
   'white',

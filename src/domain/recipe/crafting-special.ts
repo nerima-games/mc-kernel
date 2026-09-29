@@ -2,11 +2,11 @@ import {
   applyItemComponentPatch,
   itemComponentPatchFromUnknown,
   type ItemComponentPatch,
-} from "../item/item-component-patch.ts.js";
+} from "../item/item-component-patch.js";
 import {
   isDyeComponent,
   isDyedColorComponent,
-} from "../item/item-component-values-validation.ts.js";
+} from "../item/item-component-values-validation.js";
 import {
   DYE_COLORS,
   FIREWORK_EXPLOSION_SHAPES,
@@ -21,7 +21,7 @@ import {
   type WrittenBookPageComponent,
   type PotionContentsComponent,
   type PotionEffectInstanceComponent,
-} from "../item/item-component-values-data.ts.js";
+} from "../item/item-component-values-data.js";
 import {
   isItemStack,
   itemStack,
@@ -29,7 +29,7 @@ import {
   maxStackCountForStack,
   transmuteItemStack,
   type ItemStack,
-} from "../item/item-stack.ts.js";
+} from "../item/item-stack.js";
 import {
   craftGrid,
   ingredientMatches,
@@ -39,7 +39,7 @@ import {
   type ItemTagMemberships,
   type RecipeMatchContext,
 } from "./recipe-data.js";
-import { vanillaId } from "../text/identifiers.ts.js";
+import { vanillaId } from "../text/identifiers.js";
 import {
   CRAFTING_SPECIAL_STATION_TAG,
   isCraftingBannerDuplicateRecipe,
@@ -66,8 +66,8 @@ import {
   type CraftingSpecialRecipe,
   type CraftingSpecialRecipeTable,
 } from "./crafting-special-data.js";
-import { isItemType } from "../item/item-type.ts.js";
-import type { JsonValue } from "../text/json-value.ts.js";
+import { isItemType } from "../item/item-type.js";
+import type { JsonValue } from "../text/json-value.js";
 
 const DYE_RGB: Readonly<Record<DyeColor, readonly [number, number, number]>> = {
   white: [249, 255, 254],

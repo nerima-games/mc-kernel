@@ -11,7 +11,7 @@ export * from './block-entity-data.js'
 export * from './block-entity-validation.js'
 
 import type { BlockEntity } from './block-entity-data.js'
-import { blockPositionKeyOf, type BlockPosition, type BlockPositionKey } from '../coordinates/coordinates.ts.js'
+import { blockPositionKeyOf, type BlockPosition, type BlockPositionKey } from '../coordinates/coordinates.js'
 
 /** Every block entity in a world, keyed by its position. */
 export type BlockEntities = Readonly<{

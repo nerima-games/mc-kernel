@@ -4,7 +4,7 @@
  * This table contains the vanilla crafting rows currently represented by the
  * package. Recipe matching and inventory mutation remain separate concerns.
  */
-import { itemStack } from '../item/item-stack.ts.js'
+import { itemStack } from '../item/item-stack.js'
 import {
   shapedRecipe,
   shapelessRecipe,

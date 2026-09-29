@@ -1,6 +1,6 @@
-import { itemStack } from '../item/item-stack.ts.js'
-import type { ItemStack, Slot } from '../item/item-stack.ts.js'
-import type { ItemType } from '../item/item-type.ts.js'
+import { itemStack } from '../item/item-stack.js'
+import type { ItemStack, Slot } from '../item/item-stack.js'
+import type { ItemType } from '../item/item-type.js'
 
 export const COOKING_STATIONS = ['furnace', 'blast_furnace', 'smoker'] as const
 export type CookingStation = (typeof COOKING_STATIONS)[number]

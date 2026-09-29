@@ -20,7 +20,7 @@ import {
   type BlockPlacementDecision,
   type PlaceableBlock,
 } from './block-interaction-data.js'
-import type { ItemType } from '../item/item-type.ts.js'
+import type { ItemType } from '../item/item-type.js'
 
 export * from './block-interaction-data.js'
 

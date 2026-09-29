@@ -2,8 +2,8 @@ import {
   HORIZONTAL_BLOCK_FACES,
   adjacentBlockPosition,
   oppositeBlockFace,
-} from '../coordinates/coordinate-neighbours.ts.js'
-import { blockPositionKeyOf, type BlockPositionKey } from '../coordinates/coordinate-keys.ts.js'
+} from '../coordinates/coordinate-neighbours.js'
+import { blockPositionKeyOf, type BlockPositionKey } from '../coordinates/coordinate-keys.js'
 import { blockAt } from './block-world.js'
 import {
   type DevicePowerContext,

@@ -1,7 +1,7 @@
 import { Brand } from 'effect'
-import { BlockId, isKnownBlockId, type BlockId as BlockIdType } from '../block/block-registry.ts.js'
-import { CHUNK_SIZE_XZ, chunkCoord, type BlockPosition } from '../coordinates/coordinate-primitives.ts.js'
-import { type ChunkKey, chunkKeyOf } from '../coordinates/coordinate-keys.ts.js'
+import { BlockId, isKnownBlockId, type BlockId as BlockIdType } from '../block/block-registry.js'
+import { CHUNK_SIZE_XZ, chunkCoord, type BlockPosition } from '../coordinates/coordinate-primitives.js'
+import { type ChunkKey, chunkKeyOf } from '../coordinates/coordinate-keys.js'
 
 const MIN_INDEX = 0
 export type WorldEpoch = number & Brand.Brand<'WorldEpoch'>

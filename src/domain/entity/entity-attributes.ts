@@ -7,7 +7,7 @@ import {
   type EntityAttributeDefinition,
 } from './entity-attributes-data.js'
 import { isEntityAttributeOptions, isEntityAttributes } from './entity-attributes-validation.js'
-import { Bounciness, EntityPhysicsModifier, EntityVisibilityDistance, KnockbackResistance } from '../time/quantities.ts.js'
+import { Bounciness, EntityPhysicsModifier, EntityVisibilityDistance, KnockbackResistance } from '../time/quantities.js'
 
 const valueOrDefault = (value: number | undefined, defaultValue: number): number =>
   value === undefined ? defaultValue : value

@@ -9,7 +9,7 @@ import type {
   CanonicalAnvilItemPayload,
 } from './anvil.js'
 import type { ItemType } from './item-type.js'
-import type { StackCount } from '../time/quantities.ts.js'
+import type { StackCount } from '../time/quantities.js'
 
 export type AnvilPlanFailure = Extract<AnvilPlan, { readonly ok: false }>
 

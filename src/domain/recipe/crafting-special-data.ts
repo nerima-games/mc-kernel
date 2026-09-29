@@ -1,8 +1,8 @@
 import {
   FIREWORK_EXPLOSION_SHAPES,
   type FireworkExplosionShape,
-} from "../item/item-component-values-data.ts.js";
-import { isItemStack, type ItemStack } from "../item/item-stack.ts.js";
+} from "../item/item-component-values-data.js";
+import { isItemStack, type ItemStack } from "../item/item-stack.js";
 import {
   craftingIngredient,
   isCraftingIngredient,
@@ -13,7 +13,7 @@ import {
 import {
   ResourceLocation,
   type ResourceLocation as ResourceLocationValue,
-} from "../text/identifiers.ts.js";
+} from "../text/identifiers.js";
 
 export const CRAFTING_SPECIAL_STATION_TAG: ResourceLocationValue =
   ResourceLocation("crafting_table");

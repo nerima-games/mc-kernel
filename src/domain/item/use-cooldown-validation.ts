@@ -1,4 +1,4 @@
-import { ResourceLocation } from '../text/identifiers.ts.js'
+import { ResourceLocation } from '../text/identifiers.js'
 import type { UseCooldownComponent } from './use-cooldown-data.js'
 
 type RecordValue = Record<string, unknown>

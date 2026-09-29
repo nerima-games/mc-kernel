@@ -3,7 +3,7 @@ import {
   itemStack,
   type ItemStack,
   type Slot,
-} from "../item/item-stack.ts.js";
+} from "../item/item-stack.js";
 import {
   craftingIngredient,
   isCraftingIngredient,
@@ -13,7 +13,7 @@ import {
   type RecipeCategory,
   type RecipeId,
 } from "./recipe-data.js";
-import type { ItemType } from "../item/item-type.ts.js";
+import type { ItemType } from "../item/item-type.js";
 
 export const COOKING_STATIONS = [
   "furnace",

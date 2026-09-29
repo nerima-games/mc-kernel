@@ -1,5 +1,5 @@
 /** Constructors and guards for item use and attack components. */
-import { ResourceLocation } from '../text/identifiers.ts.js'
+import { ResourceLocation } from '../text/identifiers.js'
 import {
   AttackCharge,
   AttackHitboxMargin,
@@ -7,7 +7,7 @@ import {
   MobAttackRangeFactor,
   SwingAnimationDuration,
   UseSpeedMultiplier,
-} from '../time/quantities.ts.js'
+} from '../time/quantities.js'
 import {
   SWING_ANIMATION_TYPES,
   type AttackRangeComponent,

@@ -1,6 +1,6 @@
 import { Brand } from 'effect'
-import { blockPositionKeyOf, type BlockPositionKey } from '../coordinates/coordinate-keys.ts.js'
-import type { BlockPosition } from '../coordinates/coordinate-primitives.ts.js'
+import { blockPositionKeyOf, type BlockPositionKey } from '../coordinates/coordinate-keys.js'
+import type { BlockPosition } from '../coordinates/coordinate-primitives.js'
 import {
   REDSTONE_POWER_MAX,
   REDSTONE_POWER_MIN,

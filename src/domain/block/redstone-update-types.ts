@@ -1,7 +1,7 @@
 import type { BlockId } from './block-registry-types.js'
 import type { BlockWorld } from './block-world.js'
-import type { BlockPositionKey } from '../coordinates/coordinate-keys.ts.js'
-import type { BlockPosition } from '../coordinates/coordinate-primitives.ts.js'
+import type { BlockPositionKey } from '../coordinates/coordinate-keys.js'
+import type { BlockPosition } from '../coordinates/coordinate-primitives.js'
 import type { RedstoneDevice } from './redstone-devices.js'
 import type { RedstonePower, RedstoneRepeaterTimer, RedstoneState } from './redstone-state.js'
 

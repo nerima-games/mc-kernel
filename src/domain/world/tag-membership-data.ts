@@ -11,7 +11,7 @@
  * recipe in the closed item vocabulary that uses tag ingredients, and it
  * references exactly these three tags.
  */
-import type { ItemType } from "../item/item-type.ts.js";
+import type { ItemType } from "../item/item-type.js";
 import { VANILLA_26_3_TAG_IDS } from './vanilla-26-3-generated.js'
 
 export type VanillaItemTagMembershipEntry = {

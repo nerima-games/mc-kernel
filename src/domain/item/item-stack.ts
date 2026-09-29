@@ -7,7 +7,7 @@ import {
   type ItemComponentPatch,
 } from "./item-component-patch.js";
 import { isItemType, type ItemType } from "./item-type.js";
-import { StackCount, type StackCount as StackCountValue, type TransferQuantity as TransferQuantityValue } from "../time/quantities.ts.js";
+import { StackCount, type StackCount as StackCountValue, type TransferQuantity as TransferQuantityValue } from "../time/quantities.js";
 
 export type ItemStack = Readonly<{
   readonly item: ItemType;

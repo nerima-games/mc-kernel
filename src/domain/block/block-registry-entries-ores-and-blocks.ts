@@ -1,7 +1,7 @@
 /** Registry entries 50-70; the numeric order is the wire-level BlockId order. */
 import { BlockId } from './block-registry-types.js'
 import type { BlockRegistryEntry } from './block-registry-types.js'
-import { StackCount } from '../time/quantities.ts.js'
+import { StackCount } from '../time/quantities.js'
 import { DEFAULT_BLOCK_DROP } from './block-harvest-data.js'
 import { NEEDS_WOODEN_PICKAXE, NEEDS_STONE_PICKAXE, NEEDS_IRON_PICKAXE } from './block-registry-rules.js'
 

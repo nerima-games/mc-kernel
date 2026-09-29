@@ -1,7 +1,7 @@
 import { AIR_BLOCK_ID, capabilityOfBlockId, type BlockId } from './block-registry.js'
-import { blockPositionOfKey, type BlockPositionKey } from '../coordinates/coordinate-keys.ts.js'
-import { blockNeighbours, horizontalBlockNeighbours } from '../coordinates/coordinate-neighbours.ts.js'
-import { blockPosition, type BlockPosition } from '../coordinates/coordinate-primitives.ts.js'
+import { blockPositionOfKey, type BlockPositionKey } from '../coordinates/coordinate-keys.js'
+import { blockNeighbours, horizontalBlockNeighbours } from '../coordinates/coordinate-neighbours.js'
+import { blockPosition, type BlockPosition } from '../coordinates/coordinate-primitives.js'
 import { type BlockWorld, blockAt, setBlockAt } from './block-world.js'
 import {
   FLUID_LEVEL_MIN,

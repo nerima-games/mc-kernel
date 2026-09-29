@@ -1,5 +1,5 @@
-import { isItemStack, itemStack } from "../item/item-stack.ts.js";
-import type { ItemStack, Slot } from "../item/item-stack.ts.js";
+import { isItemStack, itemStack } from "../item/item-stack.js";
+import type { ItemStack, Slot } from "../item/item-stack.js";
 import {
   craftingIngredient,
   exactly,
@@ -10,7 +10,7 @@ import {
   type RecipeItemTag,
   type RecipeStationTag,
 } from "./recipe-data.js";
-import type { ItemType } from "../item/item-type.ts.js";
+import type { ItemType } from "../item/item-type.js";
 
 export const SMITHING_STATION_TAG: RecipeStationTag = "smithing_table";
 export const SMITHING_TRIM_TEMPLATE_TAG: RecipeItemTag =

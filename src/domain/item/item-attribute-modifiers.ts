@@ -1,5 +1,5 @@
 /** Constructors and guards for current Java item attribute modifiers. */
-import { ResourceLocation } from '../text/identifiers.ts.js'
+import { ResourceLocation } from '../text/identifiers.js'
 import {
   ATTRIBUTE_MODIFIER_OPERATIONS,
   ATTRIBUTE_MODIFIER_SLOTS,
@@ -14,8 +14,8 @@ import {
   isAttributeModifierDisplay,
   isAttributeModifiersComponent,
 } from './item-attribute-modifiers-validation.js'
-import { AttributeModifierAmount } from '../time/quantities.ts.js'
-import { textComponent } from '../text/text-component.ts.js'
+import { AttributeModifierAmount } from '../time/quantities.js'
+import { textComponent } from '../text/text-component.js'
 
 export type AttributeModifierOptions = Readonly<{
   readonly type: string

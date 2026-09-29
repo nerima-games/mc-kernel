@@ -2,7 +2,7 @@ import { DEFAULT_MINING_SPEED, TOOL_BREAK_SPEED } from './block-break-speed-data
 import { UNBREAKABLE_HARDNESS } from './block-property-data.js'
 import { blockIdOf, propertyOfBlockId } from './block-registry.js'
 import type { BlockType } from './block-type.js'
-import type { ItemType } from '../item/item-type.ts.js'
+import type { ItemType } from '../item/item-type.js'
 
 const EFFICIENCY_BONUS_BASE = 1
 const HARDNESS_TO_BREAK_TICKS = 3

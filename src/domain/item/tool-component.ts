@@ -1,5 +1,5 @@
-import { DEFAULT_MINING_SPEED } from '../block/block-break-speed-data.ts.js'
-import { isBlockType, type BlockType } from '../block/block-type.ts.js'
+import { DEFAULT_MINING_SPEED } from '../block/block-break-speed-data.js'
+import { isBlockType, type BlockType } from '../block/block-type.js'
 
 export type ToolBlockTag = `#${string}`
 

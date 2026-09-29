@@ -15,7 +15,7 @@ import {
   type EnchantmentTableRuleId,
 } from './enchantment-table-data.js'
 import { SUPPORTED_VANILLA_ENCHANTMENT_IDS } from './enchantment-data.js'
-import type { RandomSource } from '../world/random-source.ts.js'
+import type { RandomSource } from '../world/random-source.js'
 
 export * from './enchantment-table-data.js'
 

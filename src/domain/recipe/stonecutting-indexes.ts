@@ -2,7 +2,7 @@ import type {
   StonecuttingRecipe,
   StonecuttingRecipeTable,
 } from "./stonecutting-data.js";
-import type { ItemType } from "../item/item-type.ts.js";
+import type { ItemType } from "../item/item-type.js";
 
 export type StonecuttingRecipeIndex = {
   readonly exactByItem: ReadonlyMap<

@@ -4,9 +4,9 @@ import {
   horizontalBlockNeighbours,
   oppositeBlockFace,
   type BlockFace,
-} from '../coordinates/coordinate-neighbours.ts.js'
-import { blockPositionKeyOf, blockPositionOfKey, type BlockPositionKey } from '../coordinates/coordinate-keys.ts.js'
-import type { BlockPosition } from '../coordinates/coordinate-primitives.ts.js'
+} from '../coordinates/coordinate-neighbours.js'
+import { blockPositionKeyOf, blockPositionOfKey, type BlockPositionKey } from '../coordinates/coordinate-keys.js'
+import type { BlockPosition } from '../coordinates/coordinate-primitives.js'
 import { type BlockWorld, blockAt } from './block-world.js'
 import {
   type DevicePowerContext,

@@ -17,7 +17,7 @@ import {
   itemStackWithCount,
   type ItemStack,
   type Slot,
-} from "../item/item-stack.ts.js";
+} from "../item/item-stack.js";
 import {
   ingredientMatches,
   isCraftingIngredient,

@@ -1,5 +1,5 @@
 /** Constructors and guards for simple Java item-component values. */
-import { ResourceLocation, TagLocation, UUID } from '../text/identifiers.ts.js'
+import { ResourceLocation, TagLocation, UUID } from '../text/identifiers.js'
 import {
   type BlockEntityDataComponent,
   type BlockEntityDataOptions,
@@ -161,8 +161,8 @@ import {
   isWritableBookContentOptions,
   isWrittenBookContentOptions,
 } from './item-component-values-validation.js'
-import { AdditionalTradeCost, MapId, PotionDurationScale } from '../time/quantities.ts.js'
-import { textComponent } from '../text/text-component.ts.js'
+import { AdditionalTradeCost, MapId, PotionDurationScale } from '../time/quantities.js'
+import { textComponent } from '../text/text-component.js'
 
 export { DYE_COLORS, EQUIPPABLE_SLOTS, FIREWORK_EXPLOSION_SHAPES, MAP_DECORATION_TYPES }
 export type { MapDecorationType } from './item-component-values-data.js'

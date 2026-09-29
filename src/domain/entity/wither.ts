@@ -20,7 +20,7 @@ import type {
   WitherSummonMatch,
   WitherSummonMaterial,
 } from './wither-data.js'
-import type { Position } from '../coordinates/coordinate-primitives.ts.js'
+import type { Position } from '../coordinates/coordinate-primitives.js'
 
 export {
   WITHER_ARMOUR_THRESHOLD,

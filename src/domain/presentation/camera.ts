@@ -2,8 +2,8 @@
  * Camera pose, as a snapshot.
  * The simulation publishes this immutable value; renderers only consume it.
  */
-import type { MonotonicTimeSecs } from '../time/quantities.ts.js'
-import type { Position } from '../coordinates/coordinates.ts.js'
+import type { MonotonicTimeSecs } from '../time/quantities.js'
+import type { Position } from '../coordinates/coordinates.js'
 
 export type CameraPoseSnapshot = {
   /** Eye position in continuous world space. */

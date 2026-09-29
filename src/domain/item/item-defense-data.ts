@@ -1,5 +1,5 @@
 /** Portable data contracts for Java item defense components. */
-import type { ResourceLocation } from '../text/identifiers.ts.js'
+import type { ResourceLocation } from '../text/identifiers.js'
 import type { ResourceLocationProvider } from './item-component-values-data.js'
 import type {
   BlockingDelaySeconds,
@@ -10,7 +10,7 @@ import type {
   ItemDamageBase,
   ItemDamageFactor,
   ItemDamageThreshold,
-} from '../time/quantities.ts.js'
+} from '../time/quantities.js'
 
 export type DamageResistantComponent = Readonly<{
   readonly types: ResourceLocationProvider

@@ -1,6 +1,6 @@
 import type { CameraPoseSnapshot } from './camera.js'
-import { position, type Position } from '../coordinates/coordinates.ts.js'
-import type { MonotonicTimeSecs } from '../time/quantities.ts.js'
+import { position, type Position } from '../coordinates/coordinates.js'
+import type { MonotonicTimeSecs } from '../time/quantities.js'
 
 export const PITCH_EPSILON = 0.01
 export const PITCH_MAX_RADIANS: number = Math.PI / 2 - PITCH_EPSILON

@@ -56,7 +56,7 @@
  * otherwise quietly stop holding the day one roster grew to swallow the other.
  */
 import { BLOCK_TYPES, type BlockType } from './block-type.js'
-import { ITEM_TYPES, type ItemType } from '../item/item-type.ts.js'
+import { ITEM_TYPES, type ItemType } from '../item/item-type.js'
 
 /**
  * The audit §6-8 intersection plus the explicit vanilla exceptions: an item

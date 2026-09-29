@@ -12,7 +12,7 @@ import {
   type StatusEffectDefinition,
   type StatusEffectName,
 } from './status-effect-data.js'
-import type { ResourceLocation } from '../text/identifiers.ts.js'
+import type { ResourceLocation } from '../text/identifiers.js'
 
 const STATUS_EFFECT_NAME_SET: ReadonlySet<string> = new Set(STATUS_EFFECT_NAMES)
 

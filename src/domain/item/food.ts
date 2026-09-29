@@ -4,8 +4,8 @@ import {
   type FoodEffect,
 } from './food-data.js'
 import { itemStack, itemStackWithCount, type ItemStack } from './item-stack.js'
-import type { Vitals } from '../entity/vitals-model.ts.js'
-import { eat } from '../entity/vitals-hunger.ts.js'
+import type { Vitals } from '../entity/vitals-model.js'
+import { eat } from '../entity/vitals-hunger.js'
 
 export {
   FOOD_DEFINITION_BY_ITEM,

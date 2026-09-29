@@ -1,11 +1,11 @@
 /** Portable data contracts for current Java entity attributes. */
-import { ResourceLocation } from '../text/identifiers.ts.js'
+import { ResourceLocation } from '../text/identifiers.js'
 import type {
   Bounciness,
   EntityPhysicsModifier,
   EntityVisibilityDistance,
   KnockbackResistance,
-} from '../time/quantities.ts.js'
+} from '../time/quantities.js'
 
 export const ENTITY_ATTRIBUTE_NAMES = [
   'bounciness',

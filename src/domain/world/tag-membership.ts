@@ -4,11 +4,11 @@ import {
   type DataPackLayer,
   type DataPackLayerOptions,
 } from "./data-pack-registry.js";
-import type { ItemType } from "../item/item-type.ts.js";
-import type { ItemTagMemberships, RecipeItemTag } from "../recipe/recipe-data.ts.js";
+import type { ItemType } from "../item/item-type.js";
+import type { ItemTagMemberships, RecipeItemTag } from "../recipe/recipe-data.js";
 import { VANILLA_ITEM_TAG_MEMBERSHIP_ENTRIES } from "./tag-membership-data.js";
 
-export type { ItemTagMemberships, RecipeItemTag } from "../recipe/recipe-data.ts.js";
+export type { ItemTagMemberships, RecipeItemTag } from "../recipe/recipe-data.js";
 export type { DataPackFormat, DataPackLayer } from "./data-pack-registry.js";
 
 /** The kernel's vanilla tag table; the default `ingredientMatches` resolves to when a caller omits `itemTags`. */

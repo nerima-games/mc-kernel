@@ -5,8 +5,8 @@
  * lets registry tables depend on the contract without depending on resolver
  * logic.
  */
-import type { ItemType } from '../item/item-type.ts.js'
-import { StackCount, type StackCount as StackCountValue } from '../time/quantities.ts.js'
+import type { ItemType } from '../item/item-type.js'
+import { StackCount, type StackCount as StackCountValue } from '../time/quantities.js'
 
 export const HARVEST_TOOL_CATEGORIES = ['none', 'pickaxe', 'axe', 'shovel', 'hoe', 'shears', 'sword'] as const
 export type HarvestToolCategory = (typeof HARVEST_TOOL_CATEGORIES)[number]

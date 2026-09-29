@@ -1,4 +1,4 @@
-import type { ItemType } from '../item/item-type.ts.js'
+import type { ItemType } from '../item/item-type.js'
 
 export const DEFAULT_MINING_SPEED = 1
 

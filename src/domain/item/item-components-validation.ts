@@ -135,8 +135,8 @@ import {
   type MaxStackSize as MaxStackSizeValue,
   type PotionDurationScale,
   type RepairCost as RepairCostValue,
-} from '../time/quantities.ts.js'
-import { ResourceLocation } from '../text/identifiers.ts.js'
+} from '../time/quantities.js'
+import { ResourceLocation } from '../text/identifiers.js'
 import type {
   AttackRangeComponent,
   DamageTypeComponent,
@@ -156,8 +156,8 @@ import type {
   EnchantmentsComponent,
   StoredEnchantmentsComponent,
 } from './item-enchantments-data.js'
-import { isTextComponent } from '../text/text-component-validation.ts.js'
-import type { TextComponent } from '../text/text-component-data.ts.js'
+import { isTextComponent } from '../text/text-component-validation.js'
+import type { TextComponent } from '../text/text-component-data.js'
 
 export type ItemComponents = Readonly<{
   readonly maxStackSize: MaxStackSizeValue

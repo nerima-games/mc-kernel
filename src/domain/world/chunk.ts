@@ -1,8 +1,8 @@
 /* eslint-disable max-statements, no-magic-numbers -- Constants define the fixed binary wire format. */
 import { Brand } from 'effect'
-import { BlockState, blockState } from '../block/block-state.ts.js'
-import { CHUNK_SIZE_XZ, type ChunkCoord, chunkCoord } from '../coordinates/coordinates.ts.js'
-import { chunkCoordFromAxes } from '../coordinates/coordinate-primitives.ts.js'
+import { BlockState, blockState } from '../block/block-state.js'
+import { CHUNK_SIZE_XZ, type ChunkCoord, chunkCoord } from '../coordinates/coordinates.js'
+import { chunkCoordFromAxes } from '../coordinates/coordinate-primitives.js'
 
 /** Legacy 8-bit-per-block payload. Still decodable; never encoded again. */
 const CHUNK_CODEC_VERSION_V1 = 1

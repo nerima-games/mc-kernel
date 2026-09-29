@@ -17,8 +17,8 @@
  * recomputes this when the chunk's blocks change.
  */
 import type { Chunk } from './chunk.js'
-import { CHUNK_SIZE_XZ } from '../coordinates/coordinates.ts.js'
-import { isEmpty, opacityOfBlockId, propertyOfBlockId } from '../block/block-registry.ts.js'
+import { CHUNK_SIZE_XZ } from '../coordinates/coordinates.js'
+import { isEmpty, opacityOfBlockId, propertyOfBlockId } from '../block/block-registry.js'
 
 const AXIS_MIN = 0
 const AXIS_STEP = 1

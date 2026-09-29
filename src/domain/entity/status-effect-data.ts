@@ -22,8 +22,8 @@
  * here is exactly Java Edition 1.21's effect roster, pinned by
  * `EXPECTED_STATUS_EFFECT_COUNT` in `test/status-effect.test.ts`.
  */
-import { ResourceLocation, vanillaId } from '../text/identifiers.ts.js'
-import { VANILLA_26_3_MOB_EFFECT_IDS } from '../world/vanilla-26-3-generated.ts.js'
+import { ResourceLocation, vanillaId } from '../text/identifiers.js'
+import { VANILLA_26_3_MOB_EFFECT_IDS } from '../world/vanilla-26-3-generated.js'
 
 /**
  * The `/effect give <targets> <effect> [<seconds>] [<amplifier>]` argument
