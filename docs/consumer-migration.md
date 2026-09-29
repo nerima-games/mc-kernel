@@ -93,6 +93,8 @@ item component の item-aware な既定値は `itemComponents`（`tool` は `ITE
 
 下流の stack payload は `item` / `count` / `components` の3フィールドだけに揃える。`count: 0` の番兵は `undefined` の `ItemSlot` へ変換し、component patch は受信・recipe・wire の境界で `applyItemComponentPatch` に通して解決済み `components` だけを保存・搬送する。patch の sidecar や `item` と別に持つ metadata registry は作らない。
 
+この移行は破壊的変更を含む。`AnvilPlan.materialCost` は `StackCount` ではなく `AnvilMaterialCost`（anvil の材料コスト）になり、`BlockProperties.drops` は `BlockDropRule | undefined` になった。drop rule を作る場合の `count` は `1..99` に限定し、何も落とさないブロックは `count: 0` ではなく `drops: undefined` を使う。下流の型 fixture、保存・wire decoder、drop projection はこの境界を個別に検証する。
+
 | 下流 | 旧 payload / sidecar | 移行内容 |
 | --- | --- | --- |
 | `mc-sim` | inventory/state の `{ item, count }` と `count: 0` の空スロット、stack metadata の sidecar | `ItemSlot` (`undefined` または canonical `ItemStack`) に変換し、inventory の slot、stack move、snapshot、`splitItemStack` / `mergeItemStacks` の結果をそのまま使う。空スロットを `{ item, count: 0 }` に戻さない。 |

@@ -1417,7 +1417,7 @@ const propertyOf<K>(overrides, name: K): BlockProperties[K]
 | `xpOnBreak`        | `number`                                                | `0`                                   | 監査 §4.5 `blocks.config.ores.ts:8-45`                              |
 | `railKind`         | `'none'\|'normal'\|'powered'`                           | `'none'`                              | 監査 §4.1 `:184-201`                                                |
 | `harvestTool`      | `HarvestToolRequirement`                                | `{category:'none', minTier:'none'}`   | 監査 §4.5                                                           |
-| `drops`            | `BlockDropRule`                                         | `{item:'self', count:1, ...}`         | 監査 §4.5                                                           |
+| `drops`            | `BlockDropRule \| undefined`                            | `{item:'self', count:1, ...}`         | 監査 §4.5。未ドロップは `undefined`                                 |
 | `supportRule`      | `SupportRule`                                           | `NEEDS_NO_SUPPORT`（`{kind:'none'}`） | 監査 §4.6。§4-2-bis 参照                                            |
 
 補助 API: `BLOCK_OPACITIES` / `FLUID_KINDS` / `COLLISION_SHAPES` / `RENDER_KINDS` / `FOOTSTEP_MATERIALS` /
@@ -1497,13 +1497,13 @@ const resolveDrop(requirement, rule, brokenBlock, context?): BlockDrop | undefin
 
 同じ理由で `resolveDropItem` は**部分関数になった**。旧版は `BlockType` を返して全域だった
 （「自分自身」は必ずブロックだから）。答えがアイテムになると「自分自身」は存在しないことがありうる
-（`air` / `water` / `lava` / `bedrock` / `snow`）。`undefined` がその答えで、意味は `count: 0` と同じ
+（`air` / `water` / `lava` / `bedrock` / `snow`）。`undefined` がその答えで、count 0 の drop rule は存在しない
 ——インベントリに何も入らない。
 
 **`resolveDrop` が採掘の入口。** `resolveDropItem` は「どのアイテムか」だけを答え、道具もシルクタッチも見ない。
 「そもそも落ちるか」まで含めて答えるのは `resolveDrop` のほうで、落ちない経路は 3 つ + 1 つある:
 
-1. `count <= 0` —— 誰に対しても何も落とさない（監査 §4.5 の `NEVER_DROPPED_BLOCK_TYPES`）
+1. drop rule が `undefined` —— 誰に対しても何も落とさない（監査 §4.5 の `NEVER_DROPPED_BLOCK_TYPES`）。rule が存在する場合の `count` は `1..MAX_STACK_COUNT`。
 2. 道具のティアが `harvestTool.minTier` に届かない —— 素手で石を殴る。**カテゴリは見ない**
 3. `requiresSilkTouch` なのにシルクタッチが無い —— ガラスを割る
 4. （拒否ではなく不在）`'self'` なのにそのブロックにアイテム形が無い
@@ -2479,7 +2479,7 @@ type AnvilPlan =
       readonly ok: true
       readonly output: CanonicalAnvilItemPayload
       readonly levelCost: number
-      readonly materialCost: StackCount
+      readonly materialCost: AnvilMaterialCost
     }
   | {
       readonly ok: false
@@ -2494,6 +2494,8 @@ decodeAnvilSnapshot(value): AnvilSnapshotResult
 decodeAnvilSnapshotString(encoded): AnvilSnapshotResult
 encodeAnvilSnapshot(state): AnvilSnapshotEncodingResult
 ```
+
+`AnvilPlan.materialCost` は stack の数量ではなく、anvil 固有の `AnvilMaterialCost`（`0..99`）であり、`StackCount` とは代入互換ではない。
 
 `planAnvil` は入力とルールを検証したうえで、出力、経験値コスト、材料消費数を決定する。
 `applyAnvil` は計画を再利用し、経験値不足も含めた適用結果を返す。どちらも入力を変更せず、

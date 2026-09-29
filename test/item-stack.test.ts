@@ -103,7 +103,8 @@ describe("canonical item stacks", () => {
     expect(split.taken.count).toBe(12);
     expect(split.remainder?.count).toBe(20);
     expect(split.taken.components.customName).toEqual({ text: "K03 stone" });
-    expect(mergeItemStacks(split.taken, split.remainder!).merged.count).toBe(32);
+    if (split.remainder === undefined) throw new Error("expected literal remainder");
+    expect(mergeItemStacks(split.taken, split.remainder).merged.count).toBe(32);
     expect(itemStack("stone", 1, { components: itemComponents("stone", { maxStackSize: 99 }) }).count).toBe(1);
     expect(itemStack("stone", 99, { components: itemComponents("stone", { maxStackSize: 99 }) }).count).toBe(99);
     expect(itemStack("diamond_pickaxe", 1).count).toBe(1);
