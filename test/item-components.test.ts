@@ -101,7 +101,12 @@ describe('item components', () => {
 
   it('accepts resolved nested stack values at their item limit', () => {
     expect(isChargedProjectilesOptions([{ item: 'stone', count: 1, components: itemComponents('stone') }])).toBe(true)
-    expect(isChargedProjectilesOptions([{ item: 'stone', count: 99, components: itemComponents('stone', { maxStackSize: 99 }) }])).toBe(true)
+    expect(isChargedProjectilesOptions([{ item: 'stone', count: 64, components: itemComponents('stone') }])).toBe(true)
+    expect(isChargedProjectilesOptions([{ item: 'stone', count: 65, components: itemComponents('stone') }])).toBe(false)
+    expect(isChargedProjectilesOptions([{ item: 'ender_pearl', count: 16, components: itemComponents('ender_pearl') }])).toBe(true)
+    expect(isChargedProjectilesOptions([{ item: 'ender_pearl', count: 17, components: itemComponents('ender_pearl') }])).toBe(false)
+    expect(isChargedProjectilesOptions([{ item: 'diamond_pickaxe', count: 1, components: itemComponents('diamond_pickaxe') }])).toBe(true)
+    expect(isChargedProjectilesOptions([{ item: 'diamond_pickaxe', count: 2, components: itemComponents('diamond_pickaxe') }])).toBe(false)
     expect(isItemComponents({ ...itemComponents('stone'), chargedProjectiles: [{ item: 'stone', count: 1 }] })).toBe(true)
   })
   it('distinguishes nested arrays with different lengths', () => {
