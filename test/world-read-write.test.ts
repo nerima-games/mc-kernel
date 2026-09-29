@@ -9,6 +9,7 @@ import {
   SectionIndex,
   WorldEpoch,
   blockEdit,
+  blockPositionPackingKeyOf,
   blockWriteBatch,
   chunkKeyOfPosition,
   expectedChunk,
@@ -56,6 +57,30 @@ describe('world read/write vocabulary', () => {
       expectedChunk(WorldEpoch(1), ChunkRevision(2)),
       [blockEdit(origin, stone), blockEdit(origin, air)],
     )).toThrow(/duplicate position/)
+  })
+
+  it('blockPositionPackingKeyOf_usesLiteralCollisionFreeBoundaries', () => {
+    expect(blockPositionPackingKeyOf(blockPosition(-65536, -65536, -65536))).toBe(0)
+    expect(blockPositionPackingKeyOf(blockPosition(65535, 65535, 65535))).toBe(2251799813685247)
+    expect(blockPositionPackingKeyOf(origin)).toBe(1125908496842752)
+    expect(blockPositionPackingKeyOf(blockPosition(0, 0, 0))).not.toBe(
+      blockPositionPackingKeyOf(blockPosition(0, 0, 1)),
+    )
+    expect(blockPositionPackingKeyOf(blockPosition(0, 0, 0))).not.toBe(
+      blockPositionPackingKeyOf(blockPosition(0, 1, 0)),
+    )
+    expect(blockPositionPackingKeyOf(blockPosition(0, 0, 0))).not.toBe(
+      blockPositionPackingKeyOf(blockPosition(1, 0, 0)),
+    )
+  })
+
+  it('blockPositionPackingKeyOf_rejectsAxesOutsidePackableRange', () => {
+    expect(() => blockPositionPackingKeyOf(blockPosition(-65537, 0, 0))).toThrow(/numeric packing/)
+    expect(() => blockPositionPackingKeyOf(blockPosition(65536, 0, 0))).toThrow(/numeric packing/)
+    expect(() => blockWriteBatch(
+      expectedChunk(WorldEpoch(0), ChunkRevision(0)),
+      [blockEdit(blockPosition(0, 0, 65536), stone)],
+    )).toThrow(/numeric packing/)
   })
 
   it('writeBlocksSTM_rejectsOutOfWorldAndUnloadedTargets', () => {
