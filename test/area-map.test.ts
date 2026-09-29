@@ -1,11 +1,19 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 const root = join(import.meta.dirname, "..");
 const map = readFileSync(join(root, "docs/area-map.md"), "utf8");
-const domainFiles = readdirSync(join(root, "src/domain"))
-  .filter((file) => file.endsWith(".ts"))
+const domainFiles = readdirSync(join(root, "src/domain"), { recursive: true })
+  .filter(
+    (file) =>
+      file.endsWith(".ts") &&
+      file.includes("/") &&
+      !file.split("/").at(-1)?.startsWith("_") &&
+      !file.endsWith("/index.ts"),
+  )
+  .map((file) => file.split("/").at(-1))
+  .filter((file): file is string => file !== undefined)
   .sort();
 const inventory = map.split("<!-- area-inventory:begin -->")[1].split(
   "<!-- area-inventory:end -->",
@@ -35,5 +43,8 @@ describe("R-K1 phase-1 area map", () => {
     expect(new Set(plannedBarrels.map(({ barrel }) => barrel)).size).toBe(
       publicSubpaths.length,
     );
+    expect(
+      plannedBarrels.every(({ barrel }) => existsSync(join(root, "src/domain", barrel))),
+    ).toBe(true);
   });
 });
