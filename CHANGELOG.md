@@ -1,5 +1,24 @@
 # @nerima-games/mc-kernel
 
+## 0.8.0
+
+### Minor Changes
+
+- [#65](https://github.com/nerima-games/mc-kernel/pull/65) [`ffbbd33`](https://github.com/nerima-games/mc-kernel/commit/ffbbd33be89bcd5aa5959cc8ff799be418cad67d) Thanks [@takeokunn](https://github.com/takeokunn)! - Make `ItemStack` canonical and immutable with only `item`, `count` in `1..max`, and resolved `components`. Zero-count stacks are replaced by empty `ItemSlot` (`undefined`) values. Component patches are resolved at decoder, recipe, and wire boundaries; `!component` removes that key, and set/remove conflicts return the typed `ItemComponentPatchConflictError` in `Either`. Patches are not retained on the stack. Kernel-owned `splitItemStack` and `mergeItemStacks` preserve resolved components and use branded `TransferQuantity` values for moves; full transfer returns an absent remainder. This is also a breaking public API change: `AnvilPlan.materialCost` is now `AnvilMaterialCost` rather than `StackCount`, and `BlockProperties.drops` is optional because no-drop is represented by `undefined`; a drop rule count is always `1..99`. Downstream `mc-sim` inventory/state code must migrate zero-count sentinels to empty slots and use the canonical payload for stack moves and snapshots; `mx-gameplay` and `mx-multiplayer` must pass resolved component payloads through recipe/anvil and wire projections and remove sidecars. Those downstream repositories are outside this kernel change range. `mc-compose` must remove duplicate item metadata and sidecar normalization in favor of the kernel representation.
+  Consumer migration details: [docs/consumer-migration.md](docs/consumer-migration.md).
+
+- [#64](https://github.com/nerima-games/mc-kernel/pull/64) [`91b6e1c`](https://github.com/nerima-games/mc-kernel/commit/91b6e1c909b6e7eee711f11ddbc2394fb95af771) Thanks [@takeokunn](https://github.com/takeokunn)! - Add the kernel-owned chunk read/edit vocabulary: `BlockRead`, `ReadView`, `BlockEdit`, `BlockWriteBatch`, and branded world/chunk/light revisions. Existing `block-world.ts` consumers (`fluid-update.ts`, `redstone-update.ts`, `redstone-network.ts`, and `redstone-device-update.ts`) remain on the pure compatibility map until their owning downstream services migrate to the new world-scoped contract. `mc-worldgen` owns live chunk state and atomic writes; `mc-meshing` consumes detached snapshots or read-only section views.
+  Consumer migration details: [docs/consumer-migration.md](docs/consumer-migration.md).
+
+- [#63](https://github.com/nerima-games/mc-kernel/pull/63) [`8e3d0fc`](https://github.com/nerima-games/mc-kernel/commit/8e3d0fcd83c5c1bca7a943c57118bf9f3c841f64) Thanks [@takeokunn](https://github.com/takeokunn)! - Add unit-safe fixed simulation time brands and pure tick arithmetic. Downstream `mc-physics` should replace local fixed substep duration vocabulary, `mc-sim` should replace its frame-timing forwarders and own the fixed-step accumulator/loop, and `mc-render` should use `InterpolationFraction` for presentation interpolation while retaining `ClockPort` injection.
+  Consumer migration details: [docs/consumer-migration.md](docs/consumer-migration.md).
+
+- [#66](https://github.com/nerima-games/mc-kernel/pull/66) [`c3123f6`](https://github.com/nerima-games/mc-kernel/commit/c3123f6030a63663831d3c20992d822bfaa02da5) Thanks [@takeokunn](https://github.com/takeokunn)! - Align vanilla conformance fixtures with Minecraft Java Edition 26.3. The
+  regenerated tables add 3 biomes, 4 damage types, 1 mob effect, 11
+  enchantments, and 234 tag ids; the legacy `trim_templates` table row is
+  removed from the golden-backed roster while its compatibility membership is
+  retained. Block, item, and recipe tables have no id changes in this changeset.
+
 ## 0.7.1
 
 ### Patch Changes

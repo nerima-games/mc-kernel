@@ -87,7 +87,7 @@ const aabb / aabbOfBlock / aabbIntersects / aabbContainsPoint
 ### 2-bis. 座標のキー化（coordinate-keys）
 
 `Map` のキーや保存フォーマットに座標を使うリポジトリ（チャンクストア、dirty 集合、ネットワーク差分）向けの
-正準文字列表現。`0.2.19` で出荷済み。
+正準文字列表現。公開済み。
 
 ```typescript
 type BlockPositionKey = string & Brand.Brand<'BlockPositionKey'>   // 正準形式 "x,y,z"
@@ -2536,7 +2536,7 @@ const chunkBlockCount(height: ChunkHeight): number          // CHUNK_SIZE_XZ * C
 `16 * 16 * height` バイトの生 `Uint8Array` を取り、各バイトは登録済みの `BlockId` でなければならない。
 構築時にバッファをコピーするため、呼び出し側の後続変更は Chunk に波及しない。
 
-**`Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks` を保持する（0.3.0、破壊的変更）。**
+**`Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks` を保持する（破壊的変更）。**
 
 ```typescript
 type ChunkBlocks = BlockState & Brand.Brand<'ChunkBlocks'>
