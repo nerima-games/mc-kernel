@@ -587,7 +587,7 @@ describe('the rule that keeps a `self` drop honest', () => {
     Effect.runPromise(Effect.sync(() => {
       // The other half of the rule in `domain/item-type.ts`. A block may
       // Legitimately drop nothing, but it has to be a DECISION in the row —
-      // `count: 0` — rather than the side effect of a missing item literal.
+      // `undefined` — rather than a zero-count stack or the side effect of a missing item literal.
       //
       // The thirteen blocks below are the roster's honest "nothing"s, and each
       // Has a named reference table behind it. Everything else that yields

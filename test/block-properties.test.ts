@@ -288,6 +288,9 @@ describe('light level branding', () => {
       expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 'many' } }])).toThrow(
         'block property drops count must be an integer',
       )
+      expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 0 } }])).toThrow(
+        'block property drops count must be an integer in [1, 99]',
+      )
       expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, requiresSilkTouch: 'yes' } }])).toThrow(
         'block property drops requiresSilkTouch must be a boolean',
       )
