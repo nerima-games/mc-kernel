@@ -1,17 +1,14 @@
 # R-K1 area map
 
-This is the phase-1 map for the internal `src/domain` reorganization. It is
-based on `origin/main` at `c3123f6030a63663831d3c20992d822bfaa02da5`.
-The package boundary remains one package and `package.json#exports` is
-unchanged.
+This is the implemented map for the internal `src/domain` reorganization. It
+covers the merged contracts at `ffbbd33` and the R-K1 implementation. The
+package boundary remains one package and `package.json#exports` is unchanged.
 
 ## Scope and invariant
 
-The requested count is 214 files. The inspected baseline contains 216
-TypeScript files. This map deliberately records all 216 files; the two-file
-difference must be resolved with the PR #65 integration owner before phase 2.
-The completeness test fails if a domain file is missing from this map or is
-listed twice. It also fixes the public set at 92 subpaths.
+The implemented tree contains 216 TypeScript files. This map records every
+one exactly once, and the completeness test fails if a domain file is missing
+or listed twice. It also fixes the public set at 92 subpaths.
 
 The selected document is a new `docs/area-map.md`, rather than extending
 `docs/architecture.md`, because architecture §6 states the existing
@@ -20,11 +17,18 @@ inventory for a one-time move.
 
 ## Areas
 
-The future layout has nine area directories. A public entry point gets one
-leaf barrel inside its area (`<area>/_<subpath>.ts` in the plan); internal
-data, validation, and implementation files stay beside that leaf barrel.
-Thus there are 92 public leaf barrels for 92 public subpaths. The area
-directory itself is not an additional public export.
+The implemented layout has nine area directories. A public entry point has
+one leaf barrel inside its area (`<area>/_<subpath>.ts`); internal data,
+validation, and implementation files stay beside that leaf barrel. Thus there
+are 92 public leaf barrels for 92 public subpaths. Each area also has an
+`index.ts`, and `src/index.ts` re-exports through those nine area barrels. The
+area directory itself is not an additional public export.
+
+The initial prefix-based inventory produced eleven candidate buckets. The
+implemented map uses nine areas because the remaining candidates were
+implementation prefixes or cross-cutting data groups, not stable public
+responsibility boundaries. Keeping them inside the nine domain areas avoids
+artificial public boundaries while preserving every existing subpath.
 
 <!-- area-inventory:begin -->
 
@@ -134,10 +138,10 @@ the initial automated prefix classification that left them unassigned.
 
 ## Public subpath to barrel map
 
-The following is the complete 92-entry mapping. The right-hand path is the
-planned leaf barrel; it is not created during phase 1.
+The following is the complete 92-entry mapping. Every right-hand path is an
+implemented leaf barrel in the corresponding area.
 
-| subpath | planned barrel |
+| subpath | implemented barrel |
 | --- | --- |
 | `./domain/anvil` | `item/_anvil.ts` |
 | `./domain/block-break-speed` | `block/_block-break-speed.ts` |
@@ -263,15 +267,16 @@ Phase 2 will preserve these imports while moving files. Dependency cleanup,
 including whether `quantities`, tags, and generated tables should be promoted
 to a foundational `vocabulary` area, is a separate deliverable.
 
-## Mechanical phase-2 procedure
+## Implemented procedure
 
-1. Rebase on the then-current `origin/main` after the coordinator confirms PR #65 is merged.
-2. Run a generated `git mv` script from this map. The script must resolve every source path explicitly and refuse an unlisted file.
-3. Rewrite only relative import paths, preserving extensions and module contents. Re-run `rg --files src/domain` and the completeness test.
-4. Add the 92 leaf barrels, each re-exporting the moved public implementation and its intentional data/validation exports. Do not change `package.json#exports`.
-5. Replace `src/index.ts` with exports from the area barrels only. Compare the generated declaration surface with the pre-move `origin/main` build.
-6. Run the subpath/barrel count test, then the required Nix/pnpm verification commands from the launch instructions.
-7. Verify `git diff --stat -M origin/main` recognizes each move as a rename before the separate barrel/test commit.
+1. Rebase on the merged `origin/main` contracts before moving the domain files.
+2. Move every mapped source path with `git mv`, refusing unlisted files.
+3. Rewrite only relative import paths, preserving module contents, then run the completeness test.
+4. Add the 92 leaf barrels and the nine area barrels without changing `package.json#exports`.
+5. Replace `src/index.ts` with exports through the area barrels and verify the public declaration consumer surface.
+6. Run the subpath/barrel, test, coverage, package, dependency typecheck, and benchmark checks.
+7. Verify that `git diff --stat -M origin/main` recognizes all 216 moves as renames.
 
-The move commit owns only `git mv` and import path changes. The barrel and
-test commit is separate. `.mediator/` and `.omo/` are excluded.
+The implementation commits and their verification are recorded in `git log`
+for this branch; this section describes the procedure that produced the
+current tree rather than a future plan. `.mediator/` and `.omo/` are excluded.
