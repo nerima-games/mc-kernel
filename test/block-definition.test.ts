@@ -5,9 +5,9 @@ import {
   blockCapabilitiesOf,
   blockPropertiesOf,
   resolveBlock,
-} from '../src/domain/block-definition'
-import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block-capabilities'
-import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
+} from '../src/domain/block/block-definition'
+import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block/block-capabilities'
+import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block/block-properties'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 

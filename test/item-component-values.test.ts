@@ -145,10 +145,10 @@ import {
   tooltipStyleComponent,
   writableBookContentComponent,
   writtenBookContentComponent,
-} from '../src/domain/item-component-values'
-import { consumableClearAllEffects } from '../src/domain/consumable'
-import { ResourceLocation, TagLocation } from '../src/domain/identifiers'
-import { itemStack } from '../src/domain/item-stack'
+} from '../src/domain/item/item-component-values'
+import { consumableClearAllEffects } from '../src/domain/item/consumable'
+import { ResourceLocation, TagLocation } from '../src/domain/text/identifiers'
+import { itemStack } from '../src/domain/item/item-stack'
 import { describe, expect, it } from 'vitest'
 
 describe('item component values', () => {

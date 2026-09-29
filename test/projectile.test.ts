@@ -1,12 +1,12 @@
-import { aabb, type AABB } from '../src/domain/coordinate-geometry'
-import { position } from '../src/domain/coordinate-primitives'
+import { aabb, type AABB } from '../src/domain/coordinates/coordinate-geometry'
+import { position } from '../src/domain/coordinates/coordinate-primitives'
 import {
   ARROW_MAX_LIFETIME_SECONDS,
   type Arrow,
   type ProjectileWorld,
   launchArrow,
   stepArrow,
-} from '../src/domain/projectile'
+} from '../src/domain/entity/projectile'
 import { describe, expect, it } from 'vitest'
 
 const bounds = aabb(position(-100, -100, -100), position(100, 100, 100))

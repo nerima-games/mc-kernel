@@ -12,7 +12,7 @@ import {
   isValidGameRules,
   normaliseGameRules,
   type GameRules,
-} from '../src/domain/game-rule'
+} from '../src/domain/text/game-rule'
 
 describe('GAME_RULE_BOOLEAN_NAMES', () => {
   it('lists exactly the boolean gamerules a simulation branches on, each unique', () => {

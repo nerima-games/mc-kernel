@@ -13,11 +13,11 @@ import {
   chunkBlockCount,
   decodeChunk,
   encodeChunk,
-} from '../src/domain/chunk'
-import { BlockId as blockId, blockIdOf } from '../src/domain/block-registry'
-import type { BlockId } from '../src/domain/block-registry-types'
-import { blockState } from '../src/domain/block-state'
-import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates'
+} from '../src/domain/world/chunk'
+import { BlockId as blockId, blockIdOf } from '../src/domain/block/block-registry'
+import type { BlockId } from '../src/domain/block/block-registry-types'
+import { blockState } from '../src/domain/block/block-state'
+import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates/coordinates'
 
 const height = ChunkHeight(2)
 const blockCount = chunkBlockCount(height)
@@ -372,8 +372,8 @@ describe('chunk binary codec', () => {
     const WIDE_BLOCK_ID_VALUE = 300
 
     vi.resetModules()
-    vi.doMock('../src/domain/block-registry.js', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('../src/domain/block-registry')>()
+    vi.doMock('../src/domain/block/block-registry.js', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('../src/domain/block/block-registry')>()
       const wideBlockId = Brand.nominal<BlockId>()(WIDE_BLOCK_ID_VALUE)
 
       return {
@@ -384,7 +384,7 @@ describe('chunk binary codec', () => {
     })
 
     try {
-      const wideChunkModule = await import('../src/domain/chunk.js')
+      const wideChunkModule = await import('../src/domain/world/chunk.js')
       const wideHeight = wideChunkModule.ChunkHeight(1)
       const wideBlockCount = wideChunkModule.chunkBlockCount(wideHeight)
 
@@ -407,7 +407,7 @@ describe('chunk binary codec', () => {
       const redecoded = wideChunkModule.decodeChunk(reencoded)
       expect(redecoded.blocks.get(0)).toBe(WIDE_BLOCK_ID_VALUE)
     } finally {
-      vi.doUnmock('../src/domain/block-registry.js')
+      vi.doUnmock('../src/domain/block/block-registry.js')
       vi.resetModules()
     }
   })

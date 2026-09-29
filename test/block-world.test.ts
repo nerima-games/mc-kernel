@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { AIR_BLOCK_ID, blockIdOf } from '../src/domain/block-registry'
+import { AIR_BLOCK_ID, blockIdOf } from '../src/domain/block/block-registry'
 import {
   blockAt,
   blockReaderOf,
   emptyBlockWorld,
   readBlockAt,
   setBlockAt,
-} from '../src/domain/block-world'
-import { blockPosition } from '../src/domain/coordinate-primitives'
+} from '../src/domain/block/block-world'
+import { blockPosition } from '../src/domain/coordinates/coordinate-primitives'
 
 describe('block world', () => {
   it('reads air by default and keeps block writes immutable', () => {

@@ -8,8 +8,8 @@ import {
   PositiveTickCount,
   SessionEpoch,
   SimulationTick,
-} from '../src/domain/quantities'
-import { addTick, secondsForTicks } from '../src/domain/frame-timing'
+} from '../src/domain/time/quantities'
+import { addTick, secondsForTicks } from '../src/domain/time/frame-timing'
 
 export const epochMillis: EpochMillis = EpochMillis(1_700_000_000_000)
 export const monotonicTimeSecs: MonotonicTimeSecs = MonotonicTimeSecs(1)

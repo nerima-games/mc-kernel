@@ -9,18 +9,18 @@ import {
   dataPackResourcePath,
   mapDataPackLayer,
   selectDataPackRegistry,
-} from "../src/domain/data-pack-registry";
-import { NamespacedResourceLocation } from "../src/domain/identifiers";
+} from "../src/domain/world/data-pack-registry";
+import { NamespacedResourceLocation } from "../src/domain/text/identifiers";
 import {
   SULFUR_CUBE_ITEM_TAGS,
   type SulfurCubeArchetypeOptions,
-} from "../src/domain/sulfur-cube";
+} from "../src/domain/entity/sulfur-cube";
 import {
   selectSulfurCubeArchetypes,
   sulfurCubeArchetypeDataPackLayer,
   sulfurCubeArchetypeDataPackLayerFromUnknown,
   sulfurCubeArchetypeDataPath,
-} from "../src/domain/sulfur-cube-registry";
+} from "../src/domain/entity/sulfur-cube-registry";
 
 const sulfurCubeOptions = {
   items: SULFUR_CUBE_ITEM_TAGS.food,

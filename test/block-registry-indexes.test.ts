@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 import { describe, expect, it } from 'vitest'
-import { BLOCK_PROPERTY_DEFAULTS } from '../src/domain/block-properties'
-import { isSupportSensitive } from '../src/domain/block-support'
+import { BLOCK_PROPERTY_DEFAULTS } from '../src/domain/block/block-properties'
+import { isSupportSensitive } from '../src/domain/block/block-support'
 import {
   BLOCK_IDS,
   buildIdByType,
@@ -24,11 +24,11 @@ import {
   resolvedBlockOfId,
   supportRuleOfBlockId,
   transmitsLight,
-} from '../src/domain/block-registry-indexes'
-import * as blockRegistryIndexes from '../src/domain/block-registry-indexes'
-import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block-capabilities'
-import { BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
-import { BLOCK_ID_MAX } from '../src/domain/block-registry-types'
+} from '../src/domain/block/block-registry-indexes'
+import * as blockRegistryIndexes from '../src/domain/block/block-registry-indexes'
+import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block/block-capabilities'
+import { BLOCK_PROPERTY_NAMES } from '../src/domain/block/block-properties'
+import { BLOCK_ID_MAX } from '../src/domain/block/block-registry-types'
 
 // The complete, currently-reviewed set of value exports from
 // `block-registry-indexes.ts`. A new zero-initialised typed-array column

@@ -1,4 +1,4 @@
-import { BlockAxis, CHUNK_SIZE_XZ, ChunkAxis, LocalAxis } from '../src/domain/coordinates'
+import { BlockAxis, CHUNK_SIZE_XZ, ChunkAxis, LocalAxis } from '../src/domain/coordinates/coordinates'
 import {
   ConsumeSeconds,
   DeltaTimeSecs,
@@ -14,9 +14,9 @@ import {
   StackCount,
   TransferQuantity,
   WeaponDisableBlockingSeconds,
-} from '../src/domain/quantities'
+} from '../src/domain/time/quantities'
 import { Effect, Either } from 'effect'
-import { ResourceLocation, StageId, TagLocation, UUID, WorldId, vanillaId } from '../src/domain/identifiers'
+import { ResourceLocation, StageId, TagLocation, UUID, WorldId, vanillaId } from '../src/domain/text/identifiers'
 import { describe, expect, it } from 'vitest'
 
 const SINGLE_ITEM_STACK_COUNT = 1

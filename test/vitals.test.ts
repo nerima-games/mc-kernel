@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DeltaTimeSecs } from '../src/domain/quantities'
+import { DeltaTimeSecs } from '../src/domain/time/quantities'
 import {
   addExhaustion,
   addExperience,
@@ -22,7 +22,7 @@ import {
   totalExperienceAtLevel,
   vitalsView,
   type Vitals,
-} from '../src/domain/vitals'
+} from '../src/domain/entity/vitals'
 
 const withVitals = (patch: Partial<Vitals> = {}): Vitals => ({
   ...SPAWN_VITALS,

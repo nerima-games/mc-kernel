@@ -7,7 +7,7 @@ import {
   isAttributeModifier,
   isAttributeModifierDisplay,
   isAttributeModifiersComponent,
-} from '../src/domain/item-attribute-modifiers'
+} from '../src/domain/item/item-attribute-modifiers'
 import { describe, expect, it } from 'vitest'
 
 const baseModifier = {

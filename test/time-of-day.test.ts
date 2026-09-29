@@ -19,8 +19,8 @@ import {
   setDayLengthThenTimeOfDay,
   setTimeOfDay,
   timeOfDay,
-} from '../src/domain/time-of-day'
-import { DeltaTimeSecs } from '../src/domain/quantities'
+} from '../src/domain/time/time-of-day'
+import { DeltaTimeSecs } from '../src/domain/time/quantities'
 
 describe('time of day', () => {
   it('defines the shared day policy and initial state', () => {

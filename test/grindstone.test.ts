@@ -5,13 +5,13 @@ import {
   AnvilEnchantmentId,
   type AnvilEnchantment,
   type CanonicalAnvilItemPayload,
-} from '../src/domain/anvil'
+} from '../src/domain/item/anvil'
 import {
   GRINDSTONE_REPAIR_COST_MAX,
   grindstoneExperienceFor,
   planGrindstone,
   type GrindstoneInput,
-} from '../src/domain/grindstone'
+} from '../src/domain/item/grindstone'
 
 const enchantment = (id: string, level = 1): AnvilEnchantment => ({
   id: AnvilEnchantmentId(id),

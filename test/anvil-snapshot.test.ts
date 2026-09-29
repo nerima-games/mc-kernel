@@ -14,7 +14,7 @@ import {
   decodeAnvilSnapshotString,
   encodeAnvilSnapshot,
   snapshotAnvilState,
-} from '../src/domain/anvil'
+} from '../src/domain/item/anvil'
 import { describe, expect, it } from 'vitest'
 
 const item = (

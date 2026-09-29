@@ -8,7 +8,7 @@ import {
   isGameMode,
   resolveDifficultyProperties,
   resolveGameModeProperties,
-} from '../src/domain/game-mode'
+} from '../src/domain/text/game-mode'
 
 const UNKNOWN_MODE_NAME = 'hardcore'
 const UNKNOWN_DIFFICULTY_NAME = 'nightmare'

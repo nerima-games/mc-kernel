@@ -20,7 +20,7 @@
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 import { expectTypeOf } from 'vitest'
-import { blockPropertiesOf, type BlockDefinition } from '../src/domain/block-definition'
+import { blockPropertiesOf, type BlockDefinition } from '../src/domain/block/block-definition'
 import {
   BARE_HANDED,
   type BlockDropRule,
@@ -30,12 +30,12 @@ import {
   type HarvestToolRequirement,
   resolveDrop,
   resolveDropItem,
-} from '../src/domain/block-harvest'
-import { BLOCK_IDS, BLOCK_REGISTRY, blockIdOf, dropOfBlockId } from '../src/domain/block-registry'
-import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
-import { ITEM_TYPES, type ItemType, isItemType } from '../src/domain/item-type'
-import { itemOfBlock } from '../src/domain/block-item'
-import { StackCount, type StackCount as StackCountValue } from '../src/domain/quantities'
+} from '../src/domain/block/block-harvest'
+import { BLOCK_IDS, BLOCK_REGISTRY, blockIdOf, dropOfBlockId } from '../src/domain/block/block-registry'
+import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
+import { ITEM_TYPES, type ItemType, isItemType } from '../src/domain/item/item-type'
+import { itemOfBlock } from '../src/domain/block/block-item'
+import { StackCount, type StackCount as StackCountValue } from '../src/domain/time/quantities'
 
 /** A diamond pickaxe without enchantments: nothing is tier-gated for this player. */
 const FULLY_EQUIPPED: HarvestContext = { heldTier: 'diamond', silkTouch: true }

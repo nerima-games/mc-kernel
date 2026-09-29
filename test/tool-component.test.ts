@@ -9,8 +9,8 @@ import {
   type ToolComponent,
   type ToolRule,
   type ToolResolutionContext,
-} from '../src/domain/tool-component'
-import type { BlockType } from '../src/domain/block-type'
+} from '../src/domain/item/tool-component'
+import type { BlockType } from '../src/domain/block/block-type'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 

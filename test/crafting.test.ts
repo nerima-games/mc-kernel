@@ -5,11 +5,11 @@ import {
   countOf,
   emptyInventory,
   INVENTORY_SLOT_COUNT,
-} from '../src/domain/inventory'
-import { itemComponents } from '../src/domain/item-components'
-import { itemStack } from '../src/domain/item-stack'
-import type { ItemType } from '../src/domain/item-type'
-import { craftFromGrid } from '../src/domain/crafting'
+} from '../src/domain/item/inventory'
+import { itemComponents } from '../src/domain/item/item-components'
+import { itemStack } from '../src/domain/item/item-stack'
+import type { ItemType } from '../src/domain/item/item-type'
+import { craftFromGrid } from '../src/domain/recipe/crafting'
 import {
   craftGrid,
   exactly,
@@ -18,8 +18,8 @@ import {
   shapedRecipe,
   tagged,
   type ItemTagMemberships,
-} from '../src/domain/recipe'
-import type { Inventory } from '../src/domain/inventory'
+} from '../src/domain/recipe/recipe'
+import type { Inventory } from '../src/domain/item/inventory'
 
 const inventoryWith = (items: ReadonlyArray<readonly [ItemType, number]>): Inventory => {
   let inventory = emptyInventory()

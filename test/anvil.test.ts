@@ -12,9 +12,9 @@ import {
   nextAnvilRepairCost,
   planAnvil,
   snapshotAnvilState,
-} from '../src/domain/anvil'
-import type { StackCount } from '../src/domain/quantities'
-import { AnvilMaterialCost, type AnvilMaterialCost as AnvilMaterialCostValue } from '../src/domain/anvil-primitives'
+} from '../src/domain/item/anvil'
+import type { StackCount } from '../src/domain/time/quantities'
+import { AnvilMaterialCost, type AnvilMaterialCost as AnvilMaterialCostValue } from '../src/domain/item/anvil-primitives'
 import { describe, expect, it } from 'vitest'
 import { expectTypeOf } from 'vitest'
 

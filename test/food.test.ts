@@ -7,9 +7,9 @@ import {
   FOOD_DEFINITION_BY_ITEM,
   VANILLA_FOOD_DEFINITIONS,
   type FoodDefinition,
-} from '../src/domain/food'
-import { itemStack } from '../src/domain/item-stack'
-import { SPAWN_VITALS, type Vitals } from '../src/domain/vitals'
+} from '../src/domain/item/food'
+import { itemStack } from '../src/domain/item/item-stack'
+import { SPAWN_VITALS, type Vitals } from '../src/domain/entity/vitals'
 
 const vitalsWith = (changes: Partial<Vitals> = {}): Vitals => ({
   ...SPAWN_VITALS,

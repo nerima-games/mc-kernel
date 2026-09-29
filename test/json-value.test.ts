@@ -4,7 +4,7 @@ import {
   isJsonValue,
   jsonValueFromUnknown,
   jsonValuesEqual,
-} from "../src/domain/json-value";
+} from "../src/domain/text/json-value";
 
 describe("JSON values", () => {
   it("recognizes finite, acyclic JSON values", () => {

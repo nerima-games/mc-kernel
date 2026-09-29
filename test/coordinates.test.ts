@@ -18,7 +18,7 @@ import {
   localCoordOfBlock,
   oppositeBlockFace,
   position,
-} from '../src/domain/coordinates'
+} from '../src/domain/coordinates/coordinates'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 

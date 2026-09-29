@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockPosition } from '../src/domain/coordinate-primitives'
+import { blockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import {
   BONE_MEAL_GROWTH_SECS,
   CROP_REGISTRY,
@@ -15,7 +15,7 @@ import {
   maturitySecsFor,
   validateCropSnapshot,
   type CropState,
-} from '../src/domain/crop'
+} from '../src/domain/block/crop'
 
 const wheatCrop = (growthSecs: number): CropState => ({
   dimension: 'overworld',

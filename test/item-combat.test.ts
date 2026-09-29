@@ -10,7 +10,7 @@ import {
   SWING_ANIMATION_TYPES,
   swingAnimationComponent,
   useEffectsComponent,
-} from '../src/domain/item-combat'
+} from '../src/domain/item/item-combat'
 import { describe, expect, it } from 'vitest'
 
 describe('item combat components', () => {

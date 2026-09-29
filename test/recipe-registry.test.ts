@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   DataPackFormat,
   dataPackLayer,
-} from "../src/domain/data-pack-registry";
-import { NamespacedResourceLocation } from "../src/domain/identifiers";
+} from "../src/domain/world/data-pack-registry";
+import { NamespacedResourceLocation } from "../src/domain/text/identifiers";
 import {
   recipeDataPackLayer,
   recipeDataPackLayerFromUnknown,
   recipeDataPackPath,
   selectRecipes,
-} from "../src/domain/recipe-registry";
+} from "../src/domain/recipe/recipe-registry";
 
 const craftingDocument = {
   type: "minecraft:crafting_shapeless",

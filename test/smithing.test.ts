@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { exactly, tagged } from '../src/domain/recipe-data'
+import { exactly, tagged } from '../src/domain/recipe/recipe-data'
 import {
   SMITHING_STATION_TAG,
   SMITHING_TRIM_MATERIAL_TAG,
@@ -13,14 +13,14 @@ import {
   smithingInput,
   smithingTransformRecipe,
   smithingTrimRecipe,
-} from '../src/domain/smithing'
-import type { ItemType } from '../src/domain/item-type'
-import { itemStack } from '../src/domain/item-stack'
-import { buildSmithingRecipeIndex } from '../src/domain/smithing-indexes'
+} from '../src/domain/recipe/smithing'
+import type { ItemType } from '../src/domain/item/item-type'
+import { itemStack } from '../src/domain/item/item-stack'
+import { buildSmithingRecipeIndex } from '../src/domain/recipe/smithing-indexes'
 import type {
   ItemTagMemberships,
   RecipeItemTag,
-} from '../src/domain/recipe-data'
+} from '../src/domain/recipe/recipe-data'
 
 const transformRecipe = smithingTransformRecipe(
   'minecraft:test_transform',

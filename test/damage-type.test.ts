@@ -7,9 +7,9 @@ import {
   isDamageTypeId,
   isDamageTypeName,
   resolveDamageTypeDefinition,
-} from '../src/domain/damage-type'
-import type { DamageTypeKind, DamageTypeName } from '../src/domain/damage-type'
-import { isVanillaDamageTypeComponent } from '../src/domain/item-combat-validation'
+} from '../src/domain/entity/damage-type'
+import type { DamageTypeKind, DamageTypeName } from '../src/domain/entity/damage-type'
+import { isVanillaDamageTypeComponent } from '../src/domain/item/item-combat-validation'
 
 // Count is derived from the pinned Java Edition 26.3 damage-type golden.
 const EXPECTED_DAMAGE_TYPE_COUNT = 51

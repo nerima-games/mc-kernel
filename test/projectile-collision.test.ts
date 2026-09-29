@@ -1,6 +1,6 @@
-import { aabb } from '../src/domain/coordinate-geometry'
-import { position } from '../src/domain/coordinate-primitives'
-import { segmentAABB } from '../src/domain/projectile-collision'
+import { aabb } from '../src/domain/coordinates/coordinate-geometry'
+import { position } from '../src/domain/coordinates/coordinate-primitives'
+import { segmentAABB } from '../src/domain/entity/projectile-collision'
 import { describe, expect, it } from 'vitest'
 
 const BOX = aabb(position(0, 0, 0), position(1, 1, 1))

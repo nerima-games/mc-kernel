@@ -10,9 +10,9 @@ import {
   itemComponentPatchesEqual,
   mergeItemComponentPatches,
   mergeItemComponentPatchesEither,
-} from "../src/domain/item-component-patch";
-import { itemComponents } from "../src/domain/item-components";
-import { itemComponentsSnapshot } from "../src/domain/item-components-validation";
+} from "../src/domain/item/item-component-patch";
+import { itemComponents } from "../src/domain/item/item-components";
+import { itemComponentsSnapshot } from "../src/domain/item/item-components-validation";
 
 describe("item component patches", () => {
   it("rejects hostile proxy records without throwing", () => {

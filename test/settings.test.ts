@@ -18,7 +18,7 @@ import {
   rebindKey,
   unbindKey,
   type Settings,
-} from '../src/domain/settings'
+} from '../src/domain/text/settings'
 
 describe('settings', () => {
   it('defines the graphics quality vocabulary and defaults', () => {

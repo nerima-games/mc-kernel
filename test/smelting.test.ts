@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { itemStack } from '../src/domain/item-stack'
+import { itemStack } from '../src/domain/item/item-stack'
 import {
   COOKING_STATIONS,
   VANILLA_FUEL_RULES,
@@ -9,13 +9,13 @@ import {
   emptyFurnaceState,
   furnaceState,
   matchSmeltingRecipe,
-} from '../src/domain/smelting'
-import type { FuelRule, SmeltingRecipe } from '../src/domain/smelting'
+} from '../src/domain/recipe/smelting'
+import type { FuelRule, SmeltingRecipe } from '../src/domain/recipe/smelting'
 import {
   buildFuelIndex,
   buildSmeltingIndexes,
   cachedFuelIndex,
-} from '../src/domain/smelting-indexes'
+} from '../src/domain/recipe/smelting-indexes'
 
 const recipe: SmeltingRecipe = {
   _tag: 'Smelting',

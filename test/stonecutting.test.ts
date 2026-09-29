@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { itemStack } from '../src/domain/item-stack'
+import { itemStack } from '../src/domain/item/item-stack'
 import {
   anyOf,
   exactly,
   tagged,
   type ItemTagMemberships,
   type RecipeItemTag,
-} from '../src/domain/recipe-data'
-import type { ItemType } from '../src/domain/item-type'
-import { buildStonecuttingRecipeIndex } from '../src/domain/stonecutting-indexes'
+} from '../src/domain/recipe/recipe-data'
+import type { ItemType } from '../src/domain/item/item-type'
+import { buildStonecuttingRecipeIndex } from '../src/domain/recipe/stonecutting-indexes'
 import {
   STONECUTTING_STATION_TAG,
   VANILLA_STONECUTTING_RECIPES,
@@ -16,7 +16,7 @@ import {
   matchStonecuttingRecipe,
   matchStonecuttingRecipes,
   stonecuttingRecipe,
-} from '../src/domain/stonecutting'
+} from '../src/domain/recipe/stonecutting'
 
 const STONE_INPUT_TAG: RecipeItemTag = '#minecraft:stone_inputs'
 const STONE_TAGS: ItemTagMemberships = new Map<RecipeItemTag, ReadonlySet<ItemType>>([

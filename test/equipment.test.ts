@@ -1,7 +1,7 @@
 /* eslint-disable max-statements, no-magic-numbers -- Equipment rules are a finite Minecraft contract matrix. */
 import { describe, expect, it } from 'vitest'
-import { itemComponents } from '../src/domain/item-components'
-import { itemStack } from '../src/domain/item-stack'
+import { itemComponents } from '../src/domain/item/item-components'
+import { itemStack } from '../src/domain/item/item-stack'
 import {
   damageEquipment,
   durability,
@@ -24,7 +24,7 @@ import {
   validateEquipmentSnapshot,
   type Equipment,
   type EquipmentItem,
-} from '../src/domain/equipment'
+} from '../src/domain/item/equipment'
 
 const DIAMOND_SWORD_MAX = 1561
 const SMALL_DAMAGE = 10

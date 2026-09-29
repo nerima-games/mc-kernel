@@ -6,16 +6,16 @@ import {
   TRUE_BY_DEFAULT_CAPABILITY_FLAGS,
   capabilityOf,
   resolveBlockCapabilities,
-} from '../src/domain/block-capabilities'
+} from '../src/domain/block/block-capabilities'
 import {
   BLOCK_IDS,
   blockIdOf,
   blockTypeOfId,
   capabilitiesOfBlockId,
   capabilityOfBlockId,
-} from '../src/domain/block-registry'
-import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
-import { type BlockDefinition, blockCapabilitiesOf } from '../src/domain/block-definition'
+} from '../src/domain/block/block-registry'
+import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block/block-properties'
+import { type BlockDefinition, blockCapabilitiesOf } from '../src/domain/block/block-definition'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 

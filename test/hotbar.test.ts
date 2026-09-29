@@ -6,7 +6,7 @@ import {
   HOTBAR_START,
   hotbarSlotIndex,
   isHotbarIndex,
-} from '../src/domain/hotbar'
+} from '../src/domain/item/hotbar'
 
 describe('hotbar projection', () => {
   it('uses the nine selectable slots at the end of the player inventory', () => {

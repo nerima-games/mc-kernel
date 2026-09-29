@@ -97,29 +97,30 @@ if (exportEntries.length === 0) {
 }
 
 const sourceIndex = await readFile(join(root, "src/index.ts"), "utf8");
-const starDomainEntryPoints = [
+const areaNames = [
   ...sourceIndex.matchAll(
-    /^\s*export \* from ['"]\.\/domain\/([^'"]+)\.js['"]\s*;?\s*$/gm,
+    /^\s*export \* from ['"]\.\/domain\/([^/]+)\/index\.js['"]\s*;?\s*$/gm,
   ),
-].map(([, entryPoint]) => entryPoint);
-// A module re-exported by name is as public as one re-exported wholesale; the
-// named form is what a module uses when a star export would collide, and it
-// legitimately appears twice when values and types are listed separately.
-// Counting only star exports reports such a module as an undeclared extra.
-const namedDomainEntryPoints = [
-  ...sourceIndex.matchAll(
-    /^\s*\}\s*from ['"]\.\/domain\/([^'"]+)\.js['"]\s*;?\s*$/gm,
-  ),
-].map(([, entryPoint]) => entryPoint);
-if (starDomainEntryPoints.length === 0) {
-  throw new Error("src/index.ts must declare at least one domain entrypoint");
+].map(([, area]) => area);
+if (areaNames.length === 0) {
+  throw new Error("src/index.ts must declare at least one area barrel");
 }
-if (new Set(starDomainEntryPoints).size !== starDomainEntryPoints.length) {
-  throw new Error("src/index.ts contains duplicate domain entrypoints");
+if (new Set(areaNames).size !== areaNames.length) {
+  throw new Error("src/index.ts contains duplicate area barrels");
 }
-const sourceDomainEntryPoints = [
-  ...new Set([...starDomainEntryPoints, ...namedDomainEntryPoints]),
-];
+const sourceDomainEntryPoints = (
+  await Promise.all(
+    areaNames.map(async (area) => {
+      const areaIndex = await readFile(
+        join(root, "src", "domain", area, "index.ts"),
+        "utf8",
+      );
+      return [...areaIndex.matchAll(/from ['"]\.\/(_[^'"]+)\.js['"]/g)].map(
+        ([, barrel]) => barrel.replace(/^_/, ""),
+      );
+    }),
+  )
+).flat();
 
 const declaredDomainEntryPoints = exportEntries
   .map(([subpath]) => subpath.match(/^\.\/domain\/(.+)$/)?.[1])

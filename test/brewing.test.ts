@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { itemStack } from '../src/domain/item-stack'
+import { itemStack } from '../src/domain/item/item-stack'
 import {
   BREWING_BOTTLE_SLOTS,
   BREWING_FUEL_ITEM,
@@ -12,9 +12,9 @@ import {
   brewingState,
   emptyBrewingState,
   matchBrewingRecipe,
-} from '../src/domain/brewing'
-import type { BrewingRecipe } from '../src/domain/brewing'
-import { buildBrewingRecipeIndex, cachedBrewingRecipeIndex } from '../src/domain/brewing-indexes'
+} from '../src/domain/recipe/brewing'
+import type { BrewingRecipe } from '../src/domain/recipe/brewing'
+import { buildBrewingRecipeIndex, cachedBrewingRecipeIndex } from '../src/domain/recipe/brewing-indexes'
 
 const recipe: BrewingRecipe = {
   _tag: 'Brewing',

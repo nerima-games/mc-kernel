@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { position } from '../src/domain/coordinate-primitives'
+import { position } from '../src/domain/coordinates/coordinate-primitives'
 import {
   DESPAWNED,
   ENTITY_ID_PREFIX,
@@ -20,8 +20,8 @@ import {
   findEntity,
   spawnEntity,
   sweepRoster,
-} from '../src/domain/entity'
-import type { EntityState } from '../src/domain/entity'
+} from '../src/domain/entity/entity'
+import type { EntityState } from '../src/domain/entity/entity'
 
 describe('entity', () => {
   it('validates identifiers and mints serial identifiers', () => {

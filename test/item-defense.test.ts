@@ -5,8 +5,8 @@ import {
   isDamageReductionRule,
   isDamageResistantComponent,
   isItemDamageRule,
-} from '../src/domain/item-defense'
-import { isResourceLocationProvider } from '../src/domain/item-component-values'
+} from '../src/domain/item/item-defense'
+import { isResourceLocationProvider } from '../src/domain/item/item-component-values'
 import { describe, expect, it } from 'vitest'
 
 describe('item defense components', () => {

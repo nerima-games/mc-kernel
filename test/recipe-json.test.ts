@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { isAnyOfIngredient } from "../src/domain/recipe-data";
-import { itemStack } from "../src/domain/item-stack";
+import { isAnyOfIngredient } from "../src/domain/recipe/recipe-data";
+import { itemStack } from "../src/domain/item/item-stack";
 import {
   cookingRecipeFromUnknown,
   craftingBannerDuplicateRecipeFromUnknown,
@@ -23,7 +23,7 @@ import {
   smithingTrimRecipeFromUnknown,
   stonecuttingRecipeFromUnknown,
   transmuteRecipeFromUnknown,
-} from "../src/domain/recipe-json";
+} from "../src/domain/recipe/recipe-json";
 
 const expectInvalidRecipe = (id: string, value: unknown): void => {
   expect(() => craftingRecipeFromUnknown(id, value)).toThrow();

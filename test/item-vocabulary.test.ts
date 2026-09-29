@@ -9,9 +9,9 @@ import {
   blockOfPlaceableItem,
   isPlaceableItem,
   itemOfBlock
-} from '../src/domain/block-item'
-import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
-import { ITEM_TYPES, type ItemType, isItemType } from '../src/domain/item-type'
+} from '../src/domain/block/block-item'
+import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
+import { ITEM_TYPES, type ItemType, isItemType } from '../src/domain/item/item-type'
 
 const IRON_ARMOUR_ITEM_TYPES = [
   'iron_helmet',

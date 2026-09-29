@@ -8,16 +8,16 @@ import {
   itemComponentStackLimitOf,
   itemComponents,
   itemToolComponentOf,
-} from '../src/domain/item-components'
-import { itemComponentsEqual } from '../src/domain/item-components-validation'
-import { isChargedProjectilesOptions } from '../src/domain/item-component-values'
+} from '../src/domain/item/item-components'
+import { itemComponentsEqual } from '../src/domain/item/item-components-validation'
+import { isChargedProjectilesOptions } from '../src/domain/item/item-component-values'
 import {
   consumableClearAllEffects,
   consumableComponentOf,
   foodComponentOf,
   useRemainderComponentOf,
-} from '../src/domain/consumable'
-import { useCooldownComponent } from '../src/domain/use-cooldown'
+} from '../src/domain/item/consumable'
+import { useCooldownComponent } from '../src/domain/item/use-cooldown'
 import {
   additionalTradeCostComponent,
   bannerPatternsComponent,
@@ -70,21 +70,21 @@ import {
   tooltipStyleComponent,
   writableBookContentComponent,
   writtenBookContentComponent,
-} from '../src/domain/item-component-values'
+} from '../src/domain/item/item-component-values'
 import {
   attackRangeComponent,
   damageTypeComponent,
   minimumAttackChargeComponent,
   swingAnimationComponent,
   useEffectsComponent,
-} from '../src/domain/item-combat'
-import { attributeModifier, attributeModifiersComponent } from '../src/domain/item-attribute-modifiers'
-import { blocksAttacksComponent, damageResistantComponent } from '../src/domain/item-defense'
-import { enchantmentsComponent, storedEnchantmentsComponent } from '../src/domain/item-enchantments'
-import { weaponComponent } from '../src/domain/weapon'
-import { textComponent } from '../src/domain/text-component'
-import { ResourceLocation } from '../src/domain/identifiers'
-import { itemStack } from '../src/domain/item-stack'
+} from '../src/domain/item/item-combat'
+import { attributeModifier, attributeModifiersComponent } from '../src/domain/item/item-attribute-modifiers'
+import { blocksAttacksComponent, damageResistantComponent } from '../src/domain/item/item-defense'
+import { enchantmentsComponent, storedEnchantmentsComponent } from '../src/domain/item/item-enchantments'
+import { weaponComponent } from '../src/domain/item/weapon'
+import { textComponent } from '../src/domain/text/text-component'
+import { ResourceLocation } from '../src/domain/text/identifiers'
+import { itemStack } from '../src/domain/item/item-stack'
 import { describe, expect, it } from 'vitest'
 
 describe('item components', () => {

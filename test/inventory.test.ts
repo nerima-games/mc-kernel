@@ -11,10 +11,10 @@ import {
   removeItem,
   removeItemAt,
   slotAt,
-} from '../src/domain/inventory'
-import type { Inventory } from '../src/domain/inventory'
-import { itemComponents } from '../src/domain/item-components'
-import { itemStack } from '../src/domain/item-stack'
+} from '../src/domain/item/inventory'
+import type { Inventory } from '../src/domain/item/inventory'
+import { itemComponents } from '../src/domain/item/item-components'
+import { itemStack } from '../src/domain/item/item-stack'
 
 const inventoryFrom = (slots: ReadonlyArray<unknown>): Inventory => normaliseInventory({ slots }).inventory
 

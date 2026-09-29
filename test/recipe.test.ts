@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { isItemStack, itemStack } from "../src/domain/item-stack";
-import type { ItemType } from "../src/domain/item-type";
+import { isItemStack, itemStack } from "../src/domain/item/item-stack";
+import type { ItemType } from "../src/domain/item/item-type";
 import {
   MAX_RECIPE_SIDE,
   VANILLA_CRAFTING_RECIPES,
@@ -20,12 +20,12 @@ import {
   shapelessRecipe,
   shapedRecipe,
   tagged,
-} from "../src/domain/recipe";
-import type { ItemTagMemberships } from "../src/domain/recipe";
+} from "../src/domain/recipe/recipe";
+import type { ItemTagMemberships } from "../src/domain/recipe/recipe";
 import {
   buildRecipeIndexes,
   matchIndexedRecipe,
-} from "../src/domain/recipe-matching";
+} from "../src/domain/recipe/recipe-matching";
 
 const itemTags: ItemTagMemberships = new Map([
   [tagged("#minecraft:planks").tag, new Set<ItemType>(["oak_planks"])],

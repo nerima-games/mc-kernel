@@ -4,9 +4,9 @@ import {
   LocalAxis,
   blockPositionFromAxes,
   chunkCoord,
-} from '../src/domain/coordinate-primitives.js'
-import { chunkKeyOf } from '../src/domain/coordinate-keys.js'
-import { ChunkRevision, LightRevision, WorldEpoch, readView } from '../src/domain/world-read-write.js'
+} from '../src/domain/coordinates/coordinate-primitives.js'
+import { chunkKeyOf } from '../src/domain/coordinates/coordinate-keys.js'
+import { ChunkRevision, LightRevision, WorldEpoch, readView } from '../src/domain/world/world-read-write.js'
 
 const block = BlockAxis(0)
 const chunk = ChunkAxis(0)

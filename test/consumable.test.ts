@@ -19,9 +19,9 @@ import {
   itemUseComponentsOf,
   isUseRemainderComponent,
   useRemainderComponentOf,
-} from '../src/domain/consumable'
-import { FOOD_DEFINITION_BY_ITEM } from '../src/domain/food'
-import { ResourceLocation } from '../src/domain/identifiers'
+} from '../src/domain/item/consumable'
+import { FOOD_DEFINITION_BY_ITEM } from '../src/domain/item/food'
+import { ResourceLocation } from '../src/domain/text/identifiers'
 
 describe('consumable item components', () => {
   it('publishes the official animation vocabulary and defaults', () => {
