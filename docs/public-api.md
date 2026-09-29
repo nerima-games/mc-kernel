@@ -507,17 +507,21 @@ const isEntityType: (value: unknown) => value is EntityType;
 
 ### 3-ter. ItemStack とレシピ
 
-`ItemStack` はアイテム種別と数量だけを持つ値であり、`itemStack` がアイテムごとの最大スタック数と数量の境界を検証する。
+`ItemStack` はアイテム種別、正の数量、解決済み item component payload を持つ不変値であり、`itemStack` がアイテムごとの最大スタック数と数量の境界を検証する。数量 0 は `ItemStack` に格納せず、空の `ItemSlot`（`undefined`）で表す。component patch は canonical payload に解決され、相反する set/remove は拒否される。
 空きスロットは `undefined` として表す。インベントリの搬送、所有権、装備状態、耐久値、エンチャントはこの型へ埋め込まない。
 
 ```typescript
 type ItemStack = { readonly item: ItemType; readonly count: StackCount };
-type Slot = ItemStack | undefined;
+type ItemSlot = ItemStack | undefined;
+type Slot = ItemSlot;
 
 const itemStack: (item: ItemType, count: number) => ItemStack;
 const itemStackFromUnknown: (item: unknown, count: unknown) => ItemStack;
 const isItemStack: (value: unknown) => value is ItemStack;
 const maxStackCountForItem: (item: ItemType) => ItemStackLimit;
+const itemStackEqualsIgnoringCount: (left: ItemStack, right: ItemStack) => boolean;
+const splitItemStack: (stack: ItemStack, amount: number) => { readonly taken: ItemStack; readonly remainder: ItemSlot };
+const mergeItemStacks: (left: ItemStack, right: ItemStack) => { readonly merged: ItemStack; readonly remainder: ItemSlot };
 ```
 
 `itemStack` は型付きコード用の厳格なコンストラクタであり、保存データや外部入力の境界では
@@ -664,7 +668,7 @@ const itemComponentPatchesEqual: (
 ```
 
 `ItemComponentPatchKey` は namespaced component id に任意の `!` を付けた値で、`!minecraft:foo` はその component の除去を表せる。patch の値は任意の JSON ではなく、
-有限・非循環な JSON に限定する。`ItemStack.componentPatch` はこの patch を保持し、stack の merge は patch を構造比較してから成立する。
+有限・非循環な JSON に限定する。`ItemStack.componentPatch` は入力 patch の provenance として保持し、stack の merge は解決済み payload を count 無視で比較してから成立する。`splitItemStack` と `mergeItemStacks` は payload を保ったまま新しい snapshot を返す。
 
 `craftingRecipeFromUnknown(id, value)` は現在の Java の `minecraft:crafting_shaped` と `minecraft:crafting_shapeless` を対象に、namespaced な vanilla item id、item tag、item-id の alternative、
 pattern/key/ingredients、result の `id` / `count` / `components`、category/group/notification を `Recipe` と `ItemStack` へ変換する。`cookingRecipeFromUnknown` は smelting / blasting /

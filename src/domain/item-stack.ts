@@ -2,6 +2,7 @@ import { maxStackCountOfItem, type ItemStackLimit } from "./item-registry.js";
 import {
   isItemComponents,
   itemComponentsEqual,
+  itemComponentsSnapshot,
   type ItemComponents,
 } from "./item-components-validation.js";
 import {
@@ -33,7 +34,8 @@ type RecordValue = {
 const isRecord = (value: unknown): value is RecordValue =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-export type Slot = ItemStack | undefined;
+export type ItemSlot = ItemStack | undefined;
+export type Slot = ItemSlot;
 
 export type ItemStackOptions = Readonly<{
   readonly components?: ItemComponents;
@@ -116,14 +118,24 @@ export const itemStack = (
     throw new TypeError(`Unknown item type: ${String(item)}`);
   }
   const { components, componentPatch } = stackOptionsFromUnknown(options);
-  const stack = { item, components };
+  const resolvedComponents =
+    components === undefined ? undefined : itemComponentsSnapshot(components);
+  const stack = { item, components: resolvedComponents };
   const maxStackSize = maxStackCountForStack(stack);
   if (!isValidStackCount(count, stack)) {
     throw new RangeError(
       `Item stack count for ${item} must be an integer in [1, ${maxStackSize}], received ${count}`,
     );
   }
-  return itemStackOf(item, count, components, componentPatch);
+  if (componentPatch !== undefined) {
+    mergeItemComponentPatches(undefined, componentPatch);
+  }
+  return itemStackOf(
+    item,
+    count,
+    components === undefined ? undefined : resolvedComponents,
+    componentPatch,
+  );
 };
 
 export const itemStackFromUnknown = (
@@ -206,10 +218,55 @@ export const transmuteItemStack = (
   });
 };
 
+export const itemStackEqualsIgnoringCount = (
+  left: ItemStack,
+  right: ItemStack,
+): boolean =>
+  isItemStack(left) &&
+  isItemStack(right) &&
+  left.item === right.item &&
+  itemComponentsEqual(
+    left.components,
+    right.components,
+  ) && itemComponentPatchesEqual(left.componentPatch, right.componentPatch);
+
 export const itemStacksCanMerge = (
   left: ItemStack,
   right: ItemStack,
 ): boolean =>
-  left.item === right.item &&
-  itemComponentsEqual(left.components, right.components) &&
-  itemComponentPatchesEqual(left.componentPatch, right.componentPatch);
+  left.item === right.item && itemStackEqualsIgnoringCount(left, right);
+
+export const splitItemStack = (
+  stack: ItemStack,
+  amount: number,
+): { readonly taken: ItemStack; readonly remainder: ItemSlot } => {
+  if (!isItemStack(stack)) throw new TypeError("Stack must be an ItemStack");
+  if (!Number.isSafeInteger(amount) || amount < 1 || amount > stack.count) {
+    throw new RangeError(`Split amount must be an integer in [1, ${stack.count}]`);
+  }
+  return {
+    taken: itemStackWithCount(stack, amount),
+    remainder: amount === stack.count ? undefined : itemStackWithCount(stack, stack.count - amount),
+  };
+};
+
+export const mergeItemStacks = (
+  left: ItemStack,
+  right: ItemStack,
+): { readonly merged: ItemStack; readonly remainder: ItemSlot } => {
+  if (!isItemStack(left) || !isItemStack(right)) {
+    throw new TypeError("Stacks must be ItemStacks");
+  }
+  if (!itemStackEqualsIgnoringCount(left, right)) {
+    throw new TypeError("IncompatibleStacks");
+  }
+  const capacity = maxStackCountForStack(left);
+  const mergedCount = Math.min(capacity, left.count + right.count);
+  return {
+    merged: itemStackWithCount(left, mergedCount),
+    remainder:
+      left.count + right.count > capacity
+        ? itemStackWithCount(right, left.count + right.count - capacity)
+        : undefined,
+  };
+};

@@ -7,6 +7,8 @@ import {
   itemStack,
   itemStackFromUnknown,
   itemStackWithCount,
+  mergeItemStacks,
+  splitItemStack,
   itemStacksCanMerge,
   maxStackCountForItem,
   transmuteItemStack,
@@ -186,23 +188,14 @@ describe("item stacks", () => {
     });
     const result = itemStack("diamond", 1, { componentPatch: resultPatch });
 
-    expect(transmuteItemStack(source, result)).toEqual({
-      item: "diamond",
-      count: 1,
-      components: itemComponents("stone"),
-      componentPatch: {
-        "minecraft:custom_name": "Result",
-        "minecraft:damage": 1,
-        "!minecraft:damage": null,
-      },
-    });
+    expect(() => transmuteItemStack(source, result)).toThrow(TypeError);
     expect(transmuteItemStack(source, itemStack("diamond", 1))).toEqual({
       item: "diamond",
       count: 1,
       components: itemComponents("stone"),
       componentPatch: sourcePatch,
     });
-    expect(() => transmuteItemStack(source, result, 65)).toThrow(RangeError);
+    expect(() => transmuteItemStack(source, result, 65)).toThrow(TypeError);
     expect(() =>
       Reflect.apply(transmuteItemStack, undefined, [{}, result]),
     ).toThrow(TypeError);
@@ -242,5 +235,27 @@ describe("item stacks", () => {
         components: itemComponents("stone", { maxStackSize: 2 }),
       }),
     ).toBe(false);
+  });
+
+  it("splits and merges literal stone counts without losing payload identity", () => {
+    const payload = itemComponents("stone", { rarity: "rare" });
+    const source = itemStack("stone", 32, { components: payload });
+    const split = splitItemStack(source, 12);
+
+    expect(split.taken).toEqual({ item: "stone", count: 12, components: payload });
+    expect(split.remainder).toEqual({ item: "stone", count: 20, components: payload });
+    if (split.remainder === undefined) {
+      throw new Error("expected a remainder");
+    }
+    expect(mergeItemStacks(split.taken, split.remainder)).toEqual({
+      merged: { item: "stone", count: 32, components: payload },
+      remainder: undefined,
+    });
+    expect(() => splitItemStack(source, 0)).toThrow(RangeError);
+    expect(() => Reflect.apply(splitItemStack, undefined, [{}, 1])).toThrow(TypeError);
+    expect(splitItemStack(source, 32).remainder).toBeUndefined();
+    expect(() => mergeItemStacks(itemStack("stone", 64), itemStack("stone", 1))).not.toThrow();
+    expect(() => Reflect.apply(mergeItemStacks, undefined, [{}, source])).toThrow(TypeError);
+    expect(() => mergeItemStacks(source, itemStack("dirt", 1))).toThrow(TypeError);
   });
 });

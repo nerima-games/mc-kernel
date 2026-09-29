@@ -6,6 +6,7 @@ import {
   jsonValuesEqual,
   type JsonValue,
 } from "./json-value.js";
+import { isItemComponents, itemComponentsSnapshot, type ItemComponents } from "./item-components-validation.js";
 
 /** A component key, optionally prefixed with `!` to remove that component. */
 export type ItemComponentPatchKey = string &
@@ -111,11 +112,125 @@ export function mergeItemComponentPatches(
           `Item component patch has an invalid value: ${key}`,
         );
       }
+      const removal = key.startsWith("!");
+      const canonicalKey = removal ? key.slice(1) : key;
+      const oppositeKey = removal ? canonicalKey : `!${canonicalKey}`;
+      if (Object.hasOwn(merged, oppositeKey)) {
+        throw new TypeError(`Conflicting item component patch keys: ${canonicalKey}`);
+      }
       merged[key] = value;
     }
   }
   return itemComponentPatchFromUnknown(merged);
 }
+
+const COMPONENT_NAMES: Readonly<Record<string, keyof ItemComponents>> = {
+  max_stack_size: "maxStackSize",
+  max_damage: "maxDamage",
+  damage: "damage",
+  repair_cost: "repairCost",
+  unbreakable: "unbreakable",
+  enchantment_glint_override: "enchantmentGlintOverride",
+  tooltip_display: "tooltipDisplay",
+  custom_name: "customName",
+  item_name: "itemName",
+  lore: "lore",
+  item_model: "itemModel",
+  custom_data: "customData",
+  entity_data: "entityData",
+  bucket_entity_data: "bucketEntityData",
+  profile: "profile",
+  block_entity_data: "blockEntityData",
+  charged_projectiles: "chargedProjectiles",
+  bundle_contents: "bundleContents",
+  container: "container",
+  map_color: "mapColor",
+  map_decorations: "mapDecorations",
+  writable_book_content: "writableBookContent",
+  written_book_content: "writtenBookContent",
+  trim: "trim",
+  suspicious_stew: "suspiciousStew",
+  hide_additional_tooltip: "hideAdditionalTooltip",
+  can_break: "canBreak",
+  can_place_on: "canPlaceOn",
+  bees: "bees",
+  potion_contents: "potionContents",
+  dyed_color: "dyedColor",
+  custom_model_data: "customModelData",
+  map_id: "mapId",
+  block_state: "blockState",
+  instrument: "instrument",
+  note_block_sound: "noteBlockSound",
+  recipes: "recipes",
+  lock: "lock",
+  tooltip_style: "tooltipStyle",
+  base_color: "baseColor",
+  equippable: "equippable",
+  glider: "glider",
+  death_protection: "deathProtection",
+  repairable: "repairable",
+  enchantable: "enchantable",
+  jukebox_playable: "jukeboxPlayable",
+  ominous_bottle_amplifier: "ominousBottleAmplifier",
+  "painting/variant": "paintingVariant",
+  lodestone_tracker: "lodestoneTracker",
+  firework_explosion: "fireworkExplosion",
+  fireworks: "fireworks",
+  banner_patterns: "bannerPatterns",
+  pot_decorations: "potDecorations",
+  container_loot: "containerLoot",
+  debug_stick_state: "debugStickState",
+  rarity: "rarity",
+  food: "food",
+  consumable: "consumable",
+  use_remainder: "useRemainder",
+  use_cooldown: "useCooldown",
+  use_effects: "useEffects",
+  tool: "tool",
+  weapon: "weapon",
+  kinetic_weapon: "kineticWeapon",
+  piercing_weapon: "piercingWeapon",
+  attribute_modifiers: "attributeModifiers",
+  enchantments: "enchantments",
+  stored_enchantments: "storedEnchantments",
+  blocks_attacks: "blocksAttacks",
+  damage_resistant: "damageResistant",
+  minimum_attack_charge: "minimumAttackCharge",
+  damage_type: "damageType",
+  swing_animation: "swingAnimation",
+  attack_range: "attackRange",
+  potion_duration_scale: "potionDurationScale",
+  break_sound: "breakSound",
+  provides_banner_patterns: "providesBannerPatterns",
+  provides_trim_material: "providesTrimMaterial",
+  dye: "dye",
+  additional_trade_cost: "additionalTradeCost",
+  sulfur_cube_content: "sulfurCubeContent",
+};
+
+export const applyItemComponentPatch = (
+  base: ItemComponents,
+  patch: ItemComponentPatch,
+): ItemComponents => {
+  if (!isItemComponents(base)) throw new TypeError("Base item components are invalid");
+  if (!isItemComponentPatch(patch)) throw new TypeError("Item component patch is invalid");
+  const next: Record<string, unknown> = { ...base };
+  for (const key of Object.keys(patch)) {
+    const componentKey = key.startsWith("!") ? key.slice(1) : key;
+    const field = COMPONENT_NAMES[componentKey.slice(componentKey.indexOf(":") + 1)];
+    if (field === undefined) throw new TypeError(`Unsupported item component: ${componentKey}`);
+    if (key.startsWith("!")) {
+      if (patch[ItemComponentPatchKey(key)] !== null) {
+        throw new TypeError(`Removal patch must use null: ${key}`);
+      }
+      next[field] = undefined;
+    } else {
+      next[field] = patch[ItemComponentPatchKey(key)];
+    }
+  }
+  if (!isItemComponents(next)) throw new TypeError("Patched item components are invalid");
+  return itemComponentsSnapshot(next);
+};
 
 export const itemComponentPatchesEqual = (
   left: ItemComponentPatch | undefined,

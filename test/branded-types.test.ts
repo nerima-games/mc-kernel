@@ -12,6 +12,7 @@ import {
   SessionEpoch,
   SimulationTick,
   StackCount,
+  TransferQuantity,
   WeaponDisableBlockingSeconds,
 } from '../src/domain/quantities'
 import { Effect, Either } from 'effect'
@@ -93,6 +94,16 @@ describe('StackCount', () => {
       }
     })),
   )
+})
+
+describe('TransferQuantity', () => {
+  it('accepts positive integer transfer quantities and rejects invalid values', () => {
+    expect(Either.isRight(TransferQuantity.either(1))).toBe(true)
+    expect(Either.isRight(TransferQuantity.either(99))).toBe(true)
+    expect(Either.isLeft(TransferQuantity.either(0))).toBe(true)
+    expect(Either.isLeft(TransferQuantity.either(100))).toBe(true)
+    expect(Either.isLeft(TransferQuantity.either(1.5))).toBe(true)
+  })
 })
 
 describe('DeltaTimeSecs', () => {

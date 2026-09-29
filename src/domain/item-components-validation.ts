@@ -655,6 +655,29 @@ const isResolvedNestedValue = (
 export const isItemComponents = (value: unknown): value is ItemComponents =>
   isResolvedNestedValue(value, new WeakSet<object>(), 'components')
 
+function freezeSnapshot(value: ItemComponents): ItemComponents
+function freezeSnapshot(value: unknown): unknown
+function freezeSnapshot(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map(freezeSnapshot))
+  }
+  if (isRecord(value)) {
+    const copy: Record<string, unknown> = {}
+    for (const [key, child] of Object.entries(value)) {
+      copy[key] = freezeSnapshot(child)
+    }
+    return Object.freeze(copy)
+  }
+  return value
+}
+
+export const itemComponentsSnapshot = (value: ItemComponents): ItemComponents => {
+  if (!isItemComponents(value)) {
+    throw new TypeError('Item components must be a resolved component object')
+  }
+  return freezeSnapshot(value)
+}
+
 const deepValueEqual = (left: unknown, right: unknown): boolean => {
   if (Object.is(left, right)) return true
   if (Array.isArray(left) || Array.isArray(right)) {

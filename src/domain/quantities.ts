@@ -25,6 +25,14 @@ export const StackCount: Brand.Brand.Constructor<StackCount> = Brand.refined<Sta
   (value) => Brand.error(`StackCount must be an integer in [0, ${MAX_STACK_COUNT}], received ${value}`),
 )
 
+/** A positive quantity used when transferring items between slots. */
+export type TransferQuantity = number & Brand.Brand<'TransferQuantity'>
+
+export const TransferQuantity: Brand.Brand.Constructor<TransferQuantity> = Brand.refined<TransferQuantity>(
+  (value) => Number.isSafeInteger(value) && value >= 1 && value <= 99,
+  (value) => Brand.error(`TransferQuantity must be an integer in [1, 99], received ${value}`),
+)
+
 /** Official `max_stack_size`: an integer in [1, 99]. */
 export type MaxStackSize = number & Brand.Brand<'MaxStackSize'>
 

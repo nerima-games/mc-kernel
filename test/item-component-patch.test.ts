@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   ItemComponentPatchKey,
+  applyItemComponentPatch,
   isItemComponentPatch,
   itemComponentPatch,
   itemComponentPatchFromUnknown,
   itemComponentPatchesEqual,
   mergeItemComponentPatches,
 } from "../src/domain/item-component-patch";
+import { itemComponents } from "../src/domain/item-components";
+import { itemComponentsSnapshot } from "../src/domain/item-components-validation";
 
 describe("item component patches", () => {
   it("accepts namespaced component keys and removal keys", () => {
@@ -118,7 +121,7 @@ describe("item component patches", () => {
     ).toBe(false);
   });
 
-  it("merges patches with later values taking precedence", () => {
+  it("rejects conflicting patches", () => {
     const left = itemComponentPatch({
       "minecraft:custom_name": "Stone",
       "minecraft:damage": 1,
@@ -131,11 +134,7 @@ describe("item component patches", () => {
     expect(mergeItemComponentPatches(undefined, undefined)).toBeUndefined();
     expect(mergeItemComponentPatches(left, undefined)).toBe(left);
     expect(mergeItemComponentPatches(undefined, right)).toBe(right);
-    expect(mergeItemComponentPatches(left, right)).toEqual({
-      "minecraft:custom_name": "Dirt",
-      "minecraft:damage": 1,
-      "!minecraft:damage": null,
-    });
+    expect(() => mergeItemComponentPatches(left, right)).toThrow(TypeError);
     expect(() =>
       Reflect.apply(mergeItemComponentPatches, undefined, [
         { invalid: true },
@@ -162,5 +161,32 @@ describe("item component patches", () => {
     expect(() =>
       Reflect.apply(mergeItemComponentPatches, undefined, [shifting, right]),
     ).toThrow(TypeError);
+  });
+
+  it("applies supported set/remove operations and rejects malformed operations", () => {
+    const base = itemComponents("stone");
+    expect(applyItemComponentPatch(base, itemComponentPatch({
+      "minecraft:custom_name": { text: "Stone" },
+    }))).toBeDefined();
+    expect(applyItemComponentPatch(base, itemComponentPatch({
+      "!minecraft:custom_name": null,
+    }))).toEqual(base);
+    expect(() => Reflect.apply(applyItemComponentPatch, undefined, [{}, itemComponentPatch({})])).toThrow(TypeError);
+    expect(() => Reflect.apply(applyItemComponentPatch, undefined, [base, { invalid: true }])).toThrow(TypeError);
+    expect(() => applyItemComponentPatch(base, itemComponentPatch({ "minecraft:unknown": true }))).toThrow(TypeError);
+    expect(() => applyItemComponentPatch(base, itemComponentPatch({ "!minecraft:custom_name": true }))).toThrow(TypeError);
+    expect(() => applyItemComponentPatch(base, itemComponentPatch({ "minecraft:max_stack_size": 0 }))).toThrow(TypeError);
+    expect(() => Reflect.apply(itemComponentsSnapshot, undefined, [{}])).toThrow(TypeError);
+    let maxStackSizeReads = 0;
+    const unstable = new Proxy(base, {
+      get(target, property, receiver) {
+        if (property === "maxStackSize") {
+          maxStackSizeReads += 1;
+          return maxStackSizeReads === 1 ? 64 : 0;
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    expect(() => Reflect.apply(itemComponentsSnapshot, undefined, [unstable])).toThrow(TypeError);
   });
 });
