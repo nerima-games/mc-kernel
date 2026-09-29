@@ -332,10 +332,11 @@ type RecordValue = Record<string, unknown>
 const isRecord = (value: unknown): value is RecordValue =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const hasExactKeys = (value: RecordValue, keys: ReadonlyArray<string>): boolean => {
-  const actualKeys = Object.keys(value)
-  return actualKeys.length === keys.length && keys.every((key) => Object.hasOwn(value, key))
-}
+const REQUIRED_COMPONENT_KEYS = ['maxStackSize', 'maxDamage', 'damage', 'repairCost', 'rarity'] as const
+
+const hasCanonicalComponentKeys = (value: RecordValue): boolean =>
+  Object.keys(value).every((key) => RESOLVED_COMPONENT_KEYS.some((allowedKey) => allowedKey === key)) &&
+  REQUIRED_COMPONENT_KEYS.every((key) => Object.hasOwn(value, key))
 
 const ITEM_RARITY_SET: ReadonlySet<string> = new Set(ITEM_RARITIES)
 
@@ -508,7 +509,7 @@ const isResolvedComponents = (
   ancestors: WeakSet<object>,
   validate: ResolvedNestedValueValidator,
 ): boolean => {
-  if (!isRecord(value) || !hasExactKeys(value, RESOLVED_COMPONENT_KEYS)) {
+  if (!isRecord(value) || !hasCanonicalComponentKeys(value)) {
     return false
   }
   if (!isValidItemComponentCore(value) || ancestors.has(value)) {

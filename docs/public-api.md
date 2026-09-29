@@ -507,25 +507,40 @@ const isEntityType: (value: unknown) => value is EntityType;
 
 ### 3-ter. ItemStack とレシピ
 
-`ItemStack` はアイテム種別、正の数量、解決済み item component payload を持つ不変値であり、`itemStack` がアイテムごとの最大スタック数と数量の境界を検証する。数量 0 は `ItemStack` に格納せず、空の `ItemSlot`（`undefined`）で表す。component patch は canonical payload に解決され、相反する set/remove は拒否される。
+`ItemStack` はアイテム種別、正の数量、解決済み item component payload だけを持つ不変値であり、`itemStack` がアイテムごとの最大スタック数と数量の境界を検証する。数量 0 は `ItemStack` に格納せず、空の `ItemSlot`（`undefined`）で表す。component patch は decoder・recipe・wire などの境界で `applyItemComponentPatch` により解決してから `ItemStack.components` へ渡す。patch や未解決の payload を `ItemStack` のフィールドや sidecar として保持しない。
 空きスロットは `undefined` として表す。インベントリの搬送、所有権、装備状態、耐久値、エンチャントはこの型へ埋め込まない。
 
 ```typescript
-type ItemStack = { readonly item: ItemType; readonly count: StackCount };
+type ItemStack = {
+  readonly item: ItemType;
+  readonly count: StackCount;
+  readonly components: ItemComponents;
+};
 type ItemSlot = ItemStack | undefined;
 type Slot = ItemSlot;
 
-const itemStack: (item: ItemType, count: number) => ItemStack;
-const itemStackFromUnknown: (item: unknown, count: unknown) => ItemStack;
+type ItemStackOptions = Readonly<{
+  readonly components?: ItemComponents;
+  readonly componentPatch?: ItemComponentPatch;
+}>;
+const itemStack: (item: ItemType, count: number, options?: ItemStackOptions) => ItemStack;
+const itemStackFromUnknown: (item: unknown, count: unknown, options?: unknown) => ItemStack;
 const isItemStack: (value: unknown) => value is ItemStack;
 const maxStackCountForItem: (item: ItemType) => ItemStackLimit;
 const itemStackEqualsIgnoringCount: (left: ItemStack, right: ItemStack) => boolean;
+const itemStacksCanMerge: (left: ItemStack, right: ItemStack) => boolean;
+const itemStackWithCount: (stack: ItemStack, count: number) => ItemStack;
+const transmuteItemStack: (source: ItemStack, result: ItemStack, count?: number) => ItemStack;
 const splitItemStack: (stack: ItemStack, amount: number) => { readonly taken: ItemStack; readonly remainder: ItemSlot };
 const mergeItemStacks: (left: ItemStack, right: ItemStack) => { readonly merged: ItemStack; readonly remainder: ItemSlot };
 ```
 
 `itemStack` は型付きコード用の厳格なコンストラクタであり、保存データや外部入力の境界では
-`itemStackFromUnknown` を使って item と count を検証する。
+`itemStackFromUnknown` を使って item、count、解決済み components を検証する。`applyItemComponentPatch` は
+境界でだけ patch を読み、既定値との合成、set/remove の競合拒否、deep snapshot を完了させる。
+`itemStackEqualsIgnoringCount` と `itemStacksCanMerge` は item と components の構造的等価性で判定し、
+`splitItemStack` / `mergeItemStacks` は components を失わず新しい snapshot を返す。数量の移送量には
+`TransferQuantity`（1..99 の正の整数）を使う。これらの関数は入力を変更しない。
 
 ### 3-ter-1. プレイヤーインベントリ
 
@@ -668,7 +683,7 @@ const itemComponentPatchesEqual: (
 ```
 
 `ItemComponentPatchKey` は namespaced component id に任意の `!` を付けた値で、`!minecraft:foo` はその component の除去を表せる。patch の値は任意の JSON ではなく、
-有限・非循環な JSON に限定する。`ItemStack.componentPatch` は入力 patch の provenance として保持し、stack の merge は解決済み payload を count 無視で比較してから成立する。`splitItemStack` と `mergeItemStacks` は payload を保ったまま新しい snapshot を返す。
+有限・非循環な JSON に限定する。patch は境界でのみ解決し、`ItemStack` は解決済み payload を保持する。stack の merge は解決済み payload を count 無視で比較してから成立し、`splitItemStack` と `mergeItemStacks` は payload を保ったまま新しい snapshot を返す。
 
 `craftingRecipeFromUnknown(id, value)` は現在の Java の `minecraft:crafting_shaped` と `minecraft:crafting_shapeless` を対象に、namespaced な vanilla item id、item tag、item-id の alternative、
 pattern/key/ingredients、result の `id` / `count` / `components`、category/group/notification を `Recipe` と `ItemStack` へ変換する。`cookingRecipeFromUnknown` は smelting / blasting /

@@ -132,9 +132,15 @@ describe("item component patches", () => {
     });
 
     expect(mergeItemComponentPatches(undefined, undefined)).toBeUndefined();
-    expect(mergeItemComponentPatches(left, undefined)).toBe(left);
-    expect(mergeItemComponentPatches(undefined, right)).toBe(right);
-    expect(() => mergeItemComponentPatches(left, right)).toThrow(TypeError);
+    expect(mergeItemComponentPatches(left, undefined)).toEqual(left);
+    expect(mergeItemComponentPatches(undefined, right)).toEqual(right);
+    let conflict: unknown;
+    try {
+      mergeItemComponentPatches(left, right);
+    } catch (error) {
+      conflict = error;
+    }
+    expect(conflict).toMatchObject({ _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:custom_name" });
     expect(() =>
       Reflect.apply(mergeItemComponentPatches, undefined, [
         { invalid: true },

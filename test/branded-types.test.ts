@@ -19,7 +19,6 @@ import { Effect, Either } from 'effect'
 import { ResourceLocation, StageId, TagLocation, UUID, WorldId, vanillaId } from '../src/domain/identifiers'
 import { describe, expect, it } from 'vitest'
 
-const EMPTY_STACK_COUNT = 0
 const SINGLE_ITEM_STACK_COUNT = 1
 const FRACTIONAL_STACK_COUNT = 1.5
 const NEGATIVE_STACK_COUNT = -1
@@ -53,7 +52,6 @@ const VALID_NEGATIVE_CHUNK_COORDINATE = -4
 describe('StackCount', () => {
   it('accepts the boundaries of its documented range', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(Either.isRight(StackCount.either(EMPTY_STACK_COUNT))).toBe(true)
       expect(Either.isRight(StackCount.either(SINGLE_ITEM_STACK_COUNT))).toBe(true)
       expect(Either.isRight(StackCount.either(MAX_STACK_COUNT))).toBe(true)
     })),

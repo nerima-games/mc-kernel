@@ -423,6 +423,14 @@ describe("public API surface", () => {
           "itemStack",
           "itemStackFromUnknown",
           "isItemStack",
+          "itemStackEqualsIgnoringCount",
+          "itemStacksCanMerge",
+          "itemStackWithCount",
+          "transmuteItemStack",
+          "splitItemStack",
+          "mergeItemStacks",
+          "applyItemComponentPatch",
+          "TransferQuantity",
           // Fixed player inventory value operations
           "INVENTORY_SLOT_COUNT",
           "emptyInventory",
@@ -1034,6 +1042,26 @@ describe("public API surface", () => {
           itemStackModule.itemStackFromUnknown,
         );
         expect(kernel.isItemStack).toBe(itemStackModule.isItemStack);
+        expect(kernel.itemStackEqualsIgnoringCount).toBe(
+          itemStackModule.itemStackEqualsIgnoringCount,
+        );
+        expect(kernel.itemStacksCanMerge).toBe(
+          itemStackModule.itemStacksCanMerge,
+        );
+        expect(kernel.itemStackWithCount).toBe(
+          itemStackModule.itemStackWithCount,
+        );
+        expect(kernel.transmuteItemStack).toBe(
+          itemStackModule.transmuteItemStack,
+        );
+        expect(kernel.splitItemStack).toBe(itemStackModule.splitItemStack);
+        expect(kernel.mergeItemStacks).toBe(itemStackModule.mergeItemStacks);
+        expect(kernel.applyItemComponentPatch).toBe(
+          itemComponentPatchModule.applyItemComponentPatch,
+        );
+        expect(kernel.TransferQuantity).toBe(
+          quantitiesModule.TransferQuantity,
+        );
         expect(kernel.INVENTORY_SLOT_COUNT).toBe(
           inventoryModule.INVENTORY_SLOT_COUNT,
         );
@@ -3025,6 +3053,15 @@ describe("public API surface", () => {
         );
         expect(itemStackSubpath.itemStack).toBe(packageRoot.itemStack);
         expect(itemStackSubpath.isItemStack).toBe(packageRoot.isItemStack);
+        expect(itemStackSubpath.splitItemStack).toBe(
+          packageRoot.splitItemStack,
+        );
+        expect(itemStackSubpath.mergeItemStacks).toBe(
+          packageRoot.mergeItemStacks,
+        );
+        expect(itemStackSubpath.itemStacksCanMerge).toBe(
+          packageRoot.itemStacksCanMerge,
+        );
         expect(itemRegistrySubpath.ITEM_REGISTRY).toBe(
           packageRoot.ITEM_REGISTRY,
         );

@@ -1,6 +1,6 @@
 /** Portable item-component identifiers, rarities, and default stack metadata. */
 import type { ItemType } from './item-type.js'
-import { MAX_STACK_COUNT } from './quantities.js'
+const DEFAULT_STACK_LIMIT = 64
 
 export const ITEM_COMPONENT_IDS = [
   'minecraft:damage',
@@ -95,7 +95,7 @@ export type ItemRarity = (typeof ITEM_RARITIES)[number]
 const SINGLE_STACK_LIMIT = 1
 const SIXTEEN_STACK_LIMIT = 16
 
-export type ItemStackLimit = typeof MAX_STACK_COUNT | typeof SINGLE_STACK_LIMIT | typeof SIXTEEN_STACK_LIMIT
+export type ItemStackLimit = typeof DEFAULT_STACK_LIMIT | typeof SINGLE_STACK_LIMIT | typeof SIXTEEN_STACK_LIMIT
 
 export const ITEMS_WITH_SINGLE_STACK_LIMIT: ReadonlyArray<ItemType> = [
   'bow',
@@ -177,5 +177,5 @@ export const itemComponentStackLimitOf = (type: ItemType): ItemStackLimit => {
   if (SIXTEEN_STACK_ITEMS.has(type)) {
     return SIXTEEN_STACK_LIMIT
   }
-  return MAX_STACK_COUNT
+  return DEFAULT_STACK_LIMIT
 }

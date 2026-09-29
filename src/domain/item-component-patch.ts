@@ -1,4 +1,5 @@
 import { Brand } from "effect";
+import { TaggedError } from "effect/Data";
 import { NamespacedResourceLocation } from "./identifiers.js";
 import {
   isJsonValue,
@@ -7,6 +8,10 @@ import {
   type JsonValue,
 } from "./json-value.js";
 import { isItemComponents, itemComponentsSnapshot, type ItemComponents } from "./item-components-validation.js";
+export const ItemComponentPatchConflictError: new (args: { readonly componentKey: string }) => {
+  readonly _tag: "ItemComponentPatchConflictError";
+  readonly componentKey: string;
+} = TaggedError("ItemComponentPatchConflictError");
 
 /** A component key, optionally prefixed with `!` to remove that component. */
 export type ItemComponentPatchKey = string &
@@ -56,6 +61,7 @@ export const itemComponentPatchFromUnknown = (
     throw new TypeError("Item component patch must be a plain object");
   }
   const normalized: Record<ItemComponentPatchKey, JsonValue> = {};
+  const canonicalKeys = new Set<string>();
   for (const key of Object.keys(value)) {
     if (!ItemComponentPatchKey.is(key)) {
       throw new TypeError(`Item component key must be namespaced: ${key}`);
@@ -64,6 +70,11 @@ export const itemComponentPatchFromUnknown = (
     if (!isJsonValue(componentValue)) {
       throw new TypeError(`Item component value must be JSON: ${key}`);
     }
+    const canonicalKey = key.startsWith("!") ? key.slice(1) : key;
+    if (canonicalKeys.has(canonicalKey)) {
+      throw new ItemComponentPatchConflictError({ componentKey: canonicalKey });
+    }
+    canonicalKeys.add(canonicalKey);
     normalized[ItemComponentPatchKey(key)] =
       jsonValueFromUnknown(componentValue);
   }
@@ -97,10 +108,10 @@ export function mergeItemComponentPatches(
     throw new TypeError("Right item component patch is invalid");
   }
   if (left === undefined) {
-    return right;
+    return right === undefined ? undefined : itemComponentPatchFromUnknown(right);
   }
   if (right === undefined) {
-    return left;
+    return itemComponentPatchFromUnknown(left);
   }
   const merged: Record<string, JsonValue> = {};
   for (const patch of [left, right]) {
@@ -115,8 +126,8 @@ export function mergeItemComponentPatches(
       const removal = key.startsWith("!");
       const canonicalKey = removal ? key.slice(1) : key;
       const oppositeKey = removal ? canonicalKey : `!${canonicalKey}`;
-      if (Object.hasOwn(merged, oppositeKey)) {
-        throw new TypeError(`Conflicting item component patch keys: ${canonicalKey}`);
+      if (Object.hasOwn(merged, key) || Object.hasOwn(merged, oppositeKey)) {
+        throw new ItemComponentPatchConflictError({ componentKey: canonicalKey });
       }
       merged[key] = value;
     }
@@ -214,7 +225,7 @@ export const applyItemComponentPatch = (
 ): ItemComponents => {
   if (!isItemComponents(base)) throw new TypeError("Base item components are invalid");
   if (!isItemComponentPatch(patch)) throw new TypeError("Item component patch is invalid");
-  const next: Record<string, unknown> = { ...base };
+  let next: Record<string, unknown> = { ...base };
   for (const key of Object.keys(patch)) {
     const componentKey = key.startsWith("!") ? key.slice(1) : key;
     const field = COMPONENT_NAMES[componentKey.slice(componentKey.indexOf(":") + 1)];
@@ -223,7 +234,7 @@ export const applyItemComponentPatch = (
       if (patch[ItemComponentPatchKey(key)] !== null) {
         throw new TypeError(`Removal patch must use null: ${key}`);
       }
-      next[field] = undefined;
+      next = Object.fromEntries(Object.entries(next).filter(([propertyKey]) => propertyKey !== field));
     } else {
       next[field] = patch[ItemComponentPatchKey(key)];
     }
