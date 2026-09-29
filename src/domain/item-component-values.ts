@@ -578,8 +578,9 @@ const isRecordValue = (value: unknown): value is RecordValue =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 const isItemStack = (value: unknown): value is ItemStack => {
-  const item = value && isRecordValue(value) ? value['item'] : undefined
-  if (!isRecordValue(value) || !isItemType(item) || !isItemComponents(value['components'])) return false
+  if (!isRecordValue(value)) return false
+  const item = value['item']
+  if (!isItemType(item) || !isItemComponents(value['components'])) return false
   const count = value['count']
   return Number.isSafeInteger(count) && Number(count) >= 1 && Number(count) <= maxStackCountOfItem(item)
 }

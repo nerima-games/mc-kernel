@@ -103,6 +103,7 @@ describe('item components', () => {
     expect(isChargedProjectilesOptions([{ item: 'stone', count: 1, components: itemComponents('stone') }])).toBe(true)
     expect(isChargedProjectilesOptions([{ item: 'stone', count: 64, components: itemComponents('stone') }])).toBe(true)
     expect(isChargedProjectilesOptions([{ item: 'stone', count: 65, components: itemComponents('stone') }])).toBe(false)
+    expect(isChargedProjectilesOptions([null])).toBe(false)
     expect(isChargedProjectilesOptions([{ item: 'ender_pearl', count: 16, components: itemComponents('ender_pearl') }])).toBe(true)
     expect(isChargedProjectilesOptions([{ item: 'ender_pearl', count: 17, components: itemComponents('ender_pearl') }])).toBe(false)
     expect(isChargedProjectilesOptions([{ item: 'diamond_pickaxe', count: 1, components: itemComponents('diamond_pickaxe') }])).toBe(true)
