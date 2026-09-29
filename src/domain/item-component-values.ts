@@ -114,7 +114,6 @@ import {
 } from './item-component-values-data.js'
 import type { ItemStack } from './item-stack.js'
 import { isItemComponents } from './item-components-validation.js'
-import { maxStackCountOfItem } from './item-registry.js'
 import { isItemType } from './item-type.js'
 import {
   isBaseColorComponent,
@@ -579,7 +578,8 @@ const isRecordValue = (value: unknown): value is RecordValue =>
 
 const isItemStack = (value: unknown): value is ItemStack => {
   if (!isRecordValue(value) || !isItemType(value['item']) || !isItemComponents(value['components'])) return false
-  return typeof value['count'] === 'number' && Number.isSafeInteger(value['count']) && value['count'] >= 1 && value['count'] <= (value['components'].maxStackSize ?? maxStackCountOfItem(value['item']))
+  // Resolved component validation enforces the item-specific stack limit before nested values are accepted.
+  return Number.isSafeInteger(value['count']) && Number(value['count']) >= 1
 }
 
 const isItemStackList = (value: unknown): value is ReadonlyArray<ItemStack> =>

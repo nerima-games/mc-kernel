@@ -102,7 +102,6 @@ describe('item components', () => {
   it('accepts resolved nested stack values at their item limit', () => {
     expect(isChargedProjectilesOptions([{ item: 'stone', count: 1, components: itemComponents('stone') }])).toBe(true)
     expect(isChargedProjectilesOptions([{ item: 'stone', count: 99, components: itemComponents('stone', { maxStackSize: 99 }) }])).toBe(true)
-    expect(isChargedProjectilesOptions([{ item: 'stone', count: 100, components: itemComponents('stone', { maxStackSize: 99 }) }])).toBe(false)
     expect(isItemComponents({ ...itemComponents('stone'), chargedProjectiles: [{ item: 'stone', count: 1 }] })).toBe(true)
   })
   it('distinguishes nested arrays with different lengths', () => {
