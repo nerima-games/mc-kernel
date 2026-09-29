@@ -24,6 +24,43 @@ const blockCount = chunkBlockCount(height)
 /** v2 wire elements are two little-endian bytes each; see block-state.ts BYTES_PER_ELEMENT. */
 const WIRE_BYTES_PER_ELEMENT = 2
 
+const V2_GOLDEN_BYTES = new Uint8Array([
+  77, 67, 72, 75, 2, 0, 16, 0, 16, 0, 1, 0, 1, 0, 0, 0,
+  254, 255, 255, 255, 0, 2, 0, 0, 2, 0, 6, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+])
+
 const sampleBlocks = (): Uint8Array => {
   const blocks = new Uint8Array(blockCount)
   blocks[0] = blockIdOf('stone')
@@ -35,6 +72,18 @@ const isUint8Array = (value: unknown): value is Uint8Array =>
   ArrayBuffer.isView(value) && Object.prototype.toString.call(value) === '[object Uint8Array]'
 
 describe('chunk binary codec', () => {
+  it('matches the complete v2 header and payload golden bytes', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const fixtureBlocks = new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ)
+      fixtureBlocks[0] = blockIdOf('stone')
+      fixtureBlocks[1] = blockIdOf('water')
+
+      const encoded = encodeChunk(chunk(chunkCoord(1, -2), ChunkHeight(1), fixtureBlocks))
+
+      expect(encoded).toStrictEqual(V2_GOLDEN_BYTES)
+    })),
+  )
+
   it('round-trips coordinates, height, and block data', () =>
     Effect.runPromise(Effect.sync(() => {
       const source = chunk(chunkCoord(-17, 23), height, sampleBlocks())

@@ -21,6 +21,7 @@ export * from "./domain/block-properties.js";
 export * from "./domain/block-registry.js";
 export * from "./domain/block-state.js";
 export * from "./domain/block-world.js";
+export * from "./domain/world-read-write.js";
 export * from "./domain/block-support.js";
 export * from "./domain/block-type.js";
 export * from "./domain/brewing.js";

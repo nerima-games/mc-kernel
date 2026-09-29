@@ -67,6 +67,24 @@ import {
 - `BlockWorld` の読み取り・不変更新、fluid state の再構築、決定論的な水・溶岩の流動と混合
 - redstone の layout、source/device/wire の評価、repeater・comparator・observer の状態遷移
 
+### Chunk read/edit vocabulary
+
+チャンクの live state、load/unload、epoch/revision の更新、COW、STM、dirty event は `mc-worldgen` が所有する。kernel は値と純粋な境界だけを公開する。
+
+```ts
+import {
+  BlockEdit,
+  BlockRead,
+  BlockWriteBatch,
+  ReadView,
+  WorldEpoch,
+  ChunkRevision,
+  LightRevision,
+} from '@nerima-games/mc-kernel'
+```
+
+`BlockRead` の `Loaded` は air も含む loaded result であり、`Unloaded` や `OutOfWorld` と空気 fallback を混同してはならない。`ReadView.blocks` / `ReadView.light` は read-only section view で、worker へ所有権を渡す場合だけ `snapshot()` を使う。`fluid-update.ts`、`redstone-update.ts`、`redstone-network.ts`、`redstone-device-update.ts` は現在も純粋な互換 `BlockWorld` を利用しているため、worldgen の live service 移行時に新語彙へ接続する。meshing は view の accessor を読むが、kernel に live chunk mutation を追加しない。
+
 移行後の import は公開 barrel または `package.json` に列挙された公開 subpath に限定し、`src/domain/*-data` の内部実装へ直接依存しない。wire ID、既存保存形式、乱数の責務を持つ呼び出し側の契約は変更しない。
 
 item component の item-aware な既定値は `itemComponents`（`tool` は `ITEM_TOOL_COMPONENTS` / `itemToolComponentOf` を、`weapon` は `weaponComponent` / `isWeaponComponent` を含む）、stack limit は `itemComponentStackLimitOf`、値の runtime guard は `isItemComponents`、`isUseCooldownComponent`、`isWeaponComponent` を正本とする。`ItemComponents.useCooldown` / `ItemComponents.weapon` は公式 component の解決済み値であり、`ItemStack` / inventory の値として下流へ渡す。`ItemStack` の stack ごとの override、保存形式、実際の item 使用イベントは下流が所有し、kernel の既定値解決と重複する registry・数値 guard を残さない。
