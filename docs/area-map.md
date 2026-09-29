@@ -21,7 +21,7 @@ The implemented layout has nine area directories. A public entry point has
 one leaf barrel inside its area (`<area>/_<subpath>.ts`); internal data,
 validation, and implementation files stay beside that leaf barrel. Thus there
 are 92 public leaf barrels for 92 public subpaths. Each area also has an
-`index.ts`, and `src/index.ts` re-exports through those nine area barrels. The
+an area index, and `src/index.ts` re-exports through those nine area barrels. The
 area directory itself is not an additional public export.
 
 The initial prefix-based inventory produced eleven candidate buckets. The
