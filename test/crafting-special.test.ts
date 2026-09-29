@@ -61,20 +61,20 @@ const targetStack = (
   color?: DyedColorComponent,
   count: number = 1,
 ): ReturnType<typeof itemStack> =>
-  itemStack(
-    "leather",
-    count,
-    color === undefined
-      ? {}
-      : { componentPatch: patchFor("minecraft:dyed_color", color) },
-  );
+  itemStack("leather", count, {
+    components: itemComponents("leather", {
+      ...(color === undefined ? {} : { dyedColor: color }),
+    }),
+  });
 
 const dyeStack = (
   item: ItemType,
   color: DyeColor,
   count: number = 1,
 ): ReturnType<typeof itemStack> =>
-  itemStack(item, count, { componentPatch: patchFor("minecraft:dye", color) });
+  itemStack(item, count, {
+    components: itemComponents(item, { dye: color }),
+  });
 
 const imbueGrid = (
   source: ReturnType<typeof itemStack>,
@@ -97,7 +97,9 @@ const dyeRecipe = craftingDyeRecipe(
   exactly("leather"),
   exactly(DYE_ITEM),
   itemStack("leather", 1, {
-    componentPatch: patchFor("minecraft:custom_model_data", 7),
+    components: itemComponents("leather", {
+      customModelData: { floats: [7] },
+    }),
   }),
   { priority: 1 },
 );
@@ -107,7 +109,9 @@ const imbueRecipe = craftingImbueRecipe(
   exactly("arrow"),
   exactly("glass_bottle"),
   itemStack("arrow", 1, {
-    componentPatch: patchFor("minecraft:custom_model_data", 4),
+    components: itemComponents("arrow", {
+      customModelData: { floats: [4] },
+    }),
   }),
   { priority: 1 },
 );
@@ -130,7 +134,7 @@ describe("crafting special recipes", () => {
     ).toThrow(TypeError);
   });
 
-  it("matches, applies, consumes, and preserves patch-based dye stacks", () => {
+  it("matches, applies, consumes, and preserves canonical dye stacks", () => {
     const grid = craftGrid(3, 3, [
       targetStack(0x123456, 2),
       dyeStack("redstone_dust", "red", 2),
@@ -145,9 +149,9 @@ describe("crafting special recipes", () => {
       expect(match.output).toMatchObject({
         item: "leather",
         count: 1,
-        componentPatch: {
-          "minecraft:custom_model_data": 7,
-          "minecraft:dyed_color": 0x834254,
+        components: {
+          customModelData: { floats: [7], flags: [], strings: [], colors: [] },
+          dyedColor: 0x834254,
         },
       });
     }
@@ -164,9 +168,7 @@ describe("crafting special recipes", () => {
         count: 1,
       });
       expect(
-        applied.output.componentPatch?.[
-          ItemComponentPatchKey("minecraft:dyed_color")
-        ],
+        applied.output.components?.dyedColor,
       ).toBe(0x834254);
     }
     expect(grid.cells[0]).toMatchObject({ item: "leather", count: 2 });
@@ -180,9 +182,7 @@ describe("crafting special recipes", () => {
     expect(defaultColor._tag).toBe("Match");
     if (defaultColor._tag === "Match") {
       expect(
-        defaultColor.output.componentPatch?.[
-          ItemComponentPatchKey("minecraft:dyed_color")
-        ],
+        defaultColor.output.components?.dyedColor,
       ).toBe(0xa84a33);
     }
   });
@@ -300,28 +300,16 @@ describe("crafting special recipes", () => {
         craftGrid(3, 3, [targetStack(), itemStack("redstone_dust", 1)]),
       ),
     ).toBe(false);
-    expect(
-      matchesCraftingDyeRecipe(
-        dyeRecipe,
-        craftGrid(3, 3, [
-          targetStack(),
-          itemStackFromUnknown("redstone_dust", 1, {
-            componentPatch: { "minecraft:dye": "invalid" },
-          }),
-        ]),
-      ),
-    ).toBe(false);
-    expect(
-      matchesCraftingDyeRecipe(
-        dyeRecipe,
-        craftGrid(3, 3, [
-          itemStackFromUnknown("leather", 1, {
-            componentPatch: { "minecraft:dyed_color": "invalid" },
-          }),
-          dyeStack("redstone_dust", "red"),
-        ]),
-      ),
-    ).toBe(false);
+    expect(() =>
+      itemStackFromUnknown("redstone_dust", 1, {
+        componentPatch: { "minecraft:dye": "invalid" },
+      }),
+    ).toThrow(TypeError);
+    expect(() =>
+      itemStackFromUnknown("leather", 1, {
+        componentPatch: { "minecraft:dyed_color": "invalid" },
+      }),
+    ).toThrow(TypeError);
     expect(
       applyCraftingDye(dyeRecipe, craftGrid(3, 3, [targetStack()]))._tag,
     ).toBe("NoMatch");
@@ -361,9 +349,9 @@ describe("crafting special recipes", () => {
       expect(match.output).toMatchObject({
         item: "arrow",
         count: 1,
-        componentPatch: {
-          "minecraft:custom_model_data": 4,
-          "minecraft:potion_contents": {
+        components: {
+          customModelData: { floats: [4], flags: [], strings: [], colors: [] },
+          potionContents: {
             potion: "minecraft:water",
             customColor: 0x336699,
             customEffects: [
@@ -404,7 +392,9 @@ describe("crafting special recipes", () => {
     expect(grid.cells[4]).toMatchObject({ item: "arrow", count: 2 });
 
     const stringPotionSource = itemStack("arrow", 1, {
-      componentPatch: patchFor("minecraft:potion_contents", "minecraft:water"),
+      components: itemComponents("arrow", {
+        potionContents: "minecraft:water",
+      }),
     });
     const stringPotionMatch = matchCraftingImbueRecipe(
       imbueGrid(stringPotionSource, itemStack("glass_bottle", 1)),
@@ -414,16 +404,16 @@ describe("crafting special recipes", () => {
     expect(stringPotionMatch._tag).toBe("Match");
     if (stringPotionMatch._tag === "Match") {
       expect(
-        stringPotionMatch.output.componentPatch?.[
-          ItemComponentPatchKey("minecraft:potion_contents")
-        ],
+        stringPotionMatch.output.components?.potionContents,
       ).toBe("minecraft:water");
     }
   });
 
   it("rejects invalid imbue grids and supports special recipe dispatch", () => {
     const source = itemStack("arrow", 1, {
-      componentPatch: patchFor("minecraft:potion_contents", "minecraft:water"),
+      components: itemComponents("arrow", {
+        potionContents: "minecraft:water",
+      }),
     });
     const material = itemStack("glass_bottle", 1);
     const grid = imbueGrid(source, material);
@@ -452,17 +442,11 @@ describe("crafting special recipes", () => {
         imbueGrid(source, itemStack("stone", 1)),
       ),
     ).toBe(false);
-    expect(
-      matchesCraftingImbueRecipe(
-        imbueRecipe,
-        imbueGrid(
-          itemStackFromUnknown("arrow", 1, {
-            componentPatch: { "minecraft:potion_contents": 1 },
-          }),
-          material,
-        ),
-      ),
-    ).toBe(false);
+    expect(() =>
+      itemStackFromUnknown("arrow", 1, {
+        componentPatch: { "minecraft:potion_contents": 1 },
+      }),
+    ).toThrow(TypeError);
     expect(
       matchesCraftingImbueRecipe(imbueRecipe, grid, { station: "furnace" }),
     ).toBe(false);
@@ -570,8 +554,8 @@ describe("crafting special recipes", () => {
       materialSlotIndexes: [0, 1],
     });
     if (bookApplied._tag === "Applied") {
-      expect(bookApplied.output.componentPatch).toMatchObject({
-        "minecraft:written_book_content": {
+      expect(bookApplied.output.components).toMatchObject({
+        writtenBookContent: {
           pages: ['"page"'],
           title: '"title"',
           author: "author",
@@ -617,8 +601,8 @@ describe("crafting special recipes", () => {
       frontSlotIndex: 7,
       output: {
         item: "decorated_pot",
-        componentPatch: {
-          "minecraft:pot_decorations": [
+        components: {
+          potDecorations: [
             "minecraft:brick",
             "minecraft:feather",
             "minecraft:brick",
@@ -659,8 +643,8 @@ describe("crafting special recipes", () => {
       starSlotIndex: 4,
       output: {
         item: "firework_rocket",
-        componentPatch: {
-          "minecraft:fireworks": {
+        components: {
+          fireworks: {
             explosions: [
               {
                 shape: "star",
@@ -694,8 +678,8 @@ describe("crafting special recipes", () => {
       dyeSlotIndexes: [1, 2],
       output: {
         item: "firework_star",
-        componentPatch: {
-          "minecraft:firework_explosion": {
+        components: {
+          fireworkExplosion: {
             shape: "star",
             colors: [0xff0000],
             fadeColors: [0xb02e26, 0xb02e26],
@@ -734,8 +718,8 @@ describe("crafting special recipes", () => {
       shape: "star",
       output: {
         item: "firework_star",
-        componentPatch: {
-          "minecraft:firework_explosion": {
+        components: {
+          fireworkExplosion: {
             shape: "star",
             colors: [0xb02e26, 0x3c44aa],
             fadeColors: [],
@@ -793,7 +777,7 @@ describe("crafting special recipes", () => {
       materialSlotIndexes: [1, 2],
       output: {
         item: "filled_map",
-        componentPatch: { "minecraft:map_post_processing": "scale" },
+        components: {},
       },
     });
 
@@ -822,11 +806,11 @@ describe("crafting special recipes", () => {
       targetSlotIndex: 1,
       output: {
         item: "shield",
-        componentPatch: {
-          "minecraft:banner_patterns": [
+        components: {
+          bannerPatterns: [
             { pattern: "minecraft:stripe", color: "red" },
           ],
-          "minecraft:base_color": "white",
+          baseColor: "white",
         },
       },
     });
@@ -1111,6 +1095,7 @@ describe("crafting special recipes", () => {
 
 const NO_MATCH = { _tag: "NoMatch" } as const;
 
+
 const bannerRecipe = craftingBannerDuplicateRecipe(
   ResourceLocation("minecraft:cover_banner_duplicate"),
   exactly("white_banner"),
@@ -1148,6 +1133,23 @@ const fadeRecipe = craftingFireworkStarFadeRecipe(
   exactly("red_dye"),
   itemStack("firework_star", 1),
 );
+
+it("rejects special recipes when canonical component payload is absent", () => {
+  expect(
+    matchCraftingSpecialRecipe(
+      craftGrid(3, 3, [itemStack("paper", 1), itemStack("firework_star", 1), itemStack("gunpowder", 1), undefined, undefined, undefined, undefined, undefined, undefined]),
+      {},
+      [rocketRecipe],
+    ),
+  ).toEqual(NO_MATCH);
+  expect(
+    matchCraftingSpecialRecipe(
+      craftGrid(3, 3, [itemStack("firework_star", 1), dyeStack("red_dye", "red"), undefined, undefined, undefined, undefined, undefined, undefined, undefined]),
+      {},
+      [fadeRecipe],
+    ),
+  ).toEqual(NO_MATCH);
+});
 
 const starRecipe = craftingFireworkStarRecipe(
   ResourceLocation("minecraft:cover_firework_star"),
@@ -1245,7 +1247,7 @@ const poisonAfterValidation = (
 };
 
 describe("crafting special recipes across every Java variant", () => {
-  it("reads components from a patch as readily as from a resolved component", () => {
+  it("reads resolved components consistently across Java variants", () => {
     expect(
       matchCraftingSpecialRecipe(
         craftGrid(3, 3, [patchedBook, itemStack("paper", 1)]),
@@ -1255,8 +1257,8 @@ describe("crafting special recipes across every Java variant", () => {
     ).toMatchObject({
       _tag: "Match",
       output: {
-        componentPatch: {
-          "minecraft:written_book_content": {
+        components: {
+          writtenBookContent: {
             generation: 1,
             pages: ['"page"', { raw: '"raw"', filtered: '"filtered"' }, { raw: '"bare"' }],
           },
@@ -1290,93 +1292,22 @@ describe("crafting special recipes across every Java variant", () => {
       )._tag,
     ).toBe("Match");
 
-    // A patch that carries the wrong shape for the component reads as an
-    // explicit "no value", which is not the same as an absent component.
-    const brokenComponent = (component: string, item: ItemType) =>
-      itemStack(item, 1, { componentPatch: patchFor(component, "nonsense") });
-    expect(
-      matchCraftingSpecialRecipe(
-        craftGrid(3, 3, [
-          brokenComponent("minecraft:written_book_content", "written_book"),
-          itemStack("paper", 1),
-        ]),
-        {},
-        [bookRecipe],
-      ),
-    ).toEqual(NO_MATCH);
-    expect(
-      matchCraftingSpecialRecipe(
-        craftGrid(3, 3, [
-          brokenComponent("minecraft:map_id", "filled_map"),
-          itemStack("paper", 1),
-        ]),
-        {},
-        [mapRecipe],
-      ),
-    ).toEqual(NO_MATCH);
-    expect(
-      matchCraftingSpecialRecipe(
-        craftGrid(3, 3, [
-          itemStack("paper", 1),
-          itemStack("gunpowder", 1),
-          brokenComponent("minecraft:firework_explosion", "firework_star"),
-        ]),
-        {},
-        [rocketRecipe],
-      ),
-    ).toEqual(NO_MATCH);
-    expect(
-      matchCraftingSpecialRecipe(
-        craftGrid(3, 3, [
-          brokenComponent("minecraft:firework_explosion", "firework_star"),
-          dyeStack("red_dye", "red"),
-        ]),
-        {},
-        [fadeRecipe],
-      ),
-    ).toEqual(NO_MATCH);
-    expect(
-      matchCraftingSpecialRecipe(
-        craftGrid(3, 3, [
-          brokenComponent("minecraft:banner_patterns", "white_banner"),
-          itemStack("shield", 1),
-        ]),
-        {},
-        [shieldRecipe],
-      ),
-    ).toEqual(NO_MATCH);
-    expect(
-      matchCraftingSpecialRecipe(
-        craftGrid(3, 3, [
-          itemStack("white_banner", 1, {
-            componentPatch: itemComponentPatch({
-              [ItemComponentPatchKey("minecraft:banner_patterns")]: [],
-              [ItemComponentPatchKey("minecraft:base_color")]: 7,
-            }),
-          }),
-          itemStack("shield", 1),
-        ]),
-        {},
-        [shieldRecipe],
-      ),
-    ).toEqual(NO_MATCH);
-    expect(
-      matchCraftingSpecialRecipe(
-        craftGrid(3, 3, [
-          patchedBanner,
-          brokenComponent("minecraft:banner_patterns", "shield"),
-        ]),
-        {},
-        [shieldRecipe],
-      ),
-    ).toEqual(NO_MATCH);
-
-    // A patch that names some other component leaves this one absent.
+    expect(() =>
+      itemStack("white_banner", 1, {
+        componentPatch: itemComponentPatch({
+          [ItemComponentPatchKey("minecraft:banner_patterns")]: [],
+          [ItemComponentPatchKey("minecraft:base_color")]: 7,
+        }),
+      }),
+    ).toThrow(TypeError);
+    // A resolved component that names some other component leaves this one absent.
     expect(
       matchCraftingSpecialRecipe(
         craftGrid(3, 3, [
           itemStack("written_book", 1, {
-            componentPatch: patchFor("minecraft:custom_model_data", 7),
+            components: itemComponents("written_book", {
+              customModelData: { floats: [7] },
+            }),
           }),
           itemStack("paper", 1),
         ]),
@@ -1657,9 +1588,7 @@ describe("crafting special recipes across every Java variant", () => {
     const applied = applyCraftingImbue(imbueRecipe, grid);
     expect(applied).toMatchObject({ _tag: "Applied" });
     if (applied._tag === "Applied") {
-      const contents = applied.output.componentPatch?.[
-        ItemComponentPatchKey("minecraft:potion_contents")
-      ];
+      const contents = applied.output.components?.potionContents;
       expect(contents).toEqual({
         customEffects: [
           {

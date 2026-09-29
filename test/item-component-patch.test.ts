@@ -141,6 +141,15 @@ describe("item component patches", () => {
       conflict = error;
     }
     expect(conflict).toMatchObject({ _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:custom_name" });
+    expect(mergeItemComponentPatches(left, itemComponentPatch({ "minecraft:repair_cost": 1 }))).toEqual({
+      "minecraft:custom_name": "Stone",
+      "minecraft:damage": 1,
+      "minecraft:repair_cost": 1,
+    });
+    expect(() => mergeItemComponentPatches(
+      itemComponentPatch({ "minecraft:damage": 1 }),
+      itemComponentPatch({ "!minecraft:damage": null }),
+    )).toThrow();
     expect(() =>
       Reflect.apply(mergeItemComponentPatches, undefined, [
         { invalid: true },

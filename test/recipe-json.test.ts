@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { isAnyOfIngredient } from "../src/domain/recipe-data";
+import { itemStack } from "../src/domain/item-stack";
 import {
   cookingRecipeFromUnknown,
   craftingBannerDuplicateRecipeFromUnknown,
@@ -29,7 +30,7 @@ const expectInvalidRecipe = (id: string, value: unknown): void => {
 };
 
 describe("current Java crafting recipe JSON", () => {
-  it("decodes shaped recipes with component patches and alternatives", () => {
+    it("decodes shaped recipes with canonical components and alternatives", () => {
     const recipe = craftingRecipeFromUnknown("minecraft:iron_block", {
       type: "minecraft:crafting_shaped",
       category: "building",
@@ -43,8 +44,7 @@ describe("current Java crafting recipe JSON", () => {
         id: "minecraft:iron_block",
         count: 1,
         components: {
-          "minecraft:custom_name": "Block",
-          "!minecraft:damage": null,
+          "minecraft:custom_name": { text: "Block" },
         },
       },
     });
@@ -98,14 +98,14 @@ describe("current Java crafting recipe JSON", () => {
         },
       ],
     });
-    expect(recipe.output).toEqual({
+    expect(recipe.output).toMatchObject({
       item: "iron_block",
       count: 1,
-      componentPatch: {
-        "minecraft:custom_name": "Block",
-        "!minecraft:damage": null,
+      components: {
+        customName: { text: "Block" },
       },
     });
+    expect(recipe.output).not.toHaveProperty("componentPatch");
     expect(isAnyOfIngredient(recipe.pattern.cells[0])).toBe(true);
   });
 
@@ -142,7 +142,7 @@ describe("current Java crafting recipe JSON", () => {
         ],
       },
     ]);
-    expect(recipe.output).toEqual({ item: "stick", count: 1 });
+    expect(recipe.output).toEqual(itemStack("stick", 1));
   });
 
   it("maps namespaced recipe ids to data-pack paths", () => {
@@ -332,7 +332,7 @@ describe("current Java portable recipe JSON", () => {
         result: {
           id: "minecraft:stone_slab",
           count: 2,
-          components: { "minecraft:custom_name": "Slab" },
+          components: { "minecraft:custom_name": { text: "Slab" } },
         },
         show_notification: false,
       },
@@ -345,7 +345,7 @@ describe("current Java portable recipe JSON", () => {
       output: {
         item: "stone_slab",
         count: 2,
-        componentPatch: { "minecraft:custom_name": "Slab" },
+        components: { customName: { text: "Slab" } },
       },
       showNotification: false,
     });

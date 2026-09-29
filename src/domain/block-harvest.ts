@@ -59,12 +59,12 @@ export const BARE_HANDED: HarvestContext = {}
 export const resolveDrop = (
   ...[requirement, rule, brokenBlock, context = BARE_HANDED]: [
     HarvestToolRequirement,
-    BlockDropRule,
+    BlockDropRule | undefined,
     BlockType,
     HarvestContext?,
   ]
 ): BlockDrop | undefined => {
-  if (rule.count <= 0) {
+  if (rule === undefined) {
     return undefined
   }
   if (!satisfiesHarvestTier(requirement, context.heldTier ?? 'none')) {

@@ -1,15 +1,18 @@
 import { maxStackCountOfItem, type ItemStackLimit } from "./item-registry.js";
 import { itemComponents } from "./item-components.js";
 import { isItemComponents, itemComponentsEqual, itemComponentsSnapshot, type ItemComponents } from "./item-components-validation.js";
-import { applyItemComponentPatch, isItemComponentPatch, type ItemComponentPatch } from "./item-component-patch.js";
+import {
+  applyItemComponentPatch,
+  itemComponentPatchFromUnknown,
+  type ItemComponentPatch,
+} from "./item-component-patch.js";
 import { isItemType, type ItemType } from "./item-type.js";
 import { StackCount, type StackCount as StackCountValue } from "./quantities.js";
 
 export type ItemStack = Readonly<{
   readonly item: ItemType;
   readonly count: StackCountValue;
-  readonly components?: ItemComponents;
-  readonly componentPatch?: never;
+  readonly components: ItemComponents;
 }>;
 
 type RecordValue = Readonly<{
@@ -42,12 +45,9 @@ const stackOptionsFromUnknown = (value: unknown): ItemStackOptions => {
     throw new TypeError("Item stack components must be a resolved item component object");
   }
   const componentPatch = value.componentPatch;
-  if (componentPatch !== undefined && !isItemComponentPatch(componentPatch)) {
-    throw new TypeError("Item stack component patch must be a namespaced JSON object");
-  }
   return {
     ...(components === undefined ? {} : { components }),
-    ...(componentPatch === undefined ? {} : { componentPatch }),
+    ...(componentPatch === undefined ? {} : { componentPatch: itemComponentPatchFromUnknown(componentPatch) }),
   };
 };
 
@@ -73,18 +73,21 @@ export const itemStackFromUnknown = (item: unknown, count: unknown, options: unk
 };
 
 export const isItemStack = (value: unknown): value is ItemStack => {
-  if (!isRecord(value)) return false;
-  const keys = Object.keys(value);
-  if (!keys.every((key) => key === "item" || key === "count" || key === "components")) return false;
-  if (!Object.hasOwn(value, "item") || !Object.hasOwn(value, "count") || !Object.hasOwn(value, "components")) return false;
-  if (!isItemType(value.item) || !isItemComponents(value.components)) return false;
-  const count = value.count;
-  return typeof count === "number" && Number.isSafeInteger(count) && count >= 1 && count <= value.components.maxStackSize;
+  try {
+    if (!isRecord(value)) return false;
+    const keys = Object.keys(value);
+    if (!keys.every((key) => key === "item" || key === "count" || key === "components")) return false;
+    if (!Object.hasOwn(value, "item") || !Object.hasOwn(value, "count") || !Object.hasOwn(value, "components")) return false;
+    if (!isItemType(value.item) || !isItemComponents(value.components)) return false;
+    const count = value.count;
+    return typeof count === "number" && Number.isSafeInteger(count) && count >= 1 && count <= value.components.maxStackSize;
+  } catch {
+    return false;
+  }
 };
 
 export const itemStackWithCount = (stack: ItemStack, count: number): ItemStack => {
   if (!isItemStack(stack)) throw new TypeError("Stack must be an ItemStack");
-  if (stack.components === undefined) throw new TypeError("Stack components are missing");
   return itemStack(stack.item, count, { components: stack.components });
 };
 

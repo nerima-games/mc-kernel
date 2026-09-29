@@ -430,7 +430,10 @@ describe('harvestTool and drops (the two struct fields, audit §7)', () => {
         properties: { drops: { ...DEFAULT_BLOCK_DROP, requiresSilkTouch: true } },
         type: 'glass',
       }
-      expect(blockPropertiesOf(glass).drops.requiresSilkTouch).toBe(true)
+      const drops = blockPropertiesOf(glass).drops
+      expect(drops).toBeDefined()
+      if (drops === undefined) throw new Error('expected glass drop rule')
+      expect(drops.requiresSilkTouch).toBe(true)
       // ...and it did not disturb anything else.
       expect(blockPropertiesOf(glass).hardness).toBe(BLOCK_PROPERTY_DEFAULTS.hardness)
     })),

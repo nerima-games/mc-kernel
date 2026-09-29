@@ -1,18 +1,11 @@
 import {
-  ItemComponentPatchKey,
+  applyItemComponentPatch,
   itemComponentPatchFromUnknown,
-  mergeItemComponentPatches,
   type ItemComponentPatch,
 } from "./item-component-patch.js";
 import {
-  isBannerPatternsComponent,
-  isBaseColorComponent,
   isDyeComponent,
   isDyedColorComponent,
-  isFireworkExplosionComponent,
-  isMapIdComponent,
-  isPotionContentsComponent,
-  isWrittenBookContentComponent,
 } from "./item-component-values-validation.js";
 import {
   DYE_COLORS,
@@ -97,92 +90,47 @@ const DYE_RGB: Readonly<Record<DyeColor, readonly [number, number, number]>> = {
 
 const DEFAULT_DYED_COLOR: readonly [number, number, number] = [160, 101, 64];
 
-const componentPatchValue = (
-  stack: ItemStack,
-  component: string,
-): JsonValue | undefined => {
-  if (stack.componentPatch === undefined) {
-    return undefined;
-  }
-  const key = ItemComponentPatchKey(component);
-  return Object.hasOwn(stack.componentPatch, key)
-    ? stack.componentPatch[key]
-    : undefined;
-};
-
 const dyedColorOf = (
   stack: ItemStack,
 ): DyedColorComponent | null | undefined => {
-  const patched = componentPatchValue(stack, "minecraft:dyed_color");
-  if (patched !== undefined) {
-    return isDyedColorComponent(patched) ? patched : null;
-  }
   return stack.components?.dyedColor;
 };
 
 const dyeColorOf = (stack: ItemStack): DyeColor | null | undefined => {
-  const patched = componentPatchValue(stack, "minecraft:dye");
-  if (patched !== undefined) {
-    return isDyeComponent(patched) ? patched : null;
-  }
   return stack.components?.dye;
 };
 
 const potionContentsOf = (
   stack: ItemStack,
 ): PotionContentsComponent | null | undefined => {
-  const patched = componentPatchValue(stack, "minecraft:potion_contents");
-  if (patched !== undefined) {
-    return isPotionContentsComponent(patched) ? patched : null;
-  }
   return stack.components?.potionContents;
 };
 
 const writtenBookContentOf = (
   stack: ItemStack,
 ): WrittenBookContentComponent | null | undefined => {
-  const patched = componentPatchValue(stack, "minecraft:written_book_content");
-  if (patched !== undefined) {
-    return isWrittenBookContentComponent(patched) ? patched : null;
-  }
   return stack.components?.writtenBookContent;
 };
 
 const mapIdOf = (stack: ItemStack): MapIdComponent | null | undefined => {
-  const patched = componentPatchValue(stack, "minecraft:map_id");
-  if (patched !== undefined) {
-    return isMapIdComponent(patched) ? patched : null;
-  }
   return stack.components?.mapId;
 };
 
 const fireworkExplosionOf = (
   stack: ItemStack,
-): FireworkExplosionComponent | null | undefined => {
-  const patched = componentPatchValue(stack, "minecraft:firework_explosion");
-  if (patched !== undefined) {
-    return isFireworkExplosionComponent(patched) ? patched : null;
-  }
+): FireworkExplosionComponent | undefined => {
   return stack.components?.fireworkExplosion;
 };
 
 const bannerPatternsOf = (
   stack: ItemStack,
-): BannerPatternsComponent | null | undefined => {
-  const patched = componentPatchValue(stack, "minecraft:banner_patterns");
-  if (patched !== undefined) {
-    return isBannerPatternsComponent(patched) ? patched : null;
-  }
+): BannerPatternsComponent | undefined => {
   return stack.components?.bannerPatterns;
 };
 
 const baseColorOf = (
   stack: ItemStack,
-): BaseColorComponent | null | undefined => {
-  const patched = componentPatchValue(stack, "minecraft:base_color");
-  if (patched !== undefined) {
-    return isBaseColorComponent(patched) ? patched : null;
-  }
+): BaseColorComponent | undefined => {
   return stack.components?.baseColor;
 };
 
@@ -350,10 +298,11 @@ const withComponentPatch = (
   stack: ItemStack,
   patch: ItemComponentPatch,
 ): ItemStack => {
-  const merged = mergeItemComponentPatches(stack.componentPatch, patch);
+  if (stack.components === undefined) {
+    throw new TypeError("Crafting output stack components are missing");
+  }
   return itemStack(stack.item, stack.count, {
-    ...(stack.components === undefined ? {} : { components: stack.components }),
-    componentPatch: merged,
+    components: applyItemComponentPatch(stack.components, patch),
   });
 };
 
@@ -1103,7 +1052,7 @@ const craftingFireworkRocketMatch = (
     return noMatch();
   }
   const explosion = fireworkExplosionOf(star);
-  if (explosion === undefined || explosion === null) {
+  if (explosion === undefined) {
     return noMatch();
   }
   return {
@@ -1165,7 +1114,7 @@ const craftingFireworkStarFadeMatch = (
     return noMatch();
   }
   const explosion = fireworkExplosionOf(target);
-  if (explosion === undefined || explosion === null) {
+  if (explosion === undefined) {
     return noMatch();
   }
   const fadedExplosion: FireworkExplosionComponent = {
@@ -1338,10 +1287,7 @@ const craftingMapExtendingMatch = (
     recipe,
     mapSlotIndex,
     materialSlotIndexes,
-    output: withComponentPatch(
-      transmuteItemStack(map, recipe.output),
-      componentPatch("minecraft:map_post_processing", "scale"),
-    ),
+    output: transmuteItemStack(map, recipe.output),
   };
 };
 
@@ -1412,9 +1358,6 @@ const craftingShieldDecorationMatch = (
   }
   const patterns = bannerPatternsOf(banner);
   const baseColor = baseColorOf(banner);
-  if (patterns === null || baseColor === null) {
-    return noMatch();
-  }
   return {
     _tag: "Match",
     recipe,

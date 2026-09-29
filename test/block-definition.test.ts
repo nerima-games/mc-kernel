@@ -10,14 +10,12 @@ import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain
 import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
-import { StackCount } from '../src/domain/quantities'
 
 const AUDITED_CAPABILITY_COUNT = 29
 const IMPLEMENTED_FLAG_COUNT = 12
 const IMPLEMENTED_PROPERTY_COUNT = 16
 const LAVA_CONTACT_DAMAGE = 4
 const MAXIMUM_LIGHT_EMISSION = 15
-const NO_DROPS = 0
 const DOWNSTREAM_CAPABILITY_COUNT = 1
 const DOWNSTREAM_CAPABILITY_MINIMUM_EXPLANATION_LENGTH = 20
 
@@ -49,7 +47,7 @@ describe('adding a block is one table row plus flag settings (the design contrac
         properties: {
           collisionShape: 'none',
           contactDamage: LAVA_CONTACT_DAMAGE,
-          drops: { affectedByFortune: false, count: StackCount(NO_DROPS), item: 'self', requiresSilkTouch: false },
+          drops: undefined,
           fluid: 'lava',
           lightEmission: MAXIMUM_LIGHT_EMISSION,
           opacity: 'fluid',
@@ -64,7 +62,7 @@ describe('adding a block is one table row plus flag settings (the design contrac
       expect(resolved.properties.fluid).toBe('lava')
       expect(resolved.properties.lightEmission).toBe(MAXIMUM_LIGHT_EMISSION)
       expect(resolved.properties.contactDamage).toBe(LAVA_CONTACT_DAMAGE)
-      expect(resolved.properties.drops.count).toBe(NO_DROPS)
+      expect(resolved.properties.drops).toBeUndefined()
     })),
   )
 

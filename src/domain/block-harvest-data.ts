@@ -31,7 +31,7 @@ export type BlockDropRule = {
   readonly item: ItemType | 'self'
   /** Item yielded by Silk Touch instead of `item`; omitted when the normal drop is correct. */
   readonly silkTouchItem?: ItemType
-  /** Base count before fortune. `0` means that the block drops nothing. */
+  /** Base count before fortune. A missing rule means that the block drops nothing. */
   readonly count: StackCountValue
   /** Only drops at all when mined with a silk-touch tool. */
   readonly requiresSilkTouch: boolean

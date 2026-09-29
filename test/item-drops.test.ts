@@ -115,7 +115,7 @@ const droppedItemTypes = (): ReadonlySet<string> => {
   const dropped = new Set<string>()
   for (const entry of BLOCK_REGISTRY) {
     const rule = blockPropertiesOf(entry.definition).drops
-    if (rule.count > ZERO) {
+    if (rule !== undefined) {
       dropped.add(itemForDropRule(rule, entry.definition.type))
     }
   }
@@ -528,7 +528,7 @@ describe('the rule that keeps a `self` drop honest', () => {
       // Adding 84 blocks without this check would have produced 55 such rows.
       const promising = BLOCK_REGISTRY.filter((entry) => {
         const rule = blockPropertiesOf(entry.definition).drops
-          return rule.item === 'self' && rule.count > ZERO
+          return rule !== undefined && rule.item === 'self'
       })
 
       // Non-empty, or the assertion below is vacuously true.
@@ -600,7 +600,7 @@ describe('the rule that keeps a `self` drop honest', () => {
       // `drops: DROPS_NOTHING` for exactly these two among the plant rows,
       // before its pending deletion.
       const explicitlyNothing = BLOCK_REGISTRY.filter(
-          (entry) => blockPropertiesOf(entry.definition).drops.count === ZERO,
+          (entry) => blockPropertiesOf(entry.definition).drops === undefined,
       ).map((entry) => entry.definition.type)
 
       expect(explicitlyNothing).toStrictEqual([

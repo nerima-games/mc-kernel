@@ -105,7 +105,7 @@ export type BlockProperties = {
   /** Tool family and minimum tier. */
   readonly harvestTool: HarvestToolRequirement
   /** What breaking it yields. */
-  readonly drops: BlockDropRule
+  readonly drops: BlockDropRule | undefined
   /** What must be in the cell below. */
   readonly supportRule: SupportRule
 }

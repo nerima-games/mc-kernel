@@ -11,6 +11,7 @@ import {
   maxStackCountForItem,
   mergeItemStacks,
   splitItemStack,
+  transmuteItemStack,
 } from "../src/domain/item-stack";
 
 describe("canonical item stacks", () => {
@@ -44,6 +45,8 @@ describe("canonical item stacks", () => {
     expect(() => itemStack("diamond_sword", 1, { componentPatch: left })).not.toThrow();
     expect(() => itemStack("diamond_sword", 1, { componentPatch: itemComponentPatch({ "minecraft:damage": 1, "!minecraft:damage": null }) })).toThrow();
     expect(left).not.toBe(right);
+    expect(() => itemStackFromUnknown("stone", 1, { components: {} })).toThrow(TypeError);
+    expect(() => itemStackFromUnknown("stone", 1, { componentPatch: { invalid: true } })).toThrow(TypeError);
   });
 
   it("keeps payload isolated through count changes and split/merge", () => {
@@ -67,6 +70,16 @@ describe("canonical item stacks", () => {
     expect(itemStack("stone", 99, { components }).count).toBe(99);
     expect(() => itemStack("stone", 100, { components })).toThrow(RangeError);
     expect(itemStackFromUnknown("stone", 1, { components })).toBeDefined();
+  });
+
+  it("rejects malformed operation inputs and reports merge overflow", () => {
+    const left = itemStack("stone", 64);
+    const right = itemStack("stone", 2);
+    expect(() => Reflect.apply(itemStackWithCount, undefined, [{}, 1])).toThrow(TypeError);
+    expect(() => Reflect.apply(transmuteItemStack, undefined, [{}, right])).toThrow(TypeError);
+    expect(() => Reflect.apply(mergeItemStacks, undefined, [{}, right])).toThrow(TypeError);
+    expect(() => mergeItemStacks(left, right)).not.toThrow();
+    expect(mergeItemStacks(left, right).remainder?.count).toBe(2);
   });
 
   it("preserves split/merge arithmetic for generated positive counts", () => {

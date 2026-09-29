@@ -88,7 +88,10 @@ describe('equipment data and validation', () => {
     const partiallyDamaged = equipmentItem(stack, durability(100, DIAMOND_SWORD_MAX))
     const helmet = equipmentItem(itemStack('diamond_helmet', 1))
 
-    expect(sword).toEqual({ item: 'diamond_sword', count: 1, durability: { current: DIAMOND_SWORD_MAX, max: DIAMOND_SWORD_MAX } })
+    expect(sword).toEqual({
+      ...itemStack('diamond_sword', 1),
+      durability: { current: DIAMOND_SWORD_MAX, max: DIAMOND_SWORD_MAX },
+    })
     expect(componentSword).toEqual({
       item: 'diamond_sword',
       count: 1,
@@ -139,8 +142,7 @@ describe('equipment operations', () => {
     const hands = equipmentWith(equipmentWith(empty, 'mainhand', sword), 'offhand', fishingRod)
     const swapped = swapEquipment(hands, 'mainhand', 'offhand')
     const malformed: EquipmentItem = {
-      item: 'diamond_sword',
-      count: itemStack('diamond_sword', 1).count,
+      ...itemStack('diamond_sword', 1),
       durability: null,
     }
 
@@ -163,8 +165,7 @@ describe('equipment operations', () => {
     const broken = damageEquipment(equipped, 'mainhand', DIAMOND_SWORD_MAX)
     const overBroken = damageEquipment(equipped, 'mainhand', LARGE_DAMAGE)
     const notDamageable = equipmentWith(emptyEquipment(), 'mainhand', {
-      item: 'stone',
-      count: itemStack('stone', 1).count,
+      ...itemStack('stone', 1),
       durability: null,
     })
 
@@ -179,7 +180,10 @@ describe('equipment operations', () => {
     })
     expect(damaged.result).toEqual({
       _tag: 'Damaged',
-      item: { item: 'diamond_sword', count: 1, durability: { current: DIAMOND_SWORD_MAX - SMALL_DAMAGE, max: DIAMOND_SWORD_MAX } },
+      item: {
+        ...itemStack('diamond_sword', 1),
+        durability: { current: DIAMOND_SWORD_MAX - SMALL_DAMAGE, max: DIAMOND_SWORD_MAX },
+      },
       applied: SMALL_DAMAGE,
     })
     expect(equippedAt(equipped, 'mainhand')).toEqual(sword)

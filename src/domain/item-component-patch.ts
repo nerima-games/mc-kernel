@@ -1,4 +1,5 @@
 import { Brand } from "effect";
+import { Either } from "effect";
 import { TaggedError } from "effect/Data";
 import { NamespacedResourceLocation } from "./identifiers.js";
 import {
@@ -12,6 +13,11 @@ export const ItemComponentPatchConflictError: new (args: { readonly componentKey
   readonly _tag: "ItemComponentPatchConflictError";
   readonly componentKey: string;
 } = TaggedError("ItemComponentPatchConflictError");
+
+export type ItemComponentPatchDecodeError = Error | Readonly<{
+  readonly _tag: "ItemComponentPatchConflictError";
+  readonly componentKey: string;
+}>;
 
 /** A component key, optionally prefixed with `!` to remove that component. */
 export type ItemComponentPatchKey = string &
@@ -50,9 +56,14 @@ const isItemComponentPatchEntry = (key: string, value: unknown): boolean =>
 
 export const isItemComponentPatch = (
   value: unknown,
-): value is ItemComponentPatch =>
-  isPlainRecord(value) &&
-  Object.keys(value).every((key) => isItemComponentPatchEntry(key, value[key]));
+): value is ItemComponentPatch => {
+  try {
+    return isPlainRecord(value) &&
+      Object.keys(value).every((key) => isItemComponentPatchEntry(key, value[key]));
+  } catch {
+    return false;
+  }
+};
 
 export const itemComponentPatchFromUnknown = (
   value: unknown,
@@ -80,6 +91,14 @@ export const itemComponentPatchFromUnknown = (
   }
   return Object.freeze(normalized);
 };
+
+export const itemComponentPatchFromUnknownEither = (
+  value: unknown,
+): Either.Either<ItemComponentPatch, ItemComponentPatchDecodeError> =>
+  Either.try({
+    try: () => itemComponentPatchFromUnknown(value),
+    catch: (error) => (error instanceof Error ? error : new Error("Invalid item component patch")),
+  });
 
 export const itemComponentPatch = (
   options: ItemComponentPatchOptions,
@@ -134,6 +153,15 @@ export function mergeItemComponentPatches(
   }
   return itemComponentPatchFromUnknown(merged);
 }
+
+export const mergeItemComponentPatchesEither = (
+  left: ItemComponentPatch | undefined,
+  right: ItemComponentPatch | undefined,
+): Either.Either<ItemComponentPatch | undefined, ItemComponentPatchDecodeError> =>
+  Either.try({
+    try: () => mergeItemComponentPatches(left, right),
+    catch: (error) => (error instanceof Error ? error : new Error("Invalid item component patch")),
+  });
 
 const COMPONENT_NAMES: Readonly<Record<string, keyof ItemComponents>> = {
   max_stack_size: "maxStackSize",

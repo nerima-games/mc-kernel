@@ -16,13 +16,14 @@ import { Brand } from 'effect'
 export const MAX_STACK_COUNT = 99
 
 const MIN_NON_NEGATIVE_VALUE = 0
+const MIN_STACK_COUNT = 1
 
-/** Number of items in a stack-related quantity. ItemStack itself rejects zero and uses ItemSlot for absence. */
+/** Number of items in a stack. Empty slots are represented by ItemSlot, not zero. */
 export type StackCount = number & Brand.Brand<'StackCount'>
 
 export const StackCount: Brand.Brand.Constructor<StackCount> = Brand.refined<StackCount>(
-  (value) => Number.isSafeInteger(value) && value >= MIN_NON_NEGATIVE_VALUE && value <= MAX_STACK_COUNT,
-  (value) => Brand.error(`StackCount must be an integer in [0, ${MAX_STACK_COUNT}], received ${value}`),
+  (value) => Number.isSafeInteger(value) && value >= MIN_STACK_COUNT && value <= MAX_STACK_COUNT,
+  (value) => Brand.error(`StackCount must be an integer in [${MIN_STACK_COUNT}, ${MAX_STACK_COUNT}], received ${value}`),
 )
 
 /** A positive quantity used when transferring items between slots. */

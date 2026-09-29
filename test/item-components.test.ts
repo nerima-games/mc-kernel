@@ -9,6 +9,8 @@ import {
   itemComponents,
   itemToolComponentOf,
 } from '../src/domain/item-components'
+import { itemComponentsEqual } from '../src/domain/item-components-validation'
+import { isChargedProjectilesOptions } from '../src/domain/item-component-values'
 import {
   consumableClearAllEffects,
   consumableComponentOf,
@@ -86,6 +88,15 @@ import { itemStack } from '../src/domain/item-stack'
 import { describe, expect, it } from 'vitest'
 
 describe('item components', () => {
+  it('distinguishes nested arrays with different lengths', () => {
+    const left = itemComponents('stone', { customData: { values: [1] } })
+    const right = itemComponents('stone', { customData: { values: [1, 2] } })
+    expect(itemComponentsEqual(left, right)).toBe(false)
+    const equalLengthLeft = itemComponents('stone', { customData: { values: [1] } })
+    const equalLengthRight = itemComponents('stone', { customData: { values: [2] } })
+    expect(itemComponentsEqual(equalLengthLeft, equalLengthRight)).toBe(false)
+    expect(isChargedProjectilesOptions([{ item: 'stone', count: 1, components: {} }])).toBe(false)
+  })
   it('publishes official identifiers and roster defaults', () => {
     expect(ITEM_COMPONENT_IDS).toEqual([
       'minecraft:damage',

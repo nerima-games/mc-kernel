@@ -1,17 +1,10 @@
 /** Shared values used by the canonical block registry fragments. */
 
-import type { BlockDropRule } from './block-harvest-data.js'
 import type { SupportRule } from './block-support-data.js'
 import { needsOneOf } from './block-support-data.js'
-import { StackCount } from './quantities.js'
 
 /** A block that yields no item, to any tool. */
-export const DROPS_NOTHING: BlockDropRule = {
-  affectedByFortune: false,
-  count: StackCount(0),
-  item: 'self',
-  requiresSilkTouch: false,
-}
+export const DROPS_NOTHING: undefined = undefined
 
 /** The four reference pickaxe tier gates. */
 export const NEEDS_WOODEN_PICKAXE = {

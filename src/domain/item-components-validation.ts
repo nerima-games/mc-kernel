@@ -653,8 +653,13 @@ const isResolvedNestedValue = (
   kind: ResolvedNestedValueKind,
 ): boolean => RESOLVED_NESTED_VALUE_HANDLERS[kind](value, ancestors, isResolvedNestedValue)
 
-export const isItemComponents = (value: unknown): value is ItemComponents =>
-  isResolvedNestedValue(value, new WeakSet<object>(), 'components')
+export const isItemComponents = (value: unknown): value is ItemComponents => {
+  try {
+    return isResolvedNestedValue(value, new WeakSet<object>(), 'components')
+  } catch {
+    return false
+  }
+}
 
 function freezeSnapshot(value: ItemComponents): ItemComponents
 function freezeSnapshot(value: unknown): unknown
@@ -700,5 +705,10 @@ const deepValueEqual = (left: unknown, right: unknown): boolean => {
 export const itemComponentsEqual = (
   left: ItemComponents | undefined,
   right: ItemComponents | undefined,
-): boolean =>
-  left === right || (left !== undefined && right !== undefined && deepValueEqual(left, right))
+): boolean => {
+  try {
+    return left === right || (left !== undefined && right !== undefined && deepValueEqual(left, right))
+  } catch {
+    return false
+  }
+}
