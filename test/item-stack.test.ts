@@ -235,18 +235,19 @@ describe("canonical item stacks", () => {
   });
 
   it("rejects K03 split and merge boundary quantities without partial results", () => {
-    const components = itemComponents("stone", { maxStackSize: 99 });
-    const one = itemStack("stone", 1, { components });
-    const ninetyNine = itemStack("stone", 99, { components });
-    expect(splitItemStack(one, TransferQuantity(1)).remainder).toBeUndefined();
-    expect(splitItemStack(ninetyNine, TransferQuantity(99)).remainder).toBeUndefined();
-    expect(mergeItemStacks(itemStack("stone", 60, { components }), itemStack("stone", 50, { components }))).toEqual({
-      merged: itemStack("stone", 99, { components }),
-      remainder: itemStack("stone", 11, { components }),
+    const one = { item: "stone", count: 1, components: { ...stoneComponentsLiteral, maxStackSize: 99 } };
+    const ninetyNine = { item: "stone", count: 99, components: { ...stoneComponentsLiteral, maxStackSize: 99 } };
+    const oneStack = literalStackOf(one);
+    const ninetyNineStack = literalStackOf(ninetyNine);
+    expect(splitItemStack(oneStack, TransferQuantity(1)).remainder).toBeUndefined();
+    expect(splitItemStack(ninetyNineStack, TransferQuantity(99)).remainder).toBeUndefined();
+    expect(mergeItemStacks(literalStackOf({ ...ninetyNine, count: 60 }), literalStackOf({ ...ninetyNine, count: 50 }))).toEqual({
+      merged: { ...ninetyNine, count: 99 },
+      remainder: { ...ninetyNine, count: 11 },
     });
-    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNine, 100])).toThrow(RangeError);
-    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNine, 0])).toThrow(RangeError);
-    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNine, 1.5])).toThrow(RangeError);
+    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNineStack, 100])).toThrow(RangeError);
+    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNineStack, 0])).toThrow(RangeError);
+    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNineStack, 1.5])).toThrow(RangeError);
   });
 
   it("rejects malformed operation inputs and reports merge overflow", () => {
