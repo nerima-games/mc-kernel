@@ -20,6 +20,15 @@ nix develop --command pnpm install
 nix develop --command pnpm tsx scripts/conformance/generate.ts --out test/golden
 ```
 
+The five kernel-owned tables are rendered from those golden files with the
+network-independent command below. The optional output path is used by the
+freshness test; omitting it updates the committed generated module.
+
+```sh
+nix develop --command pnpm generate:vanilla
+nix develop --command node --experimental-strip-types scripts/generate-vanilla-tables.ts --output /tmp/vanilla-26-3-generated.ts
+```
+
 The package owns the biome, block, damage-type, enchantment, item, mob-effect,
 recipe, and item-tag categories. `test/vanilla-26-3.test.ts` decodes each file
 with `effect/Schema` and checks the generated counts and represented table
@@ -52,6 +61,6 @@ the catalog-owning stream:
 
 | id | owner | reason |
 | --- | --- | --- |
-| `mc-kernel:block-registry-26-3` | `mc-kernel` | Block table remains 133/1286 to avoid downstream meshing and render contract expansion. |
-| `mc-kernel:item-registry-26-3` | `mc-kernel` | Item table remains 294/1658 to avoid downstream item/model contract expansion. |
-| `mc-kernel:recipe-types-26-3` | `mc-kernel` | Kernel schema represents only 100 shaped/shapeless rows; the listed 840 rows use unsupported recipe types. |
+| `mc-kernel:block-registry-26-3` | `mc-kernel` | Block table remains 123/1286 to avoid downstream meshing and render contract expansion. |
+| `mc-kernel:item-registry-26-3` | `mc-kernel` | Item table remains 280/1658 to avoid downstream item/model contract expansion. |
+| `mc-kernel:recipe-types-26-3` | `mc-kernel` | Kernel schema represents 100/2042 shaped/shapeless rows; the listed 840 rows use unsupported recipe types. |

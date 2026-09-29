@@ -1,16 +1,21 @@
-import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { describe, expect, it } from 'vitest'
 import * as Schema from 'effect/Schema'
-import { BIOME_TYPES } from '../src/domain/biome-data.js'
+import {
+  BIOME_TYPES,
+  BLOCK_TYPES,
+  DAMAGE_TYPE_NAMES,
+  ITEM_TYPES,
+  STATUS_EFFECT_NAMES,
+  SUPPORTED_VANILLA_ENCHANTMENT_IDS,
+  SUPPORTED_VANILLA_ENCHANTMENT_RULES,
+  VANILLA_CRAFTING_RECIPES,
+  VANILLA_ITEM_TAG_MEMBERSHIPS,
+} from '../src/index.js'
 import { propertiesOfBiomeType } from '../src/domain/biome-validation.js'
-import { BLOCK_TYPES } from '../src/domain/block-type-data.js'
-import { DAMAGE_TYPE_NAMES } from '../src/domain/damage-type-data.js'
-import { SUPPORTED_VANILLA_ENCHANTMENT_IDS, SUPPORTED_VANILLA_ENCHANTMENT_RULES } from '../src/domain/enchantment-data.js'
-import { ITEM_TYPES } from '../src/domain/item-type-data.js'
-import { VANILLA_CRAFTING_RECIPES } from '../src/domain/recipe-vanilla-data.js'
-import { STATUS_EFFECT_NAMES } from '../src/domain/status-effect-data.js'
-import { VANILLA_ITEM_TAG_MEMBERSHIP_ENTRIES } from '../src/domain/tag-membership-data.js'
 
 const GOLDEN = join(process.cwd(), 'test', 'golden')
 
@@ -34,6 +39,16 @@ const golden = {
 
 const keysOf = (value: Readonly<Record<string, unknown>>): ReadonlyArray<string> => Object.keys(value)
 
+const conformanceDocument = readFileSync(join(process.cwd(), 'docs', 'conformance.md'), 'utf8')
+
+const conformanceCounts = (id: string, prefix: string): readonly [number, number] => {
+  const row = conformanceDocument.split('\n').find((line) => line.startsWith(`| \`mc-kernel:${id}\` |`))
+  if (row === undefined) throw new Error(`missing conformance row: ${id}`)
+  const match = new RegExp(`^\\| [\\u0060]mc-kernel:${id}[\\u0060] \\| [\\u0060]mc-kernel[\\u0060] \\| ${prefix} (\\d+)\\/(\\d+)\\b`).exec(row)
+  if (match === null) throw new Error(`invalid conformance row counts: ${id}`)
+  return [Number(match[1]), Number(match[2])]
+}
+
 describe('Minecraft Java Edition 26.3 V-1 golden', () => {
   it('decodes all kernel-owned golden categories through Schema', () => {
     expect(keysOf(golden.biome)).toHaveLength(67)
@@ -52,7 +67,26 @@ describe('Minecraft Java Edition 26.3 V-1 golden', () => {
     expect([...DAMAGE_TYPE_NAMES].sort()).toEqual([...golden.damageType].sort())
     expect([...SUPPORTED_VANILLA_ENCHANTMENT_IDS].sort()).toEqual([...keysOf(golden.enchantment)].sort())
     expect([...STATUS_EFFECT_NAMES].sort()).toEqual([...golden.mobEffect].sort())
-    expect(VANILLA_ITEM_TAG_MEMBERSHIP_ENTRIES.map((entry) => entry.tag).sort()).toEqual(keysOf(golden.tag).map((id) => `minecraft:${id}`).sort())
+    const tagIds = [...VANILLA_ITEM_TAG_MEMBERSHIPS.keys()]
+      .filter((tag) => tag !== '#minecraft:trim_templates')
+      .map((tag) => tag.replace(/^#minecraft:/, ''))
+    expect([...tagIds].sort()).toEqual([...keysOf(golden.tag)].sort())
+  })
+
+  it('keeps the generated kernel tables fresh', () => {
+    const temporaryDirectory = mkdtempSync(join(tmpdir(), 'mc-kernel-vanilla-'))
+    const generatedPath = join(temporaryDirectory, 'vanilla-26-3-generated.ts')
+    try {
+      execFileSync(process.execPath, [
+        '--experimental-strip-types',
+        join(process.cwd(), 'scripts', 'generate-vanilla-tables.ts'),
+        '--output',
+        generatedPath,
+      ], { cwd: process.cwd(), stdio: 'pipe' })
+      expect(readFileSync(generatedPath)).toEqual(readFileSync(join(process.cwd(), 'src', 'domain', 'vanilla-26-3-generated.ts')))
+    } finally {
+      rmSync(temporaryDirectory, { recursive: true, force: true })
+    }
   })
 
   it('keeps block, item, and recipe ids within the intentionally divergent scope', () => {
@@ -68,6 +102,12 @@ describe('Minecraft Java Edition 26.3 V-1 golden', () => {
     expect(BLOCK_TYPES).toHaveLength(123)
     expect(ITEM_TYPES).toHaveLength(280)
     expect(VANILLA_CRAFTING_RECIPES).toHaveLength(100)
+  })
+
+  it('keeps conformance catalog counts aligned with the exposed tables', () => {
+    expect(conformanceCounts('block-registry-26-3', 'Block table remains')).toEqual([BLOCK_TYPES.length, keysOf(golden.block).length])
+    expect(conformanceCounts('item-registry-26-3', 'Item table remains')).toEqual([ITEM_TYPES.length, golden.item.length])
+    expect(conformanceCounts('recipe-types-26-3', 'Kernel schema represents')).toEqual([VANILLA_CRAFTING_RECIPES.length, keysOf(golden.recipe).length])
   })
 
   it('matches enchantment max levels for every currently represented rule', () => {
