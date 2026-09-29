@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as fc from "effect/FastCheck";
 import { itemComponents } from "../src/domain/item-components";
 import { itemComponentPatch, itemComponentPatchFromUnknownEither } from "../src/domain/item-component-patch";
+import { enchantmentsComponent } from "../src/domain/item-enchantments";
 import { TransferQuantity } from "../src/domain/quantities";
 import {
   isItemStack,
@@ -87,6 +88,44 @@ describe("canonical item stacks", () => {
     expect(itemStackFromUnknown("stone", 1, { components })).toBeDefined();
   });
 
+  it("pins the K03 literal payload oracles", () => {
+    const named = itemStack("stone", 32, { components: itemComponents("stone", { customName: { text: "K03 stone" } }) });
+    const sharpness = itemStack("stone", 1, { components: itemComponents("stone", { enchantments: enchantmentsComponent({ "minecraft:sharpness": 5 }) }) });
+    const mending = itemStack("stone", 1, { components: itemComponents("stone", { enchantments: enchantmentsComponent({ "minecraft:mending": 1 }) }) });
+    const fortune = itemStack("stone", 1, { components: itemComponents("stone", { enchantments: enchantmentsComponent({ "minecraft:fortune": 3 }) }) });
+    const damaged = itemStack("diamond_sword", 1, { components: itemComponents("diamond_sword", { damage: 0 }) });
+    const split = splitItemStack(named, TransferQuantity(12));
+    expect(named.components.customName).toEqual({ text: "K03 stone" });
+    expect(sharpness.components.enchantments).toEqual({ "minecraft:sharpness": 5 });
+    expect(mending.components.enchantments).toEqual({ "minecraft:mending": 1 });
+    expect(fortune.components.enchantments).toEqual({ "minecraft:fortune": 3 });
+    expect(damaged.components.damage).toBe(0);
+    expect(split.taken.count).toBe(12);
+    expect(split.remainder?.count).toBe(20);
+    expect(split.taken.components.customName).toEqual({ text: "K03 stone" });
+    expect(mergeItemStacks(split.taken, split.remainder!).merged.count).toBe(32);
+    expect(itemStack("stone", 1, { components: itemComponents("stone", { maxStackSize: 99 }) }).count).toBe(1);
+    expect(itemStack("stone", 99, { components: itemComponents("stone", { maxStackSize: 99 }) }).count).toBe(99);
+    expect(itemStack("diamond_pickaxe", 1).count).toBe(1);
+    expect(() => itemStack("diamond_pickaxe", 2)).toThrow(RangeError);
+    expect(() => itemStack("stone", 100, { components: itemComponents("stone", { maxStackSize: 99 }) })).toThrow(RangeError);
+  });
+
+  it("rejects K03 split and merge boundary quantities without partial results", () => {
+    const components = itemComponents("stone", { maxStackSize: 99 });
+    const one = itemStack("stone", 1, { components });
+    const ninetyNine = itemStack("stone", 99, { components });
+    expect(splitItemStack(one, TransferQuantity(1)).remainder).toBeUndefined();
+    expect(splitItemStack(ninetyNine, TransferQuantity(99)).remainder).toBeUndefined();
+    expect(mergeItemStacks(itemStack("stone", 60, { components }), itemStack("stone", 50, { components }))).toEqual({
+      merged: itemStack("stone", 99, { components }),
+      remainder: itemStack("stone", 11, { components }),
+    });
+    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNine, 100])).toThrow(RangeError);
+    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNine, 0])).toThrow(RangeError);
+    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNine, 1.5])).toThrow(RangeError);
+  });
+
   it("rejects malformed operation inputs and reports merge overflow", () => {
     const left = itemStack("stone", 64);
     const right = itemStack("stone", 2);
@@ -100,8 +139,9 @@ describe("canonical item stacks", () => {
   });
 
   it("preserves split/merge arithmetic for generated positive counts", () => {
-    fc.assert(fc.property(fc.integer({ min: 1, max: 64 }), fc.integer({ min: 1, max: 64 }), (count, amount) => {
-      const source = itemStack("stone", count);
+    fc.assert(fc.property(fc.integer({ min: 1, max: 99 }), fc.integer({ min: 1, max: 99 }), (count, amount) => {
+      const components = itemComponents("stone", { maxStackSize: 99 });
+      const source = itemStack("stone", count, { components });
       const splitAmount = Math.min(amount, count);
       const split = splitItemStack(source, TransferQuantity(splitAmount));
       const remainderCount = split.remainder?.count ?? 0;
