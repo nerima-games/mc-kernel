@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       effect:
-        specifier: 3.22.1
-        version: 3.22.1
+        specifier: 3.22.2
+        version: 3.22.2
     devDependencies:
       '@changesets/changelog-github':
         specifier: 1.0.0
@@ -20,7 +20,7 @@ importers:
         version: 3.0.1
       '@effect/vitest':
         specifier: 0.30.0
-        version: 0.30.0(effect@3.22.1)(vitest@4.1.11)
+        version: 0.30.0(effect@3.22.2)(vitest@4.1.11)
       '@types/node':
         specifier: 26.4.0
         version: 26.4.0
@@ -904,8 +904,8 @@ packages:
   dataloader@2.2.3:
     resolution: {integrity: sha512-y2krtASINtPFS1rSDjacrFgn1dcUuoREVabwlOGOe4SdxenREqwjwjElAdwvbGM7kgZz9a3KVicWR7vcz8rnzA==}
 
-  effect@3.22.1:
-    resolution: {integrity: sha512-TNoXushmPOBAjJlthF5d2QwnX2xBPEtcNJr5XKNKbRLbDvBcOYkXlYDfvGfSA0zriwLFuCll5MDtNMAdZL17PQ==}
+  effect@3.22.2:
+    resolution: {integrity: sha512-fm1CQXCs7GTMwpadZxwU5rnAb2bN6mbQpknq/pXBGCzSKkosNYb9k0wsoL0TfB10rSa5xOEZJjo77u/KLXSANg==}
 
   es-module-lexer@2.3.1:
     resolution: {integrity: sha512-shc1dbU90Yl/xq1QrC7QRtfcwURZuVRfPhZbDoldJ1cn1gzDvBaBWlv0eFolj5+0znnPJz5TXLxsN77X/12KTA==}
@@ -1377,9 +1377,9 @@ snapshots:
       fast-wrap-ansi: 0.2.2
       sisteransi: 1.0.5
 
-  '@effect/vitest@0.30.0(effect@3.22.1)(vitest@4.1.11)':
+  '@effect/vitest@0.30.0(effect@3.22.2)(vitest@4.1.11)':
     dependencies:
-      effect: 3.22.1
+      effect: 3.22.2
       vitest: 4.1.11(@types/node@26.4.0)(@vitest/coverage-v8@4.1.11)(vite@7.3.6(@types/node@26.4.0)(jiti@2.7.0)(tsx@4.23.11)(yaml@2.9.0))
 
   '@emnapi/core@1.11.2':
@@ -1855,7 +1855,7 @@ snapshots:
 
   dataloader@2.2.3: {}
 
-  effect@3.22.1:
+  effect@3.22.2:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 3.23.2
@@ -2173,8 +2173,8 @@ snapshots:
   vite@7.3.6(@types/node@26.4.0)(jiti@2.7.0)(tsx@4.23.11)(yaml@2.9.0):
     dependencies:
       esbuild: 0.28.1
-      fdir: 6.5.0(picomatch@4.0.5)
-      picomatch: 4.0.5
+      fdir: 6.5.0(picomatch@4.0.7)
+      picomatch: 4.0.7
       postcss: 8.5.23
       rollup: 4.62.3
       tinyglobby: 0.2.17
