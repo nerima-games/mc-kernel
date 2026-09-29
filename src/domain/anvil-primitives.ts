@@ -1,4 +1,5 @@
 /* eslint-disable no-control-regex -- Custom names must reject the JSON control-character range. */
+import { Brand } from 'effect'
 import type {
   AnvilCustomName as AnvilCustomNameType,
   AnvilEnchantmentId as AnvilEnchantmentIdType,
@@ -6,6 +7,14 @@ import type {
 
 export const ANVIL_SNAPSHOT_VERSION = 1
 export const ANVIL_MAX_CUSTOM_NAME_LENGTH = 50
+
+/** Material consumed by an anvil operation; zero means the right input contributed nothing. */
+export type AnvilMaterialCost = number & Brand.Brand<'AnvilMaterialCost'>
+
+export const AnvilMaterialCost: Brand.Brand.Constructor<AnvilMaterialCost> = Brand.refined<AnvilMaterialCost>(
+  (value) => Number.isSafeInteger(value) && value >= 0 && value <= 99,
+  (value) => Brand.error(`AnvilMaterialCost must be an integer in [0, 99], received ${String(value)}`),
+)
 
 export const isNonNegativeSafeInteger = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0

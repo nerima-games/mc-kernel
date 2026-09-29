@@ -179,9 +179,13 @@ describe("public API surface", () => {
           "jsonValueFromUnknown",
           "jsonValuesEqual",
           "ItemComponentPatchKey",
+          "ItemComponentPatchConflictError",
           "isItemComponentPatch",
           "itemComponentPatchFromUnknown",
+          "itemComponentPatchFromUnknownEither",
           "itemComponentPatch",
+          "mergeItemComponentPatches",
+          "mergeItemComponentPatchesEither",
           "itemComponentPatchesEqual",
           // Quantities
           "StackCount",
@@ -420,15 +424,25 @@ describe("public API surface", () => {
           "isStoredEnchantmentsComponent",
           // Item stacks and recipe matching
           "maxStackCountForItem",
+          "maxStackCountForStack",
           "itemStack",
           "itemStackFromUnknown",
           "isItemStack",
+          "itemStackEqualsIgnoringCount",
+          "itemStacksCanMerge",
+          "itemStackWithCount",
+          "transmuteItemStack",
+          "splitItemStack",
+          "mergeItemStacks",
+          "applyItemComponentPatch",
+          "TransferQuantity",
           // Fixed player inventory value operations
           "INVENTORY_SLOT_COUNT",
           "emptyInventory",
           "slotAt",
           "countOf",
           "isInventoryEmpty",
+          "addItemStack",
           "addItem",
           "removeItemAt",
           "removeItem",
@@ -797,6 +811,7 @@ describe("public API surface", () => {
           "ANVIL_MAX_CUSTOM_NAME_LENGTH",
           "AnvilEnchantmentId",
           "AnvilCustomName",
+          "AnvilMaterialCost",
           "AnvilSnapshotString",
           "snapshotAnvilState",
           "decodeAnvilSnapshot",
@@ -1030,10 +1045,45 @@ describe("public API surface", () => {
           bedrockMining.resolveBedrockDiggerSpeed,
         );
         expect(kernel.itemStack).toBe(itemStackModule.itemStack);
+        expect(kernel.maxStackCountForStack).toBe(
+          itemStackModule.maxStackCountForStack,
+        );
         expect(kernel.itemStackFromUnknown).toBe(
           itemStackModule.itemStackFromUnknown,
         );
         expect(kernel.isItemStack).toBe(itemStackModule.isItemStack);
+        expect(kernel.itemStackEqualsIgnoringCount).toBe(
+          itemStackModule.itemStackEqualsIgnoringCount,
+        );
+        expect(kernel.itemStacksCanMerge).toBe(
+          itemStackModule.itemStacksCanMerge,
+        );
+        expect(kernel.itemStackWithCount).toBe(
+          itemStackModule.itemStackWithCount,
+        );
+        expect(kernel.transmuteItemStack).toBe(
+          itemStackModule.transmuteItemStack,
+        );
+        expect(kernel.splitItemStack).toBe(itemStackModule.splitItemStack);
+        expect(kernel.mergeItemStacks).toBe(itemStackModule.mergeItemStacks);
+        expect(kernel.ItemComponentPatchConflictError).toBe(
+          itemComponentPatchModule.ItemComponentPatchConflictError,
+        );
+        expect(kernel.itemComponentPatchFromUnknownEither).toBe(
+          itemComponentPatchModule.itemComponentPatchFromUnknownEither,
+        );
+        expect(kernel.mergeItemComponentPatches).toBe(
+          itemComponentPatchModule.mergeItemComponentPatches,
+        );
+        expect(kernel.mergeItemComponentPatchesEither).toBe(
+          itemComponentPatchModule.mergeItemComponentPatchesEither,
+        );
+        expect(kernel.applyItemComponentPatch).toBe(
+          itemComponentPatchModule.applyItemComponentPatch,
+        );
+        expect(kernel.TransferQuantity).toBe(
+          quantitiesModule.TransferQuantity,
+        );
         expect(kernel.INVENTORY_SLOT_COUNT).toBe(
           inventoryModule.INVENTORY_SLOT_COUNT,
         );
@@ -1042,6 +1092,7 @@ describe("public API surface", () => {
         expect(kernel.countOf).toBe(inventoryModule.countOf);
         expect(kernel.isInventoryEmpty).toBe(inventoryModule.isInventoryEmpty);
         expect(kernel.addItem).toBe(inventoryModule.addItem);
+        expect(kernel.addItemStack).toBe(inventoryModule.addItemStack);
         expect(kernel.removeItemAt).toBe(inventoryModule.removeItemAt);
         expect(kernel.removeItem).toBe(inventoryModule.removeItem);
         expect(kernel.normaliseInventory).toBe(
@@ -3025,6 +3076,15 @@ describe("public API surface", () => {
         );
         expect(itemStackSubpath.itemStack).toBe(packageRoot.itemStack);
         expect(itemStackSubpath.isItemStack).toBe(packageRoot.isItemStack);
+        expect(itemStackSubpath.splitItemStack).toBe(
+          packageRoot.splitItemStack,
+        );
+        expect(itemStackSubpath.mergeItemStacks).toBe(
+          packageRoot.mergeItemStacks,
+        );
+        expect(itemStackSubpath.itemStacksCanMerge).toBe(
+          packageRoot.itemStacksCanMerge,
+        );
         expect(itemRegistrySubpath.ITEM_REGISTRY).toBe(
           packageRoot.ITEM_REGISTRY,
         );
@@ -3614,6 +3674,23 @@ describe("public API surface", () => {
         for (const type of stackableFishingItems) {
           expectCanonicalItem(type, { maxStack: STANDARD_ITEM_STACK });
         }
+      }),
+    ));
+
+  it("keeps the canonical ItemStack payload and slot boundary", () =>
+    Effect.runPromise(
+      Effect.sync(() => {
+        const stack = kernel.itemStack("stone", 2);
+        expect(Object.keys(stack).sort()).toEqual(["components", "count", "item"]);
+        expect(stack.count).toBe(2);
+        expect(kernel.splitItemStack(stack, kernel.TransferQuantity(2)).remainder).toBeUndefined();
+        expect(kernel.mergeItemStacks(kernel.itemStack("stone", 1), kernel.itemStack("stone", 1)).remainder).toBeUndefined();
+        expect(() => kernel.itemStack("stone", 0)).toThrow(RangeError);
+        const conflict = kernel.itemComponentPatchFromUnknownEither({
+            "minecraft:max_stack_size": 1,
+            "!minecraft:max_stack_size": 1,
+          });
+        expect(conflict._tag).toBe("Left");
       }),
     ));
 });

@@ -35,8 +35,12 @@ import {
   NamespacedResourceLocation,
   type NamespacedResourceLocation as NamespacedResourceLocationValue,
 } from "./identifiers.js";
-import { itemComponentPatchFromUnknown } from "./item-component-patch.js";
+import {
+  applyItemComponentPatch,
+  itemComponentPatchFromUnknown,
+} from "./item-component-patch.js";
 import { isItemType, type ItemType } from "./item-type.js";
+import { itemComponents } from "./item-components.js";
 import { itemStack } from "./item-stack.js";
 import {
   anyOf,
@@ -203,8 +207,9 @@ const decodeResult = (value: unknown) => {
   if (!Object.hasOwn(value, "components")) {
     return itemStack(item, count);
   }
+  const patch = itemComponentPatchFromUnknown(value["components"]);
   return itemStack(item, count, {
-    componentPatch: itemComponentPatchFromUnknown(value["components"]),
+    components: applyItemComponentPatch(itemComponents(item), patch),
   });
 };
 

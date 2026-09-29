@@ -41,9 +41,9 @@ describe('inventory values', () => {
     expect(outcome).toEqual({
       inventory: {
         slots: [
-          { item: 'stone', count: 64 },
-          { item: 'dirt', count: 1 },
-          { item: 'stone', count: 2 },
+          itemStack('stone', 64),
+          itemStack('dirt', 1),
+          itemStack('stone', 2),
           ...Array.from({ length: INVENTORY_SLOT_COUNT - 3 }, () => undefined),
         ],
       },
@@ -56,8 +56,8 @@ describe('inventory values', () => {
   it('respects item-specific stack limits and reports a full inventory', () => {
     const pearls = addItem(emptyInventory(), 'ender_pearl', 17)
     expect(pearls.inventory.slots.slice(0, 2)).toEqual([
-      { item: 'ender_pearl', count: 16 },
-      { item: 'ender_pearl', count: 1 },
+      itemStack('ender_pearl', 16),
+      itemStack('ender_pearl', 1),
     ])
     expect(pearls.leftover).toBe(0)
 
@@ -122,8 +122,8 @@ describe('inventory values', () => {
     expect(outcome).toEqual({
       inventory: {
         slots: [
-          { item: 'stone', count: 1 },
-          { item: 'dirt', count: 1 },
+          itemStack('stone', 1),
+          itemStack('dirt', 1),
           ...Array.from({ length: INVENTORY_SLOT_COUNT - 2 }, () => undefined),
         ],
       },
@@ -136,7 +136,7 @@ describe('inventory values', () => {
 
     expect(removeItem(inventory, 'stone', 2)).toEqual({
       inventory: {
-        slots: [{ item: 'stone', count: 2 }, ...Array.from({ length: INVENTORY_SLOT_COUNT - 1 }, () => undefined)],
+        slots: [itemStack('stone', 2), ...Array.from({ length: INVENTORY_SLOT_COUNT - 1 }, () => undefined)],
       },
       removed: 2,
     })
@@ -197,8 +197,8 @@ describe('inventory values', () => {
       inventory: {
         slots: [
           ...Array.from({ length: 7 }, () => undefined),
-          { item: 'stone', count: 3 },
-          { item: 'stone', count: 64 },
+          itemStack('stone', 3),
+          itemStack('stone', 64),
           ...Array.from({ length: INVENTORY_SLOT_COUNT - 9 }, () => undefined),
         ],
       },
@@ -236,7 +236,9 @@ describe('inventory values', () => {
     ]
 
     expect(normaliseInventory({ slots })).toEqual({
-      inventory: { slots: slots.slice(0, INVENTORY_SLOT_COUNT) },
+      inventory: {
+        slots: Array.from({ length: INVENTORY_SLOT_COUNT }, () => itemStack('stone', 64)),
+      },
       leftover: 1,
       discarded: 0,
     })

@@ -9,6 +9,8 @@ import {
   itemComponents,
   itemToolComponentOf,
 } from '../src/domain/item-components'
+import { itemComponentsEqual } from '../src/domain/item-components-validation'
+import { isChargedProjectilesOptions } from '../src/domain/item-component-values'
 import {
   consumableClearAllEffects,
   consumableComponentOf,
@@ -86,6 +88,37 @@ import { itemStack } from '../src/domain/item-stack'
 import { describe, expect, it } from 'vitest'
 
 describe('item components', () => {
+  it('rejects hostile component records without throwing', () => {
+    const hostile = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
+    expect(isItemComponents(hostile)).toBe(false)
+    expect(Reflect.apply(itemComponentsEqual, undefined, [hostile, undefined])).toBe(false)
+    const throwingValue: Record<string, unknown> = {}
+    const otherThrowingValue: Record<string, unknown> = {}
+    Object.defineProperty(throwingValue, 'x', { enumerable: true, get: () => { throw new Error('hostile') } })
+    Object.defineProperty(otherThrowingValue, 'x', { enumerable: true, get: () => { throw new Error('hostile') } })
+    expect(Reflect.apply(itemComponentsEqual, undefined, [throwingValue, otherThrowingValue])).toBe(false)
+  })
+
+  it('accepts resolved nested stack values at their item limit', () => {
+    expect(isChargedProjectilesOptions([{ item: 'stone', count: 1, components: itemComponents('stone') }])).toBe(true)
+    expect(isChargedProjectilesOptions([{ item: 'stone', count: 64, components: itemComponents('stone') }])).toBe(true)
+    expect(isChargedProjectilesOptions([{ item: 'stone', count: 65, components: itemComponents('stone') }])).toBe(false)
+    expect(isChargedProjectilesOptions([null])).toBe(false)
+    expect(isChargedProjectilesOptions([{ item: 'ender_pearl', count: 16, components: itemComponents('ender_pearl') }])).toBe(true)
+    expect(isChargedProjectilesOptions([{ item: 'ender_pearl', count: 17, components: itemComponents('ender_pearl') }])).toBe(false)
+    expect(isChargedProjectilesOptions([{ item: 'diamond_pickaxe', count: 1, components: itemComponents('diamond_pickaxe') }])).toBe(true)
+    expect(isChargedProjectilesOptions([{ item: 'diamond_pickaxe', count: 2, components: itemComponents('diamond_pickaxe') }])).toBe(false)
+    expect(isItemComponents({ ...itemComponents('stone'), chargedProjectiles: [{ item: 'stone', count: 1 }] })).toBe(true)
+  })
+  it('distinguishes nested arrays with different lengths', () => {
+    const left = itemComponents('stone', { customData: { values: [1] } })
+    const right = itemComponents('stone', { customData: { values: [1, 2] } })
+    expect(itemComponentsEqual(left, right)).toBe(false)
+    const equalLengthLeft = itemComponents('stone', { customData: { values: [1] } })
+    const equalLengthRight = itemComponents('stone', { customData: { values: [2] } })
+    expect(itemComponentsEqual(equalLengthLeft, equalLengthRight)).toBe(false)
+    expect(isChargedProjectilesOptions([{ item: 'stone', count: 1, components: {} }])).toBe(false)
+  })
   it('publishes official identifiers and roster defaults', () => {
     expect(ITEM_COMPONENT_IDS).toEqual([
       'minecraft:damage',

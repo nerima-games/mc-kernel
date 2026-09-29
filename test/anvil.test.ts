@@ -14,8 +14,13 @@ import {
   snapshotAnvilState,
 } from '../src/domain/anvil'
 import type { StackCount } from '../src/domain/quantities'
+import { AnvilMaterialCost, type AnvilMaterialCost as AnvilMaterialCostValue } from '../src/domain/anvil-primitives'
 import { describe, expect, it } from 'vitest'
 import { expectTypeOf } from 'vitest'
+
+it('formats hostile material-cost input without throwing from either', () => {
+  expect(AnvilMaterialCost.either(Number.NaN)).toBeDefined()
+})
 
 const RULES = {
   enchantments: [
@@ -274,7 +279,7 @@ describe('anvil planning', () => {
       expect(applied.output.durability).toStrictEqual({ current: 250, max: 250 })
       expect(applied.levelCost).toBe(3)
       expect(applied.materialCost).toBe(3)
-      expectTypeOf(applied.materialCost).toEqualTypeOf<StackCount>()
+      expectTypeOf(applied.materialCost).toEqualTypeOf<AnvilMaterialCostValue>()
       expectTypeOf(applied.state.right).not.toBeNull()
       if (applied.state.right !== null) {
         expectTypeOf(applied.state.right.count).toEqualTypeOf<StackCount>()
@@ -349,7 +354,7 @@ describe('anvil planning', () => {
         { id: AnvilEnchantmentId('unbreaking'), level: 2 },
       ])
       expect(bookPlan.levelCost).toBe(9)
-      expectTypeOf(bookPlan.materialCost).toEqualTypeOf<StackCount>()
+      expectTypeOf(bookPlan.materialCost).toEqualTypeOf<AnvilMaterialCostValue>()
 
       const itemPlan = planAnvil(state({
         left: item({ enchantments: [{ id: AnvilEnchantmentId('sharpness'), level: 2 }] }),

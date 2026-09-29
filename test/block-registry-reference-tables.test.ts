@@ -172,9 +172,12 @@ const expectOreProperties = () => {
   for (const [type, minTier, item, xpOnBreak, affectedByFortune] of oreExpectations) {
     const id = blockIdOf(type)
     expect(propertyOfBlockId(id, 'harvestTool').minTier).toBe(minTier)
-    expect(propertyOfBlockId(id, 'drops').item).toBe(item)
+    const drops = propertyOfBlockId(id, 'drops')
+    expect(drops).toBeDefined()
+    if (drops === undefined) throw new Error(`expected drop rule for ${type}`)
+    expect(drops.item).toBe(item)
     expect(propertyOfBlockId(id, 'xpOnBreak')).toBe(xpOnBreak)
-    expect(propertyOfBlockId(id, 'drops').affectedByFortune).toBe(affectedByFortune)
+    expect(drops.affectedByFortune).toBe(affectedByFortune)
   }
 }
 
@@ -574,7 +577,7 @@ describe('the completed roster and additive gameplay vocabulary', () => {
       // Happen to agree. Recorded as a coincidence so that a later edit deriving
       // One from the other is a visible decision.
       const noXp = BLOCK_IDS.filter((id) => propertyOfBlockId(id, 'xpOnBreak') === number('0'))
-      const noFortune = BLOCK_IDS.filter((id) => !propertyOfBlockId(id, 'drops').affectedByFortune)
+      const noFortune = BLOCK_IDS.filter((id) => propertyOfBlockId(id, 'drops')?.affectedByFortune === false)
       expect(noXp.length).not.toBe(noFortune.length)
 
       // Deepslate is HARDER than its stone twin while being gated at the SAME

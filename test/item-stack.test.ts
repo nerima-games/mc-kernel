@@ -1,246 +1,280 @@
 import { describe, expect, it } from "vitest";
-
+import * as fc from "effect/FastCheck";
 import { itemComponents } from "../src/domain/item-components";
-import { itemComponentPatch } from "../src/domain/item-component-patch";
+import { itemComponentPatch, itemComponentPatchFromUnknownEither } from "../src/domain/item-component-patch";
+import { TransferQuantity } from "../src/domain/quantities";
 import {
   isItemStack,
   itemStack,
   itemStackFromUnknown,
+  itemStackEqualsIgnoringCount,
   itemStackWithCount,
-  itemStacksCanMerge,
   maxStackCountForItem,
+  maxStackCountForStack,
+  mergeItemStacks,
+  splitItemStack,
   transmuteItemStack,
 } from "../src/domain/item-stack";
 
-describe("item stacks", () => {
-  it("uses the item registry stack limits", () => {
+const stoneComponentsLiteral = {
+  maxStackSize: 64,
+  maxDamage: undefined,
+  damage: undefined,
+  repairCost: 0,
+  unbreakable: undefined,
+  enchantmentGlintOverride: undefined,
+  tooltipDisplay: undefined,
+  customName: undefined,
+  itemName: undefined,
+  lore: undefined,
+  itemModel: undefined,
+  customData: undefined,
+  entityData: undefined,
+  bucketEntityData: undefined,
+  profile: undefined,
+  blockEntityData: undefined,
+  chargedProjectiles: undefined,
+  bundleContents: undefined,
+  container: undefined,
+  mapColor: undefined,
+  mapDecorations: undefined,
+  writableBookContent: undefined,
+  writtenBookContent: undefined,
+  trim: undefined,
+  suspiciousStew: undefined,
+  hideAdditionalTooltip: undefined,
+  canBreak: undefined,
+  canPlaceOn: undefined,
+  bees: undefined,
+  potionContents: undefined,
+  dyedColor: undefined,
+  customModelData: undefined,
+  mapId: undefined,
+  blockState: undefined,
+  instrument: undefined,
+  noteBlockSound: undefined,
+  recipes: undefined,
+  lock: undefined,
+  tooltipStyle: undefined,
+  baseColor: undefined,
+  equippable: undefined,
+  glider: undefined,
+  deathProtection: undefined,
+  repairable: undefined,
+  enchantable: undefined,
+  jukeboxPlayable: undefined,
+  ominousBottleAmplifier: undefined,
+  paintingVariant: undefined,
+  lodestoneTracker: undefined,
+  fireworkExplosion: undefined,
+  fireworks: undefined,
+  bannerPatterns: undefined,
+  potDecorations: undefined,
+  containerLoot: undefined,
+  debugStickState: undefined,
+  rarity: "common",
+  food: undefined,
+  consumable: undefined,
+  useRemainder: undefined,
+  useCooldown: undefined,
+  useEffects: undefined,
+  tool: undefined,
+  weapon: undefined,
+  kineticWeapon: undefined,
+  piercingWeapon: undefined,
+  attributeModifiers: undefined,
+  enchantments: undefined,
+  storedEnchantments: undefined,
+  blocksAttacks: undefined,
+  damageResistant: undefined,
+  minimumAttackCharge: undefined,
+  damageType: undefined,
+  swingAnimation: undefined,
+  attackRange: undefined,
+  potionDurationScale: undefined,
+  breakSound: undefined,
+  providesBannerPatterns: undefined,
+  providesTrimMaterial: undefined,
+  dye: undefined,
+  additionalTradeCost: undefined,
+  sulfurCubeContent: undefined,
+} as const;
+
+const isLiteralRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const literalStackOf = (value: unknown) => {
+  if (!isLiteralRecord(value) || !Object.hasOwn(value, "item") || !Object.hasOwn(value, "count") || !Object.hasOwn(value, "components")) {
+    throw new Error("invalid literal fixture");
+  }
+  return itemStackFromUnknown(value["item"], value["count"], { components: value["components"] });
+};
+
+describe("canonical item stacks", () => {
+  it("uses ordinary limits and stores only a resolved payload", () => {
     expect(maxStackCountForItem("stone")).toBe(64);
     expect(maxStackCountForItem("ender_pearl")).toBe(16);
     expect(maxStackCountForItem("diamond_pickaxe")).toBe(1);
-    expect(itemStack("stone", 64)).toEqual({ item: "stone", count: 64 });
-    expect(itemStack("ender_pearl", 16)).toEqual({
-      item: "ender_pearl",
-      count: 16,
-    });
-    expect(itemStack("diamond_pickaxe", 1)).toEqual({
-      item: "diamond_pickaxe",
-      count: 1,
-    });
-  });
-
-  it("rejects unknown items and invalid counts", () => {
-    expect(itemStackFromUnknown("stone", 1)).toEqual({
-      item: "stone",
-      count: 1,
-    });
-    expect(() => itemStackFromUnknown("unknown", 1)).toThrow(TypeError);
-    expect(() => itemStackFromUnknown("stone", "1")).toThrow(TypeError);
-    expect(() => itemStackFromUnknown("stone", 1, null)).toThrow(TypeError);
-    expect(() => itemStackFromUnknown("stone", 1, { components: {} })).toThrow(
-      TypeError,
-    );
-    expect(() => Reflect.apply(itemStack, undefined, ["unknown", 1])).toThrow(
-      TypeError,
-    );
+    const stack = itemStack("stone", 64);
+    expect(Object.keys(stack)).toEqual(["item", "count", "components"]);
+    expect(Object.isFrozen(stack)).toBe(true);
+    expect(isItemStack(stack)).toBe(true);
     expect(() => itemStack("stone", 0)).toThrow(RangeError);
     expect(() => itemStack("stone", 65)).toThrow(RangeError);
-    expect(() => itemStack("stone", 1.5)).toThrow(RangeError);
-    expect(() => itemStack("stone", Number.NaN)).toThrow(RangeError);
-    expect(() => itemStack("diamond_pickaxe", 2)).toThrow(RangeError);
+    expect(() => itemStack("stone", Number.POSITIVE_INFINITY)).toThrow(RangeError);
+    expect(() => Reflect.apply(itemStack, undefined, ["not_an_item", 1])).toThrow(TypeError);
+    expect(maxStackCountForStack({ item: "stone" })).toBe(64);
   });
 
-  it("preserves resolved components and merges only structurally equal stacks", () => {
-    const rare = itemComponents("stone", { maxStackSize: 2, rarity: "rare" });
-    const sameRare = itemComponents("stone", {
-      maxStackSize: 2,
-      rarity: "rare",
-    });
-    const epic = itemComponents("stone", { maxStackSize: 2, rarity: "epic" });
-    const stack = itemStack("stone", 2, { components: rare });
-
-    expect(stack).toEqual({ item: "stone", count: 2, components: rare });
-    expect(itemStackWithCount(stack, 1)).toEqual({
-      item: "stone",
-      count: 1,
-      components: rare,
-    });
-    expect(itemStackFromUnknown("stone", 1, { components: sameRare })).toEqual({
-      item: "stone",
-      count: 1,
-      components: sameRare,
-    });
-    expect(
-      itemStacksCanMerge(itemStack("stone", 1), itemStack("stone", 1)),
-    ).toBe(true);
-    expect(itemStacksCanMerge(itemStack("stone", 1), stack)).toBe(false);
-    expect(
-      itemStacksCanMerge(
-        stack,
-        itemStack("stone", 1, { components: sameRare }),
-      ),
-    ).toBe(true);
-    expect(
-      itemStacksCanMerge(stack, itemStack("stone", 1, { components: epic })),
-    ).toBe(false);
-    expect(itemStacksCanMerge(stack, itemStack("dirt", 1))).toBe(false);
-    expect(() => itemStack("stone", 3, { components: rare })).toThrow(
-      RangeError,
-    );
-
-    const honey = itemComponents("honey_bottle");
-    const honeyConsumable = honey.consumable;
-    if (honeyConsumable === undefined) {
-      throw new Error("expected honey bottle consumable component");
-    }
-    const clonedHoney = itemComponents("honey_bottle", {
-      consumable: {
-        ...honeyConsumable,
-        onConsumeEffects: [...honeyConsumable.onConsumeEffects],
-      },
-    });
-    const changedHoney = itemComponents("honey_bottle", {
-      consumable: { ...honeyConsumable, onConsumeEffects: [] },
-    });
-    expect(
-      itemStacksCanMerge(
-        itemStack("honey_bottle", 1, { components: honey }),
-        itemStack("honey_bottle", 1, { components: clonedHoney }),
-      ),
-    ).toBe(true);
-    expect(
-      itemStacksCanMerge(
-        itemStack("honey_bottle", 1, { components: honey }),
-        itemStack("honey_bottle", 1, { components: changedHoney }),
-      ),
-    ).toBe(false);
+  it("rejects hostile stack records without throwing", () => {
+    const hostile = new Proxy({}, { ownKeys: () => { throw new Error("hostile"); } });
+    expect(isItemStack(hostile)).toBe(false);
+    expect(isItemStack({ item: "stone", count: 1, components: itemComponents("stone"), extra: true })).toBe(false);
+    expect(isItemStack({ item: "stone", count: 1 })).toBe(false);
+    expect(isItemStack({ item: "not_an_item", count: 1, components: itemComponents("stone") })).toBe(false);
+    expect(() => itemStackFromUnknown("not_an_item", 1)).toThrow(TypeError);
+    expect(() => itemStackFromUnknown("stone", "1")).toThrow(TypeError);
+    expect(() => itemStackFromUnknown("stone", 1, null)).toThrow(TypeError);
   });
 
-  it("preserves component patches and includes them in merge identity", () => {
-    const patch = itemComponentPatch({
-      "minecraft:custom_name": "Stone",
-      "!minecraft:damage": null,
-    });
-    const samePatch = itemComponentPatch({
-      "minecraft:custom_name": "Stone",
-      "!minecraft:damage": null,
-    });
-    const changedPatch = itemComponentPatch({
-      "minecraft:custom_name": "Dirt",
-      "!minecraft:damage": null,
-    });
-    const patched = itemStack("stone", 1, { componentPatch: patch });
-    const fullyPatched = itemStack("stone", 1, {
-      components: itemComponents("stone"),
-      componentPatch: patch,
-    });
-
-    expect(patched).toEqual({ item: "stone", count: 1, componentPatch: patch });
-    expect(itemStackWithCount(patched, 2)).toEqual({
-      item: "stone",
-      count: 2,
-      componentPatch: patch,
-    });
-    expect(
-      itemStackFromUnknown("stone", 1, { componentPatch: samePatch }),
-    ).toEqual({
-      item: "stone",
-      count: 1,
-      componentPatch: samePatch,
-    });
-    expect(fullyPatched).toEqual({
-      item: "stone",
-      count: 1,
-      components: itemComponents("stone"),
-      componentPatch: patch,
-    });
-    expect(
-      itemStacksCanMerge(
-        patched,
-        itemStack("stone", 1, { componentPatch: samePatch }),
-      ),
-    ).toBe(true);
-    expect(
-      itemStacksCanMerge(
-        patched,
-        itemStack("stone", 1, { componentPatch: changedPatch }),
-      ),
-    ).toBe(false);
-    expect(itemStacksCanMerge(patched, itemStack("stone", 1))).toBe(false);
-    expect(() =>
-      itemStackFromUnknown("stone", 1, { componentPatch: { invalid: true } }),
-    ).toThrow(TypeError);
+  it("resolves patches at construction and removes fields canonically", () => {
+    const patch = itemComponentPatch({ "minecraft:custom_name": { text: "Stone" } });
+    const stack = itemStack("stone", 1, { componentPatch: patch });
+    expect(stack).toEqual({ item: "stone", count: 1, components: { ...itemComponents("stone"), customName: { text: "Stone" } } });
+    expect("componentPatch" in stack).toBe(false);
+    const removed = itemStack("stone", 1, { componentPatch: itemComponentPatch({ "!minecraft:custom_name": null }) });
+    if (removed.components === undefined) throw new Error("expected canonical components");
+    expect("customName" in removed.components).toBe(false);
+    expect(JSON.stringify(removed.components)).not.toContain("customName");
   });
 
-  it("transmutes immutable stack state and merges component patches", () => {
-    const sourcePatch = itemComponentPatch({
-      "minecraft:custom_name": "Source",
-      "minecraft:damage": 1,
-    });
-    const resultPatch = itemComponentPatch({
-      "minecraft:custom_name": "Result",
-      "!minecraft:damage": null,
-    });
-    const source = itemStack("stone", 2, {
-      components: itemComponents("stone"),
-      componentPatch: sourcePatch,
-    });
-    const result = itemStack("diamond", 1, { componentPatch: resultPatch });
-
-    expect(transmuteItemStack(source, result)).toEqual({
-      item: "diamond",
-      count: 1,
-      components: itemComponents("stone"),
-      componentPatch: {
-        "minecraft:custom_name": "Result",
-        "minecraft:damage": 1,
-        "!minecraft:damage": null,
-      },
-    });
-    expect(transmuteItemStack(source, itemStack("diamond", 1))).toEqual({
-      item: "diamond",
-      count: 1,
-      components: itemComponents("stone"),
-      componentPatch: sourcePatch,
-    });
-    expect(() => transmuteItemStack(source, result, 65)).toThrow(RangeError);
-    expect(() =>
-      Reflect.apply(transmuteItemStack, undefined, [{}, result]),
-    ).toThrow(TypeError);
+  it("rejects duplicate canonical keys with a tagged error", () => {
+    const left = itemComponentPatch({ "minecraft:damage": 1 });
+    const right = itemComponentPatch({ "minecraft:damage": 2 });
+    expect(() => itemStack("diamond_sword", 1, { componentPatch: left })).not.toThrow();
+    expect(itemComponentPatchFromUnknownEither({ "minecraft:damage": 1, "!minecraft:damage": null })._tag).toBe("Left");
+    expect(left).not.toBe(right);
+    expect(() => itemStackFromUnknown("stone", 1, { components: {} })).toThrow(TypeError);
+    expect(() => itemStackFromUnknown("stone", 1, { componentPatch: { invalid: true } })).toThrow(TypeError);
   });
 
-  it("guards arbitrary values at a boundary", () => {
-    expect(isItemStack(itemStack("stone", 1))).toBe(true);
-    expect(isItemStack(null)).toBe(false);
-    expect(isItemStack("stone")).toBe(false);
-    expect(isItemStack({})).toBe(false);
-    expect(isItemStack({ item: "unknown", count: 1 })).toBe(false);
-    expect(isItemStack({ item: "stone", count: 1, extra: true })).toBe(false);
-    expect(isItemStack({ item: "stone", count: 0 })).toBe(false);
-    expect(isItemStack({ item: "stone", count: 1.5 })).toBe(false);
-    expect(isItemStack({ item: "diamond_pickaxe", count: 2 })).toBe(false);
-    expect(isItemStack({ item: "stone", count: 1, components: {} })).toBe(
-      false,
-    );
-    expect(
-      isItemStack({
-        item: "stone",
-        count: 1,
-        componentPatch: { "minecraft:damage": 1 },
-      }),
-    ).toBe(true);
-    expect(
-      isItemStack({
-        item: "stone",
-        count: 1,
-        componentPatch: { invalid: true },
-      }),
-    ).toBe(false);
-    expect(
-      isItemStack({
-        item: "stone",
-        count: 3,
-        components: itemComponents("stone", { maxStackSize: 2 }),
-      }),
-    ).toBe(false);
+  it("keeps payload isolated through count changes and split/merge", () => {
+    const payload = itemComponents("stone", { rarity: "rare", customData: { value: { nested: true } } });
+    const source = itemStack("stone", 32, { components: payload });
+    const changed = itemStackWithCount(source, 12);
+    const split = splitItemStack(source, TransferQuantity(12));
+    expect(itemStackEqualsIgnoringCount(source, changed)).toBe(true);
+    expect(split.taken.count + (split.remainder?.count ?? 0)).toBe(32);
+    expect(split.remainder).toBeDefined();
+    if (split.remainder === undefined) throw new Error("expected remainder");
+    expect(mergeItemStacks(split.taken, split.remainder)).toEqual({ merged: source, remainder: undefined });
+    expect(() => Reflect.apply(splitItemStack, undefined, [source, 0])).toThrow(RangeError);
+    expect(split.taken.components).not.toBe(payload);
+    expect(Object.isFrozen(split.taken.components)).toBe(true);
+  });
+
+  it("accepts a 99-item override and rejects 100", () => {
+    const components = itemComponents("stone", { maxStackSize: 99 });
+    expect(itemStack("stone", 65, { components }).count).toBe(65);
+    expect(itemStack("stone", 99, { components }).count).toBe(99);
+    expect(() => itemStack("stone", 100, { components })).toThrow(RangeError);
+    expect(itemStackFromUnknown("stone", 1, { components })).toBeDefined();
+  });
+
+  it("pins the K03 literal payload oracles", () => {
+    const named = {
+      item: "stone",
+      count: 32,
+      components: { ...stoneComponentsLiteral, customName: { text: "K03 stone" } },
+    };
+    const sharpness = {
+      item: "stone",
+      count: 1,
+      components: { ...stoneComponentsLiteral, enchantments: { "minecraft:sharpness": 5 } },
+    };
+    const mending = {
+      item: "stone",
+      count: 1,
+      components: { ...stoneComponentsLiteral, enchantments: { "minecraft:mending": 1 } },
+    };
+    const fortune = {
+      item: "stone",
+      count: 1,
+      components: { ...stoneComponentsLiteral, enchantments: { "minecraft:fortune": 3 } },
+    };
+    const damaged = {
+      item: "diamond_sword",
+      count: 1,
+      components: { ...stoneComponentsLiteral, maxStackSize: 1, maxDamage: 1561, damage: 0 },
+    };
+    const expectedNamed = literalStackOf(named);
+    expect(expectedNamed).toEqual(named);
+    expect(literalStackOf(sharpness)).toEqual(sharpness);
+    expect(literalStackOf(mending)).toEqual(mending);
+    expect(literalStackOf(fortune)).toEqual(fortune);
+    expect(literalStackOf(damaged)).toEqual(damaged);
+
+    const split = splitItemStack(expectedNamed, TransferQuantity(12));
+    expect(split.taken).toEqual({ ...named, count: 12 });
+    expect(split.remainder).toEqual({ ...named, count: 20 });
+    if (split.remainder === undefined) throw new Error("expected literal remainder");
+    expect(mergeItemStacks(split.taken, split.remainder)).toEqual({ merged: named, remainder: undefined });
+
+    const one = { item: "stone", count: 1, components: { ...stoneComponentsLiteral, maxStackSize: 99 } };
+    const ninetyNine = { item: "stone", count: 99, components: { ...stoneComponentsLiteral, maxStackSize: 99 } };
+    expect(literalStackOf(one)).toEqual(one);
+    expect(literalStackOf(ninetyNine)).toEqual(ninetyNine);
+    expect(() => literalStackOf({ ...ninetyNine, count: 100 })).toThrow(RangeError);
+
+    const left = literalStackOf({ ...ninetyNine, count: 60 });
+    const right = literalStackOf({ ...ninetyNine, count: 50 });
+    expect(mergeItemStacks(left, right)).toEqual({
+      merged: { ...ninetyNine, count: 99 },
+      remainder: { ...ninetyNine, count: 11 },
+    });
+  });
+
+  it("rejects K03 split and merge boundary quantities without partial results", () => {
+    const one = { item: "stone", count: 1, components: { ...stoneComponentsLiteral, maxStackSize: 99 } };
+    const ninetyNine = { item: "stone", count: 99, components: { ...stoneComponentsLiteral, maxStackSize: 99 } };
+    const oneStack = literalStackOf(one);
+    const ninetyNineStack = literalStackOf(ninetyNine);
+    expect(splitItemStack(oneStack, TransferQuantity(1)).remainder).toBeUndefined();
+    expect(splitItemStack(ninetyNineStack, TransferQuantity(99)).remainder).toBeUndefined();
+    expect(mergeItemStacks(literalStackOf({ ...ninetyNine, count: 60 }), literalStackOf({ ...ninetyNine, count: 50 }))).toEqual({
+      merged: { ...ninetyNine, count: 99 },
+      remainder: { ...ninetyNine, count: 11 },
+    });
+    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNineStack, 100])).toThrow(RangeError);
+    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNineStack, 0])).toThrow(RangeError);
+    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNineStack, 1.5])).toThrow(RangeError);
+  });
+
+  it("rejects malformed operation inputs and reports merge overflow", () => {
+    const left = itemStack("stone", 64);
+    const right = itemStack("stone", 2);
+    expect(() => Reflect.apply(itemStackWithCount, undefined, [{}, 1])).toThrow(TypeError);
+    expect(() => Reflect.apply(transmuteItemStack, undefined, [{}, right])).toThrow(TypeError);
+    expect(() => Reflect.apply(mergeItemStacks, undefined, [{}, right])).toThrow(TypeError);
+    expect(() => Reflect.apply(splitItemStack, undefined, [{}, 1])).toThrow(TypeError);
+    expect(() => mergeItemStacks(left, itemStack("dirt", 1))).toThrow(TypeError);
+    expect(() => mergeItemStacks(left, right)).not.toThrow();
+    expect(mergeItemStacks(left, right).remainder?.count).toBe(2);
+  });
+
+  it("preserves split/merge arithmetic for generated positive counts", () => {
+    fc.assert(fc.property(fc.integer({ min: 1, max: 99 }), fc.integer({ min: 1, max: 99 }), (count, amount) => {
+      const components = itemComponents("stone", { maxStackSize: 99 });
+      const source = itemStack("stone", count, { components });
+      const splitAmount = Math.min(amount, count);
+      const split = splitItemStack(source, TransferQuantity(splitAmount));
+      const remainderCount = split.remainder?.count ?? 0;
+      expect(split.taken.count + remainderCount).toBe(count);
+      if (split.remainder !== undefined) {
+        expect(mergeItemStacks(split.taken, split.remainder).merged.count).toBe(count);
+      } else {
+        expect(split.taken.count).toBe(count);
+      }
+    }));
   });
 });

@@ -20,7 +20,7 @@ type WorldId = string & Brand.Brand<"WorldId">;
 type StageId = string & Brand.Brand<"StageId">;
 type ResourceLocation = string & Brand.Brand<"ResourceLocation">;
 type TagLocation = string & Brand.Brand<"TagLocation">;
-type StackCount = number & Brand.Brand<"StackCount">; // 0..MAX_STACK_COUNT (64)
+type StackCount = number & Brand.Brand<"StackCount">; // 1..MAX_STACK_COUNT (99)
 type DeltaTimeSecs = number & Brand.Brand<"DeltaTimeSecs">;
 type MonotonicTimeSecs = number & Brand.Brand<"MonotonicTimeSecs">;
 type FixedDurationSecs = number & Brand.Brand<"FixedDurationSecs">;
@@ -33,7 +33,7 @@ type CooldownSeconds = number & Brand.Brand<"CooldownSeconds">; // finite, > 0
 type ConsumeSeconds = number & Brand.Brand<"ConsumeSeconds">; // finite, >= 0
 type EpochMillis = number & Brand.Brand<"EpochMillis">;
 
-const MAX_STACK_COUNT = 64;
+const MAX_STACK_COUNT = 99;
 ```
 
 いずれも `Brand.refined` によるコンストラクタを同名で公開する（値と型の両方）。`ResourceLocation` は vanilla の
@@ -258,7 +258,7 @@ plan.md §3.1 の主張は「挙動は名前比較ではなく能力から読む
 （`stone` → `cobblestone`、`grass_block` → `dirt`、`glowstone` → `glowstone_dust`）は
 引き続きレジストリ行の `drops` が所有する。設置形と破壊ドロップを同じ規則として扱わない。
 
-**`ITEM_TYPES` は 205 個。** ブロック形・ドロップ形、つるはし・シャベル・斧・クワ・剣の木/石/鉄/ダイヤ/金/ネザライト tier、鍛造素材・テンプレート、装備境界が必要とする
+**`ITEM_TYPES` は現行 205 個。** `ITEM_TYPES` が名前の roster、`ITEM_REGISTRY` がその append-only の数値 identity、`ITEM_IDS` が identity 列である。`itemIdOf` / `itemTypeOfId` は両者の変換を担い、途中挿入や並べ替えで既存 ID を変更してはならない。ブロック形・ドロップ形、つるはし・シャベル・斧・クワ・剣の木/石/鉄/ダイヤ/金/ネザライト tier、鍛造素材・テンプレート、装備境界が必要とする
 鉄・ダイヤ・ネザライト防具を語彙として持つ。
 kernel は現在の `ItemType` roster に対応する純粋な装備スロット規則・装備スナップショット・耐久遷移を `equipment-data.ts` / `equipment.ts` で所有する。
 ただし、このカタログは現在 kernel に表現されているアイテムの範囲であり、全エディション・全バージョンの防具、道具、プレイヤーインベントリを網羅する完全な公式レジストリではない。
@@ -308,7 +308,7 @@ const ItemIdBytes(bytes: Uint8Array | ItemIdBytes): ItemIdBytes // 長さと既�
 `BlockId` が `Uint8Array` の 1 バイトに収まる 256 通りに縛られるのに対し、`ItemId` は
 `unsigned 16-bit`（0..65535）を確保してあり、205 種の現行語彙に対して十分な余裕を持つ。
 
-`maxStackCountOfItem` の答えは 3 段階（`MAX_STACK_COUNT`=64 / 16 / 1）で、道具・防具・薬品・ボート等
+`maxStackCountOfItem` の答えは 3 段階（64 / 16 / 1）で、道具・防具・薬品・ボート等
 1 個までしか重ならないアイテムの集合と、雪玉・エンダーパール・バケツの 16 個上限を
 `item-registry.ts` 内の 2 つの `Set` で持つ。それ以外は既定の 64。
 
@@ -507,21 +507,45 @@ const isEntityType: (value: unknown) => value is EntityType;
 
 ### 3-ter. ItemStack とレシピ
 
-`ItemStack` はアイテム種別と数量だけを持つ値であり、`itemStack` がアイテムごとの最大スタック数と数量の境界を検証する。
+`ItemStack` は `item` / `count` / 解決済み `components` の3フィールドだけを持つ不変値であり、`itemStack` がアイテムごとの最大スタック数と数量 `1..max` を検証する。数量 0 は `ItemStack` に格納せず、空の `ItemSlot`（`undefined`）で表す。component patch は decoder・recipe・wire などの境界で `applyItemComponentPatch` により解決してから `ItemStack.components` へ渡す。patch や未解決の payload を `ItemStack` のフィールドや sidecar として保持しない。
 空きスロットは `undefined` として表す。インベントリの搬送、所有権、装備状態、耐久値、エンチャントはこの型へ埋め込まない。
 
 ```typescript
-type ItemStack = { readonly item: ItemType; readonly count: StackCount };
-type Slot = ItemStack | undefined;
+type ItemStack = {
+  readonly item: ItemType;
+  readonly count: StackCount;
+  readonly components: ItemComponents;
+};
+type ItemSlot = ItemStack | undefined;
+type Slot = ItemSlot;
 
-const itemStack: (item: ItemType, count: number) => ItemStack;
-const itemStackFromUnknown: (item: unknown, count: unknown) => ItemStack;
+type ItemStackOptions = Readonly<{
+  readonly components?: ItemComponents;
+  readonly componentPatch?: ItemComponentPatch;
+}>;
+const itemStack: (item: ItemType, count: number, options?: ItemStackOptions) => ItemStack;
+const itemStackFromUnknown: (item: unknown, count: unknown, options?: unknown) => ItemStack;
 const isItemStack: (value: unknown) => value is ItemStack;
 const maxStackCountForItem: (item: ItemType) => ItemStackLimit;
+const itemStackEqualsIgnoringCount: (left: ItemStack, right: ItemStack) => boolean;
+const itemStacksCanMerge: (left: ItemStack, right: ItemStack) => boolean;
+const itemStackWithCount: (stack: ItemStack, count: number) => ItemStack;
+const transmuteItemStack: (source: ItemStack, result: ItemStack, count?: number) => ItemStack;
+const splitItemStack: (stack: ItemStack, amount: TransferQuantity) => { readonly taken: ItemStack; readonly remainder: ItemSlot };
+const mergeItemStacks: (left: ItemStack, right: ItemStack) => { readonly merged: ItemStack; readonly remainder: ItemSlot };
+const TransferQuantity: Brand.Constructor<TransferQuantity>; // split/merge の移送量 1..99
+const ItemComponentPatchConflictError: new (args: { readonly componentKey: string }) => Error;
 ```
 
 `itemStack` は型付きコード用の厳格なコンストラクタであり、保存データや外部入力の境界では
-`itemStackFromUnknown` を使って item と count を検証する。
+`itemStackFromUnknown` を使って item、count、解決済み components を検証する。`applyItemComponentPatch` は
+境界でだけ patch を読み、既定値との合成、set/remove の競合拒否、deep snapshot を完了させる。
+remove はキーを `!` で表し、解決済み payload にそのキーを残さない。set と remove が同じ component key を
+対象にした場合は `ItemComponentPatchConflictError` を `Either` の左側で返す。
+`itemStackEqualsIgnoringCount` と `itemStacksCanMerge` は item と components の構造的等価性で判定し、
+`splitItemStack` / `mergeItemStacks` は components を失わず新しい snapshot を返す。数量の移送量には
+`TransferQuantity`（1..99 の正の整数）を使う。これらの関数は入力を変更せず、全量を移送した結果の余りを
+`undefined` の `ItemSlot` で返す。
 
 ### 3-ter-1. プレイヤーインベントリ
 
@@ -664,7 +688,7 @@ const itemComponentPatchesEqual: (
 ```
 
 `ItemComponentPatchKey` は namespaced component id に任意の `!` を付けた値で、`!minecraft:foo` はその component の除去を表せる。patch の値は任意の JSON ではなく、
-有限・非循環な JSON に限定する。`ItemStack.componentPatch` はこの patch を保持し、stack の merge は patch を構造比較してから成立する。
+有限・非循環な JSON に限定する。patch は境界でのみ解決し、`ItemStack` は解決済み payload を保持する。stack の merge は解決済み payload を count 無視で比較してから成立し、`splitItemStack` と `mergeItemStacks` は payload を保ったまま新しい snapshot を返す。
 
 `craftingRecipeFromUnknown(id, value)` は現在の Java の `minecraft:crafting_shaped` と `minecraft:crafting_shapeless` を対象に、namespaced な vanilla item id、item tag、item-id の alternative、
 pattern/key/ingredients、result の `id` / `count` / `components`、category/group/notification を `Recipe` と `ItemStack` へ変換する。`cookingRecipeFromUnknown` は smelting / blasting /
@@ -1393,7 +1417,7 @@ const propertyOf<K>(overrides, name: K): BlockProperties[K]
 | `xpOnBreak`        | `number`                                                | `0`                                   | 監査 §4.5 `blocks.config.ores.ts:8-45`                              |
 | `railKind`         | `'none'\|'normal'\|'powered'`                           | `'none'`                              | 監査 §4.1 `:184-201`                                                |
 | `harvestTool`      | `HarvestToolRequirement`                                | `{category:'none', minTier:'none'}`   | 監査 §4.5                                                           |
-| `drops`            | `BlockDropRule`                                         | `{item:'self', count:1, ...}`         | 監査 §4.5                                                           |
+| `drops`            | `BlockDropRule \| undefined`                            | `{item:'self', count:1, ...}`         | 監査 §4.5。未ドロップは `undefined`                                 |
 | `supportRule`      | `SupportRule`                                           | `NEEDS_NO_SUPPORT`（`{kind:'none'}`） | 監査 §4.6。§4-2-bis 参照                                            |
 
 補助 API: `BLOCK_OPACITIES` / `FLUID_KINDS` / `COLLISION_SHAPES` / `RENDER_KINDS` / `FOOTSTEP_MATERIALS` /
@@ -1442,7 +1466,7 @@ const HARVEST_TIERS = ['none', 'wooden', 'stone', 'iron', 'diamond', 'netherite'
 type HarvestTier = (typeof HARVEST_TIERS)[number]   // 宣言順が採掘力の順（none が最弱）
 
 type HarvestToolRequirement = { readonly category: HarvestToolCategory; readonly minTier: HarvestTier }
-type BlockDropRule = { readonly item: ItemType | 'self'; readonly count: number
+type BlockDropRule = { readonly item: ItemType | 'self'; readonly count: StackCount // 1..MAX_STACK_COUNT (99)
                        readonly requiresSilkTouch: boolean; readonly affectedByFortune: boolean }
 
 type HarvestContext = { readonly heldTier?: HarvestTier; readonly silkTouch?: boolean }
@@ -1473,13 +1497,13 @@ const resolveDrop(requirement, rule, brokenBlock, context?): BlockDrop | undefin
 
 同じ理由で `resolveDropItem` は**部分関数になった**。旧版は `BlockType` を返して全域だった
 （「自分自身」は必ずブロックだから）。答えがアイテムになると「自分自身」は存在しないことがありうる
-（`air` / `water` / `lava` / `bedrock` / `snow`）。`undefined` がその答えで、意味は `count: 0` と同じ
+（`air` / `water` / `lava` / `bedrock` / `snow`）。`undefined` がその答えで、count 0 の drop rule は存在しない
 ——インベントリに何も入らない。
 
 **`resolveDrop` が採掘の入口。** `resolveDropItem` は「どのアイテムか」だけを答え、道具もシルクタッチも見ない。
 「そもそも落ちるか」まで含めて答えるのは `resolveDrop` のほうで、落ちない経路は 3 つ + 1 つある:
 
-1. `count <= 0` —— 誰に対しても何も落とさない（監査 §4.5 の `NEVER_DROPPED_BLOCK_TYPES`）
+1. drop rule が `undefined` —— 誰に対しても何も落とさない（監査 §4.5 の `NEVER_DROPPED_BLOCK_TYPES`）。rule が存在する場合の `count` は `1..MAX_STACK_COUNT`。
 2. 道具のティアが `harvestTool.minTier` に届かない —— 素手で石を殴る。**カテゴリは見ない**
 3. `requiresSilkTouch` なのにシルクタッチが無い —— ガラスを割る
 4. （拒否ではなく不在）`'self'` なのにそのブロックにアイテム形が無い
@@ -2441,6 +2465,10 @@ const ANVIL_MAX_CUSTOM_NAME_LENGTH = 50
 
 const isAnvilEnchantmentId(value: string): value is AnvilEnchantmentId
 const isAnvilCustomName(value: string): value is AnvilCustomName
+type AnvilMaterialCost = number & Brand.Brand<'AnvilMaterialCost'> // 0..99, not a StackCount
+const AnvilMaterialCost(value: number): AnvilMaterialCost
+const AnvilEnchantmentId(value: string): AnvilEnchantmentId
+const AnvilCustomName(value: string): AnvilCustomName
 const nextAnvilRepairCost(repairCost: number): number   // "prior work penalty": repairCost * 2 + 1
 
 type AnvilState = {
@@ -2455,7 +2483,7 @@ type AnvilPlan =
       readonly ok: true
       readonly output: CanonicalAnvilItemPayload
       readonly levelCost: number
-      readonly materialCost: StackCount
+      readonly materialCost: AnvilMaterialCost
     }
   | {
       readonly ok: false
@@ -2470,6 +2498,8 @@ decodeAnvilSnapshot(value): AnvilSnapshotResult
 decodeAnvilSnapshotString(encoded): AnvilSnapshotResult
 encodeAnvilSnapshot(state): AnvilSnapshotEncodingResult
 ```
+
+`AnvilPlan.materialCost` は stack の数量ではなく、anvil 固有の `AnvilMaterialCost`（`0..99`）であり、`StackCount` とは代入互換ではない。
 
 `planAnvil` は入力とルールを検証したうえで、出力、経験値コスト、材料消費数を決定する。
 `applyAnvil` は計画を再利用し、経験値不足も含めた適用結果を返す。どちらも入力を変更せず、

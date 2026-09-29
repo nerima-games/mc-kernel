@@ -112,7 +112,10 @@ import {
   type WrittenBookPageComponent,
   type WrittenBookPageOptions,
 } from './item-component-values-data.js'
-import { isItemStack, type ItemStack } from './item-stack.js'
+import type { ItemStack } from './item-stack.js'
+import { isItemComponents } from './item-components-validation.js'
+import { maxStackCountOfItem } from './item-registry.js'
+import { isItemType } from './item-type.js'
 import {
   isBaseColorComponent,
   isBannerPatternsOptions,
@@ -573,6 +576,14 @@ type RecordValue = Readonly<Record<string, unknown>>
 
 const isRecordValue = (value: unknown): value is RecordValue =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const isItemStack = (value: unknown): value is ItemStack => {
+  if (!isRecordValue(value)) return false
+  const item = value['item']
+  if (!isItemType(item) || !isItemComponents(value['components'])) return false
+  const count = value['count']
+  return Number.isSafeInteger(count) && Number(count) >= 1 && Number(count) <= maxStackCountOfItem(item)
+}
 
 const isItemStackList = (value: unknown): value is ReadonlyArray<ItemStack> =>
   Array.isArray(value) && value.every(isItemStack)

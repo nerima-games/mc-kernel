@@ -288,6 +288,9 @@ describe('light level branding', () => {
       expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 'many' } }])).toThrow(
         'block property drops count must be an integer',
       )
+      expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 0 } }])).toThrow(
+        'block property drops count must be an integer in [1, 99]',
+      )
       expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, requiresSilkTouch: 'yes' } }])).toThrow(
         'block property drops requiresSilkTouch must be a boolean',
       )
@@ -430,7 +433,10 @@ describe('harvestTool and drops (the two struct fields, audit §7)', () => {
         properties: { drops: { ...DEFAULT_BLOCK_DROP, requiresSilkTouch: true } },
         type: 'glass',
       }
-      expect(blockPropertiesOf(glass).drops.requiresSilkTouch).toBe(true)
+      const drops = blockPropertiesOf(glass).drops
+      expect(drops).toBeDefined()
+      if (drops === undefined) throw new Error('expected glass drop rule')
+      expect(drops.requiresSilkTouch).toBe(true)
       // ...and it did not disturb anything else.
       expect(blockPropertiesOf(glass).hardness).toBe(BLOCK_PROPERTY_DEFAULTS.hardness)
     })),

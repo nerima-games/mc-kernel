@@ -332,10 +332,11 @@ type RecordValue = Record<string, unknown>
 const isRecord = (value: unknown): value is RecordValue =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const hasExactKeys = (value: RecordValue, keys: ReadonlyArray<string>): boolean => {
-  const actualKeys = Object.keys(value)
-  return actualKeys.length === keys.length && keys.every((key) => Object.hasOwn(value, key))
-}
+const REQUIRED_COMPONENT_KEYS = ['maxStackSize', 'maxDamage', 'damage', 'repairCost', 'rarity'] as const
+
+const hasCanonicalComponentKeys = (value: RecordValue): boolean =>
+  Object.keys(value).every((key) => RESOLVED_COMPONENT_KEYS.some((allowedKey) => allowedKey === key)) &&
+  REQUIRED_COMPONENT_KEYS.every((key) => Object.hasOwn(value, key))
 
 const ITEM_RARITY_SET: ReadonlySet<string> = new Set(ITEM_RARITIES)
 
@@ -508,7 +509,7 @@ const isResolvedComponents = (
   ancestors: WeakSet<object>,
   validate: ResolvedNestedValueValidator,
 ): boolean => {
-  if (!isRecord(value) || !hasExactKeys(value, RESOLVED_COMPONENT_KEYS)) {
+  if (!isRecord(value) || !hasCanonicalComponentKeys(value)) {
     return false
   }
   if (!isValidItemComponentCore(value) || ancestors.has(value)) {
@@ -652,8 +653,36 @@ const isResolvedNestedValue = (
   kind: ResolvedNestedValueKind,
 ): boolean => RESOLVED_NESTED_VALUE_HANDLERS[kind](value, ancestors, isResolvedNestedValue)
 
-export const isItemComponents = (value: unknown): value is ItemComponents =>
-  isResolvedNestedValue(value, new WeakSet<object>(), 'components')
+export const isItemComponents = (value: unknown): value is ItemComponents => {
+  try {
+    return isResolvedNestedValue(value, new WeakSet<object>(), 'components')
+  } catch {
+    return false
+  }
+}
+
+function freezeSnapshot(value: ItemComponents): ItemComponents
+function freezeSnapshot(value: unknown): unknown
+function freezeSnapshot(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map(freezeSnapshot))
+  }
+  if (isRecord(value)) {
+    const copy: Record<string, unknown> = {}
+    for (const [key, child] of Object.entries(value)) {
+      copy[key] = freezeSnapshot(child)
+    }
+    return Object.freeze(copy)
+  }
+  return value
+}
+
+export const itemComponentsSnapshot = (value: ItemComponents): ItemComponents => {
+  if (!isItemComponents(value)) {
+    throw new TypeError('Item components must be a resolved component object')
+  }
+  return freezeSnapshot(value)
+}
 
 const deepValueEqual = (left: unknown, right: unknown): boolean => {
   if (Object.is(left, right)) return true
@@ -676,5 +705,10 @@ const deepValueEqual = (left: unknown, right: unknown): boolean => {
 export const itemComponentsEqual = (
   left: ItemComponents | undefined,
   right: ItemComponents | undefined,
-): boolean =>
-  left === right || (left !== undefined && right !== undefined && deepValueEqual(left, right))
+): boolean => {
+  try {
+    return left === right || (left !== undefined && right !== undefined && deepValueEqual(left, right))
+  } catch {
+    return false
+  }
+}

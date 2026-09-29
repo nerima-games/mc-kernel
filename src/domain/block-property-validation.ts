@@ -115,10 +115,10 @@ const validateDropRule = (value: unknown): void => {
   if (
     typeof count !== 'number' ||
     !Number.isInteger(count) ||
-    count < 0 ||
+    count < 1 ||
     count > MAX_STACK_COUNT
   ) {
-    throw new RangeError(`block property drops count must be an integer in [0, ${MAX_STACK_COUNT}]`)
+    throw new RangeError(`block property drops count must be an integer in [1, ${MAX_STACK_COUNT}]`)
   }
   assertBoolean('block property drops requiresSilkTouch', value['requiresSilkTouch'])
   assertBoolean('block property drops affectedByFortune', value['affectedByFortune'])

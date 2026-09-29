@@ -4,10 +4,12 @@ import { Brand } from 'effect'
 import {
   ANVIL_MAX_CUSTOM_NAME_LENGTH as maxCustomNameLength,
   ANVIL_SNAPSHOT_VERSION as snapshotVersion,
+  AnvilMaterialCost as createAnvilMaterialCost,
   AnvilCustomName as createAnvilCustomName,
   AnvilEnchantmentId as createAnvilEnchantmentId,
   isAnvilCustomName as narrowAnvilCustomName,
   isAnvilEnchantmentId as narrowAnvilEnchantmentId,
+  type AnvilMaterialCost as AnvilMaterialCostValue,
 } from './anvil-primitives.js'
 import { planAnvil } from './anvil-planning.js'
 import type { CompiledAnvilRuleSet } from './anvil-validation.js'
@@ -25,6 +27,7 @@ export const ANVIL_MAX_CUSTOM_NAME_LENGTH: typeof maxCustomNameLength = maxCusto
 
 export type AnvilEnchantmentId = string & Brand.Brand<'AnvilEnchantmentId'>
 export type AnvilCustomName = string & Brand.Brand<'AnvilCustomName'>
+export type AnvilMaterialCost = AnvilMaterialCostValue
 
 export type AnvilDurability = {
   readonly current: number
@@ -132,7 +135,7 @@ export type AnvilPlan =
       readonly ok: true
       readonly output: CanonicalAnvilItemPayload
       readonly levelCost: number
-      readonly materialCost: StackCount
+      readonly materialCost: AnvilMaterialCost
     }
   | {
       readonly ok: false
@@ -146,7 +149,7 @@ export type AnvilApplyResult =
       readonly state: CanonicalAnvilState
       readonly output: CanonicalAnvilItemPayload
       readonly levelCost: number
-      readonly materialCost: StackCount
+      readonly materialCost: AnvilMaterialCost
     }
   | {
       readonly ok: false
@@ -164,6 +167,8 @@ export const isAnvilCustomName: typeof narrowAnvilCustomName = narrowAnvilCustom
 export const AnvilEnchantmentId: typeof createAnvilEnchantmentId = createAnvilEnchantmentId
 
 export const AnvilCustomName: typeof createAnvilCustomName = createAnvilCustomName
+
+export const AnvilMaterialCost: typeof createAnvilMaterialCost = createAnvilMaterialCost
 
 export const AnvilSnapshotString: typeof createAnvilSnapshotString = createAnvilSnapshotString
 
@@ -210,7 +215,7 @@ export const applyAnvil = (state: AnvilState, rules: AnvilRuleInput): AnvilApply
   }
   const right = canonical.snapshot.state.right
   let remainingRight: CanonicalAnvilState['right'] = null
-  if (right !== null && right.count !== plan.materialCost) {
+  if (right !== null && right.count !== Number(plan.materialCost)) {
     remainingRight = { payload: right.payload, count: StackCount(right.count - plan.materialCost) }
   }
 

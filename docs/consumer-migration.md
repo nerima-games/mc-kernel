@@ -89,6 +89,20 @@ import {
 
 item component の item-aware な既定値は `itemComponents`（`tool` は `ITEM_TOOL_COMPONENTS` / `itemToolComponentOf` を、`weapon` は `weaponComponent` / `isWeaponComponent` を含む）、stack limit は `itemComponentStackLimitOf`、値の runtime guard は `isItemComponents`、`isUseCooldownComponent`、`isWeaponComponent` を正本とする。`ItemComponents.useCooldown` / `ItemComponents.weapon` は公式 component の解決済み値であり、`ItemStack` / inventory の値として下流へ渡す。`ItemStack` の stack ごとの override、保存形式、実際の item 使用イベントは下流が所有し、kernel の既定値解決と重複する registry・数値 guard を残さない。
 
+### canonical ItemStack への具体的な移行
+
+下流の stack payload は `item` / `count` / `components` の3フィールドだけに揃える。`count: 0` の番兵は `undefined` の `ItemSlot` へ変換し、component patch は受信・recipe・wire の境界で `applyItemComponentPatch` に通して解決済み `components` だけを保存・搬送する。patch の sidecar や `item` と別に持つ metadata registry は作らない。
+
+この移行は破壊的変更を含む。`AnvilPlan.materialCost` は `StackCount` ではなく `AnvilMaterialCost`（anvil の材料コスト）になり、`BlockProperties.drops` は `BlockDropRule | undefined` になった。drop rule を作る場合の `count` は `1..99` に限定し、何も落とさないブロックは `count: 0` ではなく `drops: undefined` を使う。下流の型 fixture、保存・wire decoder、drop projection はこの境界を個別に検証する。
+
+| 下流 | 旧 payload / sidecar | 移行内容 |
+| --- | --- | --- |
+| `mc-sim` | inventory/state の `{ item, count }` と `count: 0` の空スロット、stack metadata の sidecar | `ItemSlot` (`undefined` または canonical `ItemStack`) に変換し、inventory の slot、stack move、snapshot、`splitItemStack` / `mergeItemStacks` の結果をそのまま使う。空スロットを `{ item, count: 0 }` に戻さない。 |
+| `mx-gameplay` | recipe/anvil の旧 `{ id, count }` result payload、components を別に保持する recipe/anvil sidecar | result を `item` / `count` / 解決済み `components` に正規化し、recipe/anvil の入力・出力と移送量に `TransferQuantity` を使う。patch は recipe/anvil の境界で解決し、gameplay state に未解決 patch を残さない。 |
+| `mx-multiplayer` | wire の旧 `{ id, count }` stack payload、components/metadata の sidecar、null slot | decode 時に canonical `ItemStack` / `ItemSlot` へ検証し、encode 時は `item` / `count` / `components` の payload のみを送る。`null` と `count: 0` の slot は `undefined` として扱い、送信前に再び sentinel 化しない。 |
+
+この表は移行契約の列挙であり、kernel の変更範囲を越えて `mc-sim`、`mx-gameplay`、`mx-multiplayer` の具体的なファイルや実装手順を確定するものではない。また、これらの repository のファイルをこの worktree から変更したことを意味しない。各 repository の型検査・lint・test は各 repository 側の移行作業で実行する。
+
 ## 下流に残すもの
 
 次の実装は共有語彙と純粋な更新結果を kernel から import しつつ、状態所有者である下流に置く。
