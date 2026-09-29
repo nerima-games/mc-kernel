@@ -28,7 +28,7 @@ import {
   resolveDropItem,
   satisfiesHarvestTier,
 } from '../src/domain/block-harvest'
-import { StackCount } from '../src/domain/quantities'
+import { StackCount } from '../src/domain/time/quantities'
 
 const TORCH_LIGHT_LEVEL = 14
 const DEFAULT_HARDNESS = 8

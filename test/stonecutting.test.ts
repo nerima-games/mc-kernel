@@ -6,9 +6,9 @@ import {
   tagged,
   type ItemTagMemberships,
   type RecipeItemTag,
-} from '../src/domain/recipe-data'
+} from '../src/domain/recipe/recipe-data'
 import type { ItemType } from '../src/domain/item-type'
-import { buildStonecuttingRecipeIndex } from '../src/domain/stonecutting-indexes'
+import { buildStonecuttingRecipeIndex } from '../src/domain/recipe/stonecutting-indexes'
 import {
   STONECUTTING_STATION_TAG,
   VANILLA_STONECUTTING_RECIPES,

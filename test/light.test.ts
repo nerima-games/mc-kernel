@@ -1,9 +1,9 @@
 /* eslint-disable no-magic-numbers -- Exercises the fixed binary wire format's byte offsets, mirroring test/chunk.test.ts. */
 import { describe, expect, it } from 'vitest'
-import { LightLevel } from '../src/domain/block-property-data'
-import { MAX_CHUNK_HEIGHT } from '../src/domain/chunk'
-import { BlockAxis, CHUNK_SIZE_XZ, LocalAxis } from '../src/domain/coordinate-primitives'
-import type { LocalBlockCoord } from '../src/domain/coordinate-conversions'
+import { LightLevel } from '../src/domain/block/block-property-data'
+import { MAX_CHUNK_HEIGHT } from '../src/domain/world/chunk'
+import { BlockAxis, CHUNK_SIZE_XZ, LocalAxis } from '../src/domain/coordinates/coordinate-primitives'
+import type { LocalBlockCoord } from '../src/domain/coordinates/coordinate-conversions'
 import {
   LIGHT_VOLUME_CODEC_VERSION,
   LIGHT_VOLUME_HEADER_BYTES,

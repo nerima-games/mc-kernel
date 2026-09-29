@@ -1,4 +1,4 @@
-import { MaxStackSize, StackCount, TransferQuantity } from "../src/domain/quantities";
+import { MaxStackSize, StackCount, TransferQuantity } from "../src/domain/time/quantities";
 
 const stackCount: ReturnType<typeof StackCount> = StackCount(1);
 const transferQuantity: ReturnType<typeof TransferQuantity> = TransferQuantity(1);

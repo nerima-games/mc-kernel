@@ -10,7 +10,7 @@ import {
   propertiesOfBiomeType,
   resolveBiomeProperties,
   type BiomeType,
-} from '../src/domain/biome'
+} from '../src/domain/world/biome'
 
 const TEMPERATURE_STEP = 0.01
 const BELOW_THRESHOLD_TEMPERATURE = SNOW_TEMPERATURE_THRESHOLD - TEMPERATURE_STEP

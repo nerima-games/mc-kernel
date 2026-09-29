@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fixedRandomSource, seededRandomSource } from '../src/domain/random-source'
+import { fixedRandomSource, seededRandomSource } from '../src/domain/world/random-source'
 
 describe('seededRandomSource', () => {
   it('produces the same value sequence for the same seed', () => {

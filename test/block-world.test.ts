@@ -7,7 +7,7 @@ import {
   readBlockAt,
   setBlockAt,
 } from '../src/domain/block-world'
-import { blockPosition } from '../src/domain/coordinate-primitives'
+import { blockPosition } from '../src/domain/coordinates/coordinate-primitives'
 
 describe('block world', () => {
   it('reads air by default and keeps block writes immutable', () => {

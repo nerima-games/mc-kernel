@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AIR_BLOCK_ID, type BlockId, blockIdOf } from '../src/domain/block-registry'
-import { blockPositionKeyOf } from '../src/domain/coordinate-keys'
-import { blockPosition, type BlockPosition } from '../src/domain/coordinate-primitives'
+import { blockPositionKeyOf } from '../src/domain/coordinates/coordinate-keys'
+import { blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import {
   blockAt,
   emptyBlockWorld,
@@ -14,7 +14,7 @@ import {
   FLOWING_FLUID_LEVEL,
   SOURCE_FLUID_LEVEL,
   type FlowingFluidKind,
-} from '../src/domain/fluid-data'
+} from '../src/domain/block/fluid-data'
 import {
   type FluidCell,
   emptyFluidState,
@@ -22,7 +22,7 @@ import {
   fluidLevel,
   scheduleFluidAt,
   setFluidCell,
-} from '../src/domain/fluid-state'
+} from '../src/domain/block/fluid-state'
 import {
   canFluidReplace,
   fluidStateFromWorld,

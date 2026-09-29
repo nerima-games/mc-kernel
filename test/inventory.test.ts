@@ -11,8 +11,8 @@ import {
   removeItem,
   removeItemAt,
   slotAt,
-} from '../src/domain/inventory'
-import type { Inventory } from '../src/domain/inventory'
+} from '../src/domain/item/inventory'
+import type { Inventory } from '../src/domain/item/inventory'
 import { itemComponents } from '../src/domain/item-components'
 import { itemStack } from '../src/domain/item-stack'
 

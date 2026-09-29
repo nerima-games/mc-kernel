@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { chunk } from '../src/domain/chunk'
+import { chunk } from '../src/domain/world/chunk'
 import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates'
 import { BLOCK_IDS, blockIdOf, opacityOfBlockId, propertyOfBlockId } from '../src/domain/block-registry'
 import {
@@ -7,7 +7,7 @@ import {
   motionBlockingHeightmapOf,
   opaqueHeightmapOf,
   type Heightmap,
-} from '../src/domain/heightmap'
+} from '../src/domain/world/heightmap'
 
 const CHUNK_HEIGHT = 4
 const COLUMN_COUNT = CHUNK_SIZE_XZ * CHUNK_SIZE_XZ

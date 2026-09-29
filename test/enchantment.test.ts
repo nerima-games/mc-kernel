@@ -5,7 +5,7 @@ import {
   type AnvilEnchantment,
   type AnvilItemPayload,
   type AnvilState,
-} from '../src/domain/anvil'
+} from '../src/domain/item/anvil'
 import {
   applyVanillaAnvil,
   enchantmentAppliesTo,
@@ -13,13 +13,13 @@ import {
   enchantmentsConflict,
   isSupportedVanillaEnchantmentId,
   planVanillaAnvil,
-} from '../src/domain/enchantment'
+} from '../src/domain/item/enchantment'
 import {
   SUPPORTED_VANILLA_ENCHANTMENT_IDS,
   SUPPORTED_VANILLA_ENCHANTMENT_RULES,
   VANILLA_ENCHANTMENT_COSTS,
   type SupportedVanillaEnchantmentId,
-} from '../src/domain/enchantment-data'
+} from '../src/domain/item/enchantment-data'
 import type { ItemType } from '../src/domain/item-type'
 
 const enchantment = (id: string, level = 1): AnvilEnchantment => ({

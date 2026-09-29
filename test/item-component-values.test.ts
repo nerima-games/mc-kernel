@@ -146,8 +146,8 @@ import {
   writableBookContentComponent,
   writtenBookContentComponent,
 } from '../src/domain/item-component-values'
-import { consumableClearAllEffects } from '../src/domain/consumable'
-import { ResourceLocation, TagLocation } from '../src/domain/identifiers'
+import { consumableClearAllEffects } from '../src/domain/item/consumable'
+import { ResourceLocation, TagLocation } from '../src/domain/text/identifiers'
 import { itemStack } from '../src/domain/item-stack'
 import { describe, expect, it } from 'vitest'
 

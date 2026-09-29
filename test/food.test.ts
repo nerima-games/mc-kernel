@@ -7,7 +7,7 @@ import {
   FOOD_DEFINITION_BY_ITEM,
   VANILLA_FOOD_DEFINITIONS,
   type FoodDefinition,
-} from '../src/domain/food'
+} from '../src/domain/item/food'
 import { itemStack } from '../src/domain/item-stack'
 import { SPAWN_VITALS, type Vitals } from '../src/domain/vitals'
 

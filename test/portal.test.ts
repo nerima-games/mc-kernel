@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { blockIdOf } from '../src/domain/block-registry'
-import { blockPositionKeyOf } from '../src/domain/coordinate-keys'
-import { blockPosition } from '../src/domain/coordinate-primitives'
+import { blockPositionKeyOf } from '../src/domain/coordinates/coordinate-keys'
+import { blockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import {
   detectNetherPortal,
   generatePortalLayout,

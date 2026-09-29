@@ -13,14 +13,14 @@ import {
   type BlockEntity,
   type StorageContainer,
   type StorageContainerKind,
-} from '../src/domain/block-entity-data'
+} from '../src/domain/block/block-entity-data'
 import {
   isBlockEntity,
   isBlockEntityPosition,
   isBrewingState,
   isFurnaceState,
   isStorageContainer,
-} from '../src/domain/block-entity-validation'
+} from '../src/domain/block/block-entity-validation'
 import {
   blockEntityAt,
   clearBlockEntity,
@@ -28,7 +28,7 @@ import {
   setBlockEntity,
   type BlockEntities,
 } from '../src/domain/block-entity'
-import { blockPosition, type BlockPosition } from '../src/domain/coordinate-primitives'
+import { blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import { itemStack, type Slot } from '../src/domain/item-stack'
 import { emptyFurnaceState, furnaceState, type FurnaceState } from '../src/domain/smelting'
 import {
@@ -37,7 +37,7 @@ import {
   brewingState,
   emptyBrewingState,
   type BrewingState,
-} from '../src/domain/brewing'
+} from '../src/domain/recipe/brewing'
 
 const AT_ORIGIN: BlockPosition = blockPosition(0, 0, 0)
 const AT_OTHER: BlockPosition = blockPosition(1, 2, 3)

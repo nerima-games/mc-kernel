@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { position } from '../src/domain/coordinate-primitives'
+import { position } from '../src/domain/coordinates/coordinate-primitives'
 import {
   DESPAWNED,
   ENTITY_ID_PREFIX,

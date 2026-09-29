@@ -9,14 +9,14 @@ import {
   itemComponents,
   itemToolComponentOf,
 } from '../src/domain/item-components'
-import { itemComponentsEqual } from '../src/domain/item-components-validation'
+import { itemComponentsEqual } from '../src/domain/item/item-components-validation'
 import { isChargedProjectilesOptions } from '../src/domain/item-component-values'
 import {
   consumableClearAllEffects,
   consumableComponentOf,
   foodComponentOf,
   useRemainderComponentOf,
-} from '../src/domain/consumable'
+} from '../src/domain/item/consumable'
 import { useCooldownComponent } from '../src/domain/use-cooldown'
 import {
   additionalTradeCostComponent,
@@ -83,7 +83,7 @@ import { blocksAttacksComponent, damageResistantComponent } from '../src/domain/
 import { enchantmentsComponent, storedEnchantmentsComponent } from '../src/domain/item-enchantments'
 import { weaponComponent } from '../src/domain/weapon'
 import { textComponent } from '../src/domain/text-component'
-import { ResourceLocation } from '../src/domain/identifiers'
+import { ResourceLocation } from '../src/domain/text/identifiers'
 import { itemStack } from '../src/domain/item-stack'
 import { describe, expect, it } from 'vitest'
 

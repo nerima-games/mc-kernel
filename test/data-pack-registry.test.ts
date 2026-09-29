@@ -9,8 +9,8 @@ import {
   dataPackResourcePath,
   mapDataPackLayer,
   selectDataPackRegistry,
-} from "../src/domain/data-pack-registry";
-import { NamespacedResourceLocation } from "../src/domain/identifiers";
+} from "../src/domain/world/data-pack-registry";
+import { NamespacedResourceLocation } from "../src/domain/text/identifiers";
 import {
   SULFUR_CUBE_ITEM_TAGS,
   type SulfurCubeArchetypeOptions,

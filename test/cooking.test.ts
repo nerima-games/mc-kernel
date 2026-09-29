@@ -4,13 +4,13 @@ import {
   cookingRecipe,
   cookingRecipeForItem,
   isCookingRecipe,
-} from "../src/domain/cooking-data";
+} from "../src/domain/recipe/cooking-data";
 import {
   applyCooking,
   matchCookingRecipe,
   matchCookingRecipes,
   matchesCookingRecipe,
-} from "../src/domain/cooking";
+} from "../src/domain/recipe/cooking";
 import { itemStack } from "../src/domain/item-stack";
 
 const recipe = cookingRecipe(

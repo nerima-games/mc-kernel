@@ -20,7 +20,7 @@ import {
   setTimeOfDay,
   timeOfDay,
 } from '../src/domain/time-of-day'
-import { DeltaTimeSecs } from '../src/domain/quantities'
+import { DeltaTimeSecs } from '../src/domain/time/quantities'
 
 describe('time of day', () => {
   it('defines the shared day policy and initial state', () => {

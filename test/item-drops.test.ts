@@ -35,7 +35,7 @@ import { BLOCK_IDS, BLOCK_REGISTRY, blockIdOf, dropOfBlockId } from '../src/doma
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
 import { ITEM_TYPES, type ItemType, isItemType } from '../src/domain/item-type'
 import { itemOfBlock } from '../src/domain/block-item'
-import { StackCount, type StackCount as StackCountValue } from '../src/domain/quantities'
+import { StackCount, type StackCount as StackCountValue } from '../src/domain/time/quantities'
 
 /** A diamond pickaxe without enchantments: nothing is tier-gated for this player. */
 const FULLY_EQUIPPED: HarvestContext = { heldTier: 'diamond', silkTouch: true }

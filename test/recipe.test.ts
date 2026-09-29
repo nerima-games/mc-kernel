@@ -25,7 +25,7 @@ import type { ItemTagMemberships } from "../src/domain/recipe";
 import {
   buildRecipeIndexes,
   matchIndexedRecipe,
-} from "../src/domain/recipe-matching";
+} from "../src/domain/recipe/recipe-matching";
 
 const itemTags: ItemTagMemberships = new Map([
   [tagged("#minecraft:planks").tag, new Set<ItemType>(["oak_planks"])],

@@ -24,7 +24,7 @@ import {
   validateEquipmentSnapshot,
   type Equipment,
   type EquipmentItem,
-} from '../src/domain/equipment'
+} from '../src/domain/item/equipment'
 
 const DIAMOND_SWORD_MAX = 1561
 const SMALL_DAMAGE = 10

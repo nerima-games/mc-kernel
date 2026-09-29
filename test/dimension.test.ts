@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DIMENSIONS, isDimension } from '../src/domain/dimension'
+import { DIMENSIONS, isDimension } from '../src/domain/world/dimension'
 
 describe('dimension', () => {
   it('exposes the closed vanilla dimension vocabulary', () => {

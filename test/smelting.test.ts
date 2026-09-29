@@ -15,7 +15,7 @@ import {
   buildFuelIndex,
   buildSmeltingIndexes,
   cachedFuelIndex,
-} from '../src/domain/smelting-indexes'
+} from '../src/domain/recipe/smelting-indexes'
 
 const recipe: SmeltingRecipe = {
   _tag: 'Smelting',

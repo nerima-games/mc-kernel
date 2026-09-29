@@ -13,9 +13,9 @@ import {
   chunkBlockCount,
   decodeChunk,
   encodeChunk,
-} from '../src/domain/chunk'
+} from '../src/domain/world/chunk'
 import { BlockId as blockId, blockIdOf } from '../src/domain/block-registry'
-import type { BlockId } from '../src/domain/block-registry-types'
+import type { BlockId } from '../src/domain/block/block-registry-types'
 import { blockState } from '../src/domain/block-state'
 import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates'
 
@@ -384,7 +384,7 @@ describe('chunk binary codec', () => {
     })
 
     try {
-      const wideChunkModule = await import('../src/domain/chunk.js')
+      const wideChunkModule = await import('../src/domain/world/chunk.js')
       const wideHeight = wideChunkModule.ChunkHeight(1)
       const wideBlockCount = wideChunkModule.chunkBlockCount(wideHeight)
 

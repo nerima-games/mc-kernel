@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isAnyOfIngredient } from "../src/domain/recipe-data";
+import { isAnyOfIngredient } from "../src/domain/recipe/recipe-data";
 import { itemStack } from "../src/domain/item-stack";
 import {
   cookingRecipeFromUnknown,

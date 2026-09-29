@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { BlockId, blockIdOf } from '../src/domain/block-registry.js'
-import { blockPosition, chunkCoord } from '../src/domain/coordinate-primitives.js'
-import { chunkKeyOf } from '../src/domain/coordinate-keys.js'
+import { blockPosition, chunkCoord } from '../src/domain/coordinates/coordinate-primitives.js'
+import { chunkKeyOf } from '../src/domain/coordinates/coordinate-keys.js'
 import {
   ChunkRevision,
   ChunkLocalIndex,

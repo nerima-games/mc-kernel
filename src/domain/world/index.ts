@@ -7,3 +7,13 @@ export * from "./_tag-membership.js";
 export * from "./_data-pack-registry.js";
 export * from "./_dimension.js";
 export * from "./_weather.js";
+export {
+  DataPackFormat,
+  DataPackPriority,
+  dataPackLayer,
+  dataPackLayerFromUnknown,
+  dataPackLayerFromUnknownWithId,
+  mapDataPackLayer,
+  selectDataPackRegistry,
+  dataPackResourcePath,
+} from "./_data-pack-registry.js";

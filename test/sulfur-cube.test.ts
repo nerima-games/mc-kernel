@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { ResourceLocation, TagLocation } from "../src/domain/identifiers";
-import { AttributeModifierAmount } from "../src/domain/quantities";
+import { ResourceLocation, TagLocation } from "../src/domain/text/identifiers";
+import { AttributeModifierAmount } from "../src/domain/time/quantities";
 import {
   SULFUR_CUBE_ARCHETYPE_REGISTRY,
   SULFUR_CUBE_ATTRIBUTE_MODIFIER_OPERATIONS,

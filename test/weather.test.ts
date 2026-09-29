@@ -6,7 +6,7 @@ import {
   isValidWeatherState,
   isWeather,
   normaliseWeatherState,
-} from '../src/domain/weather'
+} from '../src/domain/world/weather'
 
 describe('weather', () => {
   it('defines the supported weather kinds and initial state', () => {

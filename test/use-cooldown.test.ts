@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { ResourceLocation } from '../src/domain/identifiers.js'
-import { MonotonicTimeSecs } from '../src/domain/quantities.js'
+import { ResourceLocation } from '../src/domain/text/identifiers.js'
+import { MonotonicTimeSecs } from '../src/domain/time/quantities.js'
 import {
   cooldownExpiresAt,
   isCooldownActive,

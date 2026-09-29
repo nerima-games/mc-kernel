@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DeltaTimeSecs } from '../src/domain/quantities'
+import { DeltaTimeSecs } from '../src/domain/time/quantities'
 import {
   addExhaustion,
   addExperience,

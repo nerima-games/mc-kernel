@@ -8,9 +8,9 @@ import {
   resolveStatusEffectDefinition,
   statusEffectId,
 } from '../src/domain/status-effect'
-import type { FoodStatusEffectName } from '../src/domain/food-data'
-import { VANILLA_STATUS_EFFECT_IDS } from '../src/domain/item-component-values-data'
-import { isVanillaPotionEffectId } from '../src/domain/item-component-values-validation'
+import type { FoodStatusEffectName } from '../src/domain/item/food-data'
+import { VANILLA_STATUS_EFFECT_IDS } from '../src/domain/item/item-component-values-data'
+import { isVanillaPotionEffectId } from '../src/domain/item/item-component-values-validation'
 
 // Count is derived from the pinned Java Edition 26.3 mob-effect golden.
 const EXPECTED_STATUS_EFFECT_COUNT = 40

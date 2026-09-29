@@ -1,10 +1,10 @@
-import { type CameraPoseSnapshot, snapshotAgeSecs } from '../src/domain/camera'
-import { ClockPort, FixedClockLayer, monotonicSecs, wallClockEpochMillis } from '../src/domain/clock'
+import { type CameraPoseSnapshot, snapshotAgeSecs } from '../src/domain/presentation/camera'
+import { ClockPort, FixedClockLayer, monotonicSecs, wallClockEpochMillis } from '../src/domain/time/clock'
 import { Context, Effect, Layer, Ref } from 'effect'
-import { DeltaTimeSecs, EpochMillis, MonotonicTimeSecs } from '../src/domain/quantities'
-import type { FrameServices, GameModule, StageRegistration } from '../src/domain/frame'
+import { DeltaTimeSecs, EpochMillis, MonotonicTimeSecs } from '../src/domain/time/quantities'
+import type { FrameServices, GameModule, StageRegistration } from '../src/domain/time/frame'
 import { describe, expect, it } from 'vitest'
-import { StageId } from '../src/domain/identifiers'
+import { StageId } from '../src/domain/text/identifiers'
 import { position } from '../src/domain/coordinates'
 
 const ZERO = 0

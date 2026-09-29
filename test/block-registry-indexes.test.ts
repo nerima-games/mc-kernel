@@ -24,11 +24,11 @@ import {
   resolvedBlockOfId,
   supportRuleOfBlockId,
   transmitsLight,
-} from '../src/domain/block-registry-indexes'
-import * as blockRegistryIndexes from '../src/domain/block-registry-indexes'
+} from '../src/domain/block/block-registry-indexes'
+import * as blockRegistryIndexes from '../src/domain/block/block-registry-indexes'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block-capabilities'
 import { BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
-import { BLOCK_ID_MAX } from '../src/domain/block-registry-types'
+import { BLOCK_ID_MAX } from '../src/domain/block/block-registry-types'
 
 // The complete, currently-reviewed set of value exports from
 // `block-registry-indexes.ts`. A new zero-initialised typed-array column

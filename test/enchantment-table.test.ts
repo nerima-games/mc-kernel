@@ -9,15 +9,15 @@ import {
   enchantmentTableRuleFor,
   isEnchantmentTableRuleId,
   itemEnchantabilityOf,
-} from '../src/domain/enchantment-table-data'
-import { SUPPORTED_VANILLA_ENCHANTMENT_IDS } from '../src/domain/enchantment-data'
+} from '../src/domain/item/enchantment-table-data'
+import { SUPPORTED_VANILLA_ENCHANTMENT_IDS } from '../src/domain/item/enchantment-data'
 import {
   calculateEnchantmentTableLevelCost,
   enchantmentTableCostAtLevel,
   enchantmentTableOutputItemOf,
   generateEnchantmentTableOffers,
   type EnchantmentTableRandom,
-} from '../src/domain/enchantment-table'
+} from '../src/domain/item/enchantment-table'
 
 const zeroRandom = (): EnchantmentTableRandom => ({
   nextInt: () => 0,

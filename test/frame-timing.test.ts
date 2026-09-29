@@ -14,8 +14,8 @@ import {
   physicsSubstepDuration,
   secondsForTicks,
   tickDuration,
-} from '../src/domain/frame-timing'
-import { FixedDurationSecs, NonNegativeTickCount, SimulationTick } from '../src/domain/quantities'
+} from '../src/domain/time/frame-timing'
+import { FixedDurationSecs, NonNegativeTickCount, SimulationTick } from '../src/domain/time/quantities'
 
 const assertWithEffect = (assertion: () => void): Promise<void> => Effect.runPromise(Effect.sync(assertion))
 

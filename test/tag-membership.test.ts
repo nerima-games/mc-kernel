@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { ingredientMatches, tagged } from "../src/domain/recipe-data";
-import { DataPackFormat } from "../src/domain/data-pack-registry";
+import { ingredientMatches, tagged } from "../src/domain/recipe/recipe-data";
+import { DataPackFormat } from "../src/domain/world/data-pack-registry";
 import {
   extendItemTagMemberships,
   isTaggedItem,
   itemTagMembers,
   itemTagMembershipLayer,
   VANILLA_ITEM_TAG_MEMBERSHIPS,
-} from "../src/domain/tag-membership";
+} from "../src/domain/world/tag-membership";
 
 describe("vanilla item-tag memberships", () => {
   it("covers the tags the kernel's shipped smithing trim recipe references", () => {

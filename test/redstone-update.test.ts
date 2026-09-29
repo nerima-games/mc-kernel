@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { type BlockId, blockIdOf } from '../src/domain/block-registry'
-import { blockPositionKeyOf } from '../src/domain/coordinate-keys'
-import { blockPosition, type BlockPosition } from '../src/domain/coordinate-primitives'
+import { blockPositionKeyOf } from '../src/domain/coordinates/coordinate-keys'
+import { blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import {
   emptyBlockWorld,
   setBlockAt,

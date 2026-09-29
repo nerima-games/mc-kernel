@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as fc from "effect/FastCheck";
 import { itemComponents } from "../src/domain/item-components";
 import { itemComponentPatch, itemComponentPatchFromUnknownEither } from "../src/domain/item-component-patch";
-import { TransferQuantity } from "../src/domain/quantities";
+import { TransferQuantity } from "../src/domain/time/quantities";
 import {
   isItemStack,
   itemStack,

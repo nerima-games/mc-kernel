@@ -9,7 +9,7 @@ import {
   isEntityAttributeOptions,
   isEntityAttributes,
 } from '../src/domain/entity'
-import { Bounciness, EntityPhysicsModifier, EntityVisibilityDistance, KnockbackResistance } from '../src/domain/quantities'
+import { Bounciness, EntityPhysicsModifier, EntityVisibilityDistance, KnockbackResistance } from '../src/domain/time/quantities'
 
 describe('entity attributes', () => {
   it('enforces the official numeric ranges at branded boundaries', () => {

@@ -8,7 +8,7 @@ import {
   record,
   unlock,
   type Statistics,
-} from '../src/domain/statistics'
+} from '../src/domain/text/statistics'
 
 describe('statistics', () => {
   it('reads and records counters', () => {

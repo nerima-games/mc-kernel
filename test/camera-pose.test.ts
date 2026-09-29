@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MonotonicTimeSecs } from '../src/domain/quantities'
+import { MonotonicTimeSecs } from '../src/domain/time/quantities'
 import { position } from '../src/domain/coordinates'
 import {
   applyLook,
@@ -14,7 +14,7 @@ import {
   withFeetPosition,
   type CameraOrientation,
   type PlayerPose,
-} from '../src/domain/camera-pose'
+} from '../src/domain/presentation/camera-pose'
 
 const poseAt = (pitchRadians = 0): PlayerPose => ({
   feetPosition: position(4, 64, -3),

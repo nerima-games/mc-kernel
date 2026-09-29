@@ -15,7 +15,7 @@ import {
   VANILLA_CRAFTING_RECIPES,
   VANILLA_ITEM_TAG_MEMBERSHIPS,
 } from '../src/index.js'
-import { propertiesOfBiomeType } from '../src/domain/biome-validation.js'
+import { propertiesOfBiomeType } from '../src/domain/world/biome-validation.js'
 
 const GOLDEN = join(process.cwd(), 'test', 'golden')
 

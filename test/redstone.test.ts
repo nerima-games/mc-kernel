@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { blockIdOf } from '../src/domain/block-registry'
-import { blockPosition, type BlockPosition } from '../src/domain/coordinate-primitives'
+import { blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import {
   REDSTONE_BLOCK_IDS,
   REDSTONE_POWER_MAX,
@@ -25,7 +25,7 @@ import {
   withRedstoneDeviceState,
   withRedstoneWirePowers,
 } from '../src/domain/redstone'
-import { blockPositionKeyOf, type BlockPositionKey } from '../src/domain/coordinate-keys'
+import { blockPositionKeyOf, type BlockPositionKey } from '../src/domain/coordinates/coordinate-keys'
 import type { RedstonePower } from '../src/domain/redstone'
 
 describe('redstone', () => {

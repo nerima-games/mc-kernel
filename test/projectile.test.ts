@@ -1,5 +1,5 @@
-import { aabb, type AABB } from '../src/domain/coordinate-geometry'
-import { position } from '../src/domain/coordinate-primitives'
+import { aabb, type AABB } from '../src/domain/coordinates/coordinate-geometry'
+import { position } from '../src/domain/coordinates/coordinate-primitives'
 import {
   ARROW_MAX_LIFETIME_SECONDS,
   type Arrow,

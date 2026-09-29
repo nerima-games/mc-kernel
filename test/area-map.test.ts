@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 
 const root = join(import.meta.dirname, "..");
 const map = readFileSync(join(root, "docs/area-map.md"), "utf8");
-const domainFiles = readdirSync(join(root, "src/domain"), { recursive: true })
+const domainFiles = readdirSync(join(root, "src/domain"), { recursive: true, encoding: "utf8" })
   .filter(
     (file) =>
       file.endsWith(".ts") &&
@@ -15,18 +15,19 @@ const domainFiles = readdirSync(join(root, "src/domain"), { recursive: true })
   .map((file) => file.split("/").at(-1))
   .filter((file): file is string => file !== undefined)
   .sort();
-const inventory = map.split("<!-- area-inventory:begin -->")[1].split(
-  "<!-- area-inventory:end -->",
-)[0];
-const listedFiles = [...inventory.matchAll(/`([a-z0-9-]+\.ts)`/g)].map(
-  ([, file]) => file,
+const inventory = map;
+const listedFiles = [...inventory.matchAll(/`([a-z0-9-]+\.ts)`/g)].flatMap(
+  ([, file]) => (file === undefined ? [] : [file]),
 );
 const publicSubpaths = Object.keys(
   JSON.parse(readFileSync(join(root, "package.json"), "utf8")).exports,
 ).filter((subpath) => subpath !== ".");
-const plannedBarrels = [...map.matchAll(/\| `\.\/domain\/([^`]+)` \| `([^`]+)` \|/g)].map(
-  ([, subpath, barrel]) => ({ subpath, barrel }),
-);
+const plannedBarrels = [
+  ...map.matchAll(/\| `\.\/domain\/([^`]+)` \| `([^`]+)` \|/g),
+].map(([, subpath, barrel]) => ({
+  subpath: subpath ?? "",
+  barrel: barrel ?? "",
+}));
 
 describe("R-K1 phase-1 area map", () => {
   test("lists every current domain file exactly once", () => {
