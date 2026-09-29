@@ -27,6 +27,8 @@ type FixedDurationSecs = number & Brand.Brand<"FixedDurationSecs">;
 type SimulationTick = number & Brand.Brand<"SimulationTick">;
 type InterpolationFraction = number & Brand.Brand<"InterpolationFraction">;
 type SessionEpoch = string & Brand.Brand<"SessionEpoch">;
+type NonNegativeTickCount = number & Brand.Brand<"NonNegativeTickCount">;
+type PositiveTickCount = number & Brand.Brand<"PositiveTickCount">;
 type CooldownSeconds = number & Brand.Brand<"CooldownSeconds">; // finite, > 0
 type ConsumeSeconds = number & Brand.Brand<"ConsumeSeconds">; // finite, >= 0
 type EpochMillis = number & Brand.Brand<"EpochMillis">;
@@ -1639,10 +1641,15 @@ const secondsForTicks: (ticks: NonNegativeTickCount) => Either<FixedDurationSecs
 const interpolationFraction: (accumulator: FixedDurationSecs) => InterpolationFraction;
 ```
 
+これらの value export と tick 演算 API は root (`@nerima-games/mc-kernel`) と、数量は
+`domain/quantities`、演算は `domain/frame-timing` の各 subpath から同一の値として利用できる。
+
 `addTick` と `secondsForTicks` は safe integer または有限秒数の範囲を超える場合に
 `Left({ _tag: 'TimeOverflow' })` を返す。`interpolationFraction` は whole tick 消費後の
-`[0, 0.05)` の accumulator にだけ適用し、`1` を返さない。固定 tick の accumulator、catch-up
-上限、pause/overload、simulation loop は `mc-sim` が所有する。
+`[0, 0.05)` の accumulator にだけ適用する。`0.05` 以上を渡すと clamp や wrap はせず、
+`InterpolationFraction` の `[0, 1)` 制約により例外になる。したがって呼び出し側は、fraction を
+求める前に whole tick を消費し、accumulator をこの境界未満へ戻さなければならない。固定 tick の
+accumulator、catch-up 上限、pause/overload、simulation loop は `mc-sim` が所有する。
 
 ## 5-ter. 昼夜と天候（time-of-day / weather）
 

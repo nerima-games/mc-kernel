@@ -188,6 +188,12 @@ describe("public API surface", () => {
           "MAX_STACK_COUNT",
           "DeltaTimeSecs",
           "MonotonicTimeSecs",
+          "FixedDurationSecs",
+          "SimulationTick",
+          "InterpolationFraction",
+          "SessionEpoch",
+          "NonNegativeTickCount",
+          "PositiveTickCount",
           "CooldownSeconds",
           "ConsumeSeconds",
           "EpochMillis",
@@ -915,6 +921,11 @@ describe("public API surface", () => {
           "frameDeltaBetween",
           "frameDeltaLossSecs",
           "frameDeltaLossBetween",
+          "tickDuration",
+          "physicsSubstepDuration",
+          "addTick",
+          "secondsForTicks",
+          "interpolationFraction",
           // Pure day/night policy and weather state validation
           "TICKS_PER_SECOND",
           "MIN_DAY_LENGTH_SECS",
@@ -1098,6 +1109,16 @@ describe("public API surface", () => {
         expect(kernel.MonotonicTimeSecs).toBe(
           quantitiesModule.MonotonicTimeSecs,
         );
+        expect(kernel.FixedDurationSecs).toBe(quantitiesModule.FixedDurationSecs);
+        expect(kernel.SimulationTick).toBe(quantitiesModule.SimulationTick);
+        expect(kernel.InterpolationFraction).toBe(
+          quantitiesModule.InterpolationFraction,
+        );
+        expect(kernel.SessionEpoch).toBe(quantitiesModule.SessionEpoch);
+        expect(kernel.NonNegativeTickCount).toBe(
+          quantitiesModule.NonNegativeTickCount,
+        );
+        expect(kernel.PositiveTickCount).toBe(quantitiesModule.PositiveTickCount);
         expect(kernel.CooldownSeconds).toBe(quantitiesModule.CooldownSeconds);
         expect(kernel.ConsumeSeconds).toBe(quantitiesModule.ConsumeSeconds);
         expect(kernel.EpochMillis).toBe(quantitiesModule.EpochMillis);
@@ -1559,6 +1580,15 @@ describe("public API surface", () => {
         );
         expect(kernel.frameDeltaLossBetween).toBe(
           frameTimingModule.frameDeltaLossBetween,
+        );
+        expect(kernel.tickDuration).toBe(frameTimingModule.tickDuration);
+        expect(kernel.physicsSubstepDuration).toBe(
+          frameTimingModule.physicsSubstepDuration,
+        );
+        expect(kernel.addTick).toBe(frameTimingModule.addTick);
+        expect(kernel.secondsForTicks).toBe(frameTimingModule.secondsForTicks);
+        expect(kernel.interpolationFraction).toBe(
+          frameTimingModule.interpolationFraction,
         );
         expect(kernel.PITCH_EPSILON).toBe(cameraPoseModule.PITCH_EPSILON);
         expect(kernel.PITCH_MAX_RADIANS).toBe(
@@ -3059,6 +3089,22 @@ describe("public API surface", () => {
           packageRoot.KnockbackResistance,
         );
         expect(quantitiesSubpath.DeltaTimeSecs).toBe(packageRoot.DeltaTimeSecs);
+        expect(quantitiesSubpath.FixedDurationSecs).toBe(
+          packageRoot.FixedDurationSecs,
+        );
+        expect(quantitiesSubpath.SimulationTick).toBe(
+          packageRoot.SimulationTick,
+        );
+        expect(quantitiesSubpath.InterpolationFraction).toBe(
+          packageRoot.InterpolationFraction,
+        );
+        expect(quantitiesSubpath.SessionEpoch).toBe(packageRoot.SessionEpoch);
+        expect(quantitiesSubpath.NonNegativeTickCount).toBe(
+          packageRoot.NonNegativeTickCount,
+        );
+        expect(quantitiesSubpath.PositiveTickCount).toBe(
+          packageRoot.PositiveTickCount,
+        );
         expect(quantitiesSubpath.CooldownSeconds).toBe(
           packageRoot.CooldownSeconds,
         );
@@ -3363,6 +3409,17 @@ describe("public API surface", () => {
         );
         expect(frameTimingSubpath.frameDeltaBetween).toBe(
           packageRoot.frameDeltaBetween,
+        );
+        expect(frameTimingSubpath.tickDuration).toBe(packageRoot.tickDuration);
+        expect(frameTimingSubpath.physicsSubstepDuration).toBe(
+          packageRoot.physicsSubstepDuration,
+        );
+        expect(frameTimingSubpath.addTick).toBe(packageRoot.addTick);
+        expect(frameTimingSubpath.secondsForTicks).toBe(
+          packageRoot.secondsForTicks,
+        );
+        expect(frameTimingSubpath.interpolationFraction).toBe(
+          packageRoot.interpolationFraction,
         );
         expect(primedTntSubpath.primeTnt).toBe(packageRoot.primeTnt);
         expect(primedTntSubpath.planPrimedTnt).toBe(packageRoot.planPrimedTnt);

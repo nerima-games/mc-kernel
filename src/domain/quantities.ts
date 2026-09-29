@@ -101,7 +101,7 @@ export type SessionEpoch = string & Brand.Brand<'SessionEpoch'>
 
 export const SessionEpoch: Brand.Brand.Constructor<SessionEpoch> = Brand.refined<SessionEpoch>(
   (value): value is SessionEpoch => typeof value === 'string' && value.trim().length > 0,
-  (value) => Brand.error(`SessionEpoch must be a non-empty string, received ${JSON.stringify(value)}`),
+  () => Brand.error('SessionEpoch must be a non-empty string, received invalid value'),
 )
 
 /** A non-negative safe integer count of logical ticks. */

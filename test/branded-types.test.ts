@@ -166,6 +166,25 @@ describe('fixed simulation time brands', () => {
       expect(Either.isLeft(SessionEpoch.either('   '))).toBe(true)
     })),
   )
+
+  it('returns Left with a fixed message for hostile unknown values', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const circular: { self?: unknown } = {}
+      circular.self = circular
+      const invalidValues: ReadonlyArray<readonly [unknown, string]> = [
+        ['', 'SessionEpoch must be a non-empty string, received invalid value'],
+        [1n, 'SessionEpoch must be a non-empty string, received invalid value'],
+        [circular, 'SessionEpoch must be a non-empty string, received invalid value'],
+        [Symbol('session'), 'SessionEpoch must be a non-empty string, received invalid value'],
+      ]
+
+      for (const [value, expectedMessage] of invalidValues) {
+        const result = Reflect.apply(SessionEpoch.either, SessionEpoch, [value])
+        expect(Either.isLeft(result)).toBe(true)
+        expect(result).toMatchObject({ left: [{ message: expectedMessage }] })
+      }
+    })),
+  )
 })
 
 describe('ConsumeSeconds', () => {
