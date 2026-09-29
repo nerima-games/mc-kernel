@@ -1,4 +1,5 @@
-import { Effect } from 'effect'
+import { Effect, Either } from 'effect'
+import * as fc from 'effect/FastCheck'
 import { describe, expect, it } from 'vitest'
 import {
   FIRST_FRAME_DELTA_SECS,
@@ -8,7 +9,13 @@ import {
   frameDeltaBetween,
   frameDeltaLossBetween,
   frameDeltaLossSecs,
+  addTick,
+  interpolationFraction,
+  physicsSubstepDuration,
+  secondsForTicks,
+  tickDuration,
 } from '../src/domain/frame-timing'
+import { FixedDurationSecs, NonNegativeTickCount, SimulationTick } from '../src/domain/quantities'
 
 const assertWithEffect = (assertion: () => void): Promise<void> => Effect.runPromise(Effect.sync(assertion))
 
@@ -129,4 +136,59 @@ describe('frame timing', () => {
       expect(frameDeltaLossBetween(2, 1)).toBe(0)
     }),
   )
+})
+
+describe('fixed simulation timing', () => {
+  it('uses the K05 literal durations', () =>
+    assertWithEffect(() => {
+      expect(tickDuration).toBe(0.05)
+      expect(physicsSubstepDuration).toBe(0.025)
+    }),
+  )
+
+  it('matches the K05 tick arithmetic oracle', () =>
+    assertWithEffect(() => {
+      const firstTick = addTick(SimulationTick(0), NonNegativeTickCount(1))
+      expect(firstTick).toStrictEqual(Either.right(1))
+      expect(secondsForTicks(NonNegativeTickCount(1))).toStrictEqual(Either.right(0.05))
+      expect(secondsForTicks(NonNegativeTickCount(2))).toStrictEqual(Either.right(0.1))
+      // @ts-expect-error Runtime overflow is rejected even when an invalid value crosses the typed boundary.
+      expect(secondsForTicks(Number.POSITIVE_INFINITY)).toStrictEqual(Either.left({ _tag: 'TimeOverflow' }))
+      expect(addTick(SimulationTick(Number.MAX_SAFE_INTEGER), NonNegativeTickCount(1))).toStrictEqual(
+        Either.left({ _tag: 'TimeOverflow' }),
+      )
+    }),
+  )
+
+  it('keeps addTick at the safe-integer boundary without wrapping', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: Number.MAX_SAFE_INTEGER }),
+        fc.integer({ min: 0, max: Number.MAX_SAFE_INTEGER }),
+        (tickValue, countValue) => {
+          const result = addTick(SimulationTick(tickValue), NonNegativeTickCount(countValue))
+          const expected = tickValue + countValue
+          if (Number.isSafeInteger(expected)) {
+            expect(Either.isRight(result)).toBe(true)
+            if (Either.isRight(result)) expect(result.right).toBe(expected)
+          } else {
+            expect(result).toStrictEqual(Either.left({ _tag: 'TimeOverflow' }))
+          }
+        },
+      ),
+    )
+  })
+
+  it('keeps interpolation fractions in [0, 1) for an unconsumed accumulator', () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 49 }), (milliseconds) => {
+        const fraction = interpolationFraction(FixedDurationSecs(milliseconds / 1000))
+        expect(fraction).toBeGreaterThanOrEqual(0)
+        expect(fraction).toBeLessThan(1)
+      }),
+    )
+    expect(interpolationFraction(FixedDurationSecs(0))).toBe(0)
+    expect(interpolationFraction(FixedDurationSecs(0.025))).toBe(0.5)
+    expect(() => interpolationFraction(FixedDurationSecs(0.05))).toThrow()
+  })
 })

@@ -71,6 +71,56 @@ export const DeltaTimeSecs: Brand.Brand.Constructor<DeltaTimeSecs> = Brand.refin
   (value) => Brand.error(`DeltaTimeSecs must be a finite, non-negative number of seconds, received ${value}`),
 )
 
+/** A fixed simulation duration, in seconds. */
+export type FixedDurationSecs = number & Brand.Brand<'FixedDurationSecs'>
+
+export const FixedDurationSecs: Brand.Brand.Constructor<FixedDurationSecs> = Brand.refined<FixedDurationSecs>(
+  (value) => Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE,
+  (value) => Brand.error(`FixedDurationSecs must be a finite, non-negative number of seconds, received ${value}`),
+)
+
+/** A non-negative logical simulation tick index. */
+export type SimulationTick = number & Brand.Brand<'SimulationTick'>
+
+export const SimulationTick: Brand.Brand.Constructor<SimulationTick> = Brand.refined<SimulationTick>(
+  (value) => Number.isSafeInteger(value) && value >= MIN_NON_NEGATIVE_VALUE,
+  (value) => Brand.error(`SimulationTick must be a non-negative safe integer, received ${value}`),
+)
+
+/** A finite fraction used to interpolate between fixed simulation ticks. */
+export type InterpolationFraction = number & Brand.Brand<'InterpolationFraction'>
+
+export const InterpolationFraction: Brand.Brand.Constructor<InterpolationFraction> =
+  Brand.refined<InterpolationFraction>(
+    (value) => Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE && value < 1,
+    (value) => Brand.error(`InterpolationFraction must be a finite number in [0, 1), received ${value}`),
+  )
+
+/** Identifies one lifecycle generation of a running session. */
+export type SessionEpoch = string & Brand.Brand<'SessionEpoch'>
+
+export const SessionEpoch: Brand.Brand.Constructor<SessionEpoch> = Brand.refined<SessionEpoch>(
+  (value): value is SessionEpoch => typeof value === 'string' && value.trim().length > 0,
+  () => Brand.error('SessionEpoch must be a non-empty string, received invalid value'),
+)
+
+/** A non-negative safe integer count of logical ticks. */
+export type NonNegativeTickCount = number & Brand.Brand<'NonNegativeTickCount'>
+
+export const NonNegativeTickCount: Brand.Brand.Constructor<NonNegativeTickCount> =
+  Brand.refined<NonNegativeTickCount>(
+    (value) => Number.isSafeInteger(value) && value >= MIN_NON_NEGATIVE_VALUE,
+    (value) => Brand.error(`NonNegativeTickCount must be a non-negative safe integer, received ${value}`),
+  )
+
+/** A positive safe integer count of logical ticks. */
+export type PositiveTickCount = number & Brand.Brand<'PositiveTickCount'>
+
+export const PositiveTickCount: Brand.Brand.Constructor<PositiveTickCount> = Brand.refined<PositiveTickCount>(
+  (value) => Number.isSafeInteger(value) && value > MIN_NON_NEGATIVE_VALUE,
+  (value) => Brand.error(`PositiveTickCount must be a positive safe integer, received ${value}`),
+)
+
 /**
  * A reading from a monotonic clock, in seconds.
  *

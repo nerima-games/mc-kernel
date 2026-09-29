@@ -23,6 +23,12 @@ type TagLocation = string & Brand.Brand<"TagLocation">;
 type StackCount = number & Brand.Brand<"StackCount">; // 0..MAX_STACK_COUNT (64)
 type DeltaTimeSecs = number & Brand.Brand<"DeltaTimeSecs">;
 type MonotonicTimeSecs = number & Brand.Brand<"MonotonicTimeSecs">;
+type FixedDurationSecs = number & Brand.Brand<"FixedDurationSecs">;
+type SimulationTick = number & Brand.Brand<"SimulationTick">;
+type InterpolationFraction = number & Brand.Brand<"InterpolationFraction">;
+type SessionEpoch = string & Brand.Brand<"SessionEpoch">;
+type NonNegativeTickCount = number & Brand.Brand<"NonNegativeTickCount">;
+type PositiveTickCount = number & Brand.Brand<"PositiveTickCount">;
 type CooldownSeconds = number & Brand.Brand<"CooldownSeconds">; // finite, > 0
 type ConsumeSeconds = number & Brand.Brand<"ConsumeSeconds">; // finite, >= 0
 type EpochMillis = number & Brand.Brand<"EpochMillis">;
@@ -39,7 +45,7 @@ namespace/path 形式（`minecraft:entity.generic.eat`、`entity.generic.eat`、
 どこか 1 つに置けば他の 2 つがそのリポジトリに依存することになり、依存グラフが壊れる。
 `StackCount` も同様に `mc-sim`（インベントリ状態）と `mx-ui`（表示）と `mx-gameplay`（ドロップ）が同じ制約を共有する必要がある。
 
-**時間・持続時間の型を分けている理由**: `DeltaTimeSecs`（フレーム差分）/ `MonotonicTimeSecs`（単調時計）/ `CooldownSeconds`（正の使用間隔）/ `ConsumeSeconds`（非負のアイテム使用時間）/ `EpochMillis`（壁時計）は
+**時間・持続時間の型を分けている理由**: `DeltaTimeSecs`（フレーム差分）/ `MonotonicTimeSecs`（単調時計）/ `FixedDurationSecs`（固定 tick の長さ）/ `SimulationTick`（論理 tick 番号）/ `InterpolationFraction`（`[0, 1)` の補間率）/ `SessionEpoch`（セッション世代）/ `CooldownSeconds`（正の使用間隔）/ `ConsumeSeconds`（非負のアイテム使用時間）/ `EpochMillis`（壁時計）は
 数値としては全部 number だが混同すると即バグになる。特に `MonotonicTimeSecs` と `EpochMillis` の混同は
 「セーブのタイムスタンプがプロセス起動からの経過秒になる」類の事故を生む。
 
@@ -1620,6 +1626,30 @@ const frameDeltaLossBetween: (
 `NaN` または前回時刻が無い場合は最初のフレーム値 `0.016` を使う。通常の値は `0.001` 以上
 `0.05` 以下に clamp し、上限を超えた経過時間は `frameDeltaLossSecs` / `frameDeltaLossBetween` で返す。
 これは `mc-sim` の状態・累積器を移植したものではなく、`DeltaTimeSecs` を消費する共有された時間ポリシーだけを kernel が所有する境界である。
+
+### 固定 tick の時間契約
+
+```typescript
+type NonNegativeTickCount = number & Brand.Brand<'NonNegativeTickCount'>;
+type PositiveTickCount = number & Brand.Brand<'PositiveTickCount'>;
+type TimeOverflow = { readonly _tag: 'TimeOverflow' };
+
+const tickDuration: FixedDurationSecs = FixedDurationSecs(0.05);
+const physicsSubstepDuration: FixedDurationSecs = FixedDurationSecs(0.025);
+const addTick: (tick: SimulationTick, count: NonNegativeTickCount) => Either<SimulationTick, TimeOverflow>;
+const secondsForTicks: (ticks: NonNegativeTickCount) => Either<FixedDurationSecs, TimeOverflow>;
+const interpolationFraction: (accumulator: FixedDurationSecs) => InterpolationFraction;
+```
+
+これらの value export と tick 演算 API は root (`@nerima-games/mc-kernel`) と、数量は
+`domain/quantities`、演算は `domain/frame-timing` の各 subpath から同一の値として利用できる。
+
+`addTick` と `secondsForTicks` は safe integer または有限秒数の範囲を超える場合に
+`Left({ _tag: 'TimeOverflow' })` を返す。`interpolationFraction` は whole tick 消費後の
+`[0, 0.05)` の accumulator にだけ適用する。`0.05` 以上を渡すと clamp や wrap はせず、
+`InterpolationFraction` の `[0, 1)` 制約により例外になる。したがって呼び出し側は、fraction を
+求める前に whole tick を消費し、accumulator をこの境界未満へ戻さなければならない。固定 tick の
+accumulator、catch-up 上限、pause/overload、simulation loop は `mc-sim` が所有する。
 
 ## 5-ter. 昼夜と天候（time-of-day / weather）
 

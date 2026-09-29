@@ -1,4 +1,14 @@
-import { DeltaTimeSecs } from './quantities.js'
+import { Either } from 'effect'
+import {
+  DeltaTimeSecs,
+  FixedDurationSecs,
+  InterpolationFraction,
+  SimulationTick,
+  type FixedDurationSecs as FixedDurationSecsValue,
+  type InterpolationFraction as InterpolationFractionValue,
+  type NonNegativeTickCount as NonNegativeTickCountValue,
+  type SimulationTick as SimulationTickValue,
+} from './quantities.js'
 
 export const MIN_FRAME_DELTA_SECS = 0.001
 export const MAX_FRAME_DELTA_SECS = 0.05
@@ -17,3 +27,28 @@ export const frameDeltaLossSecs = (rawDeltaSecs: number): number =>
 
 export const frameDeltaLossBetween = (previousSecs: number | undefined, nowSecs: number): number =>
   previousSecs === undefined ? 0 : frameDeltaLossSecs(nowSecs - previousSecs)
+
+export const tickDuration: FixedDurationSecsValue = FixedDurationSecs(0.05)
+export const physicsSubstepDuration: FixedDurationSecsValue = FixedDurationSecs(0.025)
+
+export type TimeOverflow = { readonly _tag: 'TimeOverflow' }
+
+const timeOverflow: TimeOverflow = { _tag: 'TimeOverflow' }
+
+export const addTick = (
+  tick: SimulationTickValue,
+  count: NonNegativeTickCountValue,
+): Either.Either<SimulationTickValue, TimeOverflow> => {
+  const nextTick = tick + count
+  return Number.isSafeInteger(nextTick) ? Either.right(SimulationTick(nextTick)) : Either.left(timeOverflow)
+}
+
+export const secondsForTicks = (
+  ticks: NonNegativeTickCountValue,
+): Either.Either<FixedDurationSecsValue, TimeOverflow> => {
+  const seconds = ticks * tickDuration
+  return Either.try({ try: () => FixedDurationSecs(seconds), catch: () => timeOverflow })
+}
+
+export const interpolationFraction = (accumulator: FixedDurationSecsValue): InterpolationFractionValue =>
+  InterpolationFraction(accumulator / tickDuration)
