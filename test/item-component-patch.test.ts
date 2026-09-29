@@ -6,6 +6,7 @@ import {
   isItemComponentPatch,
   itemComponentPatch,
   itemComponentPatchFromUnknown,
+  itemComponentPatchFromUnknownEither,
   itemComponentPatchesEqual,
   mergeItemComponentPatches,
   mergeItemComponentPatchesEither,
@@ -14,6 +15,22 @@ import { itemComponents } from "../src/domain/item-components";
 import { itemComponentsSnapshot } from "../src/domain/item-components-validation";
 
 describe("item component patches", () => {
+  it("rejects hostile proxy records without throwing", () => {
+    const hostile = new Proxy({}, { ownKeys: () => { throw new Error("hostile"); } });
+    expect(isItemComponentPatch(hostile)).toBe(false);
+    const symbolHostile = new Proxy({}, { ownKeys: () => { throw Symbol("hostile"); } });
+    expect(itemComponentPatchFromUnknownEither(symbolHostile)._tag).toBe("Left");
+    expect(Reflect.apply(mergeItemComponentPatchesEither, undefined, [{ invalid: true }, undefined])._tag).toBe("Left");
+    let reads = 0;
+    const shifting = new Proxy({ "minecraft:damage": 1 }, {
+      get: (target, key) => {
+        reads += 1;
+        if (reads > 1 && key === "minecraft:damage") throw Symbol("hostile");
+        return Reflect.get(target, key);
+      },
+    });
+    expect(Reflect.apply(mergeItemComponentPatchesEither, undefined, [shifting, undefined])._tag).toBe("Left");
+  });
   it("accepts namespaced component keys and removal keys", () => {
     expect(ItemComponentPatchKey.is("minecraft:custom_name")).toBe(true);
     expect(ItemComponentPatchKey.is("!minecraft:damage")).toBe(true);

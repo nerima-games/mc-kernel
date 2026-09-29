@@ -10,6 +10,7 @@ import {
   itemStackEqualsIgnoringCount,
   itemStackWithCount,
   maxStackCountForItem,
+  maxStackCountForStack,
   mergeItemStacks,
   splitItemStack,
   transmuteItemStack,
@@ -27,6 +28,19 @@ describe("canonical item stacks", () => {
     expect(() => itemStack("stone", 0)).toThrow(RangeError);
     expect(() => itemStack("stone", 65)).toThrow(RangeError);
     expect(() => itemStack("stone", Number.POSITIVE_INFINITY)).toThrow(RangeError);
+    expect(() => Reflect.apply(itemStack, undefined, ["not_an_item", 1])).toThrow(TypeError);
+    expect(maxStackCountForStack({ item: "stone" })).toBe(64);
+  });
+
+  it("rejects hostile stack records without throwing", () => {
+    const hostile = new Proxy({}, { ownKeys: () => { throw new Error("hostile"); } });
+    expect(isItemStack(hostile)).toBe(false);
+    expect(isItemStack({ item: "stone", count: 1, components: itemComponents("stone"), extra: true })).toBe(false);
+    expect(isItemStack({ item: "stone", count: 1 })).toBe(false);
+    expect(isItemStack({ item: "not_an_item", count: 1, components: itemComponents("stone") })).toBe(false);
+    expect(() => itemStackFromUnknown("not_an_item", 1)).toThrow(TypeError);
+    expect(() => itemStackFromUnknown("stone", "1")).toThrow(TypeError);
+    expect(() => itemStackFromUnknown("stone", 1, null)).toThrow(TypeError);
   });
 
   it("resolves patches at construction and removes fields canonically", () => {
@@ -79,6 +93,8 @@ describe("canonical item stacks", () => {
     expect(() => Reflect.apply(itemStackWithCount, undefined, [{}, 1])).toThrow(TypeError);
     expect(() => Reflect.apply(transmuteItemStack, undefined, [{}, right])).toThrow(TypeError);
     expect(() => Reflect.apply(mergeItemStacks, undefined, [{}, right])).toThrow(TypeError);
+    expect(() => Reflect.apply(splitItemStack, undefined, [{}, 1])).toThrow(TypeError);
+    expect(() => mergeItemStacks(left, itemStack("dirt", 1))).toThrow(TypeError);
     expect(() => mergeItemStacks(left, right)).not.toThrow();
     expect(mergeItemStacks(left, right).remainder?.count).toBe(2);
   });

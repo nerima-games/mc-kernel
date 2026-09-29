@@ -88,6 +88,23 @@ import { itemStack } from '../src/domain/item-stack'
 import { describe, expect, it } from 'vitest'
 
 describe('item components', () => {
+  it('rejects hostile component records without throwing', () => {
+    const hostile = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
+    expect(isItemComponents(hostile)).toBe(false)
+    expect(Reflect.apply(itemComponentsEqual, undefined, [hostile, undefined])).toBe(false)
+    const throwingValue: Record<string, unknown> = {}
+    const otherThrowingValue: Record<string, unknown> = {}
+    Object.defineProperty(throwingValue, 'x', { enumerable: true, get: () => { throw new Error('hostile') } })
+    Object.defineProperty(otherThrowingValue, 'x', { enumerable: true, get: () => { throw new Error('hostile') } })
+    expect(Reflect.apply(itemComponentsEqual, undefined, [throwingValue, otherThrowingValue])).toBe(false)
+  })
+
+  it('accepts resolved nested stack values at their item limit', () => {
+    expect(isChargedProjectilesOptions([{ item: 'stone', count: 1, components: itemComponents('stone') }])).toBe(true)
+    expect(isChargedProjectilesOptions([{ item: 'stone', count: 99, components: itemComponents('stone', { maxStackSize: 99 }) }])).toBe(true)
+    expect(isChargedProjectilesOptions([{ item: 'stone', count: 100, components: itemComponents('stone', { maxStackSize: 99 }) }])).toBe(false)
+    expect(isItemComponents({ ...itemComponents('stone'), chargedProjectiles: [{ item: 'stone', count: 1 }] })).toBe(true)
+  })
   it('distinguishes nested arrays with different lengths', () => {
     const left = itemComponents('stone', { customData: { values: [1] } })
     const right = itemComponents('stone', { customData: { values: [1, 2] } })

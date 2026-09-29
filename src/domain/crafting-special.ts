@@ -92,7 +92,7 @@ const DEFAULT_DYED_COLOR: readonly [number, number, number] = [160, 101, 64];
 
 const dyedColorOf = (
   stack: ItemStack,
-): DyedColorComponent | null | undefined => {
+): DyedColorComponent | undefined => {
   return stack.components?.dyedColor;
 };
 
@@ -298,9 +298,6 @@ const withComponentPatch = (
   stack: ItemStack,
   patch: ItemComponentPatch,
 ): ItemStack => {
-  if (stack.components === undefined) {
-    throw new TypeError("Crafting output stack components are missing");
-  }
   return itemStack(stack.item, stack.count, {
     components: applyItemComponentPatch(stack.components, patch),
   });
@@ -757,9 +754,6 @@ const craftingDyeMatch = (
       continue;
     }
     const targetColor = dyedColorOf(target);
-    if (targetColor === null) {
-      continue;
-    }
     const mixedColor = mixCraftingDyeColor(targetColor, dyeColors);
     const output = withComponentPatch(
       transmuteItemStack(target, recipe.output),
