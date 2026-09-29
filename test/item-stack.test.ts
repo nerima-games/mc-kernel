@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import * as fc from "effect/FastCheck";
 import { itemComponents } from "../src/domain/item-components";
-import { itemComponentPatch } from "../src/domain/item-component-patch";
+import { itemComponentPatch, itemComponentPatchFromUnknownEither } from "../src/domain/item-component-patch";
+import { TransferQuantity } from "../src/domain/quantities";
 import {
   isItemStack,
   itemStack,
@@ -43,7 +44,7 @@ describe("canonical item stacks", () => {
     const left = itemComponentPatch({ "minecraft:damage": 1 });
     const right = itemComponentPatch({ "minecraft:damage": 2 });
     expect(() => itemStack("diamond_sword", 1, { componentPatch: left })).not.toThrow();
-    expect(() => itemStack("diamond_sword", 1, { componentPatch: itemComponentPatch({ "minecraft:damage": 1, "!minecraft:damage": null }) })).toThrow();
+    expect(itemComponentPatchFromUnknownEither({ "minecraft:damage": 1, "!minecraft:damage": null })._tag).toBe("Left");
     expect(left).not.toBe(right);
     expect(() => itemStackFromUnknown("stone", 1, { components: {} })).toThrow(TypeError);
     expect(() => itemStackFromUnknown("stone", 1, { componentPatch: { invalid: true } })).toThrow(TypeError);
@@ -53,13 +54,13 @@ describe("canonical item stacks", () => {
     const payload = itemComponents("stone", { rarity: "rare", customData: { value: { nested: true } } });
     const source = itemStack("stone", 32, { components: payload });
     const changed = itemStackWithCount(source, 12);
-    const split = splitItemStack(source, 12);
+    const split = splitItemStack(source, TransferQuantity(12));
     expect(itemStackEqualsIgnoringCount(source, changed)).toBe(true);
     expect(split.taken.count + (split.remainder?.count ?? 0)).toBe(32);
     expect(split.remainder).toBeDefined();
     if (split.remainder === undefined) throw new Error("expected remainder");
     expect(mergeItemStacks(split.taken, split.remainder)).toEqual({ merged: source, remainder: undefined });
-    expect(() => splitItemStack(source, 0)).toThrow(RangeError);
+    expect(() => Reflect.apply(splitItemStack, undefined, [source, 0])).toThrow(RangeError);
     expect(split.taken.components).not.toBe(payload);
     expect(Object.isFrozen(split.taken.components)).toBe(true);
   });
@@ -86,7 +87,7 @@ describe("canonical item stacks", () => {
     fc.assert(fc.property(fc.integer({ min: 1, max: 64 }), fc.integer({ min: 1, max: 64 }), (count, amount) => {
       const source = itemStack("stone", count);
       const splitAmount = Math.min(amount, count);
-      const split = splitItemStack(source, splitAmount);
+      const split = splitItemStack(source, TransferQuantity(splitAmount));
       const remainderCount = split.remainder?.count ?? 0;
       expect(split.taken.count + remainderCount).toBe(count);
       if (split.remainder !== undefined) {

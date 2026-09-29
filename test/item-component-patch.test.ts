@@ -8,6 +8,7 @@ import {
   itemComponentPatchFromUnknown,
   itemComponentPatchesEqual,
   mergeItemComponentPatches,
+  mergeItemComponentPatchesEither,
 } from "../src/domain/item-component-patch";
 import { itemComponents } from "../src/domain/item-components";
 import { itemComponentsSnapshot } from "../src/domain/item-components-validation";
@@ -134,13 +135,11 @@ describe("item component patches", () => {
     expect(mergeItemComponentPatches(undefined, undefined)).toBeUndefined();
     expect(mergeItemComponentPatches(left, undefined)).toEqual(left);
     expect(mergeItemComponentPatches(undefined, right)).toEqual(right);
-    let conflict: unknown;
-    try {
-      mergeItemComponentPatches(left, right);
-    } catch (error) {
-      conflict = error;
+    const conflict = mergeItemComponentPatchesEither(left, right);
+    expect(conflict._tag).toBe("Left");
+    if (conflict._tag === "Left") {
+      expect(conflict.left).toMatchObject({ _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:custom_name" });
     }
-    expect(conflict).toMatchObject({ _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:custom_name" });
     expect(mergeItemComponentPatches(left, itemComponentPatch({ "minecraft:repair_cost": 1 }))).toEqual({
       "minecraft:custom_name": "Stone",
       "minecraft:damage": 1,

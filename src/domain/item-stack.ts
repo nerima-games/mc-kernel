@@ -7,7 +7,7 @@ import {
   type ItemComponentPatch,
 } from "./item-component-patch.js";
 import { isItemType, type ItemType } from "./item-type.js";
-import { StackCount, type StackCount as StackCountValue } from "./quantities.js";
+import { StackCount, type StackCount as StackCountValue, type TransferQuantity as TransferQuantityValue } from "./quantities.js";
 
 export type ItemStack = Readonly<{
   readonly item: ItemType;
@@ -101,14 +101,14 @@ export const itemStackEqualsIgnoringCount = (left: ItemStack, right: ItemStack):
 
 export const itemStacksCanMerge = (left: ItemStack, right: ItemStack): boolean => itemStackEqualsIgnoringCount(left, right);
 
-export const splitItemStack = (stack: ItemStack, amount: number): { readonly taken: ItemStack; readonly remainder: ItemSlot } => {
+export const splitItemStack = (stack: ItemStack, amount: TransferQuantityValue): { readonly taken: ItemStack; readonly remainder: ItemSlot } => {
   if (!isItemStack(stack)) throw new TypeError("Stack must be an ItemStack");
-  if (!Number.isSafeInteger(amount) || amount < 1 || amount > stack.count) {
+  if (!Number.isSafeInteger(amount) || Number(amount) < 1 || Number(amount) > Number(stack.count)) {
     throw new RangeError(`Split amount must be an integer in [1, ${stack.count}]`);
   }
   return {
     taken: itemStackWithCount(stack, amount),
-    remainder: amount === stack.count ? undefined : itemStackWithCount(stack, stack.count - amount),
+    remainder: Number(amount) === Number(stack.count) ? undefined : itemStackWithCount(stack, Number(stack.count) - Number(amount)),
   };
 };
 

@@ -99,7 +99,7 @@ item component の item-aware な既定値は `itemComponents`（`tool` は `ITE
 | `mx-gameplay` | recipe/anvil の旧 `{ id, count }` result payload、components を別に保持する recipe/anvil sidecar | result を `item` / `count` / 解決済み `components` に正規化し、recipe/anvil の入力・出力と移送量に `TransferQuantity` を使う。patch は recipe/anvil の境界で解決し、gameplay state に未解決 patch を残さない。 |
 | `mx-multiplayer` | wire の旧 `{ id, count }` stack payload、components/metadata の sidecar、null slot | decode 時に canonical `ItemStack` / `ItemSlot` へ検証し、encode 時は `item` / `count` / `components` の payload のみを送る。`null` と `count: 0` の slot は `undefined` として扱い、送信前に再び sentinel 化しない。 |
 
-この表は移行契約の列挙であり、`mc-sim`、`mx-gameplay`、`mx-multiplayer` のファイルをこの worktree から変更したことを意味しない。各 repository の型検査・lint・test は各 repository 側の移行作業で実行する。
+この表は移行契約の列挙であり、kernel の変更範囲を越えて `mc-sim`、`mx-gameplay`、`mx-multiplayer` の具体的なファイルや実装手順を確定するものではない。また、これらの repository のファイルをこの worktree から変更したことを意味しない。各 repository の型検査・lint・test は各 repository 側の移行作業で実行する。
 
 ## 下流に残すもの
 

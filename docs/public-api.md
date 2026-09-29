@@ -20,7 +20,7 @@ type WorldId = string & Brand.Brand<"WorldId">;
 type StageId = string & Brand.Brand<"StageId">;
 type ResourceLocation = string & Brand.Brand<"ResourceLocation">;
 type TagLocation = string & Brand.Brand<"TagLocation">;
-type StackCount = number & Brand.Brand<"StackCount">; // 0..MAX_STACK_COUNT (64)
+type StackCount = number & Brand.Brand<"StackCount">; // 1..MAX_STACK_COUNT (99)
 type DeltaTimeSecs = number & Brand.Brand<"DeltaTimeSecs">;
 type MonotonicTimeSecs = number & Brand.Brand<"MonotonicTimeSecs">;
 type FixedDurationSecs = number & Brand.Brand<"FixedDurationSecs">;
@@ -33,7 +33,7 @@ type CooldownSeconds = number & Brand.Brand<"CooldownSeconds">; // finite, > 0
 type ConsumeSeconds = number & Brand.Brand<"ConsumeSeconds">; // finite, >= 0
 type EpochMillis = number & Brand.Brand<"EpochMillis">;
 
-const MAX_STACK_COUNT = 64;
+const MAX_STACK_COUNT = 99;
 ```
 
 いずれも `Brand.refined` によるコンストラクタを同名で公開する（値と型の両方）。`ResourceLocation` は vanilla の
@@ -258,7 +258,7 @@ plan.md §3.1 の主張は「挙動は名前比較ではなく能力から読む
 （`stone` → `cobblestone`、`grass_block` → `dirt`、`glowstone` → `glowstone_dust`）は
 引き続きレジストリ行の `drops` が所有する。設置形と破壊ドロップを同じ規則として扱わない。
 
-**`ITEM_TYPES` は 205 個。** ブロック形・ドロップ形、つるはし・シャベル・斧・クワ・剣の木/石/鉄/ダイヤ/金/ネザライト tier、鍛造素材・テンプレート、装備境界が必要とする
+**`ITEM_TYPES` は現行 205 個。** `ITEM_TYPES` が名前の roster、`ITEM_REGISTRY` がその append-only の数値 identity、`ITEM_IDS` が identity 列である。`itemIdOf` / `itemTypeOfId` は両者の変換を担い、途中挿入や並べ替えで既存 ID を変更してはならない。ブロック形・ドロップ形、つるはし・シャベル・斧・クワ・剣の木/石/鉄/ダイヤ/金/ネザライト tier、鍛造素材・テンプレート、装備境界が必要とする
 鉄・ダイヤ・ネザライト防具を語彙として持つ。
 kernel は現在の `ItemType` roster に対応する純粋な装備スロット規則・装備スナップショット・耐久遷移を `equipment-data.ts` / `equipment.ts` で所有する。
 ただし、このカタログは現在 kernel に表現されているアイテムの範囲であり、全エディション・全バージョンの防具、道具、プレイヤーインベントリを網羅する完全な公式レジストリではない。
@@ -308,7 +308,7 @@ const ItemIdBytes(bytes: Uint8Array | ItemIdBytes): ItemIdBytes // 長さと既�
 `BlockId` が `Uint8Array` の 1 バイトに収まる 256 通りに縛られるのに対し、`ItemId` は
 `unsigned 16-bit`（0..65535）を確保してあり、205 種の現行語彙に対して十分な余裕を持つ。
 
-`maxStackCountOfItem` の答えは 3 段階（`MAX_STACK_COUNT`=64 / 16 / 1）で、道具・防具・薬品・ボート等
+`maxStackCountOfItem` の答えは 3 段階（64 / 16 / 1）で、道具・防具・薬品・ボート等
 1 個までしか重ならないアイテムの集合と、雪玉・エンダーパール・バケツの 16 個上限を
 `item-registry.ts` 内の 2 つの `Set` で持つ。それ以外は既定の 64。
 
@@ -507,7 +507,7 @@ const isEntityType: (value: unknown) => value is EntityType;
 
 ### 3-ter. ItemStack とレシピ
 
-`ItemStack` はアイテム種別、正の数量、解決済み item component payload だけを持つ不変値であり、`itemStack` がアイテムごとの最大スタック数と数量の境界を検証する。数量 0 は `ItemStack` に格納せず、空の `ItemSlot`（`undefined`）で表す。component patch は decoder・recipe・wire などの境界で `applyItemComponentPatch` により解決してから `ItemStack.components` へ渡す。patch や未解決の payload を `ItemStack` のフィールドや sidecar として保持しない。
+`ItemStack` は `item` / `count` / 解決済み `components` の3フィールドだけを持つ不変値であり、`itemStack` がアイテムごとの最大スタック数と数量 `1..max` を検証する。数量 0 は `ItemStack` に格納せず、空の `ItemSlot`（`undefined`）で表す。component patch は decoder・recipe・wire などの境界で `applyItemComponentPatch` により解決してから `ItemStack.components` へ渡す。patch や未解決の payload を `ItemStack` のフィールドや sidecar として保持しない。
 空きスロットは `undefined` として表す。インベントリの搬送、所有権、装備状態、耐久値、エンチャントはこの型へ埋め込まない。
 
 ```typescript
@@ -531,16 +531,21 @@ const itemStackEqualsIgnoringCount: (left: ItemStack, right: ItemStack) => boole
 const itemStacksCanMerge: (left: ItemStack, right: ItemStack) => boolean;
 const itemStackWithCount: (stack: ItemStack, count: number) => ItemStack;
 const transmuteItemStack: (source: ItemStack, result: ItemStack, count?: number) => ItemStack;
-const splitItemStack: (stack: ItemStack, amount: number) => { readonly taken: ItemStack; readonly remainder: ItemSlot };
+const splitItemStack: (stack: ItemStack, amount: TransferQuantity) => { readonly taken: ItemStack; readonly remainder: ItemSlot };
 const mergeItemStacks: (left: ItemStack, right: ItemStack) => { readonly merged: ItemStack; readonly remainder: ItemSlot };
+const TransferQuantity: Brand.Constructor<TransferQuantity>; // split/merge の移送量 1..99
+const ItemComponentPatchConflictError: new (args: { readonly componentKey: string }) => Error;
 ```
 
 `itemStack` は型付きコード用の厳格なコンストラクタであり、保存データや外部入力の境界では
 `itemStackFromUnknown` を使って item、count、解決済み components を検証する。`applyItemComponentPatch` は
 境界でだけ patch を読み、既定値との合成、set/remove の競合拒否、deep snapshot を完了させる。
+remove はキーを `!` で表し、解決済み payload にそのキーを残さない。set と remove が同じ component key を
+対象にした場合は `ItemComponentPatchConflictError` を `Either` の左側で返す。
 `itemStackEqualsIgnoringCount` と `itemStacksCanMerge` は item と components の構造的等価性で判定し、
 `splitItemStack` / `mergeItemStacks` は components を失わず新しい snapshot を返す。数量の移送量には
-`TransferQuantity`（1..99 の正の整数）を使う。これらの関数は入力を変更しない。
+`TransferQuantity`（1..99 の正の整数）を使う。これらの関数は入力を変更せず、全量を移送した結果の余りを
+`undefined` の `ItemSlot` で返す。
 
 ### 3-ter-1. プレイヤーインベントリ
 
