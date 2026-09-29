@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { chunk } from '../src/domain/world/chunk'
-import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates'
-import { BLOCK_IDS, blockIdOf, opacityOfBlockId, propertyOfBlockId } from '../src/domain/block-registry'
+import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates/coordinates'
+import { BLOCK_IDS, blockIdOf, opacityOfBlockId, propertyOfBlockId } from '../src/domain/block/block-registry'
 import {
   heightmapColumnIndex,
   motionBlockingHeightmapOf,

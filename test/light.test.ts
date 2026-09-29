@@ -17,7 +17,7 @@ import {
   skyLightAt,
   updateLight,
   type LightVolumeSource,
-} from '../src/domain/light'
+} from '../src/domain/block/light'
 
 const at = (lx: number, ly: number, lz: number): LocalBlockCoord => ({
   lx: LocalAxis(lx),

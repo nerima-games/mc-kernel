@@ -11,7 +11,7 @@ import {
   matchCookingRecipes,
   matchesCookingRecipe,
 } from "../src/domain/recipe/cooking";
-import { itemStack } from "../src/domain/item-stack";
+import { itemStack } from "../src/domain/item/item-stack";
 
 const recipe = cookingRecipe(
   "minecraft:iron",

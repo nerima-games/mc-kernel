@@ -23,7 +23,7 @@ import {
   type SulfurCubeExplosionOptions,
   type SulfurCubeKnockbackModifiersOptions,
   type SulfurCubeSoundSettingsOptions,
-} from "../src/domain/sulfur-cube";
+} from "../src/domain/entity/sulfur-cube";
 
 const explosionOptions: SulfurCubeExplosionOptions = {
   fuse: 20,

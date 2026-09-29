@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockIdOf } from '../src/domain/block-registry'
+import { blockIdOf } from '../src/domain/block/block-registry'
 import { blockPositionKeyOf } from '../src/domain/coordinates/coordinate-keys'
 import { blockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import {
@@ -7,7 +7,7 @@ import {
   generatePortalLayout,
   type BlockAt,
   type PortalLayout,
-} from '../src/domain/portal'
+} from '../src/domain/entity/portal'
 
 const AIR_BLOCK_ID = blockIdOf('air')
 const OBSIDIAN_BLOCK_ID = blockIdOf('obsidian')

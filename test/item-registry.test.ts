@@ -13,8 +13,8 @@ import {
   itemIdOf,
   itemTypeOfId,
   maxStackCountOfItem,
-} from '../src/domain/item-registry'
-import { ITEM_TYPES, type ItemType } from '../src/domain/item-type'
+} from '../src/domain/item/item-registry'
+import { ITEM_TYPES, type ItemType } from '../src/domain/item/item-type'
 import { Effect } from 'effect'
 import { expectTypeOf } from 'vitest'
 

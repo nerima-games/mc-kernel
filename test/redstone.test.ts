@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockIdOf } from '../src/domain/block-registry'
+import { blockIdOf } from '../src/domain/block/block-registry'
 import { blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import {
   REDSTONE_BLOCK_IDS,
@@ -24,9 +24,9 @@ import {
   setRedstoneInput,
   withRedstoneDeviceState,
   withRedstoneWirePowers,
-} from '../src/domain/redstone'
+} from '../src/domain/block/redstone'
 import { blockPositionKeyOf, type BlockPositionKey } from '../src/domain/coordinates/coordinate-keys'
-import type { RedstonePower } from '../src/domain/redstone'
+import type { RedstonePower } from '../src/domain/block/redstone'
 
 describe('redstone', () => {
   it('exposes device block vocabulary and power ranges', () => {

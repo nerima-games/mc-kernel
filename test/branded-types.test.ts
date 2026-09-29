@@ -1,4 +1,4 @@
-import { BlockAxis, CHUNK_SIZE_XZ, ChunkAxis, LocalAxis } from '../src/domain/coordinates'
+import { BlockAxis, CHUNK_SIZE_XZ, ChunkAxis, LocalAxis } from '../src/domain/coordinates/coordinates'
 import {
   ConsumeSeconds,
   DeltaTimeSecs,

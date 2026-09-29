@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { breakBlock, canReplaceBlock, placeBlock, placeableBlockFromItem } from '../src/domain/block-interaction'
-import { blockIdOf } from '../src/domain/block-registry'
+import { breakBlock, canReplaceBlock, placeBlock, placeableBlockFromItem } from '../src/domain/block/block-interaction'
+import { blockIdOf } from '../src/domain/block/block-registry'
 
 describe('block interaction decisions', () => {
   it('blocks unknown and air breaks', () => {

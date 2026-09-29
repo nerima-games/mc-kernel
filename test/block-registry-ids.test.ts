@@ -14,8 +14,8 @@ import {
   isEmpty,
   isKnownBlockId,
   resolvedBlockOfId
-} from '../src/domain/block-registry'
-import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
+} from '../src/domain/block/block-registry'
+import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
 
 const number = Number
 

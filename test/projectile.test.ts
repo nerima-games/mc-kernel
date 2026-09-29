@@ -6,7 +6,7 @@ import {
   type ProjectileWorld,
   launchArrow,
   stepArrow,
-} from '../src/domain/projectile'
+} from '../src/domain/entity/projectile'
 import { describe, expect, it } from 'vitest'
 
 const bounds = aabb(position(-100, -100, -100), position(100, 100, 100))

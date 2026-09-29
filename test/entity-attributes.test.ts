@@ -8,7 +8,7 @@ import {
   entityAttributes,
   isEntityAttributeOptions,
   isEntityAttributes,
-} from '../src/domain/entity'
+} from '../src/domain/entity/entity'
 import { Bounciness, EntityPhysicsModifier, EntityVisibilityDistance, KnockbackResistance } from '../src/domain/time/quantities'
 
 describe('entity attributes', () => {

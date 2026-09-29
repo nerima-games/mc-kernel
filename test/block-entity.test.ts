@@ -27,10 +27,10 @@ import {
   emptyBlockEntities,
   setBlockEntity,
   type BlockEntities,
-} from '../src/domain/block-entity'
+} from '../src/domain/block/block-entity'
 import { blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
-import { itemStack, type Slot } from '../src/domain/item-stack'
-import { emptyFurnaceState, furnaceState, type FurnaceState } from '../src/domain/smelting'
+import { itemStack, type Slot } from '../src/domain/item/item-stack'
+import { emptyFurnaceState, furnaceState, type FurnaceState } from '../src/domain/recipe/smelting'
 import {
   BREWING_MAX_FUEL_CHARGES,
   BREWING_TIME_SECS,

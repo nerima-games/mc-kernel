@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { ENTITY_TYPES, type EntityType, isEntityType } from '../src/domain/entity-type'
+import { ENTITY_TYPES, type EntityType, isEntityType } from '../src/domain/entity/entity-type'
 
 const FIRST_ENTITY_TYPE_INDEX = 0
 

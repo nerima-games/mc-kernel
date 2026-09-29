@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { itemStack } from "../src/domain/item-stack";
+import { itemStack } from "../src/domain/item/item-stack";
 import { craftGrid, exactly, tagged } from "../src/domain/recipe/recipe-data";
 import {
   applyTransmute,
   matchTransmuteRecipe,
   matchTransmuteRecipes,
   matchesTransmuteRecipe,
-} from "../src/domain/transmute";
+} from "../src/domain/recipe/transmute";
 import {
   isTransmuteMaterialCount,
   isTransmuteRecipe,

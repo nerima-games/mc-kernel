@@ -16,8 +16,8 @@ import {
   isLightLevel,
   propertyOf,
   resolveBlockProperties,
-} from '../src/domain/block-properties'
-import { type BlockDefinition, blockPropertiesOf, resolveBlock } from '../src/domain/block-definition'
+} from '../src/domain/block/block-properties'
+import { type BlockDefinition, blockPropertiesOf, resolveBlock } from '../src/domain/block/block-definition'
 import { describe, expect, it } from 'vitest'
 import { Effect, Either } from 'effect'
 import { expectTypeOf } from 'vitest'
@@ -27,7 +27,7 @@ import {
   HARVEST_TIERS,
   resolveDropItem,
   satisfiesHarvestTier,
-} from '../src/domain/block-harvest'
+} from '../src/domain/block/block-harvest'
 import { StackCount } from '../src/domain/time/quantities'
 
 const TORCH_LIGHT_LEVEL = 14

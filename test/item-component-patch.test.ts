@@ -10,8 +10,8 @@ import {
   itemComponentPatchesEqual,
   mergeItemComponentPatches,
   mergeItemComponentPatchesEither,
-} from "../src/domain/item-component-patch";
-import { itemComponents } from "../src/domain/item-components";
+} from "../src/domain/item/item-component-patch";
+import { itemComponents } from "../src/domain/item/item-components";
 import { itemComponentsSnapshot } from "../src/domain/item/item-components-validation";
 
 describe("item component patches", () => {

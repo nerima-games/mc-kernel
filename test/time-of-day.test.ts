@@ -19,7 +19,7 @@ import {
   setDayLengthThenTimeOfDay,
   setTimeOfDay,
   timeOfDay,
-} from '../src/domain/time-of-day'
+} from '../src/domain/time/time-of-day'
 import { DeltaTimeSecs } from '../src/domain/time/quantities'
 
 describe('time of day', () => {

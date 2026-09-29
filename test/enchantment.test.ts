@@ -20,7 +20,7 @@ import {
   VANILLA_ENCHANTMENT_COSTS,
   type SupportedVanillaEnchantmentId,
 } from '../src/domain/item/enchantment-data'
-import type { ItemType } from '../src/domain/item-type'
+import type { ItemType } from '../src/domain/item/item-type'
 
 const enchantment = (id: string, level = 1): AnvilEnchantment => ({
   id: AnvilEnchantmentId(id),

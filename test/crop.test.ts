@@ -15,7 +15,7 @@ import {
   maturitySecsFor,
   validateCropSnapshot,
   type CropState,
-} from '../src/domain/crop'
+} from '../src/domain/block/crop'
 
 const wheatCrop = (growthSecs: number): CropState => ({
   dimension: 'overworld',

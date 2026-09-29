@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { itemStack } from '../src/domain/item-stack'
+import { itemStack } from '../src/domain/item/item-stack'
 import {
   BREWING_BOTTLE_SLOTS,
   BREWING_FUEL_ITEM,

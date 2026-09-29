@@ -11,12 +11,12 @@ import {
   serializeWither,
   stepWither,
   witherSkullProjectile,
-} from '../src/domain/wither'
+} from '../src/domain/entity/wither'
 import type {
   BlockCell,
   WitherSnapshot,
   WitherSummonMaterial,
-} from '../src/domain/wither'
+} from '../src/domain/entity/wither'
 
 const summonMaterials: ReadonlyArray<'soul_sand' | 'soul_soil'> = ['soul_sand', 'soul_soil']
 

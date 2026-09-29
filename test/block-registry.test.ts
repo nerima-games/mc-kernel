@@ -8,13 +8,13 @@
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 import { expectTypeOf } from 'vitest'
-import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block-capabilities'
-import { blockCapabilitiesOf, resolveBlock } from '../src/domain/block-definition'
+import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block/block-capabilities'
+import { blockCapabilitiesOf, resolveBlock } from '../src/domain/block/block-definition'
 import {
   BLOCK_OPACITIES,
   BLOCK_PROPERTY_DEFAULTS,
   type LightLevel,
-} from '../src/domain/block-properties'
+} from '../src/domain/block/block-properties'
 import {
   AIR_BLOCK_ID,
   BLOCK_IDS,
@@ -33,7 +33,7 @@ import {
   propertyOfBlockId,
   resolvedBlockOfId,
   transmitsLight,
-} from '../src/domain/block-registry'
+} from '../src/domain/block/block-registry'
 const number = Number
 
 /**

@@ -7,7 +7,7 @@ import {
   isStatusEffectName,
   resolveStatusEffectDefinition,
   statusEffectId,
-} from '../src/domain/status-effect'
+} from '../src/domain/entity/status-effect'
 import type { FoodStatusEffectName } from '../src/domain/item/food-data'
 import { VANILLA_STATUS_EFFECT_IDS } from '../src/domain/item/item-component-values-data'
 import { isVanillaPotionEffectId } from '../src/domain/item/item-component-values-validation'

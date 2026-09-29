@@ -30,13 +30,13 @@ import {
   matchesCraftingImbueRecipe,
   mixCraftingDyeColor,
 } from "../src/domain/recipe/crafting-special";
-import { itemComponents } from "../src/domain/item-components";
-import { potionContentsComponent } from "../src/domain/item-component-values";
+import { itemComponents } from "../src/domain/item/item-components";
+import { potionContentsComponent } from "../src/domain/item/item-component-values";
 import {
   ItemComponentPatchKey,
   itemComponentPatch,
-} from "../src/domain/item-component-patch";
-import { itemStack, itemStackFromUnknown } from "../src/domain/item-stack";
+} from "../src/domain/item/item-component-patch";
+import { itemStack, itemStackFromUnknown } from "../src/domain/item/item-stack";
 import { ResourceLocation } from "../src/domain/text/identifiers";
 import {
   craftGrid,
@@ -49,7 +49,7 @@ import type {
   DyeColor,
   DyedColorComponent,
 } from "../src/domain/item/item-component-values-data";
-import type { ItemType } from "../src/domain/item-type";
+import type { ItemType } from "../src/domain/item/item-type";
 import type { JsonValue } from "../src/domain/text/json-value";
 
 const DYE_ITEM: ItemType = "redstone_dust";

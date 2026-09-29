@@ -6,7 +6,7 @@ import {
   emptyVehicleSnapshot,
   isVehicleType,
   validateVehicleSnapshot,
-} from '../src/domain/vehicle'
+} from '../src/domain/entity/vehicle'
 
 type RawVehicle = Record<string, unknown>
 

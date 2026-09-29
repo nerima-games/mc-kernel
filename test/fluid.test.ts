@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { blockIdOf } from '../src/domain/block-registry'
+import { blockIdOf } from '../src/domain/block/block-registry'
 import { blockPositionKeyOf } from '../src/domain/coordinates/coordinate-keys'
 import { blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import {
@@ -12,7 +12,7 @@ import {
   FLUID_MIX_BLOCK_IDS,
   fluidKindOfBlockId,
   SOURCE_FLUID_LEVEL,
-} from '../src/domain/fluid'
+} from '../src/domain/block/fluid'
 import {
   emptyFluidState,
   fluidCellAt,
@@ -21,8 +21,8 @@ import {
   scheduleFluidAt,
   setFluidCell,
   unscheduleFluidAt,
-} from '../src/domain/fluid'
-import type { FluidCell } from '../src/domain/fluid'
+} from '../src/domain/block/fluid'
+import type { FluidCell } from '../src/domain/block/fluid'
 
 describe('fluid', () => {
   it('exposes fluid block vocabulary and level constants', () => {

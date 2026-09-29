@@ -5,7 +5,7 @@ import { DeltaTimeSecs, EpochMillis, MonotonicTimeSecs } from '../src/domain/tim
 import type { FrameServices, GameModule, StageRegistration } from '../src/domain/time/frame'
 import { describe, expect, it } from 'vitest'
 import { StageId } from '../src/domain/text/identifiers'
-import { position } from '../src/domain/coordinates'
+import { position } from '../src/domain/coordinates/coordinates'
 
 const ZERO = 0
 const ONE = 1

@@ -20,22 +20,22 @@
  *     `test/block-capabilities.test.ts` owns it. Noted because the reference
  *     puts all three in one file and a reader coming from there will look.
  */
-import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block-properties'
+import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block/block-properties'
 import {
   BLOCK_REGISTRY,
   blockIdOf,
   canBlockStaySupported,
   isSupportSensitiveBlockId,
   supportRuleOfBlockId,
-} from '../src/domain/block-registry'
-import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
+} from '../src/domain/block/block-registry'
+import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
 import {
   NEEDS_ANY_SUPPORT,
   NEEDS_NO_SUPPORT,
   isSupportSensitive,
   needsOneOf,
   satisfiesSupportRule,
-} from '../src/domain/block-support'
+} from '../src/domain/block/block-support'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 

@@ -13,9 +13,9 @@ import {
   smithingInput,
   smithingTransformRecipe,
   smithingTrimRecipe,
-} from '../src/domain/smithing'
-import type { ItemType } from '../src/domain/item-type'
-import { itemStack } from '../src/domain/item-stack'
+} from '../src/domain/recipe/smithing'
+import type { ItemType } from '../src/domain/item/item-type'
+import { itemStack } from '../src/domain/item/item-stack'
 import { buildSmithingRecipeIndex } from '../src/domain/recipe/smithing-indexes'
 import type {
   ItemTagMemberships,

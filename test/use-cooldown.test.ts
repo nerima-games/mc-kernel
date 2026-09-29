@@ -6,7 +6,7 @@ import {
   isCooldownActive,
   isUseCooldownComponent,
   useCooldownComponent,
-} from '../src/domain/use-cooldown.js'
+} from '../src/domain/item/use-cooldown.js'
 
 describe('use_cooldown component', () => {
   it('constructs a positive duration with an optional cooldown group', () => {

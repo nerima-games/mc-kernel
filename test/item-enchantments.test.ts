@@ -4,7 +4,7 @@ import {
   isEnchantmentsComponent,
   isStoredEnchantmentsComponent,
   storedEnchantmentsComponent,
-} from '../src/domain/item-enchantments'
+} from '../src/domain/item/item-enchantments'
 import { describe, expect, it } from 'vitest'
 
 describe('item enchantments', () => {

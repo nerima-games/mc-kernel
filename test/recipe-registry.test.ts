@@ -9,7 +9,7 @@ import {
   recipeDataPackLayerFromUnknown,
   recipeDataPackPath,
   selectRecipes,
-} from "../src/domain/recipe-registry";
+} from "../src/domain/recipe/recipe-registry";
 
 const craftingDocument = {
   type: "minecraft:crafting_shapeless",

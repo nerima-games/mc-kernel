@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { type BlockId, blockIdOf } from '../src/domain/block-registry'
+import { type BlockId, blockIdOf } from '../src/domain/block/block-registry'
 import { blockPositionKeyOf } from '../src/domain/coordinates/coordinate-keys'
 import { blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import {
   emptyBlockWorld,
   setBlockAt,
   type BlockWorld,
-} from '../src/domain/block-world'
+} from '../src/domain/block/block-world'
 import {
   collectRedstoneLayout,
   deviceOutputAtTarget,
-} from '../src/domain/redstone-network'
+} from '../src/domain/block/redstone-network'
 import {
   emptyRedstoneState,
   redstoneComparator,
@@ -22,8 +22,8 @@ import {
   setRedstoneDevice,
   setRedstoneInput,
   withRedstoneDeviceState,
-} from '../src/domain/redstone'
-import { updateRedstone } from '../src/domain/redstone-update'
+} from '../src/domain/block/redstone'
+import { updateRedstone } from '../src/domain/block/redstone-update'
 
 const at = (x: number, y = 0, z = 0): BlockPosition => blockPosition(x, y, z)
 

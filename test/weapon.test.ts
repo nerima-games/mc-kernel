@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isWeaponComponent, weaponComponent } from '../src/domain/weapon.js'
+import { isWeaponComponent, weaponComponent } from '../src/domain/item/weapon.js'
 
 describe('weapon component', () => {
   it('uses the official defaults and freezes the resolved value', () => {

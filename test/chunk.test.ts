@@ -14,10 +14,10 @@ import {
   decodeChunk,
   encodeChunk,
 } from '../src/domain/world/chunk'
-import { BlockId as blockId, blockIdOf } from '../src/domain/block-registry'
+import { BlockId as blockId, blockIdOf } from '../src/domain/block/block-registry'
 import type { BlockId } from '../src/domain/block/block-registry-types'
-import { blockState } from '../src/domain/block-state'
-import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates'
+import { blockState } from '../src/domain/block/block-state'
+import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates/coordinates'
 
 const height = ChunkHeight(2)
 const blockCount = chunkBlockCount(height)

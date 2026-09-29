@@ -5,8 +5,8 @@ import {
   DEFAULT_MINING_SPEED,
   miningSpeedOf,
   TOOL_BREAK_SPEED,
-} from '../src/domain/block-break-speed'
-import type { ItemType } from '../src/domain/item-type'
+} from '../src/domain/block/block-break-speed'
+import type { ItemType } from '../src/domain/item/item-type'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 

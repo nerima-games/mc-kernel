@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BlockId, blockIdOf } from '../src/domain/block-registry.js'
+import { BlockId, blockIdOf } from '../src/domain/block/block-registry.js'
 import { blockPosition, chunkCoord } from '../src/domain/coordinates/coordinate-primitives.js'
 import { chunkKeyOf } from '../src/domain/coordinates/coordinate-keys.js'
 import {
@@ -16,7 +16,7 @@ import {
   outOfWorld,
   readView,
   unloadedChunk,
-} from '../src/domain/world-read-write.js'
+} from '../src/domain/world/world-read-write.js'
 
 const SECTION_LENGTH = 16 * 16 * 16
 const stone = blockIdOf('stone')

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isTextComponent, textComponent } from '../src/domain/text-component'
+import { isTextComponent, textComponent } from '../src/domain/text/text-component'
 
 describe('text components', () => {
   it('accepts JSON text values and deep-freezes a defensive copy', () => {

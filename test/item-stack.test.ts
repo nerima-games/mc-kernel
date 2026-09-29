@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as fc from "effect/FastCheck";
-import { itemComponents } from "../src/domain/item-components";
-import { itemComponentPatch, itemComponentPatchFromUnknownEither } from "../src/domain/item-component-patch";
+import { itemComponents } from "../src/domain/item/item-components";
+import { itemComponentPatch, itemComponentPatchFromUnknownEither } from "../src/domain/item/item-component-patch";
 import { TransferQuantity } from "../src/domain/time/quantities";
 import {
   isItemStack,
@@ -14,7 +14,7 @@ import {
   mergeItemStacks,
   splitItemStack,
   transmuteItemStack,
-} from "../src/domain/item-stack";
+} from "../src/domain/item/item-stack";
 
 const stoneComponentsLiteral = {
   maxStackSize: 64,

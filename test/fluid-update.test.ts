@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AIR_BLOCK_ID, type BlockId, blockIdOf } from '../src/domain/block-registry'
+import { AIR_BLOCK_ID, type BlockId, blockIdOf } from '../src/domain/block/block-registry'
 import { blockPositionKeyOf } from '../src/domain/coordinates/coordinate-keys'
 import { blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import {
@@ -7,7 +7,7 @@ import {
   emptyBlockWorld,
   setBlockAt,
   type BlockWorld,
-} from '../src/domain/block-world'
+} from '../src/domain/block/block-world'
 import {
   FLUID_LEVEL_MIN,
   FLUID_MIX_BLOCK_IDS,
@@ -27,7 +27,7 @@ import {
   canFluidReplace,
   fluidStateFromWorld,
   updateFluids,
-} from '../src/domain/fluid-update'
+} from '../src/domain/block/fluid-update'
 
 const at = (x: number, y = 0, z = 0): BlockPosition => blockPosition(x, y, z)
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { MonotonicTimeSecs } from '../src/domain/time/quantities'
-import { position } from '../src/domain/coordinates'
+import { position } from '../src/domain/coordinates/coordinates'
 import {
   applyLook,
   cameraPoseOf,

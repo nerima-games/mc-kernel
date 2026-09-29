@@ -22,7 +22,7 @@ import {
   BLOCK_PROPERTY_DEFAULTS,
   COLLISION_SHAPES,
   UNBREAKABLE_HARDNESS,
-} from '../src/domain/block-properties'
+} from '../src/domain/block/block-properties'
 import {
   BLOCK_IDS,
   BLOCK_ID_MAX,
@@ -33,8 +33,8 @@ import {
   capabilitiesOfBlockId,
   capabilityOfBlockId,
   propertyOfBlockId,
-} from '../src/domain/block-registry'
-import { BLOCK_TYPES, type BlockType } from '../src/domain/block-type'
+} from '../src/domain/block/block-registry'
+import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
 
 const number = Number
 
