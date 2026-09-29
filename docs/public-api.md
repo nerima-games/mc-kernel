@@ -1775,6 +1775,35 @@ const emptyVehicleSnapshot: () => VehicleSnapshot;
 
 `validateVehicleSnapshot` は未知入力の配列形状、有限座標・速度・向き、dimension、ID と搭乗者の重複、`v:<serial>` の安全整数、`nextSerial` の先行性を検証する。
 
+## Chunk read/edit vocabulary
+
+`BlockRead` は loaded air、unloaded chunk、out-of-world position を判別可能なまま表現する。`ReadView` は epoch、chunk、block/light revision と section accessor を持ち、構築時に authoritative input を検証・保持する。section accessor は mutable typed-array API を公開せず、`snapshot()` を呼んだ場合だけ worker-owned `Uint16Array` を作るため、meshing の per-cell read では配列コピーを発生させない。
+
+```ts
+type BlockRead =
+  | { readonly _tag: "Loaded"; readonly blockId: BlockId }
+  | { readonly _tag: "Unloaded"; readonly chunk: ChunkKey }
+  | { readonly _tag: "OutOfWorld"; readonly position: BlockPosition };
+
+type ReadView = {
+  readonly epoch: WorldEpoch;
+  readonly chunk: ChunkKey;
+  readonly blockRevision: ChunkRevision;
+  readonly lightRevision: LightRevision;
+  readonly blocks: ReadonlyUint16Array;
+  readonly light: ReadonlyUint16Array;
+};
+
+type BlockEdit = { readonly position: BlockPosition; readonly blockId: BlockId };
+type ExpectedChunk = { readonly epoch: WorldEpoch; readonly revision: ChunkRevision };
+type BlockWriteBatch = {
+  readonly expected: ExpectedChunk;
+  readonly edits: readonly BlockEdit[];
+};
+```
+
+`WorldEpoch`、`ChunkRevision`、`LightRevision`、`ChunkLocalIndex`、`SectionIndex` は `Brand.refined` による別ブランドであり、負値・非整数を受け付けない。`BlockWriteBatch` は block ID、重複 position、expected epoch/revision の値境界を検証するが、live chunk の mutation、STM/COW、load/unload、dirty event は所有しない。
+
 ## 5-sexies. BlockWorld、fluid、redstone の純粋更新
 
 `BlockWorld` は block position key から block ID への不変な読み取り境界である。`setBlockAt` は元の map を変更せず、空気 block を設定した場合は key を削除する。関数型の `BlockReader` と map のどちらも `BlockSource` として読み取れる。

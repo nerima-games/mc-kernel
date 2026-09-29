@@ -22,7 +22,7 @@ const view = readView({
   blocks: new Uint16Array(1),
   light: new Uint16Array(1),
 })
-const section = view.blocks()
+const section = view.blocks
 
 // @ts-expect-error ReadView does not expose mutable typed-array methods.
 section.set(new Uint16Array(1))

@@ -1,5 +1,5 @@
 import { Brand } from 'effect'
-import { isKnownBlockId, type BlockId } from './block-registry.js'
+import { BlockId, isKnownBlockId, type BlockId as BlockIdType } from './block-registry.js'
 import { CHUNK_SIZE_XZ, chunkCoord, type BlockPosition } from './coordinate-primitives.js'
 import { type ChunkKey, chunkKeyOf } from './coordinate-keys.js'
 
@@ -42,18 +42,19 @@ export const ChunkLocalIndex: Brand.Brand.Constructor<ChunkLocalIndex> = chunkLo
 export const SectionIndex: Brand.Brand.Constructor<SectionIndex> = sectionIndexBrand
 
 export type BlockRead =
-  | { readonly _tag: 'Loaded'; readonly blockId: BlockId }
+  | { readonly _tag: 'Loaded'; readonly blockId: BlockIdType }
   | { readonly _tag: 'Unloaded'; readonly chunk: ChunkKey }
   | { readonly _tag: 'OutOfWorld'; readonly position: BlockPosition }
 
-export const loadedBlock = (blockId: BlockId): BlockRead => Object.freeze({ _tag: 'Loaded', blockId })
+export const loadedBlock = (blockId: BlockIdType): BlockRead => Object.freeze({ _tag: 'Loaded', blockId })
 export const unloadedChunk = (chunk: ChunkKey): BlockRead => Object.freeze({ _tag: 'Unloaded', chunk })
 export const outOfWorld = (position: BlockPosition): BlockRead => Object.freeze({ _tag: 'OutOfWorld', position })
 
-export type ReadonlyUint16Array = Omit<
-  Uint16Array,
-  'buffer' | 'byteLength' | 'byteOffset' | 'copyWithin' | 'fill' | 'reverse' | 'set' | 'sort' | 'subarray'
-> & { readonly [index: number]: number }
+export type ReadonlyUint16Array = {
+  readonly length: number
+  readonly get: (index: number) => number
+  readonly snapshot: () => Uint16Array
+}
 
 export type ReadView = {
   readonly epoch: WorldEpoch
@@ -61,10 +62,10 @@ export type ReadView = {
   readonly blockRevision: ChunkRevision
   readonly lightRevision: LightRevision
   readonly length: number
-  readonly getBlock: (index: number) => BlockId
+  readonly getBlock: (index: number) => BlockIdType
   readonly getLight: (index: number) => number
-  readonly blocks: () => ReadonlyUint16Array
-  readonly light: () => ReadonlyUint16Array
+  readonly blocks: ReadonlyUint16Array
+  readonly light: ReadonlyUint16Array
 }
 
 const checkedIndex = (index: number, length: number): number => {
@@ -74,7 +75,11 @@ const checkedIndex = (index: number, length: number): number => {
   return index
 }
 
-const copy = (values: Uint16Array): Uint16Array => values.slice()
+const readOnlySection = (values: Uint16Array): ReadonlyUint16Array => Object.freeze({
+  length: values.length,
+  get: (index: number): number => Number(values.at(checkedIndex(index, values.length))),
+  snapshot: (): Uint16Array => values.slice(),
+})
 
 export type ReadViewInput = {
   readonly epoch: WorldEpoch
@@ -89,8 +94,8 @@ export const readView = (input: ReadViewInput): ReadView => {
   if (input.blocks.length !== input.light.length) {
     throw new RangeError('ReadView block and light sections must have equal lengths')
   }
-  const blockData = copy(input.blocks)
-  const lightData = copy(input.light)
+  const blockData = input.blocks.slice()
+  const lightData = input.light.slice()
   for (const blockId of blockData) {
     if (!isKnownBlockId(blockId)) {
       throw new RangeError(`Section contains an unknown block id ${blockId}`)
@@ -104,34 +109,30 @@ export const readView = (input: ReadViewInput): ReadView => {
     length: blockData.length,
     getBlock: (index) => {
       const checked = checkedIndex(index, blockData.length)
-      const blockId = blockData[checked]
-      if (blockId === undefined || !isKnownBlockId(blockId)) {
-        throw new RangeError(`Section contains an unknown block id ${blockId}`)
-      }
-      return blockId
+      return BlockId(Number(blockData.at(checked)))
     },
     getLight: (index) => {
       const checked = checkedIndex(index, lightData.length)
-      return lightData[checked]
+      return Number(lightData.at(checked))
     },
-    blocks: () => copy(blockData),
-    light: () => copy(lightData),
+    blocks: readOnlySection(blockData),
+    light: readOnlySection(lightData),
   })
 }
-export const ReadView = readView
+export const ReadView: (input: ReadViewInput) => ReadView = readView
 
 export type BlockEdit = {
   readonly position: BlockPosition
-  readonly blockId: BlockId
+  readonly blockId: BlockIdType
 }
 
-export const blockEdit = (position: BlockPosition, blockId: BlockId): BlockEdit => {
+export const blockEdit = (position: BlockPosition, blockId: BlockIdType): BlockEdit => {
   if (!isKnownBlockId(blockId)) {
     throw new RangeError(`Block edit contains an unknown block id ${blockId}`)
   }
   return Object.freeze({ position, blockId })
 }
-export const BlockEdit = blockEdit
+export const BlockEdit: (position: BlockPosition, blockId: BlockIdType) => BlockEdit = blockEdit
 
 export type ExpectedChunk = {
   readonly epoch: WorldEpoch
@@ -140,7 +141,7 @@ export type ExpectedChunk = {
 
 export const expectedChunk = (epoch: WorldEpoch, revision: ChunkRevision): ExpectedChunk =>
   Object.freeze({ epoch, revision })
-export const ExpectedChunk = expectedChunk
+export const ExpectedChunk: (epoch: WorldEpoch, revision: ChunkRevision) => ExpectedChunk = expectedChunk
 
 export type BlockWriteBatch = {
   readonly expected: ExpectedChunk
@@ -161,7 +162,10 @@ export const blockWriteBatch = (
   })
   return Object.freeze({ expected, edits: Object.freeze(validated) })
 }
-export const BlockWriteBatch = blockWriteBatch
+export const BlockWriteBatch: (
+  expected: ExpectedChunk,
+  edits: readonly BlockEdit[],
+) => BlockWriteBatch = blockWriteBatch
 
 export const chunkKeyOfPosition = (position: BlockPosition): ChunkKey =>
   chunkKeyOf(chunkCoord(Math.floor(position.x / CHUNK_SIZE_XZ), Math.floor(position.z / CHUNK_SIZE_XZ)))
