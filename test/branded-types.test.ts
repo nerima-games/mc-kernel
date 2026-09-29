@@ -3,8 +3,14 @@ import {
   ConsumeSeconds,
   DeltaTimeSecs,
   EpochMillis,
+  FixedDurationSecs,
+  InterpolationFraction,
   MAX_STACK_COUNT,
   MonotonicTimeSecs,
+  NonNegativeTickCount,
+  PositiveTickCount,
+  SessionEpoch,
+  SimulationTick,
   StackCount,
   WeaponDisableBlockingSeconds,
 } from '../src/domain/quantities'
@@ -31,6 +37,10 @@ const NEGATIVE_WEAPON_DISABLE_BLOCKING_SECONDS = -0.001
 const FRACTIONAL_EPOCH_MILLIS = 1.5
 const SAFE_INTEGER_OVERFLOW = 2
 const EXPECTED_EPOCH_MILLIS = 1_700_000_000_000
+const VALID_FIXED_DURATION_SECONDS = 0.025
+const VALID_SIMULATION_TICK = 1
+const VALID_INTERPOLATION_FRACTION = 0.5
+const VALID_SESSION_EPOCH = 'session-a'
 const CHUNK_ORIGIN = 0
 const LAST_LOCAL_COORDINATE_OFFSET = 1
 const NEGATIVE_LOCAL_COORDINATE = -1
@@ -119,6 +129,41 @@ describe('MonotonicTimeSecs and EpochMillis', () => {
       expect(Either.isLeft(EpochMillis.either(FRACTIONAL_EPOCH_MILLIS))).toBe(true)
       expect(Either.isLeft(EpochMillis.either(Number.MAX_SAFE_INTEGER + SAFE_INTEGER_OVERFLOW))).toBe(true)
       expect(Either.isRight(EpochMillis.either(EXPECTED_EPOCH_MILLIS))).toBe(true)
+    })),
+  )
+})
+
+describe('fixed simulation time brands', () => {
+  it('accepts the K05 literal values', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(Either.isRight(FixedDurationSecs.either(VALID_FIXED_DURATION_SECONDS))).toBe(true)
+      expect(Either.isRight(SimulationTick.either(VALID_SIMULATION_TICK))).toBe(true)
+      expect(Either.isRight(InterpolationFraction.either(VALID_INTERPOLATION_FRACTION))).toBe(true)
+      expect(Either.isRight(NonNegativeTickCount.either(VALID_SIMULATION_TICK))).toBe(true)
+      expect(Either.isRight(PositiveTickCount.either(VALID_SIMULATION_TICK))).toBe(true)
+      expect(Either.isRight(SessionEpoch.either(VALID_SESSION_EPOCH))).toBe(true)
+    })),
+  )
+
+  it('rejects invalid numeric values and empty session epochs', () =>
+    Effect.runPromise(Effect.sync(() => {
+      for (const invalidValue of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+        expect(Either.isLeft(FixedDurationSecs.either(invalidValue))).toBe(true)
+        expect(Either.isLeft(SimulationTick.either(invalidValue))).toBe(true)
+        expect(Either.isLeft(NonNegativeTickCount.either(invalidValue))).toBe(true)
+        expect(Either.isLeft(PositiveTickCount.either(invalidValue))).toBe(true)
+      }
+      expect(Either.isLeft(SimulationTick.either(1.5))).toBe(true)
+      expect(Either.isLeft(NonNegativeTickCount.either(1.5))).toBe(true)
+      expect(Either.isLeft(PositiveTickCount.either(1.5))).toBe(true)
+      expect(Either.isLeft(SimulationTick.either(Number.MAX_SAFE_INTEGER + 1))).toBe(true)
+      expect(Either.isLeft(NonNegativeTickCount.either(Number.MAX_SAFE_INTEGER + 1))).toBe(true)
+      expect(Either.isLeft(PositiveTickCount.either(Number.MAX_SAFE_INTEGER + 1))).toBe(true)
+      expect(Either.isLeft(InterpolationFraction.either(-1))).toBe(true)
+      expect(Either.isLeft(InterpolationFraction.either(1))).toBe(true)
+      expect(Either.isLeft(InterpolationFraction.either(Number.NaN))).toBe(true)
+      expect(Either.isLeft(SessionEpoch.either(''))).toBe(true)
+      expect(Either.isLeft(SessionEpoch.either('   '))).toBe(true)
     })),
   )
 })

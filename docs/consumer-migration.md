@@ -121,3 +121,15 @@ kernel が公開する `BlockWorld`、`updateFluids`、`updateRedstone` は、�
 - fluid や world mutation など、下流に残す責務を kernel に逆流させていない。
 
 この文書の移行先は公開 API と責務の契約であり、下流の変更を完了したという報告ではない。現時点で `mc-kernel` 側の API・型安全ゲート・package export は整備済みだが、別 worktree にある下流の重複 import 差し替えは未完了として扱う。
+
+## K-C 時間契約の下流移行
+
+K-Cで追加された `FixedDurationSecs`、`SimulationTick`、`InterpolationFraction`、`SessionEpoch`、
+`tickDuration`、`physicsSubstepDuration`、`addTick`、`secondsForTicks`、`interpolationFraction` を
+次の箇所へ置換する。
+
+- `@nerima-games/mc-physics`: `src/domain/delta-time.ts` のローカル時間定数・型をkernelへ寄せ、`fluid.ts`、`glide.ts`、`integrate.ts`、`movement.ts`、`resolve-axis.ts`、`resolve.ts` の引数は `DeltaTimeSecs` を利用する。物理1 substepの固定長は `physicsSubstepDuration` を利用する。
+- `@nerima-games/mc-sim`: `src/application/game-loop.ts` の `FrameHandler` / `GameLoopApi.submitFrame` と `src/domain/frame-timing.ts` の互換forwarderを、kernelの可変フレームAPIと `SimulationTick`/`tickDuration`へ移行する。accumulator、catch-up、pause/overload、loop状態はsimに残す。
+- `@nerima-games/mc-render`: `src/domain/camera-mirror.ts` と `src/stages/registration.ts` の `MonotonicTimeSecs`利用はkernelの型を継続し、表示補間を追加する箇所では `InterpolationFraction` を使う。
+
+このK-C変更では下流ファイルを編集していない。各置換後に対象packageのtypecheck、lint、test、coverageを実行する。
