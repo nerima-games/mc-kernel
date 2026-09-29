@@ -1049,7 +1049,7 @@ const containerComponent: (value: unknown) => ContainerComponent;
 
 ### 3-quater-quater-quater. ステータス効果（status-effect）
 
-`status-effect.ts` は Java Edition 1.21 の mob effect の閉じた語彙と、効果ごとの beneficial/harmful・粒子色・amplifier 上限を公開する。効果の適用、tick 進行、粒子の実際の描画、`Vitals` への反映は上位層の責務である。
+`status-effect.ts` は Minecraft Java Edition 26.3 の mob effect golden に照合した、kernel が現在表現する閉じた語彙と、効果ごとの beneficial/harmful・粒子色・amplifier 上限を公開する。効果の適用、tick 進行、粒子の実際の描画、`Vitals` への反映は上位層の責務である。
 
 ```typescript
 const STATUS_EFFECT_AMPLIFIER_MAX = 255;
@@ -2195,7 +2195,7 @@ const isValidGameRules: (rules: unknown) => rules is GameRules;
 
 ## 5-terdecies. ダメージ種別（damage-type）
 
-`DamageType` は Java Edition 1.21 の閉じたダメージ種別語彙と、種別ごとの `armorReduces`（防具軽減の可否）・`bypassesInvulnerability`（無敵時間貫通の可否）・`kind`（fire/explosion/projectile/magic/fall/drowning/generic の分類）・`scalesWithDifficulty` を公開する。**生ダメージ・防具値・靭性・保護・耐性から最終ダメージを求める軽減計算はここに含めない。** その理由と再開条件は [responsibility.md](./responsibility.md) §3-7 にある——語彙は 2 つの独立した消費者を持つため kernel 適格だが、軽減計算の消費者は現時点で `mx-gameplay` 1 つしか確認できず、通常の依存エッジで kernel に届く。
+`DamageType` は Minecraft Java Edition 26.3 golden に照合した、kernel が現在表現する閉じたダメージ種別語彙と、種別ごとの `armorReduces`（防具軽減の可否）・`bypassesInvulnerability`（無敵時間貫通の可否）・`kind`（fire/explosion/projectile/magic/fall/drowning/generic の分類）・`scalesWithDifficulty` を公開する。**生ダメージ・防具値・靭性・保護・耐性から最終ダメージを求める軽減計算はここに含めない。** その理由と再開条件は [responsibility.md](./responsibility.md) §3-7 にある——語彙は 2 つの独立した消費者を持つため kernel 適格だが、軽減計算の消費者は現時点で `mx-gameplay` 1 つしか確認できず、通常の依存エッジで kernel に届く。
 
 ```typescript
 const DAMAGE_TYPE_NAMES: ReadonlyArray<DamageTypeName>;
@@ -2217,7 +2217,7 @@ const isDamageTypeId: (value: unknown) => value is ResourceLocation;
 const resolveDamageTypeDefinition: (value: unknown) => DamageTypeDefinition;
 ```
 
-roster と各フィールドは `data/minecraft/damage_type/*.json` / `data/minecraft/tags/damage_type/*.json`（misode/mcmeta の `1.21-data` タグ)から読んだもので、`mace_smash`（1.21.2）のような後続バージョンの追加は含まない。`kind` は `is_fire` / `is_explosion` / `is_projectile` / `is_fall` / `is_drowning` タグの帰属から導出し、どのタグも持たない id は `generic` になる。
+roster と各フィールドは `test/golden/vanilla-damage-type.json` として固定した misode/mcmeta の Java Edition 26.3 pin に照合する。`kind` は `is_fire` / `is_explosion` / `is_projectile` / `is_fall` / `is_drowning` タグの帰属から導出し、どのタグも持たない id は `generic` になる。pin と縮約表の範囲は [conformance.md](./conformance.md) に記録する。
 
 `item-combat-data.ts` の `DamageTypeComponent = ResourceLocation` という既存の素通しエイリアスは、この語彙を使う `isVanillaDamageTypeComponent`（`item-combat-validation.ts`）で vanilla 部分集合への絞り込みができるようになった。既存の `isDamageTypeComponent` は任意の well-formed `ResourceLocation` を受け付けたままなので、data pack が独自に登録するダメージ種別は引き続き扱える。
 
