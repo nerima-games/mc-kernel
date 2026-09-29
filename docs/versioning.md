@@ -2,15 +2,14 @@
 
 ## 1. 現状
 
-- **公開済みの変更:** `Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks`。過去の changeset の集約経緯と変更履歴は [CHANGELOG.md](../CHANGELOG.md) を参照。
 - **配布用 build は実装済み。** `pnpm build` が `src/` から型付き ESM と declaration / source map を `dist/` に生成し、
   `package.json` の `main` / `types` / `exports` は `dist/` を指す。`files` も `dist/` と配布メタデータに限定している。
-- **GitHub Packages への公開は既に行われている。** 複数の履歴上の版が
-  `https://npm.pkg.github.com` に公開済みである（`publishConfig.access` は
+- **GitHub Packages への公開は既に行われている。** `0.2.0` から `0.2.18` までの履歴上の版と
+  現在の `0.4.0` が `https://npm.pkg.github.com` に公開済みである（`publishConfig.access` は
   Wave 0 で `restricted` から `public` に変更した。packages が public 化済みのため、`restricted`
-  のままだと新規 publish が private に戻り下流 CI が 403 になる）。過去に version 検出方式の
-  穴により公開されなかった中間版がある。
-  公開レジストリから取得した tarball の install / import / runtime 検証は
+  のままだと新規 publish が private に戻り下流 CI が 403 になる）。`0.3.0` は version 検出方式の
+  穴により公開されなかった中間版である。
+  公開レジストリから取得した `0.4.0` tarball の install / import / runtime 検証は
   [freeze-checklist.md](./freeze-checklist.md) に記録済みである（§4）。
 - 開発中は `mc-dev-meta` workspace（16 リポジトリを `repos/` に clone して 1 つの pnpm workspace として束ねる）による
   `workspace:*` 解決でモノレポ同等の DX を得る（plan.md §6 Step 0-2）。
@@ -62,7 +61,7 @@ kernel の場合その差が全リポジトリに波及する。
 
 **GitHub Packages**（`https://npm.pkg.github.com`、`access: public`）。
 `package.json` の `publishConfig` に設定済みで、**publish 自体は既に実行されている**
-（§1 参照）。過去に未公開となった版があるのは publish の仕組みが
+（`0.2.0`〜`0.2.18` と `0.4.0`、§1 参照）。`0.3.0` が未公開なのは publish の仕組みが
 動いていないからではなく、次節が説明する version 検出の穴によるものである。
 
 ```json
@@ -99,12 +98,12 @@ publish workflow の `setup-node` が GitHub Packages の registry を設定し�
 2. `pnpm package:verify` による、生成した tarball の `files` / `exports`、clean consumer の runtime import・declaration compile、`fixedClock` runtime の検証
 
 **`detect` ジョブは `package.json` の version を `github.event.before` 時点のコミットと比較して判定する。**
-過去にはワークフローを追加した時点で `package.json` の version が既に更新済みだったため、その遷移を
-検出できず、版が公開されないまま履歴上スキップされた。以後の version bump は通常どおり
-検出・公開されている。
+このワークフローを追加した時点で `package.json` は既に `0.3.0` だったため、`0.3.0` への遷移を
+検出できず、その版は公開されないまま履歴上スキップされた。以後の version bump は通常どおり
+検出・公開され、現在の `0.4.0` はその経路で公開された Node.js からロード可能な版である。
 
 `pnpm package:verify` が検証するのはローカルで `pnpm pack` した tarball である。一方、公開レジストリ
-から取得した公開 tarball の install / import / runtime 検証は実施済みで、詳細を
+から取得した `0.4.0` tarball の install / import / runtime 検証は実施済みで、詳細を
 [freeze-checklist.md](./freeze-checklist.md) に記録している。
 
 **changesets 自体は導入済み。** `.changeset/config.json`（`access: public`、`baseBranch: main`、
@@ -112,7 +111,7 @@ publish workflow の `setup-node` が GitHub Packages の registry を設定し�
 org 標準（[RELEASE_STANDARD.md §1](https://github.com/nerima-games/.github/blob/main/RELEASE_STANDARD.md#1-changesets-導入)）に従う。
 バージョンは `package.json` の該当フィールドを直接参照する（drift しやすい生の数字はここに書かない）。
 バージョン bump と CHANGELOG 生成は changesets に一本化している。上記のとおり publish job 自体は
-稼働しており未実装ではない。過去のスキップ版は履歴上の事実として扱い、現在の残課題は下流の実消費を
+稼働しており未実装ではない。`0.3.0` は履歴上のスキップとして扱い、現在の残課題は下流の実消費を
 踏まえた 1.0.0 昇格の maintainer 判断である。
 
 **開発時の扱い**: 通常の `pnpm typecheck` は source を直接検査し、release build は `pnpm build` として
@@ -198,7 +197,7 @@ plan.md §3.1 が boolean と書いていた 3 つ（`emissive` / `transparent` 
 
 > **`0.x` の間の読み替え（全 16 リポジトリ共通の方針）**
 >
-> 本リポジトリは `0.x` の間、下流が契約を実際に消費して確認するまで `1.0.0` へ進まない。
+> 本リポジトリは `0.x` の間、下流が契約を実際に消費して確認するまで `0.x` から出ない。
 > **semver では `0.x` の破壊的変更は major bump ではなく minor bump である**（`0.1.0` → `0.2.0`）。
 > したがって以下の MAJOR / MINOR / PATCH は **`1.0.0` 到達後の分類**であり、
 > `0.x` の間は次のように読み替える。
