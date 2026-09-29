@@ -811,6 +811,7 @@ describe("public API surface", () => {
           "ANVIL_MAX_CUSTOM_NAME_LENGTH",
           "AnvilEnchantmentId",
           "AnvilCustomName",
+          "AnvilMaterialCost",
           "AnvilSnapshotString",
           "snapshotAnvilState",
           "decodeAnvilSnapshot",

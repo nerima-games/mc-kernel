@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import * as fc from "effect/FastCheck";
 import { itemComponents } from "../src/domain/item-components";
 import { itemComponentPatch, itemComponentPatchFromUnknownEither } from "../src/domain/item-component-patch";
-import { enchantmentsComponent } from "../src/domain/item-enchantments";
 import { TransferQuantity } from "../src/domain/quantities";
 import {
   isItemStack,
@@ -16,6 +15,100 @@ import {
   splitItemStack,
   transmuteItemStack,
 } from "../src/domain/item-stack";
+
+const stoneComponentsLiteral = {
+  maxStackSize: 64,
+  maxDamage: undefined,
+  damage: undefined,
+  repairCost: 0,
+  unbreakable: undefined,
+  enchantmentGlintOverride: undefined,
+  tooltipDisplay: undefined,
+  customName: undefined,
+  itemName: undefined,
+  lore: undefined,
+  itemModel: undefined,
+  customData: undefined,
+  entityData: undefined,
+  bucketEntityData: undefined,
+  profile: undefined,
+  blockEntityData: undefined,
+  chargedProjectiles: undefined,
+  bundleContents: undefined,
+  container: undefined,
+  mapColor: undefined,
+  mapDecorations: undefined,
+  writableBookContent: undefined,
+  writtenBookContent: undefined,
+  trim: undefined,
+  suspiciousStew: undefined,
+  hideAdditionalTooltip: undefined,
+  canBreak: undefined,
+  canPlaceOn: undefined,
+  bees: undefined,
+  potionContents: undefined,
+  dyedColor: undefined,
+  customModelData: undefined,
+  mapId: undefined,
+  blockState: undefined,
+  instrument: undefined,
+  noteBlockSound: undefined,
+  recipes: undefined,
+  lock: undefined,
+  tooltipStyle: undefined,
+  baseColor: undefined,
+  equippable: undefined,
+  glider: undefined,
+  deathProtection: undefined,
+  repairable: undefined,
+  enchantable: undefined,
+  jukeboxPlayable: undefined,
+  ominousBottleAmplifier: undefined,
+  paintingVariant: undefined,
+  lodestoneTracker: undefined,
+  fireworkExplosion: undefined,
+  fireworks: undefined,
+  bannerPatterns: undefined,
+  potDecorations: undefined,
+  containerLoot: undefined,
+  debugStickState: undefined,
+  rarity: "common",
+  food: undefined,
+  consumable: undefined,
+  useRemainder: undefined,
+  useCooldown: undefined,
+  useEffects: undefined,
+  tool: undefined,
+  weapon: undefined,
+  kineticWeapon: undefined,
+  piercingWeapon: undefined,
+  attributeModifiers: undefined,
+  enchantments: undefined,
+  storedEnchantments: undefined,
+  blocksAttacks: undefined,
+  damageResistant: undefined,
+  minimumAttackCharge: undefined,
+  damageType: undefined,
+  swingAnimation: undefined,
+  attackRange: undefined,
+  potionDurationScale: undefined,
+  breakSound: undefined,
+  providesBannerPatterns: undefined,
+  providesTrimMaterial: undefined,
+  dye: undefined,
+  additionalTradeCost: undefined,
+  sulfurCubeContent: undefined,
+} as const;
+
+const isLiteralRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const literalStackOf = (value: unknown) => {
+  if (!isLiteralRecord(value) || !Object.hasOwn(value, "item") || !Object.hasOwn(value, "count") || !Object.hasOwn(value, "components")) {
+    throw new Error("invalid literal fixture");
+  }
+  return itemStackFromUnknown(value["item"], value["count"], { components: value["components"] });
+};
 
 describe("canonical item stacks", () => {
   it("uses ordinary limits and stores only a resolved payload", () => {
@@ -89,27 +182,56 @@ describe("canonical item stacks", () => {
   });
 
   it("pins the K03 literal payload oracles", () => {
-    const named = itemStack("stone", 32, { components: itemComponents("stone", { customName: { text: "K03 stone" } }) });
-    const sharpness = itemStack("stone", 1, { components: itemComponents("stone", { enchantments: enchantmentsComponent({ "minecraft:sharpness": 5 }) }) });
-    const mending = itemStack("stone", 1, { components: itemComponents("stone", { enchantments: enchantmentsComponent({ "minecraft:mending": 1 }) }) });
-    const fortune = itemStack("stone", 1, { components: itemComponents("stone", { enchantments: enchantmentsComponent({ "minecraft:fortune": 3 }) }) });
-    const damaged = itemStack("diamond_sword", 1, { components: itemComponents("diamond_sword", { damage: 0 }) });
-    const split = splitItemStack(named, TransferQuantity(12));
-    expect(named.components.customName).toEqual({ text: "K03 stone" });
-    expect(sharpness.components.enchantments).toEqual({ "minecraft:sharpness": 5 });
-    expect(mending.components.enchantments).toEqual({ "minecraft:mending": 1 });
-    expect(fortune.components.enchantments).toEqual({ "minecraft:fortune": 3 });
-    expect(damaged.components.damage).toBe(0);
-    expect(split.taken.count).toBe(12);
-    expect(split.remainder?.count).toBe(20);
-    expect(split.taken.components.customName).toEqual({ text: "K03 stone" });
+    const named = {
+      item: "stone",
+      count: 32,
+      components: { ...stoneComponentsLiteral, customName: { text: "K03 stone" } },
+    };
+    const sharpness = {
+      item: "stone",
+      count: 1,
+      components: { ...stoneComponentsLiteral, enchantments: { "minecraft:sharpness": 5 } },
+    };
+    const mending = {
+      item: "stone",
+      count: 1,
+      components: { ...stoneComponentsLiteral, enchantments: { "minecraft:mending": 1 } },
+    };
+    const fortune = {
+      item: "stone",
+      count: 1,
+      components: { ...stoneComponentsLiteral, enchantments: { "minecraft:fortune": 3 } },
+    };
+    const damaged = {
+      item: "diamond_sword",
+      count: 1,
+      components: { ...stoneComponentsLiteral, maxStackSize: 1, maxDamage: 1561, damage: 0 },
+    };
+    const expectedNamed = literalStackOf(named);
+    expect(expectedNamed).toEqual(named);
+    expect(literalStackOf(sharpness)).toEqual(sharpness);
+    expect(literalStackOf(mending)).toEqual(mending);
+    expect(literalStackOf(fortune)).toEqual(fortune);
+    expect(literalStackOf(damaged)).toEqual(damaged);
+
+    const split = splitItemStack(expectedNamed, TransferQuantity(12));
+    expect(split.taken).toEqual({ ...named, count: 12 });
+    expect(split.remainder).toEqual({ ...named, count: 20 });
     if (split.remainder === undefined) throw new Error("expected literal remainder");
-    expect(mergeItemStacks(split.taken, split.remainder).merged.count).toBe(32);
-    expect(itemStack("stone", 1, { components: itemComponents("stone", { maxStackSize: 99 }) }).count).toBe(1);
-    expect(itemStack("stone", 99, { components: itemComponents("stone", { maxStackSize: 99 }) }).count).toBe(99);
-    expect(itemStack("diamond_pickaxe", 1).count).toBe(1);
-    expect(() => itemStack("diamond_pickaxe", 2)).toThrow(RangeError);
-    expect(() => itemStack("stone", 100, { components: itemComponents("stone", { maxStackSize: 99 }) })).toThrow(RangeError);
+    expect(mergeItemStacks(split.taken, split.remainder)).toEqual({ merged: named, remainder: undefined });
+
+    const one = { item: "stone", count: 1, components: { ...stoneComponentsLiteral, maxStackSize: 99 } };
+    const ninetyNine = { item: "stone", count: 99, components: { ...stoneComponentsLiteral, maxStackSize: 99 } };
+    expect(literalStackOf(one)).toEqual(one);
+    expect(literalStackOf(ninetyNine)).toEqual(ninetyNine);
+    expect(() => literalStackOf({ ...ninetyNine, count: 100 })).toThrow(RangeError);
+
+    const left = literalStackOf({ ...ninetyNine, count: 60 });
+    const right = literalStackOf({ ...ninetyNine, count: 50 });
+    expect(mergeItemStacks(left, right)).toEqual({
+      merged: { ...ninetyNine, count: 99 },
+      remainder: { ...ninetyNine, count: 11 },
+    });
   });
 
   it("rejects K03 split and merge boundary quantities without partial results", () => {
