@@ -9,7 +9,6 @@ import {
   SectionIndex,
   WorldEpoch,
   blockEdit,
-  blockPositionPackingKeyOf,
   blockWriteBatch,
   chunkKeyOfPosition,
   expectedChunk,
@@ -59,28 +58,25 @@ describe('world read/write vocabulary', () => {
     )).toThrow(/duplicate position/)
   })
 
-  it('blockPositionPackingKeyOf_usesLiteralCollisionFreeBoundaries', () => {
-    expect(blockPositionPackingKeyOf(blockPosition(-65536, -65536, -65536))).toBe(0)
-    expect(blockPositionPackingKeyOf(blockPosition(65535, 65535, 65535))).toBe(2251799813685247)
-    expect(blockPositionPackingKeyOf(origin)).toBe(1125908496842752)
-    expect(blockPositionPackingKeyOf(blockPosition(0, 0, 0))).not.toBe(
-      blockPositionPackingKeyOf(blockPosition(0, 0, 1)),
+  it('writeBlocks_acceptsBlockAxisSafeIntegerRangeAndDetectsOnlyExactCollisions', () => {
+    const minimumPosition = blockPosition(Number.MIN_SAFE_INTEGER, -30_000_000, -1)
+    const boundaryPosition = blockPosition(-65_536, 0, 65_535)
+    const largePosition = blockPosition(1_000_000, 0, 0)
+    const maximumPosition = blockPosition(Number.MAX_SAFE_INTEGER, 30_000_000, 1)
+    const positions = [minimumPosition, boundaryPosition, largePosition, maximumPosition]
+    const batch = blockWriteBatch(
+      expectedChunk(WorldEpoch(0), ChunkRevision(0)),
+      positions.map((position) => blockEdit(position, stone)),
     )
-    expect(blockPositionPackingKeyOf(blockPosition(0, 0, 0))).not.toBe(
-      blockPositionPackingKeyOf(blockPosition(0, 1, 0)),
-    )
-    expect(blockPositionPackingKeyOf(blockPosition(0, 0, 0))).not.toBe(
-      blockPositionPackingKeyOf(blockPosition(1, 0, 0)),
-    )
-  })
-
-  it('blockPositionPackingKeyOf_rejectsAxesOutsidePackableRange', () => {
-    expect(() => blockPositionPackingKeyOf(blockPosition(-65537, 0, 0))).toThrow(/numeric packing/)
-    expect(() => blockPositionPackingKeyOf(blockPosition(65536, 0, 0))).toThrow(/numeric packing/)
+    expect(batch.edits.map((edit) => edit.position)).toStrictEqual(positions)
     expect(() => blockWriteBatch(
       expectedChunk(WorldEpoch(0), ChunkRevision(0)),
-      [blockEdit(blockPosition(0, 0, 65536), stone)],
-    )).toThrow(/numeric packing/)
+      [blockEdit(minimumPosition, stone), blockEdit(boundaryPosition, air)],
+    )).not.toThrow()
+    expect(() => blockWriteBatch(
+      expectedChunk(WorldEpoch(0), ChunkRevision(0)),
+      [blockEdit(largePosition, stone), blockEdit(blockPosition(1_000_000, 0, 0), air)],
+    )).toThrow(/duplicate position/)
   })
 
   it('writeBlocksSTM_rejectsOutOfWorldAndUnloadedTargets', () => {

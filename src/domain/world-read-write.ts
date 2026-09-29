@@ -4,12 +4,6 @@ import { CHUNK_SIZE_XZ, chunkCoord, type BlockPosition } from './coordinate-prim
 import { type ChunkKey, chunkKeyOf } from './coordinate-keys.js'
 
 const MIN_INDEX = 0
-const PACKED_AXIS_BITS = 17
-const PACKED_AXIS_BASE = 2 ** PACKED_AXIS_BITS
-const PACKED_AXIS_OFFSET = PACKED_AXIS_BASE / 2
-const PACKED_AXIS_MIN = -PACKED_AXIS_OFFSET
-const PACKED_AXIS_MAX = PACKED_AXIS_OFFSET - 1
-
 export type WorldEpoch = number & Brand.Brand<'WorldEpoch'>
 export type ChunkRevision = number & Brand.Brand<'ChunkRevision'>
 export type LightRevision = number & Brand.Brand<'LightRevision'>
@@ -148,21 +142,6 @@ export const expectedChunk = (epoch: WorldEpoch, revision: ChunkRevision): Expec
   Object.freeze({ epoch, revision })
 export const ExpectedChunk: (epoch: WorldEpoch, revision: ChunkRevision) => ExpectedChunk = expectedChunk
 
-const isPackableAxis = (value: number): boolean =>
-  Number.isSafeInteger(value) && value >= PACKED_AXIS_MIN && value <= PACKED_AXIS_MAX
-
-/** Pack three BlockAxis values into a collision-free safe integer for batch-local lookup. */
-export const blockPositionPackingKeyOf = (position: BlockPosition): number => {
-  if (!isPackableAxis(position.x) || !isPackableAxis(position.y) || !isPackableAxis(position.z)) {
-    throw new RangeError(
-      `Block write position axes must be in [${PACKED_AXIS_MIN}, ${PACKED_AXIS_MAX}] for numeric packing`,
-    )
-  }
-
-  return ((position.x + PACKED_AXIS_OFFSET) * PACKED_AXIS_BASE + position.y + PACKED_AXIS_OFFSET) * PACKED_AXIS_BASE
-    + position.z + PACKED_AXIS_OFFSET
-}
-
 export type BlockWriteBatch = {
   readonly expected: ExpectedChunk
   readonly edits: readonly BlockEdit[]
@@ -172,14 +151,26 @@ export const blockWriteBatch = (
   expected: ExpectedChunk,
   edits: readonly BlockEdit[],
 ): BlockWriteBatch => {
-  const seen = new Set<number>()
-  const validated = edits.map((edit) => {
-    const checked = blockEdit(edit.position, edit.blockId)
-    const key = blockPositionPackingKeyOf(checked.position)
-    if (seen.has(key)) throw new RangeError(`Block write batch contains duplicate position ${key}`)
-    seen.add(key)
-    return checked
-  })
+  const validated = edits.map((edit) => blockEdit(edit.position, edit.blockId))
+  const seen = new Map<number, Map<number, Set<number>>>()
+  for (const edit of validated) {
+    let seenY = seen.get(edit.position.x)
+    if (seenY === undefined) {
+      seenY = new Map()
+      seen.set(edit.position.x, seenY)
+    }
+    let seenZ = seenY.get(edit.position.y)
+    if (seenZ === undefined) {
+      seenZ = new Set()
+      seenY.set(edit.position.y, seenZ)
+    }
+    if (seenZ.has(edit.position.z)) {
+      throw new RangeError(
+        `Block write batch contains duplicate position (${edit.position.x},${edit.position.y},${edit.position.z})`,
+      )
+    }
+    seenZ.add(edit.position.z)
+  }
   return Object.freeze({ expected, edits: Object.freeze(validated) })
 }
 export const BlockWriteBatch: (

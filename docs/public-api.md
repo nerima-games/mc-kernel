@@ -1802,7 +1802,7 @@ type BlockWriteBatch = {
 };
 ```
 
-`WorldEpoch`、`ChunkRevision`、`LightRevision`、`ChunkLocalIndex`、`SectionIndex` は `Brand.refined` による別ブランドであり、負値・非整数を受け付けない。`BlockWriteBatch` は block ID、重複 position、expected epoch/revision の値境界を検証するが、live chunk の mutation、STM/COW、load/unload、dirty event は所有しない。
+`WorldEpoch`、`ChunkRevision`、`LightRevision`、`ChunkLocalIndex`、`SectionIndex` は `Brand.refined` による別ブランドであり、負値・非整数を受け付けない。`BlockWriteBatch` は `BlockAxis` の safe integer 全域を受け付け、座標比較で重複 position を検証するが、live chunk の mutation、STM/COW、load/unload、dirty event は所有しない。
 
 ## 5-sexies. BlockWorld、fluid、redstone の純粋更新
 
