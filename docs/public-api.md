@@ -1466,7 +1466,7 @@ const HARVEST_TIERS = ['none', 'wooden', 'stone', 'iron', 'diamond', 'netherite'
 type HarvestTier = (typeof HARVEST_TIERS)[number]   // 宣言順が採掘力の順（none が最弱）
 
 type HarvestToolRequirement = { readonly category: HarvestToolCategory; readonly minTier: HarvestTier }
-type BlockDropRule = { readonly item: ItemType | 'self'; readonly count: number
+type BlockDropRule = { readonly item: ItemType | 'self'; readonly count: StackCount // 1..MAX_STACK_COUNT (99)
                        readonly requiresSilkTouch: boolean; readonly affectedByFortune: boolean }
 
 type HarvestContext = { readonly heldTier?: HarvestTier; readonly silkTouch?: boolean }
@@ -2465,6 +2465,10 @@ const ANVIL_MAX_CUSTOM_NAME_LENGTH = 50
 
 const isAnvilEnchantmentId(value: string): value is AnvilEnchantmentId
 const isAnvilCustomName(value: string): value is AnvilCustomName
+type AnvilMaterialCost = number & Brand.Brand<'AnvilMaterialCost'> // 0..99, not a StackCount
+const AnvilMaterialCost(value: number): AnvilMaterialCost
+const AnvilEnchantmentId(value: string): AnvilEnchantmentId
+const AnvilCustomName(value: string): AnvilCustomName
 const nextAnvilRepairCost(repairCost: number): number   // "prior work penalty": repairCost * 2 + 1
 
 type AnvilState = {
