@@ -11,15 +11,16 @@ import {
 import type { DamageTypeKind, DamageTypeName } from '../src/domain/damage-type'
 import { isVanillaDamageTypeComponent } from '../src/domain/item-combat-validation'
 
-const EXPECTED_DAMAGE_TYPE_COUNT = 47
+// Count is derived from the pinned Java Edition 26.3 damage-type golden.
+const EXPECTED_DAMAGE_TYPE_COUNT = 51
 
 describe('DAMAGE_TYPE_NAMES', () => {
-  it('has exactly the 47 closed Java Edition 1.21 damage types, each unique', () => {
+  it('has exactly the 51 closed Java Edition 26.3 damage types, each unique', () => {
     expect(DAMAGE_TYPE_NAMES.length).toBe(EXPECTED_DAMAGE_TYPE_COUNT)
     expect(new Set(DAMAGE_TYPE_NAMES).size).toBe(EXPECTED_DAMAGE_TYPE_COUNT)
   })
 
-  it('lists exactly this roster (data/minecraft/damage_type/*.json at the 1.21-data tag)', () => {
+  it('lists exactly the pinned Java Edition 26.3 roster', () => {
     expect([...DAMAGE_TYPE_NAMES]).toEqual([
       'arrow',
       'bad_respawn_point',
@@ -29,6 +30,7 @@ describe('DAMAGE_TYPE_NAMES', () => {
       'dragon_breath',
       'drown',
       'dry_out',
+      'ender_pearl',
       'explosion',
       'fall',
       'falling_anvil',
@@ -46,6 +48,7 @@ describe('DAMAGE_TYPE_NAMES', () => {
       'indirect_magic',
       'lava',
       'lightning_bolt',
+      'mace_smash',
       'magic',
       'mob_attack',
       'mob_attack_no_aggro',
@@ -56,10 +59,12 @@ describe('DAMAGE_TYPE_NAMES', () => {
       'player_attack',
       'player_explosion',
       'sonic_boom',
+      'spear',
       'spit',
       'stalagmite',
       'starve',
       'sting',
+      'sulfur_cube_hot',
       'sweet_berry_bush',
       'thorns',
       'thrown',
@@ -116,13 +121,13 @@ describe('DAMAGE_TYPE_DEFINITIONS', () => {
     expect(DAMAGE_TYPE_DEFINITIONS.player_attack.kind).toBe('generic')
   })
 
-  it('scales with difficulty for every vanilla 1.21 damage type (none use scaling: never)', () => {
+  it('scales with difficulty for every vanilla 26.3 damage type (none use scaling: never)', () => {
     for (const name of DAMAGE_TYPE_NAMES) {
       expect(DAMAGE_TYPE_DEFINITIONS[name].scalesWithDifficulty).toBe(true)
     }
   })
 
-  describe('armorReduces (exhaustive, #minecraft:bypasses_armor at the 1.21-data tag)', () => {
+  describe('armorReduces (exhaustive, #minecraft:bypasses_armor at the 26.3 tag)', () => {
     // The tag itself lists the 18 members that DO bypass armour (armorReduces:
     // false); every other name in the closed vocabulary reduces armour. Pinning
     // the bypassing set (rather than the reducing set) mirrors the tag file this
@@ -163,7 +168,7 @@ describe('DAMAGE_TYPE_DEFINITIONS', () => {
     })
   })
 
-  describe('kind (exhaustive, is_fire / is_explosion / is_projectile / is_fall / is_drowning tags at the 1.21-data tag)', () => {
+  describe('kind (exhaustive, 26.3 is_fire / is_explosion / is_projectile / is_fall / is_drowning tags)', () => {
     // magic has no tag of its own; it is the two hardcoded ids. generic is the
     // fallback for every id carrying none of the five tags. fireball and
     // unattributed_fireball are tagged both is_fire and is_projectile and are
@@ -176,18 +181,20 @@ describe('DAMAGE_TYPE_DEFINITIONS', () => {
       'in_fire',
       'lava',
       'on_fire',
+      'sulfur_cube_hot',
       'unattributed_fireball',
     ]
     const explosion: ReadonlyArray<DamageTypeName> = ['bad_respawn_point', 'explosion', 'fireworks', 'player_explosion']
     const projectile: ReadonlyArray<DamageTypeName> = [
       'arrow',
       'mob_projectile',
+      'spear',
       'thrown',
       'trident',
       'wind_charge',
       'wither_skull',
     ]
-    const fall: ReadonlyArray<DamageTypeName> = ['fall', 'stalagmite']
+    const fall: ReadonlyArray<DamageTypeName> = ['ender_pearl', 'fall', 'stalagmite']
     const drowning: ReadonlyArray<DamageTypeName> = ['drown']
     const magic: ReadonlyArray<DamageTypeName> = ['indirect_magic', 'magic']
     const generic: ReadonlyArray<DamageTypeName> = [
@@ -204,6 +211,7 @@ describe('DAMAGE_TYPE_DEFINITIONS', () => {
       'generic_kill',
       'in_wall',
       'lightning_bolt',
+      'mace_smash',
       'mob_attack',
       'mob_attack_no_aggro',
       'out_of_world',

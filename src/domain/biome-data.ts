@@ -24,12 +24,15 @@
  * (docs/responsibility.md §3-2).
  */
 import type { Dimension } from './dimension.js'
+import { VANILLA_26_3_BIOME_IDS } from './vanilla-26-3-generated.js'
 
 // ---------------------------------------------------------------------------
 // Biome vocabulary
 // ---------------------------------------------------------------------------
 
-export const BIOME_TYPES = [
+/* The roster is generated from test/golden/vanilla-biome.json. */
+export const BIOME_TYPES: typeof VANILLA_26_3_BIOME_IDS = VANILLA_26_3_BIOME_IDS
+/*
   // Oceans
   'ocean',
   'deep_ocean',
@@ -129,7 +132,7 @@ export const BIOME_TYPES = [
   'end_midlands',
   'end_highlands',
   'end_barrens',
-] as const
+] as const */
 
 export type BiomeType = (typeof BIOME_TYPES)[number]
 
@@ -366,4 +369,7 @@ export const BIOME_PROPERTY_OVERRIDES: Record<BiomeType, BiomePropertyOverrides>
   end_midlands: { temperature: 0.5, downfall: 0.5, precipitation: 'none', dimension: 'end' },
   end_highlands: { temperature: 0.5, downfall: 0.5, precipitation: 'none', dimension: 'end' },
   end_barrens: { temperature: 0.5, downfall: 0.5, precipitation: 'none', dimension: 'end' },
+  dappled_forest: { temperature: 0.6, downfall: 0.6, grassTint: 0xdf6827, foliageTint: 0xe68e30, waterTint: 0x375154 },
+  pale_garden: { temperature: 0.7, downfall: 0.8, grassTint: 0x778272, foliageTint: 0x878d76, waterTint: 0x76889d },
+  sulfur_caves: { grassTint: 0xaba64f, waterTint: 0x34bf89 },
 }

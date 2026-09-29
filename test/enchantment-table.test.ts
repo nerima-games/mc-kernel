@@ -48,7 +48,8 @@ describe('enchantment table data', () => {
     expect(Object.keys(VANILLA_ENCHANTMENT_TABLE_RULES).sort()).toStrictEqual(
       [...SUPPORTED_VANILLA_ENCHANTMENT_IDS].sort(),
     )
-    expect(Object.keys(VANILLA_ENCHANTMENT_TABLE_RULES)).toHaveLength(32)
+    // Count is derived from the pinned Java Edition 26.3 enchantment golden.
+    expect(Object.keys(VANILLA_ENCHANTMENT_TABLE_RULES)).toHaveLength(43)
     expect(ENCHANTMENT_TABLE_SLOT_COUNT).toBe(3)
     expect(enchantmentTableRuleFor('protection')).toStrictEqual({
       maxLevel: 4,

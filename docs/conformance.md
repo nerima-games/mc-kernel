@@ -27,16 +27,31 @@ values.
 
 ## Intentional V-4 divergences
 
-The current kernel tables are capability-scoped subsets, not complete Java
-registries. The golden rosters contain 67 biomes, 1286 blocks, 1658 items, 51
-damage types, 40 mob effects, 43 enchantments, 236 item tags, and 2042
-recipes. The kernel currently exposes a smaller closed vocabulary for the
-biome, damage type, mob effect, enchantment, item, block, tag-membership, and
-recipe APIs. The tests therefore require every exposed id to exist in 26.3 and
-record exact golden counts, while the remaining ids are intentionally deferred
-until the corresponding capability contracts can represent them.
+The regenerated kernel tables now match all 67 biomes, 51 damage types, 40 mob
+effects, 43 enchantments, and 236 tag ids. The intentionally divergent tables
+remain capability-scoped: block is 123/1286, item is 280/1658, and recipe is
+100/2042 (kernel/26.3). Their tests require every exposed id to exist in 26.3;
+the remaining ids are deferred until the corresponding downstream contracts can
+represent them.
 
-Recipe support remains limited to the existing shaped and shapeless crafting
-schema. The 26.3 recipe golden contains 2042 rows across additional recipe
-types, so the unsupported rows are intentionally not copied into
-`recipe-vanilla-data.ts`.
+Recipe support remains limited to 100 shaped/shapeless rows. The unsupported
+26.3 rows are: `stonecutting` 351, `smelting` 73, `campfire_cooking` 9,
+`smoking` 9, `crafting_special_bannerduplicate` 16, `crafting_transmute` 33,
+`smithing_trim` 18, `crafting_special_bookcloning` 1, `brewing` 279,
+`blasting` 25, `crafting_decorated_pot` 1, `crafting_special_firework_rocket`
+1, `crafting_special_firework_star` 1, `crafting_special_firework_star_fade`
+1, `crafting_dye` 6, `crafting_special_mapextending` 1,
+`smithing_transform` 12, `crafting_special_repairitem` 1,
+`crafting_special_shielddecoration` 1, and `crafting_imbue` 1. These rows are
+intentionally not copied into `recipe-vanilla-data.ts`.
+
+## mc-dev-meta V-3 divergent rows to register
+
+The following rows should be added to the mc-dev-meta conformance catalog by
+the catalog-owning stream:
+
+| id | owner | reason |
+| --- | --- | --- |
+| `mc-kernel:block-registry-26-3` | `mc-kernel` | Block table remains 133/1286 to avoid downstream meshing and render contract expansion. |
+| `mc-kernel:item-registry-26-3` | `mc-kernel` | Item table remains 294/1658 to avoid downstream item/model contract expansion. |
+| `mc-kernel:recipe-types-26-3` | `mc-kernel` | Kernel schema represents only 100 shaped/shapeless rows; the listed 840 rows use unsupported recipe types. |

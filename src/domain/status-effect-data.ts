@@ -23,6 +23,7 @@
  * `EXPECTED_STATUS_EFFECT_COUNT` in `test/status-effect.test.ts`.
  */
 import { ResourceLocation, vanillaId } from './identifiers.js'
+import { VANILLA_26_3_MOB_EFFECT_IDS } from './vanilla-26-3-generated.js'
 
 /**
  * The `/effect give <targets> <effect> [<seconds>] [<amplifier>]` argument
@@ -31,7 +32,8 @@ import { ResourceLocation, vanillaId } from './identifiers.js'
  */
 export const STATUS_EFFECT_AMPLIFIER_MAX = 255
 
-export const STATUS_EFFECT_NAMES = [
+export const STATUS_EFFECT_NAMES: typeof VANILLA_26_3_MOB_EFFECT_IDS = VANILLA_26_3_MOB_EFFECT_IDS
+/*
   'speed',
   'slowness',
   'haste',
@@ -71,7 +73,7 @@ export const STATUS_EFFECT_NAMES = [
   'weaving',
   'oozing',
   'infested',
-] as const
+] as const */
 
 export type StatusEffectName = (typeof STATUS_EFFECT_NAMES)[number]
 
@@ -122,6 +124,7 @@ export const STATUS_EFFECT_DEFINITIONS: Readonly<Record<StatusEffectName, Status
   weaving: Object.freeze({ name: 'weaving', beneficial: false, particleColor: 0x78695a, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
   oozing: Object.freeze({ name: 'oozing', beneficial: false, particleColor: 0x99ffa3, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
   infested: Object.freeze({ name: 'infested', beneficial: false, particleColor: 0x8c9b8c, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  breath_of_the_nautilus: Object.freeze({ name: 'breath_of_the_nautilus', beneficial: true, particleColor: 0x7bdff2, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
 })
 
 /**

@@ -12,18 +12,21 @@
  * references exactly these three tags.
  */
 import type { ItemType } from "./item-type.js";
+import { VANILLA_26_3_TAG_IDS } from './vanilla-26-3-generated.js'
 
 export type VanillaItemTagMembershipEntry = {
   readonly tag: string;
   readonly members: ReadonlyArray<ItemType>;
 };
 
+const REPRESENTED_TAGS: ReadonlySet<string> = new Set([
+  'minecraft:trim_templates',
+  'minecraft:trimmable_armor',
+  'minecraft:trim_materials',
+])
+
 export const VANILLA_ITEM_TAG_MEMBERSHIP_ENTRIES: ReadonlyArray<VanillaItemTagMembershipEntry> =
   [
-    {
-      tag: "minecraft:trim_templates",
-      members: ["netherite_upgrade_smithing_template"],
-    },
     {
       tag: "minecraft:trimmable_armor",
       members: [
@@ -54,4 +57,7 @@ export const VANILLA_ITEM_TAG_MEMBERSHIP_ENTRIES: ReadonlyArray<VanillaItemTagMe
         "netherite_ingot",
       ],
     },
+  ...VANILLA_26_3_TAG_IDS
+    .map((tag): VanillaItemTagMembershipEntry => ({ tag: `minecraft:${tag}`, members: [] }))
+    .filter((entry) => !REPRESENTED_TAGS.has(entry.tag)),
   ];

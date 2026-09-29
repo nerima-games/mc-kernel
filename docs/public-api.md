@@ -498,7 +498,7 @@ Java の hardness・break-tick・tool rule resolution と Bedrock の digger・i
 `entity-type.ts` は `BlockType` / `ItemType` と同じ「閉じたリテラル union + runtime guard」の形で `EntityType` を公開する。attribute の値域・既定値・modifier 適用や Entity の純粋な状態操作は `entity-attributes*.ts` / `entity-operations.ts` / `entity.ts` が持ち、spawn/despawn・AI・ネットワークは上位層の責務である。
 
 ```typescript
-const ENTITY_TYPES: ReadonlyArray<EntityType>; // Java Edition 1.21 の entity registry id と同一の閉じた集合
+const ENTITY_TYPES: ReadonlyArray<EntityType>; // Minecraft Java Edition 26.3 の entity registry id と同一の閉じた集合
 type EntityType = (typeof ENTITY_TYPES)[number];
 const isEntityType: (value: unknown) => value is EntityType;
 ```
@@ -923,7 +923,7 @@ root のほか `domain/food` subpath から利用できる。食料データは�
 
 ### 3-quater-ter. アイテムコンポーネント（food / consumable / use_remainder / use_cooldown）
 
-Java Edition 1.21.2 以降の item component の境界に合わせ、`food` は栄養値・saturation・`can_always_eat` を持つデータコンテナ、`consumable` は使用時間・アニメーション・音・粒子・使用後効果を持つ使用動作、`use_remainder` は使用後に残るスタック、`use_cooldown` は使用間隔として分離する。`FoodDefinition` は同梱の静的な食料表をこの 4 コンポーネントへ投影する。
+Minecraft Java Edition 26.3 の item component 境界に合わせ、`food` は栄養値・saturation・`can_always_eat` を持つデータコンテナ、`consumable` は使用時間・アニメーション・音・粒子・使用後効果を持つ使用動作、`use_remainder` は使用後に残るスタック、`use_cooldown` は使用間隔として分離する。`FoodDefinition` は同梱の静的な食料表をこの 4 コンポーネントへ投影する。
 
 ```typescript
 const DEFAULT_CONSUMABLE_COMPONENT: ConsumableComponent;

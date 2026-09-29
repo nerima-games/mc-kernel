@@ -16,7 +16,13 @@ export const VANILLA_ITEM_TAG_MEMBERSHIPS: ItemTagMemberships = new Map<
   RecipeItemTag,
   ReadonlySet<ItemType>
 >(
-  VANILLA_ITEM_TAG_MEMBERSHIP_ENTRIES.map(
+  [
+    ...VANILLA_ITEM_TAG_MEMBERSHIP_ENTRIES,
+    {
+      tag: 'minecraft:trim_templates',
+      members: ['netherite_upgrade_smithing_template'] as const,
+    },
+  ].map(
     (entry): readonly [RecipeItemTag, ReadonlySet<ItemType>] => [
       `#${entry.tag}`,
       new Set<ItemType>(entry.members),

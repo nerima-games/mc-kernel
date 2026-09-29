@@ -1,7 +1,9 @@
 import { AnvilEnchantmentId, type AnvilEnchantmentRule } from './anvil.js'
 import type { ItemType } from './item-type.js'
+import { VANILLA_26_3_ENCHANTMENT_IDS, VANILLA_26_3_ENCHANTMENT_MAX_LEVELS } from './vanilla-26-3-generated.js'
 
-export const SUPPORTED_VANILLA_ENCHANTMENT_IDS = [
+export const SUPPORTED_VANILLA_ENCHANTMENT_IDS: typeof VANILLA_26_3_ENCHANTMENT_IDS = VANILLA_26_3_ENCHANTMENT_IDS
+/*
   'aqua_affinity',
   'bane_of_arthropods',
   'binding_curse',
@@ -34,7 +36,7 @@ export const SUPPORTED_VANILLA_ENCHANTMENT_IDS = [
   'thorns',
   'unbreaking',
   'vanishing_curse',
-] as const
+] as const */
 
 export type SupportedVanillaEnchantmentId = (typeof SUPPORTED_VANILLA_ENCHANTMENT_IDS)[number]
 
@@ -78,6 +80,17 @@ export const VANILLA_ENCHANTMENT_COSTS: Readonly<
   thorns: { item: 8, book: 4 },
   unbreaking: { item: 2, book: 1 },
   vanishing_curse: { item: 8, book: 4 },
+  breach: { item: 4, book: 2 },
+  channeling: { item: 8, book: 4 },
+  density: { item: 2, book: 1 },
+  impaling: { item: 4, book: 2 },
+  loyalty: { item: 2, book: 1 },
+  lunge: { item: 2, book: 1 },
+  multishot: { item: 4, book: 2 },
+  piercing: { item: 1, book: 1 },
+  quick_charge: { item: 2, book: 1 },
+  riptide: { item: 4, book: 2 },
+  wind_burst: { item: 4, book: 2 },
 } as const satisfies Record<SupportedVanillaEnchantmentId, VanillaAnvilCost>
 
 const ARMOR_ITEMS = [
@@ -174,6 +187,17 @@ const VANILLA_ENCHANTMENT_RULE_DEFINITIONS = [
   defineRule('thorns', 3, ARMOR_ITEMS),
   defineRule('unbreaking', 3, DAMAGEABLE_ITEMS),
   defineRule('vanishing_curse', 1, DAMAGEABLE_ITEMS),
+  defineRule('breach', VANILLA_26_3_ENCHANTMENT_MAX_LEVELS.breach, []),
+  defineRule('channeling', VANILLA_26_3_ENCHANTMENT_MAX_LEVELS.channeling, []),
+  defineRule('density', VANILLA_26_3_ENCHANTMENT_MAX_LEVELS.density, []),
+  defineRule('impaling', VANILLA_26_3_ENCHANTMENT_MAX_LEVELS.impaling, []),
+  defineRule('loyalty', VANILLA_26_3_ENCHANTMENT_MAX_LEVELS.loyalty, []),
+  defineRule('lunge', VANILLA_26_3_ENCHANTMENT_MAX_LEVELS.lunge, []),
+  defineRule('multishot', VANILLA_26_3_ENCHANTMENT_MAX_LEVELS.multishot, []),
+  defineRule('piercing', VANILLA_26_3_ENCHANTMENT_MAX_LEVELS.piercing, []),
+  defineRule('quick_charge', VANILLA_26_3_ENCHANTMENT_MAX_LEVELS.quick_charge, []),
+  defineRule('riptide', VANILLA_26_3_ENCHANTMENT_MAX_LEVELS.riptide, []),
+  defineRule('wind_burst', VANILLA_26_3_ENCHANTMENT_MAX_LEVELS.wind_burst, []),
 ] as const
 
 type VanillaAnvilCostSource = keyof VanillaAnvilCost
