@@ -5,16 +5,21 @@
     # nixos-unstable, not nixpkgs-unstable: it advances only after the NixOS
     # release tests pass, so it is less likely to land a broken build.
     #
-    # Keep flake.lock at nixpkgs rev 624af665: oxlint 1.79 reports false
-    # no-redeclare warnings for the branded-type pattern in src/domain. That
-    # revision provides oxlint 1.75.0. Re-check the rule before updating the pin.
+    # flake.lock is pinned to rev 624af66541 (2026-07-26) rather than the channel
+    # head: every revision from 2026-08-28 onward ships oxlint >=1.79.0, whose
+    # `no-redeclare` rule false-positives on the `type X = Brand.refined<X>(..)`
+    # branded-type idiom used throughout src/domain (proven by A/B testing
+    # oxlint 1.75.0 vs 1.79.0 against the same source tree — 0 vs 59 warnings;
+    # still present in 1.88). Re-check the rule before updating the pin.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
   outputs =
     { nixpkgs, ... }:
     let
-      # CI runs on x86_64-linux; the maintainer develops on aarch64-darwin.
+      # CI uses x86_64-linux; the maintainer uses aarch64-darwin. Declaring
+      # other systems makes `nix flake check --all-systems` fail on missing
+      # outputs.
       systems = [
         "x86_64-linux"
         "aarch64-darwin"
@@ -31,16 +36,21 @@
           pkgs = pkgsFor system;
         in
         {
-          # Pinned nixpkgs packages Corepack with Node 24 only. Its pnpm shim
-          # selects Node from PATH, so this shell uses Node 26 for pnpm and the
-          # project. pnpm's version comes from package.json's `packageManager`.
+          # Node 26 matches CI; the `engines` field allows Node 24. The pinned
+          # `corepack_24` shim uses Node from PATH. Corepack, rather than nixpkgs,
+          # gets pnpm's version from `packageManager` in package.json, avoiding a
+          # second version source that can drift.
           #
           # oxlint is intentionally supplied by Nix rather than package.json.
           # This keeps the executable version in the reproducible development
           # shell and avoids a second package-manager lockfile entry.
           #
-          # ast-grep blocks Date.now(), performance.now(), and new Date() in
-          # src/, which oxlint cannot express with its no-restricted-* rules.
+          # ast-grep is here for the same reason, and covers what oxlint cannot:
+          # it implements none of no-restricted-syntax, no-restricted-properties
+          # or no-restricted-globals, so the org-wide ban on reading a
+          # process-global clock had no mechanical gate. `.ast-grep/rules/`
+          # holds that gate. The ban is documented in prose beside the code it
+          # governs, and a textual check would fail its own documentation.
           default = pkgs.mkShell {
             packages = [
               pkgs.nodejs_26
