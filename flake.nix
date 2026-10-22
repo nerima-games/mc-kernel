@@ -1,25 +1,20 @@
 {
-  description = "mc-kernel: Minecraft domain data and pure logic for block/item registries, recipes, cooking, brewing, stonecutting, smithing, grindstones, crops, dimensions, Java and Bedrock mining, breaking, chunks, anvils, coordinates, projectiles, explosions, TNT, camera, time, weather, vitals, frame timing, and clock ports.";
+  description = "mc-kernel development shell and formatter";
 
   inputs = {
     # nixos-unstable, not nixpkgs-unstable: it advances only after the NixOS
     # release tests pass, so it is less likely to land a broken build.
     #
-    # flake.lock is pinned to rev 624af665 (2026-07-26) rather than the
-    # channel head: every revision from 2026-08-28 onward ships oxlint
-    # >=1.79.0, whose `no-redeclare` rule false-positives on the `type X` /
-    # `const X = Brand.refined<X>(...)` branded-type idiom used throughout
-    # src/domain (proven by A/B testing oxlint 1.75.0 vs 1.79.0 against the
-    # same source tree — 0 vs 59 warnings). Re-check on the next bump.
+    # Keep flake.lock at nixpkgs rev 624af665: oxlint 1.79 reports false
+    # no-redeclare warnings for the branded-type pattern in src/domain. That
+    # revision provides oxlint 1.75.0. Re-check the rule before updating the pin.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
   outputs =
     { nixpkgs, ... }:
     let
-      # Only what is actually exercised: x86_64-linux by CI, aarch64-darwin by
-      # the maintainer. Declaring a platform nothing builds makes
-      # `nix flake check --all-systems` fail rather than skip it.
+      # CI runs on x86_64-linux; the maintainer develops on aarch64-darwin.
       systems = [
         "x86_64-linux"
         "aarch64-darwin"
@@ -28,10 +23,6 @@
       pkgsFor = system: nixpkgs.legacyPackages.${system};
     in
     {
-      # Keep Nix formatting available to both supported systems. This makes
-      # `nix fmt -- --check flake.nix` part of the repository's own flake
-      # contract. The explicit file argument makes the check work with
-      # nixfmt's file-oriented CLI as well as editor integrations.
       formatter = forAllSystems (system: (pkgsFor system).nixfmt);
 
       devShells = forAllSystems (
@@ -40,25 +31,19 @@
           pkgs = pkgsFor system;
         in
         {
-          # Node 24 matches the `engines` field and the CI runner. pnpm comes
-          # from corepack rather than nixpkgs so that the version is decided by
-          # the `packageManager` field in package.json — one source of truth
-          # instead of two that can drift.
+          # Pinned nixpkgs packages Corepack with Node 24 only. Its pnpm shim
+          # selects Node from PATH, so this shell uses Node 26 for pnpm and the
+          # project. pnpm's version comes from package.json's `packageManager`.
           #
           # oxlint is intentionally supplied by Nix rather than package.json.
           # This keeps the executable version in the reproducible development
           # shell and avoids a second package-manager lockfile entry.
           #
-          # ast-grep is here for the same reason, and covers what oxlint cannot:
-          # it implements none of no-restricted-syntax, no-restricted-properties
-          # or no-restricted-globals, so the org-wide ban on reading a
-          # process-global clock had no mechanical gate. `.ast-grep/rules/`
-          # holds that gate. Structural matching is the point — the ban is
-          # documented in prose beside the code it governs, and a textual check
-          # would fail its own documentation.
+          # ast-grep blocks Date.now(), performance.now(), and new Date() in
+          # src/, which oxlint cannot express with its no-restricted-* rules.
           default = pkgs.mkShell {
             packages = [
-              pkgs.nodejs_24
+              pkgs.nodejs_26
               pkgs.corepack_24
               pkgs.typescript-language-server
               pkgs.oxlint
@@ -67,6 +52,7 @@
 
             shellHook = ''
               corepackDir="$(mktemp -d "''${TMPDIR:-/tmp}/mc-kernel-corepack.XXXXXX")"
+              trap 'rm -r "$corepackDir"' EXIT
               corepack enable --install-directory "$corepackDir"
               export PATH="$corepackDir:$PATH"
             '';

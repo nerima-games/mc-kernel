@@ -1,2 +1,9 @@
 allowBuilds:
   esbuild: true
+
+overrides:
+  '@vitest/mocker': 4.1.12
+  launch-editor: 2.14.2
+  shell-quote: 1.11.0
+  source-map-js: 1.2.2
+  vite: 7.3.7
