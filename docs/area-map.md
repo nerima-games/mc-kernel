@@ -1,28 +1,35 @@
 # Domain area map
 
-This is the current map for the internal `src/domain` reorganization after
-removing eight recipe logic subpaths: brewing, cooking, crafting,
-crafting-special, smelting, smithing, stonecutting, and transmute. The package
-remains a single package.
+This map documents the current `src/domain` layout. These eight recipe logic
+subpaths are absent from `package.json`'s `exports` map: `./domain/brewing`,
+`./domain/cooking`, `./domain/crafting`, `./domain/crafting-special`,
+`./domain/smelting`, `./domain/smithing`, `./domain/stonecutting`, and
+`./domain/transmute`. The package root `.` is exported through
+`src/index.ts`, which re-exports `src/domain/recipe/index.ts`. That entry point
+re-exports recipe types and helpers from `src/domain/recipe/recipe-data.ts` and
+vanilla crafting data from `src/domain/recipe/recipe-vanilla-data.ts`; it does
+not re-export the logic implementations for the eight subpaths listed above.
 
 ## Scope and invariant
 
-The inventory lists 215 implementation and data files under `src/domain`,
-excluding leaf barrels and area index barrels. The completeness test checks
-that each appears exactly once. The public map below covers the 89 current
-package subpaths and their leaf barrels.
+A barrel is a TypeScript entry point that re-exports other modules.
+Public subpaths are the non-root keys in `package.json`'s `exports` map.
+The inventory lists 192 implementation and data files under `src/domain`,
+excluding public leaf barrels (`<area>/_<subpath>.ts`) and area index barrels
+(`src/domain/<area>/index.ts`). `test/area-map.test.ts` checks that each file
+appears once and maps every public package subpath to a barrel. The public map
+below covers the 81 non-root subpaths currently listed in `package.json`'s
+`exports` map. The inventory lists files
+present in this checkout regardless of package exports; it does not indicate
+whether a listed file is imported.
 
 ## Areas
 
-The implemented layout has thirteen area directories. A public entry point has
-one leaf barrel inside its area (`<area>/_<subpath>.ts`); internal data,
-validation, and implementation files stay beside that leaf barrel. Thus each
-public subpath has one leaf barrel. Each area has an index
-barrel at `src/domain/<area>/index.ts`, and `src/index.ts` re-exports through
-those thirteen barrels. The area directory itself is not an additional public
-export.
-
-<!-- area-inventory:begin -->
+The implemented layout has thirteen area directories. Each public subpath has one
+leaf barrel inside its area (`<area>/_<subpath>.ts`); internal data, validation,
+and implementation files stay beside it. Each area has an index barrel at
+`src/domain/<area>/index.ts`, and `src/index.ts` re-exports through those thirteen
+barrels. The area directory itself is not an additional public export.
 
 ### coordinates (6)
 
@@ -50,28 +57,24 @@ export.
 `redstone-devices.ts`, `redstone-network.ts`, `redstone-state.ts`,
 `redstone-update-types.ts`, `redstone-update.ts`, `redstone.ts`
 
-### item (57)
+### item (45)
 
-`anvil-constants.ts`, `anvil-normalization.ts`, `anvil-planning.ts`,
-`anvil-primitives.ts`, `anvil-snapshot-codec.ts`, `anvil-transformation.ts`,
-`anvil-validation.ts`, `anvil.ts`, `consumable-data.ts`,
+`anvil-constants.ts`, `anvil-primitives.ts`, `consumable-data.ts`,
 `consumable-validation.ts`, `consumable.ts`, `enchantment-data.ts`,
-`enchantment-table-data.ts`, `enchantment-table.ts`, `enchantment.ts`,
-`equipment-data.ts`, `equipment.ts`, `food-data.ts`, `food.ts`,
-`grindstone-data.ts`, `grindstone.ts`, `hotbar-data.ts`, `hotbar.ts`,
-`inventory-data.ts`, `inventory.ts`, `item-attribute-modifiers-data.ts`,
-`item-attribute-modifiers-validation.ts`, `item-attribute-modifiers.ts`,
-`item-combat-data.ts`, `item-combat-validation.ts`, `item-combat.ts`,
-`item-component-patch.ts`, `item-component-values-data.ts`,
-`item-component-values-validation.ts`, `item-component-values.ts`,
-`item-components-data.ts`, `item-components-validation.ts`,
-`item-components.ts`, `item-defense-data.ts`, `item-defense-validation.ts`,
-`item-defense.ts`, `item-enchantments-data.ts`,
-`item-enchantments-validation.ts`, `item-enchantments.ts`,
-`item-registry.ts`, `item-stack.ts`, `item-tool-data.ts`, `item-tool.ts`,
-`item-type-data.ts`, `item-type.ts`, `tool-component.ts`,
-`use-cooldown-data.ts`, `use-cooldown-validation.ts`, `use-cooldown.ts`,
-`weapon-data.ts`, `weapon-validation.ts`, `weapon.ts`
+`enchantment-table-data.ts`, `enchantment.ts`, `equipment-data.ts`,
+`food-data.ts`, `grindstone-data.ts`, `hotbar-data.ts`, `inventory-data.ts`,
+`item-attribute-modifiers-data.ts`, `item-attribute-modifiers-validation.ts`,
+`item-attribute-modifiers.ts`, `item-combat-data.ts`,
+`item-combat-validation.ts`, `item-combat.ts`, `item-component-patch.ts`,
+`item-component-values-data.ts`, `item-component-values-validation.ts`,
+`item-component-values.ts`, `item-components-data.ts`,
+`item-components-validation.ts`, `item-components.ts`,
+`item-defense-data.ts`, `item-defense-validation.ts`, `item-defense.ts`,
+`item-enchantments-data.ts`, `item-enchantments-validation.ts`,
+`item-enchantments.ts`, `item-registry.ts`, `item-stack.ts`,
+`item-tool-data.ts`, `item-tool.ts`, `item-type-data.ts`, `item-type.ts`,
+`tool-component.ts`, `use-cooldown-data.ts`, `use-cooldown-validation.ts`,
+`use-cooldown.ts`, `weapon-data.ts`, `weapon-validation.ts`, `weapon.ts`
 
 ### recipe (20)
 
@@ -82,20 +85,17 @@ export.
 `smithing-data.ts`, `smithing.ts`, `stonecutting-data.ts`,
 `stonecutting.ts`, `transmute-data.ts`, `transmute.ts`
 
-### entity (38)
+### entity (27)
 
 `damage-type-data.ts`, `damage-type-validation.ts`, `damage-type.ts`,
 `entity-attributes-data.ts`, `entity-attributes-validation.ts`,
-`entity-attributes.ts`, `entity-operations.ts`, `entity-type-data.ts`,
-`entity-type.ts`, `entity-types.ts`, `entity.ts`, `explosion-data.ts`,
-`explosion.ts`, `portal-frame.ts`, `portal.ts`, `primed-tnt-data.ts`,
-`primed-tnt.ts`, `projectile-collision.ts`, `projectile.ts`,
-`status-effect-data.ts`, `status-effect-validation.ts`, `status-effect.ts`,
-`sulfur-cube-data.ts`, `sulfur-cube-registry.ts`, `sulfur-cube-validation.ts`,
-`sulfur-cube.ts`, `vehicle.ts`, `vitals-experience.ts`, `vitals-health.ts`,
-`vitals-hunger.ts`, `vitals-lifecycle.ts`, `vitals-model.ts`,
-`vitals-number.ts`, `vitals-validation.ts`, `vitals-view.ts`, `vitals.ts`,
-`wither-data.ts`, `wither.ts`
+`entity-attributes.ts`, `entity-type-data.ts`, `entity-type.ts`,
+`entity-types.ts`, `entity.ts`, `explosion-data.ts`, `explosion.ts`,
+`portal-frame.ts`, `portal.ts`, `primed-tnt-data.ts`, `primed-tnt.ts`,
+`projectile-collision.ts`, `projectile.ts`, `status-effect-data.ts`,
+`status-effect-validation.ts`, `status-effect.ts`, `sulfur-cube-data.ts`,
+`sulfur-cube-registry.ts`, `sulfur-cube-validation.ts`, `sulfur-cube.ts`,
+`vehicle.ts`, `wither-data.ts`
 
 ### world (14)
 
@@ -136,16 +136,12 @@ export.
 
 `shared-vocabulary.ts`
 
-<!-- area-inventory:end -->
-
 ## Public subpath to barrel map
 
-The following is the complete mapping. Every right-hand path is an
-implemented leaf barrel in the corresponding area.
+Rows follow the order of package subpaths in `package.json`'s `exports` map.
 
-| subpath | implemented barrel |
+| subpath | implemented barrel (relative to `src/domain/`) |
 | --- | --- |
-| `./domain/anvil` | `item/_anvil.ts` |
 | `./domain/block-break-speed` | `block/_block-break-speed.ts` |
 | `./domain/block-capabilities` | `block/_block-capabilities.ts` |
 | `./domain/block-definition` | `block/_block-definition.ts` |
@@ -153,7 +149,6 @@ implemented leaf barrel in the corresponding area.
 | `./domain/block-item` | `block/_block-item.ts` |
 | `./domain/block-properties` | `block/_block-properties.ts` |
 | `./domain/block-support` | `block/_block-support.ts` |
-| `./domain/domain-event` | `event/_domain-event.ts` |
 | `./domain/camera` | `presentation/_camera.ts` |
 | `./domain/camera-pose` | `presentation/_camera-pose.ts` |
 | `./domain/block-registry` | `block/_block-registry.ts` |
@@ -185,13 +180,10 @@ implemented leaf barrel in the corresponding area.
 | `./domain/sulfur-cube-registry` | `entity/_sulfur-cube-registry.ts` |
 | `./domain/equipment` | `item/_equipment.ts` |
 | `./domain/enchantment` | `item/_enchantment.ts` |
-| `./domain/enchantment-table` | `item/_enchantment-table.ts` |
-| `./domain/grindstone` | `item/_grindstone.ts` |
 | `./domain/identifiers` | `text/_identifiers.ts` |
 | `./domain/explosion` | `entity/_explosion.ts` |
 | `./domain/fluid` | `block/_fluid.ts` |
 | `./domain/fluid-update` | `block/_fluid-update.ts` |
-| `./domain/food` | `item/_food.ts` |
 | `./domain/consumable` | `item/_consumable.ts` |
 | `./domain/use-cooldown` | `item/_use-cooldown.ts` |
 | `./domain/frame` | `time/_frame.ts` |
@@ -208,9 +200,6 @@ implemented leaf barrel in the corresponding area.
 | `./domain/item-stack` | `item/_item-stack.ts` |
 | `./domain/item-registry` | `item/_item-registry.ts` |
 | `./domain/item-type` | `item/_item-type.ts` |
-| `./domain/module-contracts` | `module-contracts/_module-contracts.ts` |
-| `./domain/inventory` | `item/_inventory.ts` |
-| `./domain/hotbar` | `item/_hotbar.ts` |
 | `./domain/quantities` | `time/_quantities.ts` |
 | `./domain/recipe` | `recipe/_recipe.ts` |
 | `./domain/recipe-json` | `recipe/_recipe-json.ts` |
@@ -223,55 +212,43 @@ implemented leaf barrel in the corresponding area.
 | `./domain/redstone-network` | `block/_redstone-network.ts` |
 | `./domain/redstone-update` | `block/_redstone-update.ts` |
 | `./domain/settings` | `text/_settings.ts` |
-| `./domain/save-slices` | `save-slices/_save-slices.ts` |
-| `./domain/shared-vocabulary` | `shared-vocabulary/_shared-vocabulary.ts` |
 | `./domain/statistics` | `text/_statistics.ts` |
 | `./domain/time-of-day` | `time/_time-of-day.ts` |
 | `./domain/tool-component` | `item/_tool-component.ts` |
 | `./domain/weapon` | `item/_weapon.ts` |
-| `./domain/vitals` | `entity/_vitals.ts` |
 | `./domain/vehicle` | `entity/_vehicle.ts` |
 | `./domain/weather` | `world/_weather.ts` |
+| `./domain/domain-event` | `event/_domain-event.ts` |
+| `./domain/module-contracts` | `module-contracts/_module-contracts.ts` |
+| `./domain/save-slices` | `save-slices/_save-slices.ts` |
+| `./domain/shared-vocabulary` | `shared-vocabulary/_shared-vocabulary.ts` |
 | `./domain/world-write-port` | `world/_world-write-port.ts` |
-| `./domain/wither` | `entity/_wither.ts` |
 
-## Dependency direction and exceptions
+## Cross-area imports
 
-The preferred dependency layers are `coordinates`, then `time` and `text`, then
-`item`, `recipe`, `block`, `entity`, and `world`. `time` and `text` are separate
-areas at the same layer. The arrows below use `A <- B` to mean `B` imports `A`.
-`presentation` consumes foundational contracts. These arrows describe module
-imports, not runtime package dependencies.
+In these edge lists, `A <- B` means B imports A; `A -> B` means A imports B.
+These are TypeScript module edges, not runtime package dependencies.
 
-The following observed cross-area edges are compatible with the preferred
-direction. This list is not exhaustive; an unlisted edge should not be treated
-as proof that no such import exists:
+To produce this dependency snapshot, scan relative module specifiers in every
+`.ts` file under `src/domain` (imports, re-exports, dynamic imports, and import
+types), resolve each specifier to its source file, and group the importing and
+imported files by area. Same-area edges and external dependencies are excluded.
+The pairs below were observed in the current source. This snapshot is not
+checked by `test/area-map.test.ts`; refresh it when relative module specifiers
+change. Pairs are grouped by imported area:
 
-- `coordinates <- block, entity, presentation, world`
-- `time <- item, recipe, block, entity, presentation`
-- `text <- item, recipe, block, entity, presentation`
-- `item <- recipe, block, entity, world`
+- `block <- entity, item, shared-vocabulary, world`
+- `coordinates <- block, entity, presentation, shared-vocabulary, world`
+- `entity <- item, shared-vocabulary`
+- `item <- block, recipe, shared-vocabulary, world`
+- `module-contracts <- save-slices, time`
 - `recipe <- block, world`
-- `block <- entity, world`
+- `save-slices <- time`
+- `shared-vocabulary <- event, module-contracts, world`
+- `text <- block, entity, item, recipe, shared-vocabulary, time, world`
+- `time <- block, entity, item, presentation, shared-vocabulary`
+- `world <- block, entity, item, recipe`
 
-The shared contracts add cross-area edges across these layers. The links from
-`shared-vocabulary` to existing domain areas below are type-only; `event`,
-`module-contracts`, and `world` also consume its runtime schemas. The following
-reverse or lateral imports are current and remain visible in the source-level
-dependency graph:
-
-- `world <- block`: crop rules use dimension data; light uses chunk data.
-- `world <- entity`: damage/status tables use generated vanilla data; vehicles use dimensions; sulfur-cube registry uses data-pack registry.
-- `entity <- item`: food, item components, and combat validation use status/damage/vitals vocabulary.
-- `world <- item`: enchantment data uses generated vanilla tables; enchantment-table uses random source.
-- `world <- recipe`: recipe matching/registry use tag membership and data-pack registry.
-- `text <- time`: clock/frame contracts consume quantities and identifiers.
-- `coordinates <- shared-vocabulary`: block position reuses coordinate primitives.
-- `entity <- shared-vocabulary`: entity IDs reuse the existing entity brand.
-- `item <- shared-vocabulary`: item IDs reuse the item registry brand.
-- `text <- shared-vocabulary`: world IDs reuse the existing identifier brand.
-- `time <- shared-vocabulary`: simulation ticks reuse the time brand.
-- `block <- shared-vocabulary`: block IDs reuse the registry brand.
-- `shared-vocabulary <- event, module-contracts, world`: the event schema, module contracts, and world write port consume shared schemas.
-- `module-contracts <- save-slices, time`: save registrations depend on module IDs, and frame contracts include module metadata.
-- `save-slices <- time`: frame contracts include save-slice registrations.
+`shared-vocabulary` imports existing domain brands and primitives by type.
+`event`, `module-contracts`, and `world` import its runtime schemas; these
+edges appear in the snapshot above.
