@@ -7,19 +7,19 @@ remains a single package.
 
 ## Scope and invariant
 
-The inventory lists 210 implementation and data files under `src/domain`,
+The inventory lists 215 implementation and data files under `src/domain`,
 excluding leaf barrels and area index barrels. The completeness test checks
-that each appears exactly once. The public map below covers the 84 remaining
+that each appears exactly once. The public map below covers the 89 current
 package subpaths and their leaf barrels.
 
 ## Areas
 
-The implemented layout has nine area directories. A public entry point has
+The implemented layout has thirteen area directories. A public entry point has
 one leaf barrel inside its area (`<area>/_<subpath>.ts`); internal data,
 validation, and implementation files stay beside that leaf barrel. Thus each
 public subpath has one leaf barrel. Each area has an index
 barrel at `src/domain/<area>/index.ts`, and `src/index.ts` re-exports through
-those nine barrels. The area directory itself is not an additional public
+those thirteen barrels. The area directory itself is not an additional public
 export.
 
 <!-- area-inventory:begin -->
@@ -97,12 +97,12 @@ export.
 `vitals-number.ts`, `vitals-validation.ts`, `vitals-view.ts`, `vitals.ts`,
 `wither-data.ts`, `wither.ts`
 
-### world (13)
+### world (14)
 
 `biome-data.ts`, `biome-validation.ts`, `biome.ts`, `chunk.ts`,
 `data-pack-registry.ts`, `dimension.ts`, `heightmap.ts`, `random-source.ts`,
 `tag-membership-data.ts`, `tag-membership.ts`, `vanilla-26-3-generated.ts`,
-`weather.ts`, `world-read-write.ts`
+`weather.ts`, `world-read-write.ts`, `world-write-port.ts`
 
 ### time (5)
 
@@ -119,6 +119,22 @@ export.
 ### presentation (2)
 
 `camera-pose.ts`, `camera.ts`
+
+### event (1)
+
+`domain-event.ts`
+
+### module-contracts (1)
+
+`module-contracts.ts`
+
+### save-slices (1)
+
+`save-slices.ts`
+
+### shared-vocabulary (1)
+
+`shared-vocabulary.ts`
 
 <!-- area-inventory:end -->
 
@@ -137,6 +153,7 @@ implemented leaf barrel in the corresponding area.
 | `./domain/block-item` | `block/_block-item.ts` |
 | `./domain/block-properties` | `block/_block-properties.ts` |
 | `./domain/block-support` | `block/_block-support.ts` |
+| `./domain/domain-event` | `event/_domain-event.ts` |
 | `./domain/camera` | `presentation/_camera.ts` |
 | `./domain/camera-pose` | `presentation/_camera-pose.ts` |
 | `./domain/block-registry` | `block/_block-registry.ts` |
@@ -191,6 +208,7 @@ implemented leaf barrel in the corresponding area.
 | `./domain/item-stack` | `item/_item-stack.ts` |
 | `./domain/item-registry` | `item/_item-registry.ts` |
 | `./domain/item-type` | `item/_item-type.ts` |
+| `./domain/module-contracts` | `module-contracts/_module-contracts.ts` |
 | `./domain/inventory` | `item/_inventory.ts` |
 | `./domain/hotbar` | `item/_hotbar.ts` |
 | `./domain/quantities` | `time/_quantities.ts` |
@@ -205,6 +223,8 @@ implemented leaf barrel in the corresponding area.
 | `./domain/redstone-network` | `block/_redstone-network.ts` |
 | `./domain/redstone-update` | `block/_redstone-update.ts` |
 | `./domain/settings` | `text/_settings.ts` |
+| `./domain/save-slices` | `save-slices/_save-slices.ts` |
+| `./domain/shared-vocabulary` | `shared-vocabulary/_shared-vocabulary.ts` |
 | `./domain/statistics` | `text/_statistics.ts` |
 | `./domain/time-of-day` | `time/_time-of-day.ts` |
 | `./domain/tool-component` | `item/_tool-component.ts` |
@@ -212,31 +232,46 @@ implemented leaf barrel in the corresponding area.
 | `./domain/vitals` | `entity/_vitals.ts` |
 | `./domain/vehicle` | `entity/_vehicle.ts` |
 | `./domain/weather` | `world/_weather.ts` |
+| `./domain/world-write-port` | `world/_world-write-port.ts` |
 | `./domain/wither` | `entity/_wither.ts` |
 
 ## Dependency direction and exceptions
 
-The intended layer order from foundations to consumers is `coordinates`,
-`time/text`, `item`, `recipe`, `block`, `entity`, then `world`; `presentation`
-consumes foundational contracts. This order is not an import direction. In
-edge lists, `A <- B` means B imports A; `A -> B` means A imports B. These are
-TypeScript module edges, not runtime package dependencies. The `time/text`
-label groups target areas; a listed importer may depend on either or both.
+The preferred dependency layers are `coordinates`, then `time` and `text`, then
+`item`, `recipe`, `block`, `entity`, and `world`. `time` and `text` are separate
+areas at the same layer. The arrows below use `A <- B` to mean `B` imports `A`.
+`presentation` consumes foundational contracts. These arrows describe module
+imports, not runtime package dependencies.
 
-The observed cross-area edges that are compatible with the direction are:
+The following observed cross-area edges are compatible with the preferred
+direction. This list is not exhaustive; an unlisted edge should not be treated
+as proof that no such import exists:
 
 - `coordinates <- block, entity, presentation, world`
-- `time/text <- item, recipe, block, entity, presentation`
+- `time <- item, recipe, block, entity, presentation`
+- `text <- item, recipe, block, entity, presentation`
 - `item <- recipe, block, entity, world`
 - `recipe <- block, world`
 - `block <- entity, world`
 
-The following current imports are reverse or lateral edges and remain outside
-this map's scope:
+The shared contracts add cross-area edges across these layers. The links from
+`shared-vocabulary` to existing domain areas below are type-only; `event`,
+`module-contracts`, and `world` also consume its runtime schemas. The following
+reverse or lateral imports are current and remain visible in the source-level
+dependency graph:
 
-- `block -> world`: crop rules use dimension data; light uses chunk data.
-- `entity -> world`: damage/status tables use generated vanilla data; vehicles use dimensions; sulfur-cube registry uses data-pack registry.
-- `item -> entity`: food, item components, and combat validation use status/damage/vitals vocabulary.
-- `item -> world`: enchantment data uses generated vanilla tables; enchantment-table uses random source.
-- `recipe -> world`: the recipe registry uses the data-pack registry.
-- `time -> text`: clock/frame contracts consume quantities and identifiers.
+- `world <- block`: crop rules use dimension data; light uses chunk data.
+- `world <- entity`: damage/status tables use generated vanilla data; vehicles use dimensions; sulfur-cube registry uses data-pack registry.
+- `entity <- item`: food, item components, and combat validation use status/damage/vitals vocabulary.
+- `world <- item`: enchantment data uses generated vanilla tables; enchantment-table uses random source.
+- `world <- recipe`: recipe matching/registry use tag membership and data-pack registry.
+- `text <- time`: clock/frame contracts consume quantities and identifiers.
+- `coordinates <- shared-vocabulary`: block position reuses coordinate primitives.
+- `entity <- shared-vocabulary`: entity IDs reuse the existing entity brand.
+- `item <- shared-vocabulary`: item IDs reuse the item registry brand.
+- `text <- shared-vocabulary`: world IDs reuse the existing identifier brand.
+- `time <- shared-vocabulary`: simulation ticks reuse the time brand.
+- `block <- shared-vocabulary`: block IDs reuse the registry brand.
+- `shared-vocabulary <- event, module-contracts, world`: the event schema, module contracts, and world write port consume shared schemas.
+- `module-contracts <- save-slices, time`: save registrations depend on module IDs, and frame contracts include module metadata.
+- `save-slices <- time`: frame contracts include save-slice registrations.
