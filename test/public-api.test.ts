@@ -20,21 +20,18 @@ import * as dimensionModule from "../src/domain/world/dimension";
 import * as entityModule from "../src/domain/entity/entity";
 import * as sulfurCubeModule from "../src/domain/entity/sulfur-cube";
 import * as sulfurCubeRegistryModule from "../src/domain/entity/sulfur-cube-registry";
+import * as anvilPrimitivesModule from "../src/domain/item/anvil-primitives";
 import * as enchantmentModule from "../src/domain/item/enchantment";
-import * as enchantmentTableModule from "../src/domain/item/enchantment-table";
 import * as fluidModule from "../src/domain/block/fluid";
 import * as fluidUpdateModule from "../src/domain/block/fluid-update";
-import * as foodModule from "../src/domain/item/food";
+import * as foodModule from "../src/domain/item/food-data";
 import * as consumableModule from "../src/domain/item/consumable";
 import * as useCooldownModule from "../src/domain/item/use-cooldown";
-import * as grindstoneModule from "../src/domain/item/grindstone";
-import * as equipmentModule from "../src/domain/item/equipment";
+import * as equipmentModule from "../src/domain/item/equipment-data";
 import * as frameTimingModule from "../src/domain/time/frame-timing";
 import * as timeOfDayModule from "../src/domain/time/time-of-day";
-import * as vitalsModule from "../src/domain/entity/vitals";
 import * as vehicleModule from "../src/domain/entity/vehicle";
 import * as weatherModule from "../src/domain/world/weather";
-import * as witherModule from "../src/domain/entity/wither";
 import * as identifiersModule from "../src/domain/text/identifiers";
 import * as jsonValueModule from "../src/domain/text/json-value";
 import { ITEM_REGISTRY, itemIdOf } from "../src/domain/item/item-registry";
@@ -50,8 +47,6 @@ import * as itemEnchantmentsModule from "../src/domain/item/item-enchantments";
 import * as itemStackModule from "../src/domain/item/item-stack";
 import * as toolComponentModule from "../src/domain/item/tool-component";
 import * as weaponModule from "../src/domain/item/weapon";
-import * as inventoryModule from "../src/domain/item/inventory";
-import * as hotbarModule from "../src/domain/item/hotbar";
 import * as quantitiesModule from "../src/domain/time/quantities";
 import * as recipeModule from "../src/domain/recipe/recipe";
 import * as recipeJsonModule from "../src/domain/recipe/recipe-json";
@@ -463,48 +458,12 @@ describe("public API surface", () => {
           "mergeItemStacks",
           "applyItemComponentPatch",
           "TransferQuantity",
-          // Fixed player inventory value operations
-          "INVENTORY_SLOT_COUNT",
-          "emptyInventory",
-          "slotAt",
-          "countOf",
-          "isInventoryEmpty",
-          "addItemStack",
-          "addItem",
-          "removeItemAt",
-          "removeItem",
-          "normaliseInventory",
-          // Hotbar selection projection
-          "HOTBAR_SIZE",
-          "HOTBAR_START",
-          "isHotbarIndex",
-          "clampHotbarIndex",
-          "cycleHotbarIndex",
-          "hotbarSlotIndex",
-          // Equipment data, validation, and pure slot operations
+          // Equipment data and durability catalog
           "EQUIPMENT_SLOTS",
           "EQUIPMENT_CATALOG",
           "ITEM_DURABILITY_CATALOG",
-          "isEquippableItemType",
-          "equipmentDefinitionFor",
-          "isDamageableItemType",
           "itemDurabilityDefinitionFor",
-          "isEquipmentSlot",
-          "isDurability",
-          "isValidDurabilityForItem",
-          "isEquipmentItem",
-          "isEquipmentItemForSlot",
-          "durabilityForItem",
-          "durability",
-          "equipmentItem",
-          "emptyEquipment",
-          "equippedAt",
-          "equip",
-          "unequip",
-          "swapEquipment",
-          "damageEquipment",
-          "validateEquipmentSnapshot",
-          // Pure vanilla enchantment data and anvil composition.
+          // Pure vanilla enchantment data and anvil rule sets.
           "SUPPORTED_VANILLA_ENCHANTMENT_IDS",
           "VANILLA_ENCHANTMENT_COSTS",
           "SUPPORTED_VANILLA_BOOK_ENCHANTMENT_RULES",
@@ -513,31 +472,6 @@ describe("public API surface", () => {
           "SUPPORTED_VANILLA_BOOK_ANVIL_RULE_SET",
           "SUPPORTED_VANILLA_ITEM_ANVIL_RULE_SET",
           "SUPPORTED_VANILLA_ANVIL_RULE_SET",
-          "isSupportedVanillaEnchantmentId",
-          "enchantmentRuleFor",
-          "enchantmentAppliesTo",
-          "enchantmentsConflict",
-          "planVanillaAnvil",
-          "applyVanillaAnvil",
-          // Pure vanilla enchanting-table data and offer generation.
-          "ENCHANTMENT_TABLE_BOOK",
-          "ENCHANTMENT_TABLE_MAX_BOOKSHELVES",
-          "ENCHANTMENT_TABLE_SLOT_COUNT",
-          "VANILLA_ENCHANTMENT_TABLE_RULES",
-          "ENCHANTMENT_TABLE_ITEM_ENMERCHANTABILITY",
-          "isEnchantmentTableRuleId",
-          "enchantmentTableRuleFor",
-          "itemEnchantabilityOf",
-          "enchantmentTableCostAtLevel",
-          "calculateEnchantmentTableLevelCost",
-          "generateEnchantmentTableOffers",
-          "enchantmentTableOutputItemOf",
-          // Pure vanilla grindstone composition and curse preservation.
-          "GRINDSTONE_CURSE_ENCHANTMENT_IDS",
-          "GRINDSTONE_DURABILITY_BONUS_PERCENT",
-          "GRINDSTONE_REPAIR_COST_MAX",
-          "grindstoneExperienceFor",
-          "planGrindstone",
           "MAX_RECIPE_SIDE",
           "exactly",
           "tagged",
@@ -568,7 +502,7 @@ describe("public API surface", () => {
           // Pure crop and dimension data and logic
           "DIMENSIONS",
           "isDimension",
-          // Pure entity vocabulary, lifecycle operations, and roster repair
+          // Entity identity brands and retained roster values
           "EntityId",
           "EntityKind",
           "isEntityId",
@@ -578,16 +512,6 @@ describe("public API surface", () => {
           "serialOfEntityId",
           "NO_ENTITIES",
           "repairState",
-          "emptyRoster",
-          "spawnEntity",
-          "despawnEntity",
-          "findEntity",
-          "countOfKind",
-          "UNCHANGED",
-          "DESPAWNED",
-          "changed",
-          "sweepRoster",
-          "normaliseRoster",
           "ENTITY_ATTRIBUTE_DEFINITIONS",
           "ENTITY_ATTRIBUTE_NAMES",
           "DEFAULT_ENTITY_ATTRIBUTES",
@@ -654,13 +578,10 @@ describe("public API surface", () => {
           "fluidStateFromWorld",
           "canFluidReplace",
           "updateFluids",
-          // Pure food data and consumption logic
+          // Pure food data
           "FOOD_DEFINITION_BY_ITEM",
           "VANILLA_FOOD_DEFINITIONS",
           "foodDefinitionOf",
-          "canEatFood",
-          "foodRemainderOf",
-          "consumeFood",
           "CONSUMABLE_ANIMATIONS",
           "DEFAULT_CONSUMABLE_COMPONENT",
           "consumableApplyEffects",
@@ -778,22 +699,12 @@ describe("public API surface", () => {
           "bedrockDiggerUsesEfficiency",
           "resolveBedrockDestructionSeconds",
           "resolveBedrockItemSpecificDestroySpeed",
-          // Deterministic anvil planning, application, and persistence boundary
-          "ANVIL_SNAPSHOT_VERSION",
-          "ANVIL_TOO_EXPENSIVE_LEVEL",
-          "ANVIL_REPAIR_BONUS_RATIO",
-          "ANVIL_MAX_CUSTOM_NAME_LENGTH",
+          // Retained anvil brand constructors and constants
           "AnvilEnchantmentId",
           "AnvilCustomName",
           "AnvilMaterialCost",
-          "AnvilSnapshotString",
-          "snapshotAnvilState",
-          "decodeAnvilSnapshot",
-          "encodeAnvilSnapshot",
-          "decodeAnvilSnapshotString",
-          "nextAnvilRepairCost",
-          "planAnvil",
-          "applyAnvil",
+          "ANVIL_TOO_EXPENSIVE_LEVEL",
+          "ANVIL_REPAIR_BONUS_RATIO",
           // The block -> item bridge (audit §6-8's intersection, derived)
           "PLACEABLE_ITEM_TYPES",
           "NON_PLACEABLE_ITEM_TYPES",
@@ -941,52 +852,11 @@ describe("public API surface", () => {
           "isWeather",
           "isValidWeatherState",
           "normaliseWeatherState",
-          // Pure player vitals model and calculations
-          "DEFAULT_MAX_HEALTH_POINTS",
-          "DEFAULT_MAX_HUNGER_POINTS",
-          "SPAWN_SATURATION",
-          "EXHAUSTION_PER_POINT",
-          "MAX_EXHAUSTION",
-          "FOOD_TICK_SECS",
-          "REGEN_HUNGER_THRESHOLD",
-          "EXHAUSTION_PER_REGEN",
-          "SPAWN_VITALS",
-          "isDead",
-          "applyDamage",
-          "heal",
-          "addExhaustion",
-          "eat",
-          "advanceFoodTimer",
-          "experienceCostOfLevel",
-          "totalExperienceAtLevel",
-          "levelForTotalExperience",
-          "experienceLevel",
-          "experienceProgress",
-          "addExperience",
-          "respawn",
-          "isValidVitals",
-          "normaliseVitals",
-          "vitalsView",
-          // Pure vehicle vocabulary and snapshot validation
+          // Pure vehicle vocabulary
           "VEHICLE_TYPES",
           "isVehicleType",
           "VehicleId",
           "OccupantId",
-          "validateVehicleSnapshot",
-          "emptyVehicleSnapshot",
-          "WITHER_MAX_HEALTH",
-          "WITHER_SPAWN_CHARGE_SECS",
-          "WITHER_ARMOUR_THRESHOLD",
-          "WITHER_REGEN_PER_SEC",
-          "WITHER_FOLLOW_ACCELERATION",
-          "WITHER_MAX_SPEED",
-          "createWither",
-          "stepWither",
-          "damageWither",
-          "witherSkullProjectile",
-          "matchWitherSummon",
-          "serializeWither",
-          "restoreWither",
         ];
 
         for (const name of expected) {
@@ -1058,26 +928,6 @@ describe("public API surface", () => {
         expect(kernel.TransferQuantity).toBe(
           quantitiesModule.TransferQuantity,
         );
-        expect(kernel.INVENTORY_SLOT_COUNT).toBe(
-          inventoryModule.INVENTORY_SLOT_COUNT,
-        );
-        expect(kernel.emptyInventory).toBe(inventoryModule.emptyInventory);
-        expect(kernel.slotAt).toBe(inventoryModule.slotAt);
-        expect(kernel.countOf).toBe(inventoryModule.countOf);
-        expect(kernel.isInventoryEmpty).toBe(inventoryModule.isInventoryEmpty);
-        expect(kernel.addItem).toBe(inventoryModule.addItem);
-        expect(kernel.addItemStack).toBe(inventoryModule.addItemStack);
-        expect(kernel.removeItemAt).toBe(inventoryModule.removeItemAt);
-        expect(kernel.removeItem).toBe(inventoryModule.removeItem);
-        expect(kernel.normaliseInventory).toBe(
-          inventoryModule.normaliseInventory,
-        );
-        expect(kernel.HOTBAR_SIZE).toBe(hotbarModule.HOTBAR_SIZE);
-        expect(kernel.HOTBAR_START).toBe(hotbarModule.HOTBAR_START);
-        expect(kernel.isHotbarIndex).toBe(hotbarModule.isHotbarIndex);
-        expect(kernel.clampHotbarIndex).toBe(hotbarModule.clampHotbarIndex);
-        expect(kernel.cycleHotbarIndex).toBe(hotbarModule.cycleHotbarIndex);
-        expect(kernel.hotbarSlotIndex).toBe(hotbarModule.hotbarSlotIndex);
         expect(kernel.TagLocation).toBe(identifiersModule.TagLocation);
         expect(kernel.UUID).toBe(identifiersModule.UUID);
         expect(kernel.ResourceLocation).toBe(
@@ -1560,33 +1410,18 @@ describe("public API surface", () => {
         expect(kernel.ITEM_DURABILITY_CATALOG).toBe(
           equipmentModule.ITEM_DURABILITY_CATALOG,
         );
-        expect(kernel.equip).toBe(equipmentModule.equip);
-        expect(kernel.damageEquipment).toBe(equipmentModule.damageEquipment);
         expect(kernel.SUPPORTED_VANILLA_ANVIL_RULE_SET).toBe(
           enchantmentModule.SUPPORTED_VANILLA_ANVIL_RULE_SET,
         );
-        expect(kernel.planVanillaAnvil).toBe(
-          enchantmentModule.planVanillaAnvil,
+        expect(kernel.AnvilEnchantmentId).toBe(
+          anvilPrimitivesModule.AnvilEnchantmentId,
         );
-        expect(kernel.generateEnchantmentTableOffers).toBe(
-          enchantmentTableModule.generateEnchantmentTableOffers,
+        expect(kernel.AnvilCustomName).toBe(
+          anvilPrimitivesModule.AnvilCustomName,
         );
-        expect(kernel.VANILLA_ENCHANTMENT_TABLE_RULES).toBe(
-          enchantmentTableModule.VANILLA_ENCHANTMENT_TABLE_RULES,
+        expect(kernel.AnvilMaterialCost).toBe(
+          anvilPrimitivesModule.AnvilMaterialCost,
         );
-        expect(kernel.GRINDSTONE_CURSE_ENCHANTMENT_IDS).toBe(
-          grindstoneModule.GRINDSTONE_CURSE_ENCHANTMENT_IDS,
-        );
-        expect(kernel.GRINDSTONE_DURABILITY_BONUS_PERCENT).toBe(
-          grindstoneModule.GRINDSTONE_DURABILITY_BONUS_PERCENT,
-        );
-        expect(kernel.GRINDSTONE_REPAIR_COST_MAX).toBe(
-          grindstoneModule.GRINDSTONE_REPAIR_COST_MAX,
-        );
-        expect(kernel.grindstoneExperienceFor).toBe(
-          grindstoneModule.grindstoneExperienceFor,
-        );
-        expect(kernel.planGrindstone).toBe(grindstoneModule.planGrindstone);
         expect(kernel.MIN_FRAME_DELTA_SECS).toBe(
           frameTimingModule.MIN_FRAME_DELTA_SECS,
         );
@@ -1680,80 +1515,14 @@ describe("public API surface", () => {
         expect(kernel.normaliseWeatherState).toBe(
           weatherModule.normaliseWeatherState,
         );
-        expect(kernel.DEFAULT_MAX_HEALTH_POINTS).toBe(
-          vitalsModule.DEFAULT_MAX_HEALTH_POINTS,
-        );
-        expect(kernel.DEFAULT_MAX_HUNGER_POINTS).toBe(
-          vitalsModule.DEFAULT_MAX_HUNGER_POINTS,
-        );
-        expect(kernel.SPAWN_SATURATION).toBe(vitalsModule.SPAWN_SATURATION);
-        expect(kernel.EXHAUSTION_PER_POINT).toBe(
-          vitalsModule.EXHAUSTION_PER_POINT,
-        );
-        expect(kernel.MAX_EXHAUSTION).toBe(vitalsModule.MAX_EXHAUSTION);
-        expect(kernel.FOOD_TICK_SECS).toBe(vitalsModule.FOOD_TICK_SECS);
-        expect(kernel.REGEN_HUNGER_THRESHOLD).toBe(
-          vitalsModule.REGEN_HUNGER_THRESHOLD,
-        );
-        expect(kernel.EXHAUSTION_PER_REGEN).toBe(
-          vitalsModule.EXHAUSTION_PER_REGEN,
-        );
-        expect(kernel.SPAWN_VITALS).toBe(vitalsModule.SPAWN_VITALS);
-        expect(kernel.isDead).toBe(vitalsModule.isDead);
-        expect(kernel.applyDamage).toBe(vitalsModule.applyDamage);
-        expect(kernel.heal).toBe(vitalsModule.heal);
-        expect(kernel.addExhaustion).toBe(vitalsModule.addExhaustion);
-        expect(kernel.eat).toBe(vitalsModule.eat);
-        expect(kernel.advanceFoodTimer).toBe(vitalsModule.advanceFoodTimer);
-        expect(kernel.experienceCostOfLevel).toBe(
-          vitalsModule.experienceCostOfLevel,
-        );
-        expect(kernel.totalExperienceAtLevel).toBe(
-          vitalsModule.totalExperienceAtLevel,
-        );
-        expect(kernel.levelForTotalExperience).toBe(
-          vitalsModule.levelForTotalExperience,
-        );
-        expect(kernel.experienceLevel).toBe(vitalsModule.experienceLevel);
-        expect(kernel.experienceProgress).toBe(vitalsModule.experienceProgress);
-        expect(kernel.addExperience).toBe(vitalsModule.addExperience);
-        expect(kernel.respawn).toBe(vitalsModule.respawn);
-        expect(kernel.isValidVitals).toBe(vitalsModule.isValidVitals);
-        expect(kernel.normaliseVitals).toBe(vitalsModule.normaliseVitals);
-        expect(kernel.vitalsView).toBe(vitalsModule.vitalsView);
         expect(kernel.VEHICLE_TYPES).toBe(vehicleModule.VEHICLE_TYPES);
         expect(kernel.isVehicleType).toBe(vehicleModule.isVehicleType);
         expect(kernel.VehicleId).toBe(vehicleModule.VehicleId);
         expect(kernel.OccupantId).toBe(vehicleModule.OccupantId);
-        expect(kernel.validateVehicleSnapshot).toBe(
-          vehicleModule.validateVehicleSnapshot,
+        expect(kernel.matchRecipe).toBe(recipeModule.matchRecipe);
+        expect(kernel.matchRecipeWithAssignments).toBe(
+          recipeModule.matchRecipeWithAssignments,
         );
-        expect(kernel.emptyVehicleSnapshot).toBe(
-          vehicleModule.emptyVehicleSnapshot,
-        );
-        expect(kernel.WITHER_MAX_HEALTH).toBe(witherModule.WITHER_MAX_HEALTH);
-        expect(kernel.WITHER_SPAWN_CHARGE_SECS).toBe(
-          witherModule.WITHER_SPAWN_CHARGE_SECS,
-        );
-        expect(kernel.WITHER_ARMOUR_THRESHOLD).toBe(
-          witherModule.WITHER_ARMOUR_THRESHOLD,
-        );
-        expect(kernel.WITHER_REGEN_PER_SEC).toBe(
-          witherModule.WITHER_REGEN_PER_SEC,
-        );
-        expect(kernel.WITHER_FOLLOW_ACCELERATION).toBe(
-          witherModule.WITHER_FOLLOW_ACCELERATION,
-        );
-        expect(kernel.WITHER_MAX_SPEED).toBe(witherModule.WITHER_MAX_SPEED);
-        expect(kernel.createWither).toBe(witherModule.createWither);
-        expect(kernel.stepWither).toBe(witherModule.stepWither);
-        expect(kernel.damageWither).toBe(witherModule.damageWither);
-        expect(kernel.witherSkullProjectile).toBe(
-          witherModule.witherSkullProjectile,
-        );
-        expect(kernel.matchWitherSummon).toBe(witherModule.matchWitherSummon);
-        expect(kernel.serializeWither).toBe(witherModule.serializeWither);
-        expect(kernel.restoreWither).toBe(witherModule.restoreWither);
         expect(kernel.craftingRecipeFromUnknown).toBe(
           recipeJsonModule.craftingRecipeFromUnknown,
         );
@@ -1812,16 +1581,6 @@ describe("public API surface", () => {
         expect(kernel.serialOfEntityId).toBe(entityModule.serialOfEntityId);
         expect(kernel.NO_ENTITIES).toBe(entityModule.NO_ENTITIES);
         expect(kernel.repairState).toBe(entityModule.repairState);
-        expect(kernel.emptyRoster).toBe(entityModule.emptyRoster);
-        expect(kernel.spawnEntity).toBe(entityModule.spawnEntity);
-        expect(kernel.despawnEntity).toBe(entityModule.despawnEntity);
-        expect(kernel.findEntity).toBe(entityModule.findEntity);
-        expect(kernel.countOfKind).toBe(entityModule.countOfKind);
-        expect(kernel.UNCHANGED).toBe(entityModule.UNCHANGED);
-        expect(kernel.DESPAWNED).toBe(entityModule.DESPAWNED);
-        expect(kernel.changed).toBe(entityModule.changed);
-        expect(kernel.sweepRoster).toBe(entityModule.sweepRoster);
-        expect(kernel.normaliseRoster).toBe(entityModule.normaliseRoster);
         expect(kernel.ENTITY_ATTRIBUTE_DEFINITIONS).toBe(
           entityModule.ENTITY_ATTRIBUTE_DEFINITIONS,
         );
@@ -1952,9 +1711,6 @@ describe("public API surface", () => {
           foodModule.VANILLA_FOOD_DEFINITIONS,
         );
         expect(kernel.foodDefinitionOf).toBe(foodModule.foodDefinitionOf);
-        expect(kernel.canEatFood).toBe(foodModule.canEatFood);
-        expect(kernel.foodRemainderOf).toBe(foodModule.foodRemainderOf);
-        expect(kernel.consumeFood).toBe(foodModule.consumeFood);
         expect(kernel.CONSUMABLE_ANIMATIONS).toBe(
           consumableModule.CONSUMABLE_ANIMATIONS,
         );
@@ -2345,7 +2101,6 @@ describe("public API surface", () => {
     Effect.runPromise(
       Effect.promise(async () => {
         const packageRootPath = "@nerima-games/mc-kernel";
-        const anvilPath = "@nerima-games/mc-kernel/domain/anvil";
         const blockBreakSpeedPath =
           "@nerima-games/mc-kernel/domain/block-break-speed";
         const blockCapabilitiesPath =
@@ -2374,9 +2129,6 @@ describe("public API surface", () => {
         const clockPath = "@nerima-games/mc-kernel/domain/clock";
         const equipmentPath = "@nerima-games/mc-kernel/domain/equipment";
         const enchantmentPath = "@nerima-games/mc-kernel/domain/enchantment";
-        const enchantmentTablePath =
-          "@nerima-games/mc-kernel/domain/enchantment-table";
-        const grindstonePath = "@nerima-games/mc-kernel/domain/grindstone";
         const identifiersPath = "@nerima-games/mc-kernel/domain/identifiers";
         const itemComponentsPath =
           "@nerima-games/mc-kernel/domain/item-components";
@@ -2393,8 +2145,6 @@ describe("public API surface", () => {
         const itemStackPath = "@nerima-games/mc-kernel/domain/item-stack";
         const itemRegistryPath = "@nerima-games/mc-kernel/domain/item-registry";
         const itemTypePath = "@nerima-games/mc-kernel/domain/item-type";
-        const inventoryPath = "@nerima-games/mc-kernel/domain/inventory";
-        const hotbarPath = "@nerima-games/mc-kernel/domain/hotbar";
         const quantitiesPath = "@nerima-games/mc-kernel/domain/quantities";
         const recipePath = "@nerima-games/mc-kernel/domain/recipe";
         const cameraPosePath = "@nerima-games/mc-kernel/domain/camera-pose";
@@ -2406,7 +2156,6 @@ describe("public API surface", () => {
           "@nerima-games/mc-kernel/domain/sulfur-cube-registry";
         const fluidPath = "@nerima-games/mc-kernel/domain/fluid";
         const fluidUpdatePath = "@nerima-games/mc-kernel/domain/fluid-update";
-        const foodPath = "@nerima-games/mc-kernel/domain/food";
         const consumablePath = "@nerima-games/mc-kernel/domain/consumable";
         const useCooldownPath = "@nerima-games/mc-kernel/domain/use-cooldown";
         const portalPath = "@nerima-games/mc-kernel/domain/portal";
@@ -2424,13 +2173,10 @@ describe("public API surface", () => {
           "@nerima-games/mc-kernel/domain/tool-component";
         const weaponPath = "@nerima-games/mc-kernel/domain/weapon";
         const timeOfDayPath = "@nerima-games/mc-kernel/domain/time-of-day";
-        const vitalsPath = "@nerima-games/mc-kernel/domain/vitals";
         const vehiclePath = "@nerima-games/mc-kernel/domain/vehicle";
         const weatherPath = "@nerima-games/mc-kernel/domain/weather";
-        const witherPath = "@nerima-games/mc-kernel/domain/wither";
         const [
           packageRoot,
-          anvilSubpath,
           blockBreakSpeedSubpath,
           blockCapabilitiesSubpath,
           blockDefinitionSubpath,
@@ -2451,8 +2197,6 @@ describe("public API surface", () => {
           clockSubpath,
           equipmentSubpath,
           enchantmentSubpath,
-          enchantmentTableSubpath,
-          grindstoneSubpath,
           identifiersSubpath,
           itemComponentsSubpath,
           itemComponentValuesSubpath,
@@ -2461,8 +2205,6 @@ describe("public API surface", () => {
           itemStackSubpath,
           itemRegistrySubpath,
           itemTypeSubpath,
-          inventorySubpath,
-          hotbarSubpath,
           quantitiesSubpath,
           recipeSubpath,
           cameraPoseSubpath,
@@ -2473,7 +2215,6 @@ describe("public API surface", () => {
           sulfurCubeRegistrySubpath,
           fluidSubpath,
           fluidUpdateSubpath,
-          foodSubpath,
           consumableSubpath,
           useCooldownSubpath,
           portalSubpath,
@@ -2488,13 +2229,10 @@ describe("public API surface", () => {
           toolComponentSubpath,
           weaponSubpath,
           timeOfDaySubpath,
-          vitalsSubpath,
           vehicleSubpath,
           weatherSubpath,
-          witherSubpath,
         ] = await Promise.all([
           import(packageRootPath),
-          import(anvilPath),
           import(blockBreakSpeedPath),
           import(blockCapabilitiesPath),
           import(blockDefinitionPath),
@@ -2515,8 +2253,6 @@ describe("public API surface", () => {
           import(clockPath),
           import(equipmentPath),
           import(enchantmentPath),
-          import(enchantmentTablePath),
-          import(grindstonePath),
           import(identifiersPath),
           import(itemComponentsPath),
           import(itemComponentValuesPath),
@@ -2525,8 +2261,6 @@ describe("public API surface", () => {
           import(itemStackPath),
           import(itemRegistryPath),
           import(itemTypePath),
-          import(inventoryPath),
-          import(hotbarPath),
           import(quantitiesPath),
           import(recipePath),
           import(cameraPosePath),
@@ -2537,7 +2271,6 @@ describe("public API surface", () => {
           import(sulfurCubeRegistryPath),
           import(fluidPath),
           import(fluidUpdatePath),
-          import(foodPath),
           import(consumablePath),
           import(useCooldownPath),
           import(portalPath),
@@ -2552,10 +2285,8 @@ describe("public API surface", () => {
           import(toolComponentPath),
           import(weaponPath),
           import(timeOfDayPath),
-          import(vitalsPath),
           import(vehiclePath),
           import(weatherPath),
-          import(witherPath),
         ]);
         const itemAttributeModifiersSubpath = await import(
           itemAttributeModifiersPath
@@ -2563,11 +2294,6 @@ describe("public API surface", () => {
         const itemEnchantmentsSubpath = await import(itemEnchantmentsPath);
         const textComponentSubpath = await import(textComponentPath);
 
-        expect(anvilSubpath.planAnvil).toBe(packageRoot.planAnvil);
-        expect(anvilSubpath.applyAnvil).toBe(packageRoot.applyAnvil);
-        expect(anvilSubpath.ANVIL_SNAPSHOT_VERSION).toBe(
-          packageRoot.ANVIL_SNAPSHOT_VERSION,
-        );
         expect(blockBreakSpeedSubpath.computeBreakTicks).toBe(
           packageRoot.computeBreakTicks,
         );
@@ -2694,33 +2420,17 @@ describe("public API surface", () => {
         expect(clockSubpath.ClockPort).toBe(packageRoot.ClockPort);
         expect(clockSubpath.fixedClock).toBe(packageRoot.fixedClock);
         expect(clockSubpath.FixedClockLayer).toBe(packageRoot.FixedClockLayer);
-        expect(equipmentSubpath.equip).toBe(packageRoot.equip);
         expect(equipmentSubpath.EQUIPMENT_CATALOG).toBe(
           packageRoot.EQUIPMENT_CATALOG,
         );
         expect(equipmentSubpath.ITEM_DURABILITY_CATALOG).toBe(
           packageRoot.ITEM_DURABILITY_CATALOG,
         );
-        expect(enchantmentSubpath.planVanillaAnvil).toBe(
-          packageRoot.planVanillaAnvil,
+        expect(equipmentSubpath.itemDurabilityDefinitionFor).toBe(
+          packageRoot.itemDurabilityDefinitionFor,
         );
         expect(enchantmentSubpath.SUPPORTED_VANILLA_ENCHANTMENT_IDS).toBe(
           packageRoot.SUPPORTED_VANILLA_ENCHANTMENT_IDS,
-        );
-        expect(enchantmentTableSubpath.generateEnchantmentTableOffers).toBe(
-          packageRoot.generateEnchantmentTableOffers,
-        );
-        expect(enchantmentTableSubpath.VANILLA_ENCHANTMENT_TABLE_RULES).toBe(
-          packageRoot.VANILLA_ENCHANTMENT_TABLE_RULES,
-        );
-        expect(grindstoneSubpath.grindstoneExperienceFor).toBe(
-          packageRoot.grindstoneExperienceFor,
-        );
-        expect(grindstoneSubpath.planGrindstone).toBe(
-          packageRoot.planGrindstone,
-        );
-        expect(grindstoneSubpath.GRINDSTONE_CURSE_ENCHANTMENT_IDS).toBe(
-          packageRoot.GRINDSTONE_CURSE_ENCHANTMENT_IDS,
         );
         expect(identifiersSubpath.WorldId).toBe(packageRoot.WorldId);
         expect(identifiersSubpath.StageId).toBe(packageRoot.StageId);
@@ -3049,28 +2759,6 @@ describe("public API surface", () => {
         expect(itemRegistrySubpath.encodeItemId).toBe(packageRoot.encodeItemId);
         expect(itemTypeSubpath.ITEM_TYPES).toBe(packageRoot.ITEM_TYPES);
         expect(itemTypeSubpath.isItemType).toBe(packageRoot.isItemType);
-        expect(inventorySubpath.INVENTORY_SLOT_COUNT).toBe(
-          packageRoot.INVENTORY_SLOT_COUNT,
-        );
-        expect(inventorySubpath.emptyInventory).toBe(
-          packageRoot.emptyInventory,
-        );
-        expect(inventorySubpath.addItem).toBe(packageRoot.addItem);
-        expect(inventorySubpath.removeItemAt).toBe(packageRoot.removeItemAt);
-        expect(inventorySubpath.removeItem).toBe(packageRoot.removeItem);
-        expect(inventorySubpath.normaliseInventory).toBe(
-          packageRoot.normaliseInventory,
-        );
-        expect(hotbarSubpath.HOTBAR_SIZE).toBe(packageRoot.HOTBAR_SIZE);
-        expect(hotbarSubpath.HOTBAR_START).toBe(packageRoot.HOTBAR_START);
-        expect(hotbarSubpath.isHotbarIndex).toBe(packageRoot.isHotbarIndex);
-        expect(hotbarSubpath.clampHotbarIndex).toBe(
-          packageRoot.clampHotbarIndex,
-        );
-        expect(hotbarSubpath.cycleHotbarIndex).toBe(
-          packageRoot.cycleHotbarIndex,
-        );
-        expect(hotbarSubpath.hotbarSlotIndex).toBe(packageRoot.hotbarSlotIndex);
         expect(quantitiesSubpath.MAX_STACK_COUNT).toBe(
           packageRoot.MAX_STACK_COUNT,
         );
@@ -3148,7 +2836,6 @@ describe("public API surface", () => {
         expect(entitySubpath.EntityId).toBe(packageRoot.EntityId);
         expect(entitySubpath.EntityKind).toBe(packageRoot.EntityKind);
         expect(entitySubpath.mintEntityId).toBe(packageRoot.mintEntityId);
-        expect(entitySubpath.normaliseRoster).toBe(packageRoot.normaliseRoster);
         expect(entitySubpath.ENTITY_ATTRIBUTE_DEFINITIONS).toBe(
           packageRoot.ENTITY_ATTRIBUTE_DEFINITIONS,
         );
@@ -3245,16 +2932,6 @@ describe("public API surface", () => {
           packageRoot.canFluidReplace,
         );
         expect(fluidUpdateSubpath.updateFluids).toBe(packageRoot.updateFluids);
-        expect(foodSubpath.FOOD_DEFINITION_BY_ITEM).toBe(
-          packageRoot.FOOD_DEFINITION_BY_ITEM,
-        );
-        expect(foodSubpath.VANILLA_FOOD_DEFINITIONS).toBe(
-          packageRoot.VANILLA_FOOD_DEFINITIONS,
-        );
-        expect(foodSubpath.foodDefinitionOf).toBe(packageRoot.foodDefinitionOf);
-        expect(foodSubpath.canEatFood).toBe(packageRoot.canEatFood);
-        expect(foodSubpath.foodRemainderOf).toBe(packageRoot.foodRemainderOf);
-        expect(foodSubpath.consumeFood).toBe(packageRoot.consumeFood);
         expect(consumableSubpath.CONSUMABLE_ANIMATIONS).toBe(
           packageRoot.CONSUMABLE_ANIMATIONS,
         );
@@ -3423,19 +3100,10 @@ describe("public API surface", () => {
         expect(timeOfDaySubpath.INITIAL_TIME_STATE).toBe(
           packageRoot.INITIAL_TIME_STATE,
         );
-        expect(vitalsSubpath.isDead).toBe(packageRoot.isDead);
-        expect(vitalsSubpath.normaliseVitals).toBe(packageRoot.normaliseVitals);
-        expect(vitalsSubpath.SPAWN_VITALS).toBe(packageRoot.SPAWN_VITALS);
         expect(vehicleSubpath.VEHICLE_TYPES).toBe(packageRoot.VEHICLE_TYPES);
         expect(vehicleSubpath.isVehicleType).toBe(packageRoot.isVehicleType);
         expect(vehicleSubpath.VehicleId).toBe(packageRoot.VehicleId);
         expect(vehicleSubpath.OccupantId).toBe(packageRoot.OccupantId);
-        expect(vehicleSubpath.validateVehicleSnapshot).toBe(
-          packageRoot.validateVehicleSnapshot,
-        );
-        expect(vehicleSubpath.emptyVehicleSnapshot).toBe(
-          packageRoot.emptyVehicleSnapshot,
-        );
         expect(weatherSubpath.isWeather).toBe(packageRoot.isWeather);
         expect(weatherSubpath.normaliseWeatherState).toBe(
           packageRoot.normaliseWeatherState,
@@ -3443,35 +3111,6 @@ describe("public API surface", () => {
         expect(weatherSubpath.INITIAL_WEATHER_STATE).toBe(
           packageRoot.INITIAL_WEATHER_STATE,
         );
-        expect(witherSubpath.WITHER_MAX_HEALTH).toBe(
-          packageRoot.WITHER_MAX_HEALTH,
-        );
-        expect(witherSubpath.WITHER_SPAWN_CHARGE_SECS).toBe(
-          packageRoot.WITHER_SPAWN_CHARGE_SECS,
-        );
-        expect(witherSubpath.WITHER_ARMOUR_THRESHOLD).toBe(
-          packageRoot.WITHER_ARMOUR_THRESHOLD,
-        );
-        expect(witherSubpath.WITHER_REGEN_PER_SEC).toBe(
-          packageRoot.WITHER_REGEN_PER_SEC,
-        );
-        expect(witherSubpath.WITHER_FOLLOW_ACCELERATION).toBe(
-          packageRoot.WITHER_FOLLOW_ACCELERATION,
-        );
-        expect(witherSubpath.WITHER_MAX_SPEED).toBe(
-          packageRoot.WITHER_MAX_SPEED,
-        );
-        expect(witherSubpath.createWither).toBe(packageRoot.createWither);
-        expect(witherSubpath.stepWither).toBe(packageRoot.stepWither);
-        expect(witherSubpath.damageWither).toBe(packageRoot.damageWither);
-        expect(witherSubpath.witherSkullProjectile).toBe(
-          packageRoot.witherSkullProjectile,
-        );
-        expect(witherSubpath.matchWitherSummon).toBe(
-          packageRoot.matchWitherSummon,
-        );
-        expect(witherSubpath.serializeWither).toBe(packageRoot.serializeWither);
-        expect(witherSubpath.restoreWither).toBe(packageRoot.restoreWither);
       }),
     ));
   it("supports settings and statistics package subpath exports", () =>

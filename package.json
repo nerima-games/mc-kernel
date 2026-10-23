@@ -30,11 +30,6 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
-    "./domain/anvil": {
-      "types": "./dist/domain/anvil.d.ts",
-      "import": "./dist/domain/anvil.js",
-      "default": "./dist/domain/anvil.js"
-    },
     "./domain/block-break-speed": {
       "types": "./dist/domain/block-break-speed.d.ts",
       "import": "./dist/domain/block-break-speed.js",
@@ -225,16 +220,6 @@
       "import": "./dist/domain/enchantment.js",
       "default": "./dist/domain/enchantment.js"
     },
-    "./domain/enchantment-table": {
-      "types": "./dist/domain/enchantment-table.d.ts",
-      "import": "./dist/domain/enchantment-table.js",
-      "default": "./dist/domain/enchantment-table.js"
-    },
-    "./domain/grindstone": {
-      "types": "./dist/domain/grindstone.d.ts",
-      "import": "./dist/domain/grindstone.js",
-      "default": "./dist/domain/grindstone.js"
-    },
     "./domain/identifiers": {
       "types": "./dist/domain/identifiers.d.ts",
       "import": "./dist/domain/identifiers.js",
@@ -254,11 +239,6 @@
       "types": "./dist/domain/fluid-update.d.ts",
       "import": "./dist/domain/fluid-update.js",
       "default": "./dist/domain/fluid-update.js"
-    },
-    "./domain/food": {
-      "types": "./dist/domain/food.d.ts",
-      "import": "./dist/domain/food.js",
-      "default": "./dist/domain/food.js"
     },
     "./domain/consumable": {
       "types": "./dist/domain/consumable.d.ts",
@@ -340,16 +320,6 @@
       "import": "./dist/domain/item-type.js",
       "default": "./dist/domain/item-type.js"
     },
-    "./domain/inventory": {
-      "types": "./dist/domain/inventory.d.ts",
-      "import": "./dist/domain/inventory.js",
-      "default": "./dist/domain/inventory.js"
-    },
-    "./domain/hotbar": {
-      "types": "./dist/domain/hotbar.d.ts",
-      "import": "./dist/domain/hotbar.js",
-      "default": "./dist/domain/hotbar.js"
-    },
     "./domain/quantities": {
       "types": "./dist/domain/quantities.d.ts",
       "import": "./dist/domain/quantities.js",
@@ -430,11 +400,6 @@
       "import": "./dist/domain/weapon.js",
       "default": "./dist/domain/weapon.js"
     },
-    "./domain/vitals": {
-      "types": "./dist/domain/vitals.d.ts",
-      "import": "./dist/domain/vitals.js",
-      "default": "./dist/domain/vitals.js"
-    },
     "./domain/vehicle": {
       "types": "./dist/domain/vehicle.d.ts",
       "import": "./dist/domain/vehicle.js",
@@ -444,11 +409,6 @@
       "types": "./dist/domain/weather.d.ts",
       "import": "./dist/domain/weather.js",
       "default": "./dist/domain/weather.js"
-    },
-    "./domain/wither": {
-      "types": "./dist/domain/wither.d.ts",
-      "import": "./dist/domain/wither.js",
-      "default": "./dist/domain/wither.js"
     },
     "./domain/domain-event": {
       "types": "./dist/domain/domain-event.d.ts",
