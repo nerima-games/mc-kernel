@@ -52,7 +52,8 @@ import * as randomSourceModule from "../src/domain/world/random-source";
 import * as statusEffectModule from "../src/domain/entity/status-effect";
 import * as tagMembershipModule from "../src/domain/world/tag-membership";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
+import { optionValue, resultValue } from './block-result-helpers.js'
 
 const ORIGIN_AXIS = 0;
 const FIRST_BLOCK_TYPE_INDEX = 0;
@@ -309,11 +310,9 @@ describe("public API surface", () => {
           "ItemComponentPatchKey",
           "ItemComponentPatchConflictError",
           "isItemComponentPatch",
-          "itemComponentPatchFromUnknown",
-          "itemComponentPatchFromUnknownEither",
+          "decodeItemComponentPatch",
           "itemComponentPatch",
           "mergeItemComponentPatches",
-          "mergeItemComponentPatchesEither",
           "itemComponentPatchesEqual",
           // Quantities
           "StackCount",
@@ -879,14 +878,11 @@ describe("public API surface", () => {
         expect(kernel.ItemComponentPatchConflictError).toBe(
           itemComponentPatchModule.ItemComponentPatchConflictError,
         );
-        expect(kernel.itemComponentPatchFromUnknownEither).toBe(
-          itemComponentPatchModule.itemComponentPatchFromUnknownEither,
+        expect(kernel.decodeItemComponentPatch).toBe(
+          itemComponentPatchModule.decodeItemComponentPatch,
         );
         expect(kernel.mergeItemComponentPatches).toBe(
           itemComponentPatchModule.mergeItemComponentPatches,
-        );
-        expect(kernel.mergeItemComponentPatchesEither).toBe(
-          itemComponentPatchModule.mergeItemComponentPatchesEither,
         );
         expect(kernel.applyItemComponentPatch).toBe(
           itemComponentPatchModule.applyItemComponentPatch,
@@ -913,8 +909,8 @@ describe("public API surface", () => {
         expect(kernel.isItemComponentPatch).toBe(
           itemComponentPatchModule.isItemComponentPatch,
         );
-        expect(kernel.itemComponentPatchFromUnknown).toBe(
-          itemComponentPatchModule.itemComponentPatchFromUnknown,
+        expect(kernel.decodeItemComponentPatch).toBe(
+          itemComponentPatchModule.decodeItemComponentPatch,
         );
         expect(kernel.itemComponentPatch).toBe(
           itemComponentPatchModule.itemComponentPatch,
@@ -1731,20 +1727,20 @@ describe("public API surface", () => {
           throw new Error("Block registry fixture must not be empty");
         expect(blockRegistryEntry.id).toBe(blockRegistry.AIR_BLOCK_ID);
         expect(blockRegistryEntry.definition.type).toBe("air");
-        const stoneId = blockRegistry.blockIdOf("stone");
-        const stoneDefinition = blockRegistry.resolvedBlockOfId(stoneId);
+        const stoneId = optionValue(blockRegistry.blockIdOf("stone"));
+        const stoneDefinition = resultValue(blockRegistry.resolvedBlockOfId(stoneId));
 
-        expect(kernel.blockIdOf("stone")).toBe(stoneId);
+        expect(kernel.blockIdOf("stone")).toEqual(blockRegistry.blockIdOf("stone"));
         expect(kernel.isEmpty).toBe(blockRegistry.isEmpty);
         expect(blockRegistry.isEmpty(blockRegistry.AIR_BLOCK_ID)).toBe(true);
         expect(blockRegistry.isEmpty(stoneId)).toBe(false);
-        expect(blockRegistry.blockTypeOfId(stoneId)).toBe("stone");
+        expect(resultValue(blockRegistry.blockTypeOfId(stoneId))).toBe("stone");
         expect(stoneDefinition).toBeDefined();
         expect(stoneDefinition?.type).toBe("stone");
         expect(
-          blockRegistry.capabilityOfBlockId(stoneId, "canSupportAttachments"),
+          resultValue(blockRegistry.capabilityOfBlockId(stoneId, "canSupportAttachments")),
         ).toBe(true);
-        expect(blockRegistry.transmitsLight(stoneId)).toBe(false);
+        expect(resultValue(blockRegistry.transmitsLight(stoneId))).toBe(false);
       }),
     ));
 
@@ -1838,8 +1834,8 @@ describe("public API surface", () => {
         expect(itemComponentPatchSubpath.isItemComponentPatch).toBe(
           packageRoot.isItemComponentPatch,
         );
-        expect(itemComponentPatchSubpath.itemComponentPatchFromUnknown).toBe(
-          packageRoot.itemComponentPatchFromUnknown,
+        expect(itemComponentPatchSubpath.decodeItemComponentPatch).toBe(
+          packageRoot.decodeItemComponentPatch,
         );
         expect(itemComponentPatchSubpath.itemComponentPatch).toBe(
           packageRoot.itemComponentPatch,
@@ -2832,22 +2828,26 @@ describe("public API surface", () => {
   it("keeps the canonical ItemStack payload and slot boundary", () =>
     Effect.runPromise(
       Effect.sync(() => {
-        const stack = kernel.itemStack("stone", kernel.StackCount(2));
+        const stack = resultValue(kernel.itemStack("stone", kernel.StackCount(2)));
         expect(Object.keys(stack).sort()).toEqual(["components", "count", "item"]);
         expect(stack.count).toBe(2);
-        expect(kernel.splitItemStack(stack, kernel.TransferQuantity(2)).remainder).toBeUndefined();
-        expect(
-          kernel.mergeItemStacks(
-            kernel.itemStack("stone", kernel.StackCount(1)),
-            kernel.itemStack("stone", kernel.StackCount(1)),
-          ).remainder,
-        ).toBeUndefined();
-        expect(() => Reflect.apply(kernel.itemStack, undefined, ["stone", 0])).toThrow(RangeError);
-        const conflict = kernel.itemComponentPatchFromUnknownEither({
+        expect(resultValue(kernel.splitItemStack(stack, kernel.TransferQuantity(2))).remainder).toBeUndefined();
+        const left = resultValue(kernel.itemStack("stone", kernel.StackCount(1)));
+        const right = resultValue(kernel.itemStack("stone", kernel.StackCount(1)));
+        expect(resultValue(kernel.mergeItemStacks(left, right)).remainder).toBeUndefined();
+        const invalidStack = kernel.itemStackFromUnknown("stone", 0);
+        expect(Result.isFailure(invalidStack)).toBe(true);
+        if (Result.isFailure(invalidStack)) {
+          expect(invalidStack.failure).toMatchObject({ _tag: "ItemValidationFailure", reason: "out-of-range" });
+        }
+        const conflict = kernel.decodeItemComponentPatch({
             "minecraft:max_stack_size": 1,
             "!minecraft:max_stack_size": 1,
           });
-        expect(conflict._tag).toBe("Failure");
+        expect(Result.isFailure(conflict)).toBe(true);
+        if (Result.isFailure(conflict)) {
+          expect(conflict.failure).toMatchObject({ _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:max_stack_size" });
+        }
       }),
     ));
 });
