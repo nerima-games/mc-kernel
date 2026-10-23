@@ -1655,7 +1655,7 @@ const interpolationFraction: (accumulator: FixedDurationSecs) => InterpolationFr
 `domain/quantities`、演算は `domain/frame-timing` の各 subpath から同一の値として利用できる。
 
 `addTick` と `secondsForTicks` は safe integer または有限秒数の範囲を超える場合に
-`Left({ _tag: 'TimeOverflow' })` を返す。`interpolationFraction` は whole tick 消費後の
+`Result.fail({ _tag: 'TimeOverflow' })` を返す。`interpolationFraction` は whole tick 消費後の
 `[0, 0.05)` の accumulator にだけ適用する。`0.05` 以上を渡すと clamp や wrap はせず、
 `InterpolationFraction` の `[0, 1)` 制約により例外になる。したがって呼び出し側は、fraction を
 求める前に whole tick を消費し、accumulator をこの境界未満へ戻さなければならない。固定 tick の
@@ -2515,7 +2515,8 @@ const chunkBlockCount(height: ChunkHeight): number          // CHUNK_SIZE_XZ * C
 
 `chunk(coord, height, blocks)` は 16×16 の縦列 Chunk を構築する。`blocks` 引数は
 `16 * 16 * height` バイトの生 `Uint8Array` を取り、各バイトは登録済みの `BlockId` でなければならない。
-構築時にバッファをコピーするため、呼び出し側の後続変更は Chunk に波及しない。
+各バイトを1つの ID（0..255）として扱い、`BlockState` の2バイト要素へ広げる。`chunk()` と `blockState()` は
+16ビット幅の入力を受け取らない。構築時にバッファをコピーするため、呼び出し側の後続変更は Chunk に波及しない。
 
 **`Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks` を保持する（0.3.0、破壊的変更）。**
 
@@ -2550,7 +2551,7 @@ const blockState(bytes: Uint8Array): BlockState   // BlockState.fromBytes のラ
 要素の v2 ではその 2 つが一致しなくなるため、`encodeChunk` の書き出し、`validateEncodedChunk` の検証、
 v1/v2 の decode 分岐の 3 箇所が同じ「バイト数」解釈を共有するよう明示的に揃えてある。
 
-`decodeChunk` は v2 の 16-bit 値を全幅のまま `isKnownBlockId` に渡し、`BlockState` に 2 バイト要素として保持する。下位 1 バイトに切り詰めてから検証すると、256 以上の未知 ID が有効な `BlockId` に化ける可能性があるため、全幅での検証が必要である。
+`decodeChunk` は v2 の 16-bit 値を全幅のまま `isKnownBlockId` に渡し、`BlockState` に 2 バイト要素として保持する。下位 1 バイトに切り詰めてから検証すると、256 以上の未知 ID が有効な `BlockId` に化ける可能性があるため、全幅での検証が必要である。v2 は16ビットの登録済み ID を保持できるが、`chunk()` と `blockState()` の入力は1バイト形式である。
 
 `encodeChunk` / `decodeChunk` は固定 `CHUNK_HEADER_BYTES`（24）バイトヘッダーとブロック列を用いる。
 ヘッダーは magic (`MCHK`)、`CHUNK_CODEC_VERSION`、幅・奥行き、height、符号付き 32-bit の `cx` / `cz`、
