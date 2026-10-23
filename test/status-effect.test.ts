@@ -16,7 +16,7 @@ import { isVanillaPotionEffectId } from '../src/domain/item/item-component-value
 const EXPECTED_STATUS_EFFECT_COUNT = 40
 
 describe('STATUS_EFFECT_NAMES', () => {
-  it('has exactly the 39 closed Java Edition 1.21 mob effects, each unique', () => {
+  it('has 40 unique mob-effect names', () => {
     expect(STATUS_EFFECT_NAMES.length).toBe(EXPECTED_STATUS_EFFECT_COUNT)
     expect(new Set(STATUS_EFFECT_NAMES).size).toBe(EXPECTED_STATUS_EFFECT_COUNT)
   })
@@ -44,7 +44,7 @@ describe('STATUS_EFFECT_DEFINITIONS', () => {
     expect(STATUS_EFFECT_DEFINITIONS.wind_charged.beneficial).toBe(false)
   })
 
-  it('carries the vanilla particle colour (minecraft.wiki Effect colors, pageid 181520)', () => {
+  it('uses vanilla particle colours from https://minecraft.wiki/w/Effect_colors', () => {
     expect(STATUS_EFFECT_DEFINITIONS.speed.particleColor).toBe(0x33ebff)
     expect(STATUS_EFFECT_DEFINITIONS.poison.particleColor).toBe(0x87a363)
     expect(STATUS_EFFECT_DEFINITIONS.infested.particleColor).toBe(0x8c9b8c)
@@ -100,7 +100,7 @@ describe('resolveStatusEffectDefinition', () => {
 })
 
 describe('FoodStatusEffectName (food-data.ts projection)', () => {
-  it('keeps exactly the 7 vanilla food effect names, each a member of the closed vocabulary', () => {
+  it('accepts seven known food effect names', () => {
     const foodEffectNames: ReadonlyArray<FoodStatusEffectName> = [
       'absorption',
       'fire_resistance',
@@ -118,10 +118,8 @@ describe('FoodStatusEffectName (food-data.ts projection)', () => {
 })
 
 describe('VANILLA_STATUS_EFFECT_IDS (item-component-values-data.ts projection)', () => {
-  it('lists every closed-vocabulary effect id exactly once', () => {
-    expect(VANILLA_STATUS_EFFECT_IDS.length).toBe(STATUS_EFFECT_NAMES.length)
-    expect(new Set(VANILLA_STATUS_EFFECT_IDS).size).toBe(STATUS_EFFECT_NAMES.length)
-    expect(VANILLA_STATUS_EFFECT_IDS).toContain('minecraft:speed')
+  it('maps every status-effect name to its vanilla id once', () => {
+    expect(VANILLA_STATUS_EFFECT_IDS).toEqual(STATUS_EFFECT_NAMES.map(statusEffectId))
   })
 })
 
