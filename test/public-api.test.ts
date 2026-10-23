@@ -1,21 +1,9 @@
 import * as kernel from "../src/index";
 import * as blockRegistry from "../src/domain/block/block-registry";
-import * as blockInteraction from "../src/domain/block/block-interaction";
-import * as blockWorldModule from "../src/domain/block/block-world";
 import { BLOCK_TYPES, isBlockType } from "../src/domain/block/block-type";
 import { BLOCK_PROPERTY_DEFAULTS } from "../src/domain/block/block-properties";
-import {
-  blockHardnessOf,
-  computeBreakTicks,
-  DEFAULT_MINING_SPEED,
-  miningSpeedOf,
-  TOOL_BREAK_SPEED,
-} from "../src/domain/block/block-break-speed";
-import * as bedrockMining from "../src/domain/block/bedrock-mining";
 import * as brewingModule from "../src/domain/recipe/brewing-data";
-import * as cameraPoseModule from "../src/domain/presentation/camera-pose";
 import * as dataPackRegistryModule from "../src/domain/world/data-pack-registry";
-import * as cropModule from "../src/domain/block/crop";
 import * as dimensionModule from "../src/domain/world/dimension";
 import * as entityModule from "../src/domain/entity/entity";
 import * as sulfurCubeModule from "../src/domain/entity/sulfur-cube";
@@ -23,13 +11,11 @@ import * as sulfurCubeRegistryModule from "../src/domain/entity/sulfur-cube-regi
 import * as anvilPrimitivesModule from "../src/domain/item/anvil-primitives";
 import * as enchantmentModule from "../src/domain/item/enchantment";
 import * as fluidModule from "../src/domain/block/fluid";
-import * as fluidUpdateModule from "../src/domain/block/fluid-update";
 import * as foodModule from "../src/domain/item/food-data";
 import * as consumableModule from "../src/domain/item/consumable";
 import * as useCooldownModule from "../src/domain/item/use-cooldown";
 import * as equipmentModule from "../src/domain/item/equipment-data";
 import * as frameTimingModule from "../src/domain/time/frame-timing";
-import * as timeOfDayModule from "../src/domain/time/time-of-day";
 import * as vehicleModule from "../src/domain/entity/vehicle";
 import * as weatherModule from "../src/domain/world/weather";
 import * as identifiersModule from "../src/domain/text/identifiers";
@@ -52,18 +38,13 @@ import * as recipeModule from "../src/domain/recipe/recipe";
 import * as recipeJsonModule from "../src/domain/recipe/recipe-json";
 import * as recipeRegistryModule from "../src/domain/recipe/recipe-registry";
 import * as explosionModule from "../src/domain/entity/explosion";
-import * as primedTntModule from "../src/domain/entity/primed-tnt";
-import * as projectileModule from "../src/domain/entity/projectile";
 import * as portalModule from "../src/domain/entity/portal";
 import * as smeltingModule from "../src/domain/recipe/smelting-data";
 import * as redstoneModule from "../src/domain/block/redstone";
-import * as redstoneNetworkModule from "../src/domain/block/redstone-network";
-import * as redstoneUpdateModule from "../src/domain/block/redstone-update";
 import * as biomeModule from "../src/domain/world/biome";
-import * as blockEntityModule from "../src/domain/block/block-entity";
+import * as blockEntityModule from "../src/domain/block/_block-entity";
 import * as damageTypeModule from "../src/domain/entity/damage-type";
 import * as gameModeModule from "../src/domain/text/game-mode";
-import * as gameRuleModule from "../src/domain/text/game-rule";
 import * as entityTypeModule from "../src/domain/entity/entity-type";
 import * as heightmapModule from "../src/domain/world/heightmap";
 import * as lightModule from "../src/domain/block/light";
@@ -538,27 +519,18 @@ describe("public API surface", () => {
           "sulfurCubeArchetypeDataPackLayerFromUnknown",
           "selectSulfurCubeArchetypes",
           "sulfurCubeArchetypeDataPath",
-          "CROP_TYPES",
-          "CROP_REGISTRY",
-          "WHEAT_MATURITY_SECS",
-          "POTATO_MATURITY_SECS",
-          "NETHER_WART_MATURITY_SECS",
-          "BONE_MEAL_GROWTH_SECS",
-          "isCropType",
-          "cropDefinitionFor",
-          "maturitySecsFor",
-          "canPlantCrop",
-          "isMatureCrop",
-          "matureYieldsFor",
-          "advanceCrop",
-          "advanceCropByBoneMeal",
-          "cropLocationKey",
+          // Pure brewing data and logic
           "BREWING_BOTTLE_SLOTS",
           "BREWING_FUEL_ITEM",
           "BREWING_MAX_FUEL_CHARGES",
           "BREWING_TIME_SECS",
           "VANILLA_BREWING_RECIPES",
-          // Pure fluid vocabulary and persistent fluid-cell state
+          "brewingState",
+          "emptyBrewingState",
+          "matchBrewingRecipe",
+          "addBrewingFuel",
+          "advanceBrewing",
+          // Pure fluid vocabulary
           "FLUID_BLOCK_IDS",
           "FLUID_MIX_BLOCK_IDS",
           "FLUID_LEVEL_MIN",
@@ -568,16 +540,6 @@ describe("public API surface", () => {
           "FLOWING_FLUID_LEVEL",
           "blockIdOfFluidKind",
           "fluidKindOfBlockId",
-          "fluidLevel",
-          "emptyFluidState",
-          "fluidCellAt",
-          "setFluidCell",
-          "clearFluidCell",
-          "scheduleFluidAt",
-          "unscheduleFluidAt",
-          "fluidStateFromWorld",
-          "canFluidReplace",
-          "updateFluids",
           // Pure food data
           "FOOD_DEFINITION_BY_ITEM",
           "VANILLA_FOOD_DEFINITIONS",
@@ -607,98 +569,22 @@ describe("public API surface", () => {
           "isUseCooldownComponent",
           "weaponComponent",
           "isWeaponComponent",
-          // Pure block-world access and mutation
-          "emptyBlockWorld",
-          "blockAt",
-          "blockReaderOf",
-          "readBlockAt",
-          "setBlockAt",
-          // Pure redstone vocabulary, devices, and persistent signal state
+          // Pure redstone vocabulary
           "REDSTONE_POWER_MIN",
           "REDSTONE_POWER_MAX",
           "REDSTONE_POWER_STEP",
           "REDSTONE_BLOCK_IDS",
-          "REDSTONE_REPEATER_DELAY_MIN_TICKS",
-          "REDSTONE_REPEATER_DELAY_MAX_TICKS",
-          "repeaterDelayTicks",
-          "redstoneRepeater",
-          "redstoneComparator",
-          "redstoneObserver",
-          "redstonePower",
-          "emptyRedstoneState",
-          "redstoneInputAt",
-          "redstonePowerAt",
-          "redstoneDevicePowerAt",
-          "redstoneDeviceAt",
-          "setRedstoneInput",
-          "clearRedstoneInput",
-          "setRedstoneDevice",
-          "clearRedstoneDevice",
-          "withRedstoneWirePowers",
-          "withRedstoneDeviceState",
-          // Pure redstone network and update logic
-          "collectRedstoneLayout",
-          "sourcePowerAt",
-          "deviceOutputFace",
-          "deviceOutputAtTarget",
-          "poweredWiresFrom",
-          "signalPowerAt",
-          "wirePowerChanges",
-          "blockIsWire",
-          "updateRedstone",
-          // Pure projectile data and logic
-          "ARROW_GRAVITY",
-          "ARROW_AIR_DRAG",
-          "ARROW_WATER_DRAG",
-          "ARROW_MAX_LIFETIME_SECONDS",
-          "ARROW_SHOOTER_GRACE_SECONDS",
-          "launchArrow",
-          "stepArrow",
           // Pure Nether portal frame geometry
           "MIN_PORTAL_WIDTH",
           "MAX_PORTAL_WIDTH",
           "MIN_PORTAL_HEIGHT",
           "MAX_PORTAL_HEIGHT",
-          "detectNetherPortal",
-          "generatePortalLayout",
-          // Pure explosion and primed-TNT data and logic
+          // Pure explosion vocabulary and resistance lookup
           "DEFAULT_EXPLOSION_LIMITS",
-          "planExplosion",
-          "applyExplosionPlan",
           "resistsExplosion",
-          "DEFAULT_TNT_FUSE_SECS",
-          "MAX_TNT_FUSE_ADVANCE_SECS",
-          "primeTnt",
-          "planPrimedTnt",
-          "applyPrimedTntPlan",
-          // Pure block-break-speed data and logic
-          "DEFAULT_MINING_SPEED",
-          "TOOL_BREAK_SPEED",
-          "blockHardnessOf",
-          "computeBreakTicks",
-          "miningSpeedOf",
           "compileToolComponent",
           "resolveToolMiningProperties",
           "isToolComponent",
-          // Bedrock mining components remain separate from Java's minecraft:tool.
-          "BEDROCK_DIGGER_MIN_FORMAT_VERSION",
-          "BEDROCK_DESTRUCTIBLE_BY_MINING_MIN_FORMAT_VERSION",
-          "DEFAULT_BEDROCK_SECONDS_TO_DESTROY",
-          "parseBedrockTagQuery",
-          "validateBedrockBlockDescriptor",
-          "validateBedrockItemDescriptor",
-          "bedrockTagQueryMatches",
-          "bedrockBlockDescriptorMatches",
-          "bedrockItemDescriptorMatches",
-          "validateBedrockBlockStates",
-          "validateBedrockDiggerSpeed",
-          "validateBedrockDestroySpeed",
-          "validateBedrockDiggerComponent",
-          "validateBedrockDestructibleByMining",
-          "resolveBedrockDiggerSpeed",
-          "bedrockDiggerUsesEfficiency",
-          "resolveBedrockDestructionSeconds",
-          "resolveBedrockItemSpecificDestroySpeed",
           // Retained anvil brand constructors and constants
           "AnvilEnchantmentId",
           "AnvilCustomName",
@@ -743,13 +629,6 @@ describe("public API surface", () => {
           "resolveDropItem",
           "BARE_HANDED",
           "resolveDrop",
-          // Block interaction decisions
-          "BEDROCK_HARDNESS",
-          "REFERENCE_UNBREAKABLE_HARDNESS",
-          "breakBlock",
-          "canReplaceBlock",
-          "placeBlock",
-          "placeableBlockFromItem",
           // SupportRule (audit §4.6), in its own module for the same reason: its
           // Value is a list of BLOCK NAMES, so it is the one property that can go
           // Stale when a different block's row changes.
@@ -797,16 +676,6 @@ describe("public API surface", () => {
           "UNREGISTERED_BLOCK_TYPES",
           // Camera
           "snapshotAgeSecs",
-          "PITCH_EPSILON",
-          "PITCH_MAX_RADIANS",
-          "PITCH_MIN_RADIANS",
-          "EYE_LEVEL_OFFSET",
-          "INITIAL_PLAYER_POSE",
-          "clampPitch",
-          "applyLook",
-          "withFeetPosition",
-          "cameraPoseOf",
-          "forwardVector",
           // Clock
           "ClockPort",
           "fixedClock",
@@ -826,32 +695,24 @@ describe("public API surface", () => {
           "addTick",
           "secondsForTicks",
           "interpolationFraction",
-          // Pure day/night policy and weather state validation
-          "TICKS_PER_SECOND",
-          "MIN_DAY_LENGTH_SECS",
-          "MAX_DAY_LENGTH_SECS",
-          "MAX_TIME_FRACTION",
-          "MOON_PHASE_COUNT",
-          "INITIAL_TIME_STATE",
-          "DEFAULT_DAY_LENGTH_SECS",
-          "clampDayLengthSecs",
-          "clampFraction",
-          "isValidTimeState",
-          "normaliseTimeState",
-          "timeOfDay",
-          "dayLengthSecs",
-          "moonPhase",
-          "isNight",
-          "advance",
-          "setDayLength",
-          "setTimeOfDay",
-          "setDayLengthThenTimeOfDay",
+          // Pure weather vocabulary
           "WEATHERS",
           "DEFAULT_WEATHER_REMAINING_SECS",
-          "INITIAL_WEATHER_STATE",
           "isWeather",
-          "isValidWeatherState",
-          "normaliseWeatherState",
+          "DEFAULT_SETTINGS",
+          "GRAPHICS_QUALITIES",
+          "MAX_FOV_DEGREES",
+          "MAX_MOUSE_SENSITIVITY",
+          "MAX_RENDER_DISTANCE",
+          "MAX_VOLUME",
+          "MIN_FOV_DEGREES",
+          "MIN_MOUSE_SENSITIVITY",
+          "MIN_RENDER_DISTANCE",
+          "MIN_VOLUME",
+          "normaliseKeyBindings",
+          "normaliseSettings",
+          "rebindKey",
+          "unbindKey",
           // Pure vehicle vocabulary
           "VEHICLE_TYPES",
           "isVehicleType",
@@ -874,20 +735,6 @@ describe("public API surface", () => {
         expect(kernel.ITEM_TYPES).toBe(ITEM_TYPES);
         expect(kernel.ITEM_REGISTRY).toBe(ITEM_REGISTRY);
         expect(kernel.itemIdOf).toBe(itemIdOf);
-        expect(kernel.DEFAULT_MINING_SPEED).toBe(DEFAULT_MINING_SPEED);
-        expect(kernel.TOOL_BREAK_SPEED).toBe(TOOL_BREAK_SPEED);
-        expect(kernel.blockHardnessOf).toBe(blockHardnessOf);
-        expect(kernel.computeBreakTicks).toBe(computeBreakTicks);
-        expect(kernel.miningSpeedOf).toBe(miningSpeedOf);
-        expect(kernel.BEDROCK_DIGGER_MIN_FORMAT_VERSION).toBe(
-          bedrockMining.BEDROCK_DIGGER_MIN_FORMAT_VERSION,
-        );
-        expect(kernel.parseBedrockTagQuery).toBe(
-          bedrockMining.parseBedrockTagQuery,
-        );
-        expect(kernel.resolveBedrockDiggerSpeed).toBe(
-          bedrockMining.resolveBedrockDiggerSpeed,
-        );
         expect(kernel.itemStack).toBe(itemStackModule.itemStack);
         expect(kernel.maxStackCountForStack).toBe(
           itemStackModule.maxStackCountForStack,
@@ -1450,71 +1297,11 @@ describe("public API surface", () => {
         expect(kernel.interpolationFraction).toBe(
           frameTimingModule.interpolationFraction,
         );
-        expect(kernel.PITCH_EPSILON).toBe(cameraPoseModule.PITCH_EPSILON);
-        expect(kernel.PITCH_MAX_RADIANS).toBe(
-          cameraPoseModule.PITCH_MAX_RADIANS,
-        );
-        expect(kernel.PITCH_MIN_RADIANS).toBe(
-          cameraPoseModule.PITCH_MIN_RADIANS,
-        );
-        expect(kernel.EYE_LEVEL_OFFSET).toBe(cameraPoseModule.EYE_LEVEL_OFFSET);
-        expect(kernel.INITIAL_PLAYER_POSE).toBe(
-          cameraPoseModule.INITIAL_PLAYER_POSE,
-        );
-        expect(kernel.clampPitch).toBe(cameraPoseModule.clampPitch);
-        expect(kernel.applyLook).toBe(cameraPoseModule.applyLook);
-        expect(kernel.withFeetPosition).toBe(cameraPoseModule.withFeetPosition);
-        expect(kernel.cameraPoseOf).toBe(cameraPoseModule.cameraPoseOf);
-        expect(kernel.forwardVector).toBe(cameraPoseModule.forwardVector);
-        expect(kernel.TICKS_PER_SECOND).toBe(timeOfDayModule.TICKS_PER_SECOND);
-        expect(kernel.MIN_DAY_LENGTH_SECS).toBe(
-          timeOfDayModule.MIN_DAY_LENGTH_SECS,
-        );
-        expect(kernel.MAX_DAY_LENGTH_SECS).toBe(
-          timeOfDayModule.MAX_DAY_LENGTH_SECS,
-        );
-        expect(kernel.MAX_TIME_FRACTION).toBe(
-          timeOfDayModule.MAX_TIME_FRACTION,
-        );
-        expect(kernel.MOON_PHASE_COUNT).toBe(timeOfDayModule.MOON_PHASE_COUNT);
-        expect(kernel.INITIAL_TIME_STATE).toBe(
-          timeOfDayModule.INITIAL_TIME_STATE,
-        );
-        expect(kernel.DEFAULT_DAY_LENGTH_SECS).toBe(
-          timeOfDayModule.DEFAULT_DAY_LENGTH_SECS,
-        );
-        expect(kernel.clampDayLengthSecs).toBe(
-          timeOfDayModule.clampDayLengthSecs,
-        );
-        expect(kernel.clampFraction).toBe(timeOfDayModule.clampFraction);
-        expect(kernel.isValidTimeState).toBe(timeOfDayModule.isValidTimeState);
-        expect(kernel.normaliseTimeState).toBe(
-          timeOfDayModule.normaliseTimeState,
-        );
-        expect(kernel.timeOfDay).toBe(timeOfDayModule.timeOfDay);
-        expect(kernel.dayLengthSecs).toBe(timeOfDayModule.dayLengthSecs);
-        expect(kernel.moonPhase).toBe(timeOfDayModule.moonPhase);
-        expect(kernel.isNight).toBe(timeOfDayModule.isNight);
-        expect(kernel.advance).toBe(timeOfDayModule.advance);
-        expect(kernel.setDayLength).toBe(timeOfDayModule.setDayLength);
-        expect(kernel.setTimeOfDay).toBe(timeOfDayModule.setTimeOfDay);
-        expect(kernel.setDayLengthThenTimeOfDay).toBe(
-          timeOfDayModule.setDayLengthThenTimeOfDay,
-        );
         expect(kernel.WEATHERS).toBe(weatherModule.WEATHERS);
         expect(kernel.DEFAULT_WEATHER_REMAINING_SECS).toBe(
           weatherModule.DEFAULT_WEATHER_REMAINING_SECS,
         );
-        expect(kernel.INITIAL_WEATHER_STATE).toBe(
-          weatherModule.INITIAL_WEATHER_STATE,
-        );
         expect(kernel.isWeather).toBe(weatherModule.isWeather);
-        expect(kernel.isValidWeatherState).toBe(
-          weatherModule.isValidWeatherState,
-        );
-        expect(kernel.normaliseWeatherState).toBe(
-          weatherModule.normaliseWeatherState,
-        );
         expect(kernel.VEHICLE_TYPES).toBe(vehicleModule.VEHICLE_TYPES);
         expect(kernel.isVehicleType).toBe(vehicleModule.isVehicleType);
         expect(kernel.VehicleId).toBe(vehicleModule.VehicleId);
@@ -1651,29 +1438,6 @@ describe("public API surface", () => {
         expect(kernel.sulfurCubeArchetypeDataPath).toBe(
           sulfurCubeRegistryModule.sulfurCubeArchetypeDataPath,
         );
-        expect(kernel.CROP_TYPES).toBe(cropModule.CROP_TYPES);
-        expect(kernel.CROP_REGISTRY).toBe(cropModule.CROP_REGISTRY);
-        expect(kernel.WHEAT_MATURITY_SECS).toBe(cropModule.WHEAT_MATURITY_SECS);
-        expect(kernel.POTATO_MATURITY_SECS).toBe(
-          cropModule.POTATO_MATURITY_SECS,
-        );
-        expect(kernel.NETHER_WART_MATURITY_SECS).toBe(
-          cropModule.NETHER_WART_MATURITY_SECS,
-        );
-        expect(kernel.BONE_MEAL_GROWTH_SECS).toBe(
-          cropModule.BONE_MEAL_GROWTH_SECS,
-        );
-        expect(kernel.isCropType).toBe(cropModule.isCropType);
-        expect(kernel.cropDefinitionFor).toBe(cropModule.cropDefinitionFor);
-        expect(kernel.maturitySecsFor).toBe(cropModule.maturitySecsFor);
-        expect(kernel.canPlantCrop).toBe(cropModule.canPlantCrop);
-        expect(kernel.isMatureCrop).toBe(cropModule.isMatureCrop);
-        expect(kernel.matureYieldsFor).toBe(cropModule.matureYieldsFor);
-        expect(kernel.advanceCrop).toBe(cropModule.advanceCrop);
-        expect(kernel.advanceCropByBoneMeal).toBe(
-          cropModule.advanceCropByBoneMeal,
-        );
-        expect(kernel.cropLocationKey).toBe(cropModule.cropLocationKey);
         expect(kernel.VANILLA_BREWING_RECIPES).toBe(
           brewingModule.VANILLA_BREWING_RECIPES,
         );
@@ -1683,23 +1447,6 @@ describe("public API surface", () => {
         );
         expect(kernel.blockIdOfFluidKind).toBe(fluidModule.blockIdOfFluidKind);
         expect(kernel.fluidKindOfBlockId).toBe(fluidModule.fluidKindOfBlockId);
-        expect(kernel.fluidLevel).toBe(fluidModule.fluidLevel);
-        expect(kernel.emptyFluidState).toBe(fluidModule.emptyFluidState);
-        expect(kernel.fluidCellAt).toBe(fluidModule.fluidCellAt);
-        expect(kernel.setFluidCell).toBe(fluidModule.setFluidCell);
-        expect(kernel.clearFluidCell).toBe(fluidModule.clearFluidCell);
-        expect(kernel.scheduleFluidAt).toBe(fluidModule.scheduleFluidAt);
-        expect(kernel.unscheduleFluidAt).toBe(fluidModule.unscheduleFluidAt);
-        expect(kernel.emptyBlockWorld).toBe(blockWorldModule.emptyBlockWorld);
-        expect(kernel.blockAt).toBe(blockWorldModule.blockAt);
-        expect(kernel.blockReaderOf).toBe(blockWorldModule.blockReaderOf);
-        expect(kernel.readBlockAt).toBe(blockWorldModule.readBlockAt);
-        expect(kernel.setBlockAt).toBe(blockWorldModule.setBlockAt);
-        expect(kernel.fluidStateFromWorld).toBe(
-          fluidUpdateModule.fluidStateFromWorld,
-        );
-        expect(kernel.canFluidReplace).toBe(fluidUpdateModule.canFluidReplace);
-        expect(kernel.updateFluids).toBe(fluidUpdateModule.updateFluids);
         expect(kernel.FOOD_DEFINITION_BY_ITEM).toBe(
           foodModule.FOOD_DEFINITION_BY_ITEM,
         );
@@ -1775,91 +1522,14 @@ describe("public API surface", () => {
         expect(kernel.REDSTONE_BLOCK_IDS).toBe(
           redstoneModule.REDSTONE_BLOCK_IDS,
         );
-        expect(kernel.repeaterDelayTicks).toBe(
-          redstoneModule.repeaterDelayTicks,
-        );
-        expect(kernel.redstoneRepeater).toBe(redstoneModule.redstoneRepeater);
-        expect(kernel.redstoneComparator).toBe(
-          redstoneModule.redstoneComparator,
-        );
-        expect(kernel.redstoneObserver).toBe(redstoneModule.redstoneObserver);
-        expect(kernel.redstonePower).toBe(redstoneModule.redstonePower);
-        expect(kernel.emptyRedstoneState).toBe(
-          redstoneModule.emptyRedstoneState,
-        );
-        expect(kernel.redstoneInputAt).toBe(redstoneModule.redstoneInputAt);
-        expect(kernel.redstonePowerAt).toBe(redstoneModule.redstonePowerAt);
-        expect(kernel.redstoneDevicePowerAt).toBe(
-          redstoneModule.redstoneDevicePowerAt,
-        );
-        expect(kernel.redstoneDeviceAt).toBe(redstoneModule.redstoneDeviceAt);
-        expect(kernel.setRedstoneInput).toBe(redstoneModule.setRedstoneInput);
-        expect(kernel.clearRedstoneInput).toBe(
-          redstoneModule.clearRedstoneInput,
-        );
-        expect(kernel.setRedstoneDevice).toBe(redstoneModule.setRedstoneDevice);
-        expect(kernel.clearRedstoneDevice).toBe(
-          redstoneModule.clearRedstoneDevice,
-        );
-        expect(kernel.withRedstoneWirePowers).toBe(
-          redstoneModule.withRedstoneWirePowers,
-        );
-        expect(kernel.withRedstoneDeviceState).toBe(
-          redstoneModule.withRedstoneDeviceState,
-        );
-        expect(kernel.collectRedstoneLayout).toBe(
-          redstoneNetworkModule.collectRedstoneLayout,
-        );
-        expect(kernel.sourcePowerAt).toBe(redstoneNetworkModule.sourcePowerAt);
-        expect(kernel.deviceOutputFace).toBe(
-          redstoneNetworkModule.deviceOutputFace,
-        );
-        expect(kernel.deviceOutputAtTarget).toBe(
-          redstoneNetworkModule.deviceOutputAtTarget,
-        );
-        expect(kernel.poweredWiresFrom).toBe(
-          redstoneNetworkModule.poweredWiresFrom,
-        );
-        expect(kernel.signalPowerAt).toBe(redstoneNetworkModule.signalPowerAt);
-        expect(kernel.wirePowerChanges).toBe(
-          redstoneNetworkModule.wirePowerChanges,
-        );
-        expect(kernel.blockIsWire).toBe(redstoneNetworkModule.blockIsWire);
-        expect(kernel.updateRedstone).toBe(redstoneUpdateModule.updateRedstone);
-        expect(kernel.ARROW_GRAVITY).toBe(projectileModule.ARROW_GRAVITY);
-        expect(kernel.ARROW_AIR_DRAG).toBe(projectileModule.ARROW_AIR_DRAG);
-        expect(kernel.ARROW_WATER_DRAG).toBe(projectileModule.ARROW_WATER_DRAG);
-        expect(kernel.ARROW_MAX_LIFETIME_SECONDS).toBe(
-          projectileModule.ARROW_MAX_LIFETIME_SECONDS,
-        );
-        expect(kernel.ARROW_SHOOTER_GRACE_SECONDS).toBe(
-          projectileModule.ARROW_SHOOTER_GRACE_SECONDS,
-        );
-        expect(kernel.launchArrow).toBe(projectileModule.launchArrow);
-        expect(kernel.stepArrow).toBe(projectileModule.stepArrow);
-        expect(kernel.detectNetherPortal).toBe(portalModule.detectNetherPortal);
-        expect(kernel.generatePortalLayout).toBe(
-          portalModule.generatePortalLayout,
-        );
+        expect(kernel.MIN_PORTAL_WIDTH).toBe(portalModule.MIN_PORTAL_WIDTH);
+        expect(kernel.MAX_PORTAL_WIDTH).toBe(portalModule.MAX_PORTAL_WIDTH);
+        expect(kernel.MIN_PORTAL_HEIGHT).toBe(portalModule.MIN_PORTAL_HEIGHT);
+        expect(kernel.MAX_PORTAL_HEIGHT).toBe(portalModule.MAX_PORTAL_HEIGHT);
         expect(kernel.DEFAULT_EXPLOSION_LIMITS).toBe(
           explosionModule.DEFAULT_EXPLOSION_LIMITS,
         );
-        expect(kernel.planExplosion).toBe(explosionModule.planExplosion);
-        expect(kernel.applyExplosionPlan).toBe(
-          explosionModule.applyExplosionPlan,
-        );
         expect(kernel.resistsExplosion).toBe(explosionModule.resistsExplosion);
-        expect(kernel.DEFAULT_TNT_FUSE_SECS).toBe(
-          primedTntModule.DEFAULT_TNT_FUSE_SECS,
-        );
-        expect(kernel.MAX_TNT_FUSE_ADVANCE_SECS).toBe(
-          primedTntModule.MAX_TNT_FUSE_ADVANCE_SECS,
-        );
-        expect(kernel.primeTnt).toBe(primedTntModule.primeTnt);
-        expect(kernel.planPrimedTnt).toBe(primedTntModule.planPrimedTnt);
-        expect(kernel.applyPrimedTntPlan).toBe(
-          primedTntModule.applyPrimedTntPlan,
-        );
         for (const itemType of PUBLIC_ITEM_TYPES) {
           expect(kernel.isItemType(itemType)).toBe(true);
         }
@@ -1953,22 +1623,6 @@ describe("public API surface", () => {
           blockRegistry.capabilityOfBlockId(stoneId, "canSupportAttachments"),
         ).toBe(true);
         expect(blockRegistry.transmitsLight(stoneId)).toBe(false);
-      }),
-    ));
-
-  it("keeps the stable block-interaction import path behaviorally identical to the barrel", () =>
-    Effect.runPromise(
-      Effect.sync(() => {
-        expect(blockInteraction.BEDROCK_HARDNESS).toBe(kernel.BEDROCK_HARDNESS);
-        expect(blockInteraction.REFERENCE_UNBREAKABLE_HARDNESS).toBe(
-          kernel.REFERENCE_UNBREAKABLE_HARDNESS,
-        );
-        expect(blockInteraction.breakBlock).toBe(kernel.breakBlock);
-        expect(blockInteraction.canReplaceBlock).toBe(kernel.canReplaceBlock);
-        expect(blockInteraction.placeBlock).toBe(kernel.placeBlock);
-        expect(blockInteraction.placeableBlockFromItem).toBe(
-          kernel.placeableBlockFromItem,
-        );
       }),
     ));
 
@@ -2097,8 +1751,6 @@ describe("public API surface", () => {
     Effect.runPromise(
       Effect.promise(async () => {
         const packageRootPath = "@nerima-games/mc-kernel";
-        const blockBreakSpeedPath =
-          "@nerima-games/mc-kernel/domain/block-break-speed";
         const blockCapabilitiesPath =
           "@nerima-games/mc-kernel/domain/block-capabilities";
         const blockDefinitionPath =
@@ -2110,13 +1762,8 @@ describe("public API surface", () => {
         const blockSupportPath = "@nerima-games/mc-kernel/domain/block-support";
         const blockRegistryPath =
           "@nerima-games/mc-kernel/domain/block-registry";
-        const blockInteractionPath =
-          "@nerima-games/mc-kernel/domain/block-interaction";
         const blockStatePath = "@nerima-games/mc-kernel/domain/block-state";
-        const blockWorldPath = "@nerima-games/mc-kernel/domain/block-world";
         const blockTypePath = "@nerima-games/mc-kernel/domain/block-type";
-        const bedrockMiningPath =
-          "@nerima-games/mc-kernel/domain/bedrock-mining";
         const chunkPath = "@nerima-games/mc-kernel/domain/chunk";
         const cameraPath = "@nerima-games/mc-kernel/domain/camera";
         const coordinatesPath = "@nerima-games/mc-kernel/domain/coordinates";
@@ -2143,37 +1790,26 @@ describe("public API surface", () => {
         const itemTypePath = "@nerima-games/mc-kernel/domain/item-type";
         const quantitiesPath = "@nerima-games/mc-kernel/domain/quantities";
         const recipePath = "@nerima-games/mc-kernel/domain/recipe";
-        const cameraPosePath = "@nerima-games/mc-kernel/domain/camera-pose";
-        const cropPath = "@nerima-games/mc-kernel/domain/crop";
         const dimensionPath = "@nerima-games/mc-kernel/domain/dimension";
         const entityPath = "@nerima-games/mc-kernel/domain/entity";
         const sulfurCubePath = "@nerima-games/mc-kernel/domain/sulfur-cube";
         const sulfurCubeRegistryPath =
           "@nerima-games/mc-kernel/domain/sulfur-cube-registry";
         const fluidPath = "@nerima-games/mc-kernel/domain/fluid";
-        const fluidUpdatePath = "@nerima-games/mc-kernel/domain/fluid-update";
         const consumablePath = "@nerima-games/mc-kernel/domain/consumable";
         const useCooldownPath = "@nerima-games/mc-kernel/domain/use-cooldown";
         const portalPath = "@nerima-games/mc-kernel/domain/portal";
         const redstonePath = "@nerima-games/mc-kernel/domain/redstone";
-        const redstoneNetworkPath =
-          "@nerima-games/mc-kernel/domain/redstone-network";
-        const redstoneUpdatePath =
-          "@nerima-games/mc-kernel/domain/redstone-update";
-        const projectilePath = "@nerima-games/mc-kernel/domain/projectile";
         const explosionPath = "@nerima-games/mc-kernel/domain/explosion";
         const framePath = "@nerima-games/mc-kernel/domain/frame";
         const frameTimingPath = "@nerima-games/mc-kernel/domain/frame-timing";
-        const primedTntPath = "@nerima-games/mc-kernel/domain/primed-tnt";
         const toolComponentPath =
           "@nerima-games/mc-kernel/domain/tool-component";
         const weaponPath = "@nerima-games/mc-kernel/domain/weapon";
-        const timeOfDayPath = "@nerima-games/mc-kernel/domain/time-of-day";
         const vehiclePath = "@nerima-games/mc-kernel/domain/vehicle";
         const weatherPath = "@nerima-games/mc-kernel/domain/weather";
         const [
           packageRoot,
-          blockBreakSpeedSubpath,
           blockCapabilitiesSubpath,
           blockDefinitionSubpath,
           blockHarvestSubpath,
@@ -2181,11 +1817,8 @@ describe("public API surface", () => {
           blockPropertiesSubpath,
           blockSupportSubpath,
           blockRegistryModule,
-          blockInteractionModule,
           blockStateModule,
-          blockWorldSubpath,
           blockTypeModule,
-          bedrockMiningModule,
           chunkModule,
           cameraSubpath,
           coordinatesModule,
@@ -2203,33 +1836,24 @@ describe("public API surface", () => {
           itemTypeSubpath,
           quantitiesSubpath,
           recipeSubpath,
-          cameraPoseSubpath,
-          cropSubpath,
           dimensionSubpath,
           entitySubpath,
           sulfurCubeSubpath,
           sulfurCubeRegistrySubpath,
           fluidSubpath,
-          fluidUpdateSubpath,
           consumableSubpath,
           useCooldownSubpath,
           portalSubpath,
           redstoneSubpath,
-          redstoneNetworkSubpath,
-          redstoneUpdateSubpath,
-          projectileSubpath,
           explosionSubpath,
           frameSubpath,
           frameTimingSubpath,
-          primedTntSubpath,
           toolComponentSubpath,
           weaponSubpath,
-          timeOfDaySubpath,
           vehicleSubpath,
           weatherSubpath,
         ] = await Promise.all([
           import(packageRootPath),
-          import(blockBreakSpeedPath),
           import(blockCapabilitiesPath),
           import(blockDefinitionPath),
           import(blockHarvestPath),
@@ -2237,11 +1861,8 @@ describe("public API surface", () => {
           import(blockPropertiesPath),
           import(blockSupportPath),
           import(blockRegistryPath),
-          import(blockInteractionPath),
           import(blockStatePath),
-          import(blockWorldPath),
           import(blockTypePath),
-          import(bedrockMiningPath),
           import(chunkPath),
           import(cameraPath),
           import(coordinatesPath),
@@ -2259,28 +1880,20 @@ describe("public API surface", () => {
           import(itemTypePath),
           import(quantitiesPath),
           import(recipePath),
-          import(cameraPosePath),
-          import(cropPath),
           import(dimensionPath),
           import(entityPath),
           import(sulfurCubePath),
           import(sulfurCubeRegistryPath),
           import(fluidPath),
-          import(fluidUpdatePath),
           import(consumablePath),
           import(useCooldownPath),
           import(portalPath),
           import(redstonePath),
-          import(redstoneNetworkPath),
-          import(redstoneUpdatePath),
-          import(projectilePath),
           import(explosionPath),
           import(framePath),
           import(frameTimingPath),
-          import(primedTntPath),
           import(toolComponentPath),
           import(weaponPath),
-          import(timeOfDayPath),
           import(vehiclePath),
           import(weatherPath),
         ]);
@@ -2290,15 +1903,6 @@ describe("public API surface", () => {
         const itemEnchantmentsSubpath = await import(itemEnchantmentsPath);
         const textComponentSubpath = await import(textComponentPath);
 
-        expect(blockBreakSpeedSubpath.computeBreakTicks).toBe(
-          packageRoot.computeBreakTicks,
-        );
-        expect(blockBreakSpeedSubpath.miningSpeedOf).toBe(
-          packageRoot.miningSpeedOf,
-        );
-        expect(blockBreakSpeedSubpath.DEFAULT_MINING_SPEED).toBe(
-          packageRoot.DEFAULT_MINING_SPEED,
-        );
         expect(blockCapabilitiesSubpath.resolveBlockCapabilities).toBe(
           packageRoot.resolveBlockCapabilities,
         );
@@ -2346,36 +1950,10 @@ describe("public API surface", () => {
         expect(blockRegistryModule.BLOCK_REGISTRY).toBe(
           packageRoot.BLOCK_REGISTRY,
         );
-        expect(blockInteractionModule.BEDROCK_HARDNESS).toBe(
-          packageRoot.BEDROCK_HARDNESS,
-        );
-        expect(blockInteractionModule.REFERENCE_UNBREAKABLE_HARDNESS).toBe(
-          packageRoot.REFERENCE_UNBREAKABLE_HARDNESS,
-        );
-        expect(blockInteractionModule.breakBlock).toBe(packageRoot.breakBlock);
-        expect(blockInteractionModule.canReplaceBlock).toBe(
-          packageRoot.canReplaceBlock,
-        );
-        expect(blockInteractionModule.placeBlock).toBe(packageRoot.placeBlock);
-        expect(blockInteractionModule.placeableBlockFromItem).toBe(
-          packageRoot.placeableBlockFromItem,
-        );
         expect(blockStateModule.BlockState).toBe(packageRoot.BlockState);
         expect(blockStateModule.blockState).toBe(packageRoot.blockState);
         expect(blockTypeModule.BLOCK_TYPES).toBe(packageRoot.BLOCK_TYPES);
         expect(blockTypeModule.isBlockType).toBe(packageRoot.isBlockType);
-        expect(bedrockMiningModule.resolveBedrockDiggerSpeed).toBe(
-          packageRoot.resolveBedrockDiggerSpeed,
-        );
-        expect(bedrockMiningModule.resolveBedrockDestructionSeconds).toBe(
-          packageRoot.resolveBedrockDestructionSeconds,
-        );
-        expect(bedrockMiningModule.BEDROCK_DIGGER_MIN_FORMAT_VERSION).toBe(
-          packageRoot.BEDROCK_DIGGER_MIN_FORMAT_VERSION,
-        );
-        expect(bedrockMiningModule.parseBedrockTagQuery).toBe(
-          packageRoot.parseBedrockTagQuery,
-        );
         expect(chunkModule.encodeChunk).toBe(packageRoot.encodeChunk);
         expect(chunkModule.decodeChunk).toBe(packageRoot.decodeChunk);
         expect(chunkModule.EncodedChunk).toBe(packageRoot.EncodedChunk);
@@ -2815,18 +2393,6 @@ describe("public API surface", () => {
         expect(recipeSubpath.VANILLA_CRAFTING_RECIPES).toBe(
           packageRoot.VANILLA_CRAFTING_RECIPES,
         );
-        expect(cameraPoseSubpath.applyLook).toBe(packageRoot.applyLook);
-        expect(cameraPoseSubpath.cameraPoseOf).toBe(packageRoot.cameraPoseOf);
-        expect(cameraPoseSubpath.forwardVector).toBe(packageRoot.forwardVector);
-        expect(cameraPoseSubpath.INITIAL_PLAYER_POSE).toBe(
-          packageRoot.INITIAL_PLAYER_POSE,
-        );
-        expect(cropSubpath.CROP_TYPES).toBe(packageRoot.CROP_TYPES);
-        expect(cropSubpath.CROP_REGISTRY).toBe(packageRoot.CROP_REGISTRY);
-        expect(cropSubpath.advanceCrop).toBe(packageRoot.advanceCrop);
-        expect(cropSubpath.advanceCropByBoneMeal).toBe(
-          packageRoot.advanceCropByBoneMeal,
-        );
         expect(dimensionSubpath.DIMENSIONS).toBe(packageRoot.DIMENSIONS);
         expect(dimensionSubpath.isDimension).toBe(packageRoot.isDimension);
         expect(entitySubpath.EntityId).toBe(packageRoot.EntityId);
@@ -2910,24 +2476,7 @@ describe("public API surface", () => {
         expect(sulfurCubeRegistrySubpath.sulfurCubeArchetypeDataPath).toBe(
           packageRoot.sulfurCubeArchetypeDataPath,
         );
-        expect(blockWorldSubpath.emptyBlockWorld).toBe(
-          packageRoot.emptyBlockWorld,
-        );
-        expect(blockWorldSubpath.blockAt).toBe(packageRoot.blockAt);
-        expect(blockWorldSubpath.blockReaderOf).toBe(packageRoot.blockReaderOf);
-        expect(blockWorldSubpath.readBlockAt).toBe(packageRoot.readBlockAt);
-        expect(blockWorldSubpath.setBlockAt).toBe(packageRoot.setBlockAt);
         expect(fluidSubpath.FLUID_BLOCK_IDS).toBe(packageRoot.FLUID_BLOCK_IDS);
-        expect(fluidSubpath.fluidLevel).toBe(packageRoot.fluidLevel);
-        expect(fluidSubpath.setFluidCell).toBe(packageRoot.setFluidCell);
-        expect(fluidSubpath.scheduleFluidAt).toBe(packageRoot.scheduleFluidAt);
-        expect(fluidUpdateSubpath.fluidStateFromWorld).toBe(
-          packageRoot.fluidStateFromWorld,
-        );
-        expect(fluidUpdateSubpath.canFluidReplace).toBe(
-          packageRoot.canFluidReplace,
-        );
-        expect(fluidUpdateSubpath.updateFluids).toBe(packageRoot.updateFluids);
         expect(consumableSubpath.CONSUMABLE_ANIMATIONS).toBe(
           packageRoot.CONSUMABLE_ANIMATIONS,
         );
@@ -2997,52 +2546,12 @@ describe("public API surface", () => {
         expect(useCooldownSubpath.isUseCooldownComponent).toBe(
           packageRoot.isUseCooldownComponent,
         );
-        expect(portalSubpath.detectNetherPortal).toBe(
-          packageRoot.detectNetherPortal,
-        );
-        expect(portalSubpath.generatePortalLayout).toBe(
-          packageRoot.generatePortalLayout,
-        );
+        expect(portalSubpath.MIN_PORTAL_WIDTH).toBe(packageRoot.MIN_PORTAL_WIDTH);
+        expect(portalSubpath.MAX_PORTAL_WIDTH).toBe(packageRoot.MAX_PORTAL_WIDTH);
+        expect(portalSubpath.MIN_PORTAL_HEIGHT).toBe(packageRoot.MIN_PORTAL_HEIGHT);
+        expect(portalSubpath.MAX_PORTAL_HEIGHT).toBe(packageRoot.MAX_PORTAL_HEIGHT);
         expect(redstoneSubpath.REDSTONE_BLOCK_IDS).toBe(
           packageRoot.REDSTONE_BLOCK_IDS,
-        );
-        expect(redstoneSubpath.redstonePower).toBe(packageRoot.redstonePower);
-        expect(redstoneSubpath.setRedstoneDevice).toBe(
-          packageRoot.setRedstoneDevice,
-        );
-        expect(redstoneNetworkSubpath.collectRedstoneLayout).toBe(
-          packageRoot.collectRedstoneLayout,
-        );
-        expect(redstoneNetworkSubpath.sourcePowerAt).toBe(
-          packageRoot.sourcePowerAt,
-        );
-        expect(redstoneNetworkSubpath.deviceOutputFace).toBe(
-          packageRoot.deviceOutputFace,
-        );
-        expect(redstoneNetworkSubpath.deviceOutputAtTarget).toBe(
-          packageRoot.deviceOutputAtTarget,
-        );
-        expect(redstoneNetworkSubpath.poweredWiresFrom).toBe(
-          packageRoot.poweredWiresFrom,
-        );
-        expect(redstoneNetworkSubpath.signalPowerAt).toBe(
-          packageRoot.signalPowerAt,
-        );
-        expect(redstoneNetworkSubpath.wirePowerChanges).toBe(
-          packageRoot.wirePowerChanges,
-        );
-        expect(redstoneNetworkSubpath.blockIsWire).toBe(
-          packageRoot.blockIsWire,
-        );
-        expect(redstoneUpdateSubpath.updateRedstone).toBe(
-          packageRoot.updateRedstone,
-        );
-        expect(projectileSubpath.launchArrow).toBe(packageRoot.launchArrow);
-        expect(projectileSubpath.stepArrow).toBe(packageRoot.stepArrow);
-        expect(projectileSubpath.ARROW_GRAVITY).toBe(packageRoot.ARROW_GRAVITY);
-        expect(explosionSubpath.planExplosion).toBe(packageRoot.planExplosion);
-        expect(explosionSubpath.applyExplosionPlan).toBe(
-          packageRoot.applyExplosionPlan,
         );
         expect(explosionSubpath.resistsExplosion).toBe(
           packageRoot.resistsExplosion,
@@ -3068,14 +2577,6 @@ describe("public API surface", () => {
         expect(frameTimingSubpath.interpolationFraction).toBe(
           packageRoot.interpolationFraction,
         );
-        expect(primedTntSubpath.primeTnt).toBe(packageRoot.primeTnt);
-        expect(primedTntSubpath.planPrimedTnt).toBe(packageRoot.planPrimedTnt);
-        expect(primedTntSubpath.applyPrimedTntPlan).toBe(
-          packageRoot.applyPrimedTntPlan,
-        );
-        expect(primedTntSubpath.DEFAULT_TNT_FUSE_SECS).toBe(
-          packageRoot.DEFAULT_TNT_FUSE_SECS,
-        );
         expect(toolComponentSubpath.compileToolComponent).toBe(
           packageRoot.compileToolComponent,
         );
@@ -3089,35 +2590,20 @@ describe("public API surface", () => {
         expect(weaponSubpath.isWeaponComponent).toBe(
           packageRoot.isWeaponComponent,
         );
-        expect(timeOfDaySubpath.timeOfDay).toBe(packageRoot.timeOfDay);
-        expect(timeOfDaySubpath.setDayLengthThenTimeOfDay).toBe(
-          packageRoot.setDayLengthThenTimeOfDay,
-        );
-        expect(timeOfDaySubpath.INITIAL_TIME_STATE).toBe(
-          packageRoot.INITIAL_TIME_STATE,
-        );
         expect(vehicleSubpath.VEHICLE_TYPES).toBe(packageRoot.VEHICLE_TYPES);
         expect(vehicleSubpath.isVehicleType).toBe(packageRoot.isVehicleType);
         expect(vehicleSubpath.VehicleId).toBe(packageRoot.VehicleId);
         expect(vehicleSubpath.OccupantId).toBe(packageRoot.OccupantId);
         expect(weatherSubpath.isWeather).toBe(packageRoot.isWeather);
-        expect(weatherSubpath.normaliseWeatherState).toBe(
-          packageRoot.normaliseWeatherState,
-        );
-        expect(weatherSubpath.INITIAL_WEATHER_STATE).toBe(
-          packageRoot.INITIAL_WEATHER_STATE,
-        );
       }),
     ));
-  it("supports settings and statistics package subpath exports", () =>
+  it("supports retained settings package subpath exports", () =>
     Effect.runPromise(
       Effect.promise(async () => {
         const packageRootPath = "@nerima-games/mc-kernel";
         const settingsPath = "@nerima-games/mc-kernel/domain/settings";
-        const statisticsPath = "@nerima-games/mc-kernel/domain/statistics";
         const packageRoot = await import(packageRootPath);
         const settingsSubpath = await import(settingsPath);
-        const statisticsSubpath = await import(statisticsPath);
 
         expect(settingsSubpath.DEFAULT_SETTINGS).toBe(
           packageRoot.DEFAULT_SETTINGS,
@@ -3125,18 +2611,47 @@ describe("public API surface", () => {
         expect(settingsSubpath.normaliseSettings).toBe(
           packageRoot.normaliseSettings,
         );
-        expect(settingsSubpath.isValidSettings).toBe(
-          packageRoot.isValidSettings,
+        expect(settingsSubpath.normaliseSettings).toBeDefined();
+        expect(settingsSubpath.normaliseKeyBindings).toBeDefined();
+        expect(settingsSubpath.normaliseKeyBindings).toBe(
+          packageRoot.normaliseKeyBindings,
         );
-        expect(statisticsSubpath.EMPTY_STATISTICS).toBe(
-          packageRoot.EMPTY_STATISTICS,
-        );
-        expect(statisticsSubpath.normaliseStatistics).toBe(
-          packageRoot.normaliseStatistics,
-        );
-        expect(statisticsSubpath.isValidStatistics).toBe(
-          packageRoot.isValidStatistics,
-        );
+        expect(settingsSubpath.rebindKey).toBe(packageRoot.rebindKey);
+        expect(settingsSubpath.unbindKey).toBe(packageRoot.unbindKey);
+      }),
+    ));
+  it("supports retained static-data package subpaths", () =>
+    Effect.runPromise(
+      Effect.promise(async () => {
+        const blockBreakSpeedPath =
+          "@nerima-games/mc-kernel/domain/block-break-speed";
+        const bedrockMiningPath =
+          "@nerima-games/mc-kernel/domain/bedrock-mining";
+        const cropPath = "@nerima-games/mc-kernel/domain/crop";
+        const statisticsPath = "@nerima-games/mc-kernel/domain/statistics";
+        const [blockBreakSpeed, bedrockMining, crop, statistics] =
+          await Promise.all([
+            import(blockBreakSpeedPath),
+            import(bedrockMiningPath),
+            import(cropPath),
+            import(statisticsPath),
+          ]);
+
+        expect(blockBreakSpeed.DEFAULT_MINING_SPEED).toBe(1);
+        expect(blockBreakSpeed.TOOL_BREAK_SPEED).toBeDefined();
+        expect(bedrockMining.DEFAULT_BEDROCK_SECONDS_TO_DESTROY).toBe(0);
+        expect(bedrockMining.BEDROCK_DIGGER_MIN_FORMAT_VERSION).toBe("1.20.30");
+        expect(bedrockMining.parseBedrockTagQuery).toBeDefined();
+        expect(crop.CROP_TYPES).toEqual([
+          "wheat_crop",
+          "potato_crop",
+          "nether_wart_crop",
+        ]);
+        expect(crop.CROP_REGISTRY).toBeDefined();
+        expect(statistics.EMPTY_STATISTICS).toEqual({
+          counters: {},
+          unlocked: [],
+        });
       }),
     ));
   it("exports the canonical Eye of Ender item identity", () =>
@@ -3254,7 +2769,6 @@ describe("shared vocabulary added for the downstream repositories", () => {
     "damage-type": damageTypeModule,
     "entity-type": entityTypeModule,
     "game-mode": gameModeModule,
-    "game-rule": gameRuleModule,
     heightmap: heightmapModule,
     light: lightModule,
     "random-source": randomSourceModule,
