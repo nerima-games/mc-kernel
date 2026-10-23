@@ -1,20 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  canEatFood,
-  consumeFood,
   foodDefinitionOf,
-  foodRemainderOf,
   FOOD_DEFINITION_BY_ITEM,
   VANILLA_FOOD_DEFINITIONS,
   type FoodDefinition,
-} from '../src/domain/item/food'
-import { itemStack } from '../src/domain/item/item-stack'
-import { SPAWN_VITALS, type Vitals } from '../src/domain/entity/vitals'
-
-const vitalsWith = (changes: Partial<Vitals> = {}): Vitals => ({
-  ...SPAWN_VITALS,
-  ...changes,
-})
+} from '../src/domain/item/food-data'
 
 const EXPECTED_FOOD_DEFINITIONS = [
   {
@@ -343,14 +333,6 @@ const EXPECTED_FOOD_DEFINITIONS = [
   },
 ] as const satisfies ReadonlyArray<FoodDefinition>
 
-const convertibleFood: FoodDefinition = {
-  item: 'potato',
-  nutrition: 1,
-  saturation: 0.6,
-  canAlwaysEat: false,
-  useRemainder: 'bowl',
-  effects: [],
-}
 
 describe('food data', () => {
   it('publishes the fixed-stat food roster and normalized effects', () => {
@@ -363,98 +345,5 @@ describe('food data', () => {
       expect(foodDefinitionOf(expected.item)).toStrictEqual(expected)
     }
     expect(foodDefinitionOf('bowl')).toBeUndefined()
-  })
-
-  it('resolves validated remainder stacks', () => {
-    expect(foodRemainderOf({ ...convertibleFood, useRemainder: undefined })).toBeUndefined()
-    expect(foodRemainderOf(convertibleFood)).toEqual(itemStack('bowl', 1))
-  })
-})
-
-describe('food consumption', () => {
-  it('allows always-edible food and rejects a normal food at full hunger', () => {
-    expect(
-      canEatFood(vitalsWith({ hungerPoints: 20 }), {
-        ...convertibleFood,
-        canAlwaysEat: true,
-      }),
-    ).toBe(true)
-    expect(canEatFood(vitalsWith({ hungerPoints: 20 }), convertibleFood)).toBe(false)
-    expect(canEatFood(vitalsWith({ hungerPoints: 19 }), convertibleFood)).toBe(true)
-    const goldenApple = foodDefinitionOf('golden_apple')
-    if (goldenApple === undefined) throw new Error('golden apple should be registered')
-    expect(canEatFood(vitalsWith({ hungerPoints: 20 }), goldenApple)).toBe(true)
-  })
-
-  it('returns the unchanged stack for non-food items', () => {
-    const stack = itemStack('bowl', 1)
-    const result = consumeFood(stack, SPAWN_VITALS)
-
-    expect(result).toEqual({
-      consumed: false,
-      reason: 'not_food',
-      remainingStack: stack,
-      remainderStack: undefined,
-      vitals: SPAWN_VITALS,
-      definition: undefined,
-      effects: [],
-    })
-  })
-
-  it('returns the unchanged stack when normal food cannot be eaten', () => {
-    const stack = itemStack('cod', 2)
-    const result = consumeFood(stack, SPAWN_VITALS)
-
-    expect(result).toEqual({
-      consumed: false,
-      reason: 'hunger_full',
-      remainingStack: stack,
-      remainderStack: undefined,
-      vitals: SPAWN_VITALS,
-      definition: foodDefinitionOf('cod'),
-      effects: [],
-    })
-  })
-
-  it('applies nutrition and consumes one item from a stack', () => {
-    const result = consumeFood(
-      itemStack('cod', 2),
-      vitalsWith({ hungerPoints: 10, saturation: 0 }),
-    )
-
-    expect(result.consumed).toBe(true)
-    expect(result.remainingStack).toEqual(itemStack('cod', 1))
-    expect(result.remainderStack).toBeUndefined()
-    expect(result.vitals.hungerPoints).toBe(12)
-    expect(result.vitals.saturation).toBeCloseTo(0.4)
-    expect(result.effects).toEqual([])
-  })
-
-  it('returns status effects and removes a single-item stack', () => {
-    const result = consumeFood(
-      itemStack('pufferfish', 1),
-      vitalsWith({ hungerPoints: 10, saturation: 0 }),
-    )
-
-    if (!result.consumed) throw new Error('pufferfish should be consumed')
-    expect(result.remainingStack).toBeUndefined()
-    expect(result.definition.item).toBe('pufferfish')
-    expect(result.effects).toEqual([
-      { kind: 'status', name: 'poison', chance: 1, durationSecs: 60, amplifier: 1 },
-      { kind: 'status', name: 'nausea', chance: 1, durationSecs: 15, amplifier: 1 },
-      { kind: 'status', name: 'hunger', chance: 1, durationSecs: 15, amplifier: 2 },
-    ])
-  })
-
-  it('returns a use remainder and a non-status effect', () => {
-    const result = consumeFood(
-      itemStack('honey_bottle', 1),
-      vitalsWith({ hungerPoints: 10, saturation: 0 }),
-    )
-
-    if (!result.consumed) throw new Error('honey bottle should be consumed')
-    expect(result.remainingStack).toBeUndefined()
-    expect(result.remainderStack).toEqual(itemStack('glass_bottle', 1))
-    expect(result.effects).toEqual([{ kind: 'remove', name: 'poison', chance: 1 }])
   })
 })

@@ -20,7 +20,7 @@ import {
   isUseRemainderComponent,
   useRemainderComponentOf,
 } from '../src/domain/item/consumable'
-import { FOOD_DEFINITION_BY_ITEM } from '../src/domain/item/food'
+import { FOOD_DEFINITION_BY_ITEM } from '../src/domain/item/food-data'
 import { ResourceLocation } from '../src/domain/text/identifiers'
 
 describe('consumable item components', () => {

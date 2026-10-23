@@ -153,7 +153,7 @@ import {
   isFoodComponent,
   isUseRemainderComponent,
 } from './consumable-validation.js'
-import { itemDurabilityDefinitionFor } from './equipment.js'
+import { itemDurabilityDefinitionFor } from './equipment-data.js'
 import {
   validateItemComponentRelations,
   type ItemComponents,

@@ -176,3 +176,11 @@ export const ITEM_DURABILITY_CATALOG: Readonly<
   flint_and_steel: { maxDurability: 64 },
   shears: { maxDurability: 238 },
 } satisfies Partial<Record<ItemType, ItemDurabilityDefinition>>
+
+const hasItemDurability = (item: ItemType): item is DamageableItemType =>
+  Object.hasOwn(ITEM_DURABILITY_CATALOG, item)
+
+export const itemDurabilityDefinitionFor = (
+  item: ItemType,
+): ItemDurabilityDefinition | undefined =>
+  hasItemDurability(item) ? ITEM_DURABILITY_CATALOG[item] : undefined
