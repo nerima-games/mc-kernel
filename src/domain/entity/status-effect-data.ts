@@ -6,11 +6,8 @@
  * with external-input handling (architecture.md §6, the same split as
  * `block-property-data.ts` / `block-property-validation.ts`).
  *
- * Applying an effect to `Vitals` (duration countdown, particle spawning,
- * stat mutation) is an upper-layer responsibility (docs/responsibility.md,
- * "食料" row); this table only carries what the kernel can own about an
- * effect as a name: its benefit/harm classification, its vanilla particle
- * colour, and its amplifier ceiling.
+ * `STATUS_EFFECT_DEFINITIONS` stores each effect's classification, vanilla
+ * particle colour, and amplifier ceiling.
  *
  * Membership, `beneficial` and `particleColor` are read from the
  * `minecraft:effects` registry (verified against the `Effect colors` table
