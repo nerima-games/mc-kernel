@@ -50,4 +50,18 @@ describe('entity vocabulary', () => {
       behaviour: 'idle',
     })
   })
+
+  it('defaults malformed state positions and health values', () => {
+    const state = {
+      feetPosition: null,
+      healthPoints: Number.NaN,
+      behaviour: 'idle',
+    }
+
+    expect(Reflect.apply(repairState, undefined, [state])).toStrictEqual({
+      feetPosition: position(0, 0, 0),
+      healthPoints: 0,
+      behaviour: 'idle',
+    })
+  })
 })

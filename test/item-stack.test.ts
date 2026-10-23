@@ -8,6 +8,7 @@ import {
   itemStack,
   itemStackFromUnknown,
   itemStackEqualsIgnoringCount,
+  itemStacksCanMerge,
   itemStackWithCount,
   maxStackCountForItem,
   maxStackCountForStack,
@@ -164,6 +165,8 @@ describe("canonical item stacks", () => {
     const changed = itemStackWithCount(source, 12);
     const split = splitItemStack(source, TransferQuantity(12));
     expect(itemStackEqualsIgnoringCount(source, changed)).toBe(true);
+    expect(itemStacksCanMerge(source, changed)).toBe(true);
+    expect(itemStacksCanMerge(source, itemStack("dirt", 12))).toBe(false);
     expect(split.taken.count + (split.remainder?.count ?? 0)).toBe(32);
     expect(split.remainder).toBeDefined();
     if (split.remainder === undefined) throw new Error("expected remainder");
