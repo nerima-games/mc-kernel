@@ -21,13 +21,6 @@ import {
   isFurnaceState,
   isStorageContainer,
 } from '../src/domain/block/block-entity-validation'
-import {
-  blockEntityAt,
-  clearBlockEntity,
-  emptyBlockEntities,
-  setBlockEntity,
-  type BlockEntities,
-} from '../src/domain/block/block-entity'
 import { blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import { itemStack, type Slot } from '../src/domain/item/item-stack'
 import type { FurnaceState } from '../src/domain/recipe/smelting-data'
@@ -38,7 +31,6 @@ import {
 } from '../src/domain/recipe/brewing-data'
 
 const AT_ORIGIN: BlockPosition = blockPosition(0, 0, 0)
-const AT_OTHER: BlockPosition = blockPosition(1, 2, 3)
 const EMPTY_FURNACE: FurnaceState = {
   station: 'furnace',
   input: undefined,
@@ -61,7 +53,6 @@ const containerOf = (kind: StorageContainerKind, slots: ReadonlyArray<Slot>): St
   capacity: STORAGE_CONTAINER_CAPACITIES[kind],
   slots,
 })
-
 describe('storage container capacities', () => {
   it('names every capacity and matches the declared table (cross-checked against Minecraft Wiki: Inventory, Shulker Box)', () => {
     expect(STORAGE_CONTAINER_CAPACITIES).toStrictEqual({
@@ -327,39 +318,5 @@ describe('block entity guard', () => {
 
   it('rejects a Sign entity with invalid text', () => {
     expect(isBlockEntity({ ...signEntity, text: 123 })).toBe(false)
-  })
-})
-
-describe('block entities collection', () => {
-  it('starts empty', () => {
-    const state: BlockEntities = emptyBlockEntities()
-    expect(state.entities.size).toBe(0)
-    expect(blockEntityAt(state, AT_ORIGIN)).toBeUndefined()
-  })
-
-  it('sets and looks up an entity by position', () => {
-    const entity: BlockEntity = { _tag: 'Sign', position: AT_ORIGIN, text: 'hi' }
-    const state = setBlockEntity(emptyBlockEntities(), entity)
-    expect(blockEntityAt(state, AT_ORIGIN)).toStrictEqual(entity)
-    expect(blockEntityAt(state, AT_OTHER)).toBeUndefined()
-  })
-
-  it('does not mutate the source state', () => {
-    const entity: BlockEntity = { _tag: 'Sign', position: AT_ORIGIN, text: 'hi' }
-    const before = emptyBlockEntities()
-    setBlockEntity(before, entity)
-    expect(before.entities.size).toBe(0)
-  })
-
-  it('clears an entity at a position', () => {
-    const entity: BlockEntity = { _tag: 'Sign', position: AT_ORIGIN, text: 'hi' }
-    const withEntity = setBlockEntity(emptyBlockEntities(), entity)
-    const cleared = clearBlockEntity(withEntity, AT_ORIGIN)
-    expect(blockEntityAt(cleared, AT_ORIGIN)).toBeUndefined()
-  })
-
-  it('clearing a position with nothing there is a no-op', () => {
-    const state = emptyBlockEntities()
-    expect(clearBlockEntity(state, AT_ORIGIN)).toBe(state)
   })
 })

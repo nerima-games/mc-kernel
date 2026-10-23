@@ -4,26 +4,19 @@ import {
   BEDROCK_DIGGER_MIN_FORMAT_VERSION,
   DEFAULT_BEDROCK_SECONDS_TO_DESTROY,
   bedrockBlockDescriptorMatches,
-  bedrockDiggerUsesEfficiency,
   bedrockItemDescriptorMatches,
   bedrockTagQueryMatches,
   parseBedrockTagQuery,
-  resolveBedrockDestructionSeconds,
-  resolveBedrockDiggerSpeed,
-  resolveBedrockItemSpecificDestroySpeed,
   validateBedrockBlockDescriptor,
   validateBedrockBlockStates,
-  validateBedrockDiggerComponent,
   validateBedrockDiggerSpeed,
-  validateBedrockDestructibleByMining,
   validateBedrockDestroySpeed,
   validateBedrockItemDescriptor,
-} from '../src'
+} from '../src/domain/block/bedrock-mining'
 import type {
   BedrockBlock,
-  BedrockDiggerComponent,
   BedrockItem,
-} from '../src'
+} from '../src/domain/block/bedrock-mining'
 import { describe, expect, it } from 'vitest'
 
 const BLOCK: BedrockBlock = {
@@ -35,14 +28,6 @@ const BLOCK: BedrockBlock = {
 const ITEM: BedrockItem = {
   name: 'minecraft:diamond_axe',
   tags: new Set(['minecraft:is_axe', 'minecraft:diamond_tier']),
-}
-
-const DIGGER: BedrockDiggerComponent = {
-  destroy_speeds: [
-    { block: { tags: "q.any_tag('minecraft:wood')" }, speed: 6 },
-    { block: 'minecraft:oak_log', speed: 12 },
-  ],
-  use_efficiency: true,
 }
 
 describe('Bedrock mining components', () => {
@@ -142,129 +127,4 @@ describe('Bedrock mining components', () => {
     )
   })
 
-  it('validates and resolves minecraft:digger', () => {
-    expect(() => validateBedrockDiggerComponent(DIGGER)).not.toThrow()
-    expect(resolveBedrockDiggerSpeed(undefined, BLOCK)).toBeUndefined()
-    expect(resolveBedrockDiggerSpeed({}, BLOCK)).toBeUndefined()
-    expect(resolveBedrockDiggerSpeed(DIGGER, BLOCK)).toBe(6)
-    const readonlyTags = {
-      has: (tag: unknown): boolean => tag === 'minecraft:wood',
-      [Symbol.iterator]: function* () {
-        yield 'minecraft:wood'
-      },
-      }
-    expect(
-      resolveBedrockDiggerSpeed(DIGGER, {
-        name: 'minecraft:oak_log',
-        states: { axis: 'y', stripped: false },
-        tags: readonlyTags,
-      }),
-    ).toBe(6)
-    expect(bedrockDiggerUsesEfficiency(undefined)).toBe(false)
-    expect(bedrockDiggerUsesEfficiency({})).toBe(false)
-    expect(bedrockDiggerUsesEfficiency(DIGGER)).toBe(true)
-    expect(
-      resolveBedrockDiggerSpeed(
-        { destroy_speeds: [{ block: 'minecraft:oak_log', speed: 12 }] },
-        BLOCK,
-      ),
-    ).toBe(12)
-
-    expect(() => validateBedrockDiggerComponent(null)).toThrow('Bedrock digger component must be an object')
-    expect(() => validateBedrockDiggerComponent([])).toThrow('Bedrock digger component must be an object')
-    expect(() => validateBedrockDiggerComponent({ future: true })).toThrow('unsupported property future')
-    expect(() => validateBedrockDiggerComponent({ destroy_speeds: null })).toThrow('must be an array')
-    expect(() => validateBedrockDiggerComponent({ destroy_speeds: [null] })).toThrow('must be an object')
-    expect(() => validateBedrockDiggerComponent({ destroy_speeds: [{ block: 'minecraft:stone' }] })).toThrow(
-      'non-negative integer',
-    )
-    expect(() => validateBedrockDiggerComponent({ destroy_speeds: [{ block: 'minecraft:stone', speed: -1 }] })).toThrow(
-      'non-negative integer',
-    )
-    expect(() => validateBedrockDiggerComponent({ use_efficiency: 'yes' })).toThrow('must be a boolean')
-    expect(() => resolveBedrockDiggerSpeed(DIGGER, null)).toThrow('Bedrock block must be an object')
-    expect(() => resolveBedrockDiggerSpeed(DIGGER, { name: '', states: {}, tags: new Set() })).toThrow(
-      'Bedrock block name must be a non-empty string',
-    )
-    expect(() =>
-      resolveBedrockDiggerSpeed(DIGGER, { name: 'minecraft:oak_log', states: {}, tags: [] }),
-    ).toThrow('Bedrock block tags must be a Set or Set-like iterable')
-    expect(() =>
-      resolveBedrockDiggerSpeed(DIGGER, { name: 'minecraft:oak_log', states: {}, tags: null }),
-    ).toThrow('Bedrock block tags must be a Set or Set-like iterable')
-    expect(() =>
-      resolveBedrockDiggerSpeed(DIGGER, { name: 'minecraft:oak_log', states: {}, tags: new Set([1]) }),
-    ).toThrow('Bedrock block tags must contain non-empty strings')
-  })
-
-  it('validates and resolves minecraft:destructible_by_mining', () => {
-    const component = {
-      seconds_to_destroy: 7.5,
-      item_specific_speeds: [
-        { item: { tags: "q.any_tag('minecraft:diamond_tier')" }, destroy_speed: 0.3 },
-        { item: 'minecraft:diamond_axe', destroy_speed: 0.25 },
-      ],
-    }
-    expect(() => validateBedrockDestructibleByMining(true)).not.toThrow()
-    expect(() => validateBedrockDestructibleByMining(false)).not.toThrow()
-    expect(() => validateBedrockDestructibleByMining(component)).not.toThrow()
-    expect(resolveBedrockDestructionSeconds(undefined, 5)).toBe(5)
-    expect(resolveBedrockDestructionSeconds(true, 5)).toBe(5)
-    expect(resolveBedrockDestructionSeconds(false, 5)).toBe(Number.POSITIVE_INFINITY)
-    expect(resolveBedrockDestructionSeconds({}, 5)).toBe(DEFAULT_BEDROCK_SECONDS_TO_DESTROY)
-    expect(resolveBedrockDestructionSeconds(component, 5)).toBe(7.5)
-    expect(resolveBedrockItemSpecificDestroySpeed(undefined, ITEM)).toBeUndefined()
-    expect(resolveBedrockItemSpecificDestroySpeed(true, ITEM)).toBeUndefined()
-    expect(resolveBedrockItemSpecificDestroySpeed(false, ITEM)).toBeUndefined()
-    expect(resolveBedrockItemSpecificDestroySpeed(component, ITEM)).toBe(0.3)
-    expect(
-      resolveBedrockItemSpecificDestroySpeed(
-        { item_specific_speeds: [{ item: 'minecraft:iron_axe', destroy_speed: 0.4 }] },
-        ITEM,
-      ),
-    ).toBeUndefined()
-    expect(
-      resolveBedrockItemSpecificDestroySpeed(
-        { item_specific_speeds: [{ item: 'minecraft:diamond_axe', destroy_speed: 0.25 }] },
-        ITEM,
-      ),
-    ).toBe(0.25)
-
-    expect(() => resolveBedrockDestructionSeconds({}, -1)).toThrow('greater than or equal to zero')
-    expect(() => validateBedrockDestructibleByMining(null)).toThrow(
-      'Bedrock destructible_by_mining component must be an object',
-    )
-    expect(() => validateBedrockDestructibleByMining([])).toThrow(
-      'Bedrock destructible_by_mining component must be an object',
-    )
-    expect(() => validateBedrockDestructibleByMining({ future: true })).toThrow('unsupported property future')
-    expect(() => validateBedrockDestructibleByMining({ seconds_to_destroy: -1 })).toThrow(
-      'greater than or equal to zero',
-    )
-    expect(() => validateBedrockDestructibleByMining({ item_specific_speeds: null })).toThrow('must be an array')
-    expect(() => validateBedrockDestructibleByMining({ item_specific_speeds: [null] })).toThrow('must be an object')
-    expect(() =>
-      validateBedrockDestructibleByMining({ item_specific_speeds: [{ item: 'minecraft:stone' }] }),
-    ).toThrow('greater than or equal to zero')
-    expect(() =>
-      validateBedrockDestructibleByMining({
-        item_specific_speeds: [{ item: 'minecraft:stone', destroy_speed: -1 }],
-      }),
-    ).toThrow('greater than or equal to zero')
-    expect(() => resolveBedrockItemSpecificDestroySpeed(component, null)).toThrow(
-      'Bedrock item must be an object',
-    )
-    expect(() =>
-      resolveBedrockItemSpecificDestroySpeed(component, { name: '', tags: new Set() }),
-    ).toThrow('Bedrock item name must be a non-empty string')
-    expect(() =>
-      resolveBedrockItemSpecificDestroySpeed(component, { name: 'minecraft:diamond_axe', tags: [] }),
-    ).toThrow('Bedrock item tags must be a Set or Set-like iterable')
-    expect(() =>
-      resolveBedrockItemSpecificDestroySpeed(component, {
-        name: 'minecraft:diamond_axe',
-        tags: new Set([1]),
-      }),
-    ).toThrow('Bedrock item tags must contain non-empty strings')
-  })
 })

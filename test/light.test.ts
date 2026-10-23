@@ -1,6 +1,5 @@
 /* eslint-disable no-magic-numbers -- Exercises the fixed binary wire format's byte offsets, mirroring test/chunk.test.ts. */
 import { describe, expect, it } from 'vitest'
-import { LightLevel } from '../src/domain/block/block-property-data'
 import { MAX_CHUNK_HEIGHT } from '../src/domain/world/chunk'
 import { BlockAxis, CHUNK_SIZE_XZ, LocalAxis } from '../src/domain/coordinates/coordinate-primitives'
 import type { LocalBlockCoord } from '../src/domain/coordinates/coordinate-conversions'
@@ -15,75 +14,12 @@ import {
   lightVolume,
   lightVolumeIndexOf,
   skyLightAt,
-  updateLight,
-  type LightVolumeSource,
 } from '../src/domain/block/light'
 
 const at = (lx: number, ly: number, lz: number): LocalBlockCoord => ({
   lx: LocalAxis(lx),
   ly: BlockAxis(ly),
   lz: LocalAxis(lz),
-})
-
-const sourceWithOpaqueAt = (blockers: ReadonlyArray<LocalBlockCoord>): LightVolumeSource => {
-  const blocked = new Set(blockers.map((local) => `${local.lx},${local.ly},${local.lz}`))
-  return (local) => ({
-    lightEmission: local.lx === 0 && local.ly === 0 && local.lz === 0 ? LightLevel(15) : LightLevel(0),
-    opacity: blocked.has(`${local.lx},${local.ly},${local.lz}`) ? 'opaque' : 'transparentSolid',
-  })
-}
-
-describe('light volume propagation', () => {
-  it('decreases by exactly one per cell of distance and reaches zero at the right radius', () => {
-    const source = sourceWithOpaqueAt([])
-    const volume = updateLight(1, source)
-
-    for (let lz = 0; lz < CHUNK_SIZE_XZ; lz += 1) {
-      const expected = Math.max(15 - lz, 0)
-      expect(blockLightAt(volume, at(0, 0, lz))).toBe(expected)
-    }
-  })
-
-  it('blocks propagation at an opaque cell, leaving the far side darker than a same-distance neighbour', () => {
-    const source = sourceWithOpaqueAt([at(1, 0, 0)])
-    const volume = updateLight(1, source)
-
-    const behind = blockLightAt(volume, at(2, 0, 0))
-    const beside = blockLightAt(volume, at(1, 0, 1))
-
-    expect(behind).toBeLessThan(beside)
-  })
-
-  it('attenuates by an extra step when entering a fluid cell', () => {
-    const source: LightVolumeSource = (local) => ({
-      lightEmission: local.lx === 0 && local.ly === 0 && local.lz === 0 ? LightLevel(15) : LightLevel(0),
-      opacity: local.lx === 1 && local.ly === 0 && local.lz === 0 ? 'fluid' : 'transparentSolid',
-    })
-    const volume = updateLight(1, source)
-
-    expect(blockLightAt(volume, at(1, 0, 0))).toBe(13)
-  })
-
-  it('seeds sky light from chunk-boundary input and lets it decay inward', () => {
-    const dark: LightVolumeSource = () => ({ lightEmission: LightLevel(0), opacity: 'transparentSolid' })
-    const volume = updateLight(1, dark, {
-      blockLight: [{ local: at(0, 0, 0), level: LightLevel(4) }],
-      skyLight: [{ local: at(0, 0, 0), level: LightLevel(10) }],
-    })
-
-    expect(blockLightAt(volume, at(0, 0, 0))).toBe(4)
-    expect(skyLightAt(volume, at(0, 0, 0))).toBe(10)
-    expect(skyLightAt(volume, at(0, 0, 1))).toBe(9)
-  })
-
-  it('is deterministic across repeated runs of the same input', () => {
-    const source = sourceWithOpaqueAt([at(1, 0, 0)])
-    const first = updateLight(2, source)
-    const second = updateLight(2, source)
-
-    expect(Array.from(first.blockLight.toBytes())).toStrictEqual(Array.from(second.blockLight.toBytes()))
-    expect(Array.from(first.skyLight.toBytes())).toStrictEqual(Array.from(second.skyLight.toBytes()))
-  })
 })
 
 describe('light volume construction and bounds', () => {
@@ -132,21 +68,12 @@ describe('light volume construction and bounds', () => {
 })
 
 describe('light volume binary codec', () => {
-  it('round-trips a light volume exactly', () => {
-    const source = sourceWithOpaqueAt([at(1, 0, 0)])
-    const volume = updateLight(2, source, {
-      skyLight: [{ local: at(15, 0, 15), level: LightLevel(12) }],
-    })
-
-    const decoded = decodeLightVolume(encodeLightVolume(volume))
-
-    expect(decoded.height).toBe(volume.height)
-    expect(Array.from(decoded.blockLight.toBytes())).toStrictEqual(Array.from(volume.blockLight.toBytes()))
-    expect(Array.from(decoded.skyLight.toBytes())).toStrictEqual(Array.from(volume.skyLight.toBytes()))
-  })
-
   it('writes the fixed header fields', () => {
-    const volume = updateLight(1, sourceWithOpaqueAt([]))
+    const volume = lightVolume(
+      1,
+      new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ),
+      new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ),
+    )
     const encoded = encodeLightVolume(volume)
     const view = new DataView(encoded.slice().buffer)
 
@@ -159,7 +86,11 @@ describe('light volume binary codec', () => {
   })
 
   it('rejects damaged headers and payloads explicitly', () => {
-    const valid = encodeLightVolume(updateLight(1, sourceWithOpaqueAt([])))
+    const valid = encodeLightVolume(lightVolume(
+      1,
+      new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ),
+      new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ),
+    ))
     const corrupt = (offset: number, value: number): Uint8Array => {
       const result = valid.slice()
       result[offset] = value

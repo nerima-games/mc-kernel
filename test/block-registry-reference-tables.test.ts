@@ -457,8 +457,8 @@ describe('the reference tables this roster transcribes', () => {
       // ...while its sibling in the SAME reference file is on the 0-100 scale,
       // Which is what makes this the reference's inconsistency and not kernel's.
       // `end_gateway` is -1 in the reference. Preserve it as the explicit
-      // unbreakable sentinel; `computeBreakTicks` distinguishes it from zero,
-      // which means instant break. Values below the sentinel are invalid.
+      // unbreakable sentinel; zero means instant break. Values below it are
+      // invalid.
       for (const id of BLOCK_IDS) {
         const hardness = propertyOfBlockId(id, 'hardness')
         expect(hardness === UNBREAKABLE_HARDNESS || hardness >= 0).toBe(true)

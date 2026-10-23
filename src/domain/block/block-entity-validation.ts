@@ -37,7 +37,6 @@ const isFiniteIntegerInRange = (value: unknown, minimum: number, maximum: number
 
 const isSlot = (value: unknown): value is Slot => value === undefined || isItemStack(value)
 
-/** Guard for a block position arriving as untrusted save data. */
 export const isBlockEntityPosition = (value: unknown): value is BlockPosition => {
   if (!isRecord(value)) {
     return false
@@ -49,7 +48,6 @@ export const isBlockEntityPosition = (value: unknown): value is BlockPosition =>
 const isStorageContainerKind = (value: unknown): value is StorageContainerKind =>
   typeof value === 'string' && STORAGE_CONTAINER_KINDS.some((kind) => kind === value)
 
-/** Guard for a storage container. Rejects a slot count over its declared capacity. */
 export const isStorageContainer = (value: unknown): value is StorageContainer => {
   if (!isRecord(value)) {
     return false
@@ -109,7 +107,6 @@ export const isBrewingState = (value: unknown): value is BrewingState => {
   )
 }
 
-/** Guard for a block entity of any kind, dispatched on its `_tag`. */
 export const isBlockEntity = (value: unknown): value is BlockEntity => {
   if (!isRecord(value)) {
     return false

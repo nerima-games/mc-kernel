@@ -1,1 +1,2 @@
-export * from "./block-entity.js";
+export * from "./block-entity-data.js";
+export * from "./block-entity-validation.js";

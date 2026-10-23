@@ -1,1 +1,1 @@
-export * from "./light.js";
+export * from "./light-data.js";
