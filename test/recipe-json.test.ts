@@ -46,7 +46,7 @@ const recipeFailure = (
     if (tag !== undefined) expect(result.failure._tag).toBe(tag);
     if (expected !== undefined) expect(result.failure).toEqual(expected);
     const message = result.failure._tag === "RecipeItemFailure"
-      ? result.failure.failure._tag === "ItemValidationFailure"
+        ? result.failure.failure._tag === "ItemValidationFailure" || result.failure.failure._tag === "TextComponentFailure"
         ? result.failure.failure.message
         : result.failure.failure.componentKey
       : result.failure.message;
@@ -709,10 +709,14 @@ const SPECIAL_DOCUMENTS = [
 describe("current Java special recipe JSON", () => {
   for (const { name, decode, document, tag, required } of SPECIAL_DOCUMENTS) {
     it(`decodes and guards the ${name} document`, () => {
-      expect(recipeSuccess(decode("minecraft:test", document))).toMatchObject({ _tag: tag });
-      expect(
-        recipeSuccess(decode("minecraft:test", { ...document, show_notification: false })),
-      ).toMatchObject({ _tag: tag, showNotification: false });
+      const decoded = decode("minecraft:test", document);
+      expect(decoded._tag).toBe("Success");
+      if (decoded._tag === "Success") expect(decoded.success).toMatchObject({ _tag: tag });
+      const decodedWithoutNotification = decode("minecraft:test", { ...document, show_notification: false });
+      expect(decodedWithoutNotification._tag).toBe("Success");
+      if (decodedWithoutNotification._tag === "Success") {
+        expect(decodedWithoutNotification.success).toMatchObject({ _tag: tag, showNotification: false });
+      }
       expect(recipeSuccess(portableRecipeFromUnknown("minecraft:test", document))).toMatchObject(
         { _tag: tag },
       );

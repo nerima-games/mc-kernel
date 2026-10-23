@@ -849,7 +849,7 @@ const staticIngredient = (value: IngredientInput): Ingredient => {
 const staticCraftingIngredient = (
   value: CraftingIngredientInput,
 ): CraftingIngredient => {
-  if (Array.isArray(value)) {
+  if (isIngredientInputList(value)) {
     return {
       _tag: "AnyOf",
       options: value.map(staticIngredient),
@@ -861,6 +861,10 @@ const staticCraftingIngredient = (
   }
   return staticIngredient(value);
 };
+
+const isIngredientInputList = (
+  value: CraftingIngredientInput,
+): value is ReadonlyArray<IngredientInput> => Array.isArray(value);
 
 const staticOptions = (options: RecipeOptions | undefined) => ({
   assumeSymmetry: options?.assumeSymmetry ?? false,

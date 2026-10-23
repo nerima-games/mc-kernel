@@ -23,14 +23,18 @@ export type RecipeFailure =
       readonly failure: ItemStackFailure;
     }>;
 
-export const recipeTypeFailure = (message: string) =>
+export const recipeTypeFailure = (
+  message: string,
+): Result.Result<never, RecipeFailure> =>
   Result.fail<RecipeFailure>({
     _tag: "RecipeTypeFailure",
     name: "TypeError",
     message,
   });
 
-export const recipeRangeFailure = (message: string) =>
+export const recipeRangeFailure = (
+  message: string,
+): Result.Result<never, RecipeFailure> =>
   Result.fail<RecipeFailure>({
     _tag: "RecipeRangeFailure",
     name: "RangeError",
@@ -41,7 +45,7 @@ export const recipeExternalFailure = (
   name: string,
   message: string,
   componentKey?: string,
-) =>
+): Result.Result<never, RecipeFailure> =>
   Result.fail<RecipeFailure>({
     _tag: "RecipeExternalFailure",
     name,

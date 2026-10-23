@@ -85,7 +85,7 @@ describe("transmute recipe data", () => {
       "dirt",
       "gravel",
       StackCount(2),
-    ))).output).toEqual(itemStack("gravel", 2));
+    )).output).toEqual(itemStack("gravel", 2));
   });
 
   it("rejects invalid constructor fields and unsafe result counts", () => {

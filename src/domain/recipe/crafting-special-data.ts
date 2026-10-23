@@ -256,7 +256,7 @@ const assertShapeIngredients = (
     }
     const normalized = assertIngredient(ingredient);
     if (Result.isFailure(normalized)) {
-      return normalized;
+      return Result.fail(normalized.failure);
     }
     shapes[shape] = normalized.success;
   }
