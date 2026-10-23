@@ -36,7 +36,7 @@ type EpochMillis = number & Brand.Brand<"EpochMillis">;
 const MAX_STACK_COUNT = 99;
 ```
 
-いずれも `Brand.refined` によるコンストラクタを同名で公開する（値と型の両方）。`ResourceLocation` は vanilla の
+いずれも `Brand.make` によるコンストラクタを同名で公開する（値と型の両方）。`ResourceLocation` は vanilla の
 namespace/path 形式（`minecraft:entity.generic.eat`、`entity.generic.eat`、`sulfur_cube_archetype/regular` など）だけを受け付ける。
 `TagLocation` は同じ resource location の前に必須の `#` を付けた形式（`#minecraft:mineable/pickaxe`、
 `#sulfur_cube_archetype/regular` など）を受け付ける。
@@ -541,7 +541,7 @@ const ItemComponentPatchConflictError: new (args: { readonly componentKey: strin
 `itemStackFromUnknown` を使って item、count、解決済み components を検証する。`applyItemComponentPatch` は
 境界でだけ patch を読み、既定値との合成、set/remove の競合拒否、deep snapshot を完了させる。
 remove はキーを `!` で表し、解決済み payload にそのキーを残さない。set と remove が同じ component key を
-対象にした場合は `ItemComponentPatchConflictError` を `Either` の左側で返す。
+対象にした場合は `ItemComponentPatchConflictError` を `Result` の Failure として返す。
 `itemStackEqualsIgnoringCount` と `itemStacksCanMerge` は item と components の構造的等価性で判定し、
 `splitItemStack` / `mergeItemStacks` は components を失わず新しい snapshot を返す。数量の移送量には
 `TransferQuantity`（1..99 の正の整数）を使う。これらの関数は入力を変更せず、全量を移送した結果の余りを
@@ -675,7 +675,7 @@ const jsonValuesEqual: (left: JsonValue, right: JsonValue) => boolean;
 type ItemComponentPatchKey = string & Brand.Brand<"ItemComponentPatchKey">;
 type ItemComponentPatch = Readonly<Record<ItemComponentPatchKey, JsonValue>>;
 
-const ItemComponentPatchKey: Brand.Brand.Constructor<ItemComponentPatchKey>;
+const ItemComponentPatchKey: Brand.Constructor<ItemComponentPatchKey>;
 const isItemComponentPatch: (value: unknown) => value is ItemComponentPatch;
 const itemComponentPatchFromUnknown: (value: unknown) => ItemComponentPatch;
 const itemComponentPatch: (
@@ -1660,8 +1660,8 @@ type TimeOverflow = { readonly _tag: 'TimeOverflow' };
 
 const tickDuration: FixedDurationSecs = FixedDurationSecs(0.05);
 const physicsSubstepDuration: FixedDurationSecs = FixedDurationSecs(0.025);
-const addTick: (tick: SimulationTick, count: NonNegativeTickCount) => Either<SimulationTick, TimeOverflow>;
-const secondsForTicks: (ticks: NonNegativeTickCount) => Either<FixedDurationSecs, TimeOverflow>;
+const addTick: (tick: SimulationTick, count: NonNegativeTickCount) => Result.Result<SimulationTick, TimeOverflow>;
+const secondsForTicks: (ticks: NonNegativeTickCount) => Result.Result<FixedDurationSecs, TimeOverflow>;
 const interpolationFraction: (accumulator: FixedDurationSecs) => InterpolationFraction;
 ```
 
@@ -1826,7 +1826,7 @@ type BlockWriteBatch = {
 };
 ```
 
-`WorldEpoch`、`ChunkRevision`、`LightRevision`、`ChunkLocalIndex`、`SectionIndex` は `Brand.refined` による別ブランドであり、負値・非整数を受け付けない。`BlockWriteBatch` は `BlockAxis` の safe integer 全域を受け付け、座標比較で重複 position を検証するが、live chunk の mutation、STM/COW、load/unload、dirty event は所有しない。
+`WorldEpoch`、`ChunkRevision`、`LightRevision`、`ChunkLocalIndex`、`SectionIndex` は `Brand.make` による別ブランドであり、負値・非整数を受け付けない。`BlockWriteBatch` は `BlockAxis` の safe integer 全域を受け付け、座標比較で重複 position を検証するが、live chunk の mutation、STM/COW、load/unload、dirty event は所有しない。
 
 ## 5-sexies. BlockWorld、fluid、redstone の純粋更新
 
@@ -2310,7 +2310,7 @@ type ClockService = {
   readonly monotonicSecs: Effect.Effect<MonotonicTimeSecs>
   readonly wallClockEpochMillis: Effect.Effect<EpochMillis>
 }
-class ClockPort extends Context.Tag('@nerima-games/mc-kernel/ClockPort')<ClockPort, ClockService>() {}
+class ClockPort extends Context.Service<ClockPort, ClockService>()('@nerima-games/mc-kernel/ClockPort') {}
 
 const fixedClock(at): ClockService
 const FixedClockLayer(at): Layer
