@@ -1,4 +1,17 @@
 export * from "./_world-read-write.js";
+export {
+  BlockEditSchema,
+  WorldWriteBatchSchema,
+  WorldWriteCommitSchema,
+  WorldWriteConflict,
+  WorldWriteInvalidBatch,
+  WorldWritePort,
+} from "./_world-write-port.js";
+export type {
+  BlockEdit as WorldWriteBlockEdit,
+  WorldWriteBatch,
+  WorldWriteCommit,
+} from "./_world-write-port.js";
 export * from "./_biome.js";
 export * from "./_chunk.js";
 export * from "./_heightmap.js";
