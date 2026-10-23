@@ -8,7 +8,7 @@
 `@nerima-games/mc-kernel/domain/*` から個別に import できる。型宣言と実装は同じ `dist` の公開境界から
 提供する。`*-data` モジュールは通常は内部扱いだが、`crafting-special-data` は public subpath として公開されている。
 
-複数リポジトリが共有し、どれか一つの所有リポジトリに置くと依存方向が崩れる型は kernel に置く。それ以外の型は、その所有者のリポジトリに置く。
+複数リポジトリが共有し、どれか一つの所有リポジトリに置くと依存方向が崩れる型は kernel に置く。それ以外の型はその所有者のリポジトリに置く。
 
 TypeScript のコードブロックは公開宣言の要約である。`...` や `/` でまとめた記述は省略を示し、全ブロックがそのままコンパイルできる宣言とは限らない。
 `package.json` の `types` 条件は root entrypoint を `dist/index.d.ts`、各 `./domain/<name>` subpath を `dist/domain/<name>.d.ts` に対応づける。各公開 import entrypoint の完全な型宣言は package に含まれるそのファイルから確認できる。
@@ -52,20 +52,26 @@ const MAX_STACK_COUNT = 99;
 ```typescript
 const CHUNK_SIZE_XZ = 16
 
-type BlockAxis = number & Brand.Brand<'BlockAxis'>   // 格子座標の 1 軸（整数）
-type ChunkAxis = number & Brand.Brand<'ChunkAxis'>   // チャンク座標の 1 軸（整数）
-type LocalAxis = number & Brand.Brand<'LocalAxis'>   // チャンク内ローカル（0..15）
+type PositionAxis = number & Brand.Brand<'PositionAxis'> // 有限な連続座標
+type BlockAxis = number & Brand.Brand<'BlockAxis'>       // 格子座標の 1 軸（safe integer）
+type ChunkAxis = number & Brand.Brand<'ChunkAxis'>       // チャンク座標の 1 軸（safe integer）
+type LocalAxis = number & Brand.Brand<'LocalAxis'>       // チャンク内ローカル（0..15）
 
-type Position      = { readonly x: number; readonly y: number; readonly z: number }      // 連続座標
+const PositionAxis: Brand.Constructor<PositionAxis>
+const BlockAxis: Brand.Constructor<BlockAxis>
+const ChunkAxis: Brand.Constructor<ChunkAxis>
+const LocalAxis: Brand.Constructor<LocalAxis>
+
+type Position      = { readonly x: PositionAxis; readonly y: PositionAxis; readonly z: PositionAxis }
 type BlockPosition = { readonly x: BlockAxis; readonly y: BlockAxis; readonly z: BlockAxis }
 type BlockFace = 'down' | 'up' | 'north' | 'south' | 'west' | 'east'
 type ChunkCoord    = { readonly cx: ChunkAxis; readonly cz: ChunkAxis }
 type LocalBlockCoord = { readonly lx: LocalAxis; readonly ly: BlockAxis; readonly lz: LocalAxis }
 type AABB          = { readonly min: Position; readonly max: Position }
 
-const position: (x: number, y: number, z: number) => Position
-const blockPosition: (x: number, y: number, z: number) => BlockPosition
-const chunkCoord: (cx: number, cz: number) => ChunkCoord
+const position: (x: PositionAxis, y: PositionAxis, z: PositionAxis) => Position
+const blockPosition: (x: BlockAxis, y: BlockAxis, z: BlockAxis) => BlockPosition
+const chunkCoord: (cx: ChunkAxis, cz: ChunkAxis) => ChunkCoord
 const BLOCK_FACES: readonly ['down', 'up', 'north', 'south', 'west', 'east']
 const HORIZONTAL_BLOCK_FACES: readonly ['west', 'east', 'north', 'south']
 const isBlockFace: (value: unknown) => value is BlockFace
@@ -101,7 +107,7 @@ const aabbContainsPoint: (box: AABB, point: Position) => boolean
 `HORIZONTAL_BLOCK_FACES` は既存 gameplay 規則と互換な `west, east, north, south` の順を固定する。
 北は -Z、西は -X であり、近傍探索を実行ごとに同じ順序に保つ。
 
-`Position` は連続座標、`BlockPosition` はブロック格子上の座標を表す。両方を `{x,y,z}` で表すと、足元原点と AABB 中心の Y 規約を取り違えても型検査で検出できず、位置ずれが実行時まで残る。
+`Position` は連続座標、`BlockPosition` はブロック格子上の座標を表す。各軸は専用ブランドで分かれ、数値をそのまま `position`、`blockPosition`、`chunkCoord` に渡すことはできない。外部の数値は軸ごとの constructor で検証してから使う。constructor は不正値で throw し、`BlockAxis` / `ChunkAxis` は safe integer、`LocalAxis` は 0..15 の整数、`PositionAxis` は有限数を受け付ける。
 
 ### 2-bis. 座標のキー化（coordinate-keys）
 
@@ -125,7 +131,7 @@ const chunkCoordOfKey(value: ChunkKey): ChunkCoord
 const decodeChunkKey(value: string): ChunkCoord | undefined
 ```
 
-**正準形は 1 つだけ。** `"1,2,3"` は valid だが `"01,2,3"` や `" 1,2,3"` は invalid ——
+**正準形は 1 つだけ。** `"1,2,3"` は valid だが `"01,2,3"` や `" 1,2,3"` は invalid である。
 整数の再文字列化と入力テキストが一致することを要求する（`hasCanonicalIntegerText`）。
 これにより同じ座標は常に同じキー文字列になり、キーの文字列比較がそのまま座標の等価性比較になる。
 数値からキーを作るときは負の 0 を `normalizeZero` で `0` に畳む。文字列キーの `-0` 表記は正準形ではないため拒否し、`0` と `-0` が別のキーになることを防ぐ。
@@ -203,7 +209,7 @@ const blockIdsWithOpacity(opacity: BlockOpacity): ReadonlySet<number>
 ```
 
 未知の `id`（登録済み範囲外、または範囲内でも空き番）に対する既定の答えは一貫して
-「普通の不透明立方体」である —— `capabilitiesOfBlockId` / `propertyOfBlockId` 系は
+「普通の不透明立方体」である。`capabilitiesOfBlockId` / `propertyOfBlockId` 系は
 `BLOCK_CAPABILITY_DEFAULTS` / `BLOCK_PROPERTY_DEFAULTS` にフォールバックし、
 `isKnownBlockId` / `isSupportSensitiveBlockId` は `false` を返す。§4-3-bis の `dropOfBlockId` だけが
 この既定から外れて `undefined` を返す（理由はそちらに書いてある）。
@@ -234,7 +240,7 @@ const blockOfPlaceableItem(item: PlaceableItemType): BlockType       // 全域�
 | `ItemType` → `BlockType` | `stick` / `wooden_pickaxe` / `stone_pickaxe` / `iron_helmet` |
 | `BlockType` → `ItemType` | `air` / `water` / `lava` / `bedrock` / `snow`                |
 
-`air` が入らないのは監査 §6-6（「`AIR` は『ブロックが無い』ことを表す番兵であり能力ではない」）の帰結である。
+`air` が入らないのは[ブロック能力フラグ監査](./capability-flag-audit.md) §6-6（「`AIR` は『ブロックが無い』ことを表す番兵であり能力ではない」）の帰結である。
 2 つの union は**交差**するのであって入れ子ではない。`PlaceableItemType` はその交差に
 `redstone_dust`（`redstone_wire` を設置する名前付き例外）を加えた型である。
 **橋は名前一致を既定とし、設置名の例外は橋自身に置く。** ブロックのアイテム形はブロックと同じ名前を持つ
@@ -251,8 +257,8 @@ kernel は現在の `ItemType` roster に対応する純粋な装備スロット
 `supportRule` が配置条件を所有するようになったため、条件依存の草花・キノコ・サトウキビ・サボテン・睡蓮 10 種も
 既定 self-drop と同じ根拠でアイテム形を持つ。
 埋めるのは `BLOCK_TYPES` と同じく加算的である。
-綴りは `BLOCK_TYPES` に合わせた `lower_snake_case`。**mc-sim の暫定文字列は `UPPER_SNAKE`**
-（`'OAK_PLANKS'` / `'STICK'`）なので、repoint は型の付け替えであると同時に**大小文字の付け替え**でもある。
+綴りは `BLOCK_TYPES` に合わせた `lower_snake_case`。`mc-sim`の暫定文字列は`UPPER_SNAKE`（`'OAK_PLANKS'` / `'STICK'`）です。
+移行時は値を`'OAK_PLANKS'`から`'oak_planks'`のように変え、型も`ItemType`に置き換えてください。
 
 ### 3-bis-2. アイテムの数値 wire ID（item-registry）
 
@@ -295,49 +301,11 @@ const ItemIdBytes(bytes: Uint8Array | ItemIdBytes): ItemIdBytes // 長さと既�
 `maxStackCountOfItem` は vanilla の上限に従い、通常は 64、雪玉・エンダーパール・バケツ等は 16、
 道具・防具・薬品・ボート等は 1 を返す。
 
-### 3-bis-3. ブロック採掘時間（block-break-speed）
+### 3-bis-3. Java の `minecraft:tool` component
 
-ブロック硬度と道具倍率から、破壊に必要な game tick 数を求める副作用のない計算を公開する。
+`ToolComponent`はJava Editionのtool componentを値として表す。kernelはruleを検証・コンパイルし、ブロックとtag membershipに対する道具の採掘プロパティを解決する。採掘時間の計算やプレイヤー操作の進行は含まない。
 
-```typescript
-const TOOL_BREAK_SPEED: Readonly<Partial<Record<ItemType, number>>>;
-const DEFAULT_MINING_SPEED: number; // 1
-type BreakTicksInput = {
-  /** 適用する道具ルールが通常ドロップを許すか */
-  readonly correctForDrops: boolean;
-  readonly efficiencyLevel?: number;
-  readonly hardness: number;
-  /** 適用する道具ルールから解決済みの採掘速度 */
-  readonly miningSpeed: number;
-  /** プレイヤーの `block_break_speed` 属性。既定値は 1 */
-  readonly playerBreakSpeed?: number;
-};
-const computeBreakTicks: (input: BreakTicksInput) => number;
-const blockHardnessOf: (blockType: BlockType) => number;
-const miningSpeedOf: (tool?: ItemType) => number;
-```
-
-`computeBreakTicks` は `hardness === -1` なら `Infinity`（不破壊）、
-`hardness === 0` なら 0（即時破壊）を返し、それ以外では次を切り上げる。
-
-`ceil(hardness × 3 / ((miningSpeed + efficiencyBonus) × playerBreakSpeed))`
-
-`efficiencyBonus` は `correctForDrops` が true で、かつ `efficiencyLevel` が指定されている場合だけ
-`efficiencyLevel² + 1` になる。`miningSpeed` は `resolveToolMiningProperties` で道具ルールから解決した値であり、
-`correctForDrops`（ドロップ可否）とは独立している。`miningSpeedOf` はこの kernel に収録された
-木/石/鉄/ダイヤ/金/ネザライトのつるはし・シャベル・斧の速度表を引く補助関数で、未指定または表にない道具は
-`DEFAULT_MINING_SPEED` (= 1) になる。
-`miningSpeed` は 0 も許可され、効率補正後の速度が 0 の場合は、硬度 0 以外では `Infinity`（実質的に不破壊）を返す。
-
-`hardness` はこのプロジェクトの参照実装から転記した採掘時間の基数であり、Java Edition の vanilla
-hardness float をそのまま表す API ではない。The End の一部には出典側の尺度混在も残るため、境界と扱いは
-[capability audit §4.5](./capability-flag-audit.md#45-hardness-friction-harvesttool-drops-xponbreak) に固定する。
-
-公式 `minecraft:tool` の順序付き rule は `ToolComponent` と `resolveToolMiningProperties` で解決する。
-この契約は Java Edition の data component を対象にする。Bedrock Edition の component は別契約として、同じ型へ変換しない。
-
-契約の一次資料は [Java 24w12a の `minecraft:tool`](https://www.minecraft.net/en-us/article/minecraft-snapshot-24w12a) と、
-`can_destroy_blocks_in_creative` を追加した [Java 25w02a](https://www.minecraft.net/en-us/article/minecraft-snapshot-25w02a) である。
+契約の一次資料は[Java 24w12aの`minecraft:tool`](https://www.minecraft.net/en-us/article/minecraft-snapshot-24w12a)と、`can_destroy_blocks_in_creative`を追加した[Java 25w02a](https://www.minecraft.net/en-us/article/minecraft-snapshot-25w02a)である。
 
 ```typescript
 type ToolBlockTag = `#${string}`;
@@ -396,89 +364,13 @@ const resolveToolMiningProperties: (
 ) => ResolvedToolMiningProperties;
 ```
 
-`rules` は配列順に評価し、最初に対象ブロックを含む rule の各指定値を採用する。未指定の `speed` は
-`defaultMiningSpeed`（既定値 1）へ、未指定の `correctForDrops` は `false` へフォールバックする。
-未指定の `canDestroyBlocksInCreative` は公式既定値 `true` へフォールバックする。
-`speed` と `defaultMiningSpeed` は有限の 0 以上の数として検証し、`damagePerBlock` は 0 以上の整数として検証する。
-公式データの `blocks` は単一の `BlockType`、`BlockType`/`ToolBlockTag` の配列、または `#` 付きタグを受理する。
-同じ tool component を繰り返し解決する場合は `compileToolComponent` で一度検証・正規化した `CompiledToolComponent` を作成できる。
-コンパイル結果は入力配列から独立した不変スナップショットであり、`resolveToolMiningProperties` にそのまま渡せる。
-タグ rule を解決するときは `resolveToolMiningProperties` の第 3 引数に `ToolResolutionContextInput` を渡す。
-`blockTags` は `ReadonlyMap<ToolBlockTag, ReadonlySet<BlockType>>` として表現し、実行時には同じ反復可能な Map-like / Set-like 契約も受理する。タグ rule で context を省略すると例外になり、未登録タグは一致しない。
-kernel はタグ名のレジストリやサービスアダプタを仮定せず、タグ membership の純粋な値を解決入力として受け取る。
-プレイヤー操作の進行状態、採掘への耐久適用、ドロップ生成、サーバー権威判定は上位 gameplay が統合する。装備スナップショット内の耐久値検証と純粋な減少・破損遷移は kernel の `equipment.ts` が所有する。
+`rules`は配列順に評価し、最初に対象ブロックを含むruleの各指定値を採用する。省略値は`defaultMiningSpeed`の既定値1、`correctForDrops`の既定値`false`、`canDestroyBlocksInCreative`の公式既定値`true`を使う。値域とblock matcherは入力境界で検証する。同じcomponentを繰り返し解決するときは`compileToolComponent`で作った不変snapshotを再利用できる。
 
-### 3-bis-4. Bedrock の採掘 component
-
-Bedrock Edition の `minecraft:digger` と `minecraft:destructible_by_mining` は Java の `minecraft:tool` と混ぜず、JSON の descriptor を検証して実行時の対象へ解決する。
-
-一次資料は [Bedrock `minecraft:digger`](https://learn.microsoft.com/en-us/minecraft/creator/reference/content/itemreference/examples/itemcomponents/minecraft_digger?view=minecraft-bedrock-stable) と
-[Bedrock `minecraft:destructible_by_mining`](https://learn.microsoft.com/en-us/minecraft/creator/reference/content/blockreference/examples/blockcomponents/minecraftblock_destructible_by_mining?view=minecraft-bedrock-stable) である。
-
-```typescript
-const BEDROCK_DIGGER_MIN_FORMAT_VERSION: "1.20.30";
-const BEDROCK_DESTRUCTIBLE_BY_MINING_MIN_FORMAT_VERSION: "1.21.50";
-const DEFAULT_BEDROCK_SECONDS_TO_DESTROY: 0;
-
-type BedrockBlockDescriptor =
-  | string
-  | {
-      readonly name?: string;
-      readonly states?: Readonly<Record<string, string | number | boolean>>;
-      readonly tags?: string;
-    };
-type BedrockBlock = {
-  readonly name: string;
-  readonly states: Readonly<Record<string, string | number | boolean>>;
-  readonly tags: ReadonlySet<string>;
-};
-type BedrockDiggerComponent = {
-  readonly destroy_speeds?: ReadonlyArray<{
-    readonly block: BedrockBlockDescriptor;
-    readonly speed: number;
-  }>;
-  readonly use_efficiency?: boolean;
-};
-type BedrockDestructibleByMining =
-  | boolean
-  | {
-      readonly seconds_to_destroy?: number;
-      readonly item_specific_speeds?: ReadonlyArray<{
-        readonly item: string | { readonly tags: string };
-        readonly destroy_speed: number;
-      }>;
-    };
-
-const resolveBedrockDiggerSpeed: (
-  component: unknown,
-  block: unknown,
-) => number | undefined;
-const bedrockDiggerUsesEfficiency: (component: unknown) => boolean;
-const resolveBedrockDestructionSeconds: (
-  component: unknown,
-  defaultSeconds: number,
-) => number;
-const resolveBedrockItemSpecificDestroySpeed: (
-  component: unknown,
-  item: unknown,
-) => number | undefined;
-```
-
-ブロック descriptor はブロック ID、状態値、`query.any_tag` / `query.all_tags`（`q.` も許可）の tag query を組み合わせられる。
-ルールは配列順に評価し、最初に一致した `destroy_speeds` または `item_specific_speeds` の値を返す。
-`use_efficiency` の既定値は `false`。`destructible_by_mining` の `true` と省略時は呼び出し側の既定秒数、`false` は `Infinity`、オブジェクトの
-`seconds_to_destroy` 省略時は 0 になる。item-specific speed は公式の実験的 component field をそのまま検証・公開し、Java の採掘 tick 式へ自動合成しない。
-
-`validateBedrockDiggerComponent`、`validateBedrockDestructibleByMining`、descriptor の各 validator は、未知のキー、空の識別子、状態値、有限性を境界で検査する。
-観測済みの `BedrockBlock` / `BedrockItem` はタグを `ReadonlySet` として受け取り、kernel は外部のタグ registry を仮定しない。
-
-配布パッケージではこの API を `@nerima-games/mc-kernel` の root と `@nerima-games/mc-kernel/domain/bedrock-mining` subpath から公開する。
-`block-break-speed-data.ts` は実装用データであり個別 subpath を公開しない。`pnpm package:verify` は pack 後の root / subpath import、型付き declaration consumer、
-Java の hardness・break-tick・tool rule resolution と Bedrock の digger・indestructible・item-specific resolution の実値を検査する。
+`ToolBlockTag`を使うルールを解決するときは、`ToolResolutionContextInput`を第3引数に渡す。tag membershipは`ReadonlyMap<ToolBlockTag, ReadonlySet<BlockType>>`または同じ反復可能なMap-like / Set-like契約で与える。tag registryや採掘操作の実行はkernelに含まれない。
 
 ### 3-bis-5. Entity 語彙（entity-type）
 
-`entity-type.ts` は `BlockType` / `ItemType` と同じ「閉じたリテラル union + runtime guard」の形で `EntityType` を公開する。attribute の値域・既定値・modifier 適用や Entity の純粋な状態操作は `entity-attributes*.ts` / `entity-operations.ts` / `entity.ts` が持ち、spawn/despawn・AI・ネットワークは上位層の責務である。
+`entity-type.ts` は `BlockType` / `ItemType` と同じ「閉じたリテラル union + runtime guard」の形で `EntityType` を公開する。属性の値域、既定値、modifier適用は`entity-attributes*.ts`が提供する。Entityの状態操作はkernelの公開APIに含まれず、移設先は[責務と移行先](./responsibility.md)を参照する。spawn/despawn、AI、networkは上位層の責務である。
 
 ```typescript
 const ENTITY_TYPES: ReadonlyArray<EntityType>; // Minecraft Java Edition 26.3 の entity registry id と同一の閉じた集合
@@ -486,7 +378,7 @@ type EntityType = (typeof ENTITY_TYPES)[number];
 const isEntityType: (value: unknown) => value is EntityType;
 ```
 
-**既存の `entity-types.ts`（複数形）が持つ `EntityKind` は、この語彙とは別物として残る。** `EntityKind` は網羅性チェックの効かない開いた branded string で、modding が持ち込む未知の entity 名の入口として使う。`EntityType` はその上に載る閉じた語彙であり、`isEntityType` はセーブファイル・ネットワークフレーム・開発者コンソールからの値を検証する。`isBlockType` / `isItemType` と同じ shape で意図的に揃えてある——エンティティ名を保存する経路はブロック・アイテム名を保存する経路と同じだからである。
+**既存の `entity-types.ts`（複数形）が持つ `EntityKind` は、この語彙とは別物として残る。** `EntityKind` は網羅性チェックの効かない開いた branded string で、modding が持ち込む未知の entity 名を表すために使う。`EntityType` は kernel が用意する閉じた語彙であり、`isEntityType` はセーブファイル・ネットワークフレーム・開発者コンソールからの値を検証する。`isBlockType` / `isItemType` と同じ shape に意図的に揃えてある。エンティティ名を保存する経路がブロック名・アイテム名を保存する経路と同じだからである。
 
 ### 3-ter. ItemStack とレシピ
 
@@ -521,137 +413,58 @@ const ItemComponentPatchConflictError: new (args: { readonly componentKey: strin
 ```
 
 `itemStack` は型付きコード用の厳格なコンストラクタであり、保存データや外部入力の境界では
-`itemStackFromUnknown` を使って item、count、options 内の components と component patch を検証する。`applyItemComponentPatch` は
-境界でだけ patch を読み、既定値との合成、set/remove の競合拒否、deep snapshot を完了させる。
-remove はキーを `!` で表し、解決済み payload にそのキーを残さない。set と remove が同じ component key を
-対象にした場合は `ItemComponentPatchConflictError` を `Result` の Failure として返す。
+`itemStackFromUnknown` を使って item、count、options 内の components と component patch を検証する。
+removeはキーを`!`で表し、解決済みpayloadにそのキーを残さない。`itemComponentPatchFromUnknownEither`と
+`mergeItemComponentPatchesEither`はEffect 4の`Result.Result`を返す。両関数の失敗は
+`Result.isFailure(result)`で判定し、失敗値は`result.failure`、成功値は`result.success`から読む。
+merge時に同じcomponent keyのset/removeが競合した場合はFailureになる。
 `itemStackEqualsIgnoringCount` と `itemStacksCanMerge` は item と components の構造的等価性で判定し、
 `splitItemStack` / `mergeItemStacks` は components を失わず新しい snapshot を返す。数量の移送量には
 `TransferQuantity`（1..99 の正の整数）を使う。これらの関数は入力を変更せず、全量を移送した結果の余りを
 `undefined` の `ItemSlot` で返す。
 
-### 3-ter-1. プレイヤーインベントリ
 
-`Inventory` はプレイヤー用の 36 スロットを持つ不変の値である。各スロットは既存の `Slot` を再利用し、追加・除去・集計は入力を変更せず新しい値を返す。
-kernel はインベントリの搬送サービス、所有権、コンテナのサイズ、装備との接続を持たない。
+
+### 3-ter-2. アイテム耐久値データ
+
+`itemDurabilityDefinitionFor`は、`ItemType`から静的な最大耐久値定義を引くAPIである。耐久値定義がないアイテムには`undefined`を返す。装備stateや装備の状態遷移はこのAPIには含まれない。
 
 ```typescript
-const INVENTORY_SLOT_COUNT = 36;
-type Inventory = { readonly slots: ReadonlyArray<Slot> };
-type AddOutcome = { readonly inventory: Inventory; readonly leftover: number };
-type RemoveOutcome = { readonly inventory: Inventory; readonly removed: number };
-type RemoveAtResult =
-  | { readonly _tag: 'Removed'; readonly removed: number }
-  | { readonly _tag: 'InvalidSlot' }
-  | { readonly _tag: 'InvalidCount' }
-  | { readonly _tag: 'EmptySlot' }
-  | { readonly _tag: 'ItemMismatch'; readonly actualItem: ItemType }
-  | { readonly _tag: 'Insufficient'; readonly available: number };
-type RemoveAtOutcome = { readonly inventory: Inventory; readonly result: RemoveAtResult };
-type NormaliseOutcome = {
-  readonly inventory: Inventory;
-  readonly leftover: number;
-  readonly discarded: number;
-};
-
-const emptyInventory: () => Inventory;
-const slotAt: (inventory: Inventory, index: number) => Slot;
-const countOf: (inventory: Inventory, item: ItemType) => number;
-const isInventoryEmpty: (inventory: Inventory) => boolean;
-const addItem: (
-  inventory: Inventory,
+const itemDurabilityDefinitionFor: (
   item: ItemType,
-  count: number,
-) => AddOutcome;
-const removeItemAt: (
-  inventory: Inventory,
-  slotIndex: number,
-  expectedItem: ItemType,
-  count: number,
-) => RemoveAtOutcome;
-const removeItem: (
-  inventory: Inventory,
-  item: ItemType,
-  count: number,
-) => RemoveOutcome;
-const normaliseInventory: (value: unknown) => NormaliseOutcome;
+) => ItemDurabilityDefinition | undefined;
 ```
 
-`addItem` は既存スタックの空きを優先してから空きスロットへ積み、収まりきらない数量を `leftover` として返す。
-`normaliseInventory` は保存値などの `unknown` 境界で無効なスロットを除外し、過剰スタックと 36 スロットを超える tail を正規化する。未知の item の数量は `discarded`、収容できない数量は `leftover` として明示する。
-状態サービスは `mc-sim` の `InventoryService` が所有し、kernel の値 API と接続するのは gameplay／基盤側の責務である。
+この関数は`@nerima-games/mc-kernel`のrootからimportする。定義元の`src/domain/item/equipment-data.ts`はソースパスであり、公開import pathではない。rootへの再exportは`src/domain/item/_equipment.ts`、`src/domain/item/index.ts`、`src/index.ts`を経由する。
 
-root のほか `@nerima-games/mc-kernel/domain/inventory` subpath から利用できる。
-
-### 3-ter-1-bis. ホットバーの純粋な投影
-
-`HOTBAR_SIZE` と `HOTBAR_START` は、プレイヤーインベントリの末尾 9 スロットを選択可能なホットバーとして表す。選択状態そのもの、入力デバイス、スクロールや UI の解釈は上位層が所有し、kernel は数値の範囲・循環・スロット対応だけを計算する。
-
-```typescript
-const HOTBAR_SIZE = 9;
-const HOTBAR_START = 27;
-
-const isHotbarIndex: (value: number) => boolean;
-const clampHotbarIndex: (value: number) => number;
-const cycleHotbarIndex: (index: number, delta: number) => number;
-const hotbarSlotIndex: (index: number) => number;
-```
-
-`clampHotbarIndex` は有限な入力を整数化して `0..8` に収め、有限でない入力を 0 にする。`cycleHotbarIndex` は整数ステップで両端を循環し、`hotbarSlotIndex` は選択値をクランプして `27..35` のインベントリスロットへ変換する。
-
-root のほか `@nerima-games/mc-kernel/domain/hotbar` subpath から利用できる。
-
-### 3-ter-2. 装備と耐久
-
-装備は `mainhand` / `head` / `chest` / `legs` / `feet` / `offhand` の 6 スロットを持つ不変スナップショットである。
-`EQUIPMENT_CATALOG` がアイテムと装備可能スロットの対応を、`ITEM_DURABILITY_CATALOG` が現在の roster の最大耐久値を表す。
-カタログにないアイテムやスロット不一致は `equip` と `validateEquipmentSnapshot` の境界で拒否する。
-
-```typescript
-const equipmentItem: (
-  stack: ItemStack,
-  itemDurability?: Durability,
-) => EquipmentItem;
-const emptyEquipment: () => Equipment;
-const equip: (
-  equipment: Equipment,
-  slot: EquipmentSlot,
-  item: EquipmentItem,
-) => Equipment;
-const unequip: (equipment: Equipment, slot: EquipmentSlot) => Equipment;
-const swapEquipment: (
-  equipment: Equipment,
-  first: EquipmentSlot,
-  second: EquipmentSlot,
-) => Equipment;
-const damageEquipment: (
-  equipment: Equipment,
-  slot: EquipmentSlot,
-  amount: number,
-) => DamageEquipmentResult;
-const validateEquipmentSnapshot: (value: unknown) => EquipmentValidationResult;
-```
-
-これらは入力スナップショットを変更せず、`damageEquipment` は耐久減少・破損によるスロット消失・空スロットを判別可能な結果として返す。
-耐久 API は装備の純粋な値遷移だけを扱い、プレイヤーインベントリへの搬送、エンチャント効果、採掘イベントへの接続は上位の責務である。
-root のほか `@nerima-games/mc-kernel/domain/equipment` subpath から利用できる。
-
-レシピは shaped / shapeless の 3×3 グリッドと、ステーション tag、材料 item/tag、priority を値として表す。
-`matchRecipe` は入力を変更せず、ステーションに適合する候補を priority、shaped を shapeless より優先、recipe id の辞書順で選ぶ。
-shaped は必要なら対称形を許可し、shapeless はグリッドの全スロットを材料として照合する。
+レシピ型は `shaped` と `shapeless` の 3×3 グリッド、ステーション tag、材料 item または tag、優先度を値で表す。
+`shapedRecipe` と `shapelessRecipe` はレシピ値を作り、`ingredientMatches` は材料を照合する。
+通常クラフトの実行時照合と適用は `mc-sim` の責務である（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
 const VANILLA_CRAFTING_RECIPES: ReadonlyArray<Recipe>;
-const matchRecipe: (
-  table: RecipeTable,
-  input: CraftGrid,
-  context?: RecipeMatchContext,
-) => RecipeMatch;
+const shapedRecipe: (
+  id: RecipeId,
+  rows: ReadonlyArray<string>,
+  key: Readonly<Record<string, CraftingIngredientInput>>,
+  output: ItemStack,
+  options?: RecipeOptions,
+) => ShapedRecipe;
+const shapelessRecipe: (
+  id: RecipeId,
+  ingredients: ReadonlyArray<CraftingIngredientInput>,
+  output: ItemStack,
+  options?: RecipeOptions,
+) => ShapelessRecipe;
+const ingredientMatches: (
+  ingredient: CraftingIngredient,
+  item: ItemType,
+  itemTags?: ItemTagMemberships,
+) => boolean;
 ```
 
-`VANILLA_CRAFTING_RECIPES` は kernel が同梱する、Minecraft Java Edition 26.3 向けの検証済み recipe data である。
-全バージョン・全エディションの recipe registry ではなく、対応範囲は `test/golden/` と
-`test/vanilla-26-3.test.ts` で固定する。
+`VANILLA_CRAFTING_RECIPES` は Minecraft Java Edition 26.3 向けの検証済みデータである。
+対応範囲は `test/golden/` と `test/vanilla-26-3.test.ts` に記録した範囲に限る。
 
 ### 3-ter-3. JSON 値・item component patch・Java recipe JSON
 
@@ -670,6 +483,17 @@ const jsonValuesEqual: (left: JsonValue, right: JsonValue) => boolean;
 
 type ItemComponentPatchKey = string & Brand.Brand<"ItemComponentPatchKey">;
 type ItemComponentPatch = Readonly<Record<ItemComponentPatchKey, JsonValue>>;
+type ItemComponentPatchDecodeError = Error | Readonly<{
+  readonly _tag: "ItemComponentPatchConflictError";
+  readonly componentKey: string;
+}>;
+const itemComponentPatchFromUnknownEither: (
+  value: unknown,
+) => Result.Result<ItemComponentPatch, ItemComponentPatchDecodeError>;
+const mergeItemComponentPatchesEither: (
+  left: ItemComponentPatch | undefined,
+  right: ItemComponentPatch | undefined,
+) => Result.Result<ItemComponentPatch | undefined, ItemComponentPatchDecodeError>;
 
 const ItemComponentPatchKey: Brand.Constructor<ItemComponentPatchKey>;
 const isItemComponentPatch: (value: unknown) => value is ItemComponentPatch;
@@ -735,10 +559,8 @@ merge されずに `TypeError` になる。
 
 ### 3-ter-4. special recipe（crafting-special）
 
-Minecraft がデータではなくコードで持っている 10 種の crafting recipe を、他の recipe と同じ
-「照合 → 適用」の形で扱う。`matchCraftingSpecialRecipe` は grid と recipe table から最初の一致を返し、
-`applyCraftingSpecial` は一致に加えて消費後の grid を返す。dye と imbue は個別の
-`matchesCraftingDyeRecipe` / `applyCraftingDye`（imbue も同型）からも扱える。
+特殊クラフトは 10 種の `CraftingSpecialRecipe` で表す。kernel は各型のコンストラクタと Java 版 recipe JSON decoder を公開する。
+実行時の照合と適用は `mc-sim` の責務である（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
 type CraftingSpecialRecipe =
@@ -752,51 +574,15 @@ type CraftingSpecialRecipe =
   | CraftingFireworkStarRecipe
   | CraftingMapExtendingRecipe
   | CraftingShieldDecorationRecipe;
-
-const matchCraftingSpecialRecipes: (
-  grid: CraftGrid,
-  context?: RecipeMatchContext,
-  recipes?: CraftingSpecialRecipeTable,
-) => ReadonlyArray<Extract<CraftingSpecialMatch, { readonly _tag: "Match" }>>;
-const matchCraftingSpecialRecipe: (
-  grid: CraftGrid,
-  context?: RecipeMatchContext,
-  recipes?: CraftingSpecialRecipeTable,
-) => CraftingSpecialMatch;
-const applyCraftingSpecial: (
-  recipe: CraftingSpecialRecipe,
-  grid: CraftGrid,
-  context?: RecipeMatchContext,
-) => CraftingSpecialApplyResult;
-const mixCraftingDyeColor: (
-  target: DyedColorComponent | undefined,
-  dyes: ReadonlyArray<DyeColor>,
-) => number;
 ```
 
-recipe 値は種類ごとのコンストラクタ（`craftingDyeRecipe`、`craftingBannerDuplicateRecipe`、…）で作る。
-id は namespaced な `ResourceLocation`、`category` は `RecipeCategory` の 4 値、`priority` は非負の safe integer、
-`tags` は station tag で、いずれも構築時に検証する。options 引数そのものが object でない場合も拒否する
-——spread は非 object を `{}` に潰すため、検査しなければ「誤った options」が「options 無し」になる。
+レシピ値は `craftingDyeRecipe`、`craftingBannerDuplicateRecipe` などのコンストラクタで作る。
+`id`、`category`、`priority`、`tags` を構築時に検証し、`options` に object 以外を渡すと拒否する。
 
-vanilla に合わせている規則のうち、実装から自明でないものは 3 つある。
+`craftingDyeRecipeFromUnknown` から `craftingShieldDecorationRecipeFromUnknown` までの 10 種の decoder は、対応する Java 版 document を厳格に読む。
+各 decoder は type 不一致、必須キーの欠落、未知キーを拒否する。`portableRecipeFromUnknown` はこれらを含む recipe type を振り分ける。
 
-- **バナー複製は元のバナーを消費しない。** 消えるのは無地の複製先だけで、模様を持つ側は grid に残る。
-  ここが他の 2 入力 special recipe と違う唯一の点である。
-- **本の複製は generation を 1 つ進め、recipe の `allowedGenerations` の外にある本を拒否する。**
-  出力数は紙の枚数で決まり、出力スタック上限を超える組み合わせは一致しない。
-- **花火の色は染料テーブルから引く。** 赤は `#ff0000` ではなく vanilla の `#b02e26` である。
-  `mixCraftingDyeColor` は革の染色と同じ明度保存アルゴリズムで、ビット演算ではなく算術で packing する
-  （チャンネルは 0-255 に clamp 済みなので正確）。
-
-書き込まれた本のページとタイトルは JSON text component であり、素の文字列を受け付けるのは
-writable book の側だけである。
-
-`craftingDyeRecipeFromUnknown` から `craftingShieldDecorationRecipeFromUnknown` までの 10 個の decoder が
-それぞれの Java document を厳格に読む。どれも type 不一致・必須キー欠落・未知キーを拒否する。
-`portableRecipeFromUnknown` はこれらも含めて dispatch する。
-
-root と `@nerima-games/mc-kernel/domain/recipe`、`@nerima-games/mc-kernel/domain/crafting-special-data` の subpath から利用できる。GUI、スロット搬送、経験値、サーバー権威は上位層の責務である。
+root と `@nerima-games/mc-kernel/domain/recipe`、`@nerima-games/mc-kernel/domain/crafting-special-data` の subpath から利用できる。
 
 ### 3-ter-5. vanilla item tag membership（tag-membership）
 
@@ -830,116 +616,101 @@ const isTaggedItem: (
 ) => boolean;
 ```
 
-**`ingredientMatches`（recipe-matching.ts）が `itemTags` を省略したときの既定値が変わった。** 従来の既定は空の `Map` で、tag ingredient は常に不一致だった。既定は `VANILLA_ITEM_TAG_MEMBERSHIPS` に変わったため、`itemTags` を渡していなかった既存呼び出しの一致結果が変わりうる（`docs/versioning.md` の分類では既定値の変更は MAJOR）。収録範囲は同梱 recipe が実際に参照する tag（smithing trim recipe が使う 3 つ）に限定されており、全 recipe・全エディションの完全な tag registry ではない。`extendItemTagMemberships` は vanilla のタグファイルの挙動に合わせ、レイヤーの追加分を既存メンバーシップへ union する——`domain/data-pack-registry.ts` の `selectDataPackRegistry`（§5-sexies-ter）が採る最終 priority 勝ちの上書きとは異なる合成規則である。
+**`ingredientMatches`（recipe-data.ts）が `itemTags` を省略したときの既定値が変わった。** 従来の既定は空の `Map` で、tag ingredient は常に不一致だった。既定は `VANILLA_ITEM_TAG_MEMBERSHIPS` に変わったため、`itemTags` を渡していなかった既存呼び出しの一致結果が変わりうる（`docs/versioning.md` の分類では既定値の変更は MAJOR）。収録範囲は同梱 recipe が実際に参照する tag（smithing trim recipe が使う 3 つ）に限定されており、全 recipe・全エディションの完全な tag registry ではない。
+`extendItemTagMemberships` は vanilla のタグファイルの挙動に合わせ、レイヤーの追加分を既存メンバーシップへ union する。
+`domain/data-pack-registry.ts` の `selectDataPackRegistry`（§5-sexies-ter）は最終 priority 勝ちで上書きする。
 
-### 3-quater. 調理と醸造
+### 3-quater. 調理・醸造の静的データと共有state型
 
-調理は `FurnaceState` を入力と出力にする純粋な状態遷移で、furnace / blast furnace / smoker ごとのレシピ・燃料・出力容量を扱う。
-醸造は 3 本の bottle slot、ingredient、blaze powder の fuel charge、20 秒の brew progress を値として扱う。
-どちらも時間経過を受け取るだけで、tick scheduler、インベントリ搬送、UI は所有しない。
+kernelは調理・醸造の共有state型、レシピと燃料の静的データ、調理ステーションと醸造の定数を公開する。これらは保存・共有する値の形と参照データであり、stateの構築・遷移、処理結果を計算するAPIではない。
 
 ```typescript
+type BrewingBottles = readonly [Slot, Slot, Slot];
+type BrewingState = {
+  readonly bottles: BrewingBottles;
+  readonly ingredient: Slot;
+  readonly fuel: Slot;
+  readonly fuelCharges: number;
+  readonly brewProgressSecs: number;
+};
+type BrewingRecipe = {
+  readonly _tag: "Brewing";
+  readonly id: string;
+  readonly input: ItemType;
+  readonly ingredient: ItemType;
+  readonly output: ItemType;
+};
+type BrewingRecipeTable = ReadonlyArray<BrewingRecipe>;
+
+const BREWING_BOTTLE_SLOTS: number;
+const BREWING_TIME_SECS: number;
+const BREWING_MAX_FUEL_CHARGES: number;
+const BREWING_FUEL_ITEM: ItemType;
+const VANILLA_BREWING_RECIPES: BrewingRecipeTable;
+
+const COOKING_STATIONS: readonly ["furnace", "blast_furnace", "smoker"];
+type CookingStation = (typeof COOKING_STATIONS)[number];
+type FurnaceState = {
+  readonly station: CookingStation;
+  readonly input: Slot;
+  readonly fuel: Slot;
+  readonly output: Slot;
+  readonly fuelTimeRemainingSecs: number;
+  readonly fuelTimeTotalSecs: number;
+  readonly cookProgressSecs: number;
+};
+type SmeltingRecipe = {
+  readonly _tag: "Smelting";
+  readonly id: string;
+  readonly input: ItemType;
+  readonly output: ItemStack;
+  readonly cookTimeSecs: number;
+  readonly experience: number;
+  readonly stations: ReadonlyArray<CookingStation>;
+};
+type FuelRule = {
+  readonly fuel: ItemType;
+  readonly burnTimeSecs: number;
+};
 const VANILLA_SMELTING_RECIPES: ReadonlyArray<SmeltingRecipe>;
 const VANILLA_FUEL_RULES: ReadonlyArray<FuelRule>;
-const furnaceState: (input: FurnaceInput) => FurnaceState;
-const advanceFurnace: (
-  state: FurnaceState,
-  elapsedSecs: number,
-) => FurnaceAdvanceResult;
-
-const VANILLA_BREWING_RECIPES: ReadonlyArray<BrewingRecipe>;
-const brewingState: (input: BrewingInput) => BrewingState;
-const addBrewingFuel: (state: BrewingState, charges: number) => BrewingState;
-const advanceBrewing: (
-  state: BrewingState,
-  elapsedSecs: number,
-) => BrewingAdvanceResult;
 ```
+
+`BrewingState`と`FurnaceState`はblock entityの共有データ型でもある。静的データはrootまたは実在する`@nerima-games/mc-kernel/domain/recipe` subpathからimportできる。brew/smeltの進行処理と結果の計算はkernelの公開APIに含まれない。
 
 ### Dimension と作物
 
-`Dimension` は vanilla の Overworld・Nether・End に限定した共有語彙で、`isDimension` は保存データやネットワーク入力の runtime guard である。
-作物 API は現在の kernel が同梱する wheat・potato・nether wart の定義を、ワールド更新から分離した純粋なライフサイクルとして扱う。
-`canPlantCrop` は土壌とディメンション、`advanceCrop` / `advanceCropByBoneMeal` は経過時間、`matureYieldsFor` は成熟時の保証ドロップを扱う。
-実際の random tick、ブロック state の書き換え、収穫・アイテム生成イベントは上位層が所有する。
+`Dimension` は vanilla の Overworld・Nether・End に限定した共有語彙で、`isDimension` は保存データやネットワーク入力の runtime guard である。作物 lifecycle は `mc-sim` が所有する（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
 const DIMENSIONS: readonly ["overworld", "nether", "end"];
-const CROP_TYPES: ReadonlyArray<CropType>;
-const CROP_REGISTRY: Readonly<Record<CropType, CropDefinition>>;
-const canPlantCrop: (
-  crop: CropType,
-  soil: BlockType,
-  dimension: Dimension,
-) => boolean;
-const advanceCrop: (crop: CropState, deltaSecs: number) => CropState;
-const advanceCropByBoneMeal: (crop: CropState) => CropState;
-const matureYieldsFor: (crop: CropState) => ReadonlyArray<ItemStack> | null;
-const validateCropSnapshot: (value: unknown) => CropValidationResult;
+type Dimension = "overworld" | "nether" | "end";
+const isDimension: (value: unknown) => value is Dimension;
 ```
-
-`validateCropSnapshot` は保存データなどの unknown 境界を検査し、未知キー、無効なディメンション・作物、座標、熟度範囲、重複位置を `Invalid` として返す。
-検証済みの値だけを `Valid` の `CropSnapshot` として返し、入力オブジェクトは変更しない。
 
 ### 石切台と鍛造
 
-石切台は `Slot` と `RecipeMatchContext` を入力にする純粋な recipe 照合である。exact ingredient と item tag ingredient、priority、station tag、入力数量を境界で検証し、`applyStonecutting` は出力と残入力を返す。
+石切台と鍛造の実行時照合と適用は `mc-sim` の責務である（[実行時処理の所有元](./responsibility.md)）。
+recipe JSON decoder は §3-ter-3 を参照する。
+
+### 3-quater-bis. 食料の静的定義（food-data）
+
+`FoodDefinition`と`FoodEffect`は、食料の栄養値、saturation、食用条件、効果、`use_remainder`を記述する静的データ型である。`VANILLA_FOOD_DEFINITIONS`は現在の`ItemType` rosterで表現できる定義表を提供する。完全なエディション・バージョン横断registryではない。食料の摂取処理やvitalsの更新はkernelの公開APIに含まれない（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
-const VANILLA_STONECUTTING_RECIPES: ReadonlyArray<StonecuttingRecipe>;
-const matchStonecuttingRecipes: (
-  input: Slot,
-  context?: RecipeMatchContext,
-  recipes?: ReadonlyArray<StonecuttingRecipe>,
-) => ReadonlyArray<StonecuttingRecipe>;
-const matchStonecuttingRecipe: (
-  input: Slot,
-  context?: RecipeMatchContext,
-  recipes?: ReadonlyArray<StonecuttingRecipe>,
-) => StonecuttingMatch;
-const applyStonecutting: (
-  recipe: StonecuttingRecipe,
-  input: Slot,
-  context?: RecipeMatchContext,
-) => StonecuttingApplyResult;
-```
-
-`VANILLA_STONECUTTING_RECIPES` は現在の `ItemType` roster と登録済み recipe 語彙で実証できる公式データ表であり、全エディション・全バージョンの完全な registry を意味しない。
-
-鍛造は `SmithingInput` と `SmithingOperation` を入力・出力にする純粋な変換で、netherite transform と trim recipe を扱う。
-transform は template・base・addition の組み合わせから新しい item stack を作り、trim は armor と template・material の組み合わせから同じ base item を返す。
-recipe の station と公式 tag、入力数量、単一スタック制限を境界で検証する。
-
-```typescript
-const VANILLA_SMITHING_RECIPES: ReadonlyArray<SmithingRecipe>;
-const smithingInput: (input: SmithingInputInput) => SmithingInput;
-const matchSmithingRecipe: (
-  input: SmithingInput,
-  context?: RecipeMatchContext,
-  recipes?: ReadonlyArray<SmithingRecipe>,
-) => SmithingRecipe | undefined;
-const applySmithing: (input: SmithingInput) => SmithingOperation;
-```
-
-これらは root と `domain/item-stack`、`domain/inventory`、`domain/recipe`、`domain/food`、`domain/consumable`、`domain/use-cooldown`、`domain/crop`、`domain/dimension`、`domain/grindstone`、`domain/settings`、`domain/statistics`、`domain/vehicle` の subpath から公開する。
-Smithing の recipe data は Java Edition 26.3 を対象とし、pin と範囲は
-[conformance.md](./conformance.md) に記録する。
-
-`BlockWorld`、fluid の純粋更新、redstone のネットワーク評価・更新は root と `domain/block-world`、`domain/fluid-update`、`domain/redstone-network`、`domain/redstone-update` の subpath から公開する。既存の `domain/fluid` と `domain/redstone` は、それぞれの data・state・update API をまとめた barrel である。
-
-### 3-quater-bis. 食料（food）
-
-食料は `FoodDefinition` と判別可能な `FoodEffect` union に food component の栄養値、最終 saturation、食用条件、食後効果、`use_remainder` を保持し、`consumeFood` が `ItemStack` と `Vitals` から摂取可否、残りスタック、使用後の remainder、更新後の体力、適用対象の効果を返す。実際の効果付与、使用時間、アニメーション、イベント発火は上位層の責務である。
-
-```typescript
+type FoodDefinition = Readonly<{
+  readonly item: ItemType;
+  readonly nutrition: number;
+  readonly saturation: number;
+  readonly canAlwaysEat: boolean;
+  readonly useRemainder: ItemType | undefined;
+  readonly effects: ReadonlyArray<FoodEffect>;
+}>;
+type FoodEffect = FoodStatusEffect | FoodRemoveEffect | FoodTeleportEffect;
 const VANILLA_FOOD_DEFINITIONS: ReadonlyArray<FoodDefinition>;
-const foodDefinitionOf: (item: ItemType) => FoodDefinition | undefined;
-const canEatFood: (vitals: Vitals, definition: FoodDefinition) => boolean;
-const foodRemainderOf: (definition: FoodDefinition) => ItemStack | undefined;
-const consumeFood: (stack: ItemStack, vitals: Vitals) => FoodConsumeResult;
 ```
 
-root のほか `domain/food` subpath から利用できる。食料データは現行 `ItemType` roster で表現できる範囲を同梱する定義表であり、全エディション・全バージョンの完全な food registry を意味しない。
+このデータはroot exportから利用する。
 
 ### 3-quater-ter. アイテムコンポーネント（food / consumable / use_remainder / use_cooldown）
 
@@ -995,7 +766,7 @@ const isCooldownActive: (
 
 ### 3-quater-quater. 汎用 item component（テキスト / max_stack_size / max_damage / damage / repair_cost / use_cooldown / tool / weapon / kinetic_weapon / piercing_weapon / attack_range / sulfur_cube_content）
 
-Java Edition 1.20.5 で導入された item component model を土台に、item stack の共有計算に必要な値を kernel の厳格な型で公開する。この節には後続 version で追加された component も含み、各 version は個別に記す。`max_stack_size` は 1..99 の整数、`max_damage` は正の整数、`damage` と `repair_cost` は非負整数で、`max_stack_size` と damageable item の相互制約も builder と guard の両方で検証する。`unbreakable`、`enchantment_glint_override`、`tooltip_display`、`rarity` も同じ resolved value に含める。`custom_name`、`item_name`、`lore` は strict な JSON text component、`lore` は最大 256 行、`item_model` は namespaced resource location として検証する。仕様上の component は item type の既定値を持ち、stack 単位で上書きできるため、`itemComponents` は item-aware な既定値の解決、stack ごとの override の所有は上位の `ItemStack` / persistence 層とする。`tool` は既存の採掘速度表に対応する axe・pickaxe・shovel の item-aware な既定値を `ITEM_TOOL_COMPONENTS` から解決する。詳細な component model は [Minecraft Java Edition 1.20.5](https://www.minecraft.net/en-us/article/minecraft-java-edition-1-20-5) と [Minecraft Java Edition 1.21.2](https://www.minecraft.net/en-us/article/minecraft-java-edition-1-21-2) を参照する。
+Java Edition 1.20.5 で導入された item component model に基づき、item stack の共有計算に必要な値を kernel の厳格な型で公開する。この節には後続 version で追加された component も含み、各 version は個別に記す。`max_stack_size` は 1..99 の整数、`max_damage` は正の整数、`damage` と `repair_cost` は非負整数で、`max_stack_size` と damageable item の相互制約も builder と guard の両方で検証する。`unbreakable`、`enchantment_glint_override`、`tooltip_display`、`rarity` も同じ resolved value に含める。`custom_name`、`item_name`、`lore` は strict な JSON text component、`lore` は最大 256 行、`item_model` は namespaced resource location として検証する。仕様上の component は item type の既定値を持ち、stack 単位で上書きできるため、`itemComponents` は item-aware な既定値の解決、stack ごとの override の所有は上位の `ItemStack` / persistence 層とする。`tool` は既存の採掘速度表に対応する axe・pickaxe・shovel の item-aware な既定値を `ITEM_TOOL_COMPONENTS` から解決する。詳細な component model は [Minecraft Java Edition 1.20.5](https://www.minecraft.net/en-us/article/minecraft-java-edition-1-20-5) と [Minecraft Java Edition 1.21.2](https://www.minecraft.net/en-us/article/minecraft-java-edition-1-21-2) を参照する。
 
 ```typescript
 const ITEM_COMPONENT_IDS: readonly ItemComponentId[];
@@ -1058,13 +829,13 @@ const containerComponent: (value: unknown) => ContainerComponent;
 
 属性・戦闘・防御・エンチャントは、component 値の中でも下流が個別に触るため subpath を分けている。
 
-- `domain/item-attribute-modifiers` —— `attributeModifier` / `attributeModifierDisplay` /
+- `domain/item-attribute-modifiers`: `attributeModifier` / `attributeModifierDisplay` /
   `attributeModifiersComponent`。modifier の slot、operation、表示名を検証済みの値として扱う。
-- `domain/item-combat` —— `useEffectsComponent`、`minimumAttackChargeComponent`、
+- `domain/item-combat`: `useEffectsComponent`、`minimumAttackChargeComponent`、
   `damageTypeComponent`、`swingAnimationComponent`、`attackRangeComponent`。
-- `domain/item-defense` —— `damageResistantComponent` と `blocksAttacksComponent`。
+- `domain/item-defense`: `damageResistantComponent` と `blocksAttacksComponent`。
   盾の受け値、無効化秒数、ダメージ低減表を扱う。
-- `domain/item-enchantments` —— `enchantmentsComponent` と `storedEnchantmentsComponent`。
+- `domain/item-enchantments`: `enchantmentsComponent` と `storedEnchantmentsComponent`。
   付与済みと保管済み（エンチャント本）を別 component として区別する。
 
 いずれも値の検証だけを持ち、効果の適用、GUI、サーバー権威は上位層の責務である。
@@ -1167,197 +938,105 @@ const sulfurCubeArchetypeDataPath: (
 
 公式 26.2 が列挙する archetype の挙動名、block/item/entity tag、`minecraft:bounce` game event、`minecraft:sulfur_cube_content` component、`minecraft:sulfur_cube_hot` damage type、Sulfur Cube particle の識別子を branded な portable data として公開する。`#` 付きの block/item/entity tag は `TagLocation`、registry・component・game event・damage type・particle は `ResourceLocation` で区別する。`sulfurCubeArchetypeDataPackLayer` は JSON の外部値を decoder 境界で検証し、`selectSulfurCubeArchetypes` は対象 format の layer を priority 順に重ねて registry を解決する。公式ページが個別 archetype JSON の数値を掲載していないため、kernel は vanilla の数値を推測して固定しない。JSON・pack filesystem の読み出しと、Sulfur Cube の物理・爆発・接触イベントの実行は上位層の責務である。仕様は [Minecraft Java Edition 26.2](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-2) を参照する。
 
-### 3-quinquies. エンチャントとエンチャントテーブル
+### 3-quinquies. 金床用の静的エンチャントルール
 
-エンチャントは `ItemStack` に直接埋め込まず、既存の Anvil の入力・計画・適用プリミティブへ接続する独立したデータ／ロジック境界である。
-`SUPPORTED_VANILLA_ENCHANTMENT_IDS` は現在の `ItemType` roster で扱う 32 種の ID、`VANILLA_ENCHANTMENT_COSTS` と rule set は本の合成とアイテム合成の対象、最大レベル、適用対象、競合関係を表す。
+kernelは、エンチャントID、金床コスト、ルール配列、3種のanvil rule setを静的データとして公開する。これらはrootと実在する`@nerima-games/mc-kernel/domain/enchantment` subpathからimportできる。
 
-```typescript
-const SUPPORTED_VANILLA_ENCHANTMENT_IDS: ReadonlyArray<SupportedVanillaEnchantmentId>;
-const VANILLA_ENCHANTMENT_COSTS: Readonly<
-  Record<SupportedVanillaEnchantmentId, VanillaAnvilCost>
->;
-const SUPPORTED_VANILLA_ANVIL_RULE_SET: AnvilRuleSet;
+- `SUPPORTED_VANILLA_ENCHANTMENT_IDS`と`SupportedVanillaEnchantmentId`
+- `VanillaAnvilCost`と`VANILLA_ENCHANTMENT_COSTS`
+- `SUPPORTED_VANILLA_BOOK_ENCHANTMENT_RULES`、`SUPPORTED_VANILLA_ITEM_ENCHANTMENT_RULES`、`SUPPORTED_VANILLA_ENCHANTMENT_RULES`
+- `SUPPORTED_VANILLA_ANVIL_RULE_SET`、`SUPPORTED_VANILLA_BOOK_ANVIL_RULE_SET`、`SUPPORTED_VANILLA_ITEM_ANVIL_RULE_SET`
 
-const enchantmentRuleFor: (
-  id: SupportedVanillaEnchantmentId | AnvilEnchantmentId,
-) => AnvilEnchantmentRule | undefined;
-const enchantmentAppliesTo: (
-  id: SupportedVanillaEnchantmentId | AnvilEnchantmentId,
-  item: ItemType,
-) => boolean;
-const enchantmentsConflict: (
-  first: SupportedVanillaEnchantmentId | AnvilEnchantmentId,
-  second: SupportedVanillaEnchantmentId | AnvilEnchantmentId,
-) => boolean;
-const planVanillaAnvil: (state: AnvilState) => AnvilPlan;
-const applyVanillaAnvil: (state: AnvilState) => AnvilApplyResult;
-```
-
-`planVanillaAnvil` / `applyVanillaAnvil` は既存の `planAnvil` / `applyAnvil` を直接呼び出し、右入力が `enchanted_book` の場合だけ本用 rule set を選ぶ。
-サーバーの経験値・インベントリ消費、耐久値への効果適用、付与結果の保存は上位の責務である。
-
-エンチャントテーブルは乱数を注入する純粋な関数で、15 段階までの本棚、入力アイテム、slot（3 offers）から Java 形式の level cost と候補を生成する。
-`EnchantmentTableRandom` を上位から渡すため、kernel は乱数 seed、GUI、経験値・ラピスラズリ消費、サーバー権威を所有しない。
-
-```typescript
-const ENCHANTMENT_TABLE_BOOK: "book";
-const ENCHANTMENT_TABLE_MAX_BOOKSHELVES: 15;
-const ENCHANTMENT_TABLE_SLOT_COUNT: 3;
-const VANILLA_ENCHANTMENT_TABLE_RULES: Readonly<
-  Record<SupportedVanillaEnchantmentId, VanillaEnchantmentTableRule>
->;
-const ENCHANTMENT_TABLE_ITEM_ENMERCHANTABILITY: Readonly<
-  Partial<Record<EnchantmentTableItem, number>>
->;
-
-const calculateEnchantmentTableLevelCost: (
-  input: EnchantmentTableCostInput,
-) => EnchantmentTableLevelCost;
-const generateEnchantmentTableOffers: (
-  input: GenerateEnchantmentTableOffersInput,
-) => EnchantmentTableOffers;
-const enchantmentTableOutputItemOf: (input: EnchantmentTableItem) => ItemType;
-```
-
-このデータは全バージョン・全エディションの完全な registry ではなく、現在の kernel の item roster とテストで固定した対応範囲である。
-未収録の item、edition 差分、将来の enchantment は、明示的なデータとテストを追加してから公開範囲へ加える。
-root のほか `domain/enchantment` と `domain/enchantment-table` subpath から利用できる。
+各ルール配列のレコードは、エンチャントID、最大レベル、適用可能なアイテム、競合するエンチャントID、コストを持つ。ルール配列のレコード型は名前付きの公開exportではない。金床state、計画・適用、snapshot codec、エンチャント照合処理はkernelの公開APIに含まれない。
 
 ### 3-quinquies-bis. 設定値と統計
 
-設定と統計は、下流の UI・状態所有・保存形式から独立した値モデルとして公開する。`Settings` は描画距離、視野角、品質、音量、感度、key binding の既定値・境界・正規化・更新を、`Statistics` は counter の記録、achievement の解放、重複除去、正規化を扱う。
+設定値の既定値、外部入力の正規化、key binding の更新関数は kernel に残る。統計の値と更新 API は `mc-sim` が所有し、kernel では公開しない（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
+const GRAPHICS_QUALITIES: readonly ["low", "medium", "high", "ultra"];
+const MIN_RENDER_DISTANCE: number;
+const MAX_RENDER_DISTANCE: number;
+const MIN_FOV_DEGREES: number;
+const MAX_FOV_DEGREES: number;
+const MIN_MOUSE_SENSITIVITY: number;
+const MAX_MOUSE_SENSITIVITY: number;
+const MIN_VOLUME: number;
+const MAX_VOLUME: number;
 const DEFAULT_SETTINGS: Settings;
 const normaliseSettings: (input: unknown) => Settings;
-const applySettings: (settings: Settings, patch: Partial<Settings>) => Settings;
-const bindKey: (settings: Settings, action: string, code: string) => Settings;
+const normaliseKeyBindings: (input: unknown) => Readonly<Record<string, string>>;
+const rebindKey: (settings: Settings, action: string, code: string) => Settings;
 const unbindKey: (settings: Settings, action: string) => Settings;
-
-const EMPTY_STATISTICS: Statistics;
-const normaliseStatistics: (input: unknown) => Statistics;
-const record: (
-  statistics: Statistics,
-  key: StatisticKey,
-  amount?: number,
-) => Statistics;
-const unlock: (
-  statistics: Statistics,
-  achievement: AchievementId,
-) => Statistics;
 ```
 
-root のほか `domain/settings` と `domain/statistics` から利用できる。画面・renderer preset・入力デバイスへの適用、ゲームイベントの意味付け、achievement registry、player state の所有、永続化は下流の責務である。
+これらの Settings API は root と `domain/settings` から利用できる。画面・renderer preset・入力デバイスへの適用、統計の記録と achievement registry、player state の所有、永続化は下流の責務である。
 
-### 3-quinquies-ter. 砥石（grindstone）
 
-砥石は、入力を変更せずに結果と経験値コストを返す純粋な計画である。単体入力では通常エンチャントを除去し、呪いを保持する。呪いが残らないエンチャント本は通常の本へ変換する。二入力では同一アイテムのダメージ値を合成し、耐久アイテムは最大耐久の 5% を加算した回復量、非耐久アイテムは同一コンポーネントのスタック条件を検証する。
-
-```typescript
-const GRINDSTONE_CURSE_ENCHANTMENT_IDS: ReadonlyArray<string>;
-const GRINDSTONE_DURABILITY_BONUS_PERCENT: 5;
-const GRINDSTONE_REPAIR_COST_MAX: 2_147_483_647;
-
-const grindstoneExperienceFor: (nonCurseEnchantmentCount: number) => number;
-const planGrindstone: (
-  left: GrindstoneInput | null,
-  right: GrindstoneInput | null,
-) => GrindstonePlan;
-```
-
-`planGrindstone` は root と `domain/grindstone` subpath から利用できる。搬送、GUI、プレイヤーの経験値消費、ワールド更新は上位層の責務である。
 
 ### 3-sexies. 飛翔体（projectile）
 
-矢の弾道を、ワールドや Entity の所有から分離した純粋な値遷移として公開する。`stepArrow` は前フレーム位置から次位置までを連続区間として評価し、ブロック/Entity の AABB への最初の衝突、重力、空気・水中 drag、射手への短い grace period、寿命、ワールド境界を同じ遷移に反映する。
+kernelは飛翔体のruntime APIを公開しない。移設先は[責務と移行先](./responsibility.md)を参照する。
+
+### 3-septies. 爆発データ（explosion）
 
 ```typescript
-const ARROW_GRAVITY = 9.81;
-const ARROW_AIR_DRAG = 0.99;
-const ARROW_WATER_DRAG = 0.6;
-const ARROW_MAX_LIFETIME_SECONDS = 60;
-const ARROW_SHOOTER_GRACE_SECONDS = 0.25;
-
-type ProjectileEntity = Readonly<{ id: string; bounds: AABB }>;
-type ProjectileWorld = Readonly<{
-  blockBounds: (start: Position, end: Position) => readonly AABB[];
-  entities: readonly ProjectileEntity[];
-  isInWater: (position: Position) => boolean;
-  bounds: AABB;
+type ExplosionBlockPosition = Position;
+type ExplosionBlock = Readonly<{
+  readonly resistance: number;
+  readonly destructible: boolean;
 }>;
-type ArrowBase = Readonly<{
-  position: Position;
-  velocity: Position;
-  ageSeconds: number;
-  shooterId?: string;
+type ExplosionBlockReader = (position: ExplosionBlockPosition) => ExplosionBlock | undefined;
+type ExplosionEntity = Readonly<{
+  readonly id: string;
+  readonly feetPosition: Position;
 }>;
-type Arrow =
-  | (ArrowBase & Readonly<{ state: "flying" }>)
-  | (ArrowBase & Readonly<{
-      state: "stuck";
-      hit: ProjectileHit;
-      recoverable: boolean;
-    }>)
-  | (ArrowBase & Readonly<{
-      state: "despawned";
-      reason: "invalid" | "lifetime" | "world" | "entity-hit";
-    }>);
-type ArrowLaunch = Readonly<{
-  position: Position;
-  yawRadians: number;
-  pitchRadians: number;
-  speed: number;
-  shooterId?: string;
+type ExplosionEntityEffect = Readonly<{
+  readonly id: string;
+  readonly damage: number;
+  readonly knockback: Position;
+  readonly exposure: number;
 }>;
-type ProjectileStep = Readonly<{ arrow: Arrow; hit?: ProjectileHit }>;
+type ExplosionLimits = Readonly<{
+  readonly maxVisitedBlocks: number;
+  readonly maxRaySteps: number;
+  readonly maxAffectedEntities: number;
+}>;
+type ExplosionRequest = Readonly<{
+  readonly center: Position;
+  readonly radius: number;
+  readonly seed: number;
+  readonly blocks: ExplosionBlockReader;
+  readonly entities: ReadonlyArray<ExplosionEntity>;
+  readonly limits?: Partial<ExplosionLimits>;
+}>;
+type ExplosionPlan = Readonly<{
+  readonly center: Position;
+  readonly radius: number;
+  readonly seed: number;
+  readonly destroyedBlocks: ReadonlyArray<ExplosionBlockPosition>;
+  readonly entityEffects: ReadonlyArray<ExplosionEntityEffect>;
+  readonly visitedBlocks: number;
+  readonly limits: ExplosionLimits;
+  readonly truncated: boolean;
+}>;
+type ExplosionMutation = Pick<ExplosionPlan, "destroyedBlocks" | "entityEffects">;
+type ExplosionCommit = (mutation: ExplosionMutation) => void;
 
-const launchArrow: (launch: ArrowLaunch) => Arrow;
-const stepArrow: (
-  arrow: Arrow,
-  deltaSeconds: number,
-  world: ProjectileWorld,
-) => ProjectileStep;
-```
-
-`ProjectileWorld` は上位層から衝突候補と水中判定を受け取るだけで、Entity の生成・削除、ブロック変更、イベント dispatch、ダメージ適用は行わない。これにより `mc-physics`・`mc-sim`・gameplay が同じ遷移と衝突契約を共有できる。現在の実装対象は Arrow である。
-
-root と `@nerima-games/mc-kernel/domain/projectile` subpath から利用できる。
-
-### 3-septies. 爆発と着火済み TNT（explosion / primed-tnt）
-
-`planExplosion` は中心・半径・seed と上位層が提供するブロック／Entity の読み取りから、破壊対象・Entity 効果・ノックバックを決定論的に計画する。抵抗値、遮蔽、有限の ray step・visited block・affected entity 上限も計画に含める。`applyExplosionPlan` は結果を呼び出し側の commit callback に渡し、kernel 自身はワールド更新やダメージ適用を所有しない。
-
-```typescript
 const DEFAULT_EXPLOSION_LIMITS: ExplosionLimits;
-const planExplosion: (request: ExplosionRequest) => ExplosionPlan;
-const applyExplosionPlan: (
-  plan: ExplosionPlan,
-  commit: ExplosionCommit,
-) => void;
+const resistsExplosion: (id: number, power: number) => boolean;
 ```
 
-`planPrimedTnt` は fuse の正規化、経過時間の上限、detonated への遷移を計算し、爆発時には爆発計画も返す。`applyPrimedTntPlan` は fuse 状態と爆発 mutation を呼び出し側の commit callback に渡す。状態更新とワールド変更は callback 側の責務である。
+爆発計画と適用、および着火済みTNTのruntimeは`mc-sim`が所有する。移設先は[責務と移行先](./responsibility.md)を参照する。
 
-```typescript
-const DEFAULT_TNT_FUSE_SECS = 4;
-const MAX_TNT_FUSE_ADVANCE_SECS = 10;
-const primeTnt: (fuseSecs?: number) => PrimedTntState;
-const planPrimedTnt: (request: PrimedTntRequest) => PrimedTntPlan;
-const applyPrimedTntPlan: (
-  plan: PrimedTntPlan,
-  commit: PrimedTntCommit,
-) => void;
-```
-
-root と `@nerima-games/mc-kernel/domain/explosion`、`@nerima-games/mc-kernel/domain/primed-tnt` subpath から利用できる。
+root と `@nerima-games/mc-kernel/domain/explosion` subpath から利用できる。
 
 ## 4. ブロック能力モデル
 
 **権威は `docs/capability-flag-audit.md`。** 監査 §3 の表は 28 行であり、この表を採用している。
 
 2 つの仕組みに分かれる。boolean は能力フラグ表、それ以外は型付きプロパティ表。
-### 4-1. 能力フラグ（boolean）— `domain/block-capabilities.ts` / `domain/block-capability-data.ts`
+### 4-1. 能力フラグ（boolean）：`domain/block-capabilities.ts` / `domain/block-capability-data.ts`
 
 `block-capability-data.ts` が能力の型・既定値・反復順を持ち、`block-capabilities.ts` が外部入力の検証と既定値解決を担当する。
 公開 import path は `block-capabilities.ts` のまま維持する。
@@ -1374,7 +1053,7 @@ const resolveBlockCapabilities(overrides): BlockCapabilities
 const capabilityOf(overrides, flag): boolean
 ```
 
-実装済み 12 フラグ:
+実装済みのフラグは 12 個である。
 
 | フラグ                  | 既定       | 根拠                                                                          |
 | ----------------------- | ---------- | ----------------------------------------------------------------------------- |
@@ -1396,7 +1075,7 @@ const capabilityOf(overrides, flag): boolean
 上記 3 つだけ `true` なのは、参照実装がその 3 つを**否定リスト**（`NON_SUFFOCATING_BLOCKS` 等）で持っているから、
 つまり普通の立方体の答えが `true` だからである。
 
-### 4-2. プロパティ（型付き値）— `domain/block-properties.ts`
+### 4-2. プロパティ（型付き値）：`domain/block-properties.ts`
 
 このパスは公開バレルとして維持し、値 vocabulary・型・既定値は `domain/block-property-data.ts`、
 外部入力の検証と既定値解決は `domain/block-property-validation.ts` に分離している。
@@ -1412,7 +1091,7 @@ const resolveBlockProperties(overrides): BlockProperties
 const propertyOf<K>(overrides, name: K): BlockProperties[K]
 ```
 
-実装済み 15 プロパティ:
+実装済みのプロパティは 15 個である。
 
 | プロパティ         | 型                                                      | 既定                                  | 根拠                                                                |
 | ------------------ | ------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------- |
@@ -1435,7 +1114,7 @@ const propertyOf<K>(overrides, name: K): BlockProperties[K]
 補助 API: `BLOCK_OPACITIES` / `FLUID_KINDS` / `COLLISION_SHAPES` / `RENDER_KINDS` / `FOOTSTEP_MATERIALS` /
 `RAIL_KINDS` / `LIGHT_LEVEL_MIN` / `LIGHT_LEVEL_MAX` / `isLightLevel` / `clampLightLevel`。
 
-### 4-2-bis. `SupportRule` の値 — `domain/block-support.ts` / `domain/block-support-data.ts`
+### 4-2-bis. `SupportRule` の値：`domain/block-support.ts` / `domain/block-support-data.ts`
 
 `supportRule` は配置に必要な支持条件を値として表す判別共用体である。
 
@@ -1464,7 +1143,7 @@ const satisfiesSupportRule(
 `domain/block-registry.ts` の `canBlockStaySupported(id, supportBelow)` はこの純関数を
 id ベースの lookup に配線したものである（§3-1-bis）。
 
-### 4-3. struct 2 種を隔離した理由 — `domain/block-harvest.ts` / `domain/block-harvest-data.ts`
+### 4-3. struct 2 種を隔離した理由：`domain/block-harvest.ts` / `domain/block-harvest-data.ts`
 
 ```typescript
 const HARVEST_TOOL_CATEGORIES = ['none', 'pickaxe', 'axe', 'shovel', 'hoe', 'shears', 'sword'] as const
@@ -1500,15 +1179,14 @@ const resolveDrop(requirement, rule, brokenBlock, context?): BlockDrop | undefin
 
 同じ理由で `resolveDropItem` は**部分関数になった**。旧版は `BlockType` を返して全域だった
 （「自分自身」は必ずブロックだから）。答えがアイテムになると「自分自身」は存在しないことがありうる
-（`air` / `water` / `lava` / `bedrock` / `snow`）。`undefined` がその答えで、count 0 の drop rule は存在しない
-——インベントリに何も入らない。
+（`air` / `water` / `lava` / `bedrock` / `snow`）。`undefined` がその答えで、count 0 の drop rule は存在しないため、インベントリに何も入らない。
 
-**`resolveDrop` が採掘の入口。** `resolveDropItem` は「どのアイテムか」だけを答え、道具もシルクタッチも見ない。
-「そもそも落ちるか」まで含めて答えるのは `resolveDrop` のほうで、落ちない経路は 3 つ + 1 つある:
+**`resolveDrop` は採掘時のドロップ判定に使う。** `resolveDropItem` は「どのアイテムか」だけを答え、道具もシルクタッチも見ない。
+「そもそも落ちるか」まで含めて答えるのは `resolveDrop` のほうで、落ちない経路は次の 4 つである。
 
-1. drop rule が `undefined` —— 誰に対しても何も落とさない（監査 §4.5 の `NEVER_DROPPED_BLOCK_TYPES`）。rule が存在する場合の `count` は `1..MAX_STACK_COUNT`。
-2. 道具のティアが `harvestTool.minTier` に届かない —— 素手で石を殴る。**カテゴリは見ない**
-3. `requiresSilkTouch` なのにシルクタッチが無い —— ガラスを割る
+1. drop rule が `undefined`：誰に対しても何も落とさない（監査 §4.5 の `NEVER_DROPPED_BLOCK_TYPES`）。rule が存在する場合の `count` は `1..MAX_STACK_COUNT`。
+2. 道具のティアが `harvestTool.minTier` に届かない：素手で石を殴る。**カテゴリは見ない**
+3. `requiresSilkTouch` なのにシルクタッチが無い：ガラスを割る
 4. （拒否ではなく不在）`'self'` なのにそのブロックにアイテム形が無い
 
 **幸運は kernel で適用しない。** `BlockDrop.affectedByFortune` を**運び出す**だけで、倍率は掛けない。
@@ -1516,7 +1194,7 @@ const resolveDrop(requirement, rule, brokenBlock, context?): BlockDrop | undefin
 kernel は純粋で決定的（`StageRegistration.run` のエラーチャネルは `never`、乱数源も持たない）なので、
 基準個数と「幸運が効く」という事実を返し、RNG を所有するルールに掛け算をさせる。
 
-### 4-3-bis. `dropOfBlockId` —— 採掘がインベントリに届く 1 本の線
+### 4-3-bis. `dropOfBlockId`：採掘がインベントリに届く1本の線
 
 ```typescript
 const dropOfBlockId(id: number, context?: HarvestContext): BlockDrop | undefined
@@ -1525,7 +1203,7 @@ const dropOfBlockId(id: number, context?: HarvestContext): BlockDrop | undefined
 `mx-gameplay` の `breakBlock` は数値の `BlockId` を返し、`mc-sim` の `InventoryService.add` は item を受け取る。
 `dropOfBlockId` はこの両者をつなぐ `BlockDrop` を返す。
 
-呼び出しは 1 回、読み出し側にブロック名は現れない —— 落下ブロック規則に対する
+呼び出しは1回で、読み出し側にブロック名は現れない。落下ブロック規則に対する
 `capabilityOfBlockId` と同じ形である。
 
 **未知の id は `undefined` を返す。** これは `capabilityOfBlockId`（既定値=石に落とす）と**違う規則**であり、
@@ -1535,48 +1213,11 @@ const dropOfBlockId(id: number, context?: HarvestContext): BlockDrop | undefined
 壊れたチャンクや新しいビルドのセーブが、静かにインベントリへアイテムを刷る。
 何も落とさないのが唯一まともな答えである。
 
-### 4-3-ter. ブロック相互作用 — `domain/block-interaction.ts` / `domain/block-interaction-data.ts`
+### 4-3-ter. ブロック相互作用
 
-ブロック ID、registry の解決結果、harvest/drop、support rule、block↔item bridge を束ねる、状態を変更しない判定を公開する。
+ブロック相互作用のruntimeは`mc-sim`が所有し、kernelは対応するAPIを公開しない。移設先は[責務と移行先](./responsibility.md)を参照する。
 
-```typescript
-type BlockBreakDecision =
-  | {
-      readonly kind: "blocked";
-      readonly reason: "unknown" | "air" | "unbreakable";
-    }
-  | {
-      readonly kind: "broken";
-      readonly id: BlockId;
-      readonly type: BlockType;
-      readonly drop?: BlockDrop;
-      readonly experience: number;
-    };
-
-type BlockPlacementDecision =
-  | {
-      readonly kind: "rejected";
-      readonly reason: "unknown-block" | "air" | "unsupported";
-    }
-  | { readonly kind: "placed"; readonly id: BlockId; readonly type: BlockType };
-
-const breakBlock: (id: number, context?: HarvestContext) => BlockBreakDecision;
-const canReplaceBlock: (id: number) => boolean;
-const placeBlock: (id: number, supportBelow: number) => BlockPlacementDecision;
-const placeableBlockFromItem: (item: ItemType) => PlaceableBlock | undefined;
-```
-
-`breakBlock` の不破壊判定は canonical `UNBREAKABLE_HARDNESS`（`-1`）を取りこぼさず、参照レジストリにある
-`9000` 以上の hardness と、`pistonImmovable` かつ hardness `100` 以上の bedrock-class もまとめて扱う。
-閾値は data module が所有する。破壊成功時は registry の `xpOnBreak` と deterministic な base drop を返し、
-Fortune の乱数や採掘時間は適用しない。
-
-`placeBlock` は設置先直下の support rule だけを評価し、world mutation、衝突、隣接ブロック更新、液体流動、
-イベント発火は行わない。`placeableBlockFromItem` は placeable item と block type の canonical bridge を使う。
-`canReplaceBlock` は既存セルの `replaceable` capability と air を判定する。
-成功結果をワールドへ適用し、採掘時間・アニメーション・インベントリ消費を管理するのは上位層である。
-
-### 4-4. `BlockDefinition` — `domain/block-definition.ts`
+### 4-4. `BlockDefinition`：`domain/block-definition.ts`
 
 ```typescript
 type BlockDefinition = {
@@ -1600,7 +1241,7 @@ const DOWNSTREAM_CAPABILITIES: ReadonlyArray<{ name, kind, owner, why }> // 下�
 プロパティ側は値型が推論できないため 2 行（型宣言 + 既定値）必要だが、`BLOCK_PROPERTY_DEFAULTS: BlockProperties` の
 型注釈により「既定値のないプロパティ」はコンパイルエラーになる。
 
-消費側がやってはいけないこと:
+消費側では次の操作を避ける。
 
 1. `BlockCapabilities` / `BlockProperties` のリテラルを手書きしない。オーバーライドを書いて解決関数に渡す。
    完全なレコードは能力が増えるたびに必須キーが増え、まさにこの設計が避けようとしている破壊が起きる。
@@ -1626,41 +1267,11 @@ type CameraPoseSnapshot = {
 const snapshotAgeSecs(snapshot, now: MonotonicTimeSecs): number
 ```
 
-`CameraPoseSnapshot` の正本は `mc-sim` が所有し、`mc-render` の THREE カメラはミラーである。`mc-playground-kit` やリプレイ機構も同じ型を使うため、型を kernel に置いて consumer 間の依存を避ける。
+`CameraPoseSnapshot` の値は `mc-sim` が管理し、`mc-render` の THREE カメラはその値を反映する。`mc-playground-kit` やリプレイ機構も同じ型を使うため、型を kernel に置いて consumer 間の依存を避ける。
 
 `capturedAtSecs` があるのは、ミラー側が「今見ているスナップショットが何フレーム前のものか」を判定できるようにするため。
 
-### 5-1. プレイヤー姿勢の純粋計算（camera-pose）
-
-```typescript
-type PlayerPose = {
-  readonly feetPosition: Position;
-  readonly yawRadians: number;
-  readonly pitchRadians: number;
-};
-const INITIAL_PLAYER_POSE: PlayerPose;
-const clampPitch: (pitchRadians: number) => number;
-const applyLook: (
-  pose: PlayerPose,
-  deltaYawRadians: number,
-  deltaPitchRadians: number,
-) => PlayerPose;
-const withFeetPosition: (
-  pose: PlayerPose,
-  feetPosition: Position,
-) => PlayerPose;
-const cameraPoseOf: (
-  pose: PlayerPose,
-  capturedAtSecs: MonotonicTimeSecs,
-) => CameraPoseSnapshot;
-const forwardVector: (
-  orientation: Pick<CameraPoseSnapshot, "yawRadians" | "pitchRadians">,
-) => Position;
-```
-
-`camera-pose` はプレイヤーの足元位置・視線角度から、目の高さを加えた `CameraPoseSnapshot` と視線方向を決定論的に計算する。
-pitch は上下反転を防ぐため `±(π / 2 - 0.01)` に収め、入力姿勢を変更せず次の値を返す。
-姿勢の所有、入力デバイス、マウス感度、カメラの描画反映は上位層が所有する。
+プレイヤー姿勢からカメラポーズを計算するAPIはkernelで公開せず、runtimeは`mc-sim`が所有する。移設先は[責務と移行先](./responsibility.md)を参照する。
 
 ## 5-bis. フレーム時間（frame-timing）
 
@@ -1672,19 +1283,19 @@ const MIN_FRAME_DELTA_SECS = 0.001;
 const MAX_FRAME_DELTA_SECS = 0.05;
 const FIRST_FRAME_DELTA_SECS: DeltaTimeSecs = DeltaTimeSecs(0.016);
 
-const clampFrameDelta: (rawDeltaSecs: number) => DeltaTimeSecs;
+const clampFrameDelta: (rawDeltaSecs: DeltaTimeSecs) => DeltaTimeSecs;
 const frameDeltaBetween: (
-  previousSecs: number | undefined,
-  nowSecs: number,
+  previousSecs: MonotonicTimeSecs | undefined,
+  nowSecs: MonotonicTimeSecs,
 ) => DeltaTimeSecs;
-const frameDeltaLossSecs: (rawDeltaSecs: number) => number;
+const frameDeltaLossSecs: (rawDeltaSecs: DeltaTimeSecs) => DeltaTimeSecs;
 const frameDeltaLossBetween: (
-  previousSecs: number | undefined,
-  nowSecs: number,
-) => number;
+  previousSecs: MonotonicTimeSecs | undefined,
+  nowSecs: MonotonicTimeSecs,
+) => DeltaTimeSecs;
 ```
 
-`NaN` または前回時刻が無い場合は最初のフレーム値 `0.016` を使う。通常の値は `0.001` 以上
+単調時刻の前回値が無い場合は最初のフレーム値 `0.016` を使う。差分は `0.001` 以上
 `0.05` 以下に clamp し、上限を超えた経過時間は `frameDeltaLossSecs` / `frameDeltaLossBetween` で返す。
 これは `mc-sim` の状態・累積器を移植したものではなく、`DeltaTimeSecs` を消費する共有された時間ポリシーだけを kernel が所有する境界である。
 
@@ -1712,129 +1323,50 @@ const interpolationFraction: (accumulator: FixedDurationSecs) => InterpolationFr
 求める前に whole tick を消費し、accumulator をこの境界未満へ戻さなければならない。固定 tick の
 accumulator、catch-up 上限、pause/overload、simulation loop は `mc-sim` が所有する。
 
-## 5-ter. 昼夜と天候（time-of-day / weather）
+## 5-ter. 天候語彙（weather）
 
-昼夜と天候の**純粋な状態モデル**を公開する。シミュレーションの状態サービス、保存、カウントダウン、ゲームループは上位層が所有する。
+kernel は `Weather` 型、`WEATHERS`、`isWeather`、`DEFAULT_WEATHER_REMAINING_SECS` を公開する。天候状態とその更新は `mc-sim` が所有する（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
-type TimeState = {
-  readonly ticks: number;
-  readonly dayLengthTicks: number;
-};
-
-const INITIAL_TIME_STATE: TimeState;
-const TICKS_PER_SECOND = 60;
-const MIN_DAY_LENGTH_SECS = 120;
-const MAX_DAY_LENGTH_SECS = 1200;
-const MAX_TIME_FRACTION = 0.9999;
-const MOON_PHASE_COUNT = 8;
-const DEFAULT_DAY_LENGTH_SECS = 400;
-
-const isValidTimeState: (value: unknown) => value is TimeState;
-const normaliseTimeState: (value: unknown) => TimeState;
-const timeOfDay: (state: TimeState) => number;
-const dayLengthSecs: (state: TimeState) => number;
-const moonPhase: (state: TimeState) => number;
-const isNight: (state: TimeState) => boolean;
-const advance: (state: TimeState, deltaSecs: DeltaTimeSecs) => TimeState;
-const setDayLength: (state: TimeState, seconds: number) => TimeState;
-const setTimeOfDay: (state: TimeState, fraction: number) => TimeState;
-const setDayLengthThenTimeOfDay: (state, seconds, fraction) => TimeState;
-
 type Weather = "clear" | "rain" | "thunder";
-type WeatherState = {
-  readonly weather: Weather;
-  readonly remainingSecs: number;
-};
-
-const INITIAL_WEATHER_STATE: WeatherState;
+const WEATHERS: readonly Weather[];
 const isWeather: (value: unknown) => value is Weather;
-const isValidWeatherState: (value: unknown) => value is WeatherState;
-const normaliseWeatherState: (value: unknown) => WeatherState;
+const DEFAULT_WEATHER_REMAINING_SECS: number;
 ```
-
-`TimeState` の tick は `DeltaTimeSecs` から決定的に進み、day length と時刻 fraction は定数の範囲に正規化する。天候は有限な正の残り時間だけを有効とする。どちらも外部入力や保存データを kernel 境界で検証できるが、永続化形式やサービスのライフサイクルは定義しない。
 
 ## 5-quater. プレイヤー vitals（vitals）
 
-プレイヤーの状態サービスや食料タイマーを持ち込まず、体力・飢餓・飽和・経験値の値ベース計算と外部入力の境界検証を公開する。
+プレイヤーvitalsのruntimeは`mc-sim`が所有し、kernelでは公開しない。移設先は[責務と移行先](./responsibility.md)を参照する。
 
-```typescript
-type DamageCause = string;
-type Damage = Readonly<{ amount: number; cause: DamageCause }>;
-type Vitals = Readonly<{
-  healthPoints: number;
-  maxHealthPoints: number;
-  hungerPoints: number;
-  maxHungerPoints: number;
-  saturation: number;
-  exhaustion: number;
-  foodTimerSecs: number;
-  totalExperience: number;
-  lastDamageCause: DamageCause | undefined;
-}>;
-type VitalsView = Readonly<{
-  healthPoints: number;
-  maxHealthPoints: number;
-  hungerPoints: number;
-  maxHungerPoints: number;
-  experienceLevel: number;
-  experienceProgress: number;
-}>;
+## 5-quinquies. 乗り物の共有型（vehicle）
 
-const DEFAULT_MAX_HEALTH_POINTS = 20;
-const DEFAULT_MAX_HUNGER_POINTS = 20;
-const SPAWN_SATURATION = 5;
-const EXHAUSTION_PER_POINT = 4;
-const MAX_EXHAUSTION = 40;
-const FOOD_TICK_SECS = 4;
-const REGEN_HUNGER_THRESHOLD = 18;
-const EXHAUSTION_PER_REGEN = 6;
-const SPAWN_VITALS: Vitals;
-
-const isDead: (vitals: Vitals) => boolean;
-const applyDamage: (vitals: Vitals, damage: Damage) => Vitals;
-const heal: (vitals: Vitals, amount: number) => Vitals;
-const addExhaustion: (vitals: Vitals, amount: number) => Vitals;
-const eat: (vitals: Vitals, foodPoints: number, saturation: number) => Vitals;
-const advanceFoodTimer: (
-  vitals: Vitals,
-  deltaSecs: DeltaTimeSecs,
-) => readonly ["none" | "regen" | "starve", Vitals];
-
-const experienceCostOfLevel: (level: number) => number;
-const totalExperienceAtLevel: (level: number) => number;
-const levelForTotalExperience: (totalExperience: number) => number;
-const experienceLevel: (vitals: Vitals) => number;
-const experienceProgress: (vitals: Vitals) => number;
-const addExperience: (vitals: Vitals, amount: number) => Vitals;
-const respawn: (vitals: Vitals) => Vitals;
-const isValidVitals: (value: unknown) => value is Vitals;
-const normaliseVitals: (value: unknown) => Vitals;
-const vitalsView: (vitals: Vitals) => VitalsView;
-```
-
-`applyDamage`、`heal`、`addExhaustion`、`eat`、`advanceFoodTimer`、`addExperience`、`respawn` は入力値を変更せず、次の `Vitals` を返す。
-経験値のレベル曲線、食料 tick の `regen` / `starve` 判定、死亡時のダメージ原因はこの値計算に含まれる。
-`normaliseVitals` と `isValidVitals` は保存やネットワークなどの外部入力を受ける境界で使う。
-プレイヤーサービスによる権限判定、タイマーの所有、インベントリとの接続、保存形式、実際の UI は上位層が所有する。
-
-## 5-quinquies. 乗り物 snapshot 契約（vehicle）
-
-乗り物は boat / minecart の語彙、位置・速度・向き、搭乗者の一意性、snapshot の serial 採番を表す純粋なデータ契約である。
-保存・ネットワーク入力は `validateVehicleSnapshot` で検証し、検証済みの `VehicleSnapshot` だけを下流のシミュレーションへ渡す。
-物理的な移動、レール接続、衝突、搭乗・降車、ワールド mutation は上位層が所有する。
+kernelは乗り物の語彙と共有snapshotの値型を公開する。位置・速度・搭乗者などの値を運ぶ契約であり、snapshotの生成・検証や物理的な移動、レール接続、衝突、搭乗・降車、ワールド変更は実行時処理の所有元に属する。
 
 ```typescript
 const VEHICLE_TYPES: readonly ["boat", "minecart"];
+type VehicleType = (typeof VEHICLE_TYPES)[number];
 const isVehicleType: (value: unknown) => value is VehicleType;
+type VehicleId = string & Brand.Brand<"VehicleId">;
+type OccupantId = string & Brand.Brand<"VehicleOccupantId">;
 const VehicleId: Brand.Constructor<VehicleId>;
 const OccupantId: Brand.Constructor<OccupantId>;
-const validateVehicleSnapshot: (value: unknown) => VehicleValidationResult;
-const emptyVehicleSnapshot: () => VehicleSnapshot;
+type VehicleVelocity = Readonly<{ x: number; y: number; z: number }>;
+type Vehicle = Readonly<{
+  id: VehicleId;
+  type: VehicleType;
+  dimension: Dimension;
+  position: Position;
+  velocity: VehicleVelocity;
+  yawRadians: number;
+  occupant?: OccupantId;
+}>;
+type VehicleSnapshot = Readonly<{
+  vehicles: ReadonlyArray<Vehicle>;
+  nextSerial: number;
+}>;
 ```
 
-`validateVehicleSnapshot` は未知入力の配列形状、有限座標・速度・向き、dimension、ID と搭乗者の重複、`v:<serial>` の安全整数、`nextSerial` の先行性を検証する。
+`VehicleId`と`OccupantId`のconstructorは、空文字列と空白だけの文字列を受け付けない。
 
 ## 5-quinquies-bis. Chunk read/edit vocabulary
 
@@ -1897,92 +1429,45 @@ const blockWriteBatch: (
 
 `WorldEpoch`、`ChunkRevision`、`LightRevision`、`ChunkLocalIndex`、`SectionIndex` は `Brand.make` による別ブランドであり、負値・非整数を受け付けない。`BlockWriteBatch` は `BlockAxis` の safe integer 全域を受け付け、座標比較で重複 position を検証するが、live chunk の mutation、STM/COW、load/unload、dirty event は所有しない。
 
-## 5-sexies. BlockWorld、fluid、redstone の純粋更新
+## 5-sexies. Fluid と redstone の静的データ
 
-`BlockWorld` は block position key から block ID への不変な読み取り境界である。`setBlockAt` は元の map を変更せず、空気 block を設定した場合は key を削除する。関数型の `BlockReader` と map のどちらも `BlockSource` として読み取れる。
-
-```typescript
-type BlockWorld = ReadonlyMap<BlockPositionKey, BlockId>;
-type BlockReader = (position: BlockPosition) => BlockId;
-type BlockSource = BlockWorld | BlockReader;
-
-const emptyBlockWorld: () => BlockWorld;
-const blockAt: (world: BlockWorld, position: BlockPosition) => BlockId;
-const blockReaderOf: (world: BlockWorld) => BlockReader;
-const readBlockAt: (source: BlockSource, position: BlockPosition) => BlockId;
-const setBlockAt: (
-  world: BlockWorld,
-  position: BlockPosition,
-  blockId: BlockId,
-) => BlockWorld;
-```
-
-fluid 更新は `FluidState` の scheduled cell を入力し、block world と状態を変更した新しい値、変更一覧を返す。空のセルは空気として扱い、置換可能 block、水流で壊れる block、水と溶岩の source 混合、下向き優先・水平減衰を同じルールで評価する。
+Fluid の block ID と level 定数・変換関数、redstone block ID と power 範囲の定数は kernel に残る。fluid state/update と redstone state/network/update は、それぞれの移行先が所有する（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
-type FluidChange = {
-  readonly after: BlockId;
-  readonly before: BlockId;
-  readonly falling: boolean;
-  readonly fluid: FlowingFluidKind;
-  readonly kind: "flow" | "mix";
-  readonly level: FluidLevel;
-  readonly position: BlockPosition;
-};
-type FluidUpdate = {
-  readonly changes: ReadonlyArray<FluidChange>;
-  readonly state: FluidState;
-  readonly world: BlockWorld;
-};
+type FlowingFluidKind = "water" | "lava";
+const FLUID_BLOCK_IDS: Readonly<{ readonly lava: BlockId; readonly water: BlockId }>;
+const FLUID_MIX_BLOCK_IDS: Readonly<{ readonly cobblestone: BlockId; readonly obsidian: BlockId }>;
+const FLUID_LEVEL_MIN: number;
+const FLUID_LEVEL_MAX: number;
+const FLUID_LEVEL_STEP: number;
+const SOURCE_FLUID_LEVEL: number;
+const FLOWING_FLUID_LEVEL: number;
+const blockIdOfFluidKind: (kind: FlowingFluidKind) => BlockId;
+const fluidKindOfBlockId: (blockId: BlockId) => FlowingFluidKind | null;
 
-const fluidStateFromWorld: (world: BlockWorld) => FluidState;
-const canFluidReplace: (blockId: BlockId, kind: FlowingFluidKind) => boolean;
-const updateFluids: (world: BlockWorld, state?: FluidState) => FluidUpdate;
+const REDSTONE_BLOCK_IDS: Readonly<{
+  readonly block: BlockId;
+  readonly comparator: BlockId;
+  readonly lamp: BlockId;
+  readonly lampLit: BlockId;
+  readonly lever: BlockId;
+  readonly observer: BlockId;
+  readonly pressurePlate: BlockId;
+  readonly repeater: BlockId;
+  readonly stoneButton: BlockId;
+  readonly torch: BlockId;
+  readonly wire: BlockId;
+}>;
+const REDSTONE_POWER_MIN: number;
+const REDSTONE_POWER_MAX: number;
+const REDSTONE_POWER_STEP: number;
 ```
 
-redstone 更新は `RedstoneState` と block world から source、device、wire、lamp の状態を評価する。`updateRedstone` は repeater の遅延・lock、comparator の比較、observer の pulse、wire propagation、lamp state をまとめて扱い、world/state/change list を返す。ネットワーク評価だけが必要な場合は次の純粋関数を使う。
-
-```typescript
-const collectRedstoneLayout: (
-  world: BlockWorld,
-  state: RedstoneState,
-) => RedstoneLayout;
-const sourcePowerAt: (
-  world: BlockWorld,
-  state: RedstoneState,
-  position: BlockPosition,
-) => RedstonePower;
-const deviceOutputFace: (device: RedstoneDevice) => BlockFace;
-const deviceOutputAtTarget: (
-  context: Pick<DevicePowerContext, "deviceOutputs" | "devices">,
-  target: BlockPosition,
-) => RedstonePower;
-const poweredWiresFrom: (
-  context: Omit<WirePropagation, "queue">,
-) => Map<BlockPositionKey, RedstonePower>;
-const signalPowerAt: (
-  context: DevicePowerContext,
-  position: BlockPosition,
-) => RedstonePower;
-const wirePowerChanges: (
-  state: RedstoneState,
-  wires: ReadonlyArray<BlockPosition>,
-  powers: ReadonlyMap<BlockPositionKey, RedstonePower>,
-) => Array<RedstoneChange>;
-const blockIsWire: (world: BlockWorld, position: BlockPosition) => boolean;
-const updateRedstone: (
-  world: BlockWorld,
-  state?: RedstoneState,
-) => RedstoneUpdate;
-```
-
-これらは world interface、tick queue、イベント bus、永続化形式を所有しない。下流は更新結果を自分の chunk・entity・network 境界へ適用する。
+Fluid data は root と `domain/fluid`、redstone data は root から利用できる。BlockWorld と fluid/redstone の実行時更新 API は kernel の公開 API ではない。
 
 ### 5-sexies-bis. ネザーポータルの枠（portal）
 
-枠の検出と生成を、ブロックを読む 1 本の関数だけを受け取る純粋計算として扱う。
-`detectNetherPortal` は着火位置から枠を探して軸・内部セル・寸法を返し、`generatePortalLayout` は
-指定した寸法の黒曜石と内部セルの配置を返す。
+Portal の寸法定数、軸、枠と layout の型は kernel に残る。検出と layout 生成は `mc-worldgen` が所有する（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
 type BlockAt = (x: number, y: number, z: number) => number; // unbranded numeric block ID
@@ -2003,29 +1488,12 @@ const MAX_PORTAL_WIDTH: number; // 21
 const MIN_PORTAL_HEIGHT: number; // 3
 const MAX_PORTAL_HEIGHT: number; // 21
 
-const detectNetherPortal: (
-  blockAt: BlockAt,
-  ignition: BlockPosition,
-) => PortalFrame | undefined;
-const generatePortalLayout: (
-  origin: BlockPosition,
-  axis: PortalAxis,
-  width: number,
-  height: number,
-) => PortalLayout;
 ```
-
-`BlockAt` は `BlockType` や branded `BlockId` ではなく、registry と同じ数値 ID を返す。
-この callback を使うと、呼び出し側はチャンクバッファから直接値を読み出せる。
-
-vanilla の寸法上限の外、黒曜石の欠落、内部が塞がっている枠、既に埋まっている着火位置は
-いずれも枠として成立しない。ワールドへの書き込み、ポータル間の紐付け、移動、
-チャンク読み込みは上位層の責務である。
 
 ### 5-sexies-ter. data pack layer の共通機構（data-pack-registry）
 
 recipe registry と Sulfur Cube archetype registry が同じ形の「複数 pack を format と priority で
-重ねて 1 つの registry に解決する」機構を必要とするため、その土台をここに置く。
+重ねて 1 つの registry に解決する」機構を必要とするため、その共通機構をここで提供する。
 どちらか一方の registry に置くと他方がそれに依存することになり、依存の向きが壊れる。
 
 ```typescript
@@ -2096,13 +1564,13 @@ const propertiesOfBiomeType: (biome: BiomeType) => BiomeProperties;
 const propertiesOfBiome: (biome: unknown) => BiomeProperties;
 ```
 
-各行は `BIOME_PROPERTY_DEFAULTS`（温帯の平地気候）からの差分だけを書く——`BLOCK_REGISTRY` と同じ「差分のみ記述」の規約である。`precipitation` は `'none'` にしか override できない型になっており、雨と雪の切り替えは常に `temperature` から `derivePrecipitationKind` で導出するため、矛盾する override はコンパイルできない。
+各行は `BIOME_PROPERTY_DEFAULTS`（温帯の平地気候）からの差分だけを書く。これは `BLOCK_REGISTRY` と同じ「差分のみ記述」の規約である。`precipitation` は `'none'` にしか override できない型になっており、雨と雪の切り替えは常に `temperature` から `derivePrecipitationKind` で導出するため、矛盾する override はコンパイルできない。
 
 **なぜ kernel か**: biome の気候値と tint は `mc-worldgen`（地形生成）と `mc-render`（tint 描画）の両方が同じ値を必要とし、どちらか一方に置くと依存の向きが壊れる。生成アルゴリズムそのもの、noise パラメータ、biome の空間分布は含まない。
 
-## 5-octies. 光量（light）
+## 5-octies. 光量データ（light）
 
-light は block light と sky light の 2 チャンネルからなる 1 チャンク分の light volume と、専用の versioned codec、`lightEmission` / `opacity` からの純粋な 1 チャンク分の伝播を公開する。チャンク跨ぎの伝播キュー、再計算スケジューリング、時刻による sky light 減衰の適用は上位層の責務である。
+kernel は block light と sky light の2チャンネルからなる1チャンク分の light volume と、その versioned codec を公開する。light propagation と更新は `mc-worldgen` が所有する（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
 const LIGHT_VOLUME_CODEC_VERSION = 1;
@@ -2132,25 +1600,13 @@ const skyLightAt: (volume: LightVolume, local: LocalBlockCoord) => LightLevel;
 const encodeLightVolume: (volume: LightVolume) => Uint8Array;
 const decodeLightVolume: (encoded: Uint8Array) => LightVolume;
 
-type LightCellInput = Readonly<{ lightEmission: LightLevel; opacity: BlockOpacity }>;
-type LightVolumeSource = (local: LocalBlockCoord) => LightCellInput;
-type LightSeed = Readonly<{ local: LocalBlockCoord; level: LightLevel }>;
-type LightBoundarySeeds = Readonly<{
-  blockLight?: ReadonlyArray<LightSeed>;
-  skyLight?: ReadonlyArray<LightSeed>;
-}>;
-const updateLight: (
-  height: number,
-  source: LightVolumeSource,
-  boundarySeeds?: LightBoundarySeeds,
-) => LightVolume;
 ```
 
-**light volume は `Chunk` バイナリ形式（本ドキュメント「Chunk バイナリ形式」節）のコーデックとは別の codec・別の magic (`MCLT`) を持ち、`chunk.ts` の codec には意図的に含めない。** これは `fluid-state.ts` と `redstone-state.ts` が導出済みの per-cell 状態を `Chunk` の codec の外に置いている前例と同じ判断である。`LightChannel.at(index)` は範囲外の read index に `RangeError` を投げる。構築時の `lightChannel(bytes)` は各 light level を検証し、`copyTo(target, offset)` は出力範囲が target に収まらない場合に `RangeError` を投げる。`updateLight` は純粋で、チャンク境界の外から来る光量は `LightBoundarySeeds` として明示的に受け取る——境界の向こうのセルがどれだけ明るいかを自分では取得しない。
+**light volume は `Chunk` バイナリ形式（本ドキュメント「Chunk バイナリ形式」節）の codec とは別の codec・別の magic (`MCLT`) を持ち、`chunk.ts` の codec には含めない。** `LightChannel.at(index)` は範囲外の read index に `RangeError` を投げる。構築時の `lightChannel(bytes)` は各 light level を検証し、`copyTo(target, offset)` は出力範囲が target に収まらない場合に `RangeError` を投げる。
 
 ## 5-nonies. Heightmap（heightmap）
 
-heightmap は `Chunk` の block データから導出する、列ごとの不透明面（sky-light の遮蔽用）と移動阻害面（設置・spawn 判定用）の 2 種類の heightmap を公開する。キャッシュ・無効化・再計算スケジューリングは持たない——呼び出し側が Chunk のブロックが変わるたびに再計算する。
+heightmap は `Chunk` の block データから導出する、列ごとの不透明面（sky-light の遮蔽用）と移動阻害面（設置・spawn 判定用）の 2 種類を公開する。キャッシュ・無効化・再計算スケジューリングは持たない。呼び出し側が Chunk のブロックが変わるたびに再計算する。
 
 ```typescript
 type ColumnHeight = number | undefined;
@@ -2160,11 +1616,11 @@ const opaqueHeightmapOf: (chunk: Chunk) => Heightmap;
 const motionBlockingHeightmapOf: (chunk: Chunk) => Heightmap;
 ```
 
-移動阻害面は `passable` ではなく `collisionShape` を読む。感圧板のような「乗れるが通り抜けられる薄い箱」を `collisionShape` は表現できるが、boolean の `passable` だけではその区別ができない——設置・spawn 判定が必要とするのはまさにこの区別である。列の中に条件を満たすブロックが無ければ、その列の答えは `undefined` になる。
+移動阻害面は `passable` ではなく `collisionShape` を読む。感圧板のような「乗れるが通り抜けられる薄い箱」を `collisionShape` は表現できるが、boolean の `passable` だけでは区別できない。設置・spawn 判定にはこの区別が必要である。列の中に条件を満たすブロックが無ければ、その列の答えは `undefined` になる。
 
-## 5-decies. Block entity（block-entity）
+## 5-decies. Block entityの共有データと検証（block-entity）
 
-block entity は `BlockPosition` に紐づく付帯状態（格納コンテナ・かまど・醸造台・看板）を判別可能 union として公開し、コンテナ容量と位置引きの純粋な参照・更新を提供する。搬送、所有権、GUI、永続化媒体は上位層の責務である。
+block entityは位置に紐づく付帯データを判別可能unionとして表す。kernelは容量定数、データ型、外部値を検査するtype guardを公開する。位置key付きcollectionの生成・参照・更新は実行時処理の所有元に属する。
 
 ```typescript
 const CHEST_SLOT_COUNT = 27;
@@ -2182,23 +1638,18 @@ type StorageContainer = Readonly<{
   capacity: number;
   slots: ReadonlyArray<Slot>;
 }>;
-
 type BlockEntity =
-  | Readonly<{ _tag: 'StorageContainer'; position: BlockPosition; container: StorageContainer }>
-  | Readonly<{ _tag: 'Furnace'; position: BlockPosition; state: FurnaceState }>
-  | Readonly<{ _tag: 'BrewingStand'; position: BlockPosition; state: BrewingState }>
-  | Readonly<{ _tag: 'Sign'; position: BlockPosition; text: TextComponent }>;
-type BlockEntityTag = BlockEntity['_tag'];
+  | Readonly<{ _tag: "StorageContainer"; position: BlockPosition; container: StorageContainer }>
+  | Readonly<{ _tag: "Furnace"; position: BlockPosition; state: FurnaceState }>
+  | Readonly<{ _tag: "BrewingStand"; position: BlockPosition; state: BrewingState }>
+  | Readonly<{ _tag: "Sign"; position: BlockPosition; text: TextComponent }>;
+type BlockEntityTag = BlockEntity["_tag"];
 
 const isBlockEntityPosition: (value: unknown) => value is BlockPosition;
 const isStorageContainer: (value: unknown) => value is StorageContainer;
+const isFurnaceState: (value: unknown) => value is FurnaceState;
+const isBrewingState: (value: unknown) => value is BrewingState;
 const isBlockEntity: (value: unknown) => value is BlockEntity;
-
-type BlockEntities = Readonly<{ entities: ReadonlyMap<BlockPositionKey, BlockEntity> }>;
-const emptyBlockEntities: () => BlockEntities;
-const blockEntityAt: (state: BlockEntities, position: BlockPosition) => BlockEntity | undefined;
-const setBlockEntity: (state: BlockEntities, entity: BlockEntity) => BlockEntities;
-const clearBlockEntity: (state: BlockEntities, position: BlockPosition) => BlockEntities;
 ```
 
 ## 5-undecies. ゲームモードと難易度（game-mode）
@@ -2239,54 +1690,13 @@ const resolveDifficultyProperties: (value: unknown) => DifficultyProperties;
 
 **なぜ kernel か**: `mode` と `difficulty` はシミュレーション権威側（`mx-gameplay`）と表示側（`mx-ui`）の両方が同じ値表を同じメンバーシップで参照する必要があり、どちらか一方に置くと依存の向きが壊れる。root のほか `domain/game-mode` subpath から利用できる。
 
-## 5-duodecies. gamerule（game-rule）
+## 5-duodecies. GameRules の所有元
 
-`GameRules` は、シミュレーションの tick が実際に分岐で読む gamerule だけを対象にした既定値・境界・検証・正規化・純粋な更新を公開する。コマンドの構文解釈と永続化は上位層の責務である。
-
-```typescript
-const GAME_RULE_BOOLEAN_NAMES: ReadonlyArray<GameRuleBooleanName>;
-const GAME_RULE_INTEGER_NAMES: ReadonlyArray<GameRuleIntegerName>;
-type GameRules = Readonly<{
-  doDaylightCycle: boolean;
-  doWeatherCycle: boolean;
-  doMobSpawning: boolean;
-  mobGriefing: boolean;
-  keepInventory: boolean;
-  doFireTick: boolean;
-  doInsomnia: boolean;
-  naturalRegeneration: boolean;
-  doImmediateRespawn: boolean;
-  fallDamage: boolean;
-  fireDamage: boolean;
-  drowningDamage: boolean;
-  freezeDamage: boolean;
-  randomTickSpeed: number;
-  maxEntityCramming: number;
-  playersSleepingPercentage: number;
-  spawnRadius: number;
-}>;
-const DEFAULT_GAME_RULES: GameRules;
-const RANDOM_TICK_SPEED_MIN: number;
-const RANDOM_TICK_SPEED_MAX: number;
-const MAX_ENTITY_CRAMMING_MIN: number;
-const MAX_ENTITY_CRAMMING_MAX: number;
-const PLAYERS_SLEEPING_PERCENTAGE_MIN: number;
-const PLAYERS_SLEEPING_PERCENTAGE_MAX: number;
-const SPAWN_RADIUS_MIN: number;
-const SPAWN_RADIUS_MAX: number;
-
-const normaliseGameRules: (rules: unknown) => GameRules;
-const applyGameRules: (current: GameRules, patch: Partial<GameRules>) => GameRules;
-const isValidGameRules: (rules: unknown) => rules is GameRules;
-```
-
-対象は daylight/weather cycling、mob spawning と griefing、`keepInventory`、fire spread、`doInsomnia`（ファントムの出現可否）、natural regeneration、immediate respawn、4 種のダメージ源トグル、random tick speed、entity cramming、睡眠スキップ閾値、自然 mob spawn 半径である。`showDeathMessages` / `announceAdvancements` / `reducedDebugInfo` / `commandBlockOutput` など、chat・log の書式にしか効かない告知・ログ・コマンド系の rule は対象外とする——物理や entity の tick はどれも読まない。整数値の上下限（`*_MIN` / `*_MAX`）は vanilla が課す制限ではなく `settings-data.ts` の `MIN_RENDER_DISTANCE` 等と同じ、kernel が選んだ安全域である。
-
-**なぜ kernel か**: `settings` が**このクライアント**の描画・入力設定であるのに対し、`game-rule` は**シミュレーション全体**に効く権威的な状態であり、境界と正規化のロジックをワールドを持つ側（`mc-sim`）とルールを適用する側（`mx-gameplay`）の両方が同じ形で必要とする。root のほか `domain/game-rule` subpath から利用できる。
+GameRules の値・検証・更新 API は `mc-sim` が所有し、kernel では公開しない（[実行時処理の所有元](./responsibility.md)）。
 
 ## 5-terdecies. ダメージ種別（damage-type）
 
-`DamageType` は Minecraft Java Edition 26.3 golden に照合した、kernel が現在表現する閉じたダメージ種別語彙と、種別ごとの `armorReduces`（防具軽減の可否）・`bypassesInvulnerability`（無敵時間貫通の可否）・`kind`（fire/explosion/projectile/magic/fall/drowning/generic の分類）・`scalesWithDifficulty` を公開する。**生ダメージ・防具値・靭性・保護・耐性から最終ダメージを求める軽減計算はここに含めない。** その理由と再開条件は [responsibility.md](./responsibility.md) §3-7 にある——語彙は 2 つの独立した消費者を持つため kernel 適格だが、軽減計算の消費者は現時点で `mx-gameplay` 1 つしか確認できず、通常の依存エッジで kernel に届く。
+`DamageType` は Minecraft Java Edition 26.3 golden に照合した、kernel が現在表現する閉じたダメージ種別語彙と、種別ごとの `armorReduces`（防具軽減の可否）・`bypassesInvulnerability`（無敵時間貫通の可否）・`kind`（fire/explosion/projectile/magic/fall/drowning/generic の分類）・`scalesWithDifficulty` を公開する。**生ダメージ・防具値・靭性・保護・耐性から最終ダメージを求める軽減計算は公開しない。** この語彙と値は2つの独立した消費者が使うためkernelに残る。軽減計算の消費者は現時点で`mx-gameplay`だけであり、その処理はkernelのAPIに含まれない。
 
 ```typescript
 const DAMAGE_TYPE_NAMES: ReadonlyArray<DamageTypeName>;
@@ -2342,7 +1752,7 @@ Port を実装するプラットフォームアダプタだけが実クロック
 
 ## 6-bis. 乱数契約（random-source）
 
-random-source は `RandomSource` の契約、seed から決定的に導出する生成器、そしてテスト用の scripted 実装を公開する。乱数を実引数として受け取る消費側の純粋関数は kernel に置いてよいが、乱数の**源**（`Math.random` や platform CSPRNG への直接アクセス）は上位層が注入する——`ClockPort` と同型の境界である。
+random-source は `RandomSource` の契約、seed から決定的に導出する生成器、そしてテスト用の scripted 実装を公開する。乱数を実引数として受け取る消費側の純粋関数は kernel に置いてよいが、乱数の**源**（`Math.random` や platform CSPRNG への直接アクセス）は上位層が注入する。この境界は `ClockPort` と同じ形である。
 
 ```typescript
 type RandomSource = Readonly<{
@@ -2359,8 +1769,6 @@ const fixedRandomSource: (script: RandomSourceScript) => RandomSource;
 ```
 
 `seededRandomSource` は Park–Miller の「minimal standard」Lehmer 生成器（`state' = (state * 16807) mod (2^31 - 1)`）を実装する。modulus はメルセンヌ素数 `2^31 - 1`、乗数はそれを法とする原始根であり、この漸化式は `[1, modulus - 1]` の全値を巡ってから周期に入る。seed は safe integer に限り、modulus で剰余化した後、状態が 0 なら 1 に正規化するため、seed `0` と seed `2^31 - 1` は seed `1` と同じ列を返す。両者の積が `Number.MAX_SAFE_INTEGER` を超えないため、ビット演算や `BigInt` を使わない安全な整数演算だけで完結する。同じ seed と同じ呼び出し順は常に同じ値の列を返し、これがリプレイと早送りの前提になる。`fixedRandomSource` は `fixedClock` と対の scripted 実装で、指定した列を使い切ると黙って折り返したり既定値へフォールバックしたりせず例外を投げる。
-
-**`EnchantmentTableRandom`（§3-quinquies のエンチャントテーブル節）はこの `RandomSource` のエイリアスになった。** エンチャントテーブルの offer 生成は乱数を引数で受け取る既存の唯一の消費者であり、今後 loot table・延焼・mob spawn が同じ契約を必要としたときに `Math.random` の直接呼び出しへ逃げないための共有契約である（`docs/responsibility.md` §3-1）。
 
 ## 6-ter. 共通ドメイン語彙（shared-vocabulary）
 
@@ -2399,17 +1807,17 @@ interface GameModule<ROut, E, RIn, RRegister = never>
 
 各モジュールは共通の `GameModule` 契約を実装する。これを `mc-compose` に置くと、全モジュールが `mc-compose` に依存するため、依存グラフが反転する。
 
-`run` での失敗に対するフレーム単位の回復策はない。実行時に失敗しうる stage は、自分で処理するか defect にする。
+`run` での失敗に対するフレーム単位の回復策はない。実行時に失敗しうる stage は自分で処理するか defect にする。
 
 ### 未解決の `after` 依存
 
-`mc-compose` の `StageOrderPlan` は、存在しない stage への依存を `dangling` として返し、フレーム骨格に対応する phase がない stage を `unmatchedPhase` として返す。ホストは両方を表示する。存在しない入力 stage の後に実行する拡張 stage を宣言できるため、未解決の依存は拒否しない。
+`mc-compose` の `StageOrderPlan` は存在しない stage への依存を `dangling` として返し、フレーム骨格に対応する phase がない stage を `unmatchedPhase` として返す。ホストは両方を表示する。存在しない入力 stage の後に実行する拡張 stage を宣言できるため、未解決の依存は拒否しない。
 
 `frameStages` は Effect なので、stage 登録時に必要な service を取得できる。その環境 `RRegister` は Layer 構築時の `RIn` と stage 実行時の `FrameServices` とは異なる。
 
 ### `RRegister` と `RIn` は別の環境である
 
-登録時と Layer 構築時に必要な依存は異なる。例:
+登録時と Layer 構築時に必要な依存は異なる。例を挙げる。
 
 - `mc-render` は `render:input` を登録するために `InputService` を取得する。
   しかし `InputService` は mc-render が**提供する**側（`ROut`）であって、与えられる側ではない。
@@ -2430,7 +1838,7 @@ interface GameModule<ROut, E, RIn, RRegister = never>
 
 stage の実行環境は `ClockPort` だけを要求する。
 
-決め手は `mc-sim` の `PlayerServiceApi.cameraPose`（`mc-sim/application/player-service.ts:35`）である:
+判断の根拠となるのは `mc-sim` の `PlayerServiceApi.cameraPose`（`mc-sim/application/player-service.ts:35`）である。
 
 ```typescript
 readonly cameraPose: Effect.Effect<CameraPoseSnapshot, never, ClockPort>
@@ -2438,7 +1846,7 @@ readonly cameraPose: Effect.Effect<CameraPoseSnapshot, never, ClockPort>
 
 要求は**メソッド側**に付いていて、`PlayerService` の取得側には付いていない。
 登録時にサービスを掴んだ stage は、1 フレーム後にそのメソッドを呼ぶ時点で `ClockPort` を必要とし、
-そしてそれ以外は必要としない。上に挙げた他の候補はすべて逆の性質だった — 一度取得すれば残余要求は無い。
+そしてそれ以外は必要としない。上に挙げた他の候補はすべて逆の性質だった。一度取得すれば残余要求は無い。
 
 stage は時間を読まずに進めず、かつグローバルから読んではならないので、`never` も候補ではなかった。
 
@@ -2466,7 +1874,7 @@ ID/name schema は空でない文字列、`SaveVersionSchema` は正の整数、
 | `AchievementUnlocked` | `tick`, `player`, `achievement` | achievement ID は非空文字列 |
 
 `ExperienceLevelSchema` は event payload には含まれない、0 以上の safe integer の `ExperienceLevel` を検証する。`LevelUpLevelSchema` は `LevelUp.level` に使う 1 以上の safe integer を検証する。event bus と subscriber capacity は `mc-sim` 側である。
-event subpath の branded type `AchievementId` は、既存の text API が公開する `AchievementId` と別の型である。package root では event 側の型を `DomainEventAchievementId` として公開する。
+event subpath は branded type `AchievementId` を、package root は同じ型を `DomainEventAchievementId` として公開する。
 
 ## 7-ter. WorldWritePort（world-write-port）
 
@@ -2487,71 +1895,7 @@ class WorldWritePort extends Context.Service<WorldWritePort, {
 
 既存の `domain/world-read-write` subpath は `{ position, blockId }` の `BlockEdit` を公開する。root barrel はこの型を保ち、port subpath の `{ position, block }` 型を `WorldWriteBlockEdit` として公開する。port 固有の `BlockEdit` 型を使う場合は `domain/world-write-port` subpath から import する。adapter と mutation 実装はこの契約には含まれない。
 
-## Anvil 変換と snapshot codec
 
-Anvil API は `src/index.ts` のルート barrel と `@nerima-games/mc-kernel/domain/anvil` subpath から公開される。
-公開境界は `anvil.ts` に残し、計画、入力境界の primitive、正規化、versioned snapshot の codec は
-内部モジュールへ分離している。消費者は内部ファイルを直接 import しない。
-
-```typescript
-const ANVIL_TOO_EXPENSIVE_LEVEL = 40      // これ以上のコストは "Too Expensive" として拒否
-const ANVIL_REPAIR_BONUS_RATIO = 0.12     // 素材修理 1 個あたりの回復割合
-const ANVIL_SNAPSHOT_VERSION = 1 as const
-const ANVIL_MAX_CUSTOM_NAME_LENGTH = 50
-
-const isAnvilEnchantmentId(value: string): value is AnvilEnchantmentId
-const isAnvilCustomName(value: string): value is AnvilCustomName
-type AnvilMaterialCost = number & Brand.Brand<'AnvilMaterialCost'> // 0..99, not a StackCount
-const AnvilMaterialCost(value: number): AnvilMaterialCost
-const AnvilEnchantmentId(value: string): AnvilEnchantmentId
-const AnvilCustomName(value: string): AnvilCustomName
-const nextAnvilRepairCost(repairCost: number): number   // "prior work penalty": repairCost * 2 + 1
-
-type AnvilState = {
-  readonly left: AnvilItemPayload | null
-  readonly right: AnvilInputStack | null
-  readonly rename: AnvilCustomName | null
-  readonly experienceLevels: number
-}
-
-type AnvilPlan =
-  | {
-      readonly ok: true
-      readonly output: CanonicalAnvilItemPayload
-      readonly levelCost: number
-      readonly materialCost: AnvilMaterialCost
-    }
-  | {
-      readonly ok: false
-      readonly reason: Exclude<AnvilRejectionReason, 'insufficient-experience'>
-      readonly issues: ReadonlyArray<AnvilValidationIssue>
-    }
-
-planAnvil(state, rules): AnvilPlan
-applyAnvil(state, rules): AnvilApplyResult
-snapshotAnvilState(state): AnvilSnapshotResult
-decodeAnvilSnapshot(value): AnvilSnapshotResult
-decodeAnvilSnapshotString(encoded): AnvilSnapshotResult
-encodeAnvilSnapshot(state): AnvilSnapshotEncodingResult
-```
-
-`AnvilPlan.materialCost` は stack の数量ではなく、anvil 固有の `AnvilMaterialCost`（`0..99`）であり、`StackCount` とは代入互換ではない。
-
-`planAnvil` は入力とルールを検証したうえで、出力、経験値コスト、材料消費数を決定する。
-`applyAnvil` は計画を再利用し、経験値不足も含めた適用結果を返す。どちらも入力を変更せず、
-拒否時は `reason` と `issues` を返す。
-
-snapshot は version `1` の canonical state として encode / decode される。`decodeAnvilSnapshot` は
-外部値を `unknown` として受け取り、JSON の形、数値の安全性、item、enchantment、custom name、
-余分なフィールドを検証してから canonical state を返す。`decodeAnvilSnapshotString` は JSON 文字列の
-境界、`encodeAnvilSnapshot` は canonical snapshot の生成と JSON 化を担当する。
-`AnvilEnchantmentId`、`AnvilCustomName`、`AnvilSnapshotString` は境界で検証する branded constructor、
-`isAnvilSnapshotString` / `isAnvilEnchantmentId` / `isAnvilCustomName` はそれぞれの非 throw な型ガードである
-（不正な値を例外ではなく `false` で扱いたい呼び出し側向け）。
-
-`nextAnvilRepairCost` は素材修理・エンチャント本合成の双方で経験値レベルコストが加算されていく
-"prior work penalty" を進める関数（`cost * 2 + 1`、`Number.MAX_SAFE_INTEGER` で飽和）。
-結合先が `ANVIL_TOO_EXPENSIVE_LEVEL` を超えると `planAnvil` が `'too-expensive'` として拒否する。
 
 ## Chunk バイナリ形式
 
@@ -2589,7 +1933,7 @@ const blockState(bytes: Uint8Array): BlockState   // BlockState.fromBytes のラ
 ```
 
 `chunk()` / `decodeChunk()` は入力バイト列を構築時に一度だけ検証し、以後は `ChunkBlocks` 経由でのみ
-読み書きさせる。**添字演算子（`blocks[i]`）は意図的に公開していない** —— 範囲外の読み出しも未登録
+読み書きさせる。**添字演算子（`blocks[i]`）は意図的に公開していない。** 範囲外の読み出しも未登録
 `BlockId` の書き込みもコンパイルは通ってしまうため、`get` / `set` がその場で `RangeError` を投げることで
 バッファの不変条件（長さの範囲内であること・登録済み ID のみが書けること）を境界で強制する。生バイト列が
 必要な消費者（ワイヤ送信、コピー）は `toBytes()`（新規コピーを返す）または `copyTo(target, offset?)`
@@ -2597,7 +1941,7 @@ const blockState(bytes: Uint8Array): BlockState   // BlockState.fromBytes のラ
 
 **ワイヤは v1 と v2 に分かれ、v1 は decode 専用である。** `CHUNK_CODEC_VERSION`（現在 `2`）はブロック
 要素を 16-bit little-endian で書く現行フォーマットを指す。8-bit 1 要素だった v1 のバイト列は互換パスで
-引き続き decode できるが、`encodeChunk` は常に v2 を書き出す —— v1 として再 encode されることはない。
+引き続き decode できるが、`encodeChunk` は常に v2 を書き出す。v1 として再 encode されることはない。
 `BlockId` の数値自体は変えていない（`BLOCK.SAND === 5` は 5 のまま）ので、v1 が保存していた id と v2 が
 書く id は同じ意味を持つ。両フォーマットの切り替えはヘッダーの `CHUNK_CODEC_VERSION` フィールドで判定する。
 

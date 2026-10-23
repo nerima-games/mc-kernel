@@ -1,169 +1,84 @@
-# 下流利用・移行契約
+# mc-kernel 0.8から0.9への移行
 
-この文書は、下流リポジトリが `mc-kernel` の公開 API を利用するときの移行先と責務の境界を定める。目的は同じ Minecraft の語彙・判定・純粋計算を複数のリポジトリで再定義しないことである。
+このガイドは0.9の公開面とEffect 4への移行を説明する。表のソースパスは実装の所有元を示し、packageのimport pathではない。公開import例は、export mapとbarrelの両方で確認できたものだけを示す。このガイドは下流リポジトリの移行完了を示すものではない。
 
-## kernel の API に移行するもの
+## 実行時処理の所有元を確認する
 
-### Dimension
+| 移動する実行時処理 | 実装の所有元（ソースパス） |
+| --- | --- |
+| クラフト、調理、醸造、製錬、鍛造、石切り、インベントリ、ホットバー | `mc-sim:src/domain/` |
+| 装備、金床、エンチャント、砥石 | `mc-sim:src/domain/` |
+| エンティティ操作、vitals、wither、爆発、TNT、BlockWorld、作物、ゲームルール、統計、時刻、天候状態、乗り物状態 | `mc-sim:src/domain/` |
+| Java・Bedrockの採掘時間とブロック破壊速度 | `mx-gameplay:src/domain/interactions/` |
+| 食料の摂取処理、流体状態の更新 | `mx-gameplay:src/domain/` |
+| ポータルの検出・layout生成、光の更新 | `mc-worldgen:src/domain/` |
+| レッドストーンの実行時処理 | `mx-redstone:src/domain/` |
+| 飛翔体の実行時処理 | `mc-physics:src/domain/projectile.ts` |
 
-`Dimension` は `@nerima-games/mc-kernel` から import する。下流で定義した union、ディメンション配列、文字列の三択ガードは削除し、次の API を使う。
+この表は処理の実装所有元を示すだけで、同じパスをpackage importとして使えることを示さない。確認できた公開importは `@nerima-games/mc-physics` のrootである。たとえば `launchProjectile` はこのroot exportから利用できる。
 
-```ts
+`mc-sim`、`mx-gameplay`、`mc-worldgen`、`mx-redstone`では、移動対象の各シンボルを利用する公開APIを確認できていない。これらの処理に依存するconsumerは、kernel 0.8のpinを保ち、owner packageが該当APIを公開してから切り替える。ソースディレクトリから直接importしたり、未確認の関数名を移行先として仮定したりしない。
+
+## kernelに残る型・静的データを使う
+
+| kernelに残るもの | 公開importと境界 |
+| --- | --- |
+| 醸造・製錬のレシピ、燃料データ、定数と共有state/data型 | `@nerima-games/mc-kernel`のroot、または実在する`@nerima-games/mc-kernel/domain/recipe`から読み込む。`BrewingState`、`BrewingBottles`、`FurnaceState`、`CookingStation`などは共有する値の形であり、stateの生成・更新や処理結果ではない。 |
+| `itemDurabilityDefinitionFor` | `@nerima-games/mc-kernel`のrootから読み込む。定義元の`src/domain/item/equipment-data.ts`はソースパスであり、import pathではない。 |
+| エンチャントID、コスト表、ルール配列、3種の `SUPPORTED_VANILLA_*_ANVIL_RULE_SET` 定数 | `@nerima-games/mc-kernel`のrootまたは実在する`@nerima-games/mc-kernel/domain/enchantment`から静的データとして読み込む。金床state・計画・適用APIとは別の契約である。 |
+| `BlockAt`、`PortalAxis`、`PortalFrame`、`PortalLayout`、ポータル寸法定数 | 共有型・寸法データとしてkernelに残る。生成・検出の実行時処理は上表のowner packageの公開APIが確認できてから移す。 |
+| entity/vehicleの共有型、爆発データ、block entityのデータと検証、fluid/light/redstoneの静的データ、weather/settingsの共有語彙 | kernelのroot、またはexport mapにあるsubpathから読み込む。state更新やcollection操作はruntime ownerが提供する。 |
+
+### Effect 4のResultへ移行する
+
+`addTick`、`secondsForTicks`、`itemComponentPatchFromUnknownEither`、`mergeItemComponentPatchesEither`はEffect 4の`Result.Result`を返す。関数名に`Either`が残る2つのitem component APIも、戻り値は`Either`ではなく`Result`である。
+
+```typescript
+import { Result } from "effect";
 import {
-  DIMENSIONS,
-  isDimension,
-  type Dimension,
-} from '@nerima-games/mc-kernel'
+  itemComponentPatchFromUnknownEither,
+  mergeItemComponentPatchesEither,
+} from "@nerima-games/mc-kernel";
+
+const decoded = itemComponentPatchFromUnknownEither(input);
+if (Result.isFailure(decoded)) {
+  const error = decoded.failure;
+} else {
+  const patch = decoded.success;
+}
+
+const merged = mergeItemComponentPatchesEither(left, right);
+if (Result.isFailure(merged)) {
+  const error = merged.failure;
+} else {
+  const patch = merged.success;
+}
 ```
 
-`DIMENSIONS` は列挙値、`isDimension` は外部入力の検証、`Dimension` は検証済み値の型として使う。保存データやネットワーク入力では、文字列を型 assertion で通さず `isDimension` を通す。
+`itemComponentPatchFromUnknownEither`の戻り値は`Result.Result<ItemComponentPatch, ItemComponentPatchDecodeError>`、`mergeItemComponentPatchesEither`の戻り値は`Result.Result<ItemComponentPatch | undefined, ItemComponentPatchDecodeError>`である。`Result.isFailure`で失敗を絞り込むと`.failure`を、成功側では`.success`を参照できる。`addTick`と`secondsForTicks`も同じResult分岐を使い、それぞれ成功値として`SimulationTick`と`FixedDurationSecs`を返す。
 
-下流 repository の一部には `mc-worldgen` の型と重複したガードが残っている。kernel が公開する `Dimension` を利用するための import 差し替えは、各下流 repository の作業として残す。移行が完了するまで、互換目的で二つの `Dimension` を新たに増やしてはならない。
+公開名を接尾辞だけから改名・型変更しないでください。戻り値と型は0.9の型宣言で確認してください。
 
-### ブロック状態と能力
+## BrandのコンストラクタAPIを変更する
 
-ブロック ID、レジストリ照会、コピー境界を含む値オブジェクトは kernel の公開 API を使う。
+`Brand.Brand.Constructor<T>`の型注釈を`Brand.Constructor<T>`に置き換えてください。`Brand.refined<T>`の呼び出しを`Brand.make<T>`に置き換えてください。引数の形はEffect 4の型宣言で確認してください。
 
-```ts
-import {
-  BLOCK_REGISTRY,
-  BlockState,
-  blockCapabilitiesOf,
-} from '@nerima-games/mc-kernel'
-```
+## 時間と座標のbrand型に移行する
 
-ブロックの opacity、collision、fluid kind、hardness、support rule、採掘道具、ドロップなど、単一ブロックから決まる能力は kernel の定義表と照会関数を使う。テクスチャのタイル番号、描画 atlas、ワールドへの配置・破壊順序は下流の責務である。
+0.9では時間と座標の値を用途ごとのbrand型で区別します。実行時表現は`number`ですが、生の`number`を`SimulationTick`や`BlockAxis`などのbrand型として直接使うことはできません。時間型と構築子は`@nerima-games/mc-kernel/domain/quantities`、時間計算は`@nerima-games/mc-kernel/domain/frame-timing`、座標APIは`@nerima-games/mc-kernel/domain/coordinates`から読み込んでください。
 
-### 設定値と統計
+時間の主な構築子は`DeltaTimeSecs`、`FixedDurationSecs`、`SimulationTick`、`NonNegativeTickCount`、`MonotonicTimeSecs`、`EpochMillis`、`InterpolationFraction`です。`frameDeltaBetween`は`MonotonicTimeSecs | undefined`と`MonotonicTimeSecs`を受け取り、`DeltaTimeSecs`を返します。`addTick`は`SimulationTick`と`NonNegativeTickCount`を受け取り、成功値は`SimulationTick`です。`secondsForTicks`は`NonNegativeTickCount`を受け取り、成功値は`FixedDurationSecs`です。`interpolationFraction`は`FixedDurationSecs`を受け取り、`InterpolationFraction`を返します。`addTick`と`secondsForTicks`の`Result`の扱いは前節のとおりです。`ClockPort`の`monotonicSecs`の値は`MonotonicTimeSecs`、`wallClockEpochMillis`の値は`EpochMillis`です。
 
-設定と統計のうち、共有できる値モデル・既定値・外部入力の正規化・純粋な更新は kernel の公開 API を使う。
+座標では`BlockAxis`、`ChunkAxis`、`LocalAxis`、`PositionAxis`を使います。`blockPosition`には3つの`BlockAxis`、`chunkCoord`には2つの`ChunkAxis`、`position`には3つの`PositionAxis`を渡してください。`BlockAxis`と`ChunkAxis`は安全な整数、`LocalAxis`は0〜15の整数、`PositionAxis`は有限値です。
 
-```ts
-import {
-  DEFAULT_SETTINGS,
-  EMPTY_STATISTICS,
-  applySettings,
-  normaliseSettings,
-  normaliseStatistics,
-  record,
-  unlock,
-} from '@nerima-games/mc-kernel'
-```
+各brand構築子は値域を検証します。無効な値で構築子を直接呼び出すと例外が投げられます。外部値の検証では、例外を投げない`SimulationTick.result(value)`または`BlockAxis.option(value)`を使ってください。
 
-`Settings` は描画距離、視野角、品質、音量、感度、キー割り当ての値境界を持ち、`Statistics` は counter と achievement の解放集合を持つ。UI、renderer の preset 適用、入力デバイスへの接続、ゲームイベントの意味付け、player state の所有、保存・読み込みは下流の責務である。
+## ClockPortのサービス宣言を変更する
 
-生の設定・統計データは `normaliseSettings` / `normaliseStatistics` へ渡し、型 assertion で検証済みと偽装しない。root export に加えて `domain/settings` と `domain/statistics` の公開 subpath を利用できる。
+`ClockPort`を宣言するコードでは、`Context.TagClass`を`Context.ServiceClass`に、`Context.Tag`を`Context.Service`に置き換えてください。クラスとサービスの型は、0.9の型宣言で確認してください。
 
-### 純粋な共有計算
+## 下流リポジトリごとに移行を検証する
 
-下記の領域で、下流に同じ入力から同じ結果を返す判定やデータ表がある場合は、対応する kernel API へ移行する。
+移行先の公開APIを確認してから読み込みを切り替えてください。重複する実行時処理やfacadeを削除し、各下流リポジトリで型検査、lint、テストを実行してください。
 
-- recipe、crafting、smelting、smithing、stonecutting
-- brewing、enchantment、grindstone
-- item stack、inventory value、equipment、hotbar、汎用 item component
-- crop、vitals、weather、time of day
-- projectile collision、explosion、primed TNT、bedrock mining
-- frame timing、camera pose、block interaction、block break speed
-- `BlockWorld` の読み取り・不変更新、fluid state の再構築、決定論的な水・溶岩の流動と混合
-- redstone の layout、source/device/wire の評価、repeater・comparator・observer の状態遷移
-
-### Chunk read/edit vocabulary
-
-チャンクの live state、load/unload、epoch/revision の更新、COW、STM、dirty event は `mc-worldgen` が所有する。kernel は値と純粋な境界だけを公開する。
-
-```ts
-import {
-  BlockEdit,
-  BlockRead,
-  BlockWriteBatch,
-  ReadView,
-  WorldEpoch,
-  ChunkRevision,
-  LightRevision,
-} from '@nerima-games/mc-kernel'
-```
-
-`BlockRead` の `Loaded` は air も含む loaded result であり、`Unloaded` や `OutOfWorld` と空気 fallback を混同してはならない。`ReadView.blocks` / `ReadView.light` は read-only section view で、worker へ所有権を渡す場合だけ `snapshot()` を使う。`fluid-update.ts`、`redstone-update.ts`、`redstone-network.ts`、`redstone-device-update.ts` は現在も純粋な互換 `BlockWorld` を利用しているため、worldgen の live service 移行時に新語彙へ接続する。meshing は view の accessor を読むが、kernel に live chunk mutation を追加しない。
-
-移行後の import は公開 barrel または `package.json` に列挙された公開 subpath に限定し、`src/domain/*-data` の内部実装へ直接依存しない。wire ID、既存保存形式、乱数の責務を持つ呼び出し側の契約は変更しない。
-
-### Item component の既定値
-
-item component の item-aware な既定値は `itemComponents`（`tool` は `ITEM_TOOL_COMPONENTS` / `itemToolComponentOf` を、`weapon` は `weaponComponent` / `isWeaponComponent` を含む）、stack limit は `itemComponentStackLimitOf`、値の runtime guard は `isItemComponents`、`isUseCooldownComponent`、`isWeaponComponent` を使う。`ItemComponents.useCooldown` / `ItemComponents.weapon` は公式 component の解決済み値であり、`ItemStack` / inventory の値として下流へ渡す。`ItemStack` の stack ごとの override、保存形式、実際の item 使用イベントは下流が所有し、kernel の既定値解決と重複する registry・数値 guard を残さない。
-
-### canonical ItemStack への具体的な移行
-
-下流の stack payload は `item` / `count` / `components` の3フィールドだけに揃える。`count: 0` の番兵は `undefined` の `ItemSlot` へ変換し、component patch は受信・recipe・wire の境界で `applyItemComponentPatch` に通して解決済み `components` だけを保存・搬送する。patch の sidecar や `item` と別に持つ metadata registry は作らない。
-
-この移行は破壊的変更を含む。`AnvilPlan.materialCost` は `StackCount` ではなく `AnvilMaterialCost`（anvil の材料コスト）になり、`BlockProperties.drops` は `BlockDropRule | undefined` になった。drop rule を作る場合の `count` は `1..99` に限定し、何も落とさないブロックは `count: 0` ではなく `drops: undefined` を使う。下流の型 fixture、保存・wire decoder、drop projection はこの境界を個別に検証する。
-
-| 下流 | 旧 payload / sidecar | 移行内容 |
-| --- | --- | --- |
-| `mc-sim` | inventory/state の `{ item, count }` と `count: 0` の空スロット、stack metadata の sidecar | `ItemSlot` (`undefined` または canonical `ItemStack`) に変換し、inventory の slot、stack move、snapshot、`splitItemStack` / `mergeItemStacks` の結果をそのまま使う。空スロットを `{ item, count: 0 }` に戻さない。 |
-| `mx-gameplay` | recipe/anvil の旧 `{ id, count }` result payload、components を別に保持する recipe/anvil sidecar | result を `item` / `count` / 解決済み `components` に正規化し、recipe/anvil の入力・出力と移送量に `TransferQuantity` を使う。patch は recipe/anvil の境界で解決し、gameplay state に未解決 patch を残さない。 |
-| `mx-multiplayer` | wire の旧 `{ id, count }` stack payload、components/metadata の sidecar、null slot | decode 時に canonical `ItemStack` / `ItemSlot` へ検証し、encode 時は `item` / `count` / `components` の payload のみを送る。`null` と `count: 0` の slot は `undefined` として扱い、送信前に再び sentinel 化しない。 |
-
-この表は下流の移行先を示す契約であり、移行完了の報告ではない。各 repository の型検査・lint・test は、その repository の移行作業で実行する。
-
-## 下流に残すもの
-
-次の実装は共有語彙と純粋な更新結果を kernel から import しつつ、状態所有者である下流に置く。
-
-- chunk/world から `BlockWorld` を構成する処理、fluid/redstone の tick scheduling、更新結果のワールドへの書き戻し
-- fluid/redstone state の保存、イベント発火、ネットワーク同期、描画への接続
-- inventory service、プレイヤー状態、ステージ順序、ワールド mutation
-- texture atlas、portal frame geometry、door state transition
-- UI 入力、エンティティ固有の効果、ゲーム固有のランダムドロップ
-
-kernel が公開する `BlockWorld`、`updateFluids`、`updateRedstone` は、同じ入力から同じ更新結果を返す純粋な計算である。下流は chunk/world の入力、tick queue、状態保存、mutation とイベントの所有権を保持し、結果を自分の実行環境へ接続する。状態と mutation の所有権を kernel に移すためだけに、下流固有の world interface を kernel へ持ち込まない。
-
-## `unknown` と型 assertion
-
-外部データを受け取る decoder・validator の入口では `unknown` を使い、検証後に型付き core API へ渡す。これは不正な保存データやパケットを受け入れないための境界である。型を偽装する unsafe cast、`as const` 以外の型アサーション、non-null assertion、型検査の抑制ディレクティブは source と test で禁止している。
-
-型 assertion で重複定義を隠すのではなく、次の順序で移行する。
-
-1. 公開 API から型と guard を import する。
-2. 生の入力は decoder・validator で検証する。
-3. 検証済みの値だけを純粋な計算へ渡す。
-4. 下流固有の状態を更新する。
-
-## 残り候補の移植監査
-
-`mc-sim/src/domain` と kernel の domain basename 比較で残る候補は次の扱いとする。
-
-純粋な空腹計算は `src/domain/entity/vitals-hunger.ts` にあり、`src/domain/entity/vitals.ts` から公開する。
-
-| 候補 | 判定 | 根拠 |
-| --- | --- | --- |
-| `wither.ts` | kernel へ移植 | summon pattern、spawn charge、3D tracking/regen、armour/damage rule、skull descriptor、death/drop descriptor は副作用のない公式ルールであり、kernel の projectile/explosion/entity responsibility と整合する |
-| `container-storage.ts` / `player-storage.ts` | 下流 | stateful storage と player gameplay state、および循環するローカル依存を持つ。責務文書の service・player state・persistence 上位境界に属する |
-| `statistics.ts` | kernel の値モデルへ移行 | counter、unlock、正規化は kernel。state ledger の所有、イベントの意味付け、achievement registry、画面・保存への接続は下流 |
-| `settings.ts` | kernel の値モデルへ移行 | 値境界、既定値、正規化、key binding 操作は kernel。UI、renderer preset、入力適用、保存への接続は下流 |
-| `save-data.ts` | 下流 | 複数リポジトリをまたぐ persistence boundary である |
-| `block-targeting.ts` | 下流 | `mc-physics` の raycast と camera/effect の application boundary に依存する |
-| `recipe-core.ts` | 移植しない | kernel の recipe/crafting が後継の正本であり、後方互換用の重複 API は追加しない |
-
-## 下流移行の完了条件
-
-下流リポジトリごとに、次を満たした時点で移行済みとする。
-
-- 重複した shared union、定数配列、文字列 guard が削除されている。
-- import が kernel の root export または公開 subpath だけを参照している。
-- kernel の registry ID と保存・通信 wire value が変わっていない。
-- 下流の型検査、lint、テスト、coverage が実行されている。
-- fluid や world mutation など、下流に残す責務を kernel に逆流させていない。
-
-この文書は公開 API と責務を示すもので、下流の変更を完了したという報告ではない。`mc-kernel` 側の API・型安全検査・package export は整備済みだが、下流の重複 import 差し替えは未完了として扱う。
-
-## 時間契約の下流移行
-
-kernel が公開する `FixedDurationSecs`、`SimulationTick`、`InterpolationFraction`、`SessionEpoch`、
-`tickDuration`、`physicsSubstepDuration`、`addTick`、`secondsForTicks`、`interpolationFraction` を
-次の箇所へ置換する。
-
-- `@nerima-games/mc-physics`: `src/domain/delta-time.ts` のローカル時間定数・型をkernelへ寄せ、`fluid.ts`、`glide.ts`、`integrate.ts`、`movement.ts`、`resolve-axis.ts`、`resolve.ts` の物理計算引数は `DeltaTimeSecs` を利用する。固定 tick/substep の値とそのスケジュールは `FixedDurationSecs` と `physicsSubstepDuration` を使い、物理関数へ渡す境界でだけ `DeltaTimeSecs(physicsSubstepDuration)` と明示的に変換する。`FixedDurationSecs` を `DeltaTimeSecs` として assertion や直接引数渡ししてはならない。例えば `const substepDelta: DeltaTimeSecs = DeltaTimeSecs(physicsSubstepDuration)` と書ける形にし、`FixedDurationSecs` は固定時間の所有、`DeltaTimeSecs` は1回の可変/物理計算へ渡す経過時間の責務として分離する。
-- `@nerima-games/mc-sim`: `src/application/game-loop.ts` の `FrameHandler` / `GameLoopApi.submitFrame` と `src/domain/frame-timing.ts` の互換forwarderを、kernelの可変フレームAPIと `SimulationTick`/`tickDuration`へ移行する。`tickDuration` は `FixedDurationSecs` のまま accumulator の whole-tick 判定に使い、各 tick の物理呼び出しへ渡す値は `DeltaTimeSecs(tickDuration)` として変換する。accumulator、catch-up、pause/overload、loop状態はsimに残す。
-- `@nerima-games/mc-render`: `src/domain/camera-mirror.ts` と `src/stages/registration.ts` の `MonotonicTimeSecs`利用はkernelの型を継続し、表示補間を追加する箇所では `InterpolationFraction` を使う。
-
-下流側の置換は各 repository の作業として残る。各置換後に対象 package の typecheck、lint、test、coverage を実行する。
+このガイドで公開APIを確認できていない`mc-sim`、`mx-gameplay`、`mc-worldgen`、`mx-redstone`への該当移行は、owner packageの公開APIが利用でき、下流のimportがそのAPIでコンパイルできるまで未完了として扱ってください。このガイドは下流リポジトリの移行完了を報告するものではありません。
