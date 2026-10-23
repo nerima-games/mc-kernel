@@ -18,9 +18,11 @@ export type BlockId = number & Brand.Brand<'BlockId'>
 export const BLOCK_ID_MAX = 0xffff
 const BLOCK_ID_MIN = 0
 
-export const BlockId: Brand.Brand.Constructor<BlockId> = Brand.refined<BlockId>(
-  (value) => Number.isInteger(value) && value >= BLOCK_ID_MIN && value <= BLOCK_ID_MAX,
-  (value) => Brand.error(`BlockId must be an integer in [0, ${BLOCK_ID_MAX}], received ${value}`),
+export const BlockId: Brand.Constructor<BlockId> = Brand.make<BlockId>(
+  (value) =>
+    Number.isInteger(value) && value >= BLOCK_ID_MIN && value <= BLOCK_ID_MAX
+      ? true
+      : `BlockId must be an integer in [0, ${BLOCK_ID_MAX}], received ${value}`,
 )
 
 const blockId = BlockId

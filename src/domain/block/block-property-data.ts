@@ -53,12 +53,11 @@ export type LightLevel = number & Brand.Brand<'LightLevel'>
 export const isLightLevel = (value: number): value is LightLevel =>
   Number.isInteger(value) && value >= LIGHT_LEVEL_MIN && value <= LIGHT_LEVEL_MAX
 
-export const LightLevel: Brand.Brand.Constructor<LightLevel> = Brand.refined<LightLevel>(
-  isLightLevel,
+export const LightLevel: Brand.Constructor<LightLevel> = Brand.make<LightLevel>(
   (value) =>
-    Brand.error(
-      `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${value}`,
-    ),
+    isLightLevel(value)
+      ? true
+      : `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${value}`,
 )
 
 /** Clamp into the four-bit light range. */

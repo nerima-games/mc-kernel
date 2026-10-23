@@ -9,13 +9,11 @@ import {
 
 export type FluidLevel = number & Brand.Brand<'FluidLevel'>
 
-export const fluidLevel: Brand.Brand.Constructor<FluidLevel> = Brand.refined<FluidLevel>(
-  (value): value is FluidLevel =>
-    Number.isInteger(value) && value >= FLUID_LEVEL_MIN && value <= FLUID_LEVEL_MAX,
+export const fluidLevel: Brand.Constructor<FluidLevel> = Brand.make<FluidLevel>(
   (value) =>
-    Brand.error(
-      `Expected a fluid level from ${FLUID_LEVEL_MIN} to ${FLUID_LEVEL_MAX}, received ${value}`,
-    ),
+    Number.isInteger(value) && value >= FLUID_LEVEL_MIN && value <= FLUID_LEVEL_MAX
+      ? true
+      : `Expected a fluid level from ${FLUID_LEVEL_MIN} to ${FLUID_LEVEL_MAX}, received ${value}`,
 )
 
 export type FluidCell = Readonly<{

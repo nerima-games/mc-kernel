@@ -23,10 +23,11 @@ export type LightVolumeHeight = number & Brand.Brand<'LightVolumeHeight'>
 const lightVolumeHeightMessage = (value: number): string =>
   `Light volume height must be an integer in [${MIN_VOLUME_HEIGHT}, ${MAX_VOLUME_HEIGHT}], received ${value}`
 
-const LightVolumeHeightBrand = Brand.refined<LightVolumeHeight>(
-  (value): value is LightVolumeHeight =>
-    Number.isInteger(value) && value >= MIN_VOLUME_HEIGHT && value <= MAX_VOLUME_HEIGHT,
-  (value) => Brand.error(lightVolumeHeightMessage(value)),
+const LightVolumeHeightBrand = Brand.make<LightVolumeHeight>(
+  (value) =>
+    Number.isInteger(value) && value >= MIN_VOLUME_HEIGHT && value <= MAX_VOLUME_HEIGHT
+      ? true
+      : lightVolumeHeightMessage(value),
 )
 
 /** Validate and brand a light volume height, normalising Effect's raw throw into a real RangeError. */

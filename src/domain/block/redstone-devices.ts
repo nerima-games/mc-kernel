@@ -12,18 +12,15 @@ export const REDSTONE_REPEATER_DELAY_MAX_TICKS = 4
 
 export type RepeaterDelayTicks = number & Brand.Brand<'RepeaterDelayTicks'>
 
-export const repeaterDelayTicks: Brand.Brand.Constructor<RepeaterDelayTicks> = Brand.refined<
-  RepeaterDelayTicks
->(
-  (value): value is RepeaterDelayTicks =>
-    Number.isInteger(value) &&
-    value >= REDSTONE_REPEATER_DELAY_MIN_TICKS &&
-    value <= REDSTONE_REPEATER_DELAY_MAX_TICKS,
-  (value) =>
-    Brand.error(
-      `Expected repeater delay ticks from ${REDSTONE_REPEATER_DELAY_MIN_TICKS} to ${REDSTONE_REPEATER_DELAY_MAX_TICKS}, received ${value}`,
-    ),
-)
+export const repeaterDelayTicks: Brand.Constructor<RepeaterDelayTicks> =
+  Brand.make<RepeaterDelayTicks>(
+    (value) =>
+      Number.isInteger(value) &&
+      value >= REDSTONE_REPEATER_DELAY_MIN_TICKS &&
+      value <= REDSTONE_REPEATER_DELAY_MAX_TICKS
+        ? true
+        : `Expected repeater delay ticks from ${REDSTONE_REPEATER_DELAY_MIN_TICKS} to ${REDSTONE_REPEATER_DELAY_MAX_TICKS}, received ${value}`,
+  )
 
 export type RedstoneRepeater = Readonly<{
   kind: 'repeater'

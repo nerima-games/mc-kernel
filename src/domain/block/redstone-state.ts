@@ -9,13 +9,11 @@ import type { RedstoneDevice } from './redstone-devices.js'
 
 export type RedstonePower = number & Brand.Brand<'RedstonePower'>
 
-export const redstonePower: Brand.Brand.Constructor<RedstonePower> = Brand.refined<RedstonePower>(
-  (value): value is RedstonePower =>
-    Number.isInteger(value) && value >= REDSTONE_POWER_MIN && value <= REDSTONE_POWER_MAX,
+export const redstonePower: Brand.Constructor<RedstonePower> = Brand.make<RedstonePower>(
   (value) =>
-    Brand.error(
-      `Expected redstone power from ${REDSTONE_POWER_MIN} to ${REDSTONE_POWER_MAX}, received ${value}`,
-    ),
+    Number.isInteger(value) && value >= REDSTONE_POWER_MIN && value <= REDSTONE_POWER_MAX
+      ? true
+      : `Expected redstone power from ${REDSTONE_POWER_MIN} to ${REDSTONE_POWER_MAX}, received ${value}`,
 )
 
 export type RedstoneRepeaterTimer = Readonly<{
