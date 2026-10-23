@@ -13,9 +13,9 @@
 TypeScript のコードブロックは公開宣言の要約である。`...` や `/` でまとめた記述は省略を示し、全ブロックがそのままコンパイルできる宣言とは限らない。
 `package.json` の `types` 条件は root entrypoint を `dist/index.d.ts`、各 `./domain/<name>` subpath を `dist/domain/<name>.d.ts` に対応づける。各公開 import entrypoint の完全な型宣言は package に含まれるそのファイルから確認できる。
 
-## 公開シグネチャのブランド化（K-brand）
+## 数値・文字列・bigint の意味型
 
-公開関数の引数・戻り値と公開データ型の数値・文字列・bigint フィールドは、意味に対応するブランド型を使う。外部入力の decoder は `unknown` を受け取り、検証後にブランド値を返す。次の表はブランド型を使う主な公開 API 群を示す。
+公開 API で意味のある数値・文字列・bigint を引数や戻り値として渡す場合と、公開データ型でフィールドとして保持する場合は、その意味に対応するブランド型を使う。ブランドのコンストラクタは未検証のプリミティブを受け取り、検証後にブランド値を返す。外部データの decoder は `unknown` を受け取る。次の表はブランド型を使う主な公開 API 群を示す。
 
 | 領域 | 主な公開契約 |
 | --- | --- |
@@ -205,8 +205,7 @@ const isEmpty: (id: BlockId) => boolean;
 構築されるため、まだ登録されていないが `BlockId` の範囲内にある値は既定値へ解決する。
 65535 を超える ID を使うには chunk format の幅を変える必要がある。
 
-`isEmpty` の引数は意図的に `number` とし、チャンクバッファから読み出した未ブランドの値を直接受け取る。
-空気は ID 0 だけであり、判定はレジストリ lookup ではなく定数比較で行う。
+`isEmpty` は `BlockId` を受け取る。空気は ID 0 だけであり、判定はレジストリ lookup ではなく定数比較で行う。
 
 ### 3-1-bis. 数値 ID ↔ 語彙の変換とホットパス lookup（block-registry / block-registry-indexes）
 
@@ -217,9 +216,9 @@ const BLOCK_IDS: ReadonlyArray<BlockId>                    // BLOCK_REGISTRY か
 const UNREGISTERED_BLOCK_TYPES: ReadonlyArray<BlockType>   // レジストリに行が無い語彙（現状は空）
 
 const blockIdOf(type: BlockType): BlockId                       // 行が無ければ throw
-const blockTypeOfId(id: number): BlockType | undefined
-const isKnownBlockId(id: number): id is BlockId
-const resolvedBlockOfId(id: number): ResolvedBlock | undefined
+const blockTypeOfId(id: BlockId): BlockType | undefined
+const isKnownBlockId(id: BlockId): id is BlockId
+const resolvedBlockOfId(id: BlockId): ResolvedBlock | undefined
 ```
 
 安定した公開 import path は `@nerima-games/mc-kernel/domain/block-registry` である。
@@ -229,16 +228,16 @@ const resolvedBlockOfId(id: number): ResolvedBlock | undefined
 チャンク全体のメッシュ生成・光伝播・落下判定など、ブロックあたり 1 回以上呼ばれるホットパス向け。
 
 ```typescript
-const capabilitiesOfBlockId(id: number): BlockCapabilities
-const propertyOfBlockId<K extends BlockPropertyName>(id: number, name: K): BlockProperties[K]
-const opacityOfBlockId(id: number): BlockOpacity
-const lightEmissionOfBlockId(id: number): LightLevel
-const transmitsLight(id: number): boolean                       // opacityOfBlockId(id) !== 'opaque'
-const supportRuleOfBlockId(id: number): SupportRule
-const isSupportSensitiveBlockId(id: number): boolean
-const canBlockStaySupported(id: number, supportBelow: number): boolean
-const blockIdsWithCapability(flag: BlockCapabilityFlag): ReadonlySet<number>
-const blockIdsWithOpacity(opacity: BlockOpacity): ReadonlySet<number>
+const capabilitiesOfBlockId(id: BlockId): BlockCapabilities
+const propertyOfBlockId<K extends BlockPropertyName>(id: BlockId, name: K): BlockProperties[K]
+const opacityOfBlockId(id: BlockId): BlockOpacity
+const lightEmissionOfBlockId(id: BlockId): LightLevel
+const transmitsLight(id: BlockId): boolean                       // opacityOfBlockId(id) !== 'opaque'
+const supportRuleOfBlockId(id: BlockId): SupportRule
+const isSupportSensitiveBlockId(id: BlockId): boolean
+const canBlockStaySupported(id: BlockId, supportBelow: BlockId): boolean
+const blockIdsWithCapability(flag: BlockCapabilityFlag): ReadonlySet<BlockId>
+const blockIdsWithOpacity(opacity: BlockOpacity): ReadonlySet<BlockId>
 ```
 
 未知の `id`（登録済み範囲外、または範囲内でも空き番）に対する既定の答えは一貫して
@@ -290,8 +289,8 @@ kernel は現在の `ItemType` roster に対応する純粋な装備スロット
 `supportRule` が配置条件を所有するようになったため、条件依存の草花・キノコ・サトウキビ・サボテン・睡蓮 10 種も
 既定 self-drop と同じ根拠でアイテム形を持つ。
 埋めるのは `BLOCK_TYPES` と同じく加算的である。
-綴りは `BLOCK_TYPES` に合わせた `lower_snake_case`。`mc-sim`の暫定文字列は`UPPER_SNAKE`（`'OAK_PLANKS'` / `'STICK'`）です。
-移行時は値を`'OAK_PLANKS'`から`'oak_planks'`のように変え、型も`ItemType`に置き換えてください。
+綴りは `BLOCK_TYPES` に合わせた `lower_snake_case`。旧呼び出し側の暫定値にあった `UPPER_SNAKE`
+（`'OAK_PLANKS'` / `'STICK'`）は、現行の `'oak_planks'` などの `ItemType` 値に置き換える。
 
 ### 3-bis-2. アイテムの数値 wire ID（item-registry）
 
@@ -310,12 +309,11 @@ const ITEM_ID_BYTES = 2
 const ITEM_REGISTRY: ReadonlyArray<ItemDefinition>   // ITEM_TYPES と同じ並び、配列添字が id
 const ITEM_IDS: ReadonlyArray<ItemId>
 
-const isKnownItemId(id: number): id is ItemId
+const isKnownItemId(id: unknown): id is ItemId
 const itemDefinitionOf(type: ItemType): ItemDefinition
 const maxStackCountOfItem(type: ItemType): ItemStackLimit
 const itemIdOf(type: ItemType): ItemId
 const itemTypeOfId(id: ItemId): ItemType
-const itemTypeOfId(id: number): ItemType | undefined   // オーバーロード：未検証の数値には部分関数
 
 const encodeItemId(type: ItemType): ItemIdBytes         // network byte order（big-endian）で書き出す
 const decodeItemId(bytes: ItemIdBytes): ItemType
@@ -414,7 +412,7 @@ type EntityType = (typeof ENTITY_TYPES)[number];
 const isEntityType: (value: unknown) => value is EntityType;
 ```
 
-Entity identity and state use `EntitySerial`, `EntityHealthPoints`, and `EntityRosterRepairCount`. `mintEntityId` accepts a branded serial, while `serialOfEntityId` returns a branded serial when the ID has a valid `e:<serial>` form.
+Entityの識別と状態には `EntitySerial`、`EntityHealthPoints`、`EntityRosterRepairCount` を使う。`mintEntityId` はブランド付きserialを受け取り、`serialOfEntityId` は `e:<serial>` 形式として有効なIDからブランド付きserialを返す。
 
 ```typescript
 type EntitySerial = number & Brand.Brand<'EntitySerial'>;
@@ -429,7 +427,7 @@ type EntityState<S> = Readonly<{
 }>;
 ```
 
-**既存の `entity-types.ts`（複数形）が持つ `EntityKind` は、この語彙とは別物として残る。** `EntityKind` は網羅性チェックの効かない開いた branded string で、modding が持ち込む未知の entity 名の入口として使う。`EntityType` はその上に載る閉じた語彙であり、`isEntityType` はセーブファイル・ネットワークフレーム・開発者コンソールからの値を検証する。`isBlockType` / `isItemType` と同じ shape で意図的に揃えてある——エンティティ名を保存する経路はブロック・アイテム名を保存する経路と同じだからである。
+**既存の `entity-types.ts`（複数形）が持つ `EntityKind` は、この語彙とは別物として残る。** `EntityKind` は網羅性チェックの効かない開いた branded string で、modding が持ち込む未知の entity 名を受け取るために使う。`EntityType` はその上に載る閉じた語彙であり、`isEntityType` はセーブファイル・ネットワークフレーム・開発者コンソールからの値を検証する。`isBlockType` / `isItemType` と同じ shape で意図的に揃えてある。エンティティ名もブロック・アイテム名と同じ形式で保存するためである。
 
 ### 3-ter. ItemStack とレシピ
 
@@ -469,7 +467,7 @@ const ItemComponentPatchConflictError: new (args: { readonly componentKey: Names
 `itemStack` は型付きコード用の厳格なコンストラクタであり、保存データや外部入力の境界では
 `itemStackFromUnknown` を使って item、count、options 内の components と component patch を検証する。
 removeはキーを`!`で表し、解決済みpayloadにそのキーを残さない。`itemComponentPatchFromUnknownEither`と
-`mergeItemComponentPatchesEither`はEffect 4の`Result.Result`を返す。両関数の失敗は
+`mergeItemComponentPatchesEither`は`Result.Result`を返す。両関数の失敗は
 `Result.isFailure(result)`で判定し、失敗値は`result.failure`、成功値は`result.success`から読む。
 merge時に同じcomponent keyのset/removeが競合した場合はFailureになる。
 `itemStackEqualsIgnoringCount` と `itemStacksCanMerge` は item と components の構造的等価性で判定し、
@@ -489,7 +487,7 @@ const itemDurabilityDefinitionFor: (
 ) => ItemDurabilityDefinition | undefined;
 ```
 
-この関数は`@nerima-games/mc-kernel`のrootからimportする。定義元の`src/domain/item/equipment-data.ts`はソースパスであり、公開import pathではない。rootへの再exportは`src/domain/item/_equipment.ts`、`src/domain/item/index.ts`、`src/index.ts`を経由する。
+この関数は`@nerima-games/mc-kernel`のrootからimportする。定義元の`src/domain/item/equipment-data.ts`はソースパスであり、公開import pathではない。
 
 レシピ型は `shaped` と `shapeless` の 3×3 グリッド、ステーション tag、材料 item または tag、優先度を値で表す。
 `shapedRecipe` と `shapelessRecipe` はレシピ値を作り、`ingredientMatches` は材料を照合する。
@@ -571,6 +569,18 @@ const mergeItemComponentPatchesEither: (
   left: ItemComponentPatch | undefined,
   right: ItemComponentPatch | undefined,
 ) => Result.Result<ItemComponentPatch | undefined, ItemComponentPatchDecodeError>;
+function mergeItemComponentPatches(
+  left: ItemComponentPatch | undefined,
+  right: ItemComponentPatch,
+): ItemComponentPatch;
+function mergeItemComponentPatches(
+  left: ItemComponentPatch,
+  right: ItemComponentPatch | undefined,
+): ItemComponentPatch;
+function mergeItemComponentPatches(
+  left: ItemComponentPatch | undefined,
+  right: ItemComponentPatch | undefined,
+): ItemComponentPatch | undefined;
 
 const ItemComponentPatchKey: Brand.Constructor<ItemComponentPatchKey>;
 const isItemComponentPatch: (value: unknown) => value is ItemComponentPatch;
@@ -629,10 +639,10 @@ stack/components は [Minecraft Snapshot 24w10a](https://www.minecraft.net/pt-pt
 transmute の現在の JSON schema は [Minecraft Java Edition 26.1](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-1) を参照する。decoder の対応範囲を全 recipe
 registry と誤認しないよう、未知の recipe type は明示的に拒否する。
 
-`mergeItemComponentPatches` は overload を持つ。右辺が定まっているときの結果は必ず定まるため、
-`ItemComponentPatch | undefined` を返す単一シグネチャだと呼び出し側に到達しない `undefined` 分岐が残る。
-検証と merge は patch を 2 回読むので、1 回目に答えて 2 回目に消える値（getter で作れる）は
-merge されずに `TypeError` になる。
+`mergeItemComponentPatches` は不正な入力や競合で throw する。どちらか一方の引数が必須の overload では
+戻り値は `ItemComponentPatch` に絞られる。patch の各値は検証時と merge 時に読まれるため、値を読むたびに
+異なる結果を返す getter を持つ入力では `TypeError` になる。throw を避けて失敗を値として扱う場合は
+`mergeItemComponentPatchesEither` を使う。
 
 ### 3-ter-4. special recipe（crafting-special）
 
@@ -752,22 +762,9 @@ type FuelRule = {
 };
 const VANILLA_SMELTING_RECIPES: ReadonlyArray<SmeltingRecipe>;
 const VANILLA_FUEL_RULES: ReadonlyArray<FuelRule>;
-const furnaceState: (input: FurnaceInput) => FurnaceState;
-const advanceFurnace: (
-  state: FurnaceState,
-  elapsedSecs: FixedDurationSecs,
-) => FurnaceAdvanceResult;
-
-const VANILLA_BREWING_RECIPES: ReadonlyArray<BrewingRecipe>;
-const brewingState: (input: BrewingInput) => BrewingState;
-const addBrewingFuel: (state: BrewingState, charges: BrewingFuelCharges) => BrewingState;
-const advanceBrewing: (
-  state: BrewingState,
-  elapsedSecs: FixedDurationSecs,
-) => BrewingAdvanceResult;
 ```
 
-`BrewingState`と`FurnaceState`はblock entityの共有データ型でもある。静的データはrootまたは実在する`@nerima-games/mc-kernel/domain/recipe` subpathからimportできる。brew/smeltの進行処理と結果の計算はkernelの公開APIに含まれない。
+`BrewingState`と`FurnaceState`はblock entityの共有データ型でもある。静的データはrootまたは実在する`@nerima-games/mc-kernel/domain/recipe` subpathからimportできる。状態の構築・遷移と結果の計算はkernelの公開APIに含まれない。
 
 ### Dimension と作物
 
@@ -786,7 +783,7 @@ recipe JSON decoder は §3-ter-3 を参照する。
 
 ### 3-quater-bis. 食料の静的定義（food-data）
 
-`FoodDefinition`と`FoodEffect`は、食料の栄養値、saturation、食用条件、効果、`use_remainder`を記述する静的データ型である。`VANILLA_FOOD_DEFINITIONS`は現在の`ItemType` rosterで表現できる定義表を提供する。完全なエディション・バージョン横断registryではない。食料の摂取処理やvitalsの更新はkernelの公開APIに含まれない（[実行時処理の所有元](./responsibility.md)）。
+`FoodDefinition`と`FoodEffect`は食料の栄養値、saturation、食用条件、効果、`use_remainder`を記述する静的データ型である。`VANILLA_FOOD_DEFINITIONS`は現在の`ItemType` rosterで表現できる定義表を提供する。全edition・versionを網羅するregistryではない。食料の摂取処理やvitalsの更新はkernelの公開APIに含まれない（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
 type FoodDefinition = Readonly<{
@@ -811,19 +808,19 @@ Minecraft Java Edition 26.3 の item component 境界に合わせ、`food` は�
 const DEFAULT_CONSUMABLE_COMPONENT: ConsumableComponent;
 const consumableStatusEffect: (
   effectId: ResourceLocation,
-  durationSecs: number,
-  amplifier: number,
+  durationSecs: EffectDurationSecs,
+  amplifier: EffectAmplifier,
 ) => ConsumableStatusEffect;
 const consumableApplyEffects: (
   effects: ReadonlyArray<ConsumableStatusEffect>,
-  probability?: number,
+  probability?: FoodEffectProbability,
 ) => ConsumableApplyEffects;
 const consumableRemoveEffects: (
   effects: ReadonlyArray<ResourceLocation>,
 ) => ConsumableRemoveEffects;
 const consumableClearAllEffects: () => ConsumableClearAllEffects;
 const consumableTeleportRandomly: (
-  diameter?: number,
+  diameter?: RandomTeleportDiameter,
 ) => ConsumableTeleportRandomly;
 const consumablePlaySound: (sound: ResourceLocation) => ConsumablePlaySound;
 const consumableComponent: (
@@ -838,7 +835,7 @@ const useRemainderComponentOf: (
 ) => UseRemainderComponent | undefined;
 const itemUseComponentsOf: (item: ItemType) => ItemUseComponents | undefined;
 const useCooldownComponent: (
-  seconds: number,
+  seconds: CooldownSeconds,
   cooldownGroup?: ResourceLocation,
 ) => UseCooldownComponent;
 const isUseCooldownComponent: (value: unknown) => value is UseCooldownComponent;
@@ -853,7 +850,7 @@ const isCooldownActive: (
 ) => boolean;
 ```
 
-`ConsumableEffect` は apply / remove / clear-all / teleport / play-sound の判別可能 union として公開し、各 variant と `consumableComponent` で動的な item stack component も型安全に構築できる。`ConsumableComponent.consumeSeconds` は公式 schema に合わせた非負・有限の `ConsumeSeconds` であり、builder は number 入力を実行時検証してから返す。root のほか `domain/consumable` subpath から利用できる。`useCooldownComponent` は `CooldownSeconds` で正・有限の秒数だけを受け付け、`cooldownGroup` には任意の namespaced ID を指定でき、返却値を immutable にする。公式仕様どおり、グループを省略した場合は base item type ID がグループになり、同じグループの item は cooldown を共有する。`isUseCooldownComponent` は保存データなどの unknown 境界を実行時に検証し、期限は `MonotonicTimeSecs` で計算し、境界時刻を非アクティブとして扱う。root と `domain/use-cooldown` subpath から利用できる。仕様の境界は [Minecraft Java Edition 1.21.2](https://www.minecraft.net/en-us/article/minecraft-java-edition-1-21-2) を参照する。resolver が同梱するのは `ItemType` に表現された静的な食料定義であり、potion・ominous bottle・suspicious stew などの動的な stack への具体的な値の供給と、使用イベントの実行は上位層の責務である。
+`ConsumableEffect` は apply / remove / clear-all / teleport / play-sound の判別可能 union として公開し、各 variant と `consumableComponent` で動的な item stack component も型安全に構築できる。`ConsumableComponent.consumeSeconds` は公式 schema に合わせた非負・有限の `ConsumeSeconds` であり、builder はこの値を実行時にも検証して返す。root のほか `domain/consumable` subpath から利用できる。`useCooldownComponent` は `CooldownSeconds` で正・有限の秒数だけを受け付け、`cooldownGroup` には任意の namespaced ID を指定でき、返却値を immutable にする。公式仕様どおり、グループを省略した場合は base item type ID がグループになり、同じグループの item は cooldown を共有する。`isUseCooldownComponent` は保存データなどの unknown 境界を実行時に検証し、期限は `MonotonicTimeSecs` で計算し、境界時刻を非アクティブとして扱う。root と `domain/use-cooldown` subpath から利用できる。仕様の境界は [Minecraft Java Edition 1.21.2](https://www.minecraft.net/en-us/article/minecraft-java-edition-1-21-2) を参照する。resolver が同梱するのは `ItemType` に表現された静的な食料定義であり、potion・ominous bottle・suspicious stew などの動的な stack への具体的な値の供給と、使用イベントの実行は上位層の責務である。
 
 ### 3-quater-quater. 汎用 item component（テキスト / max_stack_size / max_damage / damage / repair_cost / use_cooldown / tool / weapon / kinetic_weapon / piercing_weapon / attack_range / sulfur_cube_content）
 
@@ -952,7 +949,7 @@ const isStatusEffectId: (value: unknown) => value is ResourceLocation;
 const resolveStatusEffectDefinition: (value: unknown) => StatusEffectDefinition;
 ```
 
-data pack が独自の custom effect id を持ち込める `PotionEffectInstanceComponent.id` はこの閉じた語彙より広い `ResourceLocation` のままである。vanilla の部分集合だけを検査したい呼び出し側向けに `domain/item-component-values` が `VANILLA_STATUS_EFFECT_IDS` と `isVanillaPotionEffectId` を公開する。
+`isStatusEffectId` は閉じた `StatusEffectName` 表にある vanilla ID だけを受理する。data pack が独自の effect ID を持ち込める `PotionEffectInstanceComponent.id` は、これより広い `ResourceLocation` のままである。item component 側の vanilla ID roster を検査する `isVanillaPotionEffectId` と `VANILLA_STATUS_EFFECT_IDS` は `domain/item-component-values` subpath から利用できる。
 
 **なぜ kernel か**: 同じ効果名の集合を `mc-sim`（`Vitals` への適用）と `mx-gameplay`（食料・スープ・ポーション効果）が同一のメンバーシップで参照する必要があり、どちらか一方に置くと依存の向きが壊れる。
 
@@ -1033,14 +1030,14 @@ const sulfurCubeArchetypeDataPath: (
 
 ### 3-quinquies. 金床用の静的エンチャントルール
 
-kernelは、エンチャントID、金床コスト、ルール配列、3種のanvil rule setを静的データとして公開する。これらはrootと実在する`@nerima-games/mc-kernel/domain/enchantment` subpathからimportできる。
+kernelはエンチャントID、金床コスト、ルール配列、3種のanvil rule setを静的データとして公開する。これらはrootと実在する`@nerima-games/mc-kernel/domain/enchantment` subpathからimportできる。
 
 - `SUPPORTED_VANILLA_ENCHANTMENT_IDS`と`SupportedVanillaEnchantmentId`
 - `VanillaAnvilCost`と`VANILLA_ENCHANTMENT_COSTS`
 - `SUPPORTED_VANILLA_BOOK_ENCHANTMENT_RULES`、`SUPPORTED_VANILLA_ITEM_ENCHANTMENT_RULES`、`SUPPORTED_VANILLA_ENCHANTMENT_RULES`
 - `SUPPORTED_VANILLA_ANVIL_RULE_SET`、`SUPPORTED_VANILLA_BOOK_ANVIL_RULE_SET`、`SUPPORTED_VANILLA_ITEM_ANVIL_RULE_SET`
 
-各ルール配列のレコードは、エンチャントID、最大レベル、適用可能なアイテム、競合するエンチャントID、コストを持つ。ルール配列のレコード型は名前付きの公開exportではない。金床state、計画・適用、snapshot codec、エンチャント照合処理はkernelの公開APIに含まれない。
+各ルール配列のレコードはエンチャントID、最大レベル、適用可能なアイテム、競合するエンチャントID、コストを持つ。ルール配列のレコード型は名前付きの公開exportではない。金床state、計画・適用、snapshot codec、エンチャント照合処理はkernelの公開APIに含まれない。
 
 ### 3-quinquies-bis. 設定値と統計
 
@@ -1206,7 +1203,7 @@ const resolveBlockProperties(overrides): BlockProperties
 const propertyOf<K>(overrides, name: K): BlockProperties[K]
 ```
 
-実装済みのプロパティは 15 個である。
+実装済みのプロパティは 16 個である。
 
 | プロパティ         | 型                                                      | 既定                                  | 根拠                                                                |
 | ------------------ | ------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------- |
@@ -1289,9 +1286,7 @@ const resolveDrop(requirement, rule, brokenBlock, context?): BlockDrop | undefin
 リテラルではなく番兵でなければならない。
 
 **`item` の型が `BlockType | 'self'` から `ItemType | 'self'` になった。**
-効く向きは「別のブロックを落とす」ではなく「**ブロックでないものを落とす**」である。
-`glowstone` は `glowstone_dust` を落とすが、`glowstone_dust` というブロックは存在しない。
-旧綴りではこの行が書けなかった。
+旧型ではドロップ先も `BlockType` に限られていたため、現在はブロック以外のアイテムも指定できる。
 
 同じ理由で `resolveDropItem` は**部分関数になった**。旧版は `BlockType` を返して全域だった
 （「自分自身」は必ずブロックだから）。答えがアイテムになると「自分自身」は存在しないことがありうる
@@ -1312,7 +1307,7 @@ const resolveDrop(requirement, rule, brokenBlock, context?): BlockDrop | undefin
 ### 4-3-bis. `dropOfBlockId`：採掘がインベントリに届く1本の線
 
 ```typescript
-const dropOfBlockId(id: number, context?: HarvestContext): BlockDrop | undefined
+const dropOfBlockId(id: BlockId, context?: HarvestContext): BlockDrop | undefined
 ```
 
 `mx-gameplay` の `breakBlock` は数値の `BlockId` を返し、`mc-sim` の `InventoryService.add` は item を受け取る。
@@ -1469,27 +1464,32 @@ type VehicleId = string & Brand.Brand<"VehicleId">;
 type OccupantId = string & Brand.Brand<"VehicleOccupantId">;
 const VehicleId: Brand.Constructor<VehicleId>;
 const OccupantId: Brand.Constructor<OccupantId>;
-type VehicleVelocity = Readonly<{ x: number; y: number; z: number }>;
+type VehicleVelocity = Readonly<{
+  x: VehicleVelocityComponent;
+  y: VehicleVelocityComponent;
+  z: VehicleVelocityComponent;
+}>;
 type Vehicle = Readonly<{
   id: VehicleId;
   type: VehicleType;
   dimension: Dimension;
   position: Position;
   velocity: VehicleVelocity;
-  yawRadians: number;
+  yawRadians: AngleRadians;
   occupant?: OccupantId;
 }>;
 type VehicleSnapshot = Readonly<{
   vehicles: ReadonlyArray<Vehicle>;
-  nextSerial: number;
+  nextSerial: EntitySerial;
 }>;
 ```
 
-`VehicleId`と`OccupantId`のconstructorは、空文字列と空白だけの文字列を受け付けない。
+`VehicleId`と`OccupantId`のconstructorは空文字列と空白だけの文字列を受け付けない。
 
 ## 5-quinquies-bis. Chunk read/edit vocabulary
 
 `BlockRead` は loaded air、unloaded chunk、out-of-world position を判別可能なまま表現する。`ReadView` は epoch、chunk、block/light revision と section accessor を持ち、構築時に block ID と section 長を検証して入力配列をコピーする。後から呼び出し側が入力配列を変更しても view には反映されない。section accessor は mutable typed-array API を公開せず、`snapshot()` を呼んだ場合だけさらに別の `Uint16Array` を作るため、meshing の per-cell read では配列コピーを発生させない。
+この節の `BlockEdit`、`blockEdit`、`BlockWriteBatch` は `domain/world-read-write` subpath の `{ position, blockId }` 契約であり、root からも利用できる。
 
 ```ts
 type BlockRead =
@@ -1590,7 +1590,7 @@ Fluid data は root と `domain/fluid`、redstone data は root から利用で�
 
 ### 5-sexies-bis. ネザーポータルの枠（portal）
 
-Portal の寸法定数、軸、枠と layout の型は kernel に残る。検出と layout 生成は `mc-worldgen` が所有する（[実行時処理の所有元](./responsibility.md)）。
+Portal の寸法定数、軸、枠と layout の型は kernel が公開する。`mc-worldgen` が枠の検出と layout 生成を実装する（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
 type BlockAt = (x: BlockAxis, y: BlockAxis, z: BlockAxis) => BlockId;
@@ -1611,23 +1611,11 @@ const MAX_PORTAL_WIDTH: number; // 21
 const MIN_PORTAL_HEIGHT: number; // 3
 const MAX_PORTAL_HEIGHT: number; // 21
 
-const detectNetherPortal: (
-  blockAt: BlockAt,
-  ignition: BlockPosition,
-) => PortalFrame | undefined;
-const generatePortalLayout: (
-  origin: BlockPosition,
-  axis: PortalAxis,
-  width: PortalWidth,
-  height: PortalHeight,
-) => PortalLayout;
 ```
 
 `BlockAt` は軸に `BlockAxis`、戻り値に `BlockId` を使う。寸法は vanilla の検証済み範囲を持つ `PortalWidth` と `PortalHeight` で渡す。
 
-vanilla の寸法上限の外、黒曜石の欠落、内部が塞がっている枠、既に埋まっている着火位置は
-いずれも枠として成立しない。ワールドへの書き込み、ポータル間の紐付け、移動、
-チャンク読み込みは上位層の責務である。
+枠の成立判定、ワールドへの書き込み、ポータル間の紐付け、移動、チャンク読み込みは上位層の責務である。
 
 ### 5-sexies-ter. data pack layer の共通機構（data-pack-registry）
 
@@ -1951,7 +1939,7 @@ type RandomSourceScript = Readonly<{
 const fixedRandomSource: (script: RandomSourceScript) => RandomSource;
 ```
 
-`seededRandomSource` は Park–Miller の「minimal standard」Lehmer 生成器（`state' = (state * 16807) mod (2^31 - 1)`）を実装する。modulus はメルセンヌ素数 `2^31 - 1`、乗数はそれを法とする原始根であり、この漸化式は `[1, modulus - 1]` の全値を巡ってから周期に入る。seed は safe integer に限り、modulus で剰余化した後、状態が 0 なら 1 に正規化するため、seed `0` と seed `2^31 - 1` は seed `1` と同じ列を返す。両者の積が `Number.MAX_SAFE_INTEGER` を超えないため、ビット演算や `BigInt` を使わない安全な整数演算だけで完結する。同じ seed と同じ呼び出し順は常に同じ値の列を返し、これがリプレイと早送りの前提になる。`fixedRandomSource` は `fixedClock` と対の scripted 実装で、指定した列を使い切ると黙って折り返したり既定値へフォールバックしたりせず例外を投げる。
+`seededRandomSource` は Park–Miller の「minimal standard」Lehmer 生成器を実装する。seed は safe integer に限り、modulus で剰余化した後、状態が 0 なら 1 に正規化するため、seed `0` と seed `2^31 - 1` は seed `1` と同じ列を返す。同じ seed と同じ呼び出し順は常に同じ値の列を返し、これがリプレイと早送りの前提になる。`fixedRandomSource` は `fixedClock` と対の scripted 実装で、指定した列を使い切ると黙って折り返したり既定値へフォールバックしたりせず例外を投げる。
 
 ## 6-ter. 共通ドメイン語彙（shared-vocabulary）
 
@@ -1994,7 +1982,7 @@ interface GameModule<ROut, E, RIn, RRegister = never>
 
 ### 未解決の `after` 依存
 
-`mc-compose` の `StageOrderPlan` は存在しない stage への依存を `dangling` として返し、フレーム骨格に対応する phase がない stage を `unmatchedPhase` として返す。ホストは両方を表示する。存在しない入力 stage の後に実行する拡張 stage を宣言できるため、未解決の依存は拒否しない。
+`mc-compose` の `StageOrderPlan` は存在しない stage への依存を `dangling` として返す。また、フレームの標準phaseに割り当てられないstageは実行順の末尾に置き、`unmatchedPhase` として返す。ホストは両方の warning を表示する。存在しない入力 stage の後に実行する拡張 stage を宣言できるため、未解決の依存は拒否しない。
 
 `frameStages` は Effect なので、stage 登録時に必要な service を取得できる。その環境 `RRegister` は Layer 構築時の `RIn` と stage 実行時の `FrameServices` とは異なる。
 
@@ -2033,12 +2021,10 @@ readonly cameraPose: Effect.Effect<CameraPoseSnapshot, never, ClockPort>
 
 stage は時間を読まずに進めず、かつグローバルから読んではならないので、`never` も候補ではなかった。
 
-**この別名を広げるのは stage の _提供者_（ランタイムを組む人）にとって破壊的変更である**（stage の _著者_ にとってはそうではない）。
+`FrameServices` に新しい service を加えるのは、stage 実行時の環境を用意する _提供者_（ランタイムを組む人）にとって破壊的変更である。stage の _著者_ は既存の `run` 実装をそのまま使える。
 1.0.0 で凍結され、広げるのは MAJOR である。
 
 ### QA namespace と save slice
-
-`KernelGameModule` は既存の `layers` と `frameStages` を持つ基底契約である。`GameModule` はそれを拡張し、QA namespace と save-slice 登録を任意で加える。既存のモジュールは追加フィールドなしで使い続けられる。
 
 `QaOperation` は入出力 codec と型付きの失敗・要求サービスを持つ Effect handler、`QaNamespace` は非空の branded name と `observe` / `command` の operation map を持つ。`SaveSliceRegistration` は安定した ID、正の整数 version、codec、snapshot/restore Effect、migration list を表す。`defineSaveMigration` は保存済み値を移行元 codec で decode し、同期の全域変換を適用して移行先 codec で encode する。これらは kernel の型と helper であり、namespace の重複検査、dispatcher、save bundle の読込は compose/save 側の責務である。
 
@@ -2137,8 +2123,20 @@ const blockState(bytes: Uint8Array): BlockState   // BlockState.fromBytes のラ
 `decodeChunk` は v2 の 16-bit 値を全幅のまま `isKnownBlockId` に渡し、`BlockState` に 2 バイト要素として保持する。下位 1 バイトに切り詰めてから検証すると、256 以上の未知 ID が有効な `BlockId` に化ける可能性があるため、全幅での検証が必要である。v2 は16ビットの登録済み ID を保持できるが、`chunk()` と `blockState()` の入力は1バイト形式である。
 
 `encodeChunk` / `decodeChunk` は固定 `CHUNK_HEADER_BYTES`（24）バイトヘッダーとブロック列を用いる。
-ヘッダーは magic (`MCHK`)、`CHUNK_CODEC_VERSION`、幅・奥行き、height、符号付き 32-bit の `cx` / `cz`、
-payload 長を little-endian で保持する。decoder は magic、version、寸法、長さ、未知の BlockId、
+ヘッダーの整数はすべて little-endian で、各フィールドは次の byte offset と幅を持つ。
+
+| offset | 幅 | フィールド |
+| --- | --- | --- |
+| 0 | 4 bytes | magic (`MCHK`) |
+| 4 | unsigned 16-bit | codec version |
+| 6 | unsigned 16-bit | width |
+| 8 | unsigned 16-bit | depth |
+| 10 | unsigned 16-bit | height |
+| 12 | signed 32-bit | chunk x (`cx`) |
+| 16 | signed 32-bit | chunk z (`cz`) |
+| 20 | unsigned 32-bit | payload length in bytes |
+
+decoder は magic、version、寸法、長さ、未知の BlockId、
 末尾の余剰データを破損として拒否する。`EncodedChunk` は書き込み API を公開しない read-only branded byte view で、
 `encodeChunk` の戻り値と `decodeChunk` への入力の両方に使われる。constructor は検証済みの入力をコピーするため、
 入力側の `Uint8Array` を後から変更しても `EncodedChunk` の内容は変わらない。可変なコピーが必要なら `slice()` を使う。
