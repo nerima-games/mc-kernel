@@ -262,6 +262,20 @@ describe("canonical item stacks", () => {
     expect(mergeItemStacks(left, right).remainder?.count).toBe(2);
   });
 
+  it("transmutes a valid source into the requested result stack", () => {
+    const source = itemStack("stone", 4);
+    const result = itemStack("dirt", 3, {
+      components: itemComponents("dirt", { rarity: "rare" }),
+    });
+
+    expect(transmuteItemStack(source, result)).toEqual(result);
+    expect(transmuteItemStack(source, result, 2)).toEqual({
+      ...result,
+      count: 2,
+    });
+    expect(() => Reflect.apply(transmuteItemStack, undefined, [source, {}])).toThrow(TypeError);
+  });
+
   it("preserves split/merge arithmetic for generated positive counts", () => {
     fc.assert(fc.property(fc.integer({ min: 1, max: 99 }), fc.integer({ min: 1, max: 99 }), (count, amount) => {
       const components = itemComponents("stone", { maxStackSize: 99 });

@@ -48,6 +48,8 @@ describe("recipe data", () => {
     expect(ingredientMatches(exact, "dirt")).toBe(false);
     expect(ingredientMatches(tag, "oak_planks", itemTags)).toBe(true);
     expect(ingredientMatches(tag, "stone", itemTags)).toBe(false);
+    const noItemTags: ItemTagMemberships = new Map();
+    expect(ingredientMatches(tag, "stone", noItemTags)).toBe(false);
     expect(ingredientMatches(tag, "stone")).toBe(false);
     expect(alternatives).toEqual({
       _tag: "AnyOf",

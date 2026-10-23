@@ -5,8 +5,10 @@ import {
   BREWING_FUEL_ITEM,
   BREWING_MAX_FUEL_CHARGES,
   BREWING_TIME_SECS,
+  brewingOutput,
   VANILLA_BREWING_RECIPES,
 } from '../src/domain/recipe/brewing-data'
+import { itemStack } from '../src/domain/item/item-stack'
 
 describe('brewing data', () => {
   it('keeps the brewing constants and built-in recipe table', () => {
@@ -15,5 +17,8 @@ describe('brewing data', () => {
     expect(BREWING_MAX_FUEL_CHARGES).toBe(20)
     expect(BREWING_FUEL_ITEM).toBe('blaze_powder')
     expect(VANILLA_BREWING_RECIPES.length).toBeGreaterThan(3)
+    expect(brewingOutput(VANILLA_BREWING_RECIPES[0]!)).toEqual(
+      itemStack('awkward_potion', 1),
+    )
   })
 })

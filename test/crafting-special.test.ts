@@ -1,12 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
   CRAFTING_SPECIAL_STATION_TAG,
+  craftingBannerDuplicateRecipe,
   craftingBookCloningRecipe,
+  craftingDecoratedPotRecipe,
   craftingDyeRecipe,
+  craftingFireworkRocketRecipe,
+  craftingFireworkStarFadeRecipe,
   craftingFireworkStarRecipe,
   craftingImbueRecipe,
+  craftingMapExtendingRecipe,
+  craftingShieldDecorationRecipe,
+  isCraftingBannerDuplicateRecipe,
   isCraftingDyeRecipe,
+  isCraftingDecoratedPotRecipe,
+  isCraftingFireworkRocketRecipe,
+  isCraftingFireworkStarFadeRecipe,
   isCraftingImbueRecipe,
+  isCraftingMapExtendingRecipe,
+  isCraftingShieldDecorationRecipe,
   isCraftingSpecialRecipe,
 } from "../src/domain/recipe/crafting-special-data";
 import { itemStack } from "../src/domain/item/item-stack";
@@ -255,6 +267,64 @@ describe("crafting special recipe data", () => {
       { star: null },
     ]) {
       expect(isCraftingSpecialRecipe({ ...star, shapes })).toBe(false);
+    }
+  });
+
+  it("guards retained specialized recipe records", () => {
+    const bannerDuplicate = craftingBannerDuplicateRecipe(
+      ResourceLocation("minecraft:banner_duplicate"),
+      exactly("white_banner"),
+      itemStack("white_banner", 1),
+    );
+    const decoratedPot = craftingDecoratedPotRecipe(
+      ResourceLocation("minecraft:decorated_pot"),
+      exactly("brick"),
+      exactly("brick"),
+      exactly("brick"),
+      exactly("brick"),
+      itemStack("decorated_pot", 1),
+    );
+    const fireworkRocket = craftingFireworkRocketRecipe(
+      ResourceLocation("minecraft:firework_rocket"),
+      exactly("paper"),
+      exactly("gunpowder"),
+      exactly("firework_star"),
+      itemStack("firework_rocket", 1),
+    );
+    const fireworkStarFade = craftingFireworkStarFadeRecipe(
+      ResourceLocation("minecraft:firework_star_fade"),
+      exactly("firework_star"),
+      exactly("red_dye"),
+      itemStack("firework_star", 1),
+    );
+    const mapExtending = craftingMapExtendingRecipe(
+      ResourceLocation("minecraft:map_extending"),
+      exactly("filled_map"),
+      exactly("paper"),
+      itemStack("filled_map", 1),
+    );
+    const shieldDecoration = craftingShieldDecorationRecipe(
+      ResourceLocation("minecraft:shield_decoration"),
+      exactly("white_banner"),
+      exactly("shield"),
+      itemStack("shield", 1),
+    );
+
+    expect(isCraftingBannerDuplicateRecipe(bannerDuplicate)).toBe(true);
+    expect(isCraftingDecoratedPotRecipe(decoratedPot)).toBe(true);
+    expect(isCraftingFireworkRocketRecipe(fireworkRocket)).toBe(true);
+    expect(isCraftingFireworkStarFadeRecipe(fireworkStarFade)).toBe(true);
+    expect(isCraftingMapExtendingRecipe(mapExtending)).toBe(true);
+    expect(isCraftingShieldDecorationRecipe(shieldDecoration)).toBe(true);
+    for (const recipe of [
+      bannerDuplicate,
+      decoratedPot,
+      fireworkRocket,
+      fireworkStarFade,
+      mapExtending,
+      shieldDecoration,
+    ]) {
+      expect(isCraftingSpecialRecipe(recipe)).toBe(true);
     }
   });
 });
