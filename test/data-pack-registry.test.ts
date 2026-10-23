@@ -229,8 +229,7 @@ describe("data-pack registry", () => {
       },
       () => Result.succeed(1),
     ));
-    expect(extraField._tag).toBe('DataPackRegistryFailure');
-    expect(extraField.reason).toBe('invalid-layer');
+    expect(extraField).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-layer' });
     const missingValue = resultFailure(dataPackLayerFromUnknown(
       {
         pack: "example:json",
@@ -240,7 +239,7 @@ describe("data-pack registry", () => {
       },
       () => Result.succeed(1),
     ));
-    expect(missingValue.reason).toBe('invalid-entry');
+    expect(missingValue).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-entry' });
     const duplicate = resultFailure(dataPackLayerFromUnknown(
         {
           ...validLayer,
@@ -251,23 +250,23 @@ describe("data-pack registry", () => {
         },
         decodeNumber,
       ));
-    expect(duplicate.reason).toBe('duplicate-entry');
+    expect(duplicate).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'duplicate-entry' });
     const invalidPack = resultFailure(dataPackLayerFromUnknown({ ...validLayer, pack: 1 }, decodeNumber));
-    expect(invalidPack.reason).toBe('invalid-layer');
+    expect(invalidPack).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-layer' });
     const invalidFormat = resultFailure(dataPackLayerFromUnknown(
       { ...validLayer, format: "107.1" },
       decodeNumber,
     ));
-    expect(invalidFormat.reason).toBe('invalid-layer');
+    expect(invalidFormat).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-layer' });
     const invalidPriority = resultFailure(dataPackLayerFromUnknown({ ...validLayer, priority: "2" }, decodeNumber));
-    expect(invalidPriority.reason).toBe('invalid-layer');
+    expect(invalidPriority).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-layer' });
     const invalidEntries = resultFailure(dataPackLayerFromUnknown({ ...validLayer, entries: {} }, decodeNumber));
-    expect(invalidEntries.reason).toBe('invalid-layer');
+    expect(invalidEntries).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-layer' });
     const invalidEntryId = resultFailure(dataPackLayerFromUnknown(
       { ...validLayer, entries: [{ id: 1, value: 4 }] },
       decodeNumber,
     ));
-    expect(invalidEntryId.reason).toBe('invalid-entry');
+    expect(invalidEntryId).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-entry' });
   });
 
   it("selects exact formats and applies priority with stable equal-priority ordering", () => {

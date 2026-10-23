@@ -118,11 +118,12 @@ const dataPackEntryFromUnknown = <T, E>(
   ) {
     return failure('invalid-entry', "Data-pack registry entries must contain exactly id and value")
   }
-  if (typeof value["id"] !== "string") {
+  const id = value["id"]
+  if (typeof id !== "string") {
     return failure('invalid-entry', "Data-pack registry entry id must be a string")
   }
-  return Result.flatMap(namespacedResourceLocation(value["id"]), (id) =>
-    Result.map(decodeValue(id, value["value"]), (decoded) => ({ id, value: decoded })),
+  return Result.flatMap(namespacedResourceLocation(id), (namespacedId) =>
+    Result.map(decodeValue(namespacedId, value["value"]), (decoded) => ({ id: namespacedId, value: decoded })),
   )
 }
 

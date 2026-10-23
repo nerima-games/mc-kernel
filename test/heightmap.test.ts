@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { ChunkHeight, chunk } from '../src/domain/world/chunk'
 import { CHUNK_SIZE_XZ, ChunkAxis, LocalAxis, chunkCoord } from '../src/domain/coordinates/coordinates'
-import { BLOCK_IDS, blockIdOf, opacityOfBlockId, propertyOfBlockId } from '../src/domain/block/block-registry'
+import {
+  BLOCK_IDS,
+  blockIdOf,
+  opacityOfBlockId as opacityOfBlockIdResult,
+  propertyOfBlockId as propertyOfBlockIdResult,
+} from '../src/domain/block/block-registry'
 import { optionValue, resultValue } from './block-result-helpers.js'
 import {
   heightmapColumnIndex as makeHeightmapColumnIndex,
   HeightmapColumnIndex,
-  motionBlockingHeightmapOf,
-  opaqueHeightmapOf,
+  motionBlockingHeightmapOf as motionBlockingHeightmapOfResult,
+  opaqueHeightmapOf as opaqueHeightmapOfResult,
   type Heightmap,
 } from '../src/domain/world/heightmap'
 
@@ -15,6 +20,18 @@ const CHUNK_HEIGHT = 4
 const COLUMN_COUNT = CHUNK_SIZE_XZ * CHUNK_SIZE_XZ
 const BLOCK_COUNT = COLUMN_COUNT * CHUNK_HEIGHT
 const columnIndex = (lx: number, lz: number) => makeHeightmapColumnIndex(LocalAxis(lx), LocalAxis(lz))
+
+const opacityOfBlockId = (id: Parameters<typeof opacityOfBlockIdResult>[0]) =>
+  resultValue(opacityOfBlockIdResult(id))
+const propertyOfBlockId = <K extends Parameters<typeof propertyOfBlockIdResult>[1]>(
+  id: Parameters<typeof propertyOfBlockIdResult>[0],
+  name: K,
+) =>
+  resultValue(propertyOfBlockIdResult(id, name))
+const motionBlockingHeightmapOf = (...args: Parameters<typeof motionBlockingHeightmapOfResult>) =>
+  resultValue(motionBlockingHeightmapOfResult(...args))
+const opaqueHeightmapOf = (...args: Parameters<typeof opaqueHeightmapOfResult>) =>
+  resultValue(opaqueHeightmapOfResult(...args))
 
 type Placement = readonly [lx: number, lz: number, ly: number, blockId: number]
 
