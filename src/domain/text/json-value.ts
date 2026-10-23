@@ -1,3 +1,5 @@
+import { Effect, Result } from 'effect'
+
 export type JsonPrimitive = null | boolean | number | string;
 
 export type JsonObject = Readonly<{
@@ -39,8 +41,13 @@ const isJsonValueIn = (
   return valid;
 };
 
-export const isJsonValue = (value: unknown): value is JsonValue =>
-  isJsonValueIn(value, new WeakSet<object>());
+export const isJsonValue = (value: unknown): value is JsonValue => {
+  const checked = Effect.runSync(Effect.result(Effect.try({
+    try: () => isJsonValueIn(value, new WeakSet<object>()),
+    catch: () => false,
+  })))
+  return Result.isSuccess(checked) && checked.success
+}
 
 const freezeJsonValue = (value: JsonValue): JsonValue => {
   if (Array.isArray(value)) {
@@ -56,12 +63,40 @@ const freezeJsonValue = (value: JsonValue): JsonValue => {
   return value;
 };
 
-export const jsonValueFromUnknown = (value: unknown): JsonValue => {
-  if (!isJsonValue(value)) {
-    throw new TypeError("Value must be a finite, acyclic JSON value");
-  }
-  return freezeJsonValue(value);
-};
+export type JsonValueFailure = Readonly<{
+  readonly _tag: 'JsonValueFailure'
+  readonly kind: 'TypeError'
+  readonly reason: 'invalid-value' | 'hostile-input'
+  readonly message: string
+  readonly value?: unknown
+}>
+
+const jsonValueFailure = (
+  reason: JsonValueFailure['reason'],
+  message: string,
+  value?: unknown,
+): JsonValueFailure => ({
+  _tag: 'JsonValueFailure',
+  kind: 'TypeError',
+  reason,
+  message,
+  ...(value === undefined ? {} : { value }),
+})
+
+export const jsonValueFromUnknown = (
+  value: unknown,
+): Result.Result<JsonValue, JsonValueFailure> => {
+  const normalized = Effect.runSync(Effect.result(Effect.try({
+    try: () => isJsonValueIn(value, new WeakSet<object>())
+      ? { valid: true as const, value: freezeJsonValue(value) }
+      : { valid: false as const },
+    catch: () => jsonValueFailure('hostile-input', 'Unable to inspect JSON value', value),
+  })))
+  if (Result.isFailure(normalized)) return Result.fail(normalized.failure)
+  return normalized.success.valid
+    ? Result.succeed(normalized.success.value)
+    : Result.fail(jsonValueFailure('invalid-value', 'Value must be a finite, acyclic JSON value', value))
+}
 
 const isJsonObject = (value: JsonValue): value is JsonObject =>
   value !== null && typeof value === "object" && !Array.isArray(value);

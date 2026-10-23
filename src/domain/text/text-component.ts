@@ -1,3 +1,4 @@
+import { Effect, Result } from 'effect'
 import type {
   TextComponent,
   TextComponentObject,
@@ -48,12 +49,39 @@ const freezeTextComponent = (value: TextComponent): TextComponent => {
   return freezeTextComponentObject(value)
 }
 
-export const textComponent = (value: TextComponent): TextComponent => {
-  if (!isTextComponent(value)) {
-    throw new TypeError('Text component must be a JSON text component')
-  }
+export type TextComponentFailure = Readonly<{
+  readonly _tag: 'TextComponentFailure'
+  readonly kind: 'TypeError'
+  readonly reason: 'invalid-value' | 'hostile-input'
+  readonly message: string
+  readonly value?: unknown
+}>
 
-  return freezeTextComponent(value)
+const textComponentFailure = (
+  reason: TextComponentFailure['reason'],
+  message: string,
+  value?: unknown,
+): TextComponentFailure => ({
+  _tag: 'TextComponentFailure',
+  kind: 'TypeError',
+  reason,
+  message,
+  ...(value === undefined ? {} : { value }),
+})
+
+export const textComponent = (
+  value: unknown,
+): Result.Result<TextComponent, TextComponentFailure> => {
+  const checked = Effect.runSync(Effect.result(Effect.try({
+    try: () => isTextComponent(value)
+      ? { valid: true as const, value: freezeTextComponent(value) }
+      : { valid: false as const },
+    catch: () => textComponentFailure('hostile-input', 'Unable to inspect text component', value),
+  })))
+  if (Result.isFailure(checked)) return Result.fail(checked.failure)
+  return checked.success.valid
+    ? Result.succeed(checked.success.value)
+    : Result.fail(textComponentFailure('invalid-value', 'Text component must be a JSON text component', value))
 }
 
 export { isTextComponent }

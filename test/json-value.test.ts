@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Result } from "effect";
 
 import {
   isJsonValue,
@@ -31,7 +32,10 @@ describe("JSON values", () => {
 
   it("clones and freezes values at the decoder boundary", () => {
     const input = { nested: [1, { valid: true }] };
-    const normalized = jsonValueFromUnknown(input);
+    const result = jsonValueFromUnknown(input);
+    expect(Result.isSuccess(result)).toBe(true);
+    if (Result.isFailure(result)) return;
+    const normalized = result.success;
 
     expect(normalized).toEqual(input);
     expect(normalized).not.toBe(input);
@@ -48,11 +52,24 @@ describe("JSON values", () => {
       throw new Error("expected a nested JSON value");
     }
     expect(Object.isFrozen(nested)).toBe(true);
-    expect(() => jsonValueFromUnknown(undefined)).toThrow(TypeError);
+    const invalidValue = jsonValueFromUnknown(undefined);
+    expect(Result.isFailure(invalidValue)).toBe(true);
+    if (Result.isFailure(invalidValue)) {
+      expect(invalidValue.failure).toMatchObject({
+        _tag: "JsonValueFailure",
+        kind: "TypeError",
+        reason: "invalid-value",
+        message: "Value must be a finite, acyclic JSON value",
+      });
+    }
 
     const cycle: Record<string, unknown> = {};
     cycle["self"] = cycle;
-    expect(() => jsonValueFromUnknown(cycle)).toThrow(TypeError);
+    const invalidCycle = jsonValueFromUnknown(cycle);
+    expect(Result.isFailure(invalidCycle)).toBe(true);
+    if (Result.isFailure(invalidCycle)) {
+      expect(invalidCycle.failure.reason).toBe("invalid-value");
+    }
   });
 
   it("compares JSON values structurally", () => {

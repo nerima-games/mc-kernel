@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { Result } from 'effect'
 import {
   DifficultyDamageMultiplier,
   DifficultyHungerMultiplier,
@@ -195,22 +196,42 @@ describe('isDifficulty', () => {
 
 describe('resolveGameModeProperties', () => {
   it('resolves a valid mode to its table row', () => {
-    expect(resolveGameModeProperties('creative')).toBe(GAME_MODE_PROPERTIES.creative)
+    expect(resolveGameModeProperties('creative')).toEqual(Result.succeed(GAME_MODE_PROPERTIES.creative))
   })
 
-  it('throws on an unrecognised value', () => {
-    expect(() => resolveGameModeProperties(UNKNOWN_MODE_NAME)).toThrow(TypeError)
-    expect(() => resolveGameModeProperties(NON_STRING_VALUE)).toThrow(TypeError)
+  it('returns tagged failures for unrecognised values', () => {
+    for (const value of [UNKNOWN_MODE_NAME, NON_STRING_VALUE]) {
+      const result = resolveGameModeProperties(value)
+      expect(Result.isFailure(result)).toBe(true)
+      if (Result.isFailure(result)) {
+        expect(result.failure).toMatchObject({
+          _tag: 'GameModeValidationFailure',
+          kind: 'TypeError',
+          reason: 'unknown-game-mode',
+          field: 'gameMode',
+        })
+      }
+    }
   })
 })
 
 describe('resolveDifficultyProperties', () => {
   it('resolves a valid difficulty to its table row', () => {
-    expect(resolveDifficultyProperties('hard')).toBe(DIFFICULTY_PROPERTIES.hard)
+    expect(resolveDifficultyProperties('hard')).toEqual(Result.succeed(DIFFICULTY_PROPERTIES.hard))
   })
 
-  it('throws on an unrecognised value', () => {
-    expect(() => resolveDifficultyProperties(UNKNOWN_DIFFICULTY_NAME)).toThrow(TypeError)
-    expect(() => resolveDifficultyProperties(NON_STRING_VALUE)).toThrow(TypeError)
+  it('returns tagged failures for unrecognised values', () => {
+    for (const value of [UNKNOWN_DIFFICULTY_NAME, NON_STRING_VALUE]) {
+      const result = resolveDifficultyProperties(value)
+      expect(Result.isFailure(result)).toBe(true)
+      if (Result.isFailure(result)) {
+        expect(result.failure).toMatchObject({
+          _tag: 'GameModeValidationFailure',
+          kind: 'TypeError',
+          reason: 'unknown-difficulty',
+          field: 'difficulty',
+        })
+      }
+    }
   })
 })
