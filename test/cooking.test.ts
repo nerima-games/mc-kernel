@@ -1,7 +1,7 @@
+import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { itemStack } from "../src/domain/item/item-stack";
-import { PositiveTickCount, StackCount } from "../src/domain/time/quantities";
+import { itemStack as itemStackResult } from "../src/domain/item/item-stack";
 import {
   RecipeExperience,
   RecipeGroup,
@@ -9,12 +9,42 @@ import {
   RecipePriority,
   exactly,
 } from "../src/domain/recipe/recipe-data";
+import { PositiveTickCount, StackCount } from "../src/domain/time/quantities";
 import {
   COOKING_STATIONS,
   cookingRecipe,
   cookingRecipeForItem,
   isCookingRecipe,
 } from "../src/domain/recipe/cooking-data";
+import type { RecipeFailure } from "../src/domain/recipe/recipe-error";
+
+const success = <A, E>(result: Result.Result<A, E>): A => {
+  expect(Result.isSuccess(result)).toBe(true);
+  if (Result.isSuccess(result)) return result.success;
+  throw new Error(`Expected recipe success, received ${JSON.stringify(result.failure)}`);
+};
+
+const itemStack = (item: Parameters<typeof itemStackResult>[0], count: number) =>
+  success(itemStackResult(item, StackCount(count)));
+
+const expectFailure = (
+  result: Result.Result<unknown, RecipeFailure>,
+  expected: RecipeFailure,
+): void => {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) expect(result.failure).toEqual(expected);
+};
+
+const typeFailure = (message: string): RecipeFailure => ({
+  _tag: "RecipeTypeFailure",
+  name: "TypeError",
+  message,
+});
+const rangeFailure = (message: string): RecipeFailure => ({
+  _tag: "RecipeRangeFailure",
+  name: "RangeError",
+  message,
+});
 
 describe("cooking recipe data", () => {
   it("constructs cooking recipes for each station and normalizes metadata", () => {
@@ -25,11 +55,11 @@ describe("cooking recipe data", () => {
       "campfire",
     ]);
 
-    const recipe = cookingRecipe(
+    const recipe = success(cookingRecipe(
       RecipeId("minecraft:smelt_iron"),
       "furnace",
       "raw_iron",
-      itemStack("iron_ingot", StackCount(1)),
+      itemStack("iron_ingot", 1),
       PositiveTickCount(200),
       RecipeExperience(0.7),
       {
@@ -38,86 +68,115 @@ describe("cooking recipe data", () => {
         priority: RecipePriority(2),
         showNotification: true,
       },
-    );
+    ));
     expect(recipe).toMatchObject({
       _tag: "Cooking",
       station: "furnace",
-      ingredient: exactly("raw_iron"),
+      ingredient: success(exactly("raw_iron")),
       cookTimeTicks: 200,
       experience: 0.7,
       category: "redstone",
       group: "ores",
-        priority: RecipePriority(2),
+      priority: RecipePriority(2),
       showNotification: true,
     });
-    expect(cookingRecipeForItem(
+
+    expect(success(cookingRecipeForItem(
       RecipeId("minecraft:smoke_beef"),
       "smoker",
-      exactly("beef"),
+      success(exactly("beef")),
       "cooked_beef",
       StackCount(2),
       PositiveTickCount(100),
       RecipeExperience(0.35),
-    )).toMatchObject({
+    ))).toMatchObject({
       station: "smoker",
-      output: itemStack("cooked_beef", StackCount(2)),
-      priority: 0,
+      output: itemStack("cooked_beef", 2),
+      priority: RecipePriority(0),
     });
 
     for (const station of COOKING_STATIONS) {
-      expect(
-        cookingRecipe(
-          RecipeId(`minecraft:${station}_recipe`),
-          station,
-          "stone",
-          itemStack("stone", StackCount(1)),
-          PositiveTickCount(1),
-          RecipeExperience(0),
-        ).station,
-      ).toBe(station);
+      expect(success(cookingRecipe(
+        RecipeId(`minecraft:${station}_recipe`),
+        station,
+        "stone",
+        itemStack("stone", 1),
+        PositiveTickCount(1),
+        RecipeExperience(0),
+      )).station).toBe(station);
     }
   });
 
-  it("rejects invalid constructor fields and options", () => {
-    const output = itemStack("iron_ingot", StackCount(1));
-    expect(() => Reflect.apply(cookingRecipe, undefined, [" ", "furnace", "raw_iron", output, 200, 0])).toThrow(TypeError);
-    expect(() => Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "campfire_bad", "raw_iron", output, 200, 0])).toThrow(TypeError);
-    expect(() => Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", null, output, 200, 0])).toThrow(TypeError);
-    expect(() => Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", {}, 200, 0])).toThrow(TypeError);
-    expect(() => Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 0, 0])).toThrow(RangeError);
-    expect(() => Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1.5, 0])).toThrow(RangeError);
-    expect(() => Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, -0.1])).toThrow(RangeError);
-    expect(() => Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, Number.POSITIVE_INFINITY])).toThrow(RangeError);
-    expect(() => Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, 0, null])).toThrow(TypeError);
-    for (const options of [
-      { category: "invalid" },
-      { group: 1 },
-      { priority: -1 },
-      { priority: 1.5 },
-      { showNotification: 1 },
-    ]) {
-      expect(() => Reflect.apply(cookingRecipe, undefined, [
-        "minecraft:bad",
-        "furnace",
-        "raw_iron",
-        output,
-        1,
-        0,
-        options,
-      ])).toThrow();
+  it("returns tagged failures for invalid constructor fields and options", () => {
+    const output = itemStack("iron_ingot", 1);
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, [" ", "furnace", "raw_iron", output, 200, 0]),
+      typeFailure("Cooking recipe id must be a resource location"),
+    );
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "campfire_bad", "raw_iron", output, 200, 0]),
+      typeFailure("Unknown cooking station: campfire_bad"),
+    );
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", null, output, 200, 0]),
+      typeFailure("Cooking recipe ingredient has an invalid shape"),
+    );
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", {}, 200, 0]),
+      typeFailure("Cooking recipe output must be an ItemStack"),
+    );
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 0, 0]),
+      rangeFailure("Cooking time must be a positive safe integer, received 0"),
+    );
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1.5, 0]),
+      rangeFailure("Cooking time must be a positive safe integer, received 1.5"),
+    );
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, -0.1]),
+      rangeFailure("Cooking experience must be a finite non-negative number, received -0.1"),
+    );
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, Number.POSITIVE_INFINITY]),
+      rangeFailure("Cooking experience must be a finite non-negative number, received Infinity"),
+    );
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, 0, null]),
+      typeFailure("Cooking recipe options must be an object"),
+    );
+    for (const [options, expected] of [
+      [{ category: "invalid" }, typeFailure("Cooking recipe category is invalid: invalid")],
+      [{ group: 1 }, typeFailure("Cooking recipe group must be a string")],
+      [{ priority: -1 }, rangeFailure("Cooking recipe priority must be a non-negative safe integer, received -1")],
+      [{ priority: 1.5 }, rangeFailure("Cooking recipe priority must be a non-negative safe integer, received 1.5")],
+      [{ showNotification: 1 }, typeFailure("Cooking recipe show notification must be a boolean")],
+    ] as const) {
+      expectFailure(
+        Reflect.apply(cookingRecipe, undefined, [
+          "minecraft:bad",
+          "furnace",
+          "raw_iron",
+          output,
+          1,
+          0,
+          options,
+        ]),
+        expected,
+      );
     }
   });
 
   it("guards cooking recipe identity, quantities, and metadata", () => {
-    const valid = cookingRecipe(
+    const valid = success(cookingRecipe(
       RecipeId("minecraft:valid"),
       "blast_furnace",
-      exactly("raw_iron"),
-      itemStack("iron_ingot", StackCount(1)),
+      success(exactly("raw_iron")),
+      itemStack("iron_ingot", 1),
       PositiveTickCount(100),
       RecipeExperience(0),
       { category: "building", group: RecipeGroup("ores"), showNotification: false },
-    );
+    ));
     expect(isCookingRecipe(valid)).toBe(true);
     expect(isCookingRecipe(null)).toBe(false);
     expect(isCookingRecipe([])).toBe(false);

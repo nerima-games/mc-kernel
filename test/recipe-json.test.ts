@@ -1,9 +1,8 @@
+import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { isAnyOfIngredient } from "../src/domain/recipe/recipe-data";
-import { itemStack } from "../src/domain/item/item-stack";
-import { StackCount } from "../src/domain/time/quantities";
-import { NamespacedResourceLocation } from "../src/domain/text/identifiers";
+import { itemStack as itemStackResult } from "../src/domain/item/item-stack";
 import {
   cookingRecipeFromUnknown,
   craftingBannerDuplicateRecipeFromUnknown,
@@ -26,14 +25,48 @@ import {
   stonecuttingRecipeFromUnknown,
   transmuteRecipeFromUnknown,
 } from "../src/domain/recipe/recipe-json";
+import type { RecipeFailure } from "../src/domain/recipe/recipe-error";
 
-const expectInvalidRecipe = (id: NamespacedResourceLocation, value: unknown): void => {
-  expect(() => craftingRecipeFromUnknown(id, value)).toThrow();
+const recipeSuccess = <A, E>(result: Result.Result<A, E>): A => {
+  expect(Result.isSuccess(result)).toBe(true);
+  if (Result.isSuccess(result)) return result.success;
+  throw new Error(`Expected recipe success, received ${JSON.stringify(result.failure)}`);
+};
+
+const itemStack = (item: Parameters<typeof itemStackResult>[0], count: number) =>
+  recipeSuccess(itemStackResult(item, count));
+
+const recipeFailure = (
+  result: Result.Result<unknown, RecipeFailure>,
+  tag?: RecipeFailure["_tag"],
+  expected?: RecipeFailure,
+): void => {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) {
+    if (tag !== undefined) expect(result.failure._tag).toBe(tag);
+    if (expected !== undefined) expect(result.failure).toEqual(expected);
+    const message = result.failure._tag === "RecipeItemFailure"
+      ? result.failure.failure._tag === "ItemValidationFailure"
+        ? result.failure.failure.message
+        : result.failure.failure.componentKey
+      : result.failure.message;
+    expect(message).toBeDefined();
+    if (typeof message === "string") expect(message).not.toBe("");
+    if (result.failure._tag === "RecipeTypeFailure") {
+      expect(result.failure.name).toBe("TypeError");
+    } else if (result.failure._tag === "RecipeRangeFailure") {
+      expect(result.failure.name).toBe("RangeError");
+    }
+  }
+};
+
+const expectInvalidRecipe = (id: string, value: unknown): void => {
+  recipeFailure(craftingRecipeFromUnknown(id, value));
 };
 
 describe("current Java crafting recipe JSON", () => {
-    it("decodes shaped recipes with canonical components and alternatives", () => {
-    const recipe = craftingRecipeFromUnknown(NamespacedResourceLocation("minecraft:iron_block"), {
+  it("decodes shaped recipes with canonical components and alternatives", () => {
+    const recipe = recipeSuccess(craftingRecipeFromUnknown("minecraft:iron_block", {
       type: "minecraft:crafting_shaped",
       category: "building",
       group: "iron",
@@ -49,7 +82,7 @@ describe("current Java crafting recipe JSON", () => {
           "minecraft:custom_name": { text: "Block" },
         },
       },
-    });
+    }));
 
     expect(recipe).toMatchObject({
       _tag: "Shaped",
@@ -112,7 +145,7 @@ describe("current Java crafting recipe JSON", () => {
   });
 
   it("decodes shapeless recipes with item tags and short results", () => {
-    const recipe = craftingRecipeFromUnknown(NamespacedResourceLocation("example:stick"), {
+    const recipe = recipeSuccess(craftingRecipeFromUnknown("example:stick", {
       type: "minecraft:crafting_shapeless",
       category: "misc",
       ingredients: [
@@ -121,7 +154,7 @@ describe("current Java crafting recipe JSON", () => {
         ["minecraft:gold_ingot", "minecraft:iron_ingot"],
       ],
       result: "minecraft:stick",
-    });
+    }));
 
     expect(recipe).toMatchObject({
       _tag: "Shapeless",
@@ -158,10 +191,10 @@ describe("current Java crafting recipe JSON", () => {
   });
 
   it("maps namespaced recipe ids to data-pack paths", () => {
-    expect(craftingRecipeDataPath(NamespacedResourceLocation("minecraft:iron_block"))).toBe(
+    expect(recipeSuccess(craftingRecipeDataPath("minecraft:iron_block"))).toBe(
       "data/minecraft/recipe/iron_block.json",
     );
-    expect(craftingRecipeDataPath(NamespacedResourceLocation("example:recipes/one"))).toBe(
+    expect(recipeSuccess(craftingRecipeDataPath("example:recipes/one"))).toBe(
       "data/example/recipe/recipes/one.json",
     );
   });
@@ -222,11 +255,25 @@ describe("current Java crafting recipe JSON", () => {
       ...shaped,
       result: { id: "minecraft:stick", count: "1" },
     });
-    expectInvalidRecipe(NamespacedResourceLocation("minecraft:bad"), {
-      ...shaped,
-      result: { id: "minecraft:stick", count: 0 },
-    });
-    expectInvalidRecipe(NamespacedResourceLocation("minecraft:bad"), {
+    recipeFailure(
+      craftingRecipeFromUnknown("minecraft:bad", {
+        ...shaped,
+        result: { id: "minecraft:stick", count: 0 },
+      }),
+      "RecipeItemFailure",
+      {
+        _tag: "RecipeItemFailure",
+        failure: {
+          _tag: "ItemValidationFailure",
+          kind: "RangeError",
+          reason: "out-of-range",
+          field: "count",
+          message: "Item stack count for stick must be an integer in [1, 64], received 0",
+          value: 0,
+        },
+      },
+    );
+    expectInvalidRecipe("minecraft:bad", {
       ...shaped,
       result: { id: "minecraft:custom_item" },
     });
@@ -234,16 +281,30 @@ describe("current Java crafting recipe JSON", () => {
       ...shaped,
       result: { id: "minecraft:stick", components: undefined },
     });
-    expectInvalidRecipe(NamespacedResourceLocation("minecraft:bad"), {
-      ...shaped,
-      result: {
-        id: "minecraft:stick",
-        components: { custom_name: "invalid" },
+    recipeFailure(
+      craftingRecipeFromUnknown("minecraft:bad", {
+        ...shaped,
+        result: {
+          id: "minecraft:stick",
+          components: { custom_name: "invalid" },
+        },
+      }),
+      "RecipeItemFailure",
+      {
+        _tag: "RecipeItemFailure",
+        failure: {
+          _tag: "ItemValidationFailure",
+          kind: "TypeError",
+          reason: "invalid-value",
+          field: "custom_name",
+          message: "Item component key must be namespaced: custom_name",
+          value: "custom_name",
+        },
       },
-    });
-    expectInvalidRecipe(NamespacedResourceLocation("minecraft:bad"), { ...shaped, category: "invalid" });
-    expectInvalidRecipe(NamespacedResourceLocation("minecraft:bad"), { ...shaped, group: 1 });
-    expectInvalidRecipe(NamespacedResourceLocation("minecraft:bad"), {
+    );
+    expectInvalidRecipe("minecraft:bad", { ...shaped, category: "invalid" });
+    expectInvalidRecipe("minecraft:bad", { ...shaped, group: 1 });
+    expectInvalidRecipe("minecraft:bad", {
       ...shaped,
       show_notification: "yes",
     });
@@ -281,7 +342,7 @@ describe("current Java portable recipe JSON", () => {
     ] as const;
 
     for (const [type, station] of recipes) {
-      const recipe = cookingRecipeFromUnknown(NamespacedResourceLocation(`minecraft:${station}`), {
+      const recipe = recipeSuccess(cookingRecipeFromUnknown(`minecraft:${station}`, {
         type,
         category: "misc",
         group: "ores",
@@ -290,7 +351,7 @@ describe("current Java portable recipe JSON", () => {
         result: { id: "minecraft:iron_ingot", count: 2 },
         experience: 0.7,
         cookingtime: 200,
-      });
+      }));
       expect(recipe).toMatchObject({
         _tag: "Cooking",
         station,
@@ -305,7 +366,7 @@ describe("current Java portable recipe JSON", () => {
   });
 
   it("decodes transmute ranges and portable dispatch", () => {
-    const recipe = transmuteRecipeFromUnknown(NamespacedResourceLocation("minecraft:transmute"), {
+    const recipe = recipeSuccess(transmuteRecipeFromUnknown("minecraft:transmute", {
       type: "minecraft:crafting_transmute",
       category: "equipment",
       group: "transmute",
@@ -315,7 +376,7 @@ describe("current Java portable recipe JSON", () => {
       result: { id: "minecraft:stick", count: 2 },
       material_count: { min: 2, max: 4 },
       add_material_count_to_result: true,
-    });
+    }));
 
     expect(recipe).toMatchObject({
       _tag: "Transmute",
@@ -326,18 +387,18 @@ describe("current Java portable recipe JSON", () => {
       addMaterialCountToResult: true,
     });
     expect(
-      portableRecipeFromUnknown(NamespacedResourceLocation("minecraft:transmute"), {
+      recipeSuccess(portableRecipeFromUnknown("minecraft:transmute", {
         type: "minecraft:crafting_transmute",
         source: "minecraft:stone",
         material: "minecraft:stick",
         result: "minecraft:torch",
-      }),
+      })),
     ).toMatchObject({ _tag: "Transmute", output: { count: 1 } });
   });
 
   it("decodes stonecutting documents with component-bearing results", () => {
-    const recipe = stonecuttingRecipeFromUnknown(
-      NamespacedResourceLocation("minecraft:stone_slab_from_stone"),
+    const recipe = recipeSuccess(stonecuttingRecipeFromUnknown(
+      "minecraft:stone_slab_from_stone",
       {
         type: "minecraft:stonecutting",
         ingredient: "minecraft:stone",
@@ -348,7 +409,7 @@ describe("current Java portable recipe JSON", () => {
         },
         show_notification: false,
       },
-    );
+    ));
 
     expect(recipe).toMatchObject({
       _tag: "Stonecutting",
@@ -362,11 +423,11 @@ describe("current Java portable recipe JSON", () => {
       showNotification: false,
     });
     expect(
-      portableRecipeFromUnknown(NamespacedResourceLocation("minecraft:stone_slab_from_stone"), {
+      recipeSuccess(portableRecipeFromUnknown("minecraft:stone_slab_from_stone", {
         type: "minecraft:stonecutting",
         ingredient: "#minecraft:stone_ore_replaceables",
         result: "minecraft:stone_slab",
-      }),
+      })),
     ).toMatchObject({
       _tag: "Stonecutting",
       ingredient: {
@@ -377,8 +438,8 @@ describe("current Java portable recipe JSON", () => {
   });
 
   it("decodes smithing transform and trim documents", () => {
-    const transform = smithingTransformRecipeFromUnknown(
-      NamespacedResourceLocation("minecraft:netherite_sword"),
+    const transform = recipeSuccess(smithingTransformRecipeFromUnknown(
+      "minecraft:netherite_sword",
       {
         type: "minecraft:smithing_transform",
         template: "minecraft:netherite_upgrade_smithing_template",
@@ -387,7 +448,7 @@ describe("current Java portable recipe JSON", () => {
         result: "minecraft:netherite_sword",
         show_notification: false,
       },
-    );
+    ));
     expect(transform).toMatchObject({
       _tag: "SmithingTransform",
       output: { item: "netherite_sword", count: 1 },
@@ -395,12 +456,12 @@ describe("current Java portable recipe JSON", () => {
       showNotification: false,
     });
 
-    const trim = smithingTrimRecipeFromUnknown(NamespacedResourceLocation("minecraft:coast_armor_trim"), {
+    const trim = recipeSuccess(smithingTrimRecipeFromUnknown("minecraft:coast_armor_trim", {
       type: "minecraft:smithing_trim",
       template: "#minecraft:trim_templates",
       base: "#minecraft:trimmable_armor",
       addition: "#minecraft:trim_materials",
-    });
+    }));
     expect(trim).toMatchObject({
       _tag: "SmithingTrim",
       template: { _tag: "ItemTag", tag: "#minecraft:trim_templates" },
@@ -409,133 +470,107 @@ describe("current Java portable recipe JSON", () => {
       tags: ["smithing_table"],
     });
     expect(
-      smithingRecipeFromUnknown(NamespacedResourceLocation("minecraft:coast_armor_trim"), {
+      recipeSuccess(smithingRecipeFromUnknown("minecraft:coast_armor_trim", {
         type: "minecraft:smithing_trim",
         template: "#minecraft:trim_templates",
         base: "#minecraft:trimmable_armor",
         addition: "#minecraft:trim_materials",
-      }),
+      })),
     ).toMatchObject({ _tag: "SmithingTrim" });
     expect(
-      portableRecipeFromUnknown(NamespacedResourceLocation("minecraft:netherite_sword"), {
+      recipeSuccess(portableRecipeFromUnknown("minecraft:netherite_sword", {
         type: "minecraft:smithing_transform",
         template: "minecraft:netherite_upgrade_smithing_template",
         base: "minecraft:diamond_sword",
         addition: "minecraft:netherite_ingot",
         result: "minecraft:netherite_sword",
-      }),
+      })),
     ).toMatchObject({ _tag: "SmithingTransform" });
   });
 
   it("maps generic recipe paths and rejects unsupported portable documents", () => {
-    expect(recipeDataPath(NamespacedResourceLocation("minecraft:iron_block"))).toBe(
+    expect(recipeSuccess(recipeDataPath("minecraft:iron_block"))).toBe(
       "data/minecraft/recipe/iron_block.json",
     );
-    expect(() =>
-      cookingRecipeFromUnknown(NamespacedResourceLocation("minecraft:bad"), {
+    recipeFailure(cookingRecipeFromUnknown("minecraft:bad", {
         type: "minecraft:unknown_cooking",
         ingredient: "minecraft:stone",
         result: "minecraft:stick",
         experience: 0,
         cookingtime: 1,
-      }),
-    ).toThrow();
-    expect(() =>
-      cookingRecipeFromUnknown(NamespacedResourceLocation("minecraft:bad"), {
+      }));
+    recipeFailure(cookingRecipeFromUnknown("minecraft:bad", {
         type: "minecraft:smelting",
         ingredient: "minecraft:stone",
         result: "minecraft:stick",
         experience: "0",
         cookingtime: 1,
-      }),
-    ).toThrow();
-    expect(() =>
-      cookingRecipeFromUnknown(NamespacedResourceLocation("minecraft:bad"), {
+      }), "RecipeTypeFailure");
+    recipeFailure(cookingRecipeFromUnknown("minecraft:bad", {
         type: "minecraft:smelting",
         ingredient: "minecraft:stone",
         result: "minecraft:stick",
         experience: 0,
         cookingtime: "1",
-      }),
-    ).toThrow();
-    expect(() =>
-      transmuteRecipeFromUnknown(NamespacedResourceLocation("minecraft:bad"), {
+      }), "RecipeTypeFailure");
+    recipeFailure(transmuteRecipeFromUnknown("minecraft:bad", {
         type: "minecraft:crafting_transmute",
         source: "minecraft:stone",
         material: "minecraft:stick",
         result: "minecraft:torch",
         material_count: { min: 2, max: 4, extra: true },
-      }),
-    ).toThrow();
-    expect(() =>
-      transmuteRecipeFromUnknown(NamespacedResourceLocation("minecraft:bad"), {
+      }), "RecipeTypeFailure");
+    recipeFailure(transmuteRecipeFromUnknown("minecraft:bad", {
         type: "minecraft:crafting_transmute",
         source: "minecraft:stone",
         material: "minecraft:stick",
         result: "minecraft:torch",
         material_count: { min: "2", max: 4 },
-      }),
-    ).toThrow();
-    expect(() =>
-      transmuteRecipeFromUnknown(NamespacedResourceLocation("minecraft:bad"), {
+      }), "RecipeTypeFailure");
+    recipeFailure(transmuteRecipeFromUnknown("minecraft:bad", {
         type: "minecraft:crafting_transmute",
         source: "minecraft:stone",
         material: "minecraft:stick",
         result: "minecraft:torch",
         material_count: { min: 1, max: 2 },
-      }),
-    ).toThrow();
-    expect(() =>
-      transmuteRecipeFromUnknown(NamespacedResourceLocation("minecraft:bad"), {
+      }), "RecipeRangeFailure");
+    recipeFailure(transmuteRecipeFromUnknown("minecraft:bad", {
         type: "minecraft:crafting_transmute",
         source: "minecraft:stone",
         material: "minecraft:stick",
         result: "minecraft:torch",
         add_material_count_to_result: "yes",
-      }),
-    ).toThrow();
-    expect(() =>
-      portableRecipeFromUnknown(NamespacedResourceLocation("minecraft:bad"), {
+      }), "RecipeTypeFailure");
+    recipeFailure(portableRecipeFromUnknown("minecraft:bad", {
         type: "minecraft:unsupported",
-      }),
-    ).toThrow();
-    expect(() =>
-      stonecuttingRecipeFromUnknown(NamespacedResourceLocation("minecraft:bad"), {
+      }), "RecipeTypeFailure");
+    recipeFailure(stonecuttingRecipeFromUnknown("minecraft:bad", {
         type: "minecraft:stonecutting",
         ingredient: "minecraft:stone",
         result: "minecraft:stick",
         group: "removed",
-      }),
-    ).toThrow();
-    expect(() =>
-      stonecuttingRecipeFromUnknown(NamespacedResourceLocation("minecraft:bad"), {
+      }), "RecipeTypeFailure");
+    recipeFailure(stonecuttingRecipeFromUnknown("minecraft:bad", {
         type: "minecraft:smelting",
         ingredient: "minecraft:stone",
         result: "minecraft:stick",
-      }),
-    ).toThrow();
-    expect(() =>
-      smithingTransformRecipeFromUnknown(NamespacedResourceLocation("minecraft:bad"), {
+      }), "RecipeTypeFailure");
+    recipeFailure(smithingTransformRecipeFromUnknown("minecraft:bad", {
         type: "minecraft:smithing_transform",
         template: "minecraft:stone",
         base: "minecraft:diamond_sword",
         addition: "minecraft:netherite_ingot",
-      }),
-    ).toThrow();
-    expect(() =>
-      smithingTrimRecipeFromUnknown(NamespacedResourceLocation("minecraft:bad"), {
+      }), "RecipeTypeFailure");
+    recipeFailure(smithingTrimRecipeFromUnknown("minecraft:bad", {
         type: "minecraft:smithing_trim",
         template: "minecraft:stone",
         base: "minecraft:diamond_sword",
         addition: "minecraft:netherite_ingot",
         result: "minecraft:diamond_sword",
-      }),
-    ).toThrow();
-    expect(() =>
-      smithingRecipeFromUnknown(NamespacedResourceLocation("minecraft:bad"), {
+      }), "RecipeTypeFailure");
+    recipeFailure(smithingRecipeFromUnknown("minecraft:bad", {
         type: "minecraft:crafting_shaped",
-      }),
-    ).toThrow();
+      }), "RecipeTypeFailure");
   });
 });
 
@@ -674,43 +709,28 @@ const SPECIAL_DOCUMENTS = [
 describe("current Java special recipe JSON", () => {
   for (const { name, decode, document, tag, required } of SPECIAL_DOCUMENTS) {
     it(`decodes and guards the ${name} document`, () => {
+      expect(recipeSuccess(decode("minecraft:test", document))).toMatchObject({ _tag: tag });
       expect(
-        decode(NamespacedResourceLocation("minecraft:test"), document),
-      ).toMatchObject({ _tag: tag });
-      expect(
-        decode(NamespacedResourceLocation("minecraft:test"), {
-          ...document,
-          show_notification: false,
-        }),
+        recipeSuccess(decode("minecraft:test", { ...document, show_notification: false })),
       ).toMatchObject({ _tag: tag, showNotification: false });
-      expect(portableRecipeFromUnknown(NamespacedResourceLocation("minecraft:test"), document)).toMatchObject(
+      expect(recipeSuccess(portableRecipeFromUnknown("minecraft:test", document))).toMatchObject(
         { _tag: tag },
       );
 
-      expect(() =>
-        decode(NamespacedResourceLocation("minecraft:test"), null),
-      ).toThrow(TypeError);
-      expect(() =>
-        decode(NamespacedResourceLocation("minecraft:test"), {
-          ...document,
-          type: "minecraft:nonsense",
-        }),
-      ).toThrow(TypeError);
-      expect(() =>
-        decode(NamespacedResourceLocation("minecraft:test"), {
-          ...document,
-          unexpected: true,
-        }),
-      ).toThrow(TypeError);
+      recipeFailure(decode("minecraft:test", null), "RecipeTypeFailure");
+      recipeFailure(
+        decode("minecraft:test", { ...document, type: "minecraft:nonsense" }),
+        "RecipeTypeFailure",
+      );
+      recipeFailure(
+        decode("minecraft:test", { ...document, unexpected: true }),
+        "RecipeTypeFailure",
+      );
       const withoutRequired = Object.fromEntries(
         Object.entries(document).filter(([key]) => key !== required),
       );
-      expect(() =>
-        decode(NamespacedResourceLocation("minecraft:test"), withoutRequired),
-      ).toThrow(TypeError);
-      expect(() =>
-        Reflect.apply(decode, undefined, ["not-namespaced", document]),
-      ).toThrow(TypeError);
+      recipeFailure(decode("minecraft:test", withoutRequired), "RecipeTypeFailure");
+      recipeFailure(decode("not-namespaced", document), "RecipeTypeFailure");
     });
   }
 
@@ -725,14 +745,14 @@ describe("current Java special recipe JSON", () => {
       result: "minecraft:leather",
     };
     expect(
-      craftingDyeRecipeFromUnknown(NamespacedResourceLocation("minecraft:test"), withOptions),
+      recipeSuccess(craftingDyeRecipeFromUnknown("minecraft:test", withOptions)),
     ).toMatchObject({
       category: "equipment",
       group: "leather_dyeing",
       showNotification: false,
     });
     expect(
-      craftingImbueRecipeFromUnknown(NamespacedResourceLocation("minecraft:test"), {
+      recipeSuccess(craftingImbueRecipeFromUnknown("minecraft:test", {
         type: "minecraft:crafting_imbue",
         category: "misc",
         group: "imbuing",
@@ -740,7 +760,7 @@ describe("current Java special recipe JSON", () => {
         source: "minecraft:arrow",
         material: "minecraft:glass_bottle",
         result: "minecraft:arrow",
-      }),
+      })),
     ).toMatchObject({
       category: "misc",
       group: "imbuing",
@@ -755,51 +775,43 @@ describe("current Java special recipe JSON", () => {
       smithingRecipeFromUnknown,
       portableRecipeFromUnknown,
     ]) {
-      expect(() =>
-        decode(NamespacedResourceLocation("minecraft:test"), null),
-      ).toThrow(TypeError);
-      expect(() =>
-        decode(NamespacedResourceLocation("minecraft:test"), { type: 1 }),
-      ).toThrow(TypeError);
+      recipeFailure(decode("minecraft:test", null), "RecipeTypeFailure");
+      recipeFailure(decode("minecraft:test", { type: 1 }), "RecipeTypeFailure");
     }
-    expect(() =>
-      smithingTransformRecipeFromUnknown(NamespacedResourceLocation("minecraft:test"), null),
-    ).toThrow(TypeError);
-    expect(() => smithingTrimRecipeFromUnknown(NamespacedResourceLocation("minecraft:test"), null)).toThrow(
-      TypeError,
+    recipeFailure(
+      smithingTransformRecipeFromUnknown("minecraft:test", null),
+      "RecipeTypeFailure",
+    );
+    recipeFailure(
+      smithingTrimRecipeFromUnknown("minecraft:test", null),
+      "RecipeTypeFailure",
     );
 
     // A well-formed envelope with the wrong contents fails on the key check,
     // which is a separate rejection from the type check above.
-    expect(() =>
-      cookingRecipeFromUnknown(NamespacedResourceLocation("minecraft:test"), {
+    recipeFailure(cookingRecipeFromUnknown("minecraft:test", {
         type: "minecraft:smelting",
         ingredient: "minecraft:iron_ore",
         result: "minecraft:iron_ingot",
-      }),
-    ).toThrow(TypeError);
-    expect(() =>
-      transmuteRecipeFromUnknown(NamespacedResourceLocation("minecraft:test"), {
+      }), "RecipeTypeFailure");
+    recipeFailure(transmuteRecipeFromUnknown("minecraft:test", {
         type: "minecraft:crafting_transmute",
         source: "minecraft:iron_block",
-      }),
-    ).toThrow(TypeError);
-    expect(() =>
-      transmuteRecipeFromUnknown(NamespacedResourceLocation("minecraft:test"), {
+      }), "RecipeTypeFailure");
+    recipeFailure(transmuteRecipeFromUnknown("minecraft:test", {
         type: "minecraft:crafting_shaped",
-      }),
-    ).toThrow(TypeError);
+      }), "RecipeTypeFailure");
   });
 
   it("reads the ranges the book cloning and star documents carry", () => {
     expect(
-      craftingBookCloningRecipeFromUnknown(NamespacedResourceLocation("minecraft:test"), {
+      recipeSuccess(craftingBookCloningRecipeFromUnknown("minecraft:test", {
         type: "minecraft:crafting_special_bookcloning",
         source: "minecraft:written_book",
         material: "minecraft:paper",
         allowed_generations: { min: 0, max: 2 },
         result: "minecraft:written_book",
-      }).allowedGenerations,
+      })).allowedGenerations,
     ).toEqual([0, 2]);
     for (const allowed_generations of [
       null,
@@ -811,20 +823,35 @@ describe("current Java special recipe JSON", () => {
       { min: 0, max: 3 },
       { min: 2, max: 1 },
     ]) {
-      expect(() =>
-        craftingBookCloningRecipeFromUnknown(NamespacedResourceLocation("minecraft:test"), {
+      let failureTag: RecipeFailure["_tag"] = "RecipeTypeFailure";
+      if (
+        typeof allowed_generations === "object" &&
+        allowed_generations !== null &&
+        !Array.isArray(allowed_generations) &&
+        Object.keys(allowed_generations).length === 2 &&
+        "min" in allowed_generations &&
+        "max" in allowed_generations &&
+        typeof allowed_generations.min === "number" &&
+        Number.isSafeInteger(allowed_generations.min) &&
+        typeof allowed_generations.max === "number" &&
+        Number.isSafeInteger(allowed_generations.max)
+      ) {
+        failureTag = "RecipeRangeFailure";
+      }
+      recipeFailure(
+        craftingBookCloningRecipeFromUnknown("minecraft:test", {
           type: "minecraft:crafting_special_bookcloning",
           source: "minecraft:written_book",
           material: "minecraft:paper",
           allowed_generations,
           result: "minecraft:written_book",
         }),
-      ).toThrow();
+        failureTag,
+      );
     }
 
     for (const shapes of [null, { spiral: "minecraft:fire_charge" }]) {
-      expect(() =>
-        craftingFireworkStarRecipeFromUnknown(NamespacedResourceLocation("minecraft:test"), {
+      recipeFailure(craftingFireworkStarRecipeFromUnknown("minecraft:test", {
           type: "minecraft:crafting_special_firework_star",
           trail: "minecraft:diamond",
           twinkle: "minecraft:glowstone_dust",
@@ -832,8 +859,7 @@ describe("current Java special recipe JSON", () => {
           dye: "minecraft:red_dye",
           shapes,
           result: "minecraft:firework_star",
-        }),
-      ).toThrow(TypeError);
+        }), "RecipeTypeFailure");
     }
   });
 });

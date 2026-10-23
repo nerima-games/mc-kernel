@@ -1,12 +1,13 @@
+import { Brand, Result } from "effect";
 import {
   isItemStack,
   itemStack,
+  maxStackCountForItem,
   maxStackCountForStack,
   type ItemStack,
 } from "../item/item-stack.js";
-import { Brand } from "effect";
+import { isItemType, type ItemType } from "../item/item-type.js";
 import { StackCount } from "../time/quantities.js";
-import { type ItemType } from "../item/item-type.js";
 import {
   craftingIngredient,
   isCraftingIngredient,
@@ -21,6 +22,24 @@ import {
   type RecipeId as RecipeIdValue,
   type RecipePriority as RecipePriorityValue,
 } from "./recipe-data.js";
+import {
+  recipeRangeFailure,
+  recipeItemFailure,
+  recipeTypeFailure,
+  type RecipeFailure,
+} from "./recipe-error.js";
+
+const recipeTypeFailureValue = (message: string): RecipeFailure => ({
+  _tag: "RecipeTypeFailure",
+  name: "TypeError",
+  message,
+});
+
+const recipeRangeFailureValue = (message: string): RecipeFailure => ({
+  _tag: "RecipeRangeFailure",
+  name: "RangeError",
+  message,
+});
 
 export const TRANSMUTE_MAX_MATERIAL_SLOTS = 8;
 
@@ -89,12 +108,15 @@ const isRecipeCategory = (value: unknown): value is RecipeCategory =>
   value === "misc" ||
   value === "redstone";
 
-const assertRecipeId = (id: unknown): RecipeIdValue => {
-  if (typeof id !== "string" || !RecipeId.is(id)) {
-    throw new TypeError("Transmute recipe id must be a resource location");
-  }
-  return RecipeId(id);
-};
+const assertRecipeId = (
+  id: unknown,
+): Result.Result<RecipeId, RecipeFailure> =>
+  typeof id === "string"
+    ? Result.mapError(
+        RecipeId.result(id),
+        () => recipeTypeFailureValue("Transmute recipe id must be a resource location"),
+      )
+    : recipeTypeFailure("Transmute recipe id must be a resource location");
 
 const isInteger = (value: unknown): value is number =>
   typeof value === "number" && Number.isSafeInteger(value);
@@ -121,138 +143,171 @@ export const isTransmuteMaterialCount = (
   return value.min === 1 ? value.max === 1 : value.min >= 2;
 };
 
-const assertMaterialCount = (value: unknown): TransmuteMaterialCount => {
+const assertMaterialCount = (
+  value: unknown,
+): Result.Result<TransmuteMaterialCount, RecipeFailure> => {
   if (!isTransmuteMaterialCount(value)) {
-    throw new RangeError(
+    return recipeRangeFailure(
       `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}], received ${String(value)}`,
     );
   }
-  return {
-    min: TransmuteMaterialSlotCount(value.min),
-    max: TransmuteMaterialSlotCount(value.max),
-  };
+  return Result.gen(function* () {
+    const min = yield* Result.mapError(
+      TransmuteMaterialSlotCount.result(value.min),
+      () => recipeRangeFailureValue(
+        `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}], received ${String(value)}`,
+      ),
+    );
+    const max = yield* Result.mapError(
+      TransmuteMaterialSlotCount.result(value.max),
+      () => recipeRangeFailureValue(
+        `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}], received ${String(value)}`,
+      ),
+    );
+    return { min, max };
+  });
 };
 
-const assertIngredient = (ingredient: unknown): CraftingIngredient => {
+const assertIngredient = (
+  ingredient: unknown,
+): Result.Result<CraftingIngredient, RecipeFailure> => {
   if (!isCraftingIngredientInput(ingredient)) {
-    throw new TypeError("Transmute ingredient has an invalid shape");
+    return recipeTypeFailure("Transmute ingredient has an invalid shape");
   }
   return craftingIngredient(ingredient);
 };
 
-const assertOutput = (output: unknown): ItemStack => {
-  if (!isItemStack(output)) {
-    throw new TypeError("Transmute output must be an ItemStack");
-  }
-  return output;
-};
+const assertOutput = (
+  output: unknown,
+): Result.Result<ItemStack, RecipeFailure> =>
+  isItemStack(output)
+    ? Result.succeed(output)
+    : recipeTypeFailure("Transmute output must be an ItemStack");
 
-const assertCategory = (value: unknown): RecipeCategory | undefined => {
+const assertCategory = (
+  value: unknown,
+): Result.Result<RecipeCategory | undefined, RecipeFailure> => {
   if (value !== undefined && !isRecipeCategory(value)) {
-    throw new TypeError(`Transmute recipe category is invalid: ${String(value)}`);
+    return recipeTypeFailure(`Transmute recipe category is invalid: ${String(value)}`);
   }
-  return value;
+  return Result.succeed(value);
 };
 
-const assertGroup = (value: unknown): RecipeGroupValue | undefined => {
+const assertGroup = (
+  value: unknown,
+): Result.Result<RecipeGroupValue | undefined, RecipeFailure> => {
   if (value !== undefined && typeof value !== "string") {
-    throw new TypeError("Transmute recipe group must be a string");
+    return recipeTypeFailure("Transmute recipe group must be a string");
   }
-  return value === undefined ? undefined : RecipeGroup(value);
+  return value === undefined
+    ? Result.succeed(undefined)
+    : Result.mapError(
+        RecipeGroup.result(value),
+        () => recipeTypeFailureValue("Transmute recipe group must be a string"),
+      );
 };
 
-const assertPriority = (value: unknown): RecipePriorityValue => {
+const assertPriority = (
+  value: unknown,
+): Result.Result<RecipePriorityValue, RecipeFailure> => {
   const priority = value ?? 0;
   if (!isInteger(priority) || priority < 0) {
-    throw new RangeError(
+    return recipeRangeFailure(
       `Transmute recipe priority must be a non-negative safe integer, received ${String(priority)}`,
     );
   }
-  return RecipePriority(priority);
+  return Result.mapError(
+    RecipePriority.result(priority),
+    () => recipeRangeFailureValue(
+      `Transmute recipe priority must be a non-negative safe integer, received ${String(value)}`,
+    ),
+  );
 };
 
-const assertShowNotification = (value: unknown): boolean | undefined => {
+const assertShowNotification = (
+  value: unknown,
+): Result.Result<boolean | undefined, RecipeFailure> => {
   if (value !== undefined && typeof value !== "boolean") {
-    throw new TypeError("Transmute recipe show notification must be a boolean");
+    return recipeTypeFailure("Transmute recipe show notification must be a boolean");
   }
-  return value;
+  return Result.succeed(value);
 };
 
-const assertResultCountFlag = (value: unknown): boolean => {
+const assertResultCountFlag = (
+  value: unknown,
+): Result.Result<boolean, RecipeFailure> => {
   const flag = value ?? false;
   if (typeof flag !== "boolean") {
-    throw new TypeError("Transmute result count option must be a boolean");
+    return recipeTypeFailure("Transmute result count option must be a boolean");
   }
-  return flag;
+  return Result.succeed(flag);
 };
 
 const normalizeOptions = (
   options: unknown,
-): Required<
-  Pick<
-    TransmuteRecipe,
-    "addMaterialCountToResult" | "materialCount" | "priority"
-  >
-> &
-  Pick<TransmuteRecipe, "category" | "group" | "showNotification"> => {
-  if (options !== undefined && !isRecord(options)) {
-    throw new TypeError("Transmute recipe options must be an object");
-  }
-  const record = options;
-  const category = assertCategory(record?.category);
-  const group = assertGroup(record?.group);
-  const priority = assertPriority(record?.priority);
-  const showNotification = assertShowNotification(record?.showNotification);
-  const addMaterialCountToResult = assertResultCountFlag(
-    record?.addMaterialCountToResult,
-  );
-  const materialCount = assertMaterialCount(
-    record?.materialCount ?? { min: 1, max: 1 },
-  );
-  return {
-    ...(category === undefined ? {} : { category }),
-    ...(group === undefined ? {} : { group }),
-    ...(showNotification === undefined ? {} : { showNotification }),
-    addMaterialCountToResult,
-    materialCount,
-    priority,
-  };
-};
-
-export function transmuteRecipe(
-  id: RecipeIdValue,
-  source: CraftingIngredientInput,
-  material: CraftingIngredientInput,
-  output: ItemStack,
-  options?: TransmuteRecipeOptions,
-): TransmuteRecipe;
-export function transmuteRecipe(
-  id: RecipeIdValue,
-  source: CraftingIngredientInput,
-  material: CraftingIngredientInput,
-  output: ItemStack,
-  options?: TransmuteRecipeOptions,
-): TransmuteRecipe {
-  const normalizedOptions = normalizeOptions(options);
-  const normalizedOutput = assertOutput(output);
-  if (
-    normalizedOptions.addMaterialCountToResult &&
-    normalizedOutput.count + normalizedOptions.materialCount.max >
-      maxStackCountForStack(normalizedOutput)
-  ) {
-    throw new RangeError(
-      "Transmute output cannot contain the configured material count",
+): Result.Result<
+  Required<
+    Pick<
+      TransmuteRecipe,
+      "addMaterialCountToResult" | "materialCount" | "priority"
+    >
+  > &
+    Pick<TransmuteRecipe, "category" | "group" | "showNotification">,
+  RecipeFailure
+> =>
+  Result.gen(function* () {
+    if (options !== undefined && !isRecord(options)) {
+      return yield* recipeTypeFailure("Transmute recipe options must be an object");
+    }
+    const record = options;
+    const category = yield* assertCategory(record?.category);
+    const group = yield* assertGroup(record?.group);
+    const priority = yield* assertPriority(record?.priority);
+    const showNotification = yield* assertShowNotification(record?.showNotification);
+    const addMaterialCountToResult = yield* assertResultCountFlag(
+      record?.addMaterialCountToResult,
     );
-  }
-  return {
-    _tag: "Transmute",
-    id: assertRecipeId(id),
-    source: assertIngredient(source),
-    material: assertIngredient(material),
-    output: normalizedOutput,
-    ...normalizedOptions,
-  };
-}
+    const materialCount = yield* assertMaterialCount(
+      record?.materialCount ?? { min: 1, max: 1 },
+    );
+    return {
+      ...(category === undefined ? {} : { category }),
+      ...(group === undefined ? {} : { group }),
+      ...(showNotification === undefined ? {} : { showNotification }),
+      addMaterialCountToResult,
+      materialCount,
+      priority,
+    };
+  });
+
+export const transmuteRecipe = (
+  id: RecipeId,
+  source: CraftingIngredientInput,
+  material: CraftingIngredientInput,
+  output: ItemStack,
+  options?: TransmuteRecipeOptions,
+): Result.Result<TransmuteRecipe, RecipeFailure> =>
+  Result.gen(function* () {
+    const normalizedOptions = yield* normalizeOptions(options);
+    const normalizedOutput = yield* assertOutput(output);
+    if (
+      normalizedOptions.addMaterialCountToResult &&
+      normalizedOutput.count + normalizedOptions.materialCount.max >
+        maxStackCountForStack(normalizedOutput)
+    ) {
+      return yield* recipeRangeFailure(
+        "Transmute output cannot contain the configured material count",
+      );
+    }
+    return {
+      _tag: "Transmute",
+      id: yield* assertRecipeId(id),
+      source: yield* assertIngredient(source),
+      material: yield* assertIngredient(material),
+      output: normalizedOutput,
+      ...normalizedOptions,
+    };
+  });
 
 export const isTransmuteRecipe = (value: unknown): value is TransmuteRecipe => {
   if (!isRecord(value)) {
@@ -284,5 +339,31 @@ export const transmuteRecipeForItem = (
   output: ItemType,
   count: StackCount,
   options?: TransmuteRecipeOptions,
-): TransmuteRecipe =>
-  transmuteRecipe(id, source, material, itemStack(output, count), options);
+): Result.Result<TransmuteRecipe, RecipeFailure> =>
+  Result.gen(function* () {
+    if (!isItemType(output)) {
+      return yield* recipeTypeFailure(`Unknown item type: ${String(output)}`);
+    }
+    if (count > maxStackCountForItem(output)) {
+      return yield* recipeRangeFailure(
+        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${String(count)}`,
+      );
+    }
+    const brandedCount = yield* Result.mapError(
+      StackCount.result(count),
+      () => recipeRangeFailureValue(
+        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${String(count)}`,
+      ),
+    );
+    const outputStack = yield* Result.mapError(
+      itemStack(output, brandedCount),
+      recipeItemFailure,
+    );
+    return yield* transmuteRecipe(
+      id,
+      source,
+      material,
+      outputStack,
+      options,
+    );
+  });

@@ -1,3 +1,4 @@
+import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 import {
   CRAFTING_SPECIAL_STATION_TAG,
@@ -21,26 +22,51 @@ import {
   isCraftingShieldDecorationRecipe,
   isCraftingSpecialRecipe,
 } from "../src/domain/recipe/crafting-special-data";
-import { itemStack } from "../src/domain/item/item-stack";
-import { StackCount } from "../src/domain/time/quantities";
-import { ResourceLocation } from "../src/domain/text/identifiers";
+import { itemStack as itemStackResult } from "../src/domain/item/item-stack";
 import { BookGeneration } from "../src/domain/item/item-primitives";
-import { RecipeGroup, RecipePriority, exactly } from "../src/domain/recipe/recipe-data";
+import { ResourceLocation } from "../src/domain/text/identifiers";
+import {
+  RecipeGroup,
+  RecipePriority,
+  exactly as exactlyResult,
+} from "../src/domain/recipe/recipe-data";
+import { StackCount } from "../src/domain/time/quantities";
+import type { RecipeFailure } from "../src/domain/recipe/recipe-error";
 
-const dyeRecipe = craftingDyeRecipe(
+const recipeSuccess = <A, E>(result: Result.Result<A, E>): A => {
+  expect(Result.isSuccess(result)).toBe(true);
+  if (Result.isSuccess(result)) return result.success;
+  throw new Error(`Expected recipe success, received ${JSON.stringify(result.failure)}`);
+};
+
+const itemStack = (item: Parameters<typeof itemStackResult>[0], count: number) =>
+  recipeSuccess(itemStackResult(item, recipeSuccess(StackCount.result(count))));
+
+const recipeFailure = (
+  result: Result.Result<unknown, RecipeFailure>,
+  tag: RecipeFailure["_tag"],
+): void => {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) expect(result.failure._tag).toBe(tag);
+};
+
+const exactly = (...args: Parameters<typeof exactlyResult>) =>
+  recipeSuccess(exactlyResult(...args));
+
+const dyeRecipe = recipeSuccess(craftingDyeRecipe(
   ResourceLocation("minecraft:leather_dye"),
   exactly("leather"),
   exactly("redstone_dust"),
-  itemStack("leather", StackCount(1)),
-  { priority: RecipePriority(1) },
-);
+  itemStack("leather", 1),
+  { priority: 1 },
+));
 
-const imbueRecipe = craftingImbueRecipe(
+const imbueRecipe = recipeSuccess(craftingImbueRecipe(
   ResourceLocation("minecraft:arrow_imbue"),
   exactly("arrow"),
   exactly("glass_bottle"),
-  itemStack("arrow", StackCount(1)),
-);
+  itemStack("arrow", 1),
+));
 
 describe("crafting special recipe data", () => {
   it("validates special recipe constructors and guards", () => {
@@ -89,15 +115,16 @@ describe("crafting special recipe data", () => {
       expect(isCraftingSpecialRecipe(value)).toBe(false);
     }
 
-    expect(() =>
+    recipeFailure(
       Reflect.apply(craftingDyeRecipe, undefined, [
         "",
         exactly("leather"),
         exactly("redstone_dust"),
         itemStack("leather", StackCount(1)),
       ]),
-    ).toThrow(TypeError);
-    expect(() =>
+      "RecipeTypeFailure",
+    );
+    recipeFailure(
       Reflect.apply(craftingDyeRecipe, undefined, [
         "minecraft:bad",
         exactly("leather"),
@@ -105,16 +132,17 @@ describe("crafting special recipe data", () => {
         itemStack("leather", StackCount(1)),
         null,
       ]),
-    ).toThrow(TypeError);
-    for (const options of [
-      { category: "invalid" },
-      { group: 1 },
-      { priority: -1 },
-      { showNotification: 1 },
-      { tags: null },
-      { tags: [""] },
-    ]) {
-      expect(() =>
+      "RecipeTypeFailure",
+    );
+    for (const [options, tag] of [
+      [{ category: "invalid" }, "RecipeTypeFailure"],
+      [{ group: 1 }, "RecipeTypeFailure"],
+      [{ priority: -1 }, "RecipeRangeFailure"],
+      [{ showNotification: 1 }, "RecipeTypeFailure"],
+      [{ tags: null }, "RecipeTypeFailure"],
+      [{ tags: [""] }, "RecipeTypeFailure"],
+    ] as const) {
+      recipeFailure(
         Reflect.apply(craftingDyeRecipe, undefined, [
           "minecraft:bad",
           exactly("leather"),
@@ -122,9 +150,10 @@ describe("crafting special recipe data", () => {
           itemStack("leather", StackCount(1)),
           options,
         ]),
-      ).toThrow();
+        tag,
+      );
     }
-    expect(() =>
+    recipeFailure(
       Reflect.apply(craftingImbueRecipe, undefined, [
         "minecraft:bad",
         exactly("arrow"),
@@ -132,11 +161,12 @@ describe("crafting special recipe data", () => {
         itemStack("arrow", StackCount(1)),
         { tags: "crafting_table" },
       ]),
-    ).toThrow(TypeError);
+      "RecipeTypeFailure",
+    );
   });
 
   it("normalizes recipe metadata from either argument shape", () => {
-    const fromId = craftingDyeRecipe(
+    const fromId = recipeSuccess(craftingDyeRecipe(
       ResourceLocation("minecraft:described_dye"),
       exactly("leather"),
       exactly("redstone_dust"),
@@ -147,8 +177,8 @@ describe("crafting special recipe data", () => {
         priority: RecipePriority(3),
         showNotification: false,
       },
-    );
-    const fromOptions = craftingDyeRecipe(
+    ));
+    const fromOptions = recipeSuccess(craftingDyeRecipe(
       {
         id: ResourceLocation("minecraft:described_dye"),
         category: "misc",
@@ -158,8 +188,8 @@ describe("crafting special recipe data", () => {
       },
       exactly("leather"),
       exactly("redstone_dust"),
-      itemStack("leather", StackCount(1)),
-    );
+      itemStack("leather", 1),
+    ));
     expect(fromOptions).toEqual(fromId);
     expect(fromId).toMatchObject({
       category: "misc",
@@ -168,42 +198,43 @@ describe("crafting special recipe data", () => {
       showNotification: false,
     });
 
-    const imbueFromOptions = craftingImbueRecipe(
+    const imbueFromOptions = recipeSuccess(craftingImbueRecipe(
       {
         id: ResourceLocation("minecraft:described_imbue"),
         group: RecipeGroup("imbuing"),
       },
       exactly("arrow"),
       exactly("glass_bottle"),
-      itemStack("arrow", StackCount(1)),
-    );
+      itemStack("arrow", 1),
+    ));
     expect(imbueFromOptions.group).toBe("imbuing");
 
-    expect(() =>
+    recipeFailure(
       Reflect.apply(craftingDyeRecipe, undefined, [
         ResourceLocation("minecraft:bad"),
         exactly("leather"),
         exactly("redstone_dust"),
         {},
       ]),
-    ).toThrow(TypeError);
+      "RecipeTypeFailure",
+    );
 
     expect(
-      craftingBookCloningRecipe(
+      recipeSuccess(craftingBookCloningRecipe(
         ResourceLocation("minecraft:default_generations"),
         exactly("written_book"),
         exactly("paper"),
-        itemStack("written_book", StackCount(1)),
-      ).allowedGenerations,
+        itemStack("written_book", 1),
+      )).allowedGenerations,
     ).toEqual([0, 1]);
     expect(
-      craftingBookCloningRecipe(
+      recipeSuccess(craftingBookCloningRecipe(
         ResourceLocation("minecraft:max_generations"),
         exactly("written_book"),
         exactly("paper"),
         itemStack("written_book", StackCount(1)),
         [BookGeneration(2), BookGeneration(2)],
-      ).allowedGenerations,
+      )).allowedGenerations,
     ).toEqual([2, 2]);
     for (const generations of [
       [0],
@@ -214,7 +245,7 @@ describe("crafting special recipe data", () => {
       [0, 4],
       [2, 1],
     ]) {
-      expect(() =>
+      recipeFailure(
         Reflect.apply(craftingBookCloningRecipe, undefined, [
           ResourceLocation("minecraft:bad_generations"),
           exactly("written_book"),
@@ -222,10 +253,11 @@ describe("crafting special recipe data", () => {
           itemStack("written_book", StackCount(1)),
           generations,
         ]),
-      ).toThrow(RangeError);
+        "RecipeRangeFailure",
+      );
     }
 
-    expect(() =>
+    recipeFailure(
       Reflect.apply(craftingFireworkStarRecipe, undefined, [
         ResourceLocation("minecraft:bad_shape"),
         exactly("diamond"),
@@ -235,17 +267,18 @@ describe("crafting special recipe data", () => {
         { spiral: exactly("fire_charge") },
         itemStack("firework_star", StackCount(1)),
       ]),
-    ).toThrow(TypeError);
+      "RecipeTypeFailure",
+    );
   });
 
   it("rejects recipe records whose shape fields are the wrong kind", () => {
-    const cloning = craftingBookCloningRecipe(
+    const cloning = recipeSuccess(craftingBookCloningRecipe(
       ResourceLocation("minecraft:guarded_cloning"),
       exactly("written_book"),
       exactly("paper"),
-      itemStack("written_book", StackCount(1)),
+      itemStack("written_book", 1),
       [BookGeneration(0), BookGeneration(1)],
-    );
+    ));
     expect(isCraftingSpecialRecipe(cloning)).toBe(true);
     for (const allowedGenerations of [
       "0,1",
@@ -262,15 +295,15 @@ describe("crafting special recipe data", () => {
       ).toBe(false);
     }
 
-    const star = craftingFireworkStarRecipe(
+    const star = recipeSuccess(craftingFireworkStarRecipe(
       ResourceLocation("minecraft:guarded_star"),
       exactly("diamond"),
       exactly("glowstone_dust"),
       exactly("gunpowder"),
       exactly("red_dye"),
       { star: exactly("fire_charge") },
-      itemStack("firework_star", StackCount(1)),
-    );
+      itemStack("firework_star", 1),
+    ));
     expect(isCraftingSpecialRecipe(star)).toBe(true);
     for (const shapes of [
       null,
@@ -282,44 +315,44 @@ describe("crafting special recipe data", () => {
   });
 
   it("guards retained specialized recipe records", () => {
-    const bannerDuplicate = craftingBannerDuplicateRecipe(
+    const bannerDuplicate = recipeSuccess(craftingBannerDuplicateRecipe(
       ResourceLocation("minecraft:banner_duplicate"),
       exactly("white_banner"),
-      itemStack("white_banner", StackCount(1)),
-    );
-    const decoratedPot = craftingDecoratedPotRecipe(
+      itemStack("white_banner", 1),
+    ));
+    const decoratedPot = recipeSuccess(craftingDecoratedPotRecipe(
       ResourceLocation("minecraft:decorated_pot"),
       exactly("brick"),
       exactly("brick"),
       exactly("brick"),
       exactly("brick"),
-      itemStack("decorated_pot", StackCount(1)),
-    );
-    const fireworkRocket = craftingFireworkRocketRecipe(
+      itemStack("decorated_pot", 1),
+    ));
+    const fireworkRocket = recipeSuccess(craftingFireworkRocketRecipe(
       ResourceLocation("minecraft:firework_rocket"),
       exactly("paper"),
       exactly("gunpowder"),
       exactly("firework_star"),
-      itemStack("firework_rocket", StackCount(1)),
-    );
-    const fireworkStarFade = craftingFireworkStarFadeRecipe(
+      itemStack("firework_rocket", 1),
+    ));
+    const fireworkStarFade = recipeSuccess(craftingFireworkStarFadeRecipe(
       ResourceLocation("minecraft:firework_star_fade"),
       exactly("firework_star"),
       exactly("red_dye"),
-      itemStack("firework_star", StackCount(1)),
-    );
-    const mapExtending = craftingMapExtendingRecipe(
+      itemStack("firework_star", 1),
+    ));
+    const mapExtending = recipeSuccess(craftingMapExtendingRecipe(
       ResourceLocation("minecraft:map_extending"),
       exactly("filled_map"),
       exactly("paper"),
-      itemStack("filled_map", StackCount(1)),
-    );
-    const shieldDecoration = craftingShieldDecorationRecipe(
+      itemStack("filled_map", 1),
+    ));
+    const shieldDecoration = recipeSuccess(craftingShieldDecorationRecipe(
       ResourceLocation("minecraft:shield_decoration"),
       exactly("white_banner"),
       exactly("shield"),
-      itemStack("shield", StackCount(1)),
-    );
+      itemStack("shield", 1),
+    ));
 
     expect(isCraftingBannerDuplicateRecipe(bannerDuplicate)).toBe(true);
     expect(isCraftingDecoratedPotRecipe(decoratedPot)).toBe(true);

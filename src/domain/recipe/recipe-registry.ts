@@ -1,11 +1,19 @@
+import { Result } from "effect";
 import {
   dataPackLayer,
   dataPackLayerFromUnknownWithId,
   dataPackResourcePath,
   selectDataPackRegistry,
 } from "../world/data-pack-registry.js";
-import type { DataPackFormat, DataPackLayer, DataPackLayerOptions, DataPackResourcePath } from "../world/data-pack-registry.js";
+import type {
+  DataPackFormat,
+  DataPackLayer,
+  DataPackLayerOptions,
+  DataPackRegistryFailure,
+  DataPackResourcePath,
+} from "../world/data-pack-registry.js";
 import { NamespacedResourceLocation } from "../text/identifiers.js";
+import type { RecipeFailure } from "./recipe-error.js";
 import {
   portableRecipeFromUnknown,
   type PortableRecipe,
@@ -19,20 +27,25 @@ export type RecipeDataPackLayerOptions = DataPackLayerOptions<unknown>;
 
 export const recipeDataPackLayer = (
   options: RecipeDataPackLayerOptions,
-): RecipeDataPackLayer =>
-  dataPackLayer({
-    pack: options.pack,
-    format: options.format,
-    priority: options.priority,
-    entries: options.entries.map((entry) => ({
-      id: entry.id,
-      value: portableRecipeFromUnknown(entry.id, entry.value),
-    })),
+): Result.Result<RecipeDataPackLayer, DataPackRegistryFailure | RecipeFailure> =>
+  Result.gen(function* () {
+    const entries = yield* Result.all(options.entries.map((entry) =>
+      Result.map(portableRecipeFromUnknown(entry.id, entry.value), (value) => ({
+        id: entry.id,
+        value,
+      })),
+    ))
+    return yield* dataPackLayer({
+      pack: options.pack,
+      format: options.format,
+      priority: options.priority,
+      entries,
+    })
   });
 
 export const recipeDataPackLayerFromUnknown = (
   value: unknown,
-): RecipeDataPackLayer =>
+): Result.Result<RecipeDataPackLayer, DataPackRegistryFailure | RecipeFailure> =>
   dataPackLayerFromUnknownWithId(value, portableRecipeFromUnknown);
 
 export const selectRecipes = (

@@ -1,9 +1,35 @@
+import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { itemStack } from "../src/domain/item/item-stack";
-import { StackCount } from "../src/domain/time/quantities";
+import { itemStack as itemStackResult } from "../src/domain/item/item-stack";
+import {
+  TransmuteMaterialSlotCount,
+  transmuteRecipe,
+  transmuteRecipeForItem,
+  isTransmuteMaterialCount,
+  isTransmuteRecipe,
+  TRANSMUTE_MAX_MATERIAL_SLOTS,
+} from "../src/domain/recipe/transmute-data";
 import { RecipeGroup, RecipeId, RecipePriority } from "../src/domain/recipe/recipe-data";
-import { transmuteRecipe, transmuteRecipeForItem, isTransmuteMaterialCount, isTransmuteRecipe, TRANSMUTE_MAX_MATERIAL_SLOTS, TransmuteMaterialSlotCount } from "../src/domain/recipe/transmute-data";
+import { StackCount } from "../src/domain/time/quantities";
+import type { RecipeFailure } from "../src/domain/recipe/recipe-error";
+
+const recipeSuccess = <A, E>(result: Result.Result<A, E>): A => {
+  expect(Result.isSuccess(result)).toBe(true);
+  if (Result.isSuccess(result)) return result.success;
+  throw new Error(`Expected recipe success, received ${JSON.stringify(result.failure)}`);
+};
+
+const itemStack = (item: Parameters<typeof itemStackResult>[0], count: number) =>
+  recipeSuccess(itemStackResult(item, recipeSuccess(StackCount.result(count))));
+
+const recipeFailure = (
+  result: Result.Result<unknown, RecipeFailure>,
+  tag: RecipeFailure["_tag"],
+): void => {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) expect(result.failure._tag).toBe(tag);
+};
 
 describe("transmute recipe data", () => {
   it("validates material ranges and constructs recipes", () => {
@@ -23,7 +49,7 @@ describe("transmute recipe data", () => {
       expect(isTransmuteMaterialCount(value)).toBe(false);
     }
 
-    const recipe = transmuteRecipe(
+    const recipe = recipeSuccess(transmuteRecipe(
       RecipeId("minecraft:convert_stone"),
       "stone",
       "dirt",
@@ -39,7 +65,7 @@ describe("transmute recipe data", () => {
         priority: RecipePriority(3),
         showNotification: false,
       },
-    );
+    ));
     expect(recipe).toMatchObject({
       _tag: "Transmute",
       source: { _tag: "Exact", item: "stone", count: 1 },
@@ -53,45 +79,45 @@ describe("transmute recipe data", () => {
       showNotification: false,
     });
     expect(isTransmuteRecipe(recipe)).toBe(true);
-    expect(transmuteRecipeForItem(
+    expect(recipeSuccess(transmuteRecipeForItem(
       RecipeId("minecraft:convert_gravel"),
       "stone",
       "dirt",
       "gravel",
       StackCount(2),
-    ).output).toEqual(itemStack("gravel", StackCount(2)));
+    ))).output).toEqual(itemStack("gravel", 2));
   });
 
   it("rejects invalid constructor fields and unsafe result counts", () => {
-    const output = itemStack("sand", StackCount(1));
-    expect(() => Reflect.apply(transmuteRecipe, undefined, [" ", "stone", "dirt", output])).toThrow(TypeError);
-    expect(() => Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", null, "dirt", output])).toThrow(TypeError);
-    expect(() => Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", "stone", null, output])).toThrow(TypeError);
-    expect(() => Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", "stone", "dirt", {}])).toThrow(TypeError);
-    expect(() => Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", "stone", "dirt", output, null])).toThrow(TypeError);
+    const output = itemStack("sand", 1);
+    recipeFailure(Reflect.apply(transmuteRecipe, undefined, [" ", "stone", "dirt", output]), "RecipeTypeFailure");
+    recipeFailure(Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", null, "dirt", output]), "RecipeTypeFailure");
+    recipeFailure(Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", "stone", null, output]), "RecipeTypeFailure");
+    recipeFailure(Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", "stone", "dirt", {}]), "RecipeTypeFailure");
+    recipeFailure(Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", "stone", "dirt", output, null]), "RecipeTypeFailure");
 
-    for (const options of [
-      { category: "invalid" },
-      { group: 1 },
-      { priority: -1 },
-      { priority: 1.5 },
-      { showNotification: 1 },
-      { addMaterialCountToResult: 1 },
-      { materialCount: { min: 1, max: 2 } },
-    ]) {
-      expect(() => Reflect.apply(transmuteRecipe, undefined, [
+    for (const [options, tag] of [
+      [{ category: "invalid" }, "RecipeTypeFailure"],
+      [{ group: 1 }, "RecipeTypeFailure"],
+      [{ priority: -1 }, "RecipeRangeFailure"],
+      [{ priority: 1.5 }, "RecipeRangeFailure"],
+      [{ showNotification: 1 }, "RecipeTypeFailure"],
+      [{ addMaterialCountToResult: 1 }, "RecipeTypeFailure"],
+      [{ materialCount: { min: 1, max: 2 } }, "RecipeRangeFailure"],
+    ] as const) {
+      recipeFailure(Reflect.apply(transmuteRecipe, undefined, [
         "minecraft:bad_options",
         "stone",
         "dirt",
         output,
         options,
-      ])).toThrow();
+      ]), tag);
     }
-    expect(() => transmuteRecipe(
+    recipeFailure(transmuteRecipe(
       RecipeId("minecraft:overflow"),
       "stone",
       "dirt",
-      itemStack("diamond_sword", StackCount(1)),
+      itemStack("diamond_sword", 1),
       {
         addMaterialCountToResult: true,
         materialCount: {
@@ -99,17 +125,22 @@ describe("transmute recipe data", () => {
           max: TransmuteMaterialSlotCount(2),
         },
       },
-    )).toThrow(RangeError);
+    ), "RecipeRangeFailure");
   });
 
   it("guards recipe records and rejects invalid metadata", () => {
-    const valid = transmuteRecipe(
+    const valid = recipeSuccess(transmuteRecipe(
       RecipeId("minecraft:guarded"),
       "stone",
       "dirt",
-      itemStack("sand", StackCount(1)),
-      { category: "misc", group: RecipeGroup("test"), priority: RecipePriority(1), showNotification: true },
-    );
+      itemStack("sand", 1),
+      {
+        category: "misc",
+        group: RecipeGroup("test"),
+        priority: RecipePriority(1),
+        showNotification: true,
+      },
+    ));
     expect(isTransmuteRecipe(valid)).toBe(true);
     expect(isTransmuteRecipe(null)).toBe(false);
     expect(isTransmuteRecipe([])).toBe(false);

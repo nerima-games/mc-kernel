@@ -1,4 +1,4 @@
-import { Brand } from "effect";
+import { Brand, Result } from "effect";
 import {
   isItemStack,
   itemStack,
@@ -13,6 +13,12 @@ import {
   type ResourceLocation as ResourceLocationValue,
 } from "../text/identifiers.js";
 import { VANILLA_ITEM_TAG_MEMBERSHIPS } from "../world/tag-membership.js";
+import {
+  recipeRangeFailure,
+  recipeItemFailure,
+  recipeTypeFailure,
+  type RecipeFailure,
+} from "./recipe-error.js";
 
 export const MAX_RECIPE_SIDE = 3;
 
@@ -233,20 +239,40 @@ const isIngredientCount = (
 ): count is RecipeIngredientCount =>
   typeof count === "number" && RecipeIngredientCount.is(count);
 
-const assertRecipeId = (id: unknown): RecipeId => {
-  if (typeof id !== "string" || !ResourceLocation.is(id)) {
-    throw new TypeError("Recipe id must be a resource location");
+const recipeTypeFailureValue = (message: string): RecipeFailure => ({
+  _tag: "RecipeTypeFailure",
+  name: "TypeError",
+  message,
+});
+
+const recipeRangeFailureValue = (message: string): RecipeFailure => ({
+  _tag: "RecipeRangeFailure",
+  name: "RangeError",
+  message,
+});
+
+const assertRecipeId = (id: unknown): Result.Result<RecipeId, RecipeFailure> => {
+  if (typeof id !== "string") {
+    return recipeTypeFailure("Recipe id must be a resource location");
   }
-  return RecipeId(id);
+  return Result.mapError(RecipeId.result(id), () =>
+    recipeTypeFailureValue("Recipe id must be a resource location"),
+  );
 };
 
-const assertPositiveCount = (count: unknown): RecipeIngredientCount => {
-  if (!isIngredientCount(count)) {
-    throw new RangeError(
+const assertPositiveCount = (
+  count: unknown,
+): Result.Result<RecipeIngredientCount, RecipeFailure> => {
+  if (typeof count !== "number") {
+    return recipeRangeFailure(
       `Ingredient count must be a safe integer in [1, 64], received ${count}`,
     );
   }
-  return RecipeIngredientCount(count);
+  return Result.mapError(RecipeIngredientCount.result(count), () =>
+    recipeRangeFailureValue(
+      `Ingredient count must be a safe integer in [1, 64], received ${count}`,
+    ),
+  );
 };
 
 export const isRecipeItemTag = (tag: unknown): tag is RecipeItemTag =>
@@ -291,61 +317,91 @@ export const isCraftingIngredientInput = (
     ? value.length > 0 && value.every(isIngredientInput)
     : isAnyOfIngredient(value) || isIngredientInput(value);
 
-const assertRecipeItemTag = (tag: unknown): RecipeItemTag => {
-  if (!isRecipeItemTag(tag)) {
-    throw new TypeError(
+const assertRecipeItemTag = (
+  tag: unknown,
+): Result.Result<RecipeItemTag, RecipeFailure> => {
+  if (typeof tag !== "string") {
+    return recipeTypeFailure(
       `Recipe item tag must start with # and contain a name, received ${String(tag)}`,
     );
   }
-  return tag;
+  return Result.mapError(TagLocation.result(tag), () =>
+    recipeTypeFailureValue(
+      `Recipe item tag must start with # and contain a name, received ${String(tag)}`,
+    ),
+  );
 };
 
-const assertStationTag = (tag: unknown): RecipeStationTag => {
-  if (typeof tag !== "string" || !ResourceLocation.is(tag)) {
-    throw new TypeError("Recipe station tags must be resource locations");
+const assertStationTag = (
+  tag: unknown,
+): Result.Result<RecipeStationTag, RecipeFailure> => {
+  if (typeof tag !== "string") {
+    return recipeTypeFailure("Recipe station tags must be resource locations");
   }
-  return RecipeStationTag(tag);
+  return Result.mapError(RecipeStationTag.result(tag), () =>
+    recipeTypeFailureValue("Recipe station tags must be resource locations"),
+  );
 };
+
+const exactlyFromUnknown = (
+  item: unknown,
+  count: unknown = 1,
+): Result.Result<ExactIngredient, RecipeFailure> =>
+  Result.gen(function* () {
+    if (!isItemType(item)) {
+      return yield* recipeTypeFailure(
+        `Unknown exact ingredient item: ${String(item)}`,
+      );
+    }
+    return { _tag: "Exact", count: yield* assertPositiveCount(count), item };
+  });
 
 export function exactly(
   item: ItemType,
   count?: RecipeIngredientCount,
-): ExactIngredient;
+): Result.Result<ExactIngredient, RecipeFailure>;
 export function exactly(
   item: ItemType,
   count: RecipeIngredientCount = RecipeIngredientCount(1),
-): ExactIngredient {
-  if (!isItemType(item)) {
-    throw new TypeError(`Unknown exact ingredient item: ${String(item)}`);
-  }
-  return { _tag: "Exact", count: assertPositiveCount(count), item };
+): Result.Result<ExactIngredient, RecipeFailure> {
+  return exactlyFromUnknown(item, count);
 }
+
+const taggedFromUnknown = (
+  tag: unknown,
+  count: unknown = 1,
+): Result.Result<ItemTagIngredient, RecipeFailure> =>
+  Result.gen(function* () {
+    return {
+      _tag: "ItemTag",
+      count: yield* assertPositiveCount(count),
+      tag: yield* assertRecipeItemTag(tag),
+    };
+  });
 
 export function tagged(
   tag: RecipeItemTag,
   count?: RecipeIngredientCount,
-): ItemTagIngredient;
+): Result.Result<ItemTagIngredient, RecipeFailure>;
 export function tagged(
   tag: RecipeItemTag,
   count: RecipeIngredientCount = RecipeIngredientCount(1),
-): ItemTagIngredient {
-  return {
-    _tag: "ItemTag",
-    count: assertPositiveCount(count),
-    tag: assertRecipeItemTag(tag),
-  };
+): Result.Result<ItemTagIngredient, RecipeFailure> {
+  return taggedFromUnknown(tag, count);
 }
 
-const normalizeIngredient = (value: unknown): Ingredient => {
+const normalizeIngredient = (
+  value: unknown,
+): Result.Result<Ingredient, RecipeFailure> => {
   if (typeof value === "string") {
     if (isItemType(value)) {
-      return exactly(value);
+      return exactlyFromUnknown(value);
     }
-    return tagged(assertRecipeItemTag(value));
+    return taggedFromUnknown(value);
   }
 
   if (!isRecord(value)) {
-    throw new TypeError(
+    return recipeTypeFailure(
       "Recipe ingredient must be an item type, item tag, or ingredient object",
     );
   }
@@ -356,44 +412,52 @@ const normalizeIngredient = (value: unknown): Ingredient => {
     isItemType(candidate.item) &&
     typeof candidate.count === "number"
   ) {
-    return exactly(candidate.item, assertPositiveCount(candidate.count));
+    return exactlyFromUnknown(candidate.item, candidate.count);
   }
   if (
     candidate._tag === "ItemTag" &&
     typeof candidate.tag === "string" &&
     typeof candidate.count === "number"
   ) {
-    return tagged(
-      assertRecipeItemTag(candidate.tag),
-      assertPositiveCount(candidate.count),
+    return Result.flatMap(assertRecipeItemTag(candidate.tag), (tag) =>
+      taggedFromUnknown(tag, candidate.count),
     );
   }
-  throw new TypeError("Recipe ingredient object has an invalid shape");
+  return recipeTypeFailure("Recipe ingredient object has an invalid shape");
+};
+
+const anyOfFromUnknown = (
+  options: unknown,
+  count: unknown = 1,
+): Result.Result<AnyOfIngredient, RecipeFailure> => {
+  if (!Array.isArray(options) || options.length === 0) {
+    return recipeRangeFailure(
+      "Alternative ingredient lists must contain at least one ingredient",
+    );
+  }
+  return Result.gen(function* () {
+    const normalizedCount = yield* assertPositiveCount(count);
+    const normalizedOptions = yield* Result.all(options.map(normalizeIngredient));
+    return { _tag: "AnyOf", count: normalizedCount, options: normalizedOptions };
+  });
 };
 
 export function anyOf(
   options: ReadonlyArray<IngredientInput>,
   count?: RecipeIngredientCount,
-): AnyOfIngredient;
+): Result.Result<AnyOfIngredient, RecipeFailure>;
 export function anyOf(
   options: ReadonlyArray<IngredientInput>,
   count: RecipeIngredientCount = RecipeIngredientCount(1),
-): AnyOfIngredient {
-  if (!Array.isArray(options) || options.length === 0) {
-    throw new RangeError(
-      "Alternative ingredient lists must contain at least one ingredient",
-    );
-  }
-  return {
-    _tag: "AnyOf",
-    count: assertPositiveCount(count),
-    options: options.map(normalizeIngredient),
-  };
+): Result.Result<AnyOfIngredient, RecipeFailure> {
+  return anyOfFromUnknown(options, count);
 }
 
-const normalizeCraftingIngredient = (value: unknown): CraftingIngredient => {
+const normalizeCraftingIngredient = (
+  value: unknown,
+): Result.Result<CraftingIngredient, RecipeFailure> => {
   if (Array.isArray(value)) {
-    return anyOf(value);
+    return anyOfFromUnknown(value);
   }
   if (
     isRecord(value) &&
@@ -401,29 +465,32 @@ const normalizeCraftingIngredient = (value: unknown): CraftingIngredient => {
     Array.isArray(value.options) &&
     typeof value.count === "number"
   ) {
-    return anyOf(value.options, assertPositiveCount(value.count));
+    return anyOfFromUnknown(value.options, value.count);
   }
   return normalizeIngredient(value);
 };
 
-export function craftingIngredient(
-  value: CraftingIngredientInput,
-): CraftingIngredient;
-export function craftingIngredient(value: CraftingIngredientInput): CraftingIngredient {
+export const craftingIngredient = (
+  value: unknown,
+): Result.Result<CraftingIngredient, RecipeFailure> => {
   return normalizeCraftingIngredient(value);
-}
-
-const normalizeOptionsRecord = (options: unknown): RecordValue | undefined => {
-  if (options === undefined) {
-    return undefined;
-  }
-  if (!isRecord(options)) {
-    throw new TypeError("Recipe options must be an object");
-  }
-  return options;
 };
 
-const normalizeCategory = (category: unknown): RecipeCategory | undefined => {
+const normalizeOptionsRecord = (
+  options: unknown,
+): Result.Result<RecordValue | undefined, RecipeFailure> => {
+  if (options === undefined) {
+    return Result.succeed(undefined);
+  }
+  if (!isRecord(options)) {
+    return recipeTypeFailure("Recipe options must be an object");
+  }
+  return Result.succeed(options);
+};
+
+const normalizeCategory = (
+  category: unknown,
+): Result.Result<RecipeCategory | undefined, RecipeFailure> => {
   if (
     category !== undefined &&
     category !== "building" &&
@@ -431,142 +498,411 @@ const normalizeCategory = (category: unknown): RecipeCategory | undefined => {
     category !== "misc" &&
     category !== "redstone"
   ) {
-    throw new TypeError(
+    return recipeTypeFailure(
       `Recipe category is invalid, received ${String(category)}`,
     );
   }
-  return category;
+  return Result.succeed(category);
 };
 
-const normalizeGroup = (group: unknown): RecipeGroup | undefined => {
-  if (group !== undefined && typeof group !== "string") {
-    throw new TypeError("Recipe group must be a string");
+const normalizeGroup = (
+  group: unknown,
+): Result.Result<RecipeGroup | undefined, RecipeFailure> => {
+  if (group === undefined) {
+    return Result.succeed(undefined);
   }
-  return group === undefined ? undefined : RecipeGroup(group);
+  if (typeof group !== "string") {
+    return recipeTypeFailure("Recipe group must be a string");
+  }
+  return Result.mapError(RecipeGroup.result(group), () =>
+    recipeTypeFailureValue("Recipe group must be a string"),
+  );
 };
 
 const normalizeShowNotification = (
   showNotification: unknown,
-): boolean | undefined => {
+): Result.Result<boolean | undefined, RecipeFailure> => {
   if (showNotification !== undefined && typeof showNotification !== "boolean") {
-    throw new TypeError("Recipe show notification must be a boolean");
+    return recipeTypeFailure("Recipe show notification must be a boolean");
   }
-  return showNotification;
+  return Result.succeed(showNotification);
 };
 
 const normalizeOptions = (
   options: unknown,
-): Pick<
-  ShapedRecipe,
-  | "assumeSymmetry"
-  | "category"
-  | "group"
-  | "priority"
-  | "showNotification"
-  | "tags"
-> => {
-  const record = normalizeOptionsRecord(options);
-  const assumeSymmetry = record?.assumeSymmetry ?? false;
-  if (typeof assumeSymmetry !== "boolean") {
-    throw new TypeError("Recipe symmetry must be a boolean");
-  }
-  const priority = record?.priority ?? 0;
-  if (
-    typeof priority !== "number" ||
-    !Number.isSafeInteger(priority) ||
-    priority < 0
-  ) {
-    throw new RangeError(
-      `Recipe priority must be a non-negative safe integer, received ${priority}`,
-    );
-  }
-  const rawTags = record?.tags ?? [];
-  if (!Array.isArray(rawTags)) {
-    throw new TypeError("Recipe station tags must be an array");
-  }
-  const tags = rawTags.map(assertStationTag);
-  const category = normalizeCategory(record?.category);
-  const group = normalizeGroup(record?.group);
-  const showNotification = normalizeShowNotification(record?.showNotification);
-  return {
-    assumeSymmetry,
-    ...(category === undefined ? {} : { category }),
-    ...(group === undefined ? {} : { group }),
-    priority: RecipePriority(priority),
-    ...(showNotification === undefined ? {} : { showNotification }),
-    tags,
-  };
-};
-
-const normalizePatternRows = (rows: unknown, key: unknown): RecipePattern => {
-  if (
-    !Array.isArray(rows) ||
-    rows.length < 1 ||
-    rows.length > MAX_RECIPE_SIDE
-  ) {
-    throw new RangeError(
-      `Shaped recipe rows must contain 1 to ${MAX_RECIPE_SIDE} rows`,
-    );
-  }
-  if (!isRecord(key)) {
-    throw new TypeError("Shaped recipe key must be an object");
-  }
-  const typedRows = rows.map((row: unknown) => {
-    if (typeof row !== "string" || row.length > MAX_RECIPE_SIDE) {
-      throw new RangeError(
-        `Shaped recipe rows must be strings no wider than ${MAX_RECIPE_SIDE} characters`,
+): Result.Result<
+  Pick<
+    ShapedRecipe,
+    | "assumeSymmetry"
+    | "category"
+    | "group"
+    | "priority"
+    | "showNotification"
+    | "tags"
+  >,
+  RecipeFailure
+> =>
+  Result.gen(function* () {
+    const record = yield* normalizeOptionsRecord(options);
+    const assumeSymmetry = record?.assumeSymmetry ?? false;
+    if (typeof assumeSymmetry !== "boolean") {
+      return yield* recipeTypeFailure("Recipe symmetry must be a boolean");
+    }
+    const priority = record?.priority ?? 0;
+    if (typeof priority !== "number") {
+      return yield* recipeRangeFailure(
+        `Recipe priority must be a non-negative safe integer, received ${priority}`,
       );
     }
-    return RecipePatternRow(row);
+    const normalizedPriority = yield* Result.mapError(
+      RecipePriority.result(priority),
+      () =>
+        recipeRangeFailureValue(
+          `Recipe priority must be a non-negative safe integer, received ${priority}`,
+        ),
+    );
+    const rawTags = record?.tags ?? [];
+    if (!Array.isArray(rawTags)) {
+      return yield* recipeTypeFailure("Recipe station tags must be an array");
+    }
+    const tags = yield* Result.all(rawTags.map(assertStationTag));
+    const category = yield* normalizeCategory(record?.category);
+    const group = yield* normalizeGroup(record?.group);
+    const showNotification = yield* normalizeShowNotification(
+      record?.showNotification,
+    );
+    return {
+      assumeSymmetry,
+      ...(category === undefined ? {} : { category }),
+      ...(group === undefined ? {} : { group }),
+      priority: normalizedPriority,
+      ...(showNotification === undefined ? {} : { showNotification }),
+      tags,
+    };
   });
 
-  const ingredients = new Map<RecipePatternSymbol, CraftingIngredient>();
-  for (const [character, ingredient] of Object.entries(key)) {
-    if (character.length !== 1 || character === " ") {
-      throw new TypeError(
-        "Shaped recipe keys must use one non-space character",
+const normalizePatternRows = (
+  rows: unknown,
+  key: unknown,
+): Result.Result<RecipePattern, RecipeFailure> =>
+  Result.gen(function* () {
+    if (
+      !Array.isArray(rows) ||
+      rows.length < 1 ||
+      rows.length > MAX_RECIPE_SIDE
+    ) {
+      return yield* recipeRangeFailure(
+        `Shaped recipe rows must contain 1 to ${MAX_RECIPE_SIDE} rows`,
       );
     }
-    ingredients.set(
-      RecipePatternSymbol(character),
-      normalizeCraftingIngredient(ingredient),
+    if (!isRecord(key)) {
+      return yield* recipeTypeFailure("Shaped recipe key must be an object");
+    }
+    const typedRows = yield* Result.all(
+      rows.map((row: unknown) =>
+        typeof row !== "string"
+          ? recipeRangeFailure(
+              `Shaped recipe rows must be strings no wider than ${MAX_RECIPE_SIDE} characters`,
+            )
+          : Result.mapError(RecipePatternRow.result(row), () =>
+              recipeRangeFailureValue(
+                `Shaped recipe rows must be strings no wider than ${MAX_RECIPE_SIDE} characters`,
+              ),
+            ),
+      ),
     );
-  }
 
-  const rawWidth = Math.max(...typedRows.map((row) => row.length));
-  const rawCells: Array<PatternCell> = [];
-  for (const row of typedRows) {
-    for (let x = 0; x < rawWidth; x += 1) {
-      const character = row[x];
-      if (character === undefined || character === " ") {
-        rawCells.push(undefined);
-        continue;
-      }
-      const ingredient = ingredients.get(RecipePatternSymbol(character));
-      if (ingredient === undefined) {
-        throw new TypeError(
-          `Shaped recipe pattern references unknown key: ${character}`,
+    const ingredients = new Map<RecipePatternSymbol, CraftingIngredient>();
+    for (const [character, ingredient] of Object.entries(key)) {
+      if (character.length !== 1 || character === " ") {
+        return yield* recipeTypeFailure(
+          "Shaped recipe keys must use one non-space character",
         );
       }
-      rawCells.push(ingredient);
+      const symbol = yield* Result.mapError(
+        RecipePatternSymbol.result(character),
+        () =>
+          recipeTypeFailureValue(
+            "Shaped recipe keys must use one non-space character",
+          ),
+      );
+      ingredients.set(
+        symbol,
+        yield* normalizeCraftingIngredient(ingredient),
+      );
+    }
+
+    const rawWidth = Math.max(...typedRows.map((row) => row.length));
+    const rawCells: Array<PatternCell> = [];
+    for (const row of typedRows) {
+      for (let x = 0; x < rawWidth; x += 1) {
+        const character = row[x];
+        if (character === undefined || character === " ") {
+          rawCells.push(undefined);
+          continue;
+        }
+        const symbol = yield* Result.mapError(
+          RecipePatternSymbol.result(character),
+          () =>
+            recipeTypeFailureValue(
+              `Shaped recipe pattern references unknown key: ${character}`,
+            ),
+        );
+        const ingredient = ingredients.get(symbol);
+        if (ingredient === undefined) {
+          return yield* recipeTypeFailure(
+            `Shaped recipe pattern references unknown key: ${character}`,
+          );
+        }
+        rawCells.push(ingredient);
+      }
+    }
+
+    const occupiedCoordinates = rawCells.flatMap((cell, index) =>
+      cell === undefined
+        ? []
+        : [{ x: index % rawWidth, y: Math.floor(index / rawWidth) }],
+    );
+    if (occupiedCoordinates.length === 0) {
+      return yield* recipeRangeFailure(
+        "Shaped recipe pattern must contain at least one ingredient",
+      );
+    }
+
+    const minX = Math.min(...occupiedCoordinates.map(({ x }) => x));
+    const maxX = Math.max(...occupiedCoordinates.map(({ x }) => x));
+    const minY = Math.min(...occupiedCoordinates.map(({ y }) => y));
+    const maxY = Math.max(...occupiedCoordinates.map(({ y }) => y));
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+    const cells = Array.from({ length: width * height }, (_, index) => {
+      const x = minX + (index % width);
+      const y = minY + Math.floor(index / width);
+      return rawCells[y * rawWidth + x];
+    });
+
+    const patternWidth = yield* Result.mapError(
+      RecipeGridDimension.result(width),
+      () => recipeRangeFailureValue(`Recipe pattern width is invalid: ${width}`),
+    );
+    const patternHeight = yield* Result.mapError(
+      RecipeGridDimension.result(height),
+      () => recipeRangeFailureValue(`Recipe pattern height is invalid: ${height}`),
+    );
+    return { width: patternWidth, height: patternHeight, cells };
+  });
+
+export const ingredientMatches = (
+  ingredient: CraftingIngredient,
+  item: ItemType,
+  itemTags: ItemTagMemberships = VANILLA_ITEM_TAG_MEMBERSHIPS,
+): Result.Result<boolean, RecipeFailure> =>
+  Result.map(normalizeCraftingIngredient(ingredient), (normalized) => {
+    const matches = (candidate: CraftingIngredient): boolean => {
+      if (candidate._tag === "AnyOf") {
+        return candidate.options.some(matches);
+      }
+      if (candidate._tag === "Exact") {
+        return candidate.item === item;
+      }
+      return itemTags.get(candidate.tag)?.has(item) ?? false;
+    };
+    return matches(normalized);
+  });
+
+export function shapedRecipe(
+  id: RecipeId,
+  rows: ReadonlyArray<RecipePatternRow>,
+  key: RecipePatternKeyMap,
+  output: ItemStack,
+  options?: RecipeOptions,
+): Result.Result<ShapedRecipe, RecipeFailure>;
+export function shapedRecipe(
+  id: RecipeId,
+  rows: ReadonlyArray<RecipePatternRow>,
+  key: RecipePatternKeyMap,
+  output: ItemStack,
+  options?: RecipeOptions,
+): Result.Result<ShapedRecipe, RecipeFailure> {
+  return Result.gen(function* () {
+    const recipeId = yield* assertRecipeId(id);
+    if (!isItemStack(output)) {
+      return yield* recipeTypeFailure(
+        "Recipe output must be a valid non-empty item stack",
+      );
+    }
+    const pattern = yield* normalizePatternRows(rows, key);
+    const normalizedOptions = yield* normalizeOptions(options);
+    return {
+      _tag: "Shaped",
+      id: recipeId,
+      output,
+      pattern,
+      ...normalizedOptions,
+    };
+  });
+}
+
+export function shapelessRecipe(
+  id: RecipeId,
+  ingredients: ReadonlyArray<CraftingIngredientInput>,
+  output: ItemStack,
+  options?: RecipeOptions,
+): Result.Result<ShapelessRecipe, RecipeFailure>;
+export function shapelessRecipe(
+  id: RecipeId,
+  ingredients: ReadonlyArray<CraftingIngredientInput>,
+  output: ItemStack,
+  options?: RecipeOptions,
+): Result.Result<ShapelessRecipe, RecipeFailure> {
+  return Result.gen(function* () {
+    const recipeId = yield* assertRecipeId(id);
+    if (!Array.isArray(ingredients) || ingredients.length === 0) {
+      return yield* recipeRangeFailure(
+        "Shapeless recipes must contain at least one ingredient",
+      );
+    }
+    if (!isItemStack(output)) {
+      return yield* recipeTypeFailure(
+        "Recipe output must be a valid non-empty item stack",
+      );
+    }
+    const normalizedIngredients = yield* Result.all(
+      ingredients.map(normalizeCraftingIngredient),
+    );
+    const normalizedOptions = yield* normalizeOptions(options);
+    return {
+      _tag: "Shapeless",
+      id: recipeId,
+      ingredients: normalizedIngredients,
+      output,
+      ...normalizedOptions,
+    };
+  });
+}
+
+const normalizeGridItem = (
+  value: unknown,
+): Result.Result<Slot, RecipeFailure> => {
+  if (value === undefined) {
+    return Result.succeed(undefined);
+  }
+  if (isItemStack(value)) {
+    return Result.succeed(value);
+  }
+  if (isItemType(value)) {
+    return Result.mapError(itemStack(value, 1), recipeItemFailure);
+  }
+  return recipeTypeFailure(
+    "Craft grid cells must be item types, valid item stacks, or undefined",
+  );
+};
+
+export const craftGrid = (
+  width: RecipeGridDimension,
+  height: RecipeGridDimension,
+  items: ReadonlyArray<CraftGridInput>,
+): Result.Result<CraftGrid, RecipeFailure> =>
+  Result.gen(function* () {
+    if (!Array.isArray(items)) {
+      return yield* recipeRangeFailure(
+        "Craft grid contains more cells than its dimensions allow",
+      );
+    }
+    const validatedWidth = yield* Result.mapError(
+      RecipeGridDimension.result(width),
+      () =>
+        recipeRangeFailureValue(
+          `Craft grid dimensions must be safe integers in [0, ${MAX_RECIPE_SIDE}]`,
+        ),
+    );
+    const validatedHeight = yield* Result.mapError(
+      RecipeGridDimension.result(height),
+      () =>
+        recipeRangeFailureValue(
+          `Craft grid dimensions must be safe integers in [0, ${MAX_RECIPE_SIDE}]`,
+        ),
+    );
+    if (items.length > validatedWidth * validatedHeight) {
+      return yield* recipeRangeFailure(
+        "Craft grid contains more cells than its dimensions allow",
+      );
+    }
+    const inputItems: ReadonlyArray<unknown> = items;
+    const cells = yield* Result.all(
+      Array.from({ length: validatedWidth * validatedHeight }, (_, index) =>
+        normalizeGridItem(inputItems[index]),
+      ),
+    );
+    return { width: validatedWidth, height: validatedHeight, cells };
+  });
+
+const staticIngredient = (value: IngredientInput): Ingredient => {
+  if (typeof value !== "string") {
+    return value;
+  }
+  return isRecipeItemTag(value)
+    ? { _tag: "ItemTag", tag: value, count: RecipeIngredientCount(1) }
+    : { _tag: "Exact", item: value, count: RecipeIngredientCount(1) };
+};
+
+const staticCraftingIngredient = (
+  value: CraftingIngredientInput,
+): CraftingIngredient => {
+  if (Array.isArray(value)) {
+    return {
+      _tag: "AnyOf",
+      options: value.map(staticIngredient),
+      count: RecipeIngredientCount(1),
+    };
+  }
+  if (isAnyOfIngredient(value)) {
+    return value;
+  }
+  return staticIngredient(value);
+};
+
+const staticOptions = (options: RecipeOptions | undefined) => ({
+  assumeSymmetry: options?.assumeSymmetry ?? false,
+  ...(options?.category === undefined ? {} : { category: options.category }),
+  ...(options?.group === undefined ? {} : { group: options.group }),
+  priority: options?.priority ?? RecipePriority(0),
+  ...(options?.showNotification === undefined
+    ? {}
+    : { showNotification: options.showNotification }),
+  tags: options?.tags ?? [],
+});
+
+export const staticShapedRecipe = (
+  id: string,
+  rows: ReadonlyArray<string>,
+  key: Readonly<Record<string, CraftingIngredientInput>>,
+  output: ItemStack,
+  options?: RecipeOptions,
+): ShapedRecipe => {
+  const keyBySymbol = new Map(Object.entries(key));
+  const rawWidth = Math.max(...rows.map((row) => row.length));
+  const rawCells: Array<PatternCell> = [];
+  for (const row of rows) {
+    for (let x = 0; x < rawWidth; x += 1) {
+      const character = row[x];
+      const ingredient = character === undefined || character === " "
+        ? undefined
+        : keyBySymbol.get(character);
+      rawCells.push(
+        ingredient === undefined ? undefined : staticCraftingIngredient(ingredient),
+      );
     }
   }
-
-  const occupiedCoordinates = rawCells.flatMap((cell, index) =>
+  const occupied = rawCells.flatMap((cell, index) =>
     cell === undefined
       ? []
       : [{ x: index % rawWidth, y: Math.floor(index / rawWidth) }],
   );
-  if (occupiedCoordinates.length === 0) {
-    throw new RangeError(
-      "Shaped recipe pattern must contain at least one ingredient",
-    );
-  }
-
-  const minX = Math.min(...occupiedCoordinates.map(({ x }) => x));
-  const maxX = Math.max(...occupiedCoordinates.map(({ x }) => x));
-  const minY = Math.min(...occupiedCoordinates.map(({ y }) => y));
-  const maxY = Math.max(...occupiedCoordinates.map(({ y }) => y));
+  const minX = Math.min(...occupied.map(({ x }) => x));
+  const maxX = Math.max(...occupied.map(({ x }) => x));
+  const minY = Math.min(...occupied.map(({ y }) => y));
+  const maxY = Math.max(...occupied.map(({ y }) => y));
   const width = maxX - minX + 1;
   const height = maxY - minY + 1;
   const cells = Array.from({ length: width * height }, (_, index) => {
@@ -574,139 +910,31 @@ const normalizePatternRows = (rows: unknown, key: unknown): RecipePattern => {
     const y = minY + Math.floor(index / width);
     return rawCells[y * rawWidth + x];
   });
-
-  return {
-    width: RecipeGridDimension(width),
-    height: RecipeGridDimension(height),
-    cells,
-  };
-};
-
-export function ingredientMatches(
-  ingredient: CraftingIngredient,
-  item: ItemType,
-  itemTags?: ItemTagMemberships,
-): boolean;
-export function ingredientMatches(
-  ingredient: CraftingIngredient,
-  item: ItemType,
-  itemTags: ItemTagMemberships = VANILLA_ITEM_TAG_MEMBERSHIPS,
-): boolean {
-  const normalized = normalizeCraftingIngredient(ingredient);
-  if (normalized._tag === "AnyOf") {
-    return normalized.options.some((option) =>
-      ingredientMatches(option, item, itemTags),
-    );
-  }
-  if (normalized._tag === "Exact") {
-    return normalized.item === item;
-  }
-  return itemTags.get(normalized.tag)?.has(item) ?? false;
-}
-
-export function shapedRecipe(
-  id: RecipeId,
-  rows: ReadonlyArray<RecipePatternRow>,
-  key: RecipePatternKeyMap,
-  output: ItemStack,
-  options?: RecipeOptions,
-): ShapedRecipe;
-export function shapedRecipe(
-  id: RecipeId,
-  rows: ReadonlyArray<RecipePatternRow>,
-  key: RecipePatternKeyMap,
-  output: ItemStack,
-  options?: RecipeOptions,
-): ShapedRecipe {
-  if (!isItemStack(output)) {
-    throw new TypeError("Recipe output must be a valid non-empty item stack");
-  }
   return {
     _tag: "Shaped",
-    id: assertRecipeId(id),
+    id: RecipeId(id),
+    pattern: {
+      width: RecipeGridDimension(width),
+      height: RecipeGridDimension(height),
+      cells,
+    },
     output,
-    pattern: normalizePatternRows(rows, key),
-    ...normalizeOptions(options),
+    ...staticOptions(options),
   };
-}
-
-export function shapelessRecipe(
-  id: RecipeId,
-  ingredients: ReadonlyArray<CraftingIngredientInput>,
-  output: ItemStack,
-  options?: RecipeOptions,
-): ShapelessRecipe;
-export function shapelessRecipe(
-  id: RecipeId,
-  ingredients: ReadonlyArray<CraftingIngredientInput>,
-  output: ItemStack,
-  options?: RecipeOptions,
-): ShapelessRecipe {
-  if (!Array.isArray(ingredients) || ingredients.length === 0) {
-    throw new RangeError(
-      "Shapeless recipes must contain at least one ingredient",
-    );
-  }
-  if (!isItemStack(output)) {
-    throw new TypeError("Recipe output must be a valid non-empty item stack");
-  }
-  return {
-    _tag: "Shapeless",
-    id: assertRecipeId(id),
-    ingredients: ingredients.map(normalizeCraftingIngredient),
-    output,
-    ...normalizeOptions(options),
-  };
-}
-
-const normalizeGridItem = (value: unknown): Slot => {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (isItemStack(value)) {
-    return value;
-  }
-  if (isItemType(value)) {
-    return itemStack(value, StackCount(1));
-  }
-  throw new TypeError(
-    "Craft grid cells must be item types, valid item stacks, or undefined",
-  );
 };
 
-export function craftGrid(
-  width: RecipeGridDimension,
-  height: RecipeGridDimension,
-  items: ReadonlyArray<CraftGridInput>,
-): CraftGrid;
-export function craftGrid(
-  width: RecipeGridDimension,
-  height: RecipeGridDimension,
-  items: ReadonlyArray<CraftGridInput>,
-): CraftGrid {
-  if (
-    !RecipeGridDimension.is(width) ||
-    !RecipeGridDimension.is(height) ||
-    width < 0 ||
-    height < 0 ||
-    width > MAX_RECIPE_SIDE ||
-    height > MAX_RECIPE_SIDE
-  ) {
-    throw new RangeError(
-      `Craft grid dimensions must be safe integers in [0, ${MAX_RECIPE_SIDE}]`,
-    );
-  }
-  if (!Array.isArray(items) || items.length > width * height) {
-    throw new RangeError(
-      "Craft grid contains more cells than its dimensions allow",
-    );
-  }
-  const inputItems: ReadonlyArray<unknown> = items;
-  const cells = Array.from({ length: width * height }, (_, index) =>
-    normalizeGridItem(inputItems[index]),
-  );
-  return { width, height, cells };
-}
+export const staticShapelessRecipe = (
+  id: string,
+  ingredients: ReadonlyArray<CraftingIngredientInput>,
+  output: ItemStack,
+  options?: RecipeOptions,
+): ShapelessRecipe => ({
+  _tag: "Shapeless",
+  id: RecipeId(id),
+  ingredients: ingredients.map(staticCraftingIngredient),
+  output,
+  ...staticOptions(options),
+});
 
 export const cellAt = (
   grid: CraftGrid,

@@ -1,4 +1,4 @@
-import { Brand } from 'effect'
+import { Brand, Result } from 'effect'
 import { itemStack } from '../item/item-stack.js'
 import type { ItemStack, Slot } from '../item/item-stack.js'
 import type { ItemType } from '../item/item-type.js'
@@ -9,6 +9,7 @@ import type {
   RecipeCompletionCount as RecipeCompletionCountValue,
   RecipeId as RecipeIdValue,
 } from './recipe-data.js'
+import { recipeItemFailure, type RecipeFailure } from './recipe-error.js'
 
 export const BREWING_BOTTLE_SLOTS = 3
 export const BREWING_TIME_SECS: FixedDurationSecsValue = FixedDurationSecs(20)
@@ -76,4 +77,7 @@ export const VANILLA_BREWING_RECIPES: BrewingRecipeTable = [
   brewingRecipe('minecraft:regeneration', 'awkward_potion', 'ghast_tear', 'potion_of_regeneration'),
 ]
 
-export const brewingOutput = (recipe: BrewingRecipe): ItemStack => itemStack(recipe.output, StackCount(1))
+export const brewingOutput = (
+  recipe: BrewingRecipe,
+): Result.Result<ItemStack, RecipeFailure> =>
+  Result.mapError(itemStack(recipe.output, StackCount(1)), recipeItemFailure)

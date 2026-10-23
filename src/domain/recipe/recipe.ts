@@ -47,5 +47,6 @@ export type {
   ShapedRecipe,
   ShapelessRecipe,
 } from "./recipe-data.js";
+export type { RecipeFailure } from "./recipe-error.js";
 export { VANILLA_CRAFTING_RECIPES } from "./recipe-vanilla-data.js";
 export { TransmuteMaterialSlotCount } from "./transmute-data.js";

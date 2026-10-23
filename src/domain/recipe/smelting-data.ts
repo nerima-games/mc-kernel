@@ -1,8 +1,7 @@
-import { itemStack } from '../item/item-stack.js'
+import { itemStackForCanonicalItem } from '../item/item-stack-canonical.js'
+import { FixedDurationSecs, StackCount } from '../time/quantities.js'
 import type { ItemStack, Slot } from '../item/item-stack.js'
 import type { ItemType } from '../item/item-type.js'
-import { StackCount } from '../time/quantities.js'
-import { FixedDurationSecs } from '../time/quantities.js'
 import type { FixedDurationSecs as FixedDurationSecsValue } from '../time/quantities.js'
 import {
   RecipeExperience,
@@ -74,7 +73,7 @@ const furnaceRecipe = (
   experience: RecipeExperience(experience),
   id: RecipeId(id),
   input,
-  output: itemStack(output, StackCount(1)),
+  output: itemStackForCanonicalItem(output, StackCount(1)),
   stations,
 })
 

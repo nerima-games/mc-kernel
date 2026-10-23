@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resultFailure, resultValue } from "./block-result-helpers.js";
 import {
   DataPackFormat,
   DataPackPriority,
@@ -52,20 +53,23 @@ const cookingDocument = {
 
 describe("recipe registry", () => {
   it("decodes layers and applies exact-format priority overrides", () => {
-    const base = recipeLayerFromRaw({
+    const base = resultValue(recipeDataPackLayer({
       pack: "example:base",
       format: 107.1,
       priority: 0,
       entries: [{ id: "example:shared", value: craftingDocument }],
-    });
-    const override = recipeLayerFromRaw({
+    }));
+    const override = resultValue(recipeDataPackLayer({
       pack: "example:override",
       format: 107.1,
       priority: 1,
       entries: [{ id: "example:shared", value: cookingDocument }],
-    });
+    }));
 
-    const selected = selectRecipes([base, override], DataPackFormat(107.1));
+    const selected = selectRecipes(
+      [base, override],
+      resultValue(DataPackFormat(107.1)),
+    );
     const recipe = selected.get(NamespacedResourceLocation("example:shared"));
 
     expect(recipe?._tag).toBe("Cooking");
@@ -81,29 +85,32 @@ describe("recipe registry", () => {
       priority: 0,
       entries: [{ id: "example:json", value: craftingDocument }],
     };
-    const layer = recipeDataPackLayerFromUnknown(validLayer);
+    const layer = resultValue(recipeDataPackLayerFromUnknown(validLayer));
 
     expect(layer.entries[0]?.id).toBe(
       NamespacedResourceLocation("example:json"),
     );
     expect(layer.entries[0]?.value._tag).toBe("Shapeless");
-    expect(() =>
-      recipeDataPackLayerFromUnknown({
-        ...validLayer,
-        entries: [
-          { id: "example:json", value: { type: "minecraft:unsupported" } },
-        ],
-      }),
-    ).toThrow();
+    const failure = resultFailure(recipeDataPackLayerFromUnknown({
+      ...validLayer,
+      entries: [
+        { id: "example:json", value: { type: "minecraft:unsupported" } },
+      ],
+    }));
+    expect(failure).toStrictEqual({
+      _tag: "RecipeTypeFailure",
+      name: "TypeError",
+      message: "Unsupported portable recipe type: minecraft:unsupported",
+    });
   });
 
   it("keeps the generic data-pack layer compatible with recipe layer values", () => {
-    const layer = genericLayerFromRaw({
+    const layer = resultValue(dataPackLayer({
       pack: "example:generic",
       format: 107.1,
       priority: 0,
       entries: [{ id: "example:generic", value: craftingDocument }],
-    });
+    }));
 
     expect(layer.entries[0]?.value).toEqual(craftingDocument);
   });

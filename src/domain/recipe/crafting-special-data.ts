@@ -1,3 +1,4 @@
+import { Result } from "effect";
 import {
   FIREWORK_EXPLOSION_SHAPES,
   type FireworkExplosionShape,
@@ -8,18 +9,21 @@ import {
   craftingIngredient,
   isCraftingIngredient,
   RecipeGroup,
+  RecipeId,
   RecipePriority,
-  type RecipeId,
+  RecipeStationTag,
   type CraftingIngredient,
   type CraftingIngredientInput,
   type RecipeCategory,
   type RecipeGroup as RecipeGroupValue,
   type RecipePriority as RecipePriorityValue,
-  type RecipeStationTag,
 } from "./recipe-data.js";
+import { ResourceLocation } from "../text/identifiers.js";
 import {
-  ResourceLocation,
-} from "../text/identifiers.js";
+  recipeRangeFailure,
+  recipeTypeFailure,
+  type RecipeFailure,
+} from "./recipe-error.js";
 
 export const CRAFTING_SPECIAL_STATION_TAG: RecipeStationTag =
   ResourceLocation("crafting_table");
@@ -161,34 +165,50 @@ type RecordValue = {
   readonly output?: unknown;
 };
 
+const recipeTypeFailureValue = (message: string): RecipeFailure => ({
+  _tag: "RecipeTypeFailure",
+  name: "TypeError",
+  message,
+});
+
+const recipeRangeFailureValue = (message: string): RecipeFailure => ({
+  _tag: "RecipeRangeFailure",
+  name: "RangeError",
+  message,
+});
+
 const isRecord = (value: unknown): value is RecordValue =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const assertRecipeId = (value: unknown): RecipeId => {
-  if (typeof value !== "string" || !ResourceLocation.is(value)) {
-    throw new TypeError(
-      "Crafting special recipe id must be a resource location",
-    );
-  }
-  return value;
-};
+const assertRecipeId = (
+  value: unknown,
+): Result.Result<RecipeId, RecipeFailure> =>
+  typeof value === "string"
+    ? Result.mapError(
+        RecipeId.result(value),
+        () => recipeTypeFailureValue("Crafting special recipe id must be a resource location"),
+      )
+    : recipeTypeFailure("Crafting special recipe id must be a resource location");
 
-const assertIngredient = (value: CraftingIngredientInput): CraftingIngredient =>
+const assertIngredient = (
+  value: unknown,
+): Result.Result<CraftingIngredient, RecipeFailure> =>
   craftingIngredient(value);
 
-const assertOutput = (value: ItemStack): ItemStack => {
-  if (!isItemStack(value)) {
-    throw new TypeError("Crafting special recipe output must be an ItemStack");
-  }
-  return value;
-};
+const assertOutput = (value: unknown): Result.Result<ItemStack, RecipeFailure> =>
+  isItemStack(value)
+    ? Result.succeed(value)
+    : recipeTypeFailure("Crafting special recipe output must be an ItemStack");
 
 const assertAllowedGenerations = (
-  value: readonly [BookGeneration, BookGeneration] | undefined,
-): readonly [BookGeneration, BookGeneration] => {
-  const generations = value ?? [BookGeneration(0), BookGeneration(1)];
+  value: unknown,
+): Result.Result<readonly [BookGeneration, BookGeneration], RecipeFailure> => {
+  const generations = value ?? [0, 1];
   if (
+    !Array.isArray(generations) ||
     generations.length !== 2 ||
+    typeof generations[0] !== "number" ||
+    typeof generations[1] !== "number" ||
     !Number.isInteger(generations[0]) ||
     !Number.isInteger(generations[1]) ||
     generations[0] < 0 ||
@@ -197,11 +217,21 @@ const assertAllowedGenerations = (
     generations[1] > 2 ||
     generations[0] > generations[1]
   ) {
-    throw new RangeError(
+    return recipeRangeFailure(
       "Allowed book generations must be an ordered range from 0 to 2",
     );
   }
-  return [BookGeneration(generations[0]), BookGeneration(generations[1])];
+  return Result.gen(function* () {
+    const min = yield* Result.mapError(
+      BookGeneration.result(generations[0]),
+      () => recipeRangeFailureValue("Allowed book generations must be an ordered range from 0 to 2"),
+    );
+    const max = yield* Result.mapError(
+      BookGeneration.result(generations[1]),
+      () => recipeRangeFailureValue("Allowed book generations must be an ordered range from 0 to 2"),
+    );
+    return [min, max] as const;
+  });
 };
 
 const isFireworkExplosionShape = (
@@ -210,19 +240,27 @@ const isFireworkExplosionShape = (
   FIREWORK_EXPLOSION_SHAPES.some((shape) => shape === value);
 
 const assertShapeIngredients = (
-  value: Readonly<
-    Partial<Record<FireworkExplosionShape, CraftingIngredientInput>>
-  >,
-): Readonly<Partial<Record<FireworkExplosionShape, CraftingIngredient>>> => {
+  value: unknown,
+): Result.Result<
+  Readonly<Partial<Record<FireworkExplosionShape, CraftingIngredient>>>,
+  RecipeFailure
+> => {
+  if (!isRecord(value)) {
+    return recipeTypeFailure("Firework star shapes must be an object");
+  }
   const shapes: Partial<Record<FireworkExplosionShape, CraftingIngredient>> =
     {};
   for (const [shape, ingredient] of Object.entries(value)) {
     if (!isFireworkExplosionShape(shape)) {
-      throw new TypeError(`Unsupported firework shape ingredient: ${shape}`);
+      return recipeTypeFailure(`Unsupported firework shape ingredient: ${shape}`);
     }
-    shapes[shape] = assertIngredient(ingredient);
+    const normalized = assertIngredient(ingredient);
+    if (Result.isFailure(normalized)) {
+      return normalized;
+    }
+    shapes[shape] = normalized.success;
   }
-  return shapes;
+  return Result.succeed(shapes);
 };
 
 const isTags = (value: unknown): value is readonly RecipeStationTag[] =>
@@ -244,70 +282,98 @@ const isRecipeCategory = (value: unknown): value is RecipeCategory =>
 const isRecipePriority = (value: unknown): value is RecipePriorityValue =>
   typeof value === "number" && RecipePriority.is(value);
 
-const assertCategory = (value: unknown): RecipeCategory | undefined => {
-  if (value !== undefined && !isRecipeCategory(value)) {
-    throw new TypeError(
-      `Crafting special recipe category is invalid, received ${String(value)}`,
-    );
-  }
-  return value;
-};
+const assertCategory = (
+  value: unknown,
+): Result.Result<RecipeCategory | undefined, RecipeFailure> =>
+  value === undefined || isRecipeCategory(value)
+    ? Result.succeed(value)
+    : recipeTypeFailure(
+        `Crafting special recipe category is invalid, received ${String(value)}`,
+      );
 
-const assertGroup = (value: unknown): RecipeGroupValue | undefined => {
+const assertGroup = (
+  value: unknown,
+): Result.Result<RecipeGroupValue | undefined, RecipeFailure> => {
   if (value !== undefined && typeof value !== "string") {
-    throw new TypeError("Crafting special recipe group must be a string");
+    return recipeTypeFailure("Crafting special recipe group must be a string");
   }
-  return value === undefined ? undefined : RecipeGroup(value);
+  return value === undefined
+    ? Result.succeed(undefined)
+    : Result.mapError(
+        RecipeGroup.result(value),
+        () => recipeTypeFailureValue("Crafting special recipe group must be a string"),
+      );
 };
 
 // `?? default` would swallow an explicit null, so only an absent field
 // defaults; anything else present has to survive the guard.
-const assertPriority = (value: unknown): RecipePriorityValue => {
+const assertPriority = (
+  value: unknown,
+): Result.Result<RecipePriorityValue, RecipeFailure> => {
   const priority = value === undefined ? 0 : value;
   if (!isRecipePriority(priority)) {
-    throw new RangeError(
+    return recipeRangeFailure(
       `Crafting special recipe priority must be a non-negative safe integer, received ${String(value)}`,
     );
   }
-  return RecipePriority(priority);
+  return Result.mapError(
+    RecipePriority.result(priority),
+    () => recipeRangeFailureValue(
+      `Crafting special recipe priority must be a non-negative safe integer, received ${String(value)}`,
+    ),
+  );
 };
 
-const assertShowNotification = (value: unknown): boolean | undefined => {
+const assertShowNotification = (
+  value: unknown,
+): Result.Result<boolean | undefined, RecipeFailure> => {
   if (value !== undefined && typeof value !== "boolean") {
-    throw new TypeError(
+    return recipeTypeFailure(
       "Crafting special recipe showNotification must be a boolean",
     );
   }
-  return value;
+  return Result.succeed(value);
 };
 
-const assertRecipeTags = (value: unknown): readonly RecipeStationTag[] => {
+const assertRecipeTags = (
+  value: unknown,
+): Result.Result<readonly RecipeStationTag[], RecipeFailure> => {
   const tags = value === undefined ? [CRAFTING_SPECIAL_STATION_TAG] : value;
   if (!isTags(tags)) {
-    throw new TypeError(
+    return recipeTypeFailure(
       "Crafting special recipe tags must be resource locations",
     );
   }
-  return tags;
+  return Result.all(
+    tags.map((tag) =>
+      Result.mapError(
+        RecipeStationTag.result(tag),
+        () => recipeTypeFailureValue(
+          "Crafting special recipe tags must be resource locations",
+        ),
+      ),
+    ),
+  );
 };
 
 const normalizeOptions = (
-  options: CraftingSpecialRecipeOptions & {
-    readonly id: RecipeId;
-  },
-): CraftingSpecialRecipeFields => {
-  const category = assertCategory(options.category);
-  const group = assertGroup(options.group);
-  const showNotification = assertShowNotification(options.showNotification);
-  return {
-    id: assertRecipeId(options.id),
-    ...(category === undefined ? {} : { category }),
-    ...(group === undefined ? {} : { group }),
-    priority: assertPriority(options.priority),
-    ...(showNotification === undefined ? {} : { showNotification }),
-    tags: assertRecipeTags(options.tags),
-  };
-};
+  options: CraftingSpecialRecipeOptions & { readonly id: RecipeId },
+): Result.Result<CraftingSpecialRecipeFields, RecipeFailure> =>
+  Result.gen(function* () {
+    const category = yield* assertCategory(options.category);
+    const group = yield* assertGroup(options.group);
+    const showNotification = yield* assertShowNotification(
+      options.showNotification,
+    );
+    return {
+      id: yield* assertRecipeId(options.id),
+      ...(category === undefined ? {} : { category }),
+      ...(group === undefined ? {} : { group }),
+      priority: yield* assertPriority(options.priority),
+      ...(showNotification === undefined ? {} : { showNotification }),
+      tags: yield* assertRecipeTags(options.tags),
+    };
+  });
 
 type RecipeOptionsWithId = CraftingSpecialRecipeOptions & {
   readonly id: RecipeId;
@@ -318,14 +384,30 @@ type RecipeOptionsWithId = CraftingSpecialRecipeOptions & {
 const withRecipeId = (
   options: Omit<CraftingSpecialRecipeOptions, "id"> | undefined,
   id: RecipeId,
-): RecipeOptionsWithId => {
+): Result.Result<RecipeOptionsWithId, RecipeFailure> => {
   if (options !== undefined && !isRecord(options)) {
-    throw new TypeError(
+    return recipeTypeFailure(
       "Crafting special recipe options must be an object when provided",
     );
   }
-  return { ...options, id };
+  return Result.succeed({ ...options, id });
 };
+
+const normalizeRecipeOptions = (
+  idOrOptions: RecipeId | RecipeOptionsWithId,
+  options: Omit<CraftingSpecialRecipeOptions, "id"> | undefined,
+): Result.Result<CraftingSpecialRecipeFields, RecipeFailure> =>
+  Result.gen(function* () {
+    const recipeOptions =
+      typeof idOrOptions === "string"
+        ? yield* withRecipeId(options, idOrOptions)
+        : isRecord(idOrOptions)
+          ? idOrOptions
+          : yield* recipeTypeFailure(
+              "Crafting special recipe options must be an object when provided",
+            );
+    return yield* normalizeOptions(recipeOptions);
+  });
 
 export function craftingDyeRecipe(
   id: RecipeId,
@@ -333,31 +415,29 @@ export function craftingDyeRecipe(
   dye: CraftingIngredientInput,
   output: ItemStack,
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
-): CraftingDyeRecipe;
+): Result.Result<CraftingDyeRecipe, RecipeFailure>;
 export function craftingDyeRecipe(
   options: RecipeOptionsWithId,
   target: CraftingIngredientInput,
   dye: CraftingIngredientInput,
   output: ItemStack,
-): CraftingDyeRecipe;
+): Result.Result<CraftingDyeRecipe, RecipeFailure>;
 export function craftingDyeRecipe(
   idOrOptions: RecipeId | RecipeOptionsWithId,
   target: CraftingIngredientInput,
   dye: CraftingIngredientInput,
   output: ItemStack,
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
-): CraftingDyeRecipe {
-  const recipeOptions =
-    typeof idOrOptions === "string"
-      ? withRecipeId(options, idOrOptions)
-      : idOrOptions;
-  return {
-    _tag: "CraftingDye",
-    ...normalizeOptions(recipeOptions),
-    target: assertIngredient(target),
-    dye: assertIngredient(dye),
-    output: assertOutput(output),
-  };
+): Result.Result<CraftingDyeRecipe, RecipeFailure> {
+  return Result.gen(function* () {
+    return {
+      _tag: "CraftingDye",
+      ...(yield* normalizeRecipeOptions(idOrOptions, options)),
+      target: yield* assertIngredient(target),
+      dye: yield* assertIngredient(dye),
+      output: yield* assertOutput(output),
+    };
+  });
 }
 
 export function craftingImbueRecipe(
@@ -366,31 +446,29 @@ export function craftingImbueRecipe(
   material: CraftingIngredientInput,
   output: ItemStack,
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
-): CraftingImbueRecipe;
+): Result.Result<CraftingImbueRecipe, RecipeFailure>;
 export function craftingImbueRecipe(
   options: RecipeOptionsWithId,
   source: CraftingIngredientInput,
   material: CraftingIngredientInput,
   output: ItemStack,
-): CraftingImbueRecipe;
+): Result.Result<CraftingImbueRecipe, RecipeFailure>;
 export function craftingImbueRecipe(
   idOrOptions: RecipeId | RecipeOptionsWithId,
   source: CraftingIngredientInput,
   material: CraftingIngredientInput,
   output: ItemStack,
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
-): CraftingImbueRecipe {
-  const recipeOptions =
-    typeof idOrOptions === "string"
-      ? withRecipeId(options, idOrOptions)
-      : idOrOptions;
-  return {
-    _tag: "CraftingImbue",
-    ...normalizeOptions(recipeOptions),
-    source: assertIngredient(source),
-    material: assertIngredient(material),
-    output: assertOutput(output),
-  };
+): Result.Result<CraftingImbueRecipe, RecipeFailure> {
+  return Result.gen(function* () {
+    return {
+      _tag: "CraftingImbue",
+      ...(yield* normalizeRecipeOptions(idOrOptions, options)),
+      source: yield* assertIngredient(source),
+      material: yield* assertIngredient(material),
+      output: yield* assertOutput(output),
+    };
+  });
 }
 
 export const craftingBannerDuplicateRecipe = (
@@ -398,12 +476,15 @@ export const craftingBannerDuplicateRecipe = (
   banner: CraftingIngredientInput,
   output: ItemStack,
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
-): CraftingBannerDuplicateRecipe => ({
-  _tag: "CraftingBannerDuplicate",
-  ...normalizeOptions(withRecipeId(options, id)),
-  banner: assertIngredient(banner),
-  output: assertOutput(output),
-});
+): Result.Result<CraftingBannerDuplicateRecipe, RecipeFailure> =>
+  Result.gen(function* () {
+    return {
+      _tag: "CraftingBannerDuplicate",
+      ...(yield* normalizeRecipeOptions(id, options)),
+      banner: yield* assertIngredient(banner),
+      output: yield* assertOutput(output),
+    };
+  });
 
 export const craftingBookCloningRecipe = (
   id: RecipeId,
@@ -412,14 +493,17 @@ export const craftingBookCloningRecipe = (
   output: ItemStack,
   allowedGenerations?: readonly [BookGeneration, BookGeneration],
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
-): CraftingBookCloningRecipe => ({
-  _tag: "CraftingBookCloning",
-  ...normalizeOptions(withRecipeId(options, id)),
-  source: assertIngredient(source),
-  material: assertIngredient(material),
-  allowedGenerations: assertAllowedGenerations(allowedGenerations),
-  output: assertOutput(output),
-});
+): Result.Result<CraftingBookCloningRecipe, RecipeFailure> =>
+  Result.gen(function* () {
+    return {
+      _tag: "CraftingBookCloning",
+      ...(yield* normalizeRecipeOptions(id, options)),
+      source: yield* assertIngredient(source),
+      material: yield* assertIngredient(material),
+      allowedGenerations: yield* assertAllowedGenerations(allowedGenerations),
+      output: yield* assertOutput(output),
+    };
+  });
 
 export const craftingDecoratedPotRecipe = (
   id: RecipeId,
@@ -429,15 +513,18 @@ export const craftingDecoratedPotRecipe = (
   front: CraftingIngredientInput,
   output: ItemStack,
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
-): CraftingDecoratedPotRecipe => ({
-  _tag: "CraftingDecoratedPot",
-  ...normalizeOptions(withRecipeId(options, id)),
-  back: assertIngredient(back),
-  left: assertIngredient(left),
-  right: assertIngredient(right),
-  front: assertIngredient(front),
-  output: assertOutput(output),
-});
+): Result.Result<CraftingDecoratedPotRecipe, RecipeFailure> =>
+  Result.gen(function* () {
+    return {
+      _tag: "CraftingDecoratedPot",
+      ...(yield* normalizeRecipeOptions(id, options)),
+      back: yield* assertIngredient(back),
+      left: yield* assertIngredient(left),
+      right: yield* assertIngredient(right),
+      front: yield* assertIngredient(front),
+      output: yield* assertOutput(output),
+    };
+  });
 
 export const craftingFireworkRocketRecipe = (
   id: RecipeId,
@@ -446,14 +533,17 @@ export const craftingFireworkRocketRecipe = (
   star: CraftingIngredientInput,
   output: ItemStack,
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
-): CraftingFireworkRocketRecipe => ({
-  _tag: "CraftingFireworkRocket",
-  ...normalizeOptions(withRecipeId(options, id)),
-  shell: assertIngredient(shell),
-  fuel: assertIngredient(fuel),
-  star: assertIngredient(star),
-  output: assertOutput(output),
-});
+): Result.Result<CraftingFireworkRocketRecipe, RecipeFailure> =>
+  Result.gen(function* () {
+    return {
+      _tag: "CraftingFireworkRocket",
+      ...(yield* normalizeRecipeOptions(id, options)),
+      shell: yield* assertIngredient(shell),
+      fuel: yield* assertIngredient(fuel),
+      star: yield* assertIngredient(star),
+      output: yield* assertOutput(output),
+    };
+  });
 
 export const craftingFireworkStarFadeRecipe = (
   id: RecipeId,
@@ -461,13 +551,16 @@ export const craftingFireworkStarFadeRecipe = (
   dye: CraftingIngredientInput,
   output: ItemStack,
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
-): CraftingFireworkStarFadeRecipe => ({
-  _tag: "CraftingFireworkStarFade",
-  ...normalizeOptions(withRecipeId(options, id)),
-  target: assertIngredient(target),
-  dye: assertIngredient(dye),
-  output: assertOutput(output),
-});
+): Result.Result<CraftingFireworkStarFadeRecipe, RecipeFailure> =>
+  Result.gen(function* () {
+    return {
+      _tag: "CraftingFireworkStarFade",
+      ...(yield* normalizeRecipeOptions(id, options)),
+      target: yield* assertIngredient(target),
+      dye: yield* assertIngredient(dye),
+      output: yield* assertOutput(output),
+    };
+  });
 
 export const craftingFireworkStarRecipe = (
   id: RecipeId,
@@ -480,16 +573,19 @@ export const craftingFireworkStarRecipe = (
   >,
   output: ItemStack,
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
-): CraftingFireworkStarRecipe => ({
-  _tag: "CraftingFireworkStar",
-  ...normalizeOptions(withRecipeId(options, id)),
-  trail: assertIngredient(trail),
-  twinkle: assertIngredient(twinkle),
-  fuel: assertIngredient(fuel),
-  dye: assertIngredient(dye),
-  shapes: assertShapeIngredients(shapes),
-  output: assertOutput(output),
-});
+): Result.Result<CraftingFireworkStarRecipe, RecipeFailure> =>
+  Result.gen(function* () {
+    return {
+      _tag: "CraftingFireworkStar",
+      ...(yield* normalizeRecipeOptions(id, options)),
+      trail: yield* assertIngredient(trail),
+      twinkle: yield* assertIngredient(twinkle),
+      fuel: yield* assertIngredient(fuel),
+      dye: yield* assertIngredient(dye),
+      shapes: yield* assertShapeIngredients(shapes),
+      output: yield* assertOutput(output),
+    };
+  });
 
 export const craftingMapExtendingRecipe = (
   id: RecipeId,
@@ -497,13 +593,16 @@ export const craftingMapExtendingRecipe = (
   material: CraftingIngredientInput,
   output: ItemStack,
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
-): CraftingMapExtendingRecipe => ({
-  _tag: "CraftingMapExtending",
-  ...normalizeOptions(withRecipeId(options, id)),
-  map: assertIngredient(map),
-  material: assertIngredient(material),
-  output: assertOutput(output),
-});
+): Result.Result<CraftingMapExtendingRecipe, RecipeFailure> =>
+  Result.gen(function* () {
+    return {
+      _tag: "CraftingMapExtending",
+      ...(yield* normalizeRecipeOptions(id, options)),
+      map: yield* assertIngredient(map),
+      material: yield* assertIngredient(material),
+      output: yield* assertOutput(output),
+    };
+  });
 
 export const craftingShieldDecorationRecipe = (
   id: RecipeId,
@@ -511,13 +610,16 @@ export const craftingShieldDecorationRecipe = (
   target: CraftingIngredientInput,
   output: ItemStack,
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
-): CraftingShieldDecorationRecipe => ({
-  _tag: "CraftingShieldDecoration",
-  ...normalizeOptions(withRecipeId(options, id)),
-  banner: assertIngredient(banner),
-  target: assertIngredient(target),
-  output: assertOutput(output),
-});
+): Result.Result<CraftingShieldDecorationRecipe, RecipeFailure> =>
+  Result.gen(function* () {
+    return {
+      _tag: "CraftingShieldDecoration",
+      ...(yield* normalizeRecipeOptions(id, options)),
+      banner: yield* assertIngredient(banner),
+      target: yield* assertIngredient(target),
+      output: yield* assertOutput(output),
+    };
+  });
 
 const isAllowedGenerations = (
   value: unknown,
@@ -554,7 +656,7 @@ const isBaseRecipe = (value: RecordValue, tag: string): boolean =>
   ResourceLocation.is(value.id) &&
   (value.category === undefined || isRecipeCategory(value.category)) &&
   (value.group === undefined ||
-    typeof value.group === "string") &&
+    (typeof value.group === "string" && RecipeGroup.is(value.group))) &&
   isRecipePriority(value.priority) &&
   (value.showNotification === undefined ||
     typeof value.showNotification === "boolean") &&
