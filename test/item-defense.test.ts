@@ -1,6 +1,5 @@
+import * as itemDefenseResult from '../src/domain/item/item-defense'
 import {
-  blocksAttacksComponent,
-  damageResistantComponent,
   isBlocksAttacksComponent,
   isDamageReductionRule,
   isDamageResistantComponent,
@@ -9,7 +8,19 @@ import {
 import { isResourceLocationProvider } from '../src/domain/item/item-component-values'
 import { ResourceLocation, TagLocation } from '../src/domain/text/identifiers'
 import * as Quantities from '../src/domain/time/quantities'
+import { expectItemFailure, itemResultValue } from './item-result-assertions'
 import { describe, expect, it } from 'vitest'
+
+const blocksAttacksComponent = (...args: Parameters<typeof itemDefenseResult.blocksAttacksComponent>) =>
+  itemResultValue(itemDefenseResult.blocksAttacksComponent(...args))
+const damageResistantComponent = (...args: Parameters<typeof itemDefenseResult.damageResistantComponent>) =>
+  itemResultValue(itemDefenseResult.damageResistantComponent(...args))
+const invokeBlocksAttacks = (options: unknown) =>
+  Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [options])
+
+const validation = (kind: string, reason: string, field: string, message: string, value: unknown) => ({
+  _tag: 'ItemValidationFailure', kind, reason, field, message, value,
+})
 
 describe('item defense components', () => {
   it('constructs immutable components with official defaults and values', () => {
@@ -91,41 +102,109 @@ describe('item defense components', () => {
   })
 
   it('rejects malformed constructor input at the runtime boundary', () => {
-    const invokeBlocksAttacks = (options: unknown) =>
-      () => Reflect.apply(blocksAttacksComponent, undefined, [options])
-    expect(() => Reflect.apply(damageResistantComponent, undefined, [null])).toThrow(TypeError)
-    expect(() => Reflect.apply(damageResistantComponent, undefined, [1])).toThrow(TypeError)
-    expect(() => Reflect.apply(damageResistantComponent, undefined, ['INVALID!'])).toThrow()
-    expect(() => Reflect.apply(damageResistantComponent, undefined, [['#minecraft:is_fire']])).toThrow(TypeError)
-    expect(() => Reflect.apply(damageResistantComponent, undefined, [['INVALID!']])).toThrow()
+    for (const types of [null, 1]) {
+      expectItemFailure(Reflect.apply(itemDefenseResult.damageResistantComponent, undefined, [types]), validation(
+        'TypeError', 'invalid-type', 'damage_resistant.types',
+        'damage_resistant.types must be a string or an array of resource locations', types,
+      ))
+    }
+    expectItemFailure(Reflect.apply(itemDefenseResult.damageResistantComponent, undefined, ['INVALID!']), validation(
+      'TypeError', 'invalid-value', 'damage_resistant.types', 'ResourceLocation has invalid syntax, received "INVALID!"', 'INVALID!',
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.damageResistantComponent, undefined, [['#minecraft:is_fire']]), validation(
+      'TypeError', 'invalid-type', 'damage_resistant.types', 'damage_resistant.types lists must contain resource locations', '#minecraft:is_fire',
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.damageResistantComponent, undefined, [['INVALID!']]), validation(
+      'TypeError', 'invalid-value', 'damage_resistant.types', 'ResourceLocation has invalid syntax, received "INVALID!"', 'INVALID!',
+    ))
 
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [null])).toThrow(TypeError)
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [[]])).toThrow(TypeError)
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [1])).toThrow(TypeError)
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ blockDelaySeconds: '0' }])).toThrow(TypeError)
-    expect(invokeBlocksAttacks({ blockDelaySeconds: -1 })).toThrow(RangeError)
-    expect(invokeBlocksAttacks({ blockDelaySeconds: Infinity })).toThrow(TypeError)
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ disableCooldownScale: '1' }])).toThrow(TypeError)
-    expect(invokeBlocksAttacks({ disableCooldownScale: -1 })).toThrow(RangeError)
-    expect(invokeBlocksAttacks({ disableCooldownScale: NaN })).toThrow(TypeError)
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ damageReductions: {} }])).toThrow(TypeError)
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ damageReductions: [null] }])).toThrow(TypeError)
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ damageReductions: [{ base: '1', factor: 0 }] }])).toThrow(TypeError)
-    expect(invokeBlocksAttacks({ damageReductions: [{ base: 0, factor: Infinity }] })).toThrow(TypeError)
-    expect(invokeBlocksAttacks({ damageReductions: [{ base: 0, factor: 0, horizontalBlockingAngle: 0 }] })).toThrow(RangeError)
-    expect(invokeBlocksAttacks({ damageReductions: [{ base: 0, factor: 0, type: 'INVALID!' }] })).toThrow()
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ damageReductions: [{ base: 0, factor: 0, type: 1 }] }])).toThrow(TypeError)
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ damageReductions: [{ base: 0, factor: 0, type: ['#minecraft:is_fire'] }] }])).toThrow(TypeError)
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ itemDamage: null }])).toThrow(TypeError)
-    expect(invokeBlocksAttacks({ itemDamage: { threshold: -1, base: 0, factor: 0 } })).toThrow(RangeError)
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ itemDamage: { threshold: 0, base: '1', factor: 0 } }])).toThrow(TypeError)
-    expect(invokeBlocksAttacks({ itemDamage: { threshold: 0, base: 0, factor: Infinity } })).toThrow(TypeError)
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ blockSound: 1 }])).toThrow(TypeError)
-    expect(invokeBlocksAttacks({ blockSound: 'INVALID!' })).toThrow()
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ disabledSound: 1 }])).toThrow(TypeError)
-    expect(invokeBlocksAttacks({ disabledSound: 'INVALID!' })).toThrow()
-    expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ bypassedBy: 1 }])).toThrow(TypeError)
-    expect(invokeBlocksAttacks({ bypassedBy: ['#minecraft:is_fire'] })).toThrow(TypeError)
+    for (const options of [null, [], 1]) {
+      expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [options]), validation(
+        'TypeError', 'invalid-type', 'blocksAttacks options', 'blocksAttacks options must be a non-null object', options,
+      ))
+    }
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ blockDelaySeconds: '0' }]), validation(
+      'TypeError', 'invalid-type', 'blockDelaySeconds', 'blockDelaySeconds must be a finite number', '0',
+    ))
+    expectItemFailure(invokeBlocksAttacks({ blockDelaySeconds: -1 }), validation(
+      'RangeError', 'out-of-range', 'blockDelaySeconds', 'blockDelaySeconds must be a non-negative finite number', -1,
+    ))
+    expectItemFailure(invokeBlocksAttacks({ blockDelaySeconds: Infinity }), validation(
+      'TypeError', 'invalid-type', 'blockDelaySeconds', 'blockDelaySeconds must be a finite number', Infinity,
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ disableCooldownScale: '1' }]), validation(
+      'TypeError', 'invalid-type', 'disableCooldownScale', 'disableCooldownScale must be a finite number', '1',
+    ))
+    expectItemFailure(invokeBlocksAttacks({ disableCooldownScale: -1 }), validation(
+      'RangeError', 'out-of-range', 'disableCooldownScale', 'disableCooldownScale must be a non-negative finite number', -1,
+    ))
+    expectItemFailure(invokeBlocksAttacks({ disableCooldownScale: NaN }), validation(
+      'TypeError', 'invalid-type', 'disableCooldownScale', 'disableCooldownScale must be a finite number', NaN,
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ damageReductions: {} }]), validation(
+      'TypeError', 'invalid-type', 'damageReductions', 'damageReductions must be an array', {},
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ damageReductions: [null] }]), validation(
+      'TypeError', 'invalid-type', 'damageReductions[0]', 'damageReductions[0] must be a non-null object', null,
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ damageReductions: [{ base: '1', factor: 0 }] }]), validation(
+      'TypeError', 'invalid-type', 'damageReductions[0].base', 'damageReductions[0].base must be a finite number', '1',
+    ))
+    expectItemFailure(invokeBlocksAttacks({ damageReductions: [{ base: 0, factor: Infinity }] }), validation(
+      'TypeError', 'invalid-type', 'damageReductions[0].factor', 'damageReductions[0].factor must be a finite number', Infinity,
+    ))
+    expectItemFailure(invokeBlocksAttacks({ damageReductions: [{ base: 0, factor: 0, horizontalBlockingAngle: 0 }] }), validation(
+      'RangeError', 'out-of-range', 'damageReductions[0].horizontalBlockingAngle', 'damageReductions[0].horizontalBlockingAngle must be a positive finite number', 0,
+    ))
+    expectItemFailure(invokeBlocksAttacks({ damageReductions: [{ base: 0, factor: 0, type: 'INVALID!' }] }), validation(
+      'TypeError', 'invalid-value', 'damageReductions[0].type', 'ResourceLocation has invalid syntax, received "INVALID!"', 'INVALID!',
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ damageReductions: [{ base: 0, factor: 0, type: 1 }] }]), validation(
+      'TypeError', 'invalid-type', 'damageReductions[0].type',
+      'damageReductions[0].type must be a string or an array of resource locations', 1,
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ damageReductions: [{ base: 0, factor: 0, type: null }] }]), validation(
+      'TypeError', 'invalid-type', 'damageReductions[0].type',
+      'damageReductions[0].type must be a string or an array of resource locations', null,
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ damageReductions: [{ base: 0, factor: 0, type: ['#minecraft:is_fire'] }] }]), validation(
+      'TypeError', 'invalid-type', 'damageReductions[0].type', 'damageReductions[0].type lists must contain resource locations', '#minecraft:is_fire',
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ itemDamage: null }]), validation(
+      'TypeError', 'invalid-type', 'itemDamage', 'itemDamage must be a non-null object', null,
+    ))
+    expectItemFailure(invokeBlocksAttacks({ itemDamage: { threshold: -1, base: 0, factor: 0 } }), validation(
+      'RangeError', 'out-of-range', 'itemDamage.threshold', 'itemDamage.threshold must be a non-negative finite number', -1,
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ itemDamage: { threshold: 0, base: '1', factor: 0 } }]), validation(
+      'TypeError', 'invalid-type', 'itemDamage.base', 'itemDamage.base must be a finite number', '1',
+    ))
+    expectItemFailure(invokeBlocksAttacks({ itemDamage: { threshold: 0, base: 0, factor: Infinity } }), validation(
+      'TypeError', 'invalid-type', 'itemDamage.factor', 'itemDamage.factor must be a finite number', Infinity,
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ blockSound: 1 }]), validation(
+      'TypeError', 'invalid-value', 'blockSound', 'ResourceLocation has invalid syntax, received 1', 1,
+    ))
+    expectItemFailure(invokeBlocksAttacks({ blockSound: 'INVALID!' }), validation(
+      'TypeError', 'invalid-value', 'blockSound', 'ResourceLocation has invalid syntax, received "INVALID!"', 'INVALID!',
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ disabledSound: 1 }]), validation(
+      'TypeError', 'invalid-value', 'disabledSound', 'ResourceLocation has invalid syntax, received 1', 1,
+    ))
+    expectItemFailure(invokeBlocksAttacks({ disabledSound: 'INVALID!' }), validation(
+      'TypeError', 'invalid-value', 'disabledSound', 'ResourceLocation has invalid syntax, received "INVALID!"', 'INVALID!',
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ bypassedBy: 1 }]), validation(
+      'TypeError', 'invalid-type', 'bypassedBy',
+      'bypassedBy must be a string or an array of resource locations', 1,
+    ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ bypassedBy: null }]), validation(
+      'TypeError', 'invalid-type', 'bypassedBy',
+      'bypassedBy must be a string or an array of resource locations', null,
+    ))
+    expectItemFailure(invokeBlocksAttacks({ bypassedBy: ['#minecraft:is_fire'] }), validation(
+      'TypeError', 'invalid-type', 'bypassedBy', 'bypassedBy lists must contain resource locations', '#minecraft:is_fire',
+    ))
   })
 
   it('guards exact component shapes and value ranges', () => {

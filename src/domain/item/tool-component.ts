@@ -1,37 +1,27 @@
+import { Effect, Result } from 'effect'
 import { DEFAULT_MINING_SPEED } from '../block/block-break-speed-data.js'
 import { isBlockType, type BlockType } from '../block/block-type.js'
+import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
 import { ToolDurabilityDamage, ToolMiningSpeed, ToolRuleOrder } from './item-primitives.js'
 
 export type ToolBlockTag = `#${string}`
-
 export type ToolBlockMatcher = BlockType | ToolBlockTag
-
 export type BlockTagMemberships = ReadonlyMap<ToolBlockTag, ReadonlySet<BlockType>>
-
-export type ToolResolutionContext = {
-  readonly blockTags: BlockTagMemberships
-}
-
+export type ToolResolutionContext = { readonly blockTags: BlockTagMemberships }
 export type ToolBlockMembershipLike = {
   readonly has: (block: BlockType) => boolean
   readonly [Symbol.iterator]: () => Iterator<BlockType>
 }
-
 export type ToolBlockTagMembershipsLike = {
   readonly get: (tag: ToolBlockTag) => ToolBlockMembershipLike | undefined
   readonly [Symbol.iterator]: () => Iterator<readonly [ToolBlockTag, ToolBlockMembershipLike]>
 }
-
-export type ToolResolutionContextInput = {
-  readonly blockTags: ToolBlockTagMembershipsLike
-}
-
+export type ToolResolutionContextInput = { readonly blockTags: ToolBlockTagMembershipsLike }
 export type ToolRule = {
   readonly blocks: ToolBlockMatcher | ReadonlyArray<ToolBlockMatcher>
   readonly speed?: ToolMiningSpeed
   readonly correctForDrops?: boolean
 }
-
 export type ToolComponent = {
   readonly rules: ReadonlyArray<ToolRule>
   readonly defaultMiningSpeed?: ToolMiningSpeed
@@ -48,12 +38,10 @@ type CompiledToolRule = {
   readonly speed?: ToolMiningSpeed
   readonly correctForDrops?: boolean
 }
-
 type IndexedCompiledToolRule = {
   readonly rule: CompiledToolRule
   readonly order: ToolRuleOrder
 }
-
 type CompiledToolIndexes = {
   readonly blockTypes: ReadonlyMap<BlockType, IndexedCompiledToolRule>
   readonly blockTags: ReadonlyMap<ToolBlockTag, IndexedCompiledToolRule>
@@ -68,7 +56,6 @@ export type CompiledToolComponent = {
   readonly canDestroyBlocksInCreative: boolean
   readonly hasTagRule: boolean
 }
-
 export type ResolvedToolMiningProperties = {
   readonly miningSpeed: ToolMiningSpeed
   readonly correctForDrops: boolean
@@ -76,53 +63,40 @@ export type ResolvedToolMiningProperties = {
   readonly canDestroyBlocksInCreative: boolean
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
+type ToolResult<A> = Result.Result<A, ItemValidationFailure>
 
-const assertKnownKeys = (
-  value: Record<string, unknown>,
-  keys: ReadonlyArray<string>,
-  label: string,
-): void => {
-  for (const key of Object.keys(value)) {
-    if (!keys.includes(key)) {
-      throw new TypeError(`unknown ${label} ${key}`)
-    }
-  }
-}
+const failure = (
+  field: string,
+  message: string,
+  value?: unknown,
+  reason: ItemValidationFailure['reason'] = 'invalid-value',
+  kind: ItemValidationFailure['kind'] = reason === 'out-of-range' ? 'RangeError' : 'TypeError',
+): ItemValidationFailure => itemValidationFailure(field, message, reason, value, kind)
 
-const isIterable = (value: unknown): value is Iterable<unknown> => {
-  if (typeof value !== 'object' || value === null) {
-    return false
-  }
-  return typeof Reflect.get(value, Symbol.iterator) === 'function'
-}
+const capture = <A>(field: string, value: unknown, read: () => A): ToolResult<A> =>
+  Effect.runSync(Effect.result(Effect.try({
+    try: read,
+    catch: () => failure(field, `Unable to inspect ${field}`, value, 'hostile-input'),
+  })))
 
-const isReadonlySet = (value: unknown): value is ReadonlySet<unknown> => {
-  if (!isIterable(value)) {
-    return false
-  }
-  return typeof Reflect.get(value, 'has') === 'function'
-}
+const isObject = (value: unknown): value is object =>
+  (typeof value === 'object' && value !== null) || typeof value === 'function'
 
-const isReadonlyMap = (value: unknown): value is ReadonlyMap<unknown, unknown> => {
-  if (!isIterable(value)) {
-    return false
-  }
-  return typeof Reflect.get(value, 'get') === 'function'
-}
+const isIterable = (value: unknown): value is Iterable<unknown> =>
+  isObject(value) && Symbol.iterator in value
 
-const assertNonNegativeFinite = (name: string, value: unknown): void => {
-  if (typeof value !== 'number' || !ToolMiningSpeed.is(value)) {
-    throw new RangeError(`${name} must be a finite number greater than or equal to zero`)
-  }
-}
+const readArray = (
+  field: string,
+  value: unknown,
+): ToolResult<ReadonlyArray<unknown> | undefined> =>
+  capture(field, value, () => Array.isArray(value) ? value : undefined)
 
-const assertNonNegativeInteger = (name: string, value: unknown): void => {
-  if (typeof value !== 'number' || !ToolDurabilityDamage.is(value)) {
-    throw new RangeError(`${name} must be a non-negative integer`)
-  }
-}
+const brandValue = <A, E extends Readonly<{ readonly message: string }>>(
+  result: Result.Result<A, E>,
+  field: string,
+  message: string,
+  value: unknown,
+): ToolResult<A> => Result.mapError(result, () => failure(field, message, value, 'out-of-range'))
 
 const isToolBlockTag = (value: unknown): value is ToolBlockTag =>
   typeof value === 'string' && value.startsWith('#') && value.length > 1 && !/\s/u.test(value)
@@ -133,141 +107,158 @@ const isToolBlockMatcher = (value: unknown): value is ToolBlockMatcher =>
 const COMPILED_TOOL_COMPONENTS = new WeakSet<object>()
 
 const isCompiledToolComponent = (value: unknown): value is CompiledToolComponent =>
-  isRecord(value) && COMPILED_TOOL_COMPONENTS.has(value)
+  typeof value === 'object' && value !== null && COMPILED_TOOL_COMPONENTS.has(value)
 
-const isToolBlockMatcherArray = (
-  value: ToolRule['blocks'],
-): value is ReadonlyArray<ToolBlockMatcher> => Array.isArray(value)
-
-const normalizeToolRuleBlocks = (
-  blocks: ToolRule['blocks'],
-): ReadonlyArray<ToolBlockMatcher> =>
-  isToolBlockMatcherArray(blocks)
-    ? blocks
-    : [blocks]
-
-const assertBlockTagMemberships = (value: unknown): void => {
-  if (!isReadonlyMap(value)) {
-    throw new TypeError('tool resolution blockTags must be a Map or Map-like iterable')
+const readRecord = (
+  value: unknown,
+  field: string,
+  allowedKeys: ReadonlyArray<string>,
+): ToolResult<Record<string, unknown>> => {
+  if (typeof value !== 'object' || value === null) {
+    return Result.fail(failure(field, `${field} must be an object`, value, 'invalid-type'))
   }
-
-  for (const [tag, blocks] of value) {
-    if (!isToolBlockTag(tag)) {
-      throw new RangeError(`tool resolution blockTags contains an invalid tag ${String(tag)}`)
+  const record = capture(field, value, () => {
+    if (Array.isArray(value)) return undefined
+    const prototype = Object.getPrototypeOf(value)
+    if (prototype !== Object.prototype && prototype !== null) return undefined
+    const keys = Object.keys(value)
+    const copy: Record<string, unknown> = {}
+    for (const key of keys) {
+      if (!allowedKeys.includes(key)) return { invalidKey: key }
+      Object.defineProperty(copy, key, { enumerable: true, value: Reflect.get(value, key) })
     }
-    if (!isReadonlySet(blocks)) {
-      throw new TypeError(`tool resolution blockTags ${tag} must contain a Set or Set-like iterable`)
-    }
-    for (const block of blocks) {
-      if (!isBlockType(block)) {
-        throw new RangeError(`tool resolution blockTags ${tag} contains an unknown block type`)
-      }
-    }
+    return copy
+  })
+  if (Result.isFailure(record)) return record
+  if (record.success === undefined) {
+    return Result.fail(failure(field, `${field} must be an object`, value, 'invalid-type'))
   }
+  if ('invalidKey' in record.success) {
+    const key = record.success.invalidKey
+    return Result.fail(failure(field, `unknown ${field} ${String(key)}`, key, 'invalid-value'))
+  }
+  return Result.succeed(record.success)
 }
 
-function validateToolResolutionContext(context: unknown): asserts context is ToolResolutionContextInput {
-  if (!isRecord(context)) {
-    throw new TypeError('tool resolution context must be an object')
-  }
-
-  assertKnownKeys(context, ['blockTags'], 'tool resolution context field')
-  assertBlockTagMemberships(context['blockTags'])
-}
-
-function validateToolComponent(component: unknown): asserts component is ToolComponent {
-  if (!isRecord(component)) {
-    throw new TypeError('tool component must be an object')
-  }
-
-  assertKnownKeys(
-    component,
-    ['rules', 'defaultMiningSpeed', 'damagePerBlock', 'canDestroyBlocksInCreative'],
-    'tool component field',
-  )
-
-  const rules = component['rules']
-  if (!Array.isArray(rules)) {
-    throw new TypeError('tool component rules must be an array')
-  }
-
-  const defaultMiningSpeed = component['defaultMiningSpeed']
-  if (defaultMiningSpeed !== undefined) {
-    assertNonNegativeFinite('tool component defaultMiningSpeed', defaultMiningSpeed)
-  }
-
-  assertNonNegativeInteger('tool component damagePerBlock', component['damagePerBlock'])
-
-  const canDestroyBlocksInCreative = component['canDestroyBlocksInCreative']
-  if (
-    canDestroyBlocksInCreative !== undefined &&
-    typeof canDestroyBlocksInCreative !== 'boolean'
-  ) {
-    throw new TypeError('tool component canDestroyBlocksInCreative must be a boolean')
-  }
-
-  rules.forEach((rule: unknown, index) => {
-    if (!isRecord(rule)) {
-      throw new TypeError(`tool rule ${index} must be an object`)
-    }
-
-    assertKnownKeys(rule, ['blocks', 'speed', 'correctForDrops'], `tool rule ${index} field`)
-
+const readToolComponent = (value: unknown): ToolResult<ToolComponent> => Result.gen(function* () {
+  const component = yield* readRecord(value, 'tool component', ['rules', 'defaultMiningSpeed', 'damagePerBlock', 'canDestroyBlocksInCreative'])
+  const rulesValue = component['rules']
+  const rulesArray = readArray('tool component rules', rulesValue)
+  if (Result.isFailure(rulesArray)) return yield* rulesArray
+  const ruleEntries = rulesArray.success
+  if (ruleEntries === undefined) return yield* Result.fail(failure('rules', 'tool component rules must be an array', rulesValue, 'invalid-type'))
+  const rulesLength = capture('tool component rules', rulesValue, () => ruleEntries.length)
+  if (Result.isFailure(rulesLength)) return yield* rulesLength
+  const rules: ToolRule[] = []
+  for (let index = 0; index < rulesLength.success; index += 1) {
+    const sourceRule = capture(`tool rule ${index}`, rulesValue, () => ruleEntries[index])
+    if (Result.isFailure(sourceRule)) return yield* sourceRule
+    const rule = yield* readRecord(sourceRule.success, `tool rule ${index}`, ['blocks', 'speed', 'correctForDrops'])
     const blocks = rule['blocks']
-    if (blocks === undefined || (Array.isArray(blocks) && blocks.length === 0)) {
-      throw new RangeError(`tool rule ${index} must contain at least one block`)
+    if (blocks === undefined) return yield* Result.fail(failure(`tool rule ${index}`, `tool rule ${index} must contain at least one block`, blocks, 'out-of-range'))
+    const blockArray = readArray(`tool rule ${index} blocks`, blocks)
+    if (Result.isFailure(blockArray)) return yield* blockArray
+    let normalizedBlocks: ToolRule['blocks']
+    const blockEntries = blockArray.success
+    if (blockEntries !== undefined) {
+      const length = capture(`tool rule ${index} blocks`, blocks, () => blockEntries.length)
+      if (Result.isFailure(length)) return yield* length
+      if (length.success === 0) return yield* Result.fail(failure(`tool rule ${index}`, `tool rule ${index} must contain at least one block`, blocks, 'out-of-range'))
+      const entries: ToolBlockMatcher[] = []
+      for (let blockIndex = 0; blockIndex < length.success; blockIndex += 1) {
+        const block = capture(`tool rule ${index} blocks[${blockIndex}]`, blocks, () => blockEntries[blockIndex])
+        if (Result.isFailure(block)) return yield* block
+        if (!isToolBlockMatcher(block.success)) return yield* Result.fail(failure(`tool rule ${index}`, `tool rule ${index} contains an unknown block or block tag`, block.success, 'out-of-range'))
+        entries.push(block.success)
+      }
+      normalizedBlocks = Object.freeze(entries)
+    } else {
+      if (!isToolBlockMatcher(blocks)) return yield* Result.fail(failure(`tool rule ${index}`, `tool rule ${index} must contain a block or block tag`, blocks, 'out-of-range'))
+      normalizedBlocks = blocks
     }
-
-    if (Array.isArray(blocks)) {
-      blocks.forEach((block) => {
-        if (!isToolBlockMatcher(block)) {
-          throw new RangeError(`tool rule ${index} contains an unknown block or block tag`)
-        }
-      })
-    } else if (!isToolBlockMatcher(blocks)) {
-      throw new RangeError(`tool rule ${index} must contain a block or block tag`)
-    }
-
     const speed = rule['speed']
-    if (speed !== undefined) {
-      assertNonNegativeFinite(`tool rule ${index} speed`, speed)
+    if (speed !== undefined && typeof speed !== 'number') {
+      return yield* Result.fail(failure(`tool rule ${index} speed`, `tool rule ${index} speed must be a finite number greater than or equal to zero`, speed, 'out-of-range'))
     }
-
+    const checkedSpeed = speed === undefined
+      ? undefined
+      : yield* brandValue(
+        ToolMiningSpeed.result(speed),
+        `tool rule ${index} speed`,
+        `tool rule ${index} speed must be a finite number greater than or equal to zero`,
+        speed,
+      )
     const correctForDrops = rule['correctForDrops']
     if (correctForDrops !== undefined && typeof correctForDrops !== 'boolean') {
-      throw new TypeError(`tool rule ${index} correctForDrops must be a boolean`)
+      return yield* Result.fail(failure(`tool rule ${index}`, `tool rule ${index} correctForDrops must be a boolean`, correctForDrops, 'invalid-type'))
     }
+    rules.push(Object.freeze({
+      blocks: normalizedBlocks,
+      ...(checkedSpeed === undefined ? {} : { speed: checkedSpeed }),
+      ...(correctForDrops === undefined ? {} : { correctForDrops }),
+    }))
+  }
+  const defaultMiningSpeed = component['defaultMiningSpeed']
+  if (defaultMiningSpeed !== undefined && typeof defaultMiningSpeed !== 'number') {
+    return yield* Result.fail(failure('defaultMiningSpeed', 'tool component defaultMiningSpeed must be a finite number greater than or equal to zero', defaultMiningSpeed, 'out-of-range'))
+  }
+  const checkedDefaultMiningSpeed = defaultMiningSpeed === undefined
+    ? undefined
+    : yield* brandValue(
+      ToolMiningSpeed.result(defaultMiningSpeed),
+      'defaultMiningSpeed',
+      'tool component defaultMiningSpeed must be a finite number greater than or equal to zero',
+      defaultMiningSpeed,
+    )
+  const damagePerBlock = component['damagePerBlock']
+  if (typeof damagePerBlock !== 'number') {
+    return yield* Result.fail(failure('damagePerBlock', 'tool component damagePerBlock must be a non-negative integer', damagePerBlock, 'out-of-range'))
+  }
+  const checkedDamagePerBlock = yield* brandValue(
+    ToolDurabilityDamage.result(damagePerBlock),
+    'damagePerBlock',
+    'tool component damagePerBlock must be a non-negative integer',
+    damagePerBlock,
+  )
+  const canDestroyBlocksInCreative = component['canDestroyBlocksInCreative']
+  if (canDestroyBlocksInCreative !== undefined && typeof canDestroyBlocksInCreative !== 'boolean') {
+    return yield* Result.fail(failure('canDestroyBlocksInCreative', 'tool component canDestroyBlocksInCreative must be a boolean', canDestroyBlocksInCreative, 'invalid-type'))
+  }
+  return Object.freeze({
+    rules: Object.freeze(rules),
+    ...(checkedDefaultMiningSpeed === undefined ? {} : { defaultMiningSpeed: checkedDefaultMiningSpeed }),
+    damagePerBlock: checkedDamagePerBlock,
+    ...(canDestroyBlocksInCreative === undefined ? {} : { canDestroyBlocksInCreative }),
+  })
+})
+
+export const isToolComponent = (value: unknown): value is ToolComponent =>
+  Result.isSuccess(readToolComponent(value))
+
+const normalizeToolRuleBlocks = (blocks: ToolRule['blocks']): ReadonlyArray<ToolBlockMatcher> =>
+  Array.isArray(blocks) ? blocks : [blocks]
+
+const compileToolRule = (rule: ToolRule): CompiledToolRule => {
+  const blocks = normalizeToolRuleBlocks(rule.blocks)
+  return Object.freeze({
+    blockTypes: Object.freeze(blocks.filter(isBlockType)),
+    blockTags: Object.freeze(blocks.filter(isToolBlockTag)),
+    ...(rule.speed === undefined ? {} : { speed: rule.speed }),
+    ...(rule.correctForDrops === undefined ? {} : { correctForDrops: rule.correctForDrops }),
   })
 }
 
-export const isToolComponent = (value: unknown): value is ToolComponent => {
-  try {
-    validateToolComponent(value)
-    return true
-  } catch {
-    return false
-  }
-}
-
-const compileToolRule = (rule: ToolRule): CompiledToolRule =>
-  (() => {
-    const blocks = normalizeToolRuleBlocks(rule.blocks)
-    return Object.freeze({
-      blockTypes: Object.freeze(blocks.filter(isBlockType)),
-      blockTags: Object.freeze(blocks.filter(isToolBlockTag)),
-      ...(rule.speed === undefined ? {} : { speed: rule.speed }),
-      ...(rule.correctForDrops === undefined ? {} : { correctForDrops: rule.correctForDrops }),
-    })
-  })()
-
-const indexCompiledToolRules = (
-  rules: ReadonlyArray<CompiledToolRule>,
-): CompiledToolIndexes => {
+const indexCompiledToolRules = (rules: ReadonlyArray<CompiledToolRule>): ToolResult<CompiledToolIndexes> => Result.gen(function* () {
   const blockTypes = new Map<BlockType, IndexedCompiledToolRule>()
   const blockTags = new Map<ToolBlockTag, IndexedCompiledToolRule>()
-
-  rules.forEach((rule, order) => {
-    const indexedRule = Object.freeze({ rule, order: ToolRuleOrder(order) })
+  for (const [index, rule] of rules.entries()) {
+    const order = yield* brandValue(
+      ToolRuleOrder.result(index),
+      'rule order',
+      `ToolRuleOrder must be a non-negative safe integer, received ${String(index)}`,
+      index,
+    )
+    const indexedRule = Object.freeze({ rule, order })
     for (const blockType of rule.blockTypes) {
       if (!blockTypes.has(blockType)) {
         blockTypes.set(blockType, indexedRule)
@@ -278,105 +269,119 @@ const indexCompiledToolRules = (
         blockTags.set(blockTag, indexedRule)
       }
     }
-  })
-
+  }
   return Object.freeze({ blockTypes, blockTags })
-}
+})
 
-export function compileToolComponent(component: ToolComponent): CompiledToolComponent {
-  validateToolComponent(component)
+export const compileToolComponent = (component: ToolComponent): ToolResult<CompiledToolComponent> => Result.gen(function* () {
+    const input = yield* readToolComponent(component)
+    const rules = Object.freeze(input.rules.map(compileToolRule))
+    const indexes = yield* indexCompiledToolRules(rules)
+    const defaultMiningSpeed = input.defaultMiningSpeed ?? (yield* brandValue(
+      ToolMiningSpeed.result(DEFAULT_MINING_SPEED),
+      'defaultMiningSpeed',
+      'tool component defaultMiningSpeed must be a finite number greater than or equal to zero',
+      DEFAULT_MINING_SPEED,
+    ))
+    const compiled: CompiledToolComponent = Object.freeze({
+      [COMPILED_TOOL_COMPONENT]: true,
+      [COMPILED_TOOL_COMPONENT_INDEXES]: indexes,
+      rules,
+      defaultMiningSpeed,
+      damagePerBlock: input.damagePerBlock,
+      canDestroyBlocksInCreative: input.canDestroyBlocksInCreative ?? true,
+      hasTagRule: indexes.blockTags.size > 0,
+    })
+    COMPILED_TOOL_COMPONENTS.add(compiled)
+    return compiled
+})
 
-  const rules = Object.freeze(component.rules.map(compileToolRule))
-  const indexes = indexCompiledToolRules(rules)
-  const compiled: CompiledToolComponent = Object.freeze<CompiledToolComponent>({
-    [COMPILED_TOOL_COMPONENT]: true,
-    [COMPILED_TOOL_COMPONENT_INDEXES]: indexes,
-    rules,
-    defaultMiningSpeed: component.defaultMiningSpeed ?? ToolMiningSpeed(DEFAULT_MINING_SPEED),
-    damagePerBlock: component.damagePerBlock,
-    canDestroyBlocksInCreative: component.canDestroyBlocksInCreative ?? true,
-    hasTagRule: indexes.blockTags.size > 0,
+const readResolutionContext = (context: unknown): ToolResult<ToolResolutionContext> => Result.gen(function* () {
+  const record = yield* readRecord(context, 'tool resolution context', ['blockTags'])
+  const blockTags = record['blockTags']
+  const entries = capture('tool resolution blockTags', blockTags, () => {
+    if (!isIterable(blockTags)) return undefined
+    if (typeof Reflect.get(blockTags, 'get') !== 'function') return undefined
+    return Array.from(blockTags)
   })
+  if (Result.isFailure(entries)) return yield* entries
+  const contextEntries = entries.success
+  if (contextEntries === undefined) return yield* Result.fail(failure('blockTags', 'tool resolution blockTags must be a Map or Map-like iterable', blockTags, 'invalid-type'))
+  const memberships = new Map<ToolBlockTag, ReadonlySet<BlockType>>()
+  for (const entry of contextEntries) {
+    const pair = capture('tool resolution blockTags entry', entry, () => {
+      if (!isObject(entry)) return undefined
+      return [Reflect.get(entry, '0'), Reflect.get(entry, '1')] as const
+    })
+    if (Result.isFailure(pair)) return yield* pair
+    if (pair.success === undefined) return yield* Result.fail(failure('blockTags', 'tool resolution blockTags entries must be key/value pairs', entry, 'invalid-type'))
+    const [tag, blocks] = pair.success
+    if (!isToolBlockTag(tag)) return yield* Result.fail(failure('blockTags', `tool resolution blockTags contains an invalid tag ${String(tag)}`, tag, 'out-of-range'))
+    const methods = capture(`tool resolution blockTags ${tag}`, blocks, () => {
+      if (!isObject(blocks)) return undefined
+      return {
+        iterator: Reflect.get(blocks, Symbol.iterator),
+        has: Reflect.get(blocks, 'has'),
+      }
+    })
+    if (Result.isFailure(methods)) return yield* methods
+    if (methods.success === undefined) return yield* Result.fail(failure(`blockTags.${tag}`, `tool resolution blockTags ${tag} must contain a Set or Set-like iterable`, blocks, 'invalid-type'))
+    if (typeof methods.success.iterator !== 'function' || typeof methods.success.has !== 'function') {
+      return yield* Result.fail(failure(`blockTags.${tag}`, `tool resolution blockTags ${tag} must contain a Set or Set-like iterable`, blocks, 'invalid-type'))
+    }
+    const blocksArray = capture(`tool resolution blockTags ${tag}`, blocks, () => {
+      if (!isIterable(blocks)) return undefined
+      return Array.from(blocks)
+    })
+    if (Result.isFailure(blocksArray)) return yield* blocksArray
+    const blockValues = blocksArray.success
+    if (blockValues === undefined) return yield* Result.fail(failure(`blockTags.${tag}`, `tool resolution blockTags ${tag} must contain a Set or Set-like iterable`, blocks, 'invalid-type'))
+    const validBlocks = new Set<BlockType>()
+    for (const block of blockValues) {
+      if (!isBlockType(block)) return yield* Result.fail(failure(`blockTags.${tag}`, `tool resolution blockTags ${tag} contains an unknown block type`, block, 'out-of-range'))
+      validBlocks.add(block)
+    }
+    memberships.set(tag, validBlocks)
+  }
+  return { blockTags: memberships }
+})
 
-  COMPILED_TOOL_COMPONENTS.add(compiled)
-  return compiled
-}
-
-const resolveCompiledToolMiningProperties = (
+const resultForBlock = (
   component: CompiledToolComponent,
   block: BlockType,
-  context?: ToolResolutionContextInput,
-): ResolvedToolMiningProperties => {
+  context: ToolResolutionContext | undefined,
+): ToolResult<ResolvedToolMiningProperties> => {
   if (component.hasTagRule && context === undefined) {
-    throw new TypeError('tool resolution context with blockTags is required for tag rules')
+    return Result.fail(failure('context', 'tool resolution context with blockTags is required for tag rules', context, 'invalid-type'))
   }
-  if (context !== undefined) {
-    validateToolResolutionContext(context)
-  }
-
   const indexes = component[COMPILED_TOOL_COMPONENT_INDEXES]
-
   let matchingRule = indexes.blockTypes.get(block)
   if (context !== undefined) {
     for (const [tag, candidate] of indexes.blockTags) {
-      if (
-        context.blockTags.get(tag)?.has(block) === true &&
-        (matchingRule === undefined || candidate.order < matchingRule.order)
-      ) {
+      if (context.blockTags.get(tag)?.has(block) === true && (matchingRule === undefined || candidate.order < matchingRule.order)) {
         matchingRule = candidate
       }
     }
   }
-
-  return {
+  return Result.succeed({
     miningSpeed: matchingRule?.rule.speed ?? component.defaultMiningSpeed,
     correctForDrops: matchingRule?.rule.correctForDrops ?? false,
     damagePerBlock: component.damagePerBlock,
     canDestroyBlocksInCreative: component.canDestroyBlocksInCreative,
-  }
+  })
 }
 
-export function resolveToolMiningProperties(
+export const resolveToolMiningProperties = (
   component: ToolComponent | CompiledToolComponent,
   block: BlockType,
   context?: ToolResolutionContextInput,
-): ResolvedToolMiningProperties {
-  if (!isBlockType(block)) {
-    throw new RangeError('block must be a known block type')
-  }
-
-  if (isCompiledToolComponent(component)) {
-    if (context !== undefined) {
-      validateToolResolutionContext(context)
-    }
-    return resolveCompiledToolMiningProperties(component, block, context)
-  }
-
-  validateToolComponent(component)
-
-  const hasTagRule = component.rules.some((rule) =>
-    normalizeToolRuleBlocks(rule.blocks).some((matcher) => isToolBlockTag(matcher)),
-  )
-  if (hasTagRule && context === undefined) {
-    throw new TypeError('tool resolution context with blockTags is required for tag rules')
-  }
-  if (context !== undefined) {
-    validateToolResolutionContext(context)
-  }
-
-  const defaultMiningSpeed = component.defaultMiningSpeed ?? ToolMiningSpeed(DEFAULT_MINING_SPEED)
-  const matchingRule = component.rules.find((rule) =>
-    normalizeToolRuleBlocks(rule.blocks).some((matcher) =>
-      isBlockType(matcher)
-        ? matcher === block
-        : context?.blockTags.get(matcher)?.has(block) ?? false,
-    ),
-  )
-
-  return {
-    miningSpeed: matchingRule?.speed ?? defaultMiningSpeed,
-    correctForDrops: matchingRule?.correctForDrops ?? false,
-    damagePerBlock: component.damagePerBlock,
-    canDestroyBlocksInCreative: component.canDestroyBlocksInCreative ?? true,
-  }
+): ToolResult<ResolvedToolMiningProperties> => {
+  if (!isBlockType(block)) return Result.fail(failure('block', 'block must be a known block type', block, 'out-of-range'))
+  const parsedContext = context === undefined ? Result.succeed(undefined) : readResolutionContext(context)
+  if (Result.isFailure(parsedContext)) return parsedContext
+  if (isCompiledToolComponent(component)) return resultForBlock(component, block, parsedContext.success)
+  return Result.flatMap(readToolComponent(component), (input) => {
+    const compiled = compileToolComponent(input)
+    return Result.flatMap(compiled, (value) => resultForBlock(value, block, parsedContext.success))
+  })
 }

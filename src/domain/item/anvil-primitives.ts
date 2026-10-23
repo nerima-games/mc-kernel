@@ -23,21 +23,10 @@ const isCustomName = (value: unknown): value is AnvilCustomName =>
   value.length <= 50 &&
   !/[\u0000-\u001f\u007f]/.test(value)
 
-const brandAnvilEnchantmentId = Brand.nominal<AnvilEnchantmentId>()
-const brandAnvilCustomName = Brand.nominal<AnvilCustomName>()
+export const AnvilEnchantmentId: Brand.Constructor<AnvilEnchantmentId> = Brand.make<AnvilEnchantmentId>(
+  (value) => isEnchantmentId(value) ? true : `Invalid AnvilEnchantmentId: ${String(value)}`,
+)
 
-export const AnvilEnchantmentId = (value: unknown): AnvilEnchantmentId => {
-  if (!isEnchantmentId(value)) {
-    throw new TypeError(`Invalid AnvilEnchantmentId: ${String(value)}`)
-  }
-
-  return brandAnvilEnchantmentId(value)
-}
-
-export const AnvilCustomName = (value: unknown): AnvilCustomName => {
-  if (!isCustomName(value)) {
-    throw new TypeError(`Invalid AnvilCustomName: ${String(value)}`)
-  }
-
-  return brandAnvilCustomName(value)
-}
+export const AnvilCustomName: Brand.Constructor<AnvilCustomName> = Brand.make<AnvilCustomName>(
+  (value) => isCustomName(value) ? true : `Invalid AnvilCustomName: ${String(value)}`,
+)

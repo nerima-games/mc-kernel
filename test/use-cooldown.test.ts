@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest'
+import * as useCooldownResult from '../src/domain/item/use-cooldown.js'
 import { ResourceLocation } from '../src/domain/text/identifiers.js'
 import { CooldownSeconds, MonotonicTimeSecs } from '../src/domain/time/quantities.js'
 import {
-  cooldownExpiresAt,
-  isCooldownActive,
   isUseCooldownComponent,
-  useCooldownComponent,
 } from '../src/domain/item/use-cooldown.js'
+import { expectItemFailure, itemResultValue } from './item-result-assertions.js'
+
+const cooldownExpiresAt = (...args: Parameters<typeof useCooldownResult.cooldownExpiresAt>) =>
+  itemResultValue(useCooldownResult.cooldownExpiresAt(...args))
+const isCooldownActive = (...args: Parameters<typeof useCooldownResult.isCooldownActive>) =>
+  itemResultValue(useCooldownResult.isCooldownActive(...args))
+const useCooldownComponent = (...args: Parameters<typeof useCooldownResult.useCooldownComponent>) =>
+  itemResultValue(useCooldownResult.useCooldownComponent(...args))
 
 describe('use_cooldown component', () => {
   it('constructs a positive duration with an optional cooldown group', () => {
@@ -20,7 +26,14 @@ describe('use_cooldown component', () => {
 
   it('rejects zero, negative, non-finite, and infinite durations', () => {
     for (const seconds of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
-      expect(() => Reflect.apply(useCooldownComponent, undefined, [seconds])).toThrow()
+      expectItemFailure(Reflect.apply(useCooldownResult.useCooldownComponent, undefined, [seconds]), {
+        _tag: 'ItemValidationFailure',
+        kind: 'RangeError',
+        reason: 'out-of-range',
+        field: 'seconds',
+        message: `CooldownSeconds must be a finite, positive number of seconds, received ${seconds}`,
+        value: seconds,
+      })
     }
   })
 

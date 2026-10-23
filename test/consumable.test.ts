@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import * as consumableResult from '../src/domain/item/consumable'
 import {
   CONSUMABLE_ANIMATIONS,
   DEFAULT_CONSUMABLE_COMPONENT,
-  consumableApplyEffects,
   consumableClearAllEffects,
-  consumableComponent,
   consumableComponentOf,
   consumablePlaySound,
   consumableRemoveEffects,
-  consumableStatusEffect,
-  consumableTeleportRandomly,
   foodComponentOf,
   isConsumableComponent,
   isConsumableEffect,
@@ -29,6 +26,16 @@ import {
   FoodEffectProbability,
   RandomTeleportDiameter,
 } from '../src/domain/item/item-primitives'
+import { expectItemFailure, itemResultValue } from './item-result-assertions'
+
+const consumableApplyEffects = (...args: Parameters<typeof consumableResult.consumableApplyEffects>) =>
+  itemResultValue(consumableResult.consumableApplyEffects(...args))
+const consumableComponent = (...args: Parameters<typeof consumableResult.consumableComponent>) =>
+  itemResultValue(consumableResult.consumableComponent(...args))
+const consumableStatusEffect = (...args: Parameters<typeof consumableResult.consumableStatusEffect>) =>
+  itemResultValue(consumableResult.consumableStatusEffect(...args))
+const consumableTeleportRandomly = (...args: Parameters<typeof consumableResult.consumableTeleportRandomly>) =>
+  itemResultValue(consumableResult.consumableTeleportRandomly(...args))
 
 describe('consumable item components', () => {
   it('publishes the official animation vocabulary and defaults', () => {
@@ -219,18 +226,41 @@ describe('consumable item components', () => {
   it('rejects invalid numeric values at the component boundary', () => {
     const effectId = ResourceLocation('minecraft:speed')
 
-    expect(() => Reflect.apply(consumableStatusEffect, undefined, [effectId, 0, 0])).toThrow()
-    expect(() => Reflect.apply(consumableStatusEffect, undefined, [effectId, Number.NaN, 0])).toThrow()
-    expect(() => Reflect.apply(consumableStatusEffect, undefined, [effectId, 30, -1])).toThrow()
-    expect(() => Reflect.apply(consumableStatusEffect, undefined, [effectId, 30, 0.5])).toThrow()
-    expect(() => Reflect.apply(consumableApplyEffects, undefined, [[], -0.1])).toThrow()
-    expect(() => Reflect.apply(consumableApplyEffects, undefined, [[], 1.1])).toThrow()
-    expect(() => Reflect.apply(consumableApplyEffects, undefined, [[], Number.NaN])).toThrow()
-    expect(() => Reflect.apply(consumableTeleportRandomly, undefined, [0])).toThrow()
-    expect(() => Reflect.apply(consumableTeleportRandomly, undefined, [Number.POSITIVE_INFINITY])).toThrow()
-    expect(consumableComponent({ consumeSeconds: ConsumeSeconds(0) }).consumeSeconds).toBe(0)
-    expect(() => Reflect.apply(consumableComponent, undefined, [{ consumeSeconds: Number.NaN }])).toThrow()
-    expect(() => Reflect.apply(consumableComponent, undefined, [{ consumeSeconds: Number.POSITIVE_INFINITY }])).toThrow()
+    const validation = (field: string, message: string, value: unknown) => ({
+      _tag: 'ItemValidationFailure',
+      kind: 'RangeError',
+      reason: 'out-of-range',
+      field,
+      message,
+      value,
+    })
+    expectItemFailure(Reflect.apply(consumableResult.consumableStatusEffect, undefined, [effectId, 0, 0]), validation(
+      'durationSecs', 'durationSecs must be positive', 0,
+    ))
+    expectItemFailure(Reflect.apply(consumableResult.consumableStatusEffect, undefined, [effectId, Number.NaN, 0]), validation(
+      'durationSecs', 'durationSecs must be positive', Number.NaN,
+    ))
+    for (const amplifier of [-1, 0.5]) {
+      expectItemFailure(Reflect.apply(consumableResult.consumableStatusEffect, undefined, [effectId, 30, amplifier]), validation(
+        'amplifier', `amplifier must be a non-negative integer, received ${amplifier}`, amplifier,
+      ))
+    }
+    for (const probability of [-0.1, 1.1, Number.NaN]) {
+      expectItemFailure(Reflect.apply(consumableResult.consumableApplyEffects, undefined, [[], probability]), validation(
+        'probability', `probability must be in [0, 1], received ${probability}`, probability,
+      ))
+    }
+    for (const diameter of [0, Number.POSITIVE_INFINITY]) {
+      expectItemFailure(Reflect.apply(consumableResult.consumableTeleportRandomly, undefined, [diameter]), validation(
+        'diameter', 'diameter must be positive', diameter,
+      ))
+    }
+    expect(consumableComponent({ consumeSeconds: 0 }).consumeSeconds).toBe(0)
+    for (const consumeSeconds of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      expectItemFailure(consumableResult.consumableComponent({ consumeSeconds }), validation(
+        'consumeSeconds', 'consumeSeconds must be finite and non-negative', consumeSeconds,
+      ))
+    }
   })
 
   it('projects status effects with namespaced ids and probabilities', () => {

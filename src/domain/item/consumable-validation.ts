@@ -33,12 +33,7 @@ const isNonNegativeInteger = (value: unknown): value is number =>
 
 const isResourceLocation = (value: unknown): value is ResourceLocationValue => {
   if (typeof value !== 'string') return false
-  try {
-    ResourceLocation(value)
-    return true
-  } catch {
-    return false
-  }
+  return ResourceLocation.is(value)
 }
 
 const CONSUMABLE_ANIMATION_SET: ReadonlySet<string> = new Set(CONSUMABLE_ANIMATIONS)

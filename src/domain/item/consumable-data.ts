@@ -1,4 +1,5 @@
 import type { ItemType } from './item-type.js'
+import { Brand } from 'effect'
 import { ResourceLocation, type ResourceLocation as ResourceLocationType } from '../text/identifiers.js'
 import { ConsumeSeconds, type ConsumeSeconds as ConsumeSecondsType } from '../time/quantities.js'
 import type {
@@ -97,9 +98,9 @@ export type ItemUseComponents = Readonly<{
 }>
 
 export const DEFAULT_CONSUMABLE_COMPONENT: ConsumableComponent = {
-  consumeSeconds: ConsumeSeconds(1.6),
+  consumeSeconds: Brand.nominal<ConsumeSecondsType>()(1.6),
   animation: 'eat',
-  sound: ResourceLocation('entity.generic.eat'),
+  sound: Brand.nominal<ResourceLocationType>()('entity.generic.eat'),
   hasConsumeParticles: true,
   onConsumeEffects: [],
 }

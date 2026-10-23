@@ -18,3 +18,4 @@ export * from "./anvil-primitives.js";
 export * from "./item-primitives.js";
 export * from "./anvil-constants.js";
 export * from "./food-data.js";
+export * from "./item-failure.js";

@@ -1,16 +1,13 @@
+import * as itemCombatResult from '../src/domain/item/item-combat'
 import {
-  attackRangeComponent,
-  damageTypeComponent,
   isAttackRangeComponent,
   isDamageTypeComponent,
   isMinimumAttackChargeComponent,
   isSwingAnimationComponent,
   isUseEffectsComponent,
-  minimumAttackChargeComponent,
   SWING_ANIMATION_TYPES,
-  swingAnimationComponent,
-  useEffectsComponent,
 } from '../src/domain/item/item-combat'
+import { expectItemFailure, itemResultValue } from './item-result-assertions'
 import { describe, expect, it } from 'vitest'
 import { ResourceLocation } from '../src/domain/text/identifiers'
 import {
@@ -21,6 +18,17 @@ import {
   SwingAnimationDuration,
   UseSpeedMultiplier,
 } from '../src/domain/time/quantities'
+
+const attackRangeComponent = (...args: Parameters<typeof itemCombatResult.attackRangeComponent>) =>
+  itemResultValue(itemCombatResult.attackRangeComponent(...args))
+const damageTypeComponent = (...args: Parameters<typeof itemCombatResult.damageTypeComponent>) =>
+  itemResultValue(itemCombatResult.damageTypeComponent(...args))
+const minimumAttackChargeComponent = (...args: Parameters<typeof itemCombatResult.minimumAttackChargeComponent>) =>
+  itemResultValue(itemCombatResult.minimumAttackChargeComponent(...args))
+const swingAnimationComponent = (...args: Parameters<typeof itemCombatResult.swingAnimationComponent>) =>
+  itemResultValue(itemCombatResult.swingAnimationComponent(...args))
+const useEffectsComponent = (...args: Parameters<typeof itemCombatResult.useEffectsComponent>) =>
+  itemResultValue(itemCombatResult.useEffectsComponent(...args))
 
 describe('item combat components', () => {
   it('constructs immutable components with official defaults', () => {
@@ -81,32 +89,64 @@ describe('item combat components', () => {
   })
 
   it('rejects malformed constructor input at the runtime boundary', () => {
-    expect(() => Reflect.apply(useEffectsComponent, undefined, [null])).toThrow(TypeError)
-    expect(() => Reflect.apply(useEffectsComponent, undefined, [[]])).toThrow(TypeError)
-    expect(() => Reflect.apply(useEffectsComponent, undefined, [1])).toThrow(TypeError)
-    expect(() => Reflect.apply(useEffectsComponent, undefined, [{ canSprint: 'yes' }])).toThrow(TypeError)
-    expect(() => Reflect.apply(useEffectsComponent, undefined, [{ speedMultiplier: 1.1 }])).toThrow(RangeError)
+    const validation = (field: string, message: string, value: unknown, reason: string, kind: string) => ({
+      _tag: 'ItemValidationFailure', kind, reason, field, message, value,
+    })
+    for (const options of [null, [], 1]) {
+      expectItemFailure(Reflect.apply(itemCombatResult.useEffectsComponent, undefined, [options]), validation(
+        'options', 'Use effects options must be a non-null object', options, 'invalid-type', 'TypeError',
+      ))
+    }
+    expectItemFailure(Reflect.apply(itemCombatResult.useEffectsComponent, undefined, [{ canSprint: 'yes' }]), validation(
+      'canSprint', 'canSprint must be a boolean', 'yes', 'invalid-type', 'TypeError',
+    ))
+    expectItemFailure(itemCombatResult.useEffectsComponent({ speedMultiplier: 1.1 }), validation(
+      'speedMultiplier', 'speedMultiplier must be a finite number in [0, 1]', 1.1, 'out-of-range', 'RangeError',
+    ))
 
-    expect(() => Reflect.apply(minimumAttackChargeComponent, undefined, [-0.1])).toThrow(RangeError)
-    expect(() => Reflect.apply(minimumAttackChargeComponent, undefined, [1.1])).toThrow(RangeError)
-    expect(() => Reflect.apply(minimumAttackChargeComponent, undefined, ['0.5'])).toThrow(RangeError)
-    expect(() => Reflect.apply(damageTypeComponent, undefined, ['INVALID!'])).toThrow(TypeError)
-    expect(() => Reflect.apply(damageTypeComponent, undefined, [1])).toThrow(TypeError)
+    for (const value of [-0.1, 1.1, '0.5']) {
+      expectItemFailure(Reflect.apply(itemCombatResult.minimumAttackChargeComponent, undefined, [value]), validation(
+        'minimumAttackCharge', 'minimumAttackCharge must be a finite number in [0, 1]', value, 'out-of-range', 'RangeError',
+      ))
+    }
+    expectItemFailure(itemCombatResult.damageTypeComponent('INVALID!'), validation(
+      'damageType', 'damageType must be a valid resource location: INVALID!', 'INVALID!', 'invalid-value', 'TypeError',
+    ))
+    expectItemFailure(Reflect.apply(itemCombatResult.damageTypeComponent, undefined, [1]), validation(
+      'damageType', 'damageType must be a valid resource location: 1', 1, 'invalid-value', 'TypeError',
+    ))
 
-    expect(() => Reflect.apply(swingAnimationComponent, undefined, [null])).toThrow(TypeError)
-    expect(() => Reflect.apply(swingAnimationComponent, undefined, [[]])).toThrow(TypeError)
-    expect(() => Reflect.apply(swingAnimationComponent, undefined, [{ type: 'slash' }])).toThrow(TypeError)
-    expect(() => Reflect.apply(swingAnimationComponent, undefined, [{ duration: 1.5 }])).toThrow(RangeError)
-    expect(() => Reflect.apply(swingAnimationComponent, undefined, [{ duration: -1 }])).toThrow(RangeError)
+    for (const options of [null, []]) {
+      expectItemFailure(Reflect.apply(itemCombatResult.swingAnimationComponent, undefined, [options]), validation(
+        'options', 'Swing animation options must be a non-null object', options, 'invalid-type', 'TypeError',
+      ))
+    }
+    expectItemFailure(Reflect.apply(itemCombatResult.swingAnimationComponent, undefined, [{ type: 'slash' }]), validation(
+      'type', 'Unknown swing animation type: slash', 'slash', 'invalid-value', 'TypeError',
+    ))
+    for (const duration of [1.5, -1]) {
+      expectItemFailure(itemCombatResult.swingAnimationComponent({ duration }), validation(
+        'duration', 'duration must be a non-negative safe integer', duration, 'out-of-range', 'RangeError',
+      ))
+    }
 
-    expect(() => Reflect.apply(attackRangeComponent, undefined, [null])).toThrow(TypeError)
-    expect(() => Reflect.apply(attackRangeComponent, undefined, [[]])).toThrow(TypeError)
-    expect(() => Reflect.apply(attackRangeComponent, undefined, [{ minReach: -1 }])).toThrow(RangeError)
-    expect(() => Reflect.apply(attackRangeComponent, undefined, [{ maxReach: 65 }])).toThrow(RangeError)
-    expect(() => Reflect.apply(attackRangeComponent, undefined, [{ minCreativeReach: -1 }])).toThrow(RangeError)
-    expect(() => Reflect.apply(attackRangeComponent, undefined, [{ maxCreativeReach: 65 }])).toThrow(RangeError)
-    expect(() => Reflect.apply(attackRangeComponent, undefined, [{ hitboxMargin: 1.1 }])).toThrow(RangeError)
-    expect(() => Reflect.apply(attackRangeComponent, undefined, [{ mobFactor: -1 }])).toThrow(RangeError)
+    for (const options of [null, []]) {
+      expectItemFailure(Reflect.apply(itemCombatResult.attackRangeComponent, undefined, [options]), validation(
+        'options', 'Attack range options must be a non-null object', options, 'invalid-type', 'TypeError',
+      ))
+    }
+    for (const [field, value, message] of [
+      ['minReach', -1, 'minReach must be a finite number in [0, 64]'],
+      ['maxReach', 65, 'maxReach must be a finite number in [0, 64]'],
+      ['minCreativeReach', -1, 'minCreativeReach must be a finite number in [0, 64]'],
+      ['maxCreativeReach', 65, 'maxCreativeReach must be a finite number in [0, 64]'],
+      ['hitboxMargin', 1.1, 'hitboxMargin must be a finite number in [0, 1]'],
+      ['mobFactor', -1, 'mobFactor must be a finite number in [0, 2]'],
+    ] as const) {
+      expectItemFailure(itemCombatResult.attackRangeComponent({ [field]: value }), validation(
+        field, message, value, 'out-of-range', 'RangeError',
+      ))
+    }
   })
 
   it('guards exact component shapes and value ranges', () => {

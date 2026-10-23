@@ -1,11 +1,16 @@
+import * as itemEnchantmentsResult from '../src/domain/item/item-enchantments'
 import {
-  enchantmentsComponent,
   isEnchantmentLevelMap,
   isEnchantmentsComponent,
   isStoredEnchantmentsComponent,
-  storedEnchantmentsComponent,
 } from '../src/domain/item/item-enchantments'
+import { expectItemFailure, itemResultValue } from './item-result-assertions'
 import { describe, expect, it } from 'vitest'
+
+const enchantmentsComponent = (...args: Parameters<typeof itemEnchantmentsResult.enchantmentsComponent>) =>
+  itemResultValue(itemEnchantmentsResult.enchantmentsComponent(...args))
+const storedEnchantmentsComponent = (...args: Parameters<typeof itemEnchantmentsResult.storedEnchantmentsComponent>) =>
+  itemResultValue(itemEnchantmentsResult.storedEnchantmentsComponent(...args))
 
 describe('item enchantments', () => {
   it('constructs immutable current component maps', () => {
@@ -57,22 +62,32 @@ describe('item enchantments', () => {
   })
 
   it('validates constructor input at the public boundary', () => {
-    const invoke = (constructor: typeof enchantmentsComponent, options: unknown) =>
-      () => Reflect.apply(constructor, undefined, [options])
+    const validation = (kind: string, reason: string, field: string, message: string, value: unknown) => ({
+      _tag: 'ItemValidationFailure', kind, reason, field, message, value,
+    })
+    for (const options of [null, [], 1]) {
+      expectItemFailure(Reflect.apply(itemEnchantmentsResult.enchantmentsComponent, undefined, [options]), validation(
+        'TypeError', 'invalid-type', 'options', 'enchantments options must be a non-null object', options,
+      ))
+    }
+    expectItemFailure(itemEnchantmentsResult.enchantmentsComponent({ 'not valid': 1 }), validation(
+      'TypeError', 'invalid-value', 'not valid', 'enchantments keys must be valid resource locations: not valid', 'not valid',
+    ))
+    expectItemFailure(itemEnchantmentsResult.enchantmentsComponent({ 'minecraft:sharpness': Number.NaN }), validation(
+      'TypeError', 'invalid-type', 'enchantments[minecraft:sharpness]', 'enchantments[minecraft:sharpness] must be a finite number', Number.NaN,
+    ))
+    for (const level of [1.5, -1, 256]) {
+      expectItemFailure(itemEnchantmentsResult.enchantmentsComponent({ 'minecraft:sharpness': level }), validation(
+        'RangeError', 'out-of-range', 'enchantments[minecraft:sharpness]', 'enchantments[minecraft:sharpness] must be a safe integer in [0, 255]', level,
+      ))
+    }
 
-    expect(invoke(enchantmentsComponent, null)).toThrow(TypeError)
-    expect(invoke(enchantmentsComponent, [])).toThrow(TypeError)
-    expect(invoke(enchantmentsComponent, 1)).toThrow(TypeError)
-    expect(invoke(enchantmentsComponent, { 'not valid': 1 })).toThrow(TypeError)
-    expect(invoke(enchantmentsComponent, { 'minecraft:sharpness': Number.NaN })).toThrow(TypeError)
-    expect(invoke(enchantmentsComponent, { 'minecraft:sharpness': 1.5 })).toThrow(RangeError)
-    expect(invoke(enchantmentsComponent, { 'minecraft:sharpness': -1 })).toThrow(RangeError)
-    expect(invoke(enchantmentsComponent, { 'minecraft:sharpness': 256 })).toThrow(RangeError)
-
-    expect(() => Reflect.apply(storedEnchantmentsComponent, undefined, [null])).toThrow(TypeError)
-    expect(
-      () => Reflect.apply(storedEnchantmentsComponent, undefined, [{ 'not valid': 1 }]),
-    ).toThrow(TypeError)
+    expectItemFailure(Reflect.apply(itemEnchantmentsResult.storedEnchantmentsComponent, undefined, [null]), validation(
+      'TypeError', 'invalid-type', 'options', 'stored_enchantments options must be a non-null object', null,
+    ))
+    expectItemFailure(Reflect.apply(itemEnchantmentsResult.storedEnchantmentsComponent, undefined, [{ 'not valid': 1 }]), validation(
+      'TypeError', 'invalid-value', 'not valid', 'stored_enchantments keys must be valid resource locations: not valid', 'not valid',
+    ))
     expect(storedEnchantmentsComponent({ 'minecraft:protection': 4 })).toEqual({
       'minecraft:protection': 4,
     })

@@ -1,27 +1,38 @@
 import { describe, expect, it } from "vitest";
 import { Result } from "effect";
+import { ok } from "node:assert/strict";
 
 import {
   ItemComponentPatchKey,
   applyItemComponentPatch,
+  decodeItemComponentPatch,
   isItemComponentPatch,
-  itemComponentPatch,
-  itemComponentPatchFromUnknown,
-  itemComponentPatchFromUnknownEither,
+  itemComponentPatch as itemComponentPatchResult,
   itemComponentPatchesEqual,
   mergeItemComponentPatches,
-  mergeItemComponentPatchesEither,
 } from "../src/domain/item/item-component-patch";
-import { itemComponents } from "../src/domain/item/item-components";
+import { itemComponents as itemComponentsResult } from "../src/domain/item/item-components";
 import { itemComponentsSnapshot } from "../src/domain/item/item-components-validation";
+import { expectItemFailure, itemResultValue } from "./item-result-assertions";
+
+const itemComponentPatch = (options: Parameters<typeof itemComponentPatchResult>[0]) =>
+  itemResultValue(itemComponentPatchResult(options));
+const itemComponents = (...args: Parameters<typeof itemComponentsResult>) =>
+  itemResultValue(itemComponentsResult(...args));
 
 describe("item component patches", () => {
   it("rejects hostile proxy records without throwing", () => {
-    const hostile = new Proxy({}, { ownKeys: () => { throw new Error("hostile"); } });
+    const revokedOwnKeys = Proxy.revocable({}, {});
+    revokedOwnKeys.revoke();
+    const hostile = new Proxy({}, { ownKeys: () => Reflect.ownKeys(revokedOwnKeys.proxy) });
     expect(isItemComponentPatch(hostile)).toBe(false);
     const symbolHostile = new Proxy({}, { ownKeys: () => { throw Symbol("hostile"); } });
-    expect(itemComponentPatchFromUnknownEither(symbolHostile)._tag).toBe("Failure");
-    expect(Reflect.apply(mergeItemComponentPatchesEither, undefined, [{ invalid: true }, undefined])._tag).toBe("Failure");
+    expectItemFailure(decodeItemComponentPatch(symbolHostile), {
+      _tag: "ItemValidationFailure", field: "patch", reason: "hostile-input", value: symbolHostile,
+    });
+    expectItemFailure(Reflect.apply(mergeItemComponentPatches, undefined, [{ invalid: true }, undefined]), {
+      _tag: "ItemValidationFailure", field: "invalid", reason: "invalid-value", value: "invalid",
+    });
     let reads = 0;
     const shifting = new Proxy({ "minecraft:damage": 1 }, {
       get: (target, key) => {
@@ -30,15 +41,17 @@ describe("item component patches", () => {
         return Reflect.get(target, key);
       },
     });
-    expect(Reflect.apply(mergeItemComponentPatchesEither, undefined, [shifting, undefined])._tag).toBe("Failure");
+    expectItemFailure(Reflect.apply(mergeItemComponentPatches, undefined, [shifting, undefined]), {
+      _tag: "ItemValidationFailure", field: "minecraft:damage", reason: "hostile-input", value: shifting,
+    });
   });
   it("accepts namespaced component keys and removal keys", () => {
     expect(ItemComponentPatchKey.is("minecraft:custom_name")).toBe(true);
     expect(ItemComponentPatchKey.is("!minecraft:damage")).toBe(true);
     expect(ItemComponentPatchKey.is("!")).toBe(false);
     expect(ItemComponentPatchKey.is("custom_name")).toBe(false);
-    expect(() => ItemComponentPatchKey("minecraft:custom_name")).not.toThrow();
-    expect(() => ItemComponentPatchKey("!")).toThrow();
+    expect(ItemComponentPatchKey.result("minecraft:custom_name")).toMatchObject({ _tag: "Success" });
+    expect(Result.isFailure(ItemComponentPatchKey.result("!"))).toBe(true);
 
     const patch = itemComponentPatch({
       "minecraft:custom_name": "Stone",
@@ -57,36 +70,40 @@ describe("item component patches", () => {
     const input = {
       "minecraft:custom_data": { nested: [1, true] },
     };
-    const normalized = itemComponentPatchFromUnknown(input);
+    const normalized = itemResultValue(decodeItemComponentPatch(input));
 
     expect(normalized).toEqual(input);
     expect(normalized).not.toBe(input);
     const value = Object.values(normalized)[0];
-    if (value === undefined || value === null || typeof value !== "object") {
-      throw new Error("expected a nested component value");
-    }
+    ok(value !== undefined && value !== null && typeof value === "object");
     expect(Object.isFrozen(value)).toBe(true);
-    expect(() => itemComponentPatchFromUnknown(null)).toThrow(TypeError);
-    expect(() => itemComponentPatchFromUnknown([])).toThrow(TypeError);
-    expect(() =>
-      itemComponentPatchFromUnknown({ custom_name: "Stone" }),
-    ).toThrow(TypeError);
-    expect(() => itemComponentPatchFromUnknown({ "!": null })).toThrow(
-      TypeError,
-    );
-    expect(() =>
-      itemComponentPatchFromUnknown({ "minecraft:damage": undefined }),
-    ).toThrow(TypeError);
-    expect(() =>
-      itemComponentPatchFromUnknown({ "minecraft:damage": Number.NaN }),
-    ).toThrow(TypeError);
-    expect(() => itemComponentPatchFromUnknown(new Date())).toThrow(TypeError);
+    expectItemFailure(decodeItemComponentPatch(null), {
+      _tag: "ItemValidationFailure", field: "patch", reason: "invalid-type", value: null,
+    });
+    expectItemFailure(decodeItemComponentPatch([]), {
+      _tag: "ItemValidationFailure", field: "patch", reason: "invalid-type", value: [],
+    });
+    expectItemFailure(decodeItemComponentPatch({ custom_name: "Stone" }), {
+      _tag: "ItemValidationFailure", field: "custom_name", reason: "invalid-value", value: "custom_name",
+    });
+    expectItemFailure(decodeItemComponentPatch({ "!": null }), {
+      _tag: "ItemValidationFailure", field: "!", reason: "invalid-value", value: "!",
+    });
+    expectItemFailure(decodeItemComponentPatch({ "minecraft:damage": undefined }), {
+      _tag: "ItemValidationFailure", field: "minecraft:damage", reason: "invalid-type", value: undefined,
+    });
+    expectItemFailure(decodeItemComponentPatch({ "minecraft:damage": Number.NaN }), {
+      _tag: "ItemValidationFailure", field: "minecraft:damage", reason: "invalid-value", value: Number.NaN,
+    });
+    expectItemFailure(decodeItemComponentPatch(new Date()), {
+      _tag: "ItemValidationFailure", field: "patch", reason: "invalid-type", value: expect.any(Date),
+    });
 
     const cycle: Record<string, unknown> = {};
     cycle["self"] = cycle;
-    expect(() =>
-      itemComponentPatchFromUnknown({ "minecraft:custom_data": cycle }),
-    ).toThrow(TypeError);
+    expectItemFailure(decodeItemComponentPatch({ "minecraft:custom_data": cycle }), {
+      _tag: "ItemValidationFailure", field: "minecraft:custom_data.self", reason: "invalid-value", value: cycle,
+    });
   });
 
   it("validates component patch shapes without throwing", () => {
@@ -150,35 +167,28 @@ describe("item component patches", () => {
       "!minecraft:damage": null,
     });
 
-    expect(mergeItemComponentPatches(undefined, undefined)).toBeUndefined();
-    expect(mergeItemComponentPatches(left, undefined)).toEqual(left);
-    expect(mergeItemComponentPatches(undefined, right)).toEqual(right);
-    const conflict = mergeItemComponentPatchesEither(left, right);
-    expect(Result.isFailure(conflict)).toBe(true);
-    if (Result.isFailure(conflict)) {
-      expect(conflict.failure).toMatchObject({ _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:custom_name" });
-    }
-    expect(mergeItemComponentPatches(left, itemComponentPatch({ "minecraft:repair_cost": 1 }))).toEqual({
+    expect(itemResultValue(mergeItemComponentPatches(undefined, undefined))).toBeUndefined();
+    expect(itemResultValue(mergeItemComponentPatches(left, undefined))).toEqual(left);
+    expect(itemResultValue(mergeItemComponentPatches(undefined, right))).toEqual(right);
+    const conflict = mergeItemComponentPatches(left, right);
+    expectItemFailure(conflict, { _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:custom_name" });
+    expect(itemResultValue(mergeItemComponentPatches(left, itemComponentPatch({ "minecraft:repair_cost": 1 })))).toEqual({
       "minecraft:custom_name": "Stone",
       "minecraft:damage": 1,
       "minecraft:repair_cost": 1,
     });
-    expect(() => mergeItemComponentPatches(
+    expectItemFailure(mergeItemComponentPatches(
       itemComponentPatch({ "minecraft:damage": 1 }),
       itemComponentPatch({ "!minecraft:damage": null }),
-    )).toThrow();
-    expect(() =>
-      Reflect.apply(mergeItemComponentPatches, undefined, [
+    ), { _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:damage" });
+    expectItemFailure(Reflect.apply(mergeItemComponentPatches, undefined, [
         { invalid: true },
         right,
-      ]),
-    ).toThrow(TypeError);
-    expect(() =>
-      Reflect.apply(mergeItemComponentPatches, undefined, [
+      ]), { _tag: "ItemValidationFailure", field: "invalid", reason: "invalid-value", value: "invalid" });
+    expectItemFailure(Reflect.apply(mergeItemComponentPatches, undefined, [
         left,
         { invalid: true },
-      ]),
-    ).toThrow(TypeError);
+      ]), { _tag: "ItemValidationFailure", field: "invalid", reason: "invalid-value", value: "invalid" });
 
     // Validation and the merge read the patch twice, so a value that answers
     // once and then vanishes has to be caught on the second read rather than
@@ -190,25 +200,37 @@ describe("item component patches", () => {
         return reads <= 1 ? 1 : undefined;
       },
     };
-    expect(() =>
-      Reflect.apply(mergeItemComponentPatches, undefined, [shifting, right]),
-    ).toThrow(TypeError);
+    expectItemFailure(Reflect.apply(mergeItemComponentPatches, undefined, [shifting, right]), {
+      _tag: "ItemValidationFailure", field: "minecraft:damage", reason: "invalid-type", value: undefined,
+    });
   });
 
   it("applies supported set/remove operations and rejects malformed operations", () => {
     const base = itemComponents("stone");
-    expect(applyItemComponentPatch(base, itemComponentPatch({
+    expect(itemResultValue(applyItemComponentPatch(base, itemComponentPatch({
       "minecraft:custom_name": { text: "Stone" },
-    }))).toBeDefined();
-    expect(applyItemComponentPatch(base, itemComponentPatch({
+    })))).toBeDefined();
+    expect(itemResultValue(applyItemComponentPatch(base, itemComponentPatch({
       "!minecraft:custom_name": null,
-    }))).toEqual(base);
-    expect(() => Reflect.apply(applyItemComponentPatch, undefined, [{}, itemComponentPatch({})])).toThrow(TypeError);
-    expect(() => Reflect.apply(applyItemComponentPatch, undefined, [base, { invalid: true }])).toThrow(TypeError);
-    expect(() => applyItemComponentPatch(base, itemComponentPatch({ "minecraft:unknown": true }))).toThrow(TypeError);
-    expect(() => applyItemComponentPatch(base, itemComponentPatch({ "!minecraft:custom_name": true }))).toThrow(TypeError);
-    expect(() => applyItemComponentPatch(base, itemComponentPatch({ "minecraft:max_stack_size": 0 }))).toThrow(TypeError);
-    expect(() => Reflect.apply(itemComponentsSnapshot, undefined, [{}])).toThrow(TypeError);
+    })))).toEqual(base);
+    expectItemFailure(Reflect.apply(applyItemComponentPatch, undefined, [{}, itemComponentPatch({})]), {
+      _tag: "ItemValidationFailure", field: "components", reason: "invalid-type", value: {},
+    });
+    expectItemFailure(Reflect.apply(applyItemComponentPatch, undefined, [base, { invalid: true }]), {
+      _tag: "ItemValidationFailure", field: "invalid", reason: "invalid-value", value: "invalid",
+    });
+    expectItemFailure(applyItemComponentPatch(base, itemComponentPatch({ "minecraft:unknown": true })), {
+      _tag: "ItemValidationFailure", field: "minecraft:unknown", reason: "invalid-value", value: "minecraft:unknown",
+    });
+    expectItemFailure(applyItemComponentPatch(base, itemComponentPatch({ "!minecraft:custom_name": true })), {
+      _tag: "ItemValidationFailure", field: "!minecraft:custom_name", reason: "invalid-value", value: true,
+    });
+    expectItemFailure(applyItemComponentPatch(base, itemComponentPatch({ "minecraft:max_stack_size": 0 })), {
+      _tag: "ItemValidationFailure", field: "components", reason: "invalid-value", value: expect.objectContaining({ maxStackSize: 0 }),
+    });
+    expectItemFailure(Reflect.apply(itemComponentsSnapshot, undefined, [{}]), {
+      _tag: "ItemValidationFailure", field: "components", reason: "invalid-type", value: {},
+    });
     let maxStackSizeReads = 0;
     const unstable = new Proxy(base, {
       get(target, property, receiver) {
@@ -219,6 +241,8 @@ describe("item component patches", () => {
         return Reflect.get(target, property, receiver);
       },
     });
-    expect(() => Reflect.apply(itemComponentsSnapshot, undefined, [unstable])).toThrow(TypeError);
+    expectItemFailure(Reflect.apply(itemComponentsSnapshot, undefined, [unstable]), {
+      _tag: "ItemValidationFailure", field: "components", reason: "hostile-input", value: unstable,
+    });
   });
 });

@@ -1,4 +1,5 @@
 /** Constructors and guards for current Java item enchantment components. */
+import { Effect, Result } from 'effect'
 import { ResourceLocation } from '../text/identifiers.js'
 import {
   isEnchantmentLevelMap,
@@ -11,47 +12,62 @@ import type {
   StoredEnchantmentsComponent,
 } from './item-enchantments-data.js'
 import { EnchantmentLevel } from '../time/quantities.js'
+import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
 
 export type EnchantmentLevelMapOptions = Readonly<Record<string, number>>
 
-const validateOptionsObject = (value: unknown, name: string): void => {
+const validateOptionsObject = (value: unknown, name: string): Result.Result<void, ItemValidationFailure> => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new TypeError(`${name} must be a non-null object`)
+    return Result.fail(itemValidationFailure('options', `${name} must be a non-null object`, 'invalid-type', value))
   }
+  return Result.succeed(undefined)
 }
 
-const validateLevel = (value: unknown, name: string): number => {
+const validateLevel = (value: unknown, name: string): Result.Result<number, ItemValidationFailure> => {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new TypeError(`${name} must be a finite number`)
+    return Result.fail(itemValidationFailure(name, `${name} must be a finite number`, 'invalid-type', value))
   }
   if (!EnchantmentLevel.is(value)) {
-    throw new RangeError(`${name} must be a safe integer in [0, 255]`)
+    return Result.fail(itemValidationFailure(name, `${name} must be a safe integer in [0, 255]`, 'out-of-range', value))
   }
-  return value
+  return Result.succeed(value)
 }
 
 const enchantmentLevelMapOf = (
   options: EnchantmentLevelMapOptions,
   name: string,
-): EnchantmentLevelMap => {
-  validateOptionsObject(options, `${name} options`)
-  const entries: Record<string, EnchantmentLevel> = {}
-  for (const [id, level] of Object.entries(options)) {
+): Result.Result<EnchantmentLevelMap, ItemValidationFailure> => {
+  const validObject = validateOptionsObject(options, `${name} options`)
+  if (Result.isFailure(validObject)) return validObject
+  const decodedEntries = Effect.runSync(Effect.result(Effect.try({
+    try: () => Object.entries(options),
+    catch: () => itemValidationFailure('options', `${name} options could not be inspected`, 'hostile-input', options),
+  })))
+  if (Result.isFailure(decodedEntries)) return decodedEntries
+  const normalized: Record<string, EnchantmentLevel> = {}
+  for (const [id, level] of decodedEntries.success) {
     if (!ResourceLocation.is(id)) {
-      throw new TypeError(`${name} keys must be valid resource locations: ${id}`)
+      return Result.fail(itemValidationFailure(id, `${name} keys must be valid resource locations: ${id}`, 'invalid-value', id))
     }
-    entries[id] = EnchantmentLevel(validateLevel(level, `${name}[${id}]`))
+    const checkedLevel = validateLevel(level, `${name}[${id}]`)
+    if (Result.isFailure(checkedLevel)) return checkedLevel
+    const brandedLevel = Result.mapError(
+      EnchantmentLevel.result(checkedLevel.success),
+      () => itemValidationFailure(`${name}[${id}]`, `${name}[${id}] must be a safe integer in [0, 255]`, 'out-of-range', level),
+    )
+    if (Result.isFailure(brandedLevel)) return brandedLevel
+    normalized[id] = brandedLevel.success
   }
-  return Object.freeze(entries)
+  return Result.succeed(Object.freeze(normalized))
 }
 
 export const enchantmentsComponent = (
   options: EnchantmentLevelMapOptions = {},
-): EnchantmentsComponent => enchantmentLevelMapOf(options, 'enchantments')
+): Result.Result<EnchantmentsComponent, ItemValidationFailure> => enchantmentLevelMapOf(options, 'enchantments')
 
 export const storedEnchantmentsComponent = (
   options: EnchantmentLevelMapOptions = {},
-): StoredEnchantmentsComponent => enchantmentLevelMapOf(options, 'stored_enchantments')
+): Result.Result<StoredEnchantmentsComponent, ItemValidationFailure> => enchantmentLevelMapOf(options, 'stored_enchantments')
 
 export {
   isEnchantmentLevelMap,

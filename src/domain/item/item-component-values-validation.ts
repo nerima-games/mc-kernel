@@ -3,6 +3,7 @@ import { BlockAxis } from '../coordinates/coordinate-primitives.js'
 import { isItemType } from './item-type.js'
 import { isConsumableEffect } from './consumable-validation.js'
 import { isTextComponent } from '../text/text-component-validation.js'
+import * as Schema from 'effect/Schema'
 import {
   DYE_COLORS,
   FIREWORK_EXPLOSION_SHAPES,
@@ -425,13 +426,12 @@ export const isMapDecorationsComponent = (
   value: unknown,
 ): value is MapDecorationsComponent => isMapDecorationsOptions(value)
 
-const isJsonTextComponentString = (value: string): boolean => {
-  try {
-    const parsed: unknown = JSON.parse(value)
-    return isTextComponent(parsed)
-  } catch {
+const isJsonTextComponentString = (value: unknown): value is string => {
+  if (typeof value !== 'string') {
     return false
   }
+  const parsed = Schema.decodeUnknownResult(Schema.fromJsonString(Schema.Unknown))(value)
+  return parsed._tag === 'Success' && isTextComponent(parsed.success)
 }
 
 const isBookPageObject = (

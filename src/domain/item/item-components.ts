@@ -1,4 +1,5 @@
 /** Strict Java item-component values and their item-aware defaults. */
+import { Effect, Result } from 'effect'
 import { itemUseComponentsOf } from './consumable.js'
 import type {
   ConsumableComponent,
@@ -215,6 +216,7 @@ import type {
   Enchantability,
   OminousBottleAmplifier,
 } from './item-primitives.js'
+import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
 
 export {
   ITEM_COMPONENT_IDS,
@@ -717,44 +719,97 @@ const ITEM_COMPONENT_OPTION_VALIDATORS = [
   },
 ] as const satisfies ReadonlyArray<ItemComponentOptionValidator>
 
-const validateOptions = (options: ItemComponentOptions): void => {
-  if (typeof options !== 'object' || options === null || Array.isArray(options)) {
-    throw new TypeError('Item component options must be a non-null object')
-  }
+const optionsFailure = (
+  field: string,
+  message: string,
+  value?: unknown,
+  reason: ItemValidationFailure['reason'] = 'invalid-value',
+  kind: ItemValidationFailure['kind'] = reason === 'out-of-range' ? 'RangeError' : 'TypeError',
+): ItemValidationFailure => itemValidationFailure(field, message, reason, value, kind)
 
-  const invalid = ITEM_COMPONENT_OPTION_VALIDATORS.find(
-    ({ key, isValid }) => options[key] !== undefined && !isValid(options[key]),
-  )
-  if (invalid === undefined) {
-    return
+const snapshotOptions = (value: ItemComponentOptions): Result.Result<ItemComponentOptions, ItemValidationFailure> => {
+  if (typeof value !== 'object' || value === null) {
+    return Result.fail(optionsFailure('options', 'Item component options must be a non-null object', value, 'invalid-type'))
   }
-
-  const message =
-    typeof invalid.message === 'function'
-      ? invalid.message(options[invalid.key])
-      : invalid.message
-  throw new TypeError(message)
+  const optionKeys: ReadonlyArray<keyof ItemComponentOptions> = [
+    ...ITEM_COMPONENT_OPTION_VALIDATORS.map(({ key }) => key),
+    'maxStackSize', 'maxDamage', 'damage', 'repairCost', 'tooltipDisplay', 'customName', 'itemName', 'lore',
+    'rarity', 'food', 'consumable', 'useRemainder', 'useCooldown', 'useEffects', 'tool', 'weapon',
+    'attributeModifiers', 'enchantments', 'storedEnchantments', 'blocksAttacks', 'damageResistant',
+    'minimumAttackCharge', 'damageType', 'swingAnimation', 'attackRange', 'breakSound',
+    'providesBannerPatterns', 'providesTrimMaterial', 'dye', 'additionalTradeCost',
+  ]
+  const snapshot = Effect.runSync(Effect.result(Effect.try({
+    try: () => {
+      if (Array.isArray(value)) return undefined
+      const copy: Partial<ItemComponentOptions> = {}
+      for (const key of optionKeys) {
+        const entry = value[key]
+        if (entry !== undefined) Object.defineProperty(copy, key, { enumerable: true, value: entry })
+      }
+      return Object.freeze(copy)
+    },
+    catch: () => optionsFailure('options', 'Unable to inspect item component options', value, 'hostile-input'),
+  })))
+  if (Result.isFailure(snapshot)) return snapshot
+  if (snapshot.success === undefined) {
+    return Result.fail(optionsFailure('options', 'Item component options must be a non-null object', value, 'invalid-type'))
+  }
+  return Result.succeed(snapshot.success)
 }
+
+const validateOptions = (
+  options: ItemComponentOptions,
+): Result.Result<ItemComponentOptions, ItemValidationFailure> => {
+  for (const { key, isValid, message } of ITEM_COMPONENT_OPTION_VALIDATORS) {
+    const value = options[key]
+    if (value === undefined) continue
+    const checked = Effect.runSync(Effect.result(Effect.try({
+      try: () => isValid(value),
+      catch: () => optionsFailure(String(key), `Unable to inspect item component option ${String(key)}`, value, 'hostile-input'),
+    })))
+    if (Result.isFailure(checked)) return checked
+    if (!checked.success) {
+      return Result.fail(optionsFailure(
+        String(key),
+        typeof message === 'function' ? message(value) : message,
+        value,
+      ))
+    }
+  }
+  return Result.succeed(options)
+}
+
+const brandValue = <A, E extends Readonly<{ readonly message: string }>>(
+  result: Result.Result<A, E>,
+  field: string,
+  value: unknown,
+  reason: ItemValidationFailure['reason'] = 'invalid-value',
+): Result.Result<A, ItemValidationFailure> => Result.mapError(
+  result,
+  (error) => optionsFailure(field, error.message, value, reason, reason === 'out-of-range' ? 'RangeError' : 'TypeError'),
+)
 
 const itemDamageOf = (
   maxDamage: ReturnType<typeof MaxDamage> | undefined,
   damage: number | undefined,
-): ReturnType<typeof ItemDamage> | undefined => {
-  if (maxDamage === undefined && damage === undefined) {
-    return undefined
-  }
-  return ItemDamage(damage ?? 0)
+): Result.Result<ReturnType<typeof ItemDamage> | undefined, ItemValidationFailure> => {
+  if (maxDamage === undefined && damage === undefined) return Result.succeed(undefined)
+  const value = damage ?? 0
+  return Result.map(brandValue(ItemDamage.result(value), 'damage', value, 'out-of-range'), (itemDamage) => itemDamage)
 }
 
 const optionalComponentOf = <T, U>(
   value: T | undefined,
-  normalize: (value: T) => U,
-): U | undefined => (value === undefined ? undefined : normalize(value))
+  normalize: (value: T) => Result.Result<U, ItemValidationFailure>,
+): Result.Result<U | undefined, ItemValidationFailure> =>
+  value === undefined ? Result.succeed(undefined) : normalize(value)
 
 const presentComponentOf = <T>(
   value: true | undefined,
-  normalize: () => T,
-): T | undefined => (value === undefined ? undefined : normalize())
+  normalize: () => Result.Result<T, ItemValidationFailure>,
+): Result.Result<T | undefined, ItemValidationFailure> =>
+  value === undefined ? Result.succeed(undefined) : normalize()
 
 const valueOr = <T>(value: T | undefined, fallback: T): T =>
   value === undefined ? fallback : value
@@ -762,82 +817,82 @@ const valueOr = <T>(value: T | undefined, fallback: T): T =>
 const valueOrUndefined = <T>(value: T | undefined, fallback: T | undefined): T | undefined =>
   value === undefined ? fallback : value
 
-export const itemComponents = (item: ItemType, options: ItemComponentOptions = {}): ItemComponents => {
+export const itemComponents = (item: ItemType, options: ItemComponentOptions = {}): Result.Result<ItemComponents, ItemValidationFailure> => {
   if (!isItemType(item)) {
-    throw new TypeError(`Unknown item type: ${String(item)}`)
+    return Result.fail(optionsFailure('item', `Unknown item type: ${String(item)}`, item, 'invalid-value'))
   }
-  validateOptions(options)
+  const snapshotted = snapshotOptions(options)
+  return Result.flatMap(snapshotted, (safeOptions) => {
+    const checked = validateOptions(safeOptions)
+    return Result.flatMap(checked, (input) => buildItemComponents(item, input))
+  })
+}
 
+const buildItemComponents = (
+  item: ItemType,
+  options: ItemComponentOptions,
+): Result.Result<ItemComponents, ItemValidationFailure> => {
   const defaultMaxDamage = itemDurabilityDefinitionFor(item)?.maxDurability
-  const maxStackSize = MaxStackSize(options.maxStackSize ?? itemComponentStackLimitOf(item))
-  const maxDamageValue = valueOrUndefined(options.maxDamage, defaultMaxDamage)
   const useComponents = itemUseComponentsOf(item)
-  const maxDamage = optionalComponentOf(maxDamageValue, MaxDamage)
-  const damage = itemDamageOf(maxDamage, options.damage)
-  const repairCost = RepairCost(options.repairCost ?? 0)
+  return Result.gen(function* () {
+  const maxStackSize = yield* brandValue(MaxStackSize.result(valueOr(options.maxStackSize, itemComponentStackLimitOf(item))), 'maxStackSize', options.maxStackSize ?? itemComponentStackLimitOf(item), 'out-of-range')
+  const maxDamageValue = valueOrUndefined(options.maxDamage, defaultMaxDamage)
+  const maxDamage = yield* optionalComponentOf(maxDamageValue, (value) => brandValue(MaxDamage.result(value), 'maxDamage', value, 'out-of-range'))
+  const damage = yield* itemDamageOf(maxDamage, options.damage)
+  const repairCost = yield* brandValue(RepairCost.result(valueOr(options.repairCost, 0)), 'repairCost', options.repairCost ?? 0, 'out-of-range')
+  yield* validateItemComponentRelations(maxStackSize, maxDamage, damage)
 
-  validateItemComponentRelations(maxStackSize, maxDamage, damage)
-
-  const customName = optionalComponentOf(options.customName, textComponent)
-  const itemName = optionalComponentOf(options.itemName, textComponent)
-  const lore = optionalComponentOf(options.lore, (lines) => Object.freeze(lines.map(textComponent)))
-  const itemModel = optionalComponentOf(options.itemModel, ResourceLocation)
-  const customData = optionalComponentOf(options.customData, customDataComponent)
-  const entityData = optionalComponentOf(options.entityData, entityDataComponent)
-  const bucketEntityData = optionalComponentOf(options.bucketEntityData, bucketEntityDataComponent)
-  const profile = optionalComponentOf(options.profile, profileComponent)
-  const blockEntityData = optionalComponentOf(options.blockEntityData, blockEntityDataComponent)
-  const chargedProjectiles = optionalComponentOf(options.chargedProjectiles, chargedProjectilesComponent)
-  const bundleContents = optionalComponentOf(options.bundleContents, bundleContentsComponent)
-  const container = optionalComponentOf(options.container, containerComponent)
-  const mapColor = optionalComponentOf(options.mapColor, mapColorComponent)
-  const mapDecorations = optionalComponentOf(options.mapDecorations, mapDecorationsComponent)
-  const writableBookContent = optionalComponentOf(options.writableBookContent, writableBookContentComponent)
-  const writtenBookContent = optionalComponentOf(options.writtenBookContent, writtenBookContentComponent)
-  const trim = optionalComponentOf(options.trim, trimComponent)
-  const suspiciousStew = optionalComponentOf(options.suspiciousStew, suspiciousStewComponent)
-  const hideAdditionalTooltip = presentComponentOf(
-    options.hideAdditionalTooltip,
-    hideAdditionalTooltipComponent,
-  )
-  const canBreak = optionalComponentOf(options.canBreak, canBreakComponent)
-  const canPlaceOn = optionalComponentOf(options.canPlaceOn, canPlaceOnComponent)
-  const bees = optionalComponentOf(options.bees, beesComponent)
-  const potionContents = optionalComponentOf(options.potionContents, potionContentsComponent)
-  const dyedColor = optionalComponentOf(options.dyedColor, dyedColorComponent)
-  const customModelData = optionalComponentOf(options.customModelData, customModelDataComponent)
-  const mapId = optionalComponentOf(options.mapId, mapIdComponent)
-  const blockState = optionalComponentOf(options.blockState, blockStateComponent)
-  const instrument = optionalComponentOf(options.instrument, instrumentComponent)
-  const noteBlockSound = optionalComponentOf(options.noteBlockSound, noteBlockSoundComponent)
-  const recipes = optionalComponentOf(options.recipes, recipesComponent)
-  const lock = optionalComponentOf(options.lock, lockComponent)
-  const tooltipStyle = optionalComponentOf(options.tooltipStyle, tooltipStyleComponent)
-  const baseColor = optionalComponentOf(options.baseColor, baseColorComponent)
-  const equippable = optionalComponentOf(options.equippable, equippableComponent)
-  const glider = presentComponentOf(options.glider, gliderComponent)
-  const deathProtection = optionalComponentOf(options.deathProtection, deathProtectionComponent)
-  const repairable = optionalComponentOf(options.repairable, repairableComponent)
-  const enchantable = optionalComponentOf(options.enchantable, enchantableComponent)
-  const jukeboxPlayable = optionalComponentOf(options.jukeboxPlayable, jukeboxPlayableComponent)
-  const ominousBottleAmplifier = optionalComponentOf(
-    options.ominousBottleAmplifier,
-    ominousBottleAmplifierComponent,
-  )
-  const paintingVariant = optionalComponentOf(options.paintingVariant, paintingVariantComponent)
-  const lodestoneTracker = optionalComponentOf(options.lodestoneTracker, lodestoneTrackerComponent)
-  const fireworkExplosion = optionalComponentOf(options.fireworkExplosion, fireworkExplosionComponent)
-  const fireworks = optionalComponentOf(options.fireworks, fireworksComponent)
-  const bannerPatterns = optionalComponentOf(options.bannerPatterns, bannerPatternsComponent)
-  const potDecorations = optionalComponentOf(options.potDecorations, potDecorationsComponent)
-  const containerLoot = optionalComponentOf(options.containerLoot, containerLootComponent)
-  const debugStickState = optionalComponentOf(options.debugStickState, debugStickStateComponent)
-  const kineticWeapon = optionalComponentOf(options.kineticWeapon, kineticWeaponComponent)
-  const piercingWeapon = optionalComponentOf(options.piercingWeapon, piercingWeaponComponent)
-  const sulfurCubeContent = optionalComponentOf(
-    options.sulfurCubeContent,
-    sulfurCubeContentComponent,
-  )
+  const customName = options.customName === undefined ? undefined : textComponent(options.customName)
+  const itemName = options.itemName === undefined ? undefined : textComponent(options.itemName)
+  const lore = options.lore === undefined ? undefined : Object.freeze(options.lore.map(textComponent))
+  const itemModel = yield* optionalComponentOf(options.itemModel, (value) => brandValue(ResourceLocation.result(value), 'itemModel', value))
+  const customData = yield* optionalComponentOf(options.customData, customDataComponent)
+  const entityData = yield* optionalComponentOf(options.entityData, entityDataComponent)
+  const bucketEntityData = yield* optionalComponentOf(options.bucketEntityData, bucketEntityDataComponent)
+  const profile = yield* optionalComponentOf(options.profile, profileComponent)
+  const blockEntityData = yield* optionalComponentOf(options.blockEntityData, blockEntityDataComponent)
+  const chargedProjectiles = yield* optionalComponentOf(options.chargedProjectiles, chargedProjectilesComponent)
+  const bundleContents = yield* optionalComponentOf(options.bundleContents, bundleContentsComponent)
+  const container = yield* optionalComponentOf(options.container, containerComponent)
+  const mapColor = yield* optionalComponentOf(options.mapColor, mapColorComponent)
+  const mapDecorations = yield* optionalComponentOf(options.mapDecorations, mapDecorationsComponent)
+  const writableBookContent = yield* optionalComponentOf(options.writableBookContent, writableBookContentComponent)
+  const writtenBookContent = yield* optionalComponentOf(options.writtenBookContent, writtenBookContentComponent)
+  const trim = yield* optionalComponentOf(options.trim, trimComponent)
+  const suspiciousStew = yield* optionalComponentOf(options.suspiciousStew, suspiciousStewComponent)
+  const hideAdditionalTooltip = yield* presentComponentOf(options.hideAdditionalTooltip, hideAdditionalTooltipComponent)
+  const canBreak = yield* optionalComponentOf(options.canBreak, canBreakComponent)
+  const canPlaceOn = yield* optionalComponentOf(options.canPlaceOn, canPlaceOnComponent)
+  const bees = yield* optionalComponentOf(options.bees, beesComponent)
+  const potionContents = yield* optionalComponentOf(options.potionContents, potionContentsComponent)
+  const dyedColor = yield* optionalComponentOf(options.dyedColor, dyedColorComponent)
+  const customModelData = yield* optionalComponentOf(options.customModelData, customModelDataComponent)
+  const mapId = yield* optionalComponentOf(options.mapId, mapIdComponent)
+  const blockState = yield* optionalComponentOf(options.blockState, blockStateComponent)
+  const instrument = yield* optionalComponentOf(options.instrument, instrumentComponent)
+  const noteBlockSound = yield* optionalComponentOf(options.noteBlockSound, noteBlockSoundComponent)
+  const recipes = yield* optionalComponentOf(options.recipes, recipesComponent)
+  const lock = yield* optionalComponentOf(options.lock, lockComponent)
+  const tooltipStyle = yield* optionalComponentOf(options.tooltipStyle, tooltipStyleComponent)
+  const baseColor = yield* optionalComponentOf(options.baseColor, baseColorComponent)
+  const equippable = yield* optionalComponentOf(options.equippable, equippableComponent)
+  const glider = yield* presentComponentOf(options.glider, gliderComponent)
+  const deathProtection = yield* optionalComponentOf(options.deathProtection, deathProtectionComponent)
+  const repairable = yield* optionalComponentOf(options.repairable, repairableComponent)
+  const enchantable = yield* optionalComponentOf(options.enchantable, enchantableComponent)
+  const jukeboxPlayable = yield* optionalComponentOf(options.jukeboxPlayable, jukeboxPlayableComponent)
+  const ominousBottleAmplifier = yield* optionalComponentOf(options.ominousBottleAmplifier, ominousBottleAmplifierComponent)
+  const paintingVariant = yield* optionalComponentOf(options.paintingVariant, paintingVariantComponent)
+  const lodestoneTracker = yield* optionalComponentOf(options.lodestoneTracker, lodestoneTrackerComponent)
+  const fireworkExplosion = yield* optionalComponentOf(options.fireworkExplosion, fireworkExplosionComponent)
+  const fireworks = yield* optionalComponentOf(options.fireworks, fireworksComponent)
+  const bannerPatterns = yield* optionalComponentOf(options.bannerPatterns, bannerPatternsComponent)
+  const potDecorations = yield* optionalComponentOf(options.potDecorations, potDecorationsComponent)
+  const containerLoot = yield* optionalComponentOf(options.containerLoot, containerLootComponent)
+  const debugStickState = yield* optionalComponentOf(options.debugStickState, debugStickStateComponent)
+  const kineticWeapon = yield* optionalComponentOf(options.kineticWeapon, kineticWeaponComponent)
+  const piercingWeapon = yield* optionalComponentOf(options.piercingWeapon, piercingWeaponComponent)
+  const sulfurCubeContent = yield* optionalComponentOf(options.sulfurCubeContent, sulfurCubeContentComponent)
 
   return Object.freeze({
     maxStackSize,
@@ -921,5 +976,6 @@ export const itemComponents = (item: ItemType, options: ItemComponentOptions = {
     dye: options.dye,
     additionalTradeCost: options.additionalTradeCost,
     sulfurCubeContent,
+  })
   })
 }

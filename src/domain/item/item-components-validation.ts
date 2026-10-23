@@ -1,3 +1,4 @@
+import { Effect, Result } from 'effect'
 import { ITEM_RARITIES, type ItemRarity } from './item-components-data.js'
 import {
   isConsumableComponent,
@@ -21,7 +22,8 @@ import type { UseCooldownComponent } from './use-cooldown-data.js'
 import { isToolComponent, type ToolComponent } from './tool-component.js'
 import { isWeaponComponent } from './weapon-validation.js'
 import type { WeaponComponent } from './weapon-data.js'
-import { maxStackCountOfItem } from './item-registry.js'
+import { itemComponentStackLimitOf } from './item-components-data.js'
+import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
 import { isItemType, type ItemType } from './item-type.js'
 import {
   isAdditionalTradeCostComponent,
@@ -359,16 +361,17 @@ export const validateItemComponentRelations = (
   maxStackSize: MaxStackSizeValue,
   maxDamage: MaxDamageValue | undefined,
   damage: ItemDamageValue | undefined,
-): void => {
+): Result.Result<void, ItemValidationFailure> => {
   if (maxStackSize > 1 && maxDamage !== undefined) {
-    throw new RangeError('max_stack_size greater than 1 is incompatible with max_damage')
+    return Result.fail(itemValidationFailure('maxDamage', 'max_stack_size greater than 1 is incompatible with max_damage', 'out-of-range', maxDamage, 'RangeError'))
   }
   if ((maxDamage === undefined) !== (damage === undefined)) {
-    throw new RangeError('damage and max_damage must be present together')
+    return Result.fail(itemValidationFailure('damage', 'damage and max_damage must be present together', 'out-of-range', damage, 'RangeError'))
   }
   if (maxDamage !== undefined && damage !== undefined && damage > maxDamage) {
-    throw new RangeError(`damage must be in [0, ${maxDamage}], received ${damage}`)
+    return Result.fail(itemValidationFailure('damage', `damage must be in [0, ${maxDamage}], received ${damage}`, 'out-of-range', damage))
   }
+  return Result.succeed(undefined)
 }
 
 type ValidatedItemComponentCore = RecordValue &
@@ -487,7 +490,7 @@ const isValidStackCount = (value: unknown, item: ItemType, components: unknown):
   const maxStackSize =
     isRecord(components) && isMaxStackSize(components['maxStackSize'])
       ? components['maxStackSize']
-      : maxStackCountOfItem(item)
+      : itemComponentStackLimitOf(item)
   return value <= maxStackSize
 }
 
@@ -500,13 +503,13 @@ type ResolvedNestedValueKind =
 
 type ResolvedNestedValueValidator = (
   value: unknown,
-  ancestors: WeakSet<object>,
+  ancestors: ReadonlySet<object>,
   kind: ResolvedNestedValueKind,
 ) => boolean
 
 const isResolvedComponents = (
   value: unknown,
-  ancestors: WeakSet<object>,
+  ancestors: ReadonlySet<object>,
   validate: ResolvedNestedValueValidator,
 ): boolean => {
   if (!isRecord(value) || !hasCanonicalComponentKeys(value)) {
@@ -516,35 +519,24 @@ const isResolvedComponents = (
     return false
   }
 
-  ancestors.add(value)
-  try {
-    if (!hasValidOptionalItemComponents(value)) {
-      return false
-    }
-    const nestedValuesAreValid =
-      (value['chargedProjectiles'] === undefined ||
-        validate(value['chargedProjectiles'], ancestors, 'stackArray')) &&
-      (value['bundleContents'] === undefined ||
-        validate(value['bundleContents'], ancestors, 'stackArray')) &&
-      (value['container'] === undefined || validate(value['container'], ancestors, 'container'))
-    if (!nestedValuesAreValid) {
-      return false
-    }
-
-    try {
-      validateItemComponentRelations(value['maxStackSize'], value['maxDamage'], value['damage'])
-      return true
-    } catch {
-      return false
-    }
-  } finally {
-    ancestors.delete(value)
+  const nestedAncestors = new Set(ancestors)
+  nestedAncestors.add(value)
+  if (!hasValidOptionalItemComponents(value)) {
+    return false
   }
+  const nestedValuesAreValid =
+    (value['chargedProjectiles'] === undefined ||
+      validate(value['chargedProjectiles'], nestedAncestors, 'stackArray')) &&
+    (value['bundleContents'] === undefined ||
+      validate(value['bundleContents'], nestedAncestors, 'stackArray')) &&
+    (value['container'] === undefined || validate(value['container'], nestedAncestors, 'container'))
+  if (!nestedValuesAreValid) return false
+  return Result.isSuccess(validateItemComponentRelations(value['maxStackSize'], value['maxDamage'], value['damage']))
 }
 
 const isResolvedStack = (
   value: unknown,
-  ancestors: WeakSet<object>,
+  ancestors: ReadonlySet<object>,
   validate: ResolvedNestedValueValidator,
 ): boolean => {
   if (
@@ -562,37 +554,31 @@ const isResolvedStack = (
     return false
   }
 
-  ancestors.add(value)
-  try {
-    return (
-      (components === undefined || validate(components, ancestors, 'components')) &&
-      isValidStackCount(value['count'], item, components)
-    )
-  } finally {
-    ancestors.delete(value)
-  }
+  const nestedAncestors = new Set(ancestors)
+  nestedAncestors.add(value)
+  return (
+    (components === undefined || validate(components, nestedAncestors, 'components')) &&
+    isValidStackCount(value['count'], item, components)
+  )
 }
 
 const isResolvedStackArray = (
   value: unknown,
-  ancestors: WeakSet<object>,
+  ancestors: ReadonlySet<object>,
   validate: ResolvedNestedValueValidator,
 ): boolean => {
   if (!Array.isArray(value) || ancestors.has(value)) {
     return false
   }
 
-  ancestors.add(value)
-  try {
-    return value.every((entry) => validate(entry, ancestors, 'stack'))
-  } finally {
-    ancestors.delete(value)
-  }
+  const nestedAncestors = new Set(ancestors)
+  nestedAncestors.add(value)
+  return value.every((entry) => validate(entry, nestedAncestors, 'stack'))
 }
 
 const isResolvedContainerEntry = (
   value: unknown,
-  ancestors: WeakSet<object>,
+  ancestors: ReadonlySet<object>,
   validate: ResolvedNestedValueValidator,
 ): boolean => {
   if (
@@ -608,34 +594,28 @@ const isResolvedContainerEntry = (
     return false
   }
 
-  ancestors.add(value)
-  try {
-    return validate(value['item'], ancestors, 'stack')
-  } finally {
-    ancestors.delete(value)
-  }
+  const nestedAncestors = new Set(ancestors)
+  nestedAncestors.add(value)
+  return validate(value['item'], nestedAncestors, 'stack')
 }
 
 const isResolvedContainer = (
   value: unknown,
-  ancestors: WeakSet<object>,
+  ancestors: ReadonlySet<object>,
   validate: ResolvedNestedValueValidator,
 ): boolean => {
   if (!Array.isArray(value) || ancestors.has(value)) {
     return false
   }
 
-  ancestors.add(value)
-  try {
-    return value.every((entry) => validate(entry, ancestors, 'containerEntry'))
-  } finally {
-    ancestors.delete(value)
-  }
+  const nestedAncestors = new Set(ancestors)
+  nestedAncestors.add(value)
+  return value.every((entry) => validate(entry, nestedAncestors, 'containerEntry'))
 }
 
 type ResolvedNestedValueHandler = (
   value: unknown,
-  ancestors: WeakSet<object>,
+  ancestors: ReadonlySet<object>,
   validate: ResolvedNestedValueValidator,
 ) => boolean
 
@@ -649,16 +629,16 @@ const RESOLVED_NESTED_VALUE_HANDLERS: Record<ResolvedNestedValueKind, ResolvedNe
 
 const isResolvedNestedValue = (
   value: unknown,
-  ancestors: WeakSet<object>,
+  ancestors: ReadonlySet<object>,
   kind: ResolvedNestedValueKind,
 ): boolean => RESOLVED_NESTED_VALUE_HANDLERS[kind](value, ancestors, isResolvedNestedValue)
 
 export const isItemComponents = (value: unknown): value is ItemComponents => {
-  try {
-    return isResolvedNestedValue(value, new WeakSet<object>(), 'components')
-  } catch {
-    return false
-  }
+  const checked = Effect.runSync(Effect.result(Effect.try({
+    try: () => isResolvedNestedValue(value, new Set<object>(), 'components'),
+    catch: () => itemValidationFailure('components', 'Unable to inspect item components', 'hostile-input', value),
+  })))
+  return Result.isSuccess(checked) && checked.success
 }
 
 function freezeSnapshot(value: ItemComponents): ItemComponents
@@ -677,11 +657,20 @@ function freezeSnapshot(value: unknown): unknown {
   return value
 }
 
-export const itemComponentsSnapshot = (value: ItemComponents): ItemComponents => {
+export const itemComponentsSnapshot = (
+  value: unknown,
+): Result.Result<ItemComponents, ItemValidationFailure> => {
   if (!isItemComponents(value)) {
-    throw new TypeError('Item components must be a resolved component object')
+    return Result.fail(itemValidationFailure('components', 'Item components must be a resolved component object', 'invalid-type', value))
   }
-  return freezeSnapshot(value)
+  const frozen = Effect.runSync(Effect.result(Effect.try({
+    try: () => freezeSnapshot(value),
+    catch: () => itemValidationFailure('components', 'Unable to snapshot item components', 'hostile-input', value),
+  })))
+  if (Result.isFailure(frozen)) return frozen
+  return isItemComponents(frozen.success)
+    ? Result.succeed(frozen.success)
+    : Result.fail(itemValidationFailure('components', 'Item components changed while snapshotting', 'hostile-input', value))
 }
 
 const deepValueEqual = (left: unknown, right: unknown): boolean => {
@@ -706,9 +695,9 @@ export const itemComponentsEqual = (
   left: ItemComponents | undefined,
   right: ItemComponents | undefined,
 ): boolean => {
-  try {
-    return left === right || (left !== undefined && right !== undefined && deepValueEqual(left, right))
-  } catch {
-    return false
-  }
+  const compared = Effect.runSync(Effect.result(Effect.try({
+    try: () => left === right || (left !== undefined && right !== undefined && deepValueEqual(left, right)),
+    catch: () => itemValidationFailure('components', 'Unable to compare item components', 'hostile-input'),
+  })))
+  return Result.isSuccess(compared) && compared.success
 }

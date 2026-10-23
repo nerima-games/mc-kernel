@@ -1,21 +1,34 @@
 import { describe, expect, it } from "vitest";
 import * as fc from "fast-check";
-import { itemComponents } from "../src/domain/item/item-components";
-import { itemComponentPatch, itemComponentPatchFromUnknownEither } from "../src/domain/item/item-component-patch";
+import * as itemComponentsResult from "../src/domain/item/item-components";
+import * as itemComponentPatchResult from "../src/domain/item/item-component-patch";
 import { MaxStackSize, StackCount, TransferQuantity } from "../src/domain/time/quantities";
-import {
+import * as itemStackResult from "../src/domain/item/item-stack";
+import { expectItemFailure, itemResultValue } from "./item-result-assertions";
+
+const itemComponents = (...args: Parameters<typeof itemComponentsResult.itemComponents>) =>
+  itemResultValue(itemComponentsResult.itemComponents(...args));
+const itemComponentPatch = (...args: Parameters<typeof itemComponentPatchResult.itemComponentPatch>) =>
+  itemResultValue(itemComponentPatchResult.itemComponentPatch(...args));
+const itemStack = (...args: Parameters<typeof itemStackResult.itemStack>) =>
+  itemResultValue(itemStackResult.itemStack(...args));
+const itemStackFromUnknown = (...args: Parameters<typeof itemStackResult.itemStackFromUnknown>) =>
+  itemResultValue(itemStackResult.itemStackFromUnknown(...args));
+const itemStackWithCount = (...args: Parameters<typeof itemStackResult.itemStackWithCount>) =>
+  itemResultValue(itemStackResult.itemStackWithCount(...args));
+const mergeItemStacks = (...args: Parameters<typeof itemStackResult.mergeItemStacks>) =>
+  itemResultValue(itemStackResult.mergeItemStacks(...args));
+const splitItemStack = (...args: Parameters<typeof itemStackResult.splitItemStack>) =>
+  itemResultValue(itemStackResult.splitItemStack(...args));
+const transmuteItemStack = (...args: Parameters<typeof itemStackResult.transmuteItemStack>) =>
+  itemResultValue(itemStackResult.transmuteItemStack(...args));
+const {
   isItemStack,
-  itemStack,
-  itemStackFromUnknown,
   itemStackEqualsIgnoringCount,
   itemStacksCanMerge,
-  itemStackWithCount,
   maxStackCountForItem,
   maxStackCountForStack,
-  mergeItemStacks,
-  splitItemStack,
-  transmuteItemStack,
-} from "../src/domain/item/item-stack";
+} = itemStackResult;
 
 const stoneComponentsLiteral = {
   maxStackSize: 64,
@@ -108,7 +121,7 @@ const literalStackOf = (value: unknown) => {
   if (!isLiteralRecord(value) || !Object.hasOwn(value, "item") || !Object.hasOwn(value, "count") || !Object.hasOwn(value, "components")) {
     throw new Error("invalid literal fixture");
   }
-  return itemStackFromUnknown(value["item"], value["count"], { components: value["components"] });
+  return itemResultValue(itemStackResult.itemStackFromUnknown(value["item"], value["count"], { components: value["components"] }));
 };
 
 describe("canonical item stacks", () => {
@@ -120,10 +133,24 @@ describe("canonical item stacks", () => {
     expect(Object.keys(stack)).toEqual(["item", "count", "components"]);
     expect(Object.isFrozen(stack)).toBe(true);
     expect(isItemStack(stack)).toBe(true);
-    expect(() => Reflect.apply(itemStack, undefined, ["stone", 0])).toThrow(RangeError);
-    expect(() => itemStack("stone", StackCount(65))).toThrow(RangeError);
-    expect(() => Reflect.apply(itemStack, undefined, ["stone", Number.POSITIVE_INFINITY])).toThrow(RangeError);
-    expect(() => Reflect.apply(itemStack, undefined, ["not_an_item", 1])).toThrow(TypeError);
+    for (const count of [0, 65, Number.POSITIVE_INFINITY]) {
+      expectItemFailure(Reflect.apply(itemStackResult.itemStack, undefined, ["stone", count]), {
+        _tag: "ItemValidationFailure",
+        kind: "RangeError",
+        reason: "out-of-range",
+        field: "count",
+        message: `Item stack count for stone must be an integer in [1, 64], received ${count}`,
+        value: count,
+      });
+    }
+    expectItemFailure(Reflect.apply(itemStackResult.itemStack, undefined, ["not_an_item", 1]), {
+      _tag: "ItemValidationFailure",
+      kind: "TypeError",
+      reason: "invalid-value",
+      field: "item",
+      message: "Unknown item type: not_an_item",
+      value: "not_an_item",
+    });
     expect(maxStackCountForStack({ item: "stone" })).toBe(64);
   });
 
@@ -133,9 +160,18 @@ describe("canonical item stacks", () => {
     expect(isItemStack({ item: "stone", count: 1, components: itemComponents("stone"), extra: true })).toBe(false);
     expect(isItemStack({ item: "stone", count: 1 })).toBe(false);
     expect(isItemStack({ item: "not_an_item", count: 1, components: itemComponents("stone") })).toBe(false);
-    expect(() => itemStackFromUnknown("not_an_item", 1)).toThrow(TypeError);
-    expect(() => itemStackFromUnknown("stone", "1")).toThrow(TypeError);
-    expect(() => itemStackFromUnknown("stone", 1, null)).toThrow(TypeError);
+    expectItemFailure(itemStackResult.itemStackFromUnknown("not_an_item", 1), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-value", field: "item",
+      message: "Unknown item type: not_an_item", value: "not_an_item",
+    });
+    expectItemFailure(itemStackResult.itemStackFromUnknown("stone", "1"), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "count",
+      message: "Item stack count must be a number, received 1", value: "1",
+    });
+    expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 1, null), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "options",
+      message: "Item stack options must be a non-null object", value: null,
+    });
   });
 
   it("resolves patches at construction and removes fields canonically", () => {
@@ -152,11 +188,22 @@ describe("canonical item stacks", () => {
   it("rejects duplicate canonical keys with a tagged error", () => {
     const left = itemComponentPatch({ "minecraft:damage": 1 });
     const right = itemComponentPatch({ "minecraft:damage": 2 });
-    expect(() => itemStack("diamond_sword", StackCount(1), { componentPatch: left })).not.toThrow();
-    expect(itemComponentPatchFromUnknownEither({ "minecraft:damage": 1, "!minecraft:damage": null })._tag).toBe("Failure");
+    expect(itemStack("diamond_sword", StackCount(1), { componentPatch: left })).toEqual({
+      item: "diamond_sword", count: 1, components: itemComponents("diamond_sword"),
+    });
+    expectItemFailure(itemComponentPatchResult.decodeItemComponentPatch({ "minecraft:damage": 1, "!minecraft:damage": null }), {
+      _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:damage",
+    });
     expect(left).not.toBe(right);
-    expect(() => itemStackFromUnknown("stone", 1, { components: {} })).toThrow(TypeError);
-    expect(() => itemStackFromUnknown("stone", 1, { componentPatch: { invalid: true } })).toThrow(TypeError);
+    expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 1, { components: {} }), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "components",
+      message: "Item components must be a resolved component object", value: {},
+    });
+    const invalidPatch = { invalid: true };
+    expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 1, { componentPatch: invalidPatch }), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-value", field: "invalid",
+      message: "Item component key must be namespaced: invalid", value: "invalid",
+    });
   });
 
   it("keeps payload isolated through count changes and split/merge", () => {
@@ -171,7 +218,10 @@ describe("canonical item stacks", () => {
     expect(split.remainder).toBeDefined();
     if (split.remainder === undefined) throw new Error("expected remainder");
     expect(mergeItemStacks(split.taken, split.remainder)).toEqual({ merged: source, remainder: undefined });
-    expect(() => Reflect.apply(splitItemStack, undefined, [source, 0])).toThrow(RangeError);
+    expectItemFailure(Reflect.apply(itemStackResult.splitItemStack, undefined, [source, 0]), {
+      _tag: "ItemValidationFailure", kind: "RangeError", reason: "out-of-range", field: "amount",
+      message: `Split amount must be an integer in [1, ${source.count}]`, value: 0,
+    });
     expect(split.taken.components).not.toBe(payload);
     expect(Object.isFrozen(split.taken.components)).toBe(true);
   });
@@ -180,7 +230,10 @@ describe("canonical item stacks", () => {
     const components = itemComponents("stone", { maxStackSize: MaxStackSize(99) });
     expect(itemStack("stone", StackCount(65), { components }).count).toBe(65);
     expect(itemStack("stone", StackCount(99), { components }).count).toBe(99);
-    expect(() => Reflect.apply(itemStack, undefined, ["stone", 100, { components }])).toThrow(RangeError);
+    expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 100, { components }), {
+      _tag: "ItemValidationFailure", kind: "RangeError", reason: "out-of-range", field: "count",
+      message: "Item stack count for stone must be an integer in [1, 99], received 100", value: 100,
+    });
     expect(itemStackFromUnknown("stone", 1, { components })).toBeDefined();
   });
 
@@ -227,7 +280,12 @@ describe("canonical item stacks", () => {
     const ninetyNine = { item: "stone", count: 99, components: { ...stoneComponentsLiteral, maxStackSize: 99 } };
     expect(literalStackOf(one)).toEqual(one);
     expect(literalStackOf(ninetyNine)).toEqual(ninetyNine);
-    expect(() => literalStackOf({ ...ninetyNine, count: 100 })).toThrow();
+    expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 100, {
+      components: { ...stoneComponentsLiteral, maxStackSize: 99 },
+    }), {
+      _tag: "ItemValidationFailure", kind: "RangeError", reason: "out-of-range", field: "count",
+      message: "Item stack count for stone must be an integer in [1, 99], received 100", value: 100,
+    });
 
     const left = literalStackOf({ ...ninetyNine, count: 60 });
     const right = literalStackOf({ ...ninetyNine, count: 50 });
@@ -248,21 +306,40 @@ describe("canonical item stacks", () => {
       merged: { ...ninetyNine, count: 99 },
       remainder: { ...ninetyNine, count: 11 },
     });
-    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNineStack, 100])).toThrow(RangeError);
-    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNineStack, 0])).toThrow(RangeError);
-    expect(() => Reflect.apply(splitItemStack, undefined, [ninetyNineStack, 1.5])).toThrow(RangeError);
+    for (const amount of [100, 0, 1.5]) {
+      expectItemFailure(Reflect.apply(itemStackResult.splitItemStack, undefined, [ninetyNineStack, amount]), {
+        _tag: "ItemValidationFailure", kind: "RangeError", reason: "out-of-range", field: "amount",
+        message: "Split amount must be an integer in [1, 99]", value: amount,
+      });
+    }
   });
 
   it("rejects malformed operation inputs and reports merge overflow", () => {
     const left = itemStack("stone", StackCount(64));
     const right = itemStack("stone", StackCount(2));
-    expect(() => Reflect.apply(itemStackWithCount, undefined, [{}, 1])).toThrow(TypeError);
-    expect(() => Reflect.apply(transmuteItemStack, undefined, [{}, right])).toThrow(TypeError);
-    expect(() => Reflect.apply(mergeItemStacks, undefined, [{}, right])).toThrow(TypeError);
-    expect(() => Reflect.apply(splitItemStack, undefined, [{}, 1])).toThrow(TypeError);
-    expect(() => mergeItemStacks(left, itemStack("dirt", StackCount(1)))).toThrow(TypeError);
-    expect(() => mergeItemStacks(left, right)).not.toThrow();
-    expect(mergeItemStacks(left, right).remainder?.count).toBe(2);
+    expectItemFailure(Reflect.apply(itemStackResult.itemStackWithCount, undefined, [{}, 1]), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "stack",
+      message: "Stack must be an ItemStack", value: {},
+    });
+    expectItemFailure(Reflect.apply(itemStackResult.transmuteItemStack, undefined, [{}, right]), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "stack",
+      message: "Transmute source and result must be ItemStacks", value: undefined,
+    });
+    expectItemFailure(Reflect.apply(itemStackResult.mergeItemStacks, undefined, [{}, right]), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "stack",
+      message: "Stacks must be ItemStacks", value: undefined,
+    });
+    expectItemFailure(Reflect.apply(itemStackResult.splitItemStack, undefined, [{}, 1]), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "stack",
+      message: "Stack must be an ItemStack", value: {},
+    });
+    expectItemFailure(itemStackResult.mergeItemStacks(left, itemStack("dirt", StackCount(1))), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-value", field: "stack",
+      message: "IncompatibleStacks", value: undefined,
+    });
+    const merged = mergeItemStacks(left, right);
+    expect(merged).toEqual({ merged: left, remainder: right });
+    expect(merged.remainder?.count).toBe(2);
   });
 
   it("transmutes a valid source into the requested result stack", () => {
@@ -276,7 +353,10 @@ describe("canonical item stacks", () => {
       ...result,
       count: 2,
     });
-    expect(() => Reflect.apply(transmuteItemStack, undefined, [source, {}])).toThrow(TypeError);
+    expectItemFailure(Reflect.apply(itemStackResult.transmuteItemStack, undefined, [source, {}]), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "stack",
+      message: "Transmute source and result must be ItemStacks", value: undefined,
+    });
   });
 
   it("preserves split/merge arithmetic for generated positive counts", () => {

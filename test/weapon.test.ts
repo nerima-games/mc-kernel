@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { isWeaponComponent, weaponComponent } from '../src/domain/item/weapon.js'
+import * as weaponResult from '../src/domain/item/weapon.js'
 import { ItemDamage, WeaponDisableBlockingSeconds } from '../src/domain/time/quantities.js'
+import { expectItemFailure, itemResultValue } from './item-result-assertions'
+
+const isWeaponComponent = weaponResult.isWeaponComponent
+const weaponComponent = (...args: Parameters<typeof weaponResult.weaponComponent>) =>
+  itemResultValue(weaponResult.weaponComponent(...args))
+const invokeWeaponComponent = (options: unknown) =>
+  Reflect.apply(weaponResult.weaponComponent, undefined, [options])
 
 describe('weapon component', () => {
   it('uses the official defaults and freezes the resolved value', () => {
@@ -26,17 +33,70 @@ describe('weapon component', () => {
   })
 
   it('rejects malformed options at the public boundary', () => {
-    const invoke = (options: unknown) =>
-      () => Reflect.apply(weaponComponent, undefined, [options])
-
-    expect(invoke(null)).toThrow(TypeError)
-    expect(invoke([])).toThrow(TypeError)
-    expect(invoke({ itemDamagePerAttack: -1 })).toThrow(RangeError)
-    expect(invoke({ itemDamagePerAttack: 1.5 })).toThrow(RangeError)
-    expect(invoke({ itemDamagePerAttack: Number.POSITIVE_INFINITY })).toThrow(RangeError)
-    expect(invoke({ disableBlockingForSeconds: -0.1 })).toThrow(RangeError)
-    expect(invoke({ disableBlockingForSeconds: Number.NaN })).toThrow(RangeError)
-    expect(invoke({ disableBlockingForSeconds: Number.POSITIVE_INFINITY })).toThrow(RangeError)
+    expectItemFailure(Reflect.apply(weaponResult.weaponComponent, undefined, [null]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'invalid-type',
+      field: 'options',
+      message: 'Weapon component options must be a non-null object',
+      value: null,
+    })
+    expectItemFailure(Reflect.apply(weaponResult.weaponComponent, undefined, [[]]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'invalid-type',
+      field: 'options',
+      message: 'Weapon component options must be a non-null object',
+      value: [],
+    })
+    expectItemFailure(invokeWeaponComponent({ itemDamagePerAttack: -1 }), {
+      _tag: 'ItemValidationFailure',
+      kind: 'RangeError',
+      reason: 'out-of-range',
+      field: 'itemDamagePerAttack',
+      message: 'itemDamagePerAttack must be a non-negative safe integer',
+      value: -1,
+    })
+    expectItemFailure(invokeWeaponComponent({ itemDamagePerAttack: 1.5 }), {
+      _tag: 'ItemValidationFailure',
+      kind: 'RangeError',
+      reason: 'out-of-range',
+      field: 'itemDamagePerAttack',
+      message: 'itemDamagePerAttack must be a non-negative safe integer',
+      value: 1.5,
+    })
+    expectItemFailure(invokeWeaponComponent({ itemDamagePerAttack: Number.POSITIVE_INFINITY }), {
+      _tag: 'ItemValidationFailure',
+      kind: 'RangeError',
+      reason: 'out-of-range',
+      field: 'itemDamagePerAttack',
+      message: 'itemDamagePerAttack must be a non-negative safe integer',
+      value: Number.POSITIVE_INFINITY,
+    })
+    expectItemFailure(invokeWeaponComponent({ disableBlockingForSeconds: -0.1 }), {
+      _tag: 'ItemValidationFailure',
+      kind: 'RangeError',
+      reason: 'out-of-range',
+      field: 'disableBlockingForSeconds',
+      message: 'disableBlockingForSeconds must be a finite, non-negative number',
+      value: -0.1,
+    })
+    expectItemFailure(invokeWeaponComponent({ disableBlockingForSeconds: Number.NaN }), {
+      _tag: 'ItemValidationFailure',
+      kind: 'RangeError',
+      reason: 'out-of-range',
+      field: 'disableBlockingForSeconds',
+      message: 'disableBlockingForSeconds must be a finite, non-negative number',
+      value: Number.NaN,
+    })
+    expectItemFailure(invokeWeaponComponent({ disableBlockingForSeconds: Number.POSITIVE_INFINITY }), {
+      _tag: 'ItemValidationFailure',
+      kind: 'RangeError',
+      reason: 'out-of-range',
+      field: 'disableBlockingForSeconds',
+      message: 'disableBlockingForSeconds must be a finite, non-negative number',
+      value: Number.POSITIVE_INFINITY,
+    })
   })
 
   it('guards the exact resolved shape at runtime', () => {

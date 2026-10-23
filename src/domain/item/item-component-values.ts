@@ -1,4 +1,5 @@
 /** Constructors and guards for simple Java item-component values. */
+import { Effect, Result } from 'effect'
 import { ResourceLocation, TagLocation, UUID } from '../text/identifiers.js'
 import { BlockAxis } from '../coordinates/coordinate-primitives.js'
 import {
@@ -115,7 +116,7 @@ import {
 } from './item-component-values-data.js'
 import type { ItemStack } from './item-stack.js'
 import { isItemComponents } from './item-components-validation.js'
-import { maxStackCountOfItem } from './item-registry.js'
+import { itemComponentStackLimitOf } from './item-components-data.js'
 import { isItemType } from './item-type.js'
 import {
   isBaseColorComponent,
@@ -195,6 +196,128 @@ import {
   TrimArmorMaterialKey,
   TrimItemModelIndex,
 } from './item-primitives.js'
+import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
+
+type ItemComponentResult<A> = Result.Result<A, ItemValidationFailure>
+
+const componentFailure = (
+  field: string,
+  message: string,
+  value?: unknown,
+  reason: ItemValidationFailure['reason'] = 'invalid-value',
+  kind: ItemValidationFailure['kind'] = reason === 'out-of-range' ? 'RangeError' : 'TypeError',
+): ItemValidationFailure => itemValidationFailure(field, message, reason, value, kind)
+
+const reflectionResult = <A>(
+  field: string,
+  input: unknown,
+  read: () => A,
+): ItemComponentResult<A> => Effect.runSync(Effect.result(Effect.try({
+  try: read,
+  catch: () => componentFailure(field, `Unable to inspect ${field}`, input, 'hostile-input'),
+})))
+
+const snapshotInputValue = (
+  value: unknown,
+  field: string,
+  ancestors: WeakSet<object> = new WeakSet<object>(),
+): ItemComponentResult<unknown> => {
+  if (value === null || typeof value !== 'object') return Result.succeed(value)
+  const array = reflectionResult(field, value, () => Array.isArray(value))
+  if (Result.isFailure(array)) return array
+  if (ancestors.has(value)) {
+    return Result.fail(componentFailure(field, `Cyclic ${field} input is invalid`, value, 'invalid-value'))
+  }
+  ancestors.add(value)
+  if (array.success) {
+    const length = reflectionResult(field, value, () => Reflect.get(value, 'length'))
+    if (Result.isFailure(length)) {
+      ancestors.delete(value)
+      return length
+    }
+    const copied: unknown[] = []
+    for (let index = 0; index < length.success; index += 1) {
+      const entry = reflectionResult(`${field}[${index}]`, value, () => Reflect.get(value, String(index)))
+      if (Result.isFailure(entry)) {
+        ancestors.delete(value)
+        return entry
+      }
+      const child = snapshotInputValue(entry.success, `${field}[${index}]`, ancestors)
+      if (Result.isFailure(child)) {
+        ancestors.delete(value)
+        return child
+      }
+      copied.push(child.success)
+    }
+    ancestors.delete(value)
+    return Result.succeed(copied)
+  }
+
+  const prototype = reflectionResult(field, value, () => Object.getPrototypeOf(value))
+  if (Result.isFailure(prototype)) {
+    ancestors.delete(value)
+    return prototype
+  }
+  if (prototype !== Object.prototype && prototype !== null) {
+    ancestors.delete(value)
+    return Result.succeed(value)
+  }
+  const keys = reflectionResult(field, value, () => Object.keys(value))
+  if (Result.isFailure(keys)) {
+    ancestors.delete(value)
+    return keys
+  }
+  const copied: Record<string, unknown> = prototype === null ? Object.create(null) : {}
+  for (const key of keys.success) {
+    const entry = reflectionResult(`${field}.${key}`, value, () => Reflect.get(value, key))
+    if (Result.isFailure(entry)) {
+      ancestors.delete(value)
+      return entry
+    }
+    const child = snapshotInputValue(entry.success, `${field}.${key}`, ancestors)
+    if (Result.isFailure(child)) {
+      ancestors.delete(value)
+      return child
+    }
+    Object.defineProperty(copied, key, {
+      configurable: true,
+      enumerable: true,
+      value: child.success,
+      writable: true,
+    })
+  }
+  ancestors.delete(value)
+  return Result.succeed(copied)
+}
+
+const validatedInput = <A>(
+  value: A,
+  field: string,
+  message: string,
+  isValid: (value: unknown) => value is A,
+  kind: ItemValidationFailure['kind'] = 'TypeError',
+): ItemComponentResult<A> => {
+  const snapshot = snapshotInputValue(value, field)
+  if (Result.isFailure(snapshot)) return snapshot
+  const checked = reflectionResult(field, snapshot.success, () => isValid(snapshot.success)
+    ? { valid: true, value: snapshot.success }
+    : { valid: false })
+  if (Result.isFailure(checked)) return checked
+  return checked.success.valid
+    ? Result.succeed(checked.success.value)
+    : Result.fail(componentFailure(field, message, value, kind === 'RangeError' ? 'out-of-range' : 'invalid-value', kind))
+}
+
+const brandResult = <A, E extends Readonly<{ readonly message: string }>>(
+  result: Result.Result<A, E>,
+  field: string,
+  value: unknown,
+  kind: ItemValidationFailure['kind'] = 'TypeError',
+  reason: ItemValidationFailure['reason'] = 'invalid-value',
+): ItemComponentResult<A> => Result.mapError(
+  result,
+  (error) => componentFailure(field, error.message, value, reason, kind),
+)
 
 export { DYE_COLORS, EQUIPPABLE_SLOTS, FIREWORK_EXPLOSION_SHAPES, MAP_DECORATION_TYPES }
 export type { MapDecorationType } from './item-component-values-data.js'
@@ -409,40 +532,46 @@ export type TooltipDisplayOptions = Readonly<{
   readonly hiddenComponents?: ReadonlyArray<ResourceLocation>
 }>
 
-export const potionDurationScaleComponent = (
-  value: PotionDurationScale = PotionDurationScale(1),
-): PotionDurationScale =>
-  PotionDurationScale(value)
+export const potionDurationScaleComponent = (value = 1): ItemComponentResult<PotionDurationScale> =>
+  brandResult(PotionDurationScale.result(value), 'potion_duration_scale', value, 'RangeError', 'out-of-range')
 
-export const additionalTradeCostComponent = (
-  value: AdditionalTradeCost = AdditionalTradeCost(0),
-): AdditionalTradeCost =>
-  AdditionalTradeCost(value)
+export const additionalTradeCostComponent = (value = 0): ItemComponentResult<AdditionalTradeCost> =>
+  brandResult(AdditionalTradeCost.result(value), 'additional_trade_cost', value, 'RangeError', 'out-of-range')
 
-export const breakSoundComponent = (value: ResourceLocation): ResourceLocation => ResourceLocation(value)
+export const breakSoundComponent = (value: string): ItemComponentResult<ResourceLocation> =>
+  brandResult(ResourceLocation.result(value), 'break_sound', value)
 
-export const providesTrimMaterialComponent = (value: ResourceLocation): ResourceLocation => ResourceLocation(value)
+export const providesTrimMaterialComponent = (value: string): ItemComponentResult<ResourceLocation> =>
+  brandResult(ResourceLocation.result(value), 'provides_trim_material', value)
 
 export const providesBannerPatternsComponent = (
-  value: ResourceLocationProviderInput,
-): BannerPatternProvider => {
+  value: string | ReadonlyArray<string>,
+): ItemComponentResult<BannerPatternProvider> => {
   if (typeof value === 'string') {
-    return value.startsWith('#') ? TagLocation(value) : ResourceLocation(value)
+    return value.startsWith('#')
+      ? brandResult(TagLocation.result(value), 'provides_banner_patterns', value)
+      : brandResult(ResourceLocation.result(value), 'provides_banner_patterns', value)
   }
   if (!Array.isArray(value)) {
-    throw new TypeError('provides_banner_patterns must be a resource location, tag, or list of resource locations')
+    return Result.fail(componentFailure('provides_banner_patterns', 'provides_banner_patterns must be a resource location, tag, or list of resource locations', value, 'invalid-type'))
   }
   if (!value.every((entry) => typeof entry === 'string' && !entry.startsWith('#'))) {
-    throw new TypeError('provides_banner_patterns lists must contain resource locations')
+    return Result.fail(componentFailure('provides_banner_patterns', 'provides_banner_patterns lists must contain resource locations', value, 'invalid-type'))
   }
-  return Object.freeze(value.map((entry) => ResourceLocation(entry)))
+  return Result.gen(function* () {
+    const locations: ResourceLocation[] = []
+    for (const entry of value) {
+      locations.push(yield* brandResult(ResourceLocation.result(entry), 'provides_banner_patterns', entry))
+    }
+    return Object.freeze(locations)
+  })
 }
 
-export const dyeComponent = (value: DyeColor): DyeColor => {
+export const dyeComponent = (value: string): ItemComponentResult<DyeColor> => {
   if (!isDyeComponent(value)) {
-    throw new RangeError(`Unknown dye color: ${value}`)
+    return Result.fail(componentFailure('dye', `Unknown dye color: ${value}`, value, 'out-of-range', 'RangeError'))
   }
-  return value
+  return Result.succeed(value)
 }
 
 function freezeItemComponentNbtValue(value: BlockEntityDataComponent): BlockEntityDataComponent
@@ -470,26 +599,28 @@ function freezeItemComponentNbtValue(value: ItemComponentNbtValue): ItemComponen
   return Object.freeze(frozen)
 }
 
-export const customDataComponent = (value: CustomDataComponent): CustomDataComponent => {
-  if (!isCustomDataComponent(value)) {
-    throw new TypeError('custom_data must be a non-empty object containing NBT-compatible values')
-  }
-  return freezeItemComponentNbtValue(value)
+export const customDataComponent = (value: CustomDataComponent): ItemComponentResult<CustomDataComponent> => {
+  return Result.map(
+    validatedInput(value, 'custom_data', 'custom_data must be a non-empty object containing NBT-compatible values', isCustomDataComponent),
+    freezeItemComponentNbtValue,
+  )
 }
 
-export const dyedColorComponent = (value: DyedColorComponent): DyedColorComponent => {
+export const dyedColorComponent = (value: DyedColorComponent): ItemComponentResult<DyedColorComponent> => {
   if (!isDyedColorComponent(value)) {
-    throw new RangeError('dyed_color must be an RGB integer or three normalized color channels')
+    return Result.fail(componentFailure('dyed_color', 'dyed_color must be an RGB integer or three normalized color channels', value, 'out-of-range', 'RangeError'))
   }
   if (typeof value === 'number') {
-    return RgbColor(value)
+    return brandResult(RgbColor.result(value), 'dyed_color', value, 'RangeError', 'out-of-range')
   }
-  const channels: [DyeColorChannel, DyeColorChannel, DyeColorChannel] = [
-    DyeColorChannel(value[0]),
-    DyeColorChannel(value[1]),
-    DyeColorChannel(value[2]),
-  ]
-  return Object.freeze(channels)
+  return Result.gen(function* () {
+    const channels: [DyeColorChannel, DyeColorChannel, DyeColorChannel] = [
+      yield* brandResult(DyeColorChannel.result(value[0]), 'dyed_color[0]', value[0], 'RangeError', 'out-of-range'),
+      yield* brandResult(DyeColorChannel.result(value[1]), 'dyed_color[1]', value[1], 'RangeError', 'out-of-range'),
+      yield* brandResult(DyeColorChannel.result(value[2]), 'dyed_color[2]', value[2], 'RangeError', 'out-of-range'),
+    ]
+    return Object.freeze(channels)
+  })
 }
 
 const frozenStringRecord = <Value extends string>(
@@ -509,134 +640,148 @@ const frozenStringRecord = <Value extends string>(
 
 const frozenBrandedStringRecord = <Key extends string, Value extends string>(
   value: Readonly<Record<Key, Value>>,
-  keyOf: (value: string) => Key,
-  valueOf: (value: string) => Value,
-): Readonly<Record<Key, Value>> => {
-  const copy: Record<string, Value> = {}
-  for (const key of Object.keys(value)) {
-    const brandedKey = keyOf(key)
+  keyOf: (value: string) => Result.Result<Key, Readonly<{ readonly message: string }>>,
+  valueOf: (value: string) => Result.Result<Value, Readonly<{ readonly message: string }>>,
+  field: string,
+): ItemComponentResult<Readonly<Record<Key, Value>>> => Result.gen(function* () {
+  const copy: Record<Key, Value> = {}
+  for (const [key, item] of Object.entries(value)) {
+    const brandedKey = yield* brandResult(keyOf(key), field, key)
+    const entry = yield* brandResult(valueOf(item), field, item)
     Object.defineProperty(copy, brandedKey, {
       configurable: false,
       enumerable: true,
-      value: valueOf(value[brandedKey]),
+      value: entry,
       writable: false,
     })
   }
   return Object.freeze(copy)
-}
+})
 
 const frozenArray = <T>(value: ReadonlyArray<T>): ReadonlyArray<T> => Object.freeze([...value])
 
-export const entityDataComponent = (value: EntityDataOptions): EntityDataComponent => {
-  if (!isEntityDataOptions(value)) {
-    throw new TypeError('Invalid entity_data component options')
-  }
-  const normalized: EntityDataComponent = {
-    ...value,
-    id: ResourceLocation(value.id),
-  }
-  return freezeItemComponentNbtValue(normalized)
+export const entityDataComponent = (value: EntityDataOptions): ItemComponentResult<EntityDataComponent> => {
+  const parsed = validatedInput(value, 'entity_data', 'Invalid entity_data component options', isEntityDataOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.map(brandResult(ResourceLocation.result(parsed.success.id), 'entity_data.id', parsed.success.id), (id) =>
+    freezeItemComponentNbtValue({ ...parsed.success, id }))
 }
 
 export const bucketEntityDataComponent = (
   value: BucketEntityDataOptions = {},
-): BucketEntityDataComponent => {
-  if (!isBucketEntityDataOptions(value)) {
-    throw new TypeError('Invalid bucket_entity_data component options')
-  }
-  return freezeItemComponentNbtValue(value)
+): ItemComponentResult<BucketEntityDataComponent> => {
+  const parsed = validatedInput(value, 'bucket_entity_data', 'Invalid bucket_entity_data component options', isBucketEntityDataOptions)
+  return Result.map(parsed, freezeItemComponentNbtValue)
 }
 
-export const blockEntityDataComponent = (value: BlockEntityDataOptions): BlockEntityDataComponent => {
-  if (!isBlockEntityDataOptions(value)) {
-    throw new TypeError('Invalid block_entity_data component options')
-  }
-  const normalized: BlockEntityDataComponent = {
-    ...value,
-    id: ResourceLocation(value.id),
-  }
-  return freezeItemComponentNbtValue(normalized)
+export const blockEntityDataComponent = (value: BlockEntityDataOptions): ItemComponentResult<BlockEntityDataComponent> => {
+  const parsed = validatedInput(value, 'block_entity_data', 'Invalid block_entity_data component options', isBlockEntityDataOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.map(brandResult(ResourceLocation.result(parsed.success.id), 'block_entity_data.id', parsed.success.id), (id) =>
+    freezeItemComponentNbtValue({ ...parsed.success, id }))
 }
 
-export const profileComponent = (value: ProfileOptions): ProfileComponent => {
-  if (!isProfileOptions(value)) {
-    throw new TypeError('Invalid profile component options')
-  }
-  if (typeof value === 'string') {
-    return ProfileName(value)
+export const profileComponent = (value: ProfileOptions): ItemComponentResult<ProfileComponent> => {
+  const parsed = validatedInput(value, 'profile', 'Invalid profile component options', isProfileOptions)
+  if (Result.isFailure(parsed)) return parsed
+  const profile = parsed.success
+  if (typeof profile === 'string') {
+    return brandResult(ProfileName.result(profile), 'profile', profile)
   }
 
-  const properties = value.properties === undefined
-    ? undefined
-    : frozenArray(
-        value.properties.map(
-          (property): ProfilePropertyComponent => Object.freeze({
-            name: ProfilePropertyName(property.name),
-            value: ProfilePropertyValue(property.value),
-            ...(property.signature === undefined
-              ? {}
-              : { signature: ProfilePropertySignature(property.signature) }),
-          }),
-        ),
-      )
-  const normalized: ProfileObjectComponent = {
-    ...(value.name === undefined ? {} : { name: ProfileName(value.name) }),
-    ...(value.id === undefined ? {} : { id: UUID(value.id) }),
-    ...(properties === undefined ? {} : { properties }),
-  }
-  return Object.freeze(normalized)
+  return Result.gen(function* () {
+    const name = profile.name === undefined
+      ? undefined
+      : yield* brandResult(ProfileName.result(profile.name), 'profile.name', profile.name)
+    const id = profile.id === undefined
+      ? undefined
+      : yield* brandResult(UUID.result(profile.id), 'profile.id', profile.id)
+    const properties: ProfilePropertyComponent[] = []
+    for (const property of profile.properties ?? []) {
+      const propertyName = yield* brandResult(ProfilePropertyName.result(property.name), 'profile.properties.name', property.name)
+      const propertyValue = yield* brandResult(ProfilePropertyValue.result(property.value), 'profile.properties.value', property.value)
+      const signature = property.signature === undefined
+        ? undefined
+        : yield* brandResult(ProfilePropertySignature.result(property.signature), 'profile.properties.signature', property.signature)
+      properties.push(Object.freeze({
+        name: propertyName,
+        value: propertyValue,
+        ...(signature === undefined ? {} : { signature }),
+      }))
+    }
+    const normalized: ProfileObjectComponent = {
+      ...(name === undefined ? {} : { name }),
+      ...(id === undefined ? {} : { id }),
+      ...(profile.properties === undefined ? {} : { properties: frozenArray(properties) }),
+    }
+    return Object.freeze(normalized)
+  })
 }
 
 const potionEffectInstanceComponentOf = (
   value: PotionEffectInstanceOptions,
-): PotionEffectInstanceComponent => {
+): ItemComponentResult<PotionEffectInstanceComponent> => {
   const hiddenEffect = value.hiddenEffect === undefined
-    ? undefined
+    ? Result.succeed(undefined)
     : potionEffectInstanceComponentOf(value.hiddenEffect)
-  return Object.freeze({
-    id: ResourceLocation(value.id),
-    amplifier: EffectAmplifier(value.amplifier ?? 0),
-    duration: PotionEffectDurationTicks(value.duration ?? 0),
-    ambient: value.ambient ?? false,
-    showParticles: value.showParticles ?? true,
-    showIcon: value.showIcon ?? true,
-    ...(hiddenEffect === undefined ? {} : { hiddenEffect }),
+  return Result.gen(function* () {
+    const innerEffect = yield* hiddenEffect
+    const id = yield* brandResult(ResourceLocation.result(value.id), 'potion_contents.customEffects.id', value.id)
+    const amplifier = yield* brandResult(EffectAmplifier.result(value.amplifier ?? 0), 'potion_contents.customEffects.amplifier', value.amplifier ?? 0, 'RangeError', 'out-of-range')
+    const duration = yield* brandResult(PotionEffectDurationTicks.result(value.duration ?? 0), 'potion_contents.customEffects.duration', value.duration ?? 0, 'RangeError', 'out-of-range')
+    return Object.freeze({
+      id,
+      amplifier,
+      duration,
+      ambient: value.ambient ?? false,
+      showParticles: value.showParticles ?? true,
+      showIcon: value.showIcon ?? true,
+      ...(innerEffect === undefined ? {} : { hiddenEffect: innerEffect }),
+    })
   })
 }
 
-export const beesComponent = (value: BeesOptions = []): BeesComponent => {
-  if (!isBeesOptions(value)) {
-    throw new TypeError('Invalid bees component options')
-  }
-  return Object.freeze(
-    value.map(
-      (entry): BeeEntryComponent => Object.freeze({
-        entityData: frozenBrandedStringRecord(
-          entry.entityData,
-          ItemComponentNbtKey,
-          ItemComponentNbtString,
-        ),
-        ticksInHive: BeeHiveTicks(entry.ticksInHive),
-        minTicksInHive: BeeHiveTicks(entry.minTicksInHive),
-      }),
-    ),
-  )
+export const beesComponent = (value: BeesOptions = []): ItemComponentResult<BeesComponent> => {
+  const parsed = validatedInput(value, 'bees', 'Invalid bees component options', isBeesOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const entries: BeeEntryComponent[] = []
+    for (const entry of parsed.success) {
+      const entityData = yield* frozenBrandedStringRecord(
+        entry.entityData,
+        (key) => ItemComponentNbtKey.result(key),
+        (item) => ItemComponentNbtString.result(item),
+        'bees.entityData',
+      )
+      const ticksInHive = yield* brandResult(BeeHiveTicks.result(entry.ticksInHive), 'bees.ticksInHive', entry.ticksInHive, 'RangeError', 'out-of-range')
+      const minTicksInHive = yield* brandResult(BeeHiveTicks.result(entry.minTicksInHive), 'bees.minTicksInHive', entry.minTicksInHive, 'RangeError', 'out-of-range')
+      entries.push(Object.freeze({ entityData, ticksInHive, minTicksInHive }))
+    }
+    return Object.freeze(entries)
+  })
 }
 
 export const potionContentsComponent = (
   value: PotionContentsOptions = {},
-): PotionContentsComponent => {
-  if (!isPotionContentsOptions(value)) {
-    throw new TypeError('Invalid potion_contents component options')
+): ItemComponentResult<PotionContentsComponent> => {
+  const parsed = validatedInput(value, 'potion_contents', 'Invalid potion_contents component options', isPotionContentsOptions)
+  if (Result.isFailure(parsed)) return parsed
+  if (typeof parsed.success === 'string') {
+    return brandResult(ResourceLocation.result(parsed.success), 'potion_contents', parsed.success)
   }
-  if (typeof value === 'string') {
-    return ResourceLocation(value)
-  }
-  const potion = value.potion === undefined ? undefined : ResourceLocation(value.potion)
-  return Object.freeze({
-    ...(potion === undefined ? {} : { potion }),
-    ...(value.customColor === undefined ? {} : { customColor: value.customColor }),
-    customEffects: frozenArray((value.customEffects ?? []).map(potionEffectInstanceComponentOf)),
+  return Result.gen(function* () {
+    const potion = parsed.success.potion === undefined
+      ? undefined
+      : yield* brandResult(ResourceLocation.result(parsed.success.potion), 'potion_contents.potion', parsed.success.potion)
+    const customEffects: PotionEffectInstanceComponent[] = []
+    for (const effect of parsed.success.customEffects ?? []) {
+      customEffects.push(yield* potionEffectInstanceComponentOf(effect))
+    }
+    return Object.freeze({
+      ...(potion === undefined ? {} : { potion }),
+      ...(parsed.success.customColor === undefined ? {} : { customColor: parsed.success.customColor }),
+      customEffects: frozenArray(customEffects),
+    })
   })
 }
 
@@ -650,7 +795,7 @@ const isItemStack = (value: unknown): value is ItemStack => {
   const item = value['item']
   if (!isItemType(item) || !isItemComponents(value['components'])) return false
   const count = value['count']
-  return Number.isSafeInteger(count) && Number(count) >= 1 && Number(count) <= maxStackCountOfItem(item)
+  return Number.isSafeInteger(count) && Number(count) >= 1 && Number(count) <= itemComponentStackLimitOf(item)
 }
 
 const isItemStackList = (value: unknown): value is ReadonlyArray<ItemStack> =>
@@ -664,12 +809,8 @@ export const isChargedProjectilesComponent = (value: unknown): value is ChargedP
 
 export const chargedProjectilesComponent = (
   value: ChargedProjectilesOptions = [],
-): ChargedProjectilesComponent => {
-  if (!isChargedProjectilesOptions(value)) {
-    throw new TypeError('Invalid charged_projectiles component options')
-  }
-  return frozenArray(value)
-}
+): ItemComponentResult<ChargedProjectilesComponent> =>
+  Result.map(validatedInput(value, 'charged_projectiles', 'Invalid charged_projectiles component options', isChargedProjectilesOptions), frozenArray)
 
 export const isBundleContentsOptions = (value: unknown): value is BundleContentsOptions =>
   isItemStackList(value)
@@ -679,12 +820,8 @@ export const isBundleContentsComponent = (value: unknown): value is BundleConten
 
 export const bundleContentsComponent = (
   value: BundleContentsOptions = [],
-): BundleContentsComponent => {
-  if (!isBundleContentsOptions(value)) {
-    throw new TypeError('Invalid bundle_contents component options')
-  }
-  return frozenArray(value)
-}
+): ItemComponentResult<BundleContentsComponent> =>
+  Result.map(validatedInput(value, 'bundle_contents', 'Invalid bundle_contents component options', isBundleContentsOptions), frozenArray)
 
 const isContainerEntryOptions = (value: unknown): value is ContainerEntryOptions => {
   if (!isRecordValue(value)) {
@@ -708,181 +845,210 @@ export const isContainerOptions = (value: unknown): value is ContainerOptions =>
 export const isContainerComponent = (value: unknown): value is ContainerComponent =>
   Array.isArray(value) && value.every(isContainerEntry)
 
-export const containerComponent = (value: ContainerOptions = []): ContainerComponent => {
-  if (!isContainerOptions(value)) {
-    throw new TypeError('Invalid container component options')
-  }
-  return frozenArray(
-    value.map((entry): ContainerEntryOptions =>
-      Object.freeze({ slot: ContainerSlotIndex(entry['slot']), item: entry['item'] }),
-    ),
+export const containerComponent = (value: ContainerOptions = []): ItemComponentResult<ContainerComponent> =>
+  Result.flatMap(
+    validatedInput(value, 'container', 'Invalid container component options', isContainerOptions),
+    (entries) => Result.gen(function* () {
+      const normalized: ContainerEntryOptions[] = []
+      for (const entry of entries) {
+        const slot = yield* brandResult(ContainerSlotIndex.result(entry.slot), 'container.slot', entry.slot, 'RangeError', 'out-of-range')
+        normalized.push(Object.freeze({ slot, item: entry.item }))
+      }
+      return frozenArray(normalized)
+    }),
   )
-}
 
 const mapDecorationComponentOf = (
   value: MapDecorationOptions,
-): MapDecorationComponent => Object.freeze({
-  type: value.type,
-  x: MapDecorationCoordinate(value.x),
-  z: MapDecorationCoordinate(value.z),
-  rotation: MapDecorationRotation(value.rotation),
+): ItemComponentResult<MapDecorationComponent> => Result.gen(function* () {
+  const x = yield* brandResult(MapDecorationCoordinate.result(value.x), 'map_decorations.x', value.x, 'RangeError', 'out-of-range')
+  const z = yield* brandResult(MapDecorationCoordinate.result(value.z), 'map_decorations.z', value.z, 'RangeError', 'out-of-range')
+  const rotation = yield* brandResult(MapDecorationRotation.result(value.rotation), 'map_decorations.rotation', value.rotation, 'RangeError', 'out-of-range')
+  return Object.freeze({ type: value.type, x, z, rotation })
 })
 
-export const mapColorComponent = (value: MapColorComponent = RgbColor(4603950)): MapColorComponent => {
+export const mapColorComponent = (value = 4603950): ItemComponentResult<MapColorComponent> => {
   if (!isMapColorComponent(value)) {
-    throw new RangeError(`Invalid map_color component value: ${String(value)}`)
+    return Result.fail(componentFailure('map_color', `Invalid map_color component value: ${String(value)}`, value, 'out-of-range', 'RangeError'))
   }
-  return RgbColor(value)
+  return brandResult(RgbColor.result(value), 'map_color', value, 'RangeError', 'out-of-range')
 }
 
 export const mapDecorationsComponent = (
   value: MapDecorationsOptions = {},
-): MapDecorationsComponent => {
-  if (!isMapDecorationsOptions(value)) {
-    throw new TypeError('Invalid map_decorations component options')
-  }
-  const normalized: Record<string, MapDecorationComponent> = {}
-  for (const [id, decoration] of Object.entries(value)) {
-    Object.defineProperty(normalized, id, {
-      configurable: false,
-      enumerable: true,
-      value: mapDecorationComponentOf(decoration),
-      writable: false,
-    })
-  }
-  return Object.freeze(normalized)
+): ItemComponentResult<MapDecorationsComponent> => {
+  const parsed = validatedInput(value, 'map_decorations', 'Invalid map_decorations component options', isMapDecorationsOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const normalized: Record<string, MapDecorationComponent> = {}
+    for (const [id, decoration] of Object.entries(parsed.success)) {
+      const component = yield* mapDecorationComponentOf(decoration)
+      Object.defineProperty(normalized, id, {
+        configurable: false,
+        enumerable: true,
+        value: component,
+        writable: false,
+      })
+    }
+    return Object.freeze(normalized)
+  })
 }
 
 const writableBookPageComponentOf = (
   page: WritableBookPageOptions,
-): WritableBookPageComponent => {
+): ItemComponentResult<WritableBookPageComponent> => Result.gen(function* () {
   if (typeof page === 'string') {
-    return BookPageText(page)
+    return yield* brandResult(BookPageText.result(page), 'writable_book_content.page', page)
   }
-  return Object.freeze({
-    raw: BookPageText(page.raw),
-    ...(page.filtered === undefined ? {} : { filtered: BookPageText(page.filtered) }),
-  })
-}
+  const raw = yield* brandResult(BookPageText.result(page.raw), 'writable_book_content.page.raw', page.raw)
+  const filtered = page.filtered === undefined
+    ? undefined
+    : yield* brandResult(BookPageText.result(page.filtered), 'writable_book_content.page.filtered', page.filtered)
+  return Object.freeze({ raw, ...(filtered === undefined ? {} : { filtered }) })
+})
 
 export const writableBookContentComponent = (
   value: WritableBookContentOptions = {},
-): WritableBookContentComponent => {
-  if (!isWritableBookContentOptions(value)) {
-    throw new TypeError('Invalid writable_book_content component options')
-  }
-  return Object.freeze({
-    pages: frozenArray((value.pages ?? []).map(writableBookPageComponentOf)),
+): ItemComponentResult<WritableBookContentComponent> => {
+  const parsed = validatedInput(value, 'writable_book_content', 'Invalid writable_book_content component options', isWritableBookContentOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const pages: WritableBookPageComponent[] = []
+    for (const page of parsed.success.pages ?? []) pages.push(yield* writableBookPageComponentOf(page))
+    return Object.freeze({ pages: frozenArray(pages) })
   })
 }
 
 const writtenBookPageComponentOf = (
   page: WrittenBookPageOptions,
-): WrittenBookPageComponent => {
+): ItemComponentResult<WrittenBookPageComponent> => Result.gen(function* () {
   if (typeof page === 'string') {
-    return BookPageText(page)
+    return yield* brandResult(BookPageText.result(page), 'written_book_content.page', page)
   }
-  return Object.freeze({
-    raw: BookPageText(page.raw),
-    ...(page.filtered === undefined ? {} : { filtered: BookPageText(page.filtered) }),
-  })
-}
+  const raw = yield* brandResult(BookPageText.result(page.raw), 'written_book_content.page.raw', page.raw)
+  const filtered = page.filtered === undefined
+    ? undefined
+    : yield* brandResult(BookPageText.result(page.filtered), 'written_book_content.page.filtered', page.filtered)
+  return Object.freeze({ raw, ...(filtered === undefined ? {} : { filtered }) })
+})
 
 export const writtenBookContentComponent = (
   value: WrittenBookContentOptions,
-): WrittenBookContentComponent => {
-  if (!isWrittenBookContentOptions(value)) {
-    throw new TypeError('Invalid written_book_content component options')
-  }
-  return Object.freeze({
-    pages: frozenArray(value.pages.map(writtenBookPageComponentOf)),
-    title: writtenBookPageComponentOf(value.title),
-    author: BookAuthor(value.author),
-    generation: BookGeneration(value.generation),
-    resolved: value.resolved,
+): ItemComponentResult<WrittenBookContentComponent> => {
+  const parsed = validatedInput(value, 'written_book_content', 'Invalid written_book_content component options', isWrittenBookContentOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const pages: WrittenBookPageComponent[] = []
+    for (const page of parsed.success.pages) pages.push(yield* writtenBookPageComponentOf(page))
+    const title = yield* writtenBookPageComponentOf(parsed.success.title)
+    const author = yield* brandResult(BookAuthor.result(parsed.success.author), 'written_book_content.author', parsed.success.author)
+    const generation = yield* brandResult(BookGeneration.result(parsed.success.generation), 'written_book_content.generation', parsed.success.generation, 'RangeError', 'out-of-range')
+    return Object.freeze({
+      pages: frozenArray(pages),
+      title,
+      author,
+      generation,
+      resolved: parsed.success.resolved,
+    })
   })
 }
 
 const trimPatternComponentOf = (
   value: TrimPatternOptions,
-): TrimPatternComponent => {
+): ItemComponentResult<TrimPatternComponent> => {
   if (typeof value === 'string') {
-    return ResourceLocation(value)
+    return brandResult(ResourceLocation.result(value), 'trim.pattern', value)
   }
-  return Object.freeze({
-    assetId: ResourceLocation(value.assetId),
+  return Result.map(brandResult(ResourceLocation.result(value.assetId), 'trim.pattern.assetId', value.assetId), (assetId) => Object.freeze({
+    assetId,
     description: textComponent(value.description),
     decal: value.decal,
-  })
+  }))
 }
 
 const trimMaterialComponentOf = (
   value: TrimMaterialOptions,
-): TrimMaterialComponent => {
+): ItemComponentResult<TrimMaterialComponent> => {
   if (typeof value === 'string') {
-    return ResourceLocation(value)
+    return brandResult(ResourceLocation.result(value), 'trim.material', value)
   }
-  const overrideArmorMaterials = value.overrideArmorMaterials === undefined
-    ? undefined
-    : frozenBrandedStringRecord(
-      value.overrideArmorMaterials,
-      TrimArmorMaterialKey,
-      ResourceLocation,
-    )
-  return Object.freeze({
-    assetName: TrimAssetName(value.assetName),
-    ingredient: value.ingredient,
-    itemModelIndex: TrimItemModelIndex(value.itemModelIndex),
-    ...(overrideArmorMaterials === undefined ? {} : { overrideArmorMaterials }),
-    description: textComponent(value.description),
+  return Result.gen(function* () {
+    const assetName = yield* brandResult(TrimAssetName.result(value.assetName), 'trim.material.assetName', value.assetName)
+    const itemModelIndex = yield* brandResult(TrimItemModelIndex.result(value.itemModelIndex), 'trim.material.itemModelIndex', value.itemModelIndex, 'RangeError', 'out-of-range')
+    const overrideArmorMaterials = value.overrideArmorMaterials === undefined
+      ? undefined
+      : yield* Result.gen(function* () {
+        const normalized: Record<string, ResourceLocation> = {}
+        for (const [key, location] of Object.entries(value.overrideArmorMaterials)) {
+          const brandedKey = yield* brandResult(TrimArmorMaterialKey.result(key), 'trim.material.overrideArmorMaterials.key', key)
+          const brandedLocation = yield* brandResult(ResourceLocation.result(location), 'trim.material.overrideArmorMaterials.value', location)
+          Object.defineProperty(normalized, brandedKey, {
+            configurable: false,
+            enumerable: true,
+            value: brandedLocation,
+            writable: false,
+          })
+        }
+        return Object.freeze(normalized)
+      })
+    return Object.freeze({
+      assetName,
+      ingredient: value.ingredient,
+      itemModelIndex,
+      ...(overrideArmorMaterials === undefined ? {} : { overrideArmorMaterials }),
+      description: textComponent(value.description),
+    })
   })
 }
 
-export const trimComponent = (value: TrimOptions): TrimComponent => {
-  if (!isTrimOptions(value)) {
-    throw new TypeError('Invalid trim component options')
-  }
-  return Object.freeze({
-    pattern: trimPatternComponentOf(value.pattern),
-    material: trimMaterialComponentOf(value.material),
+export const trimComponent = (value: TrimOptions): ItemComponentResult<TrimComponent> => {
+  const parsed = validatedInput(value, 'trim', 'Invalid trim component options', isTrimOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const pattern = yield* trimPatternComponentOf(parsed.success.pattern)
+    const material = yield* trimMaterialComponentOf(parsed.success.material)
+    return Object.freeze({ pattern, material })
   })
 }
 
 export const suspiciousStewComponent = (
   value: SuspiciousStewOptions = [],
-): SuspiciousStewComponent => {
-  if (!isSuspiciousStewOptions(value)) {
-    throw new TypeError('Invalid suspicious_stew component options')
-  }
-  return frozenArray(
-    value.map(
-      (entry): SuspiciousStewEntryComponent => Object.freeze({
-        id: ResourceLocation(entry.id),
-        duration: PotionEffectDurationTicks(entry.duration ?? 160),
-      }),
-    ),
-  )
+): ItemComponentResult<SuspiciousStewComponent> => {
+  const parsed = validatedInput(value, 'suspicious_stew', 'Invalid suspicious_stew component options', isSuspiciousStewOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const entries: SuspiciousStewEntryComponent[] = []
+    for (const entry of parsed.success) {
+      const id = yield* brandResult(ResourceLocation.result(entry.id), 'suspicious_stew.id', entry.id)
+      const duration = yield* brandResult(PotionEffectDurationTicks.result(entry.duration ?? 160), 'suspicious_stew.duration', entry.duration ?? 160, 'RangeError', 'out-of-range')
+      entries.push(Object.freeze({ id, duration }))
+    }
+    return frozenArray(entries)
+  })
 }
 
-export const hideAdditionalTooltipComponent = (): HideAdditionalTooltipComponent =>
-  Object.freeze({})
+export const hideAdditionalTooltipComponent = (): ItemComponentResult<HideAdditionalTooltipComponent> =>
+  Result.succeed(Object.freeze({}))
 
 const blockPredicateBlockComponentOf = (
   value: BlockPredicateBlockOptions,
-): BlockPredicateBlockComponent => {
-  const resourceLocationOf = (entry: ResourceLocation | TagLocation): ResourceLocation | TagLocation =>
-    entry.startsWith('#') ? TagLocation(entry) : ResourceLocation(entry)
-  return typeof value === 'string'
-    ? resourceLocationOf(value)
-    : frozenArray(value.map(resourceLocationOf))
+): ItemComponentResult<BlockPredicateBlockComponent> => {
+  const resourceLocationOf = (entry: string): ItemComponentResult<ResourceLocation | TagLocation> =>
+    entry.startsWith('#')
+      ? brandResult(TagLocation.result(entry), 'block_predicate.blocks', entry)
+      : brandResult(ResourceLocation.result(entry), 'block_predicate.blocks', entry)
+  if (typeof value === 'string') return resourceLocationOf(value)
+  return Result.gen(function* () {
+    const entries: Array<ResourceLocation | TagLocation> = []
+    for (const entry of value) entries.push(yield* resourceLocationOf(entry))
+    return frozenArray(entries)
+  })
 }
 
 const blockPredicateComponentOf = (
   value: BlockPredicateOptions,
-): BlockPredicateComponent => {
-  const blocks = value.blocks === undefined
-    ? undefined
-    : blockPredicateBlockComponentOf(value.blocks)
+): ItemComponentResult<BlockPredicateComponent> => Result.gen(function* () {
+  const blocks = value.blocks === undefined ? undefined : yield* blockPredicateBlockComponentOf(value.blocks)
   const nbt = value.nbt === undefined ? undefined : freezeItemComponentNbtValue(value.nbt)
   const state = value.state === undefined ? undefined : frozenStringRecord(value.state)
   return Object.freeze({
@@ -890,279 +1056,329 @@ const blockPredicateComponentOf = (
     ...(nbt === undefined ? {} : { nbt }),
     ...(state === undefined ? {} : { state }),
   })
-}
+})
 
 const isBlockPredicateOptionsArray = (
   value: CanBreakOptions,
 ): value is ReadonlyArray<BlockPredicateOptions> => Array.isArray(value)
 
-const canBreakComponentOf = (value: CanBreakOptions): CanBreakComponent => {
+const canBreakComponentOf = (value: CanBreakOptions): ItemComponentResult<CanBreakComponent> => {
   if (isBlockPredicateOptionsArray(value)) {
-    return frozenArray(value.map(blockPredicateComponentOf))
+    return Result.gen(function* () {
+      const predicates: BlockPredicateComponent[] = []
+      for (const entry of value) predicates.push(yield* blockPredicateComponentOf(entry))
+      return frozenArray(predicates)
+    })
   }
   return blockPredicateComponentOf(value)
 }
 
-export const canBreakComponent = (value: CanBreakOptions): CanBreakComponent => {
-  if (!isCanBreakOptions(value)) {
-    throw new TypeError('Invalid can_break component options')
-  }
-  return canBreakComponentOf(value)
+export const canBreakComponent = (value: CanBreakOptions): ItemComponentResult<CanBreakComponent> => {
+  const parsed = validatedInput(value, 'can_break', 'Invalid can_break component options', isCanBreakOptions)
+  return Result.flatMap(parsed, canBreakComponentOf)
 }
 
-export const canPlaceOnComponent = (value: CanPlaceOnOptions): CanPlaceOnComponent => {
-  if (!isCanPlaceOnOptions(value)) {
-    throw new TypeError('Invalid can_place_on component options')
-  }
-  return canBreakComponentOf(value)
+export const canPlaceOnComponent = (value: CanPlaceOnOptions): ItemComponentResult<CanPlaceOnComponent> => {
+  const parsed = validatedInput(value, 'can_place_on', 'Invalid can_place_on component options', isCanPlaceOnOptions)
+  return Result.flatMap(parsed, canBreakComponentOf)
 }
 
 const resourceLocationProviderOf = (
   value: ResourceLocationProviderInput,
-): ResourceLocationProvider => {
+): ItemComponentResult<ResourceLocationProvider> => {
   if (typeof value === 'string') {
-    return value.startsWith('#') ? TagLocation(value) : ResourceLocation(value)
+    return value.startsWith('#')
+      ? brandResult(TagLocation.result(value), 'resource_location_provider', value)
+      : brandResult(ResourceLocation.result(value), 'resource_location_provider', value)
   }
-  return frozenArray(value.map((entry) => ResourceLocation(entry)))
-}
-
-export const customModelDataComponent = (options: CustomModelDataOptions = {}): CustomModelDataComponent => {
-  if (!isCustomModelDataOptions(options)) throw new TypeError('Invalid custom_model_data component options')
-  return Object.freeze({
-    floats: frozenArray(options.floats ?? []),
-    flags: frozenArray(options.flags ?? []),
-    strings: frozenArray(options.strings ?? []),
-    colors: frozenArray(options.colors ?? []),
+  return Result.gen(function* () {
+    const locations: ResourceLocation[] = []
+    for (const entry of value) {
+      locations.push(yield* brandResult(ResourceLocation.result(entry), 'resource_location_provider', entry))
+    }
+    return frozenArray(locations)
   })
 }
 
-export const mapIdComponent = (value: MapId): MapIdComponent => {
-  if (!isMapIdComponent(value)) throw new RangeError(`Invalid map_id component value: ${String(value)}`)
-  return MapId(value)
+export const customModelDataComponent = (options: CustomModelDataOptions = {}): ItemComponentResult<CustomModelDataComponent> => {
+  const parsed = validatedInput(options, 'custom_model_data', 'Invalid custom_model_data component options', isCustomModelDataOptions)
+  return Result.map(parsed, (input) => Object.freeze({
+    floats: frozenArray(input.floats ?? []),
+    flags: frozenArray(input.flags ?? []),
+    strings: frozenArray(input.strings ?? []),
+    colors: frozenArray(input.colors ?? []),
+  }))
 }
 
-export const blockStateComponent = (value: BlockStateComponent): BlockStateComponent => {
-  if (!isBlockStateComponent(value)) throw new TypeError('Invalid block_state component value')
-  return frozenStringRecord(value)
+export const mapIdComponent = (value: number): ItemComponentResult<MapIdComponent> => {
+  if (!isMapIdComponent(value)) return Result.fail(componentFailure('map_id', `Invalid map_id component value: ${String(value)}`, value, 'out-of-range', 'RangeError'))
+  return brandResult(MapId.result(value), 'map_id', value, 'RangeError', 'out-of-range')
 }
 
-export const instrumentComponent = (value: ResourceLocation): InstrumentComponent => {
-  if (!isInstrumentComponent(value)) throw new TypeError(`Invalid instrument component value: ${String(value)}`)
-  return ResourceLocation(value)
+export const blockStateComponent = (value: Readonly<Record<string, string>>): ItemComponentResult<BlockStateComponent> => {
+  const parsed = validatedInput(value, 'block_state', 'Invalid block_state component value', isBlockStateComponent)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const normalized: Record<string, BlockStateComponent[string]> = {}
+    for (const [property, value] of Object.entries(parsed.success)) {
+      const brandedValue = yield* brandResult(BlockStatePropertyValue.result(value), `block_state.${property}`, value)
+      Object.defineProperty(normalized, property, {
+        configurable: false,
+        enumerable: true,
+        value: brandedValue,
+        writable: false,
+      })
+    }
+    return Object.freeze(normalized)
+  })
 }
 
-export const noteBlockSoundComponent = (value: ResourceLocation): NoteBlockSoundComponent => {
+export const instrumentComponent = (value: string): ItemComponentResult<InstrumentComponent> => {
+  if (!isInstrumentComponent(value)) return Result.fail(componentFailure('instrument', `Invalid instrument component value: ${String(value)}`, value))
+  return brandResult(ResourceLocation.result(value), 'instrument', value)
+}
+
+export const noteBlockSoundComponent = (value: string): ItemComponentResult<NoteBlockSoundComponent> => {
   if (!isNoteBlockSoundComponent(value)) {
-    throw new TypeError(`Invalid note_block_sound component value: ${String(value)}`)
+    return Result.fail(componentFailure('note_block_sound', `Invalid note_block_sound component value: ${String(value)}`, value))
   }
-  return ResourceLocation(value)
+  return brandResult(ResourceLocation.result(value), 'note_block_sound', value)
 }
 
-export const recipesComponent = (value: ReadonlyArray<ResourceLocation>): RecipesComponent => {
-  if (!isRecipesComponent(value)) throw new TypeError('Invalid recipes component value')
-  return frozenArray(value.map((entry) => ResourceLocation(entry)))
+export const recipesComponent = (value: ReadonlyArray<string>): ItemComponentResult<RecipesComponent> => {
+  const parsed = validatedInput(value, 'recipes', 'Invalid recipes component value', isRecipesComponent)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const locations: ResourceLocation[] = []
+    for (const entry of parsed.success) locations.push(yield* brandResult(ResourceLocation.result(entry), 'recipes', entry))
+    return frozenArray(locations)
+  })
 }
 
-export const lockComponent = (value: ItemLock): LockComponent => {
-  if (!isLockComponent(value)) throw new TypeError(`Invalid lock component value: ${String(value)}`)
-  return ItemLock(value)
+export const lockComponent = (value: string): ItemComponentResult<LockComponent> => {
+  if (!isLockComponent(value)) return Result.fail(componentFailure('lock', `Invalid lock component value: ${String(value)}`, value))
+  return brandResult(ItemLock.result(value), 'lock', value)
 }
 
-export const tooltipStyleComponent = (value: ResourceLocation): TooltipStyleComponent => {
+export const tooltipStyleComponent = (value: string): ItemComponentResult<TooltipStyleComponent> => {
   if (!isTooltipStyleComponent(value)) {
-    throw new TypeError(`Invalid tooltip_style component value: ${String(value)}`)
+    return Result.fail(componentFailure('tooltip_style', `Invalid tooltip_style component value: ${String(value)}`, value))
   }
-  return ResourceLocation(value)
+  return brandResult(ResourceLocation.result(value), 'tooltip_style', value)
 }
 
-export const baseColorComponent = (value: DyeColor): BaseColorComponent => {
-  if (!isBaseColorComponent(value)) throw new TypeError(`Invalid base_color component value: ${String(value)}`)
-  return value
+export const baseColorComponent = (value: string): ItemComponentResult<BaseColorComponent> => {
+  if (!isBaseColorComponent(value)) return Result.fail(componentFailure('base_color', `Invalid base_color component value: ${String(value)}`, value))
+  return Result.succeed(value)
 }
 
-export const equippableComponent = (options: EquippableOptions): EquippableComponent => {
-  if (!isEquippableOptions(options)) throw new TypeError('Invalid equippable component options')
-  const normalized = {
-    slot: options.slot,
-    ...(options.equipSound === undefined ? {} : { equipSound: ResourceLocation(options.equipSound) }),
-    ...(options.model === undefined ? {} : { model: ResourceLocation(options.model) }),
-    ...(options.cameraOverlay === undefined
-      ? {}
-      : { cameraOverlay: ResourceLocation(options.cameraOverlay) }),
-    ...(options.allowedEntities === undefined
-      ? {}
-      : { allowedEntities: resourceLocationProviderOf(options.allowedEntities) }),
-    canBeSheared: options.canBeSheared ?? false,
-    shearingSound: ResourceLocation(options.shearingSound ?? 'minecraft:item.shears.snip'),
-    dispensable: options.dispensable ?? true,
-    swappable: options.swappable ?? true,
-    damageOnHurt: options.damageOnHurt ?? true,
-    equipOnInteract: options.equipOnInteract ?? false,
-  }
-  return Object.freeze(normalized)
+export const equippableComponent = (options: EquippableOptions): ItemComponentResult<EquippableComponent> => {
+  const parsed = validatedInput(options, 'equippable', 'Invalid equippable component options', isEquippableOptions)
+  if (Result.isFailure(parsed)) return parsed
+  const input = parsed.success
+  return Result.gen(function* () {
+    const equipSound = input.equipSound === undefined ? undefined : yield* brandResult(ResourceLocation.result(input.equipSound), 'equippable.equipSound', input.equipSound)
+    const model = input.model === undefined ? undefined : yield* brandResult(ResourceLocation.result(input.model), 'equippable.model', input.model)
+    const cameraOverlay = input.cameraOverlay === undefined ? undefined : yield* brandResult(ResourceLocation.result(input.cameraOverlay), 'equippable.cameraOverlay', input.cameraOverlay)
+    const allowedEntities = input.allowedEntities === undefined ? undefined : yield* resourceLocationProviderOf(input.allowedEntities)
+    const shearingSound = yield* brandResult(ResourceLocation.result(input.shearingSound ?? 'minecraft:item.shears.snip'), 'equippable.shearingSound', input.shearingSound)
+    return Object.freeze({
+      slot: input.slot,
+      ...(equipSound === undefined ? {} : { equipSound }),
+      ...(model === undefined ? {} : { model }),
+      ...(cameraOverlay === undefined ? {} : { cameraOverlay }),
+      ...(allowedEntities === undefined ? {} : { allowedEntities }),
+      canBeSheared: input.canBeSheared ?? false,
+      shearingSound,
+      dispensable: input.dispensable ?? true,
+      swappable: input.swappable ?? true,
+      damageOnHurt: input.damageOnHurt ?? true,
+      equipOnInteract: input.equipOnInteract ?? false,
+    })
+  })
 }
 
 const kineticWeaponConditionOf = (
   options: KineticWeaponConditionOptions,
-): KineticWeaponCondition => {
-  return Object.freeze({
-    maxDurationTicks: KineticDurationTicks(options.maxDurationTicks),
-    minSpeed: KineticSpeed(options.minSpeed ?? KineticSpeed(0)),
-    minRelativeSpeed: KineticSpeed(options.minRelativeSpeed ?? KineticSpeed(0)),
-  })
-}
+): ItemComponentResult<KineticWeaponCondition> => Result.gen(function* () {
+  const maxDurationTicks = yield* brandResult(KineticDurationTicks.result(options.maxDurationTicks), 'kinetic_weapon.maxDurationTicks', options.maxDurationTicks, 'RangeError', 'out-of-range')
+  const minSpeed = yield* brandResult(KineticSpeed.result(options.minSpeed ?? 0), 'kinetic_weapon.minSpeed', options.minSpeed ?? 0, 'RangeError', 'out-of-range')
+  const minRelativeSpeed = yield* brandResult(KineticSpeed.result(options.minRelativeSpeed ?? 0), 'kinetic_weapon.minRelativeSpeed', options.minRelativeSpeed ?? 0, 'RangeError', 'out-of-range')
+  return Object.freeze({ maxDurationTicks, minSpeed, minRelativeSpeed })
+})
 
 export const kineticWeaponComponent = (
   options: KineticWeaponOptions = {},
-): KineticWeaponComponent => {
-  if (!isKineticWeaponOptions(options)) throw new TypeError('Invalid kinetic_weapon component options')
-  const normalized = {
-    contactCooldownTicks: KineticDurationTicks(options.contactCooldownTicks ?? KineticDurationTicks(10)),
-    delayTicks: KineticDurationTicks(options.delayTicks ?? KineticDurationTicks(0)),
-    ...(options.dismountConditions === undefined
+): ItemComponentResult<KineticWeaponComponent> => {
+  const parsed = validatedInput(options, 'kinetic_weapon', 'Invalid kinetic_weapon component options', isKineticWeaponOptions)
+  if (Result.isFailure(parsed)) return parsed
+  const input = parsed.success
+  return Result.gen(function* () {
+    const sound = input.sound === undefined ? undefined : yield* brandResult(ResourceLocation.result(input.sound), 'kinetic_weapon.sound', input.sound)
+    const hitSound = input.hitSound === undefined ? undefined : yield* brandResult(ResourceLocation.result(input.hitSound), 'kinetic_weapon.hitSound', input.hitSound)
+    const contactCooldownTicks = yield* brandResult(KineticDurationTicks.result(input.contactCooldownTicks ?? 10), 'kinetic_weapon.contactCooldownTicks', input.contactCooldownTicks ?? 10, 'RangeError', 'out-of-range')
+    const delayTicks = yield* brandResult(KineticDurationTicks.result(input.delayTicks ?? 0), 'kinetic_weapon.delayTicks', input.delayTicks ?? 0, 'RangeError', 'out-of-range')
+    const forwardMovement = yield* brandResult(KineticMovement.result(input.forwardMovement ?? 0), 'kinetic_weapon.forwardMovement', input.forwardMovement ?? 0, 'RangeError', 'out-of-range')
+    const damageMultiplier = yield* brandResult(KineticDamageMultiplier.result(input.damageMultiplier ?? 1), 'kinetic_weapon.damageMultiplier', input.damageMultiplier ?? 1, 'RangeError', 'out-of-range')
+    return Object.freeze({
+    contactCooldownTicks,
+    delayTicks,
+    ...(input.dismountConditions === undefined
       ? {}
-      : { dismountConditions: kineticWeaponConditionOf(options.dismountConditions) }),
-    ...(options.knockbackConditions === undefined
+      : { dismountConditions: yield* kineticWeaponConditionOf(input.dismountConditions) }),
+    ...(input.knockbackConditions === undefined
       ? {}
-      : { knockbackConditions: kineticWeaponConditionOf(options.knockbackConditions) }),
-    ...(options.damageConditions === undefined
+      : { knockbackConditions: yield* kineticWeaponConditionOf(input.knockbackConditions) }),
+    ...(input.damageConditions === undefined
       ? {}
-      : { damageConditions: kineticWeaponConditionOf(options.damageConditions) }),
-    forwardMovement: KineticMovement(options.forwardMovement ?? KineticMovement(0)),
-    damageMultiplier: KineticDamageMultiplier(options.damageMultiplier ?? KineticDamageMultiplier(1)),
-    ...(options.sound === undefined ? {} : { sound: ResourceLocation(options.sound) }),
-    ...(options.hitSound === undefined ? {} : { hitSound: ResourceLocation(options.hitSound) }),
-  }
-  return Object.freeze(normalized)
+      : { damageConditions: yield* kineticWeaponConditionOf(input.damageConditions) }),
+    forwardMovement,
+    damageMultiplier,
+    ...(sound === undefined ? {} : { sound }),
+    ...(hitSound === undefined ? {} : { hitSound }),
+    })
+  })
 }
 
 export const piercingWeaponComponent = (
   options: PiercingWeaponOptions = {},
-): PiercingWeaponComponent => {
-  if (!isPiercingWeaponOptions(options)) throw new TypeError('Invalid piercing_weapon component options')
-  return Object.freeze({
-    dealsKnockback: options.dealsKnockback ?? true,
-    dismounts: options.dismounts ?? false,
-    ...(options.sound === undefined ? {} : { sound: ResourceLocation(options.sound) }),
-    ...(options.hitSound === undefined ? {} : { hitSound: ResourceLocation(options.hitSound) }),
+): ItemComponentResult<PiercingWeaponComponent> => {
+  const parsed = validatedInput(options, 'piercing_weapon', 'Invalid piercing_weapon component options', isPiercingWeaponOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const sound = parsed.success.sound === undefined ? undefined : yield* brandResult(ResourceLocation.result(parsed.success.sound), 'piercing_weapon.sound', parsed.success.sound)
+    const hitSound = parsed.success.hitSound === undefined ? undefined : yield* brandResult(ResourceLocation.result(parsed.success.hitSound), 'piercing_weapon.hitSound', parsed.success.hitSound)
+    return Object.freeze({
+      dealsKnockback: parsed.success.dealsKnockback ?? true,
+      dismounts: parsed.success.dismounts ?? false,
+      ...(sound === undefined ? {} : { sound }),
+      ...(hitSound === undefined ? {} : { hitSound }),
+    })
   })
 }
 
-export const gliderComponent = (): GliderComponent => Object.freeze({})
+export const gliderComponent = (): ItemComponentResult<GliderComponent> => Result.succeed(Object.freeze({}))
 
 export const deathProtectionComponent = (
   options: DeathProtectionOptions = {},
-): DeathProtectionComponent => {
-  if (!isDeathProtectionOptions(options)) throw new TypeError('Invalid death_protection component options')
-  return Object.freeze({ deathEffects: frozenArray(options.deathEffects ?? []) })
+): ItemComponentResult<DeathProtectionComponent> => Result.map(
+  validatedInput(options, 'death_protection', 'Invalid death_protection component options', isDeathProtectionOptions),
+  (input) => Object.freeze({ deathEffects: frozenArray(input.deathEffects ?? []) }),
+)
+
+export const repairableComponent = (value: ResourceLocationProviderInput): ItemComponentResult<RepairableComponent> => {
+  const parsed = validatedInput(value, 'repairable', 'Invalid repairable component items', isResourceLocationProvider)
+  return Result.flatMap(parsed, (input) => Result.map(resourceLocationProviderOf(input), (items) => Object.freeze({ items })))
 }
 
-export const repairableComponent = (value: ResourceLocationProviderInput): RepairableComponent => {
-  if (!isResourceLocationProvider(value)) throw new TypeError('Invalid repairable component items')
-  return Object.freeze({ items: resourceLocationProviderOf(value) })
+export const enchantableComponent = (value: number): ItemComponentResult<EnchantableComponent> => {
+  if (!isEnchantableValue(value)) return Result.fail(componentFailure('enchantable', `Invalid enchantable component value: ${String(value)}`, value, 'out-of-range', 'RangeError'))
+  return Result.map(brandResult(Enchantability.result(value), 'enchantable', value, 'RangeError', 'out-of-range'), (enchantability) => Object.freeze({ value: enchantability }))
 }
 
-export const enchantableComponent = (value: Enchantability): EnchantableComponent => {
-  if (!isEnchantableValue(value)) throw new RangeError(`Invalid enchantable component value: ${String(value)}`)
-  return Object.freeze({ value: Enchantability(value) })
-}
-
-export const jukeboxPlayableComponent = (value: ResourceLocation): JukeboxPlayableComponent => {
+export const jukeboxPlayableComponent = (value: string): ItemComponentResult<JukeboxPlayableComponent> => {
   if (typeof value !== 'string' || !ResourceLocation.is(value)) {
-    throw new TypeError(`Invalid jukebox_playable component value: ${String(value)}`)
+    return Result.fail(componentFailure('jukebox_playable', `Invalid jukebox_playable component value: ${String(value)}`, value))
   }
-  return Object.freeze({ song: ResourceLocation(value) })
+  return Result.map(brandResult(ResourceLocation.result(value), 'jukebox_playable', value), (song) => Object.freeze({ song }))
 }
 
-export const ominousBottleAmplifierComponent = (
-  value: OminousBottleAmplifier,
-): OminousBottleAmplifierComponent => {
+export const ominousBottleAmplifierComponent = (value: number): ItemComponentResult<OminousBottleAmplifierComponent> => {
   if (!isOminousBottleAmplifierComponent(value)) {
-    throw new RangeError(`Invalid ominous_bottle_amplifier value: ${String(value)}`)
+    return Result.fail(componentFailure('ominous_bottle_amplifier', `Invalid ominous_bottle_amplifier value: ${String(value)}`, value, 'out-of-range', 'RangeError'))
   }
-  return OminousBottleAmplifier(value)
+  return brandResult(OminousBottleAmplifier.result(value), 'ominous_bottle_amplifier', value, 'RangeError', 'out-of-range')
 }
 
-export const paintingVariantComponent = (value: ResourceLocation): PaintingVariantComponent => {
+export const paintingVariantComponent = (value: string): ItemComponentResult<PaintingVariantComponent> => {
   if (!isPaintingVariantComponent(value)) {
-    throw new TypeError(`Invalid painting/variant component value: ${String(value)}`)
+    return Result.fail(componentFailure('painting_variant', `Invalid painting/variant component value: ${String(value)}`, value))
   }
-  return ResourceLocation(value)
+  return brandResult(ResourceLocation.result(value), 'painting_variant', value)
 }
 
 export const sulfurCubeContentComponent = (
   value: SulfurCubeContentOptions,
-): SulfurCubeContentComponent => {
+): ItemComponentResult<SulfurCubeContentComponent> => {
   if (!isSulfurCubeContentOptions(value)) {
-    throw new TypeError(`Invalid sulfur_cube_content component value: ${String(value)}`)
+    return Result.fail(componentFailure('sulfur_cube_content', `Invalid sulfur_cube_content component value: ${String(value)}`, value))
   }
-  return ResourceLocation(value)
+  return brandResult(ResourceLocation.result(value), 'sulfur_cube_content', value)
 }
 
 const frozenPosition = (
   value: readonly [ReturnType<typeof BlockAxis>, ReturnType<typeof BlockAxis>, ReturnType<typeof BlockAxis>],
-): readonly [ReturnType<typeof BlockAxis>, ReturnType<typeof BlockAxis>, ReturnType<typeof BlockAxis>] =>
-  Object.freeze([BlockAxis(value[0]), BlockAxis(value[1]), BlockAxis(value[2])])
+): ItemComponentResult<readonly [ReturnType<typeof BlockAxis>, ReturnType<typeof BlockAxis>, ReturnType<typeof BlockAxis>]> =>
+  Result.gen(function* () {
+    const x = yield* brandResult(BlockAxis.result(value[0]), 'lodestone_tracker.target.pos[0]', value[0], 'RangeError', 'out-of-range')
+    const y = yield* brandResult(BlockAxis.result(value[1]), 'lodestone_tracker.target.pos[1]', value[1], 'RangeError', 'out-of-range')
+    const z = yield* brandResult(BlockAxis.result(value[2]), 'lodestone_tracker.target.pos[2]', value[2], 'RangeError', 'out-of-range')
+    return Object.freeze([x, y, z])
+  })
 
 export const lodestoneTrackerComponent = (
   options: LodestoneTrackerOptions = {},
-): LodestoneTrackerComponent => {
-  if (!isLodestoneTrackerOptions(options)) {
-    throw new TypeError('Invalid lodestone_tracker component options')
-  }
-  const target = options.target === undefined
-    ? undefined
-    : Object.freeze({
-        pos: frozenPosition(options.target.pos),
-        dimension: ResourceLocation(options.target.dimension),
-      })
-  const normalized: LodestoneTrackerComponent = {
-    ...(target === undefined ? {} : { target }),
-    tracked: options.tracked ?? true,
-  }
-  return Object.freeze(normalized)
+): ItemComponentResult<LodestoneTrackerComponent> => {
+  const parsed = validatedInput(options, 'lodestone_tracker', 'Invalid lodestone_tracker component options', isLodestoneTrackerOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const target = parsed.success.target === undefined
+      ? undefined
+      : Object.freeze({
+          pos: yield* frozenPosition(parsed.success.target.pos),
+          dimension: yield* brandResult(ResourceLocation.result(parsed.success.target.dimension), 'lodestone_tracker.target.dimension', parsed.success.target.dimension),
+        })
+    return Object.freeze({
+      ...(target === undefined ? {} : { target }),
+      tracked: parsed.success.tracked ?? true,
+    })
+  })
 }
 
 export const fireworkExplosionComponent = (
   options: FireworkExplosionOptions,
-): FireworkExplosionComponent => {
-  if (!isFireworkExplosionOptions(options)) {
-    throw new TypeError('Invalid firework_explosion component options')
-  }
-  return Object.freeze({
-    shape: options.shape,
-    colors: frozenArray(options.colors ?? []),
-    fadeColors: frozenArray(options.fadeColors ?? []),
-    hasTrail: options.hasTrail ?? false,
-    hasTwinkle: options.hasTwinkle ?? false,
-  })
-}
+): ItemComponentResult<FireworkExplosionComponent> => Result.map(
+  validatedInput(options, 'firework_explosion', 'Invalid firework_explosion component options', isFireworkExplosionOptions),
+  (input) => Object.freeze({
+    shape: input.shape,
+    colors: frozenArray(input.colors ?? []),
+    fadeColors: frozenArray(input.fadeColors ?? []),
+    hasTrail: input.hasTrail ?? false,
+    hasTwinkle: input.hasTwinkle ?? false,
+  }),
+)
 
-export const fireworksComponent = (options: FireworksOptions = {}): FireworksComponent => {
-  if (!isFireworksOptions(options)) {
-    throw new TypeError('Invalid fireworks component options')
-  }
-  return Object.freeze({
-    explosions: frozenArray((options.explosions ?? []).map(fireworkExplosionComponent)),
-    flightDuration: FireworksFlightDuration(options.flightDuration ?? FireworksFlightDuration(1)),
+export const fireworksComponent = (options: FireworksOptions = {}): ItemComponentResult<FireworksComponent> => {
+  const parsed = validatedInput(options, 'fireworks', 'Invalid fireworks component options', isFireworksOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const explosions: FireworkExplosionComponent[] = []
+    for (const explosion of parsed.success.explosions ?? []) explosions.push(yield* fireworkExplosionComponent(explosion))
+    const flightDuration = yield* brandResult(FireworksFlightDuration.result(parsed.success.flightDuration ?? 1), 'fireworks.flightDuration', parsed.success.flightDuration ?? 1, 'RangeError', 'out-of-range')
+    return Object.freeze({
+      explosions: frozenArray(explosions),
+      flightDuration,
+    })
   })
 }
 
 export const bannerPatternsComponent = (
   value: ReadonlyArray<BannerPatternOptions> = [],
-): BannerPatternsComponent => {
-  if (!isBannerPatternsOptions(value)) {
-    throw new TypeError('Invalid banner_patterns component value')
-  }
-  return Object.freeze(
-    value.map((entry) => {
+): ItemComponentResult<BannerPatternsComponent> => {
+  const parsed = validatedInput(value, 'banner_patterns', 'Invalid banner_patterns component value', isBannerPatternsOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const patterns: BannerPatternsComponent[number][] = []
+    for (const entry of parsed.success) {
+      const pattern = yield* brandResult(ResourceLocation.result(entry.pattern), 'banner_patterns.pattern', entry.pattern)
       const normalized: BannerPatternEntry = {
-        pattern: ResourceLocation(entry.pattern),
+        pattern,
         color: entry.color,
       }
-      return Object.freeze(normalized)
-    }),
-  )
+      patterns.push(Object.freeze(normalized))
+    }
+    return Object.freeze(patterns)
+  })
 }
 
 const DEFAULT_POT_DECORATIONS: PotDecorationsOptions = [
@@ -1174,72 +1390,83 @@ const DEFAULT_POT_DECORATIONS: PotDecorationsOptions = [
 
 export const potDecorationsComponent = (
   value: PotDecorationsOptions = DEFAULT_POT_DECORATIONS,
-): PotDecorationsComponent => {
-  if (!isPotDecorationsOptions(value)) {
-    throw new TypeError('Invalid pot_decorations component value')
-  }
-  const normalized: [ResourceLocation, ResourceLocation, ResourceLocation, ResourceLocation] = [
-    ResourceLocation(value[0]),
-    ResourceLocation(value[1]),
-    ResourceLocation(value[2]),
-    ResourceLocation(value[3]),
-  ]
-  return Object.freeze(normalized)
-}
-
-export const containerLootComponent = (options: ContainerLootOptions): ContainerLootComponent => {
-  if (!isContainerLootOptions(options)) {
-    throw new TypeError('Invalid container_loot component options')
-  }
-  return Object.freeze({
-    lootTable: ResourceLocation(options.lootTable),
-    ...(options.seed === undefined ? {} : { seed: options.seed }),
+): ItemComponentResult<PotDecorationsComponent> => {
+  const parsed = validatedInput(value, 'pot_decorations', 'Invalid pot_decorations component value', isPotDecorationsOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const normalized: [ResourceLocation, ResourceLocation, ResourceLocation, ResourceLocation] = [
+      yield* brandResult(ResourceLocation.result(parsed.success[0]), 'pot_decorations[0]', parsed.success[0]),
+      yield* brandResult(ResourceLocation.result(parsed.success[1]), 'pot_decorations[1]', parsed.success[1]),
+      yield* brandResult(ResourceLocation.result(parsed.success[2]), 'pot_decorations[2]', parsed.success[2]),
+      yield* brandResult(ResourceLocation.result(parsed.success[3]), 'pot_decorations[3]', parsed.success[3]),
+    ]
+    return Object.freeze(normalized)
   })
 }
 
-export const debugStickStateComponent = (
-  value: DebugStickStateComponent = {},
-): DebugStickStateComponent => {
-  if (!isDebugStickStateComponent(value)) {
-    throw new TypeError('Invalid debug_stick_state component value')
-  }
-  const normalized: Record<string, DebugStickStateComponent[string]> = {}
-  for (const [block, property] of Object.entries(value)) {
-    Object.defineProperty(normalized, ResourceLocation(block), {
-      configurable: false,
-      enumerable: true,
-      value: BlockStatePropertyValue(property),
-      writable: false,
-    })
-  }
-  return Object.freeze(normalized)
+export const containerLootComponent = (options: ContainerLootOptions): ItemComponentResult<ContainerLootComponent> => {
+  const parsed = validatedInput(options, 'container_loot', 'Invalid container_loot component options', isContainerLootOptions)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.map(brandResult(ResourceLocation.result(parsed.success.lootTable), 'container_loot.lootTable', parsed.success.lootTable), (lootTable) => Object.freeze({
+    lootTable,
+    ...(parsed.success.seed === undefined ? {} : { seed: parsed.success.seed }),
+  }))
 }
 
-const validateTooltipDisplayOptions = (options: TooltipDisplayOptions): void => {
+export const debugStickStateComponent = (
+  value: Readonly<Record<string, string>> = {},
+): ItemComponentResult<DebugStickStateComponent> => {
+  const parsed = validatedInput(value, 'debug_stick_state', 'Invalid debug_stick_state component value', isDebugStickStateComponent)
+  if (Result.isFailure(parsed)) return parsed
+  return Result.gen(function* () {
+    const normalized: Record<string, DebugStickStateComponent[string]> = {}
+    for (const [block, property] of Object.entries(parsed.success)) {
+      const location = yield* brandResult(ResourceLocation.result(block), 'debug_stick_state.block', block)
+      const propertyValue = yield* brandResult(BlockStatePropertyValue.result(property), 'debug_stick_state.property', property)
+      Object.defineProperty(normalized, location, {
+        configurable: false,
+        enumerable: true,
+        value: propertyValue,
+        writable: false,
+      })
+    }
+    return Object.freeze(normalized)
+  })
+}
+
+const validateTooltipDisplayOptions = (options: TooltipDisplayOptions): ItemComponentResult<TooltipDisplayOptions> => {
   if (typeof options !== 'object' || options === null || Array.isArray(options)) {
-    throw new TypeError('Tooltip display options must be a non-null object')
+    return Result.fail(componentFailure('tooltipDisplay', 'Tooltip display options must be a non-null object', options, 'invalid-type'))
   }
   if (options.hideTooltip !== undefined && typeof options.hideTooltip !== 'boolean') {
-    throw new TypeError('hideTooltip must be a boolean')
+    return Result.fail(componentFailure('hideTooltip', 'hideTooltip must be a boolean', options.hideTooltip, 'invalid-type'))
   }
   if (options.hiddenComponents !== undefined) {
     if (!Array.isArray(options.hiddenComponents)) {
-      throw new TypeError('hiddenComponents must be an array of resource locations')
+      return Result.fail(componentFailure('hiddenComponents', 'hiddenComponents must be an array of resource locations', options.hiddenComponents, 'invalid-type'))
     }
     if (!options.hiddenComponents.every((component) => ResourceLocation.is(component))) {
-      throw new TypeError('hiddenComponents must contain valid resource locations')
+      return Result.fail(componentFailure('hiddenComponents', 'hiddenComponents must contain valid resource locations', options.hiddenComponents, 'invalid-value'))
     }
   }
+  return Result.succeed(options)
 }
 
 export const tooltipDisplayComponent = (
   options: TooltipDisplayOptions = {},
-): TooltipDisplayComponent => {
-  validateTooltipDisplayOptions(options)
-  return Object.freeze({
-    hideTooltip: options.hideTooltip ?? false,
-    hiddenComponents: Object.freeze(
-      (options.hiddenComponents ?? []).map((component) => ResourceLocation(component)),
-    ),
+): ItemComponentResult<TooltipDisplayComponent> => {
+  const parsed = validatedInput(options, 'tooltipDisplay', 'Invalid tooltip display options', (value): value is TooltipDisplayOptions => true)
+  if (Result.isFailure(parsed)) return parsed
+  const validated = validateTooltipDisplayOptions(parsed.success)
+  if (Result.isFailure(validated)) return validated
+  return Result.gen(function* () {
+    const hiddenComponents: ResourceLocation[] = []
+    for (const component of validated.success.hiddenComponents ?? []) {
+      hiddenComponents.push(yield* brandResult(ResourceLocation.result(component), 'hiddenComponents', component))
+    }
+    return Object.freeze({
+      hideTooltip: validated.success.hideTooltip ?? false,
+      hiddenComponents: Object.freeze(hiddenComponents),
+    })
   })
 }
