@@ -1,5 +1,7 @@
-import { propertyOfBlockId } from '../block/block-registry.js'
-import type { BlockId } from '../block/block-registry-types.js'
+import { Result } from 'effect'
+import { BlockId, propertyOfBlockId } from '../block/block-registry.js'
+import type { BlockRegistryResolutionFailure } from '../block/block-registry-indexes.js'
+import type { BlockId as BlockIdValue } from '../block/block-registry-types.js'
 import type { BlockBlastResistance } from '../block/block-property-data.js'
 
 export { DEFAULT_EXPLOSION_LIMITS } from './explosion-data.js'
@@ -23,5 +25,13 @@ export type {
   ExplosionRequest,
 } from './explosion-data.js'
 
-export const resistsExplosion = (id: BlockId, power: BlockBlastResistance): boolean =>
-  propertyOfBlockId(id, 'blastResistance') >= power
+export const resistsExplosion = (
+  id: BlockIdValue,
+  power: BlockBlastResistance,
+): Result.Result<boolean, BlockRegistryResolutionFailure> =>
+  Result.flatMap(BlockId.result(id), (blockId) =>
+    Result.map(
+      propertyOfBlockId(blockId, 'blastResistance'),
+      (blastResistance) => blastResistance >= power,
+    ),
+  )

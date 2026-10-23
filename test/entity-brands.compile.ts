@@ -1,5 +1,7 @@
+import type { Result } from 'effect'
 import { BlockBlastResistance } from '../src/domain/block/block-properties'
-import { BlockId, blockIdOf } from '../src/domain/block/block-registry'
+import { BlockId } from '../src/domain/block/block-registry'
+import type { BlockRegistryResolutionFailure } from '../src/domain/block/block-registry-indexes'
 import { BlockAxis, PositionAxis, position } from '../src/domain/coordinates/coordinate-primitives'
 import { EntityId, EntityHealthPoints, EntitySerial, mintEntityId, serialOfEntityId, type EntityState } from '../src/domain/entity/entity'
 import type {
@@ -95,7 +97,9 @@ const statusColor: StatusEffectDefinition['particleColor'] = RgbColor(0xffffff)
 export const validEntityId: EntityId = mintEntityId(EntitySerial(1))
 export const validEntitySerial: EntitySerial = serialOfEntityId(entityId) ?? EntitySerial(0)
 export const validBlockLookup: BlockId = blockAt(BlockAxis(0), BlockAxis(0), BlockAxis(0))
-export const validExplosionResistance: boolean = resistsExplosion(blockIdOf('stone'), BlockBlastResistance(4))
+const explosionBlockId: BlockId = BlockId(0)
+export const validExplosionResistance: Result.Result<boolean, BlockRegistryResolutionFailure> =
+  resistsExplosion(explosionBlockId, BlockBlastResistance(4))
 export const validExplosionRequest: ExplosionRequest = explosionRequest
 export const validExplosionEntity: ExplosionEntity = explosionEntity
 export const validExplosionBlock: ExplosionBlock = explosionBlock
@@ -149,8 +153,10 @@ export const rawVisitedBlocks: ExplosionPlan['visitedBlocks'] = 1
 export const rawExplosionRadius: ExplosionRequest['radius'] = 1
 // @ts-expect-error Explosion seed uses RandomSeed.
 export const rawExplosionSeed: ExplosionRequest['seed'] = 1
-// @ts-expect-error resistsExplosion requires validated block identifiers and power.
-resistsExplosion(1, 4)
+// @ts-expect-error resistsExplosion requires a validated block identifier.
+resistsExplosion(1, BlockBlastResistance(4))
+// @ts-expect-error resistsExplosion requires branded blast resistance.
+resistsExplosion(explosionBlockId, 4)
 // @ts-expect-error Vehicle yaw uses AngleRadians.
 export const rawVehicleYaw: Vehicle['yawRadians'] = 0
 // @ts-expect-error Vehicle velocity components are finite branded scalars.

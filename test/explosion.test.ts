@@ -10,7 +10,7 @@ import {
   ExplosionRayStepCount,
   resistsExplosion,
 } from '../src/domain/entity/explosion'
-import { optionValue } from './block-result-helpers.js'
+import { optionValue, resultValue } from './block-result-helpers.js'
 
 const TNT_POWER = 4
 const CHARGED_CREEPER_POWER = 6
@@ -26,24 +26,24 @@ describe('resistsExplosion', () => {
     const stoneId = optionValue(blockIdOf('stone'))
 
     for (const power of [TNT_POWER, CHARGED_CREEPER_POWER, HUGE_POWER].map(BlockBlastResistance)) {
-      expect(resistsExplosion(bedrockId, power)).toBe(true)
-      expect(resistsExplosion(obsidianId, power)).toBe(true)
-      expect(resistsExplosion(stoneId, power)).toBe(false)
+      expect(resultValue(resistsExplosion(bedrockId, power))).toBe(true)
+      expect(resultValue(resistsExplosion(obsidianId, power))).toBe(true)
+      expect(resultValue(resistsExplosion(stoneId, power))).toBe(false)
     }
   })
 
   it('an ordinary block never resists a positive-power explosion, matching its blastResistance default of 0', () => {
     const stoneId = optionValue(blockIdOf('stone'))
-    expect(resistsExplosion(stoneId, BlockBlastResistance(Number.EPSILON))).toBe(false)
+    expect(resultValue(resistsExplosion(stoneId, BlockBlastResistance(Number.EPSILON)))).toBe(false)
     // A zero-power explosion destroys nothing, so even a default-resistance
     // block "survives" it — the `>=` boundary, not a special case.
-    expect(resistsExplosion(stoneId, BlockBlastResistance(0))).toBe(true)
+    expect(resultValue(resistsExplosion(stoneId, BlockBlastResistance(0)))).toBe(true)
   })
 
-  it('an unregistered block id resolves to the default blastResistance rather than throwing', () => {
+  it('an unregistered block id resolves to the default blastResistance', () => {
     const UNREGISTERED_ID = BlockId(65_535)
-    expect(resistsExplosion(UNREGISTERED_ID, BlockBlastResistance(0))).toBe(true)
-    expect(resistsExplosion(UNREGISTERED_ID, BlockBlastResistance(TNT_POWER))).toBe(false)
+    expect(resultValue(resistsExplosion(UNREGISTERED_ID, BlockBlastResistance(0)))).toBe(true)
+    expect(resultValue(resistsExplosion(UNREGISTERED_ID, BlockBlastResistance(TNT_POWER)))).toBe(false)
   })
 
   it('validates explosion quantities at their inclusive and exclusive boundaries', () => {

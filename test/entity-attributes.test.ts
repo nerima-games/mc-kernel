@@ -37,7 +37,7 @@ describe('entity attributes', () => {
     ]
 
     for (const invalidValue of invalidValues) {
-      expect(Result.isFailure(invalidValue)).toBe(true)
+      expect(invalidValue).toMatchObject({ _tag: 'Failure' })
     }
   })
 
