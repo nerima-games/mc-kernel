@@ -64,4 +64,4 @@ The maintainer of the mc-dev-meta conformance catalog should add these rows:
 | --- | --- | --- |
 | `mc-kernel:block-registry-26-3` | `mc-kernel` | Block table remains 123/1286 to avoid downstream meshing and render contract expansion. |
 | `mc-kernel:item-registry-26-3` | `mc-kernel` | Item table remains 280/1658 to avoid downstream item/model contract expansion. |
-| `mc-kernel:recipe-types-26-3` | `mc-kernel` | Kernel represents 100 of 1,202 shaped/shapeless rows; another 1,102 rows of those types are not represented. The listed 840 rows use other unsupported recipe types. |
+| `mc-kernel:recipe-types-26-3` | `mc-kernel` | Kernel schema represents 100/2042 recipe rows overall: 100 of 1,202 shaped/shapeless rows are represented, while 1,102 are not; the listed 840 rows use other unsupported recipe types. |
