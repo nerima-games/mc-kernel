@@ -310,11 +310,6 @@
       "import": "./dist/domain/portal.js",
       "default": "./dist/domain/portal.js"
     },
-    "./domain/redstone": {
-      "types": "./dist/domain/redstone.d.ts",
-      "import": "./dist/domain/redstone.js",
-      "default": "./dist/domain/redstone.js"
-    },
     "./domain/settings": {
       "types": "./dist/domain/settings.d.ts",
       "import": "./dist/domain/settings.js",

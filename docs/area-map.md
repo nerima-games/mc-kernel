@@ -2,28 +2,32 @@
 
 ## Scope and inventory
 
-The inventory lists TypeScript source files under `src/domain`, excluding
-underscore-prefixed leaf barrels and area index barrels. The test
-`test/area-map.test.ts` checks that every listed filename appears once and
-that each package subpath maps to an existing leaf barrel. Inventory filenames
-are relative to their area heading; public-map barrel paths are relative to
-`src/domain`.
-
-Each package subpath points to a leaf barrel named `<area>/_<subpath>.ts`.
-Area index barrels feed the package root and are not package subpaths. The build
-script `scripts/restore-public-entrypoints.mjs` creates flat package files under
-`dist/domain` from compiled leaf barrels.
+Each area heading names a directory under `src/domain`.
+The inventory shows file placement, not conceptual ownership.
+An export such as `./domain/camera` maps to the leaf barrel
+`src/domain/presentation/_camera.ts`. In the pattern
+`src/domain/<area>/_<subpath>.ts`, `<subpath>` is the final segment of the
+package export name; the leaf barrel re-exports that subpath's API.
+`src/domain/<area>/index.ts` is an area index barrel. It selects that area's
+exports for the package root, and `src/index.ts` re-exports the area indexes.
+The inventory lists TypeScript source files under `src/domain`, excluding both
+kinds of barrels. The test `test/area-map.test.ts` compares listed filenames
+with current domain filenames, without checking their area headings, and checks
+that each package subpath maps to a unique existing barrel.
+Inventory filenames are relative to their area heading; paths in the
+[Public subpath map](#public-subpath-map) are relative to `src/domain`.
+The build script `scripts/restore-public-entrypoints.mjs` writes one `.js` and
+`.d.ts` file under `dist/domain` for each compiled leaf barrel; each file
+re-exports that barrel.
 
 ## Areas
 
 ### coordinates
 
-
 `coordinate-conversions.ts`, `coordinate-geometry.ts`, `coordinate-keys.ts`,
 `coordinate-neighbours.ts`, `coordinate-primitives.ts`, `coordinates.ts`
 
 ### block
-
 
 `block-break-speed-data.ts`, `block-break-speed.ts`, `block-capabilities.ts`,
 `block-capability-data.ts`, `block-definition.ts`, `block-entity-data.ts`,
@@ -37,10 +41,9 @@ script `scripts/restore-public-entrypoints.mjs` creates flat package files under
 `block-registry-indexes.ts`, `block-registry-rules.ts`, `block-registry-types.ts`,
 `block-registry.ts`, `block-state.ts`, `block-support-data.ts`, `block-support.ts`,
 `block-type-data.ts`, `block-type.ts`, `crop-data.ts`, `crop.ts`, `fluid-data.ts`,
-`fluid.ts`, `light-data.ts`, `light.ts`, `redstone-data.ts`, `redstone.ts`
+`fluid.ts`, `light-data.ts`, `light.ts`, `redstone-data.ts`
 
 ### item
-
 
 `anvil-constants.ts`, `anvil-primitives.ts`, `consumable-data.ts`,
 `consumable-validation.ts`, `consumable.ts`, `enchantment-data.ts`,
@@ -60,7 +63,6 @@ script `scripts/restore-public-entrypoints.mjs` creates flat package files under
 
 ### recipe
 
-
 `brewing-data.ts`, `brewing.ts`, `cooking-data.ts`, `cooking.ts`, `crafting-data.ts`,
 `crafting-special-data.ts`, `crafting.ts`, `recipe-data.ts`, `recipe-json.ts`,
 `recipe-registry.ts`, `recipe-vanilla-data.ts`, `recipe.ts`, `smelting-data.ts`,
@@ -68,7 +70,6 @@ script `scripts/restore-public-entrypoints.mjs` creates flat package files under
 `stonecutting.ts`, `transmute-data.ts`, `transmute.ts`
 
 ### entity
-
 
 `damage-type-data.ts`, `damage-type-validation.ts`, `damage-type.ts`,
 `entity-attributes-data.ts`, `entity-attributes-validation.ts`, `entity-attributes.ts`,
@@ -80,7 +81,6 @@ script `scripts/restore-public-entrypoints.mjs` creates flat package files under
 
 ### world
 
-
 `biome-data.ts`, `biome-validation.ts`, `biome.ts`, `chunk.ts`, `data-pack-registry.ts`,
 `dimension.ts`, `heightmap.ts`, `random-source.ts`, `tag-membership-data.ts`,
 `tag-membership.ts`, `vanilla-26-3-generated.ts`, `weather.ts`, `world-read-write.ts`,
@@ -88,11 +88,9 @@ script `scripts/restore-public-entrypoints.mjs` creates flat package files under
 
 ### time
 
-
 `clock.ts`, `frame-timing.ts`, `frame.ts`, `quantities.ts`
 
 ### text
-
 
 `game-mode-data.ts`, `game-mode-validation.ts`, `game-mode.ts`, `game-rule-data.ts`,
 `identifiers.ts`, `json-value.ts`, `settings-data.ts`, `settings.ts`,
@@ -101,40 +99,36 @@ script `scripts/restore-public-entrypoints.mjs` creates flat package files under
 
 ### presentation
 
-
 `camera.ts`
 
 ### event
-
 
 `domain-event.ts`
 
 ### module-contracts
 
-
 `module-contracts.ts`
 
 ### save-slices
-
 
 `save-slices.ts`
 
 ### shared-vocabulary
 
-
 `shared-vocabulary.ts`
 
 ## Public subpath map
 
-Rows follow the order of the non-root keys in `package.json`’s `exports` map.
-The package root re-exports selected symbols from the recipe area barrel,
-including static brewing and smelting data. Recipe source files do not imply
-direct package subpaths: brewing, cooking, crafting, crafting-special, smelting,
-smithing, stonecutting, and transmute have no individual exports.
-`./domain/recipe` maps to `src/domain/recipe/_recipe.ts` and exposes shared
-recipe constructors, types, and vanilla crafting recipes.
-`./domain/crafting-special-data` separately exposes static special-crafting
-data.
+**Recipe exports.** `src/index.ts` re-exports `src/domain/recipe/index.ts`, so
+all exports from that index are available at the package root: recipe
+constructors and types, vanilla crafting recipes, JSON and registry helpers,
+and static brewing, smelting, and special-crafting data. The narrower
+`./domain/recipe` subpath exposes shared constructors, types, and vanilla
+crafting recipes, which are also available at the root. A source file does not
+necessarily have its own package subpath; the table below lists every non-root
+domain export.
+
+Rows follow the non-root key order in `package.json`'s `exports` map.
 
 | package subpath | implemented barrel |
 | --- | --- |
@@ -194,7 +188,6 @@ data.
 | `./domain/recipe-registry` | `recipe/_recipe-registry.ts` |
 | `./domain/crafting-special-data` | `recipe/_crafting-special-data.ts` |
 | `./domain/portal` | `entity/_portal.ts` |
-| `./domain/redstone` | `block/_redstone.ts` |
 | `./domain/settings` | `text/_settings.ts` |
 | `./domain/tool-component` | `item/_tool-component.ts` |
 | `./domain/weapon` | `item/_weapon.ts` |
@@ -208,10 +201,15 @@ data.
 
 ## Cross-area imports
 
-These lists show current direct TypeScript imports from each area to other
-areas. They include relative imports, re-exports, dynamic imports, and import
-types; same-area and external imports are omitted. This source snapshot is
-descriptive, not an allowlist.
+These lists summarize direct TypeScript imports from each area to other areas.
+They include relative imports, re-exports, dynamic imports, and import types;
+same-area and external imports are omitted. This source snapshot may be stale
+and is descriptive, not an allowlist. The tests do not verify this
+section, so check current imports before relying on it. Areas without outgoing
+cross-area imports are omitted.
+To refresh this snapshot, inspect imports from files under `src/domain`, resolve
+each target to its area, and record only imports whose source and target areas
+differ.
 
 - `block` imports `coordinates`, `item`, `recipe`, `world`, `time`, `text`.
 - `item` imports `block`, `entity`, `world`, `time`, `text`.

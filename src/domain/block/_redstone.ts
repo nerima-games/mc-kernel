@@ -1,6 +1,0 @@
-export {
-  REDSTONE_BLOCK_IDS,
-  REDSTONE_POWER_MAX,
-  REDSTONE_POWER_MIN,
-  REDSTONE_POWER_STEP,
-} from './redstone-data.js'

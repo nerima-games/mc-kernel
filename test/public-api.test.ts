@@ -40,7 +40,7 @@ import * as recipeRegistryModule from "../src/domain/recipe/recipe-registry";
 import * as explosionModule from "../src/domain/entity/explosion";
 import * as portalModule from "../src/domain/entity/portal";
 import * as smeltingModule from "../src/domain/recipe/smelting-data";
-import * as redstoneModule from "../src/domain/block/redstone";
+import * as redstoneModule from "../src/domain/block/redstone-data";
 import * as biomeModule from "../src/domain/world/biome";
 import * as blockEntityModule from "../src/domain/block/_block-entity";
 import * as damageTypeModule from "../src/domain/entity/damage-type";
@@ -519,17 +519,11 @@ describe("public API surface", () => {
           "sulfurCubeArchetypeDataPackLayerFromUnknown",
           "selectSulfurCubeArchetypes",
           "sulfurCubeArchetypeDataPath",
-          // Pure brewing data and logic
           "BREWING_BOTTLE_SLOTS",
           "BREWING_FUEL_ITEM",
           "BREWING_MAX_FUEL_CHARGES",
           "BREWING_TIME_SECS",
           "VANILLA_BREWING_RECIPES",
-          "brewingState",
-          "emptyBrewingState",
-          "matchBrewingRecipe",
-          "addBrewingFuel",
-          "advanceBrewing",
           // Pure fluid vocabulary
           "FLUID_BLOCK_IDS",
           "FLUID_MIX_BLOCK_IDS",
@@ -1799,7 +1793,6 @@ describe("public API surface", () => {
         const consumablePath = "@nerima-games/mc-kernel/domain/consumable";
         const useCooldownPath = "@nerima-games/mc-kernel/domain/use-cooldown";
         const portalPath = "@nerima-games/mc-kernel/domain/portal";
-        const redstonePath = "@nerima-games/mc-kernel/domain/redstone";
         const explosionPath = "@nerima-games/mc-kernel/domain/explosion";
         const framePath = "@nerima-games/mc-kernel/domain/frame";
         const frameTimingPath = "@nerima-games/mc-kernel/domain/frame-timing";
@@ -1844,7 +1837,6 @@ describe("public API surface", () => {
           consumableSubpath,
           useCooldownSubpath,
           portalSubpath,
-          redstoneSubpath,
           explosionSubpath,
           frameSubpath,
           frameTimingSubpath,
@@ -1888,7 +1880,6 @@ describe("public API surface", () => {
           import(consumablePath),
           import(useCooldownPath),
           import(portalPath),
-          import(redstonePath),
           import(explosionPath),
           import(framePath),
           import(frameTimingPath),
@@ -2550,9 +2541,6 @@ describe("public API surface", () => {
         expect(portalSubpath.MAX_PORTAL_WIDTH).toBe(packageRoot.MAX_PORTAL_WIDTH);
         expect(portalSubpath.MIN_PORTAL_HEIGHT).toBe(packageRoot.MIN_PORTAL_HEIGHT);
         expect(portalSubpath.MAX_PORTAL_HEIGHT).toBe(packageRoot.MAX_PORTAL_HEIGHT);
-        expect(redstoneSubpath.REDSTONE_BLOCK_IDS).toBe(
-          packageRoot.REDSTONE_BLOCK_IDS,
-        );
         expect(explosionSubpath.resistsExplosion).toBe(
           packageRoot.resistsExplosion,
         );
