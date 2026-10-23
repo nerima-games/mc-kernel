@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { Result } from 'effect'
 import {
   STATUS_EFFECT_AMPLIFIER_MAX,
   STATUS_EFFECT_DEFINITIONS,
@@ -93,12 +94,18 @@ describe('isStatusEffectId', () => {
 
 describe('resolveStatusEffectDefinition', () => {
   it('resolves a valid name to its table row', () => {
-    expect(resolveStatusEffectDefinition('speed')).toBe(STATUS_EFFECT_DEFINITIONS.speed)
+    expect(resolveStatusEffectDefinition('speed')).toStrictEqual(
+      Result.succeed(STATUS_EFFECT_DEFINITIONS.speed),
+    )
   })
 
-  it('throws on an unrecognised value', () => {
-    expect(() => resolveStatusEffectDefinition('not_an_effect')).toThrow(TypeError)
-    expect(() => resolveStatusEffectDefinition(42)).toThrow(TypeError)
+  it('returns the rejected value for an unrecognised input', () => {
+    expect(resolveStatusEffectDefinition('not_an_effect')).toStrictEqual(
+      Result.fail({ _tag: 'UnknownStatusEffect', value: 'not_an_effect' }),
+    )
+    expect(resolveStatusEffectDefinition(42)).toStrictEqual(
+      Result.fail({ _tag: 'UnknownStatusEffect', value: 42 }),
+    )
   })
 })
 

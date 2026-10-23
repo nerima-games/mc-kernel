@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { Result } from 'effect'
 import {
   DEFAULT_ENTITY_ATTRIBUTES,
   ENTITY_ATTRIBUTE_DEFINITIONS,
@@ -23,32 +24,32 @@ describe('entity attributes', () => {
     expect(KnockbackResistance(0)).toBe(0)
 
     const invalidValues = [
-      () => Bounciness(Number.NaN),
-      () => Bounciness(2),
-      () => EntityPhysicsModifier(Number.POSITIVE_INFINITY),
-      () => EntityPhysicsModifier(-1),
-      () => EntityPhysicsModifier(2049),
-      () => EntityVisibilityDistance(Number.NEGATIVE_INFINITY),
-      () => EntityVisibilityDistance(-1),
-      () => EntityVisibilityDistance(513),
-      () => KnockbackResistance(Number.NaN),
-      () => KnockbackResistance(-3),
+      Bounciness.result(Number.NaN),
+      Bounciness.result(2),
+      EntityPhysicsModifier.result(Number.POSITIVE_INFINITY),
+      EntityPhysicsModifier.result(-1),
+      EntityPhysicsModifier.result(2049),
+      EntityVisibilityDistance.result(Number.NEGATIVE_INFINITY),
+      EntityVisibilityDistance.result(-1),
+      EntityVisibilityDistance.result(513),
+      KnockbackResistance.result(Number.NaN),
+      KnockbackResistance.result(-3),
     ]
 
     for (const invalidValue of invalidValues) {
-      expect(invalidValue).toThrow()
+      expect(Result.isFailure(invalidValue)).toBe(true)
     }
   })
 
   it('constructs frozen defaults and validates option boundaries', () => {
-    expect(entityAttributes()).toStrictEqual({
+    expect(entityAttributes()).toStrictEqual(Result.succeed({
       bounciness: 0,
       frictionModifier: 1,
       airDragModifier: 1,
       nameTagDistance: 64,
       belowNameDistance: 10,
       knockbackResistance: 0,
-    })
+    }))
     expect(Object.isFrozen(DEFAULT_ENTITY_ATTRIBUTES)).toBe(true)
     expect(isEntityAttributes(DEFAULT_ENTITY_ATTRIBUTES)).toBe(true)
 
@@ -60,17 +61,24 @@ describe('entity attributes', () => {
       belowNameDistance: EntityVisibilityDistance(20),
       knockbackResistance: KnockbackResistance(-1),
     })
-    expect(configured).toStrictEqual({
+    expect(configured).toStrictEqual(Result.succeed({
       bounciness: 0.5,
       frictionModifier: 1.25,
       airDragModifier: 0.75,
       nameTagDistance: 128,
       belowNameDistance: 20,
       knockbackResistance: -1,
-    })
-    expect(Object.isFrozen(configured)).toBe(true)
-    expect(isEntityAttributeOptions(configured)).toBe(true)
-    expect(() => Reflect.apply(entityAttributes, undefined, [{ frictionModifier: -1 }])).toThrow()
+    }))
+    if (Result.isSuccess(configured)) {
+      expect(Object.isFrozen(configured.success)).toBe(true)
+      expect(isEntityAttributeOptions(configured.success)).toBe(true)
+    }
+    expect(Reflect.apply(entityAttributes, undefined, [{ frictionModifier: -1 }])).toStrictEqual(
+      Result.fail({
+        _tag: 'InvalidEntityAttributeOptions',
+        value: { frictionModifier: -1 },
+      }),
+    )
   })
 
   it('rejects malformed option and attribute records', () => {
@@ -94,7 +102,7 @@ describe('entity attributes', () => {
       expect(isEntityAttributeOptions(malformedOption)).toBe(false)
     }
 
-    const valid = entityAttributes()
+    const valid = DEFAULT_ENTITY_ATTRIBUTES
     const missingBounciness = {
       frictionModifier: valid.frictionModifier,
       airDragModifier: valid.airDragModifier,
@@ -140,9 +148,17 @@ describe('entity attributes', () => {
     }
 
     expect(entityAttributeDefinitionOf('knockbackResistance').maximum).toBeUndefined()
-    expect(effectiveBounciness(Bounciness(0.25), Bounciness(0.75))).toBe(0.75)
-    expect(effectiveBounciness(Bounciness(0.9), Bounciness(0.2))).toBe(0.9)
-    expect(() => Reflect.apply(effectiveBounciness, undefined, [-1, 0.5])).toThrow()
-    expect(() => Reflect.apply(effectiveBounciness, undefined, [0.5, 2])).toThrow()
+    expect(effectiveBounciness(Bounciness(0.25), Bounciness(0.75))).toStrictEqual(
+      Result.succeed(0.75),
+    )
+    expect(effectiveBounciness(Bounciness(0.9), Bounciness(0.2))).toStrictEqual(
+      Result.succeed(0.9),
+    )
+    expect(Reflect.apply(effectiveBounciness, undefined, [-1, 0.5])).toStrictEqual(
+      Result.fail({ _tag: 'InvalidBounciness', block: -1, entity: 0.5 }),
+    )
+    expect(Reflect.apply(effectiveBounciness, undefined, [0.5, 2])).toStrictEqual(
+      Result.fail({ _tag: 'InvalidBounciness', block: 0.5, entity: 2 }),
+    )
   })
 })

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Result } from "effect";
 
 import { NamespacedResourceLocation, ResourceLocation, TagLocation } from "../src/domain/text/identifiers";
 import { AttributeModifierAmount, PositiveTickCount } from "../src/domain/time/quantities";
@@ -280,21 +281,47 @@ describe("Sulfur Cube archetype registry", () => {
       knockbackModifiers,
       soundSettings,
     } satisfies SulfurCubeArchetypeOptions;
-    const neither = sulfurCubeArchetypeFromUnknown({
+    const neitherOptions = {
       ...withoutOptionals,
       explosion: undefined,
       contactDamage: undefined,
-    });
-    const explosionOnly = sulfurCubeArchetypeFromUnknown({
+    };
+    const explosionOnlyOptions = {
       ...validOptions,
       contactDamage: undefined,
-    });
-    const contactOnly = sulfurCubeArchetypeFromUnknown({
+    };
+    const contactOnlyOptions = {
       ...validOptions,
       explosion: undefined,
+    };
+    const neither = sulfurCubeArchetype(withoutOptionals);
+    const explosionOnly = sulfurCubeArchetype({
+      items: validOptions.items,
+      buoyant: validOptions.buoyant,
+      explosion: explosionOptions,
+      attributeModifiers,
+      knockbackModifiers,
+      soundSettings,
+    });
+    const contactOnly = sulfurCubeArchetype({
+      items: validOptions.items,
+      buoyant: validOptions.buoyant,
+      contactDamage: contactDamageOptions,
+      attributeModifiers,
+      knockbackModifiers,
+      soundSettings,
     });
 
     expect(isSulfurCubeArchetypeOptions(withoutOptionals)).toBe(true);
+    expect(sulfurCubeArchetypeFromUnknown(neitherOptions)).toStrictEqual(
+      Result.succeed(neither),
+    );
+    expect(sulfurCubeArchetypeFromUnknown(explosionOnlyOptions)).toStrictEqual(
+      Result.succeed(explosionOnly),
+    );
+    expect(sulfurCubeArchetypeFromUnknown(contactOnlyOptions)).toStrictEqual(
+      Result.succeed(contactOnly),
+    );
     expect(isSulfurCubeArchetypeOptions(neither)).toBe(true);
     expect(Object.hasOwn(neither, "explosion")).toBe(false);
     expect(Object.hasOwn(neither, "contactDamage")).toBe(false);
@@ -432,9 +459,13 @@ describe("Sulfur Cube archetype registry", () => {
     expect(
       isSulfurCubeArchetypeOptions(optionsWith({ soundSettings: null })),
     ).toBe(false);
-    expect(() =>
-      sulfurCubeArchetypeFromUnknown(optionsWith({ items: "invalid!" })),
-    ).toThrow(TypeError);
+    const invalidOptions = optionsWith({ items: "invalid!" });
+    expect(sulfurCubeArchetypeFromUnknown(invalidOptions)).toStrictEqual(
+      Result.fail({
+        _tag: "InvalidSulfurCubeArchetypeOptions",
+        value: invalidOptions,
+      }),
+    );
   });
 
   it("rejects malformed normalized values without widening the runtime boundary", () => {

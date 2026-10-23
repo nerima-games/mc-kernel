@@ -1,3 +1,4 @@
+import { Result } from "effect";
 import { NamespacedResourceLocation, ResourceLocation, TagLocation } from "../text/identifiers.js";
 import { isSulfurCubeArchetypeOptions } from "./sulfur-cube-validation.js";
 import type {
@@ -98,13 +99,18 @@ export const sulfurCubeArchetype = (
   return Object.freeze({ ...base, explosion, contactDamage });
 };
 
+export type SulfurCubeArchetypeFailure = Readonly<{
+  readonly _tag: "InvalidSulfurCubeArchetypeOptions";
+  readonly value: unknown;
+}>;
+
 export const sulfurCubeArchetypeFromUnknown = (
   value: unknown,
-): SulfurCubeArchetype => {
+): Result.Result<SulfurCubeArchetype, SulfurCubeArchetypeFailure> => {
   if (!isSulfurCubeArchetypeOptions(value)) {
-    throw new TypeError("Sulfur Cube archetype options must be valid");
+    return Result.fail({ _tag: "InvalidSulfurCubeArchetypeOptions", value });
   }
-  return sulfurCubeArchetype(value);
+  return Result.succeed(sulfurCubeArchetype(value));
 };
 
 export {

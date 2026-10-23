@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { Result } from 'effect'
 import {
   DAMAGE_TYPE_DEFINITIONS,
   DAMAGE_TYPE_KINDS,
@@ -288,12 +289,18 @@ describe('isDamageTypeId', () => {
 
 describe('resolveDamageTypeDefinition', () => {
   it('resolves a valid name to its table row', () => {
-    expect(resolveDamageTypeDefinition('arrow')).toBe(DAMAGE_TYPE_DEFINITIONS.arrow)
+    expect(resolveDamageTypeDefinition('arrow')).toStrictEqual(
+      Result.succeed(DAMAGE_TYPE_DEFINITIONS.arrow),
+    )
   })
 
-  it('throws on an unrecognised value', () => {
-    expect(() => resolveDamageTypeDefinition('not_a_damage_type')).toThrow(TypeError)
-    expect(() => resolveDamageTypeDefinition(42)).toThrow(TypeError)
+  it('returns the rejected value for an unrecognised input', () => {
+    expect(resolveDamageTypeDefinition('not_a_damage_type')).toStrictEqual(
+      Result.fail({ _tag: 'UnknownDamageType', value: 'not_a_damage_type' }),
+    )
+    expect(resolveDamageTypeDefinition(42)).toStrictEqual(
+      Result.fail({ _tag: 'UnknownDamageType', value: 42 }),
+    )
   })
 })
 
