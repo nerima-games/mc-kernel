@@ -332,7 +332,6 @@ try {
     ) {
       throw new Error('The root export returned invalid normalised settings');
     }
-    if (
     const harvestedDrop = rootModule.resolveDrop(
       rootModule.DEFAULT_HARVEST_TOOL,
       rootModule.DEFAULT_BLOCK_DROP,
