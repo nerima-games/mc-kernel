@@ -25,12 +25,17 @@ import {
   position as makePosition,
 } from '../src/domain/coordinates/coordinates'
 import { describe, expect, it } from 'vitest'
-import { Effect } from 'effect'
+import { Effect, Result } from 'effect'
 
 const blockPosition = (x: number, y: number, z: number): BlockPosition =>
   makeBlockPosition(BlockAxis(x), BlockAxis(y), BlockAxis(z))
 const position = (x: number, y: number, z: number): Position =>
   makePosition(PositionAxis(x), PositionAxis(y), PositionAxis(z))
+const resultValue = <A, E>(result: Result.Result<A, E>): A => {
+  expect(Result.isSuccess(result)).toBe(true)
+  if (Result.isFailure(result)) throw new Error('expected a successful coordinate result')
+  return result.success
+}
 
 const NEGATIVE_ZERO = -0
 const NEGATIVE_ONE = -1
@@ -125,7 +130,7 @@ const SAMPLE_COORDINATES: ReadonlyArray<readonly [number, number, number]> = [
 ]
 
 const roundTrip = (source: BlockPosition): BlockPosition =>
-  blockPositionOfChunkLocal(chunkCoordOfBlock(source), localCoordOfBlock(source))
+  resultValue(blockPositionOfChunkLocal(chunkCoordOfBlock(source), localCoordOfBlock(source)))
 
 describe('world <-> chunk coordinate conversion', () => {
   it('round-trips every sample block position, including across the origin into negatives', () =>
@@ -185,8 +190,24 @@ describe('face fallback totality', () => {
       const invalidFace = 'sideways'
       const source = blockPosition(TEN, TWENTY, THIRTY)
 
-      expect(() => Reflect.apply(oppositeBlockFace, undefined, [invalidFace])).toThrow('Unknown block face')
-      expect(() => Reflect.apply(adjacentBlockPosition, undefined, [source, invalidFace])).toThrow('Unknown block face')
+      const opposite = Reflect.apply(oppositeBlockFace, undefined, [invalidFace])
+      const adjacent = Reflect.apply(adjacentBlockPosition, undefined, [source, invalidFace])
+      expect(Result.isFailure(opposite)).toBe(true)
+      expect(Result.isFailure(adjacent)).toBe(true)
+      if (Result.isFailure(opposite)) {
+        expect(opposite.failure).toMatchObject({
+          _tag: 'BlockNeighbourFailure',
+          reason: 'unknown-face',
+          kind: 'TypeError',
+        })
+      }
+      if (Result.isFailure(adjacent)) {
+        expect(adjacent.failure).toMatchObject({
+          _tag: 'BlockNeighbourFailure',
+          reason: 'unknown-face',
+          kind: 'TypeError',
+        })
+      }
     })),
   )
 })
@@ -194,14 +215,14 @@ describe('face fallback totality', () => {
 describe('blockPositionOfPosition', () => {
   it('floors a continuous position into the block cell that contains it', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(blockPositionOfPosition(position(NINE_TENTHS, ONE_TENTH, ONE_HALF))).toStrictEqual(blockPosition(ZERO, ZERO, ZERO))
-      expect(blockPositionOfPosition(position(NEGATIVE_ONE_TENTH, NEGATIVE_NINE_TENTHS, NEGATIVE_ONE_HALF))).toStrictEqual(blockPosition(NEGATIVE_ONE, NEGATIVE_ONE, NEGATIVE_ONE))
+      expect(resultValue(blockPositionOfPosition(position(NINE_TENTHS, ONE_TENTH, ONE_HALF)))).toStrictEqual(blockPosition(ZERO, ZERO, ZERO))
+      expect(resultValue(blockPositionOfPosition(position(NEGATIVE_ONE_TENTH, NEGATIVE_NINE_TENTHS, NEGATIVE_ONE_HALF)))).toStrictEqual(blockPosition(NEGATIVE_ONE, NEGATIVE_ONE, NEGATIVE_ONE))
     })),
   )
 
   it('normalises the negative zero that Math.floor(-0) produces, so coordinates stay canonical', () =>
     Effect.runPromise(Effect.sync(() => {
-      const origin = blockPositionOfPosition(position(NEGATIVE_ZERO, NEGATIVE_ZERO, NEGATIVE_ZERO))
+      const origin = resultValue(blockPositionOfPosition(position(NEGATIVE_ZERO, NEGATIVE_ZERO, NEGATIVE_ZERO)))
       expect(Object.is(origin.x, ZERO)).toBe(true)
       expect(Object.is(origin.y, ZERO)).toBe(true)
       expect(Object.is(origin.z, ZERO)).toBe(true)
@@ -220,6 +241,34 @@ describe('blockPositionOfPosition', () => {
       expect(Object.is(local.lz, ZERO)).toBe(true)
     })),
   )
+
+  it('returns a tagged range failure when a conversion exceeds the safe block coordinate range', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const fromPosition = blockPositionOfPosition(position(Number.MAX_VALUE, ZERO, ZERO))
+      const fromChunk = blockPositionOfChunkLocal(
+        { cx: ChunkAxis(Number.MAX_SAFE_INTEGER), cz: ChunkAxis(ZERO) },
+        { lx: LocalAxis(ZERO), ly: BlockAxis(ZERO), lz: LocalAxis(ZERO) },
+      )
+      expect(Result.isFailure(fromPosition)).toBe(true)
+      expect(Result.isFailure(fromChunk)).toBe(true)
+      if (Result.isFailure(fromPosition)) {
+        expect(fromPosition.failure).toMatchObject({
+          _tag: 'CoordinateConversionFailure',
+          reason: 'block-axis-out-of-range',
+          axis: 'x',
+          kind: 'RangeError',
+        })
+      }
+      if (Result.isFailure(fromChunk)) {
+        expect(fromChunk.failure).toMatchObject({
+          _tag: 'CoordinateConversionFailure',
+          reason: 'block-axis-out-of-range',
+          axis: 'x',
+          kind: 'RangeError',
+        })
+      }
+    })),
+  )
 })
 
 describe('block face adjacency', () => {
@@ -227,7 +276,7 @@ describe('block face adjacency', () => {
     Effect.runPromise(Effect.sync(() => {
       const source = blockPosition(TEN, TWENTY, THIRTY)
       expect(BLOCK_FACES).toStrictEqual(['down', 'up', 'north', 'south', 'west', 'east'])
-      expect(blockNeighbours(source)).toStrictEqual([
+      expect(resultValue(blockNeighbours(source))).toStrictEqual([
         blockPosition(TEN, NINETEEN, THIRTY),
         blockPosition(TEN, TWENTY_ONE, THIRTY),
         blockPosition(TEN, TWENTY, TWENTY_NINE),
@@ -241,7 +290,7 @@ describe('block face adjacency', () => {
   it('returns horizontal neighbours without leaking the vertical faces', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(HORIZONTAL_BLOCK_FACES).toStrictEqual(['west', 'east', 'north', 'south'])
-      expect(horizontalBlockNeighbours(blockPosition(NEGATIVE_SIXTEEN, FOUR, FIFTEEN))).toStrictEqual([
+      expect(resultValue(horizontalBlockNeighbours(blockPosition(NEGATIVE_SIXTEEN, FOUR, FIFTEEN)))).toStrictEqual([
         blockPosition(NEGATIVE_SEVENTEEN, FOUR, FIFTEEN),
         blockPosition(NEGATIVE_FIFTEEN, FOUR, FIFTEEN),
         blockPosition(NEGATIVE_SIXTEEN, FOUR, FOURTEEN),
@@ -254,9 +303,23 @@ describe('block face adjacency', () => {
     Effect.runPromise(Effect.sync(() => {
       const source = blockPosition(NEGATIVE_THREE, SEVEN, ELEVEN)
       for (const face of BLOCK_FACES) {
-        expect(adjacentBlockPosition(adjacentBlockPosition(source, face), oppositeBlockFace(face))).toStrictEqual(
-          source,
-        )
+        const adjacent = resultValue(adjacentBlockPosition(source, face))
+        const opposite = resultValue(oppositeBlockFace(face))
+        expect(resultValue(adjacentBlockPosition(adjacent, opposite))).toStrictEqual(source)
+      }
+    })),
+  )
+
+  it('returns a tagged range failure when a neighbour exceeds the safe integer range', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const east = adjacentBlockPosition(blockPosition(Number.MAX_SAFE_INTEGER, ZERO, ZERO), 'east')
+      expect(Result.isFailure(east)).toBe(true)
+      if (Result.isFailure(east)) {
+        expect(east.failure).toMatchObject({
+          _tag: 'BlockNeighbourFailure',
+          reason: 'coordinate-overflow',
+          kind: 'RangeError',
+        })
       }
     })),
   )

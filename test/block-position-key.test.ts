@@ -8,7 +8,7 @@ import {
   isBlockPositionKey,
 } from '../src/domain/coordinates/coordinates'
 import { describe, expect, it } from 'vitest'
-import { Effect } from 'effect'
+import { Effect, Result } from 'effect'
 
 const NEGATIVE_ZERO_COMPONENT = -0
 const ORIGIN_COMPONENT = 0
@@ -26,8 +26,8 @@ describe('BlockPositionKey', () => {
 
       expect(key).toBe('-9007199254740991,0,9007199254740991')
       expect(isBlockPositionKey(key)).toBe(true)
-      expect(parseBlockPositionKey(key)).toBe(key)
-      expect(blockPositionOfKey(key)).toStrictEqual(source)
+      expect(parseBlockPositionKey(key)).toEqual(Result.succeed(key))
+      expect(blockPositionOfKey(key)).toEqual(Result.succeed(source))
       expect(decodeBlockPositionKey(key)).toStrictEqual(source)
     })),
   )
@@ -73,15 +73,41 @@ describe('BlockPositionKey', () => {
       for (const value of [null, 0, {}]) {
         expect(isBlockPositionKey(value)).toBe(false)
         expect(decodeBlockPositionKey(value)).toBeUndefined()
-        expect(() => parseBlockPositionKey(value)).toThrow(TypeError)
+        const decoded = parseBlockPositionKey(value)
+        expect(Result.isFailure(decoded)).toBe(true)
+        if (Result.isFailure(decoded)) {
+          expect(decoded.failure).toMatchObject({
+            _tag: 'CoordinateKeyFailure',
+            reason: 'invalid-block-position-key',
+            kind: 'TypeError',
+          })
+        }
       }
     })),
   )
 
-  it('fails loudly if JavaScript callers forge an invalid branded key', () =>
+  it('returns a tagged failure if JavaScript callers forge an invalid branded key', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => parseBlockPositionKey('0.5,0,0')).toThrow(TypeError)
-      expect(() => Reflect.apply(blockPositionOfKey, undefined, ['0.5,0,0'])).toThrow(TypeError)
+      const decoded = parseBlockPositionKey('0.5,0,0')
+      const position = Reflect.apply(blockPositionOfKey, undefined, ['0.5,0,0'])
+      expect(Result.isFailure(decoded)).toBe(true)
+      expect(Result.isFailure(position)).toBe(true)
+      if (Result.isFailure(decoded)) {
+        expect(decoded.failure).toMatchObject({
+          _tag: 'CoordinateKeyFailure',
+          reason: 'invalid-block-position-key',
+          kind: 'TypeError',
+          value: '0.5,0,0',
+        })
+      }
+      if (Result.isFailure(position)) {
+        expect(position.failure).toMatchObject({
+          _tag: 'CoordinateKeyFailure',
+          reason: 'invalid-block-position-key',
+          kind: 'TypeError',
+          value: '0.5,0,0',
+        })
+      }
     })),
   )
 })

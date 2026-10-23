@@ -1,7 +1,8 @@
+import { Result } from 'effect'
 import {
   CHUNK_SIZE_XZ,
   BlockAxis,
-  blockPosition,
+  blockPositionFromAxes,
   ChunkAxis,
   chunkCoord,
   LocalAxis,
@@ -29,9 +30,38 @@ const floorDiv = (value: number, divisor: number): number => Math.floor(value / 
 /** Euclidean modulo — always in [0, divisor), unlike `%`. */
 const floorMod = (value: number, divisor: number): number => ((value % divisor) + divisor) % divisor
 
+export type CoordinateConversionFailure = Readonly<{
+  readonly _tag: 'CoordinateConversionFailure'
+  readonly reason: 'block-axis-out-of-range'
+  readonly axis: 'x' | 'y' | 'z'
+  readonly kind: 'RangeError'
+}>
+
+const coordinateConversionFailure = (axis: CoordinateConversionFailure['axis']): CoordinateConversionFailure => ({
+  _tag: 'CoordinateConversionFailure',
+  reason: 'block-axis-out-of-range',
+  axis,
+  kind: 'RangeError',
+})
+
+const normalizeZero = (value: number): number => value + 0
+
+const blockAxisResult = (
+  value: number,
+  axis: CoordinateConversionFailure['axis'],
+): Result.Result<BlockAxis, CoordinateConversionFailure> =>
+  Result.mapError(BlockAxis.result(value), () => coordinateConversionFailure(axis))
+
 /** The block cell that contains a continuous position. */
-export const blockPositionOfPosition = (value: Position): BlockPosition =>
-  blockPosition(BlockAxis(Math.floor(value.x)), BlockAxis(Math.floor(value.y)), BlockAxis(Math.floor(value.z)))
+export const blockPositionOfPosition = (
+  value: Position,
+): Result.Result<BlockPosition, CoordinateConversionFailure> =>
+  Result.gen(function* () {
+    const x = yield* blockAxisResult(normalizeZero(Math.floor(value.x)), 'x')
+    const y = yield* blockAxisResult(normalizeZero(Math.floor(value.y)), 'y')
+    const z = yield* blockAxisResult(normalizeZero(Math.floor(value.z)), 'z')
+    return blockPositionFromAxes(x, y, z)
+  })
 
 /** The chunk column that owns a block cell. */
 export const chunkCoordOfBlock = (value: BlockPosition): ChunkCoord =>
@@ -45,9 +75,12 @@ export const localCoordOfBlock = (value: BlockPosition): LocalBlockCoord => ({
 })
 
 /** Inverse of `chunkCoordOfBlock` + `localCoordOfBlock`. */
-export const blockPositionOfChunkLocal = (chunk: ChunkCoord, local: LocalBlockCoord): BlockPosition =>
-  blockPosition(
-    BlockAxis(chunk.cx * CHUNK_SIZE_XZ + local.lx),
-    local.ly,
-    BlockAxis(chunk.cz * CHUNK_SIZE_XZ + local.lz),
-  )
+export const blockPositionOfChunkLocal = (
+  chunk: ChunkCoord,
+  local: LocalBlockCoord,
+): Result.Result<BlockPosition, CoordinateConversionFailure> =>
+  Result.gen(function* () {
+    const x = yield* blockAxisResult(normalizeZero(chunk.cx * CHUNK_SIZE_XZ + local.lx), 'x')
+    const z = yield* blockAxisResult(normalizeZero(chunk.cz * CHUNK_SIZE_XZ + local.lz), 'z')
+    return blockPositionFromAxes(x, local.ly, z)
+  })

@@ -29,6 +29,7 @@ export {
   isBlockPositionKey,
   isChunkKey,
 } from './coordinate-keys.js'
+export type { CoordinateKeyFailure } from './coordinate-keys.js'
 export {
   adjacentBlockPosition,
   BLOCK_FACES,
@@ -38,7 +39,7 @@ export {
   isBlockFace,
   oppositeBlockFace,
 } from './coordinate-neighbours.js'
-export type { BlockFace } from './coordinate-neighbours.js'
+export type { BlockFace, BlockNeighbourFailure } from './coordinate-neighbours.js'
 
 export {
   blockPositionOfChunkLocal,
@@ -46,7 +47,7 @@ export {
   chunkCoordOfBlock,
   localCoordOfBlock,
 } from './coordinate-conversions.js'
-export type { LocalBlockCoord } from './coordinate-conversions.js'
+export type { CoordinateConversionFailure, LocalBlockCoord } from './coordinate-conversions.js'
 
 export { aabb, aabbContainsPoint, aabbIntersects, aabbOfBlock } from './coordinate-geometry.js'
 export type { AABB } from './coordinate-geometry.js'

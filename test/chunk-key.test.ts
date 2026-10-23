@@ -8,7 +8,7 @@ import {
   isChunkKey,
 } from '../src/domain/coordinates/coordinates'
 import { describe, expect, it } from 'vitest'
-import { Effect } from 'effect'
+import { Effect, Result } from 'effect'
 
 const NEGATIVE_ZERO = -0
 
@@ -19,8 +19,8 @@ describe('ChunkKey', () => {
       const key = chunkKeyOf(source)
 
       expect(key).toBe('-9007199254740991,9007199254740991')
-      expect(parseChunkKey(key)).toBe(key)
-      expect(chunkCoordOfKey(key)).toEqual(source)
+      expect(parseChunkKey(key)).toEqual(Result.succeed(key))
+      expect(chunkCoordOfKey(key)).toEqual(Result.succeed(source))
       expect(decodeChunkKey(key)).toEqual(source)
     })),
   )
@@ -58,15 +58,41 @@ describe('ChunkKey', () => {
       for (const value of [null, 0, {}]) {
         expect(isChunkKey(value)).toBe(false)
         expect(decodeChunkKey(value)).toBeUndefined()
-        expect(() => parseChunkKey(value)).toThrow(TypeError)
+        const decoded = parseChunkKey(value)
+        expect(Result.isFailure(decoded)).toBe(true)
+        if (Result.isFailure(decoded)) {
+          expect(decoded.failure).toMatchObject({
+            _tag: 'CoordinateKeyFailure',
+            reason: 'invalid-chunk-key',
+            kind: 'TypeError',
+          })
+        }
       }
     })),
   )
 
-  it('throws when a forged ChunkKey is malformed', () =>
+  it('returns a tagged failure when a forged ChunkKey is malformed', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => parseChunkKey('0.5,0')).toThrow('Invalid ChunkKey: 0.5,0')
-      expect(() => Reflect.apply(chunkCoordOfKey, undefined, ['0.5,0'])).toThrow('Invalid ChunkKey: 0.5,0')
+      const decoded = parseChunkKey('0.5,0')
+      const coordinate = Reflect.apply(chunkCoordOfKey, undefined, ['0.5,0'])
+      expect(Result.isFailure(decoded)).toBe(true)
+      expect(Result.isFailure(coordinate)).toBe(true)
+      if (Result.isFailure(decoded)) {
+        expect(decoded.failure).toMatchObject({
+          _tag: 'CoordinateKeyFailure',
+          reason: 'invalid-chunk-key',
+          kind: 'TypeError',
+          value: '0.5,0',
+        })
+      }
+      if (Result.isFailure(coordinate)) {
+        expect(coordinate.failure).toMatchObject({
+          _tag: 'CoordinateKeyFailure',
+          reason: 'invalid-chunk-key',
+          kind: 'TypeError',
+          value: '0.5,0',
+        })
+      }
     })),
   )
 })
