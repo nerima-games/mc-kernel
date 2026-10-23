@@ -744,6 +744,7 @@ void projectileHit
         compilerOptions: {
           strict: true,
           target: "ES2022",
+          lib: ["ES2022", "ESNext.Disposable", "DOM", "DOM.Iterable"],
           module: "NodeNext",
           moduleResolution: "NodeNext",
           noEmit: true,

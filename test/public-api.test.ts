@@ -3690,7 +3690,7 @@ describe("public API surface", () => {
             "minecraft:max_stack_size": 1,
             "!minecraft:max_stack_size": 1,
           });
-        expect(conflict._tag).toBe("Left");
+        expect(conflict._tag).toBe("Failure");
       }),
     ));
 });

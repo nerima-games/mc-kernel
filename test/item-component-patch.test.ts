@@ -30,7 +30,7 @@ describe("item component patches", () => {
         return Reflect.get(target, key);
       },
     });
-    expect(Reflect.apply(mergeItemComponentPatchesEither, undefined, [shifting, undefined])._tag).toBe("Left");
+    expect(Reflect.apply(mergeItemComponentPatchesEither, undefined, [shifting, undefined])._tag).toBe("Failure");
   });
   it("accepts namespaced component keys and removal keys", () => {
     expect(ItemComponentPatchKey.is("minecraft:custom_name")).toBe(true);
