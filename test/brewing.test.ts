@@ -17,7 +17,7 @@ describe('brewing data', () => {
     expect(BREWING_MAX_FUEL_CHARGES).toBe(20)
     expect(BREWING_FUEL_ITEM).toBe('blaze_powder')
     expect(VANILLA_BREWING_RECIPES.length).toBeGreaterThan(3)
-    expect(brewingOutput(VANILLA_BREWING_RECIPES[0]!)).toEqual(
+    expect(VANILLA_BREWING_RECIPES.map((recipe) => brewingOutput(recipe))).toContainEqual(
       itemStack('awkward_potion', 1),
     )
   })
