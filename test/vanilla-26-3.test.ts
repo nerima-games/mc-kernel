@@ -21,11 +21,14 @@ const GOLDEN = join(process.cwd(), 'test', 'golden')
 
 const parseJson = (text: string): unknown => JSON.parse(text)
 
-const readGolden = <A, I>(name: string, schema: Schema.Schema<A, I>): A =>
+const readGolden = <S extends Schema.ConstraintDecoder<unknown, never>>(
+  name: string,
+  schema: S,
+): S["Type"] =>
   Schema.decodeUnknownSync(schema)(parseJson(readFileSync(join(GOLDEN, name), 'utf8')))
 
 const stringArray = Schema.Array(Schema.String)
-const unknownRecord = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+const unknownRecord = Schema.Record(Schema.String, Schema.Unknown)
 const golden = {
   biome: readGolden('vanilla-biome.json', unknownRecord),
   block: readGolden('vanilla-block.json', unknownRecord),

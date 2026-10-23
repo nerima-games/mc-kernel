@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Result } from "effect";
 
 import {
   ItemComponentPatchKey,
@@ -19,8 +20,8 @@ describe("item component patches", () => {
     const hostile = new Proxy({}, { ownKeys: () => { throw new Error("hostile"); } });
     expect(isItemComponentPatch(hostile)).toBe(false);
     const symbolHostile = new Proxy({}, { ownKeys: () => { throw Symbol("hostile"); } });
-    expect(itemComponentPatchFromUnknownEither(symbolHostile)._tag).toBe("Left");
-    expect(Reflect.apply(mergeItemComponentPatchesEither, undefined, [{ invalid: true }, undefined])._tag).toBe("Left");
+    expect(itemComponentPatchFromUnknownEither(symbolHostile)._tag).toBe("Failure");
+    expect(Reflect.apply(mergeItemComponentPatchesEither, undefined, [{ invalid: true }, undefined])._tag).toBe("Failure");
     let reads = 0;
     const shifting = new Proxy({ "minecraft:damage": 1 }, {
       get: (target, key) => {
@@ -153,9 +154,9 @@ describe("item component patches", () => {
     expect(mergeItemComponentPatches(left, undefined)).toEqual(left);
     expect(mergeItemComponentPatches(undefined, right)).toEqual(right);
     const conflict = mergeItemComponentPatchesEither(left, right);
-    expect(conflict._tag).toBe("Left");
-    if (conflict._tag === "Left") {
-      expect(conflict.left).toMatchObject({ _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:custom_name" });
+    expect(Result.isFailure(conflict)).toBe(true);
+    if (Result.isFailure(conflict)) {
+      expect(conflict.failure).toMatchObject({ _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:custom_name" });
     }
     expect(mergeItemComponentPatches(left, itemComponentPatch({ "minecraft:repair_cost": 1 }))).toEqual({
       "minecraft:custom_name": "Stone",
