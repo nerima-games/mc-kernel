@@ -18,9 +18,9 @@ import { AttributeModifierAmount } from '../time/quantities.js'
 import { textComponent } from '../text/text-component.js'
 
 export type AttributeModifierOptions = Readonly<{
-  readonly type: string
-  readonly id: string
-  readonly amount: number
+  readonly type: AttributeModifier['type']
+  readonly id: AttributeModifier['id']
+  readonly amount: AttributeModifier['amount']
   readonly operation: AttributeModifierOperation
   readonly slot?: AttributeModifierSlot
   readonly display?: AttributeModifierDisplay

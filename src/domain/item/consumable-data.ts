@@ -1,6 +1,14 @@
 import type { ItemType } from './item-type.js'
 import { ResourceLocation, type ResourceLocation as ResourceLocationType } from '../text/identifiers.js'
 import { ConsumeSeconds, type ConsumeSeconds as ConsumeSecondsType } from '../time/quantities.js'
+import type {
+  EffectAmplifier,
+  EffectDurationSecs,
+  FoodEffectProbability,
+  FoodNutrition,
+  FoodSaturation,
+  RandomTeleportDiameter,
+} from './item-primitives.js'
 
 export const CONSUMABLE_ANIMATIONS = [
   'none',
@@ -18,21 +26,21 @@ export const CONSUMABLE_ANIMATIONS = [
 export type ConsumableAnimation = (typeof CONSUMABLE_ANIMATIONS)[number]
 
 export type FoodComponent = Readonly<{
-  readonly nutrition: number
-  readonly saturation: number
+  readonly nutrition: FoodNutrition
+  readonly saturation: FoodSaturation
   readonly canAlwaysEat: boolean
 }>
 
 export type ConsumableStatusEffect = Readonly<{
   readonly effectId: ResourceLocationType
-  readonly durationSecs: number
-  readonly amplifier: number
+  readonly durationSecs: EffectDurationSecs
+  readonly amplifier: EffectAmplifier
 }>
 
 export type ConsumableApplyEffects = Readonly<{
   readonly type: 'minecraft:apply_effects'
   readonly effects: ReadonlyArray<ConsumableStatusEffect>
-  readonly probability: number
+  readonly probability: FoodEffectProbability
 }>
 
 export type ConsumableRemoveEffects = Readonly<{
@@ -46,7 +54,7 @@ export type ConsumableClearAllEffects = Readonly<{
 
 export type ConsumableTeleportRandomly = Readonly<{
   readonly type: 'minecraft:teleport_randomly'
-  readonly diameter: number
+  readonly diameter: RandomTeleportDiameter
 }>
 
 export type ConsumablePlaySound = Readonly<{
@@ -70,7 +78,7 @@ export type ConsumableComponent = Readonly<{
 }>
 
 export type ConsumableComponentOptions = Readonly<{
-  readonly consumeSeconds?: number
+  readonly consumeSeconds?: ConsumeSecondsType
   readonly animation?: ConsumableAnimation
   readonly sound?: ResourceLocationType
   readonly hasConsumeParticles?: boolean

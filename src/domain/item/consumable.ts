@@ -23,6 +23,12 @@ import type { FoodStatusEffectName } from './food-data.js'
 import type { ItemType } from './item-type.js'
 import { ConsumeSeconds } from '../time/quantities.js'
 import { statusEffectId } from '../entity/status-effect-data.js'
+import {
+  EffectAmplifier,
+  EffectDurationSecs,
+  FoodEffectProbability,
+  RandomTeleportDiameter,
+} from './item-primitives.js'
 
 export {
   CONSUMABLE_ANIMATIONS,
@@ -80,20 +86,24 @@ const assertProbability = (value: number): void => {
 
 export const consumableStatusEffect = (
   effectId: ResourceLocation,
-  durationSecs: number,
-  amplifier: number,
+  durationSecs: EffectDurationSecs,
+  amplifier: EffectAmplifier,
 ): ConsumableStatusEffect => {
   assertPositive('durationSecs', durationSecs)
   assertNonNegativeInteger('amplifier', amplifier)
-  return { effectId, durationSecs, amplifier }
+  return {
+    effectId,
+    durationSecs: EffectDurationSecs(durationSecs),
+    amplifier: EffectAmplifier(amplifier),
+  }
 }
 
 export const consumableApplyEffects = (
   effects: ReadonlyArray<ConsumableStatusEffect>,
-  probability = 1,
+  probability: FoodEffectProbability = FoodEffectProbability(1),
 ): ConsumableApplyEffects => {
   assertProbability(probability)
-  return { type: 'minecraft:apply_effects', effects, probability }
+  return { type: 'minecraft:apply_effects', effects, probability: FoodEffectProbability(probability) }
 }
 
 export const consumableRemoveEffects = (
@@ -104,9 +114,11 @@ export const consumableClearAllEffects = (): ConsumableClearAllEffects => ({
   type: 'minecraft:clear_all_effects',
 })
 
-export const consumableTeleportRandomly = (diameter = 16): ConsumableTeleportRandomly => {
+export const consumableTeleportRandomly = (
+  diameter: RandomTeleportDiameter = RandomTeleportDiameter(16),
+): ConsumableTeleportRandomly => {
   assertPositive('diameter', diameter)
-  return { type: 'minecraft:teleport_randomly', diameter }
+  return { type: 'minecraft:teleport_randomly', diameter: RandomTeleportDiameter(diameter) }
 }
 
 export const consumablePlaySound = (sound: ResourceLocation): ConsumablePlaySound => ({

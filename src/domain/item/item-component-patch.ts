@@ -9,14 +9,14 @@ import {
   type JsonValue,
 } from "../text/json-value.js";
 import { isItemComponents, itemComponentsSnapshot, type ItemComponents } from "./item-components-validation.js";
-export const ItemComponentPatchConflictError: new (args: { readonly componentKey: string }) => {
+export const ItemComponentPatchConflictError: new (args: { readonly componentKey: NamespacedResourceLocation }) => {
   readonly _tag: "ItemComponentPatchConflictError";
-  readonly componentKey: string;
+  readonly componentKey: NamespacedResourceLocation;
 } = TaggedError("ItemComponentPatchConflictError");
 
 export type ItemComponentPatchDecodeError = Error | Readonly<{
   readonly _tag: "ItemComponentPatchConflictError";
-  readonly componentKey: string;
+  readonly componentKey: NamespacedResourceLocation;
 }>;
 
 /** A component key, optionally prefixed with `!` to remove that component. */
@@ -80,7 +80,7 @@ export const itemComponentPatchFromUnknown = (
     }
     const canonicalKey = key.startsWith("!") ? key.slice(1) : key;
     if (canonicalKeys.has(canonicalKey)) {
-      throw new ItemComponentPatchConflictError({ componentKey: canonicalKey });
+      throw new ItemComponentPatchConflictError({ componentKey: NamespacedResourceLocation(canonicalKey) });
     }
     canonicalKeys.add(canonicalKey);
     normalized[ItemComponentPatchKey(key)] =
@@ -143,7 +143,7 @@ export function mergeItemComponentPatches(
       const canonicalKey = removal ? key.slice(1) : key;
       const oppositeKey = removal ? canonicalKey : `!${canonicalKey}`;
       if (Object.hasOwn(merged, key) || Object.hasOwn(merged, oppositeKey)) {
-        throw new ItemComponentPatchConflictError({ componentKey: canonicalKey });
+        throw new ItemComponentPatchConflictError({ componentKey: NamespacedResourceLocation(canonicalKey) });
       }
       merged[key] = value;
     }

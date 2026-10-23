@@ -147,8 +147,11 @@ import {
   writtenBookContentComponent,
 } from '../src/domain/item/item-component-values'
 import { consumableClearAllEffects } from '../src/domain/item/consumable'
-import { ResourceLocation, TagLocation } from '../src/domain/text/identifiers'
+import { ResourceLocation, TagLocation, UUID } from '../src/domain/text/identifiers'
+import * as ItemPrimitive from '../src/domain/item/item-primitives'
 import { itemStack } from '../src/domain/item/item-stack'
+import { StackCount, MapId } from '../src/domain/time/quantities'
+import { BlockAxis } from '../src/domain/coordinates/coordinate-primitives'
 import { describe, expect, it } from 'vitest'
 
 describe('item component values', () => {
@@ -173,79 +176,93 @@ describe('item component values', () => {
     ])
     expect(potionDurationScaleComponent()).toBe(1)
     expect(additionalTradeCostComponent()).toBe(0)
-    expect(breakSoundComponent('minecraft:item.break')).toBe('minecraft:item.break')
-    expect(providesTrimMaterialComponent('minecraft:gold')).toBe('minecraft:gold')
+    expect(breakSoundComponent(ResourceLocation('minecraft:item.break'))).toBe('minecraft:item.break')
+    expect(providesTrimMaterialComponent(ResourceLocation('minecraft:gold'))).toBe('minecraft:gold')
     expect(dyeComponent('black')).toBe('black')
 
     const customData = customDataComponent({
-      text: 'value',
-      count: 2n,
+      text: ItemPrimitive.ItemComponentNbtString('value'),
+      count: ItemPrimitive.ItemComponentNbtLong(2n),
       flags: [true, false],
-      nested: { value: 1 },
+      nested: { value: ItemPrimitive.ItemComponentNbtNumber(1) },
     })
     const entityData = entityDataComponent({
-      id: 'minecraft:zombie',
-      Health: 20,
-      Pos: [1, 64, 2],
+      id: ResourceLocation('minecraft:zombie'),
+      Health: ItemPrimitive.ItemComponentNbtNumber(20),
+      Pos: [1, 64, 2].map(ItemPrimitive.ItemComponentNbtNumber),
     })
-    const bucketEntityData = bucketEntityDataComponent({ BucketVariant: 1 })
-    const blockEntityData = blockEntityDataComponent({ id: 'minecraft:chest', CustomName: 'Chest' })
+    const bucketEntityData = bucketEntityDataComponent({ BucketVariant: ItemPrimitive.ItemComponentNbtNumber(1) })
+    const blockEntityData = blockEntityDataComponent({
+      id: ResourceLocation('minecraft:chest'),
+      CustomName: ItemPrimitive.ItemComponentNbtString('Chest'),
+    })
     const bees = beesComponent([
       {
-        entityData: { id: 'minecraft:bee', Health: '20' },
-        ticksInHive: 120,
-        minTicksInHive: 60,
+        entityData: {
+          [ItemPrimitive.ItemComponentNbtKey('id')]: ItemPrimitive.ItemComponentNbtString('minecraft:bee'),
+          [ItemPrimitive.ItemComponentNbtKey('Health')]: ItemPrimitive.ItemComponentNbtString('20'),
+        },
+        ticksInHive: ItemPrimitive.BeeHiveTicks(120),
+        minTicksInHive: ItemPrimitive.BeeHiveTicks(60),
       },
     ])
     const defaultBees = beesComponent()
     const potionContents = potionContentsComponent({
-      potion: 'minecraft:strong',
-      customColor: 0x336699,
+      potion: ResourceLocation('minecraft:strong'),
+      customColor: ItemPrimitive.RgbColor(0x336699),
       customEffects: [
         {
-          id: 'minecraft:speed',
-          duration: 200,
-          amplifier: 1,
+          id: ResourceLocation('minecraft:speed'),
+          duration: ItemPrimitive.PotionEffectDurationTicks(200),
+          amplifier: ItemPrimitive.EffectAmplifier(1),
           ambient: true,
           showParticles: false,
           showIcon: false,
-          hiddenEffect: { id: 'minecraft:haste' },
+          hiddenEffect: { id: ResourceLocation('minecraft:haste') },
         },
       ],
     })
     const defaultPotionContents = potionContentsComponent()
-    const namedPotionContents = potionContentsComponent('minecraft:water')
+    const namedPotionContents = potionContentsComponent(ResourceLocation('minecraft:water'))
     const profile = profileComponent({
-      name: 'Notch',
-      id: '123e4567-e89b-12d3-a456-426614174000',
-      properties: [{ name: 'textures', value: 'encoded', signature: 'signed' }],
+      name: ItemPrimitive.ProfileName('Notch'),
+      id: UUID('123e4567-e89b-12d3-a456-426614174000'),
+      properties: [{
+        name: ItemPrimitive.ProfilePropertyName('textures'),
+        value: ItemPrimitive.ProfilePropertyValue('encoded'),
+        signature: ItemPrimitive.ProfilePropertySignature('signed'),
+      }],
     })
-    const simpleProfile = profileComponent('Notch')
-    const packedDyedColor = dyedColorComponent(0xff7f00)
-    const normalizedDyedColor = dyedColorComponent([0.5, 1, 0.2])
+    const simpleProfile = profileComponent(ItemPrimitive.ProfileName('Notch'))
+    const packedDyedColor = dyedColorComponent(ItemPrimitive.RgbColor(0xff7f00))
+    const normalizedDyedColor = dyedColorComponent([
+      ItemPrimitive.DyeColorChannel(0.5),
+      ItemPrimitive.DyeColorChannel(1),
+      ItemPrimitive.DyeColorChannel(0.2),
+    ])
     const customModelData = customModelDataComponent({
-      floats: [0.5],
+      floats: [ItemPrimitive.CustomModelDataFloat(0.5)],
       flags: [true],
-      strings: ['test_model'],
-      colors: [0xff00ff],
+      strings: [ItemPrimitive.CustomModelDataString('test_model')],
+      colors: [ItemPrimitive.RgbColor(0xff00ff)],
     })
     const defaultCustomModelData = customModelDataComponent()
-    const mapId = mapIdComponent(42)
-    const blockState = blockStateComponent({ axis: 'y' })
-    const instrument = instrumentComponent('minecraft:ponder_goat_horn')
-    const noteBlockSound = noteBlockSoundComponent('minecraft:block.note_block.harp')
-    const recipes = recipesComponent(['minecraft:stick'])
-    const lock = lockComponent('secret')
-    const tooltipStyle = tooltipStyleComponent('minecraft:tooltip/default')
+    const mapId = mapIdComponent(MapId(42))
+    const blockState = blockStateComponent({ axis: ItemPrimitive.BlockStatePropertyValue('y') })
+    const instrument = instrumentComponent(ResourceLocation('minecraft:ponder_goat_horn'))
+    const noteBlockSound = noteBlockSoundComponent(ResourceLocation('minecraft:block.note_block.harp'))
+    const recipes = recipesComponent([ResourceLocation('minecraft:stick')])
+    const lock = lockComponent(ItemPrimitive.ItemLock('secret'))
+    const tooltipStyle = tooltipStyleComponent(ResourceLocation('minecraft:tooltip/default'))
     const baseColor = baseColorComponent('red')
     const equippable = equippableComponent({
       slot: 'head',
-      equipSound: 'minecraft:item.armor.equip_diamond',
-      model: 'minecraft:diamond',
-      cameraOverlay: 'minecraft:overlay',
-      allowedEntities: ['minecraft:zombie'],
+      equipSound: ResourceLocation('minecraft:item.armor.equip_diamond'),
+      model: ResourceLocation('minecraft:diamond'),
+      cameraOverlay: ResourceLocation('minecraft:overlay'),
+      allowedEntities: [ResourceLocation('minecraft:zombie')],
       canBeSheared: true,
-      shearingSound: 'minecraft:item.shears.snip',
+      shearingSound: ResourceLocation('minecraft:item.shears.snip'),
       dispensable: false,
       swappable: false,
       damageOnHurt: false,
@@ -253,22 +270,29 @@ describe('item component values', () => {
     })
     const defaultEquippable = equippableComponent({ slot: 'saddle' })
     const kineticWeapon = kineticWeaponComponent({
-      contactCooldownTicks: 4,
-      delayTicks: 2,
-      dismountConditions: { maxDurationTicks: 3, minSpeed: 1.5, minRelativeSpeed: 0.25 },
-      knockbackConditions: { maxDurationTicks: 4 },
-      damageConditions: { maxDurationTicks: 5, minSpeed: 0.5 },
-      forwardMovement: 0.75,
-      damageMultiplier: 2,
-      sound: 'minecraft:item.trident.throw',
-      hitSound: 'minecraft:entity.player.attack.knockback',
+      contactCooldownTicks: ItemPrimitive.KineticDurationTicks(4),
+      delayTicks: ItemPrimitive.KineticDurationTicks(2),
+      dismountConditions: {
+        maxDurationTicks: ItemPrimitive.KineticDurationTicks(3),
+        minSpeed: ItemPrimitive.KineticSpeed(1.5),
+        minRelativeSpeed: ItemPrimitive.KineticSpeed(0.25),
+      },
+      knockbackConditions: { maxDurationTicks: ItemPrimitive.KineticDurationTicks(4) },
+      damageConditions: {
+        maxDurationTicks: ItemPrimitive.KineticDurationTicks(5),
+        minSpeed: ItemPrimitive.KineticSpeed(0.5),
+      },
+      forwardMovement: ItemPrimitive.KineticMovement(0.75),
+      damageMultiplier: ItemPrimitive.KineticDamageMultiplier(2),
+      sound: ResourceLocation('minecraft:item.trident.throw'),
+      hitSound: ResourceLocation('minecraft:entity.player.attack.knockback'),
     })
     const defaultKineticWeapon = kineticWeaponComponent()
     const piercingWeapon = piercingWeaponComponent({
       dealsKnockback: false,
       dismounts: true,
-      sound: 'minecraft:item.trident.hit',
-      hitSound: 'minecraft:entity.player.attack.crit',
+      sound: ResourceLocation('minecraft:item.trident.hit'),
+      hitSound: ResourceLocation('minecraft:entity.player.attack.crit'),
     })
     const defaultPiercingWeapon = piercingWeaponComponent()
     const glider = gliderComponent()
@@ -276,47 +300,50 @@ describe('item component values', () => {
       deathEffects: [consumableClearAllEffects()],
     })
     const defaultDeathProtection = deathProtectionComponent()
-    const repairable = repairableComponent('#minecraft:repairs/diamond_armor')
-    const enchantable = enchantableComponent(10)
-    const jukeboxPlayable = jukeboxPlayableComponent('minecraft:test_song')
-    const ominousBottleAmplifier = ominousBottleAmplifierComponent(4)
-    const paintingVariant = paintingVariantComponent('minecraft:kebab')
-    const sulfurCubeContent = sulfurCubeContentComponent('minecraft:green_wool')
+    const repairable = repairableComponent(TagLocation('#minecraft:repairs/diamond_armor'))
+    const enchantable = enchantableComponent(ItemPrimitive.Enchantability(10))
+    const jukeboxPlayable = jukeboxPlayableComponent(ResourceLocation('minecraft:test_song'))
+    const ominousBottleAmplifier = ominousBottleAmplifierComponent(ItemPrimitive.OminousBottleAmplifier(4))
+    const paintingVariant = paintingVariantComponent(ResourceLocation('minecraft:kebab'))
+    const sulfurCubeContent = sulfurCubeContentComponent(ResourceLocation('minecraft:green_wool'))
     const lodestoneTracker = lodestoneTrackerComponent({
-      target: { pos: [10, 64, -10], dimension: 'minecraft:overworld' },
+      target: {
+        pos: [BlockAxis(10), BlockAxis(64), BlockAxis(-10)],
+        dimension: ResourceLocation('minecraft:overworld'),
+      },
     })
     const defaultLodestoneTracker = lodestoneTrackerComponent()
     const fireworkExplosion = fireworkExplosionComponent({
       shape: 'large_ball',
-      colors: [0xff0000],
-      fadeColors: [0x00ff00],
+      colors: [ItemPrimitive.RgbColor(0xff0000)],
+      fadeColors: [ItemPrimitive.RgbColor(0x00ff00)],
       hasTrail: true,
       hasTwinkle: true,
     })
     const defaultFireworks = fireworksComponent()
     const fireworks = fireworksComponent({
       explosions: [{ shape: 'small_ball' }],
-      flightDuration: 2,
+      flightDuration: ItemPrimitive.FireworksFlightDuration(2),
     })
     const bannerPatterns = bannerPatternsComponent([
-      { pattern: 'minecraft:stripe', color: 'blue' },
+      { pattern: ResourceLocation('minecraft:stripe'), color: 'blue' },
     ])
     const defaultBannerPatterns = bannerPatternsComponent()
     const potDecorations = potDecorationsComponent()
     const customPotDecorations = potDecorationsComponent([
-      'minecraft:brick',
-      'minecraft:heart_pottery_sherd',
-      'minecraft:arms_up_pottery_sherd',
-      'minecraft:skull_pottery_sherd',
+      ResourceLocation('minecraft:brick'),
+      ResourceLocation('minecraft:heart_pottery_sherd'),
+      ResourceLocation('minecraft:arms_up_pottery_sherd'),
+      ResourceLocation('minecraft:skull_pottery_sherd'),
     ])
     const containerLoot = containerLootComponent({
-      lootTable: 'minecraft:chests/simple_dungeon',
-      seed: 42n,
+      lootTable: ResourceLocation('minecraft:chests/simple_dungeon'),
+      seed: ItemPrimitive.LootTableSeed(42n),
     })
     const containerLootWithoutSeed = containerLootComponent({
-      lootTable: 'minecraft:chests/simple_dungeon',
+      lootTable: ResourceLocation('minecraft:chests/simple_dungeon'),
     })
-    const debugStickState = debugStickStateComponent({ 'minecraft:oak_log': 'axis' })
+    const debugStickState = debugStickStateComponent({ 'minecraft:oak_log': ItemPrimitive.BlockStatePropertyValue('axis') })
     const defaultDebugStickState = debugStickStateComponent()
 
     expect(customData).toEqual({
@@ -548,12 +575,15 @@ describe('item component values', () => {
     expect(Object.isFrozen(debugStickState)).toBe(true)
     expect(defaultDebugStickState).toEqual({})
 
-    const tag = providesBannerPatternsComponent('#minecraft:pattern_item')
-    const location = providesBannerPatternsComponent('minecraft:pattern_item')
-    const locations = providesBannerPatternsComponent(['minecraft:pattern_item', 'minecraft:other'])
+    const tag = providesBannerPatternsComponent(TagLocation('#minecraft:pattern_item'))
+    const location = providesBannerPatternsComponent(ResourceLocation('minecraft:pattern_item'))
+    const locations = providesBannerPatternsComponent([
+      ResourceLocation('minecraft:pattern_item'),
+      ResourceLocation('minecraft:other'),
+    ])
     const tooltip = tooltipDisplayComponent({
       hideTooltip: true,
-      hiddenComponents: ['minecraft:food'],
+      hiddenComponents: [ResourceLocation('minecraft:food')],
     })
 
     if (typeof tag === 'string') {
@@ -577,26 +607,34 @@ describe('item component values', () => {
     expect(mapColorComponent()).toBe(4603950)
 
     const mapDecorations = mapDecorationsComponent({
-      spawn: { type: 'player', x: 1.5, z: -2.25, rotation: 3.5 },
+      spawn: {
+        type: 'player',
+        x: ItemPrimitive.MapDecorationCoordinate(1),
+        z: ItemPrimitive.MapDecorationCoordinate(-2),
+        rotation: ItemPrimitive.MapDecorationRotation(3),
+      },
     })
     expect(mapDecorations).toEqual({
-      spawn: { type: 'player', x: 1.5, z: -2.25, rotation: 3.5 },
+      spawn: { type: 'player', x: 1, z: -2, rotation: 3 },
     })
     expect(Object.isFrozen(mapDecorations)).toBe(true)
     expect(Object.isFrozen(mapDecorations['spawn'])).toBe(true)
 
-    const arrowStack = itemStack('arrow', 1)
+    const arrowStack = itemStack('arrow', StackCount(1))
     expect(chargedProjectilesComponent([arrowStack])).toEqual([arrowStack])
     expect(bundleContentsComponent([arrowStack])).toEqual([arrowStack])
-    expect(containerComponent([{ slot: 2, item: arrowStack }])).toEqual([
+    expect(containerComponent([{ slot: ItemPrimitive.ContainerSlotIndex(2), item: arrowStack }])).toEqual([
       { slot: 2, item: arrowStack },
     ])
 
     const writableBookContent = writableBookContentComponent({
       pages: [
-        'Page one',
-        { raw: 'Page two', filtered: 'Filtered page two' },
-        { raw: 'Page without a filter' },
+        ItemPrimitive.BookPageText('Page one'),
+        {
+          raw: ItemPrimitive.BookPageText('Page two'),
+          filtered: ItemPrimitive.BookPageText('Filtered page two'),
+        },
+        { raw: ItemPrimitive.BookPageText('Page without a filter') },
       ],
     })
     expect(writableBookContent).toEqual({
@@ -610,10 +648,19 @@ describe('item component values', () => {
     expect(Object.isFrozen(writableBookContent.pages)).toBe(true)
 
     const writtenBookContent = writtenBookContentComponent({
-      pages: ['"Hello world!"', { raw: '"A second page"', filtered: '"Filtered page"' }],
-      title: { raw: '"A delightful read"', filtered: '"Filtered title"' },
-      author: 'Alex',
-      generation: 0,
+      pages: [
+        ItemPrimitive.BookPageText('"Hello world!"'),
+        {
+          raw: ItemPrimitive.BookPageText('"A second page"'),
+          filtered: ItemPrimitive.BookPageText('"Filtered page"'),
+        },
+      ],
+      title: {
+        raw: ItemPrimitive.BookPageText('"A delightful read"'),
+        filtered: ItemPrimitive.BookPageText('"Filtered title"'),
+      },
+      author: ItemPrimitive.BookAuthor('Alex'),
+      generation: ItemPrimitive.BookGeneration(0),
       resolved: false,
     })
     expect(writtenBookContent).toEqual({
@@ -629,15 +676,17 @@ describe('item component values', () => {
 
     const trim = trimComponent({
       pattern: {
-        assetId: 'minecraft:sentry',
+        assetId: ResourceLocation('minecraft:sentry'),
         description: { text: 'Sentry' },
         decal: false,
       },
       material: {
-        assetName: 'iron',
+        assetName: ItemPrimitive.TrimAssetName('iron'),
         ingredient: 'iron_ingot',
-        itemModelIndex: 0.5,
-        overrideArmorMaterials: { diamond: 'minecraft:diamond' },
+        itemModelIndex: ItemPrimitive.TrimItemModelIndex(0.5),
+        overrideArmorMaterials: {
+          [ItemPrimitive.TrimArmorMaterialKey('diamond')]: ResourceLocation('minecraft:diamond'),
+        },
         description: { text: 'Iron' },
       },
     })
@@ -663,8 +712,8 @@ describe('item component values', () => {
     }
 
     const suspiciousStew = suspiciousStewComponent([
-      { id: 'minecraft:night_vision' },
-      { id: 'minecraft:poison', duration: 40 },
+      { id: ResourceLocation('minecraft:night_vision') },
+      { id: ResourceLocation('minecraft:poison'), duration: ItemPrimitive.PotionEffectDurationTicks(40) },
     ])
     expect(suspiciousStew).toEqual([
       { id: 'minecraft:night_vision', duration: 160 },
@@ -676,9 +725,9 @@ describe('item component values', () => {
     expect(hideAdditionalTooltipComponent()).toEqual({})
 
     const canBreak = canBreakComponent({
-      blocks: 'minecraft:dirt',
-      state: { axis: 'y' },
-      nbt: { foo: 'bar' },
+      blocks: ResourceLocation('minecraft:dirt'),
+      state: { axis: ItemPrimitive.BlockStatePropertyValue('y') },
+      nbt: { foo: ItemPrimitive.ItemComponentNbtString('bar') },
     })
     expect(canBreak).toEqual({
       blocks: 'minecraft:dirt',
@@ -692,7 +741,7 @@ describe('item component values', () => {
     }
 
     const canPlaceOn = canPlaceOnComponent([
-      { blocks: ['#minecraft:grass', 'minecraft:dirt'] },
+      { blocks: [TagLocation('#minecraft:grass'), ResourceLocation('minecraft:dirt')] },
     ])
     expect(canPlaceOn).toEqual([
       { blocks: ['#minecraft:grass', 'minecraft:dirt'] },
@@ -778,15 +827,15 @@ describe('item component values', () => {
     expect(isEntityDataOptions({ id: 'minecraft:zombie' })).toBe(true)
     expect(isEntityDataOptions({})).toBe(false)
     expect(isEntityDataOptions({ id: 'INVALID!', value: 1 })).toBe(false)
-    expect(isEntityDataComponent(entityDataComponent({ id: 'minecraft:zombie' }))).toBe(true)
+    expect(isEntityDataComponent(entityDataComponent({ id: ResourceLocation('minecraft:zombie') }))).toBe(true)
     expect(isEntityDataComponent({ id: 'INVALID!' })).toBe(false)
     expect(isBucketEntityDataOptions({})).toBe(true)
     expect(isBucketEntityDataOptions({ value: Symbol() })).toBe(false)
-    expect(isBucketEntityDataComponent(bucketEntityDataComponent({ BucketVariant: 1 }))).toBe(true)
+    expect(isBucketEntityDataComponent(bucketEntityDataComponent({ BucketVariant: ItemPrimitive.ItemComponentNbtNumber(1) }))).toBe(true)
     expect(isBucketEntityDataComponent([])).toBe(false)
     expect(isBlockEntityDataOptions({ id: 'minecraft:chest' })).toBe(true)
     expect(isBlockEntityDataOptions({})).toBe(false)
-    expect(isBlockEntityDataComponent(blockEntityDataComponent({ id: 'minecraft:chest' }))).toBe(true)
+    expect(isBlockEntityDataComponent(blockEntityDataComponent({ id: ResourceLocation('minecraft:chest') }))).toBe(true)
     expect(isBeesOptions([])).toBe(true)
     expect(
       isBeesOptions([{ entityData: { id: 'minecraft:bee' }, ticksInHive: 0, minTicksInHive: 0 }]),
@@ -799,7 +848,7 @@ describe('item component values', () => {
       isBeesOptions([{ entityData: { id: 1 }, ticksInHive: 0, minTicksInHive: 0 }]),
     ).toBe(false)
     expect(isBeesComponent({})).toBe(false)
-    const arrowStack = itemStack('arrow', 1)
+    const arrowStack = itemStack('arrow', StackCount(1))
     expect(isChargedProjectilesOptions([arrowStack])).toBe(true)
     expect(isChargedProjectilesOptions([{}])).toBe(false)
     expect(isChargedProjectilesComponent(chargedProjectilesComponent([arrowStack]))).toBe(true)
@@ -811,7 +860,7 @@ describe('item component values', () => {
     expect(isContainerOptions([{ slot: 0, item: arrowStack }])).toBe(true)
     expect(isContainerOptions([null])).toBe(false)
     expect(isContainerOptions([{}])).toBe(false)
-    expect(isContainerComponent(containerComponent([{ slot: 0, item: arrowStack }]))).toBe(true)
+    expect(isContainerComponent(containerComponent([{ slot: ItemPrimitive.ContainerSlotIndex(0), item: arrowStack }]))).toBe(true)
     expect(isContainerComponent({})).toBe(false)
     expect(isPotionContentsOptions('minecraft:water')).toBe(true)
     expect(isPotionContentsOptions({ customEffects: [{ id: 'minecraft:speed' }] })).toBe(true)
@@ -838,22 +887,28 @@ describe('item component values', () => {
     expect(
       isProfileComponent(
         profileComponent({
-          name: 'Notch',
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          properties: [{ name: 'textures', value: 'encoded' }],
+          name: ItemPrimitive.ProfileName('Notch'),
+          id: UUID('123e4567-e89b-12d3-a456-426614174000'),
+          properties: [{
+            name: ItemPrimitive.ProfilePropertyName('textures'),
+            value: ItemPrimitive.ProfilePropertyValue('encoded'),
+          }],
         }),
       ),
     ).toBe(true)
     expect(isProfileComponent({ id: 'bad' })).toBe(false)
     expect(profileComponent({})).toEqual({})
-    expect(profileComponent({ name: 'Notch' })).toEqual({ name: 'Notch' })
-    expect(profileComponent({ id: '123e4567-e89b-12d3-a456-426614174000' })).toEqual({
+    expect(profileComponent({ name: ItemPrimitive.ProfileName('Notch') })).toEqual({ name: 'Notch' })
+    expect(profileComponent({ id: UUID('123e4567-e89b-12d3-a456-426614174000') })).toEqual({
       id: '123e4567-e89b-12d3-a456-426614174000',
     })
-    expect(profileComponent({ properties: [{ name: 'textures', value: 'encoded' }] })).toEqual({
+    expect(profileComponent({ properties: [{
+      name: ItemPrimitive.ProfilePropertyName('textures'),
+      value: ItemPrimitive.ProfilePropertyValue('encoded'),
+    }] })).toEqual({
       properties: [{ name: 'textures', value: 'encoded' }],
     })
-    expect(isProfileComponent(profileComponent('Notch'))).toBe(true)
+    expect(isProfileComponent(profileComponent(ItemPrimitive.ProfileName('Notch')))).toBe(true)
 
     expect(isDyedColorComponent(0)).toBe(true)
     expect(isDyedColorComponent(0xffffff)).toBe(true)
@@ -869,10 +924,10 @@ describe('item component values', () => {
     expect(isDyedColorComponent('red')).toBe(false)
 
     const customModelData = customModelDataComponent({
-      floats: [0.5],
+      floats: [ItemPrimitive.CustomModelDataFloat(0.5)],
       flags: [true],
-      strings: ['test_model'],
-      colors: [0xff00ff],
+      strings: [ItemPrimitive.CustomModelDataString('test_model')],
+      colors: [ItemPrimitive.RgbColor(0xff00ff)],
     })
     expect(isCustomModelDataOptions({})).toBe(true)
     expect(isCustomModelDataOptions(customModelData)).toBe(true)
@@ -899,7 +954,12 @@ describe('item component values', () => {
     expect(isMapDecorationsOptions({})).toBe(true)
     expect(
       isMapDecorationsOptions({
-        spawn: { type: 'player', x: 1, z: 2, rotation: 0 },
+      spawn: {
+        type: 'player',
+        x: ItemPrimitive.MapDecorationCoordinate(1),
+        z: ItemPrimitive.MapDecorationCoordinate(2),
+        rotation: ItemPrimitive.MapDecorationRotation(0),
+      },
       }),
     ).toBe(true)
     expect(
@@ -925,10 +985,10 @@ describe('item component values', () => {
     expect(isWritableBookContentComponent({})).toBe(false)
 
     const writtenBookOptions = {
-      pages: ['"Page"'],
-      title: '"Title"',
-      author: 'Alex',
-      generation: 0,
+      pages: [ItemPrimitive.BookPageText('"Page"')],
+      title: ItemPrimitive.BookPageText('"Title"'),
+      author: ItemPrimitive.BookAuthor('Alex'),
+      generation: ItemPrimitive.BookGeneration(0),
       resolved: false,
     }
     expect(isWrittenBookContentOptions(writtenBookOptions)).toBe(true)
@@ -946,11 +1006,15 @@ describe('item component values', () => {
       }),
     ).toBe(false)
     const inlineTrim = trimComponent({
-      pattern: { assetId: 'minecraft:sentry', description: { text: 'Sentry' }, decal: false },
+      pattern: {
+        assetId: ResourceLocation('minecraft:sentry'),
+        description: { text: 'Sentry' },
+        decal: false,
+      },
       material: {
-        assetName: 'iron',
+        assetName: ItemPrimitive.TrimAssetName('iron'),
         ingredient: 'iron_ingot',
-        itemModelIndex: 0.5,
+        itemModelIndex: ItemPrimitive.TrimItemModelIndex(0.5),
         description: { text: 'Iron' },
       },
     })
@@ -983,10 +1047,10 @@ describe('item component values', () => {
     expect(isCanBreakOptions({ state: { axis: 1 } })).toBe(false)
     expect(isCanPlaceOnOptions({ blocks: 'minecraft:dirt' })).toBe(true)
     expect(
-      isCanBreakComponent(canBreakComponent({ blocks: 'minecraft:dirt' })),
+      isCanBreakComponent(canBreakComponent({ blocks: ResourceLocation('minecraft:dirt') })),
     ).toBe(true)
     expect(
-      isCanPlaceOnComponent(canPlaceOnComponent({ blocks: 'minecraft:dirt' })),
+      isCanPlaceOnComponent(canPlaceOnComponent({ blocks: ResourceLocation('minecraft:dirt') })),
     ).toBe(true)
     expect(isCanBreakComponent({ predicates: [], showInTooltip: true })).toBe(false)
 
@@ -1053,9 +1117,21 @@ describe('item component values', () => {
     expect(
       isKineticWeaponComponent(
         kineticWeaponComponent({
-          dismountConditions: { maxDurationTicks: 1, minSpeed: 0, minRelativeSpeed: 0 },
-          knockbackConditions: { maxDurationTicks: 2, minSpeed: 0, minRelativeSpeed: 0 },
-          damageConditions: { maxDurationTicks: 3, minSpeed: 0, minRelativeSpeed: 0 },
+          dismountConditions: {
+            maxDurationTicks: ItemPrimitive.KineticDurationTicks(1),
+            minSpeed: ItemPrimitive.KineticSpeed(0),
+            minRelativeSpeed: ItemPrimitive.KineticSpeed(0),
+          },
+          knockbackConditions: {
+            maxDurationTicks: ItemPrimitive.KineticDurationTicks(2),
+            minSpeed: ItemPrimitive.KineticSpeed(0),
+            minRelativeSpeed: ItemPrimitive.KineticSpeed(0),
+          },
+          damageConditions: {
+            maxDurationTicks: ItemPrimitive.KineticDurationTicks(3),
+            minSpeed: ItemPrimitive.KineticSpeed(0),
+            minRelativeSpeed: ItemPrimitive.KineticSpeed(0),
+          },
         }),
       ),
     ).toBe(true)
@@ -1084,17 +1160,17 @@ describe('item component values', () => {
     expect(isDeathProtectionComponent(deathProtectionComponent())).toBe(true)
     expect(isDeathProtectionComponent({ deathEffects: [{}] })).toBe(false)
 
-    expect(isRepairableComponent(repairableComponent('minecraft:diamond'))).toBe(true)
+    expect(isRepairableComponent(repairableComponent(ResourceLocation('minecraft:diamond')))).toBe(true)
     expect(isRepairableComponent({ items: 'INVALID!' })).toBe(false)
 
     expect(isEnchantableValue(1)).toBe(true)
     expect(isEnchantableValue(0)).toBe(false)
     expect(isEnchantableValue(1.5)).toBe(false)
     expect(isEnchantableValue(Infinity)).toBe(false)
-    expect(isEnchantableComponent(enchantableComponent(1))).toBe(true)
+    expect(isEnchantableComponent(enchantableComponent(ItemPrimitive.Enchantability(1)))).toBe(true)
     expect(isEnchantableComponent({ value: 0 })).toBe(false)
 
-    expect(isJukeboxPlayableComponent(jukeboxPlayableComponent('minecraft:test_song'))).toBe(true)
+    expect(isJukeboxPlayableComponent(jukeboxPlayableComponent(ResourceLocation('minecraft:test_song')))).toBe(true)
     expect(isJukeboxPlayableComponent({ song: 'INVALID!' })).toBe(false)
 
     expect(isOminousBottleAmplifierComponent(0)).toBe(true)
@@ -1107,7 +1183,7 @@ describe('item component values', () => {
     expect(isPaintingVariantComponent('INVALID!')).toBe(false)
     expect(isSulfurCubeContentOptions('minecraft:green_wool')).toBe(true)
     expect(isSulfurCubeContentOptions('INVALID!')).toBe(false)
-    expect(isSulfurCubeContentComponent(sulfurCubeContentComponent('minecraft:green_wool'))).toBe(true)
+    expect(isSulfurCubeContentComponent(sulfurCubeContentComponent(ResourceLocation('minecraft:green_wool')))).toBe(true)
     expect(isSulfurCubeContentComponent('INVALID!')).toBe(false)
 
     expect(isLodestoneTrackerOptions({})).toBe(true)
@@ -1128,7 +1204,10 @@ describe('item component values', () => {
     expect(isLodestoneTrackerComponent({ tracked: true })).toBe(true)
     expect(
       isLodestoneTrackerComponent({
-        target: { pos: [0, 64, 0], dimension: ResourceLocation('minecraft:overworld') },
+        target: {
+          pos: [BlockAxis(0), BlockAxis(64), BlockAxis(0)],
+          dimension: ResourceLocation('minecraft:overworld'),
+        },
         tracked: false,
       }),
     ).toBe(true)
@@ -1274,28 +1353,32 @@ describe('item component values', () => {
     expect(() => Reflect.apply(potionDurationScaleComponent, undefined, ['1'])).toThrow()
     expect(() => Reflect.apply(additionalTradeCostComponent, undefined, [1.5])).toThrow()
     expect(() => Reflect.apply(additionalTradeCostComponent, undefined, ['1'])).toThrow()
-    expect(() => breakSoundComponent('INVALID!')).toThrow()
-    expect(() => providesTrimMaterialComponent('INVALID!')).toThrow()
+    expect(() => Reflect.apply(breakSoundComponent, undefined, ['INVALID!'])).toThrow()
+    expect(() => Reflect.apply(providesTrimMaterialComponent, undefined, ['INVALID!'])).toThrow()
     expect(() => Reflect.apply(providesBannerPatternsComponent, undefined, ['INVALID!'])).toThrow()
     expect(() => Reflect.apply(providesBannerPatternsComponent, undefined, [[]])).not.toThrow()
-    expect(() => providesBannerPatternsComponent(['#minecraft:pattern_item'])).toThrow(TypeError)
+    expect(() => Reflect.apply(providesBannerPatternsComponent, undefined, [['#minecraft:pattern_item']])).toThrow(TypeError)
     expect(() =>
-      providesBannerPatternsComponent(['minecraft:pattern_item', 'INVALID!']),
+      Reflect.apply(providesBannerPatternsComponent, undefined, [['minecraft:pattern_item', 'INVALID!']]),
     ).toThrow()
     expect(() => Reflect.apply(providesBannerPatternsComponent, undefined, [1])).toThrow(TypeError)
-    expect(() => dyeComponent('teal')).toThrow(RangeError)
+    expect(() => Reflect.apply(dyeComponent, undefined, ['teal'])).toThrow(RangeError)
     expect(() => Reflect.apply(customDataComponent, undefined, [{}])).toThrow(TypeError)
     expect(() => Reflect.apply(customDataComponent, undefined, [null])).toThrow(TypeError)
     expect(() => Reflect.apply(customDataComponent, undefined, [{ value: new Date() }])).toThrow(TypeError)
     expect(() => Reflect.apply(entityDataComponent, undefined, [{ Health: 20 }])).toThrow(TypeError)
     expect(() => Reflect.apply(bucketEntityDataComponent, undefined, [{ value: Symbol() }])).toThrow(TypeError)
-    expect(() => profileComponent('invalid name')).toThrow(TypeError)
+    expect(() => Reflect.apply(profileComponent, undefined, ['invalid name'])).toThrow(TypeError)
     expect(() => Reflect.apply(profileComponent, undefined, [{ id: 'bad' }])).toThrow(TypeError)
     expect(() => Reflect.apply(blockEntityDataComponent, undefined, [{ id: 'INVALID!' }])).toThrow(TypeError)
-    expect(() => beesComponent([{ entityData: { id: 'minecraft:bee' }, ticksInHive: -1, minTicksInHive: 0 }])).toThrow(
+    expect(() => Reflect.apply(beesComponent, undefined, [[{
+      entityData: { id: 'minecraft:bee' },
+      ticksInHive: -1,
+      minTicksInHive: 0,
+    }]])).toThrow(
       TypeError,
     )
-    expect(() => potionContentsComponent({ customEffects: [{ id: 'INVALID!' }] })).toThrow(TypeError)
+    expect(() => Reflect.apply(potionContentsComponent, undefined, [{ customEffects: [{ id: 'INVALID!' }] }])).toThrow(TypeError)
     expect(() => Reflect.apply(dyedColorComponent, undefined, [0x1000000])).toThrow(RangeError)
     expect(() => Reflect.apply(dyedColorComponent, undefined, [[0, 0.5]])).toThrow(RangeError)
     expect(() => Reflect.apply(customModelDataComponent, undefined, [{ floats: [Infinity] }])).toThrow(TypeError)
@@ -1305,35 +1388,35 @@ describe('item component values', () => {
     expect(() => Reflect.apply(mapDecorationsComponent, undefined, [{
       spawn: { type: 'invalid', x: 0, z: 0, rotation: 0 },
     }])).toThrow(TypeError)
-    expect(() => writtenBookContentComponent({
+    expect(() => Reflect.apply(writtenBookContentComponent, undefined, [{
       pages: ['not-json'],
       title: '"Title"',
       author: 'Alex',
       generation: 0,
       resolved: false,
-    })).toThrow(TypeError)
+    }])).toThrow(TypeError)
     expect(() => Reflect.apply(chargedProjectilesComponent, undefined, [[{}]])).toThrow(TypeError)
     expect(() => Reflect.apply(bundleContentsComponent, undefined, [[{}]])).toThrow(TypeError)
     expect(() => Reflect.apply(containerComponent, undefined, [[{}]])).toThrow(TypeError)
     expect(() => Reflect.apply(writableBookContentComponent, undefined, [{ pages: [{ raw: 'Page', extra: true }] }])).toThrow(
       TypeError,
     )
-    expect(() => trimComponent({ pattern: 'INVALID!', material: 'minecraft:iron' })).toThrow(TypeError)
-    expect(() => suspiciousStewComponent([{ id: 'INVALID!' }])).toThrow(TypeError)
-    expect(() => canBreakComponent({ blocks: 'INVALID!' })).toThrow(TypeError)
+    expect(() => Reflect.apply(trimComponent, undefined, [{ pattern: 'INVALID!', material: 'minecraft:iron' }])).toThrow(TypeError)
+    expect(() => Reflect.apply(suspiciousStewComponent, undefined, [[{ id: 'INVALID!' }]])).toThrow(TypeError)
+    expect(() => Reflect.apply(canBreakComponent, undefined, [{ blocks: 'INVALID!' }])).toThrow(TypeError)
     expect(() => Reflect.apply(canPlaceOnComponent, undefined, [{ blocks: 'INVALID!' }])).toThrow(
       TypeError,
     )
     expect(() => Reflect.apply(blockStateComponent, undefined, [{ axis: 1 }])).toThrow(TypeError)
-    expect(() => instrumentComponent('INVALID!')).toThrow(TypeError)
-    expect(() => noteBlockSoundComponent('INVALID!')).toThrow(TypeError)
+    expect(() => Reflect.apply(instrumentComponent, undefined, ['INVALID!'])).toThrow(TypeError)
+    expect(() => Reflect.apply(noteBlockSoundComponent, undefined, ['INVALID!'])).toThrow(TypeError)
     expect(() => Reflect.apply(recipesComponent, undefined, [['INVALID!']])).toThrow(TypeError)
     expect(() => Reflect.apply(lockComponent, undefined, [1])).toThrow(TypeError)
-    expect(() => tooltipStyleComponent('INVALID!')).toThrow(TypeError)
+    expect(() => Reflect.apply(tooltipStyleComponent, undefined, ['INVALID!'])).toThrow(TypeError)
     expect(() => Reflect.apply(baseColorComponent, undefined, ['teal'])).toThrow(TypeError)
     expect(() => Reflect.apply(equippableComponent, undefined, [{ slot: 'invalid' }])).toThrow(TypeError)
     expect(() => Reflect.apply(equippableComponent, undefined, [null])).toThrow(TypeError)
-    expect(() => equippableComponent({ slot: 'head', allowedEntities: ['#minecraft:undead'] })).toThrow(
+    expect(() => Reflect.apply(equippableComponent, undefined, [{ slot: 'head', allowedEntities: ['#minecraft:undead'] }])).toThrow(
       TypeError,
     )
     expect(() => Reflect.apply(kineticWeaponComponent, undefined, [{ contactCooldownTicks: -1 }])).toThrow(TypeError)
@@ -1341,15 +1424,15 @@ describe('item component values', () => {
     expect(() => Reflect.apply(piercingWeaponComponent, undefined, [{ dealsKnockback: 'yes' }])).toThrow(TypeError)
     expect(() => Reflect.apply(deathProtectionComponent, undefined, [{ deathEffects: [{}] }])).toThrow(TypeError)
     expect(() => Reflect.apply(deathProtectionComponent, undefined, [null])).toThrow(TypeError)
-    expect(() => repairableComponent('INVALID!')).toThrow(TypeError)
-    expect(() => repairableComponent(['#minecraft:repairs/diamond_armor'])).toThrow(TypeError)
-    expect(() => enchantableComponent(0)).toThrow(RangeError)
+    expect(() => Reflect.apply(repairableComponent, undefined, ['INVALID!'])).toThrow(TypeError)
+    expect(() => Reflect.apply(repairableComponent, undefined, [['#minecraft:repairs/diamond_armor']])).toThrow(TypeError)
+    expect(() => Reflect.apply(enchantableComponent, undefined, [0])).toThrow(RangeError)
     expect(() => Reflect.apply(enchantableComponent, undefined, [1.5])).toThrow(RangeError)
-    expect(() => jukeboxPlayableComponent('INVALID!')).toThrow(TypeError)
-    expect(() => ominousBottleAmplifierComponent(-1)).toThrow(RangeError)
-    expect(() => ominousBottleAmplifierComponent(5)).toThrow(RangeError)
-    expect(() => paintingVariantComponent('INVALID!')).toThrow(TypeError)
-    expect(() => sulfurCubeContentComponent('INVALID!')).toThrow(TypeError)
+    expect(() => Reflect.apply(jukeboxPlayableComponent, undefined, ['INVALID!'])).toThrow(TypeError)
+    expect(() => Reflect.apply(ominousBottleAmplifierComponent, undefined, [-1])).toThrow(RangeError)
+    expect(() => Reflect.apply(ominousBottleAmplifierComponent, undefined, [5])).toThrow(RangeError)
+    expect(() => Reflect.apply(paintingVariantComponent, undefined, ['INVALID!'])).toThrow(TypeError)
+    expect(() => Reflect.apply(sulfurCubeContentComponent, undefined, ['INVALID!'])).toThrow(TypeError)
     expect(() =>
       Reflect.apply(lodestoneTrackerComponent, undefined, [{ target: { pos: [0, 64], dimension: 'minecraft:overworld' } }]),
     ).toThrow(TypeError)
@@ -1359,7 +1442,7 @@ describe('item component values', () => {
       Reflect.apply(bannerPatternsComponent, undefined, [[{ pattern: 'INVALID!', color: 'blue' }]]),
     ).toThrow(TypeError)
     expect(() => Reflect.apply(potDecorationsComponent, undefined, [['minecraft:brick']])).toThrow(TypeError)
-    expect(() => containerLootComponent({ lootTable: 'INVALID!' })).toThrow(TypeError)
+    expect(() => Reflect.apply(containerLootComponent, undefined, [{ lootTable: 'INVALID!' }])).toThrow(TypeError)
     expect(() => Reflect.apply(debugStickStateComponent, undefined, [{ INVALID: 'axis' }])).toThrow(TypeError)
     expect(() => Reflect.apply(tooltipDisplayComponent, undefined, [null])).toThrow(TypeError)
     expect(() => Reflect.apply(tooltipDisplayComponent, undefined, [[]])).toThrow(TypeError)

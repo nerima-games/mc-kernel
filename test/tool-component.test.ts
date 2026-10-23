@@ -13,10 +13,11 @@ import {
 import type { BlockType } from '../src/domain/block/block-type'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
+import { ToolDurabilityDamage, ToolMiningSpeed } from '../src/domain/item/item-primitives'
 
 const COMPONENT_WITH_DEFAULTS: ToolComponent = {
   rules: [],
-  damagePerBlock: 1,
+  damagePerBlock: ToolDurabilityDamage(1),
 }
 
 describe('minecraft:tool component', () => {
@@ -30,11 +31,11 @@ describe('minecraft:tool component', () => {
     Effect.runPromise(Effect.sync(() => {
       const component: ToolComponent = {
         rules: [
-          { blocks: 'stone', speed: 2 },
-          { blocks: '#minecraft:mineable/pickaxe', speed: 5, correctForDrops: true },
-          { blocks: ['grass_block'], speed: 7 },
+          { blocks: 'stone', speed: ToolMiningSpeed(2) },
+          { blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(5), correctForDrops: true },
+          { blocks: ['grass_block'], speed: ToolMiningSpeed(7) },
         ],
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
       }
       const context: ToolResolutionContext = {
         blockTags: new Map([
@@ -46,7 +47,7 @@ describe('minecraft:tool component', () => {
       expect(resolveToolMiningProperties(component, 'dirt', context)).toStrictEqual({
         miningSpeed: 5,
         correctForDrops: true,
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
         canDestroyBlocksInCreative: true,
       })
       expect(resolveToolMiningProperties(component, 'grass_block', context).miningSpeed).toBe(7)
@@ -57,11 +58,11 @@ describe('minecraft:tool component', () => {
   it('compiles an immutable component snapshot for repeated resolution', () =>
     Effect.runPromise(Effect.sync(() => {
       const rules: ToolRule[] = [
-        { blocks: 'stone', speed: 2 },
-        { blocks: '#minecraft:mineable/pickaxe', speed: 5, correctForDrops: true },
+        { blocks: 'stone', speed: ToolMiningSpeed(2) },
+        { blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(5), correctForDrops: true },
         { blocks: 'grass_block' },
       ]
-      const component: ToolComponent = { rules, damagePerBlock: 1 }
+      const component: ToolComponent = { rules, damagePerBlock: ToolDurabilityDamage(1) }
       const context: ToolResolutionContext = {
         blockTags: new Map([
           ['#minecraft:mineable/pickaxe', new Set<BlockType>(['dirt'])],
@@ -69,7 +70,7 @@ describe('minecraft:tool component', () => {
       }
       const compiled = compileToolComponent(component)
 
-      rules[0] = { blocks: 'dirt', speed: 8 }
+      rules[0] = { blocks: 'dirt', speed: ToolMiningSpeed(8) }
 
       expect(Object.isFrozen(compiled)).toBe(true)
       expect(Object.isFrozen(compiled.rules)).toBe(true)
@@ -79,20 +80,20 @@ describe('minecraft:tool component', () => {
       expect(resolveToolMiningProperties(compiled, 'stone', context)).toStrictEqual({
         miningSpeed: 2,
         correctForDrops: false,
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
         canDestroyBlocksInCreative: true,
       })
       expect(resolveToolMiningProperties(compiled, 'dirt', context)).toStrictEqual({
         miningSpeed: 5,
         correctForDrops: true,
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
         canDestroyBlocksInCreative: true,
       })
       expect(resolveToolMiningProperties(compiled, 'grass_block', context).miningSpeed).toBe(1)
       expect(resolveToolMiningProperties(compiled, 'grass_block', { blockTags: new Map() }).miningSpeed).toBe(1)
       expect(
         resolveToolMiningProperties(
-          compileToolComponent({ rules: [{ blocks: 'grass_block' }], damagePerBlock: 0 }),
+          compileToolComponent({ rules: [{ blocks: 'grass_block' }], damagePerBlock: ToolDurabilityDamage(0) }),
           'grass_block',
         ),
       ).toStrictEqual({
@@ -114,19 +115,19 @@ describe('minecraft:tool component', () => {
       }
       const tagFirst = compileToolComponent({
         rules: [
-          { blocks: '#minecraft:mineable/pickaxe', speed: 7 },
-          { blocks: 'stone', speed: 11 },
-          { blocks: '#minecraft:mineable/pickaxe', speed: 13 },
+          { blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(7) },
+          { blocks: 'stone', speed: ToolMiningSpeed(11) },
+          { blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(13) },
         ],
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
       })
       const directFirst = compileToolComponent({
         rules: [
-          { blocks: 'stone', speed: 11 },
-          { blocks: '#minecraft:mineable/pickaxe', speed: 7 },
-          { blocks: 'stone', speed: 17 },
+          { blocks: 'stone', speed: ToolMiningSpeed(11) },
+          { blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(7) },
+          { blocks: 'stone', speed: ToolMiningSpeed(17) },
         ],
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
       })
 
       expect(resolveToolMiningProperties(tagFirst, 'stone', context).miningSpeed).toBe(7)
@@ -137,8 +138,8 @@ describe('minecraft:tool component', () => {
   it('requires explicit tag memberships and treats an empty registry as no match', () =>
     Effect.runPromise(Effect.sync(() => {
       const component: ToolComponent = {
-        rules: [{ blocks: '#minecraft:mineable/pickaxe', speed: 5 }],
-        damagePerBlock: 1,
+        rules: [{ blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(5) }],
+        damagePerBlock: ToolDurabilityDamage(1),
       }
 
       expect(() => resolveToolMiningProperties(component, 'stone')).toThrow(
@@ -147,7 +148,7 @@ describe('minecraft:tool component', () => {
       expect(resolveToolMiningProperties(component, 'stone', { blockTags: new Map() })).toStrictEqual({
         miningSpeed: 1,
         correctForDrops: false,
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
         canDestroyBlocksInCreative: true,
       })
     })),
@@ -157,12 +158,12 @@ describe('minecraft:tool component', () => {
     Effect.runPromise(Effect.sync(() => {
       const component: ToolComponent = {
         rules: [
-          { blocks: ['stone'], speed: 6, correctForDrops: true },
-          { blocks: ['stone'], speed: 12, correctForDrops: false },
+          { blocks: ['stone'], speed: ToolMiningSpeed(6), correctForDrops: true },
+          { blocks: ['stone'], speed: ToolMiningSpeed(12), correctForDrops: false },
           { blocks: ['dirt'], correctForDrops: false },
         ],
-        defaultMiningSpeed: 3,
-        damagePerBlock: 2,
+        defaultMiningSpeed: ToolMiningSpeed(3),
+        damagePerBlock: ToolDurabilityDamage(2),
         canDestroyBlocksInCreative: false,
       }
 
@@ -190,9 +191,9 @@ describe('minecraft:tool component', () => {
   it('accepts zero mining speeds from the Java float contract', () =>
     Effect.runPromise(Effect.sync(() => {
       const component: ToolComponent = {
-        rules: [{ blocks: 'stone', speed: 0, correctForDrops: true }],
-        defaultMiningSpeed: 0,
-        damagePerBlock: 0,
+        rules: [{ blocks: 'stone', speed: ToolMiningSpeed(0), correctForDrops: true }],
+        defaultMiningSpeed: ToolMiningSpeed(0),
+        damagePerBlock: ToolDurabilityDamage(0),
       }
 
       expect(resolveToolMiningProperties(component, 'stone')).toStrictEqual({
@@ -228,8 +229,8 @@ describe('minecraft:tool component', () => {
         },
       }
       const component: ToolComponent = {
-        rules: [{ blocks: '#minecraft:mineable/pickaxe', speed: 5 }],
-        damagePerBlock: 1,
+        rules: [{ blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(5) }],
+        damagePerBlock: ToolDurabilityDamage(1),
       }
 
       expect(
@@ -253,7 +254,7 @@ describe('minecraft:tool component', () => {
       })
       expect(
         resolveToolMiningProperties(
-          { rules: [{ blocks: ['stone'], speed: 4 }], damagePerBlock: 0 },
+          { rules: [{ blocks: ['stone'], speed: ToolMiningSpeed(4) }], damagePerBlock: ToolDurabilityDamage(0) },
           'stone',
         ),
       ).toStrictEqual({
@@ -264,7 +265,7 @@ describe('minecraft:tool component', () => {
       })
       expect(
         resolveToolMiningProperties(
-          { rules: [{ blocks: ['stone'], correctForDrops: true }], damagePerBlock: 1 },
+          { rules: [{ blocks: ['stone'], correctForDrops: true }], damagePerBlock: ToolDurabilityDamage(1) },
           'stone',
         ),
       ).toStrictEqual({
@@ -353,7 +354,7 @@ describe('minecraft:tool component', () => {
     Effect.runPromise(Effect.sync(() => {
       const component: ToolComponent = {
         rules: [{ blocks: 'stone' }],
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
       }
       const resolve = (context: unknown) =>
         Reflect.apply(resolveToolMiningProperties, undefined, [component, 'stone', context])

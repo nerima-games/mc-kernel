@@ -9,11 +9,13 @@ import {
   isAttributeModifiersComponent,
 } from '../src/domain/item/item-attribute-modifiers'
 import { describe, expect, it } from 'vitest'
+import { ResourceLocation } from '../src/domain/text/identifiers'
+import { AttributeModifierAmount } from '../src/domain/time/quantities'
 
 const baseModifier = {
-  type: 'minecraft:generic.attack_damage',
-  id: 'minecraft:test_damage',
-  amount: 3,
+  type: ResourceLocation('minecraft:generic.attack_damage'),
+  id: ResourceLocation('minecraft:test_damage'),
+  amount: AttributeModifierAmount(3),
   operation: 'add_value' as const,
   slot: 'mainhand' as const,
 }
@@ -72,7 +74,7 @@ describe('item attribute modifiers', () => {
     const defaultSlotModifier = attributeModifier({
       type: baseModifier.type,
       amount: baseModifier.amount,
-      id: 'minecraft:test_any',
+      id: ResourceLocation('minecraft:test_any'),
       operation: 'add_multiplied_base',
     })
     const component = attributeModifiersComponent([

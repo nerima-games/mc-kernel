@@ -1,5 +1,6 @@
 import { DEFAULT_MINING_SPEED } from '../block/block-break-speed-data.js'
 import { isBlockType, type BlockType } from '../block/block-type.js'
+import { ToolDurabilityDamage, ToolMiningSpeed, ToolRuleOrder } from './item-primitives.js'
 
 export type ToolBlockTag = `#${string}`
 
@@ -27,14 +28,14 @@ export type ToolResolutionContextInput = {
 
 export type ToolRule = {
   readonly blocks: ToolBlockMatcher | ReadonlyArray<ToolBlockMatcher>
-  readonly speed?: number
+  readonly speed?: ToolMiningSpeed
   readonly correctForDrops?: boolean
 }
 
 export type ToolComponent = {
   readonly rules: ReadonlyArray<ToolRule>
-  readonly defaultMiningSpeed?: number
-  readonly damagePerBlock: number
+  readonly defaultMiningSpeed?: ToolMiningSpeed
+  readonly damagePerBlock: ToolDurabilityDamage
   readonly canDestroyBlocksInCreative?: boolean
 }
 
@@ -44,13 +45,13 @@ const COMPILED_TOOL_COMPONENT_INDEXES: unique symbol = Symbol('CompiledToolCompo
 type CompiledToolRule = {
   readonly blockTypes: ReadonlyArray<BlockType>
   readonly blockTags: ReadonlyArray<ToolBlockTag>
-  readonly speed?: number
+  readonly speed?: ToolMiningSpeed
   readonly correctForDrops?: boolean
 }
 
 type IndexedCompiledToolRule = {
   readonly rule: CompiledToolRule
-  readonly order: number
+  readonly order: ToolRuleOrder
 }
 
 type CompiledToolIndexes = {
@@ -62,16 +63,16 @@ export type CompiledToolComponent = {
   readonly [COMPILED_TOOL_COMPONENT]: true
   readonly [COMPILED_TOOL_COMPONENT_INDEXES]: CompiledToolIndexes
   readonly rules: ReadonlyArray<CompiledToolRule>
-  readonly defaultMiningSpeed: number
-  readonly damagePerBlock: number
+  readonly defaultMiningSpeed: ToolMiningSpeed
+  readonly damagePerBlock: ToolDurabilityDamage
   readonly canDestroyBlocksInCreative: boolean
   readonly hasTagRule: boolean
 }
 
 export type ResolvedToolMiningProperties = {
-  readonly miningSpeed: number
+  readonly miningSpeed: ToolMiningSpeed
   readonly correctForDrops: boolean
-  readonly damagePerBlock: number
+  readonly damagePerBlock: ToolDurabilityDamage
   readonly canDestroyBlocksInCreative: boolean
 }
 
@@ -112,13 +113,13 @@ const isReadonlyMap = (value: unknown): value is ReadonlyMap<unknown, unknown> =
 }
 
 const assertNonNegativeFinite = (name: string, value: unknown): void => {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+  if (typeof value !== 'number' || !ToolMiningSpeed.is(value)) {
     throw new RangeError(`${name} must be a finite number greater than or equal to zero`)
   }
 }
 
 const assertNonNegativeInteger = (name: string, value: unknown): void => {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+  if (typeof value !== 'number' || !ToolDurabilityDamage.is(value)) {
     throw new RangeError(`${name} must be a non-negative integer`)
   }
 }
@@ -266,7 +267,7 @@ const indexCompiledToolRules = (
   const blockTags = new Map<ToolBlockTag, IndexedCompiledToolRule>()
 
   rules.forEach((rule, order) => {
-    const indexedRule = Object.freeze({ rule, order })
+    const indexedRule = Object.freeze({ rule, order: ToolRuleOrder(order) })
     for (const blockType of rule.blockTypes) {
       if (!blockTypes.has(blockType)) {
         blockTypes.set(blockType, indexedRule)
@@ -291,7 +292,7 @@ export function compileToolComponent(component: ToolComponent): CompiledToolComp
     [COMPILED_TOOL_COMPONENT]: true,
     [COMPILED_TOOL_COMPONENT_INDEXES]: indexes,
     rules,
-    defaultMiningSpeed: component.defaultMiningSpeed ?? DEFAULT_MINING_SPEED,
+    defaultMiningSpeed: component.defaultMiningSpeed ?? ToolMiningSpeed(DEFAULT_MINING_SPEED),
     damagePerBlock: component.damagePerBlock,
     canDestroyBlocksInCreative: component.canDestroyBlocksInCreative ?? true,
     hasTagRule: indexes.blockTags.size > 0,
@@ -363,7 +364,7 @@ export function resolveToolMiningProperties(
     validateToolResolutionContext(context)
   }
 
-  const defaultMiningSpeed = component.defaultMiningSpeed ?? DEFAULT_MINING_SPEED
+  const defaultMiningSpeed = component.defaultMiningSpeed ?? ToolMiningSpeed(DEFAULT_MINING_SPEED)
   const matchingRule = component.rules.find((rule) =>
     normalizeToolRuleBlocks(rule.blocks).some((matcher) =>
       isBlockType(matcher)

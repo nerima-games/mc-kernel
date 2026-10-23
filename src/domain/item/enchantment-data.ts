@@ -1,5 +1,7 @@
 import type { ItemType } from './item-type.js'
 import { VANILLA_26_3_ENCHANTMENT_IDS, VANILLA_26_3_ENCHANTMENT_MAX_LEVELS } from '../world/vanilla-26-3-generated.js'
+import { EnchantmentLevel } from '../time/quantities.js'
+import { AnvilMaterialCost } from './anvil-primitives.js'
 
 export const SUPPORTED_VANILLA_ENCHANTMENT_IDS: typeof VANILLA_26_3_ENCHANTMENT_IDS = VANILLA_26_3_ENCHANTMENT_IDS
 /*
@@ -41,63 +43,68 @@ export type SupportedVanillaEnchantmentId = (typeof SUPPORTED_VANILLA_ENCHANTMEN
 
 type VanillaEnchantmentRule = Readonly<{
   readonly id: SupportedVanillaEnchantmentId
-  readonly maxLevel: number
+  readonly maxLevel: EnchantmentLevel
   readonly applicableItems: ReadonlyArray<ItemType>
   readonly incompatibleWith: ReadonlyArray<SupportedVanillaEnchantmentId>
-  readonly costPerLevel: number
+  readonly costPerLevel: AnvilMaterialCost
 }>
 
 export type VanillaAnvilCost = Readonly<{
-  readonly item: number
-  readonly book: number
+  readonly item: AnvilMaterialCost
+  readonly book: AnvilMaterialCost
 }>
+
+const anvilCost = (item: number, book: number): VanillaAnvilCost => ({
+  item: AnvilMaterialCost(item),
+  book: AnvilMaterialCost(book),
+})
 
 export const VANILLA_ENCHANTMENT_COSTS: Readonly<
   Record<SupportedVanillaEnchantmentId, VanillaAnvilCost>
 > = {
-  aqua_affinity: { item: 4, book: 2 },
-  bane_of_arthropods: { item: 2, book: 1 },
-  binding_curse: { item: 8, book: 4 },
-  blast_protection: { item: 4, book: 2 },
-  depth_strider: { item: 4, book: 2 },
-  efficiency: { item: 1, book: 1 },
-  feather_falling: { item: 2, book: 1 },
-  fire_aspect: { item: 4, book: 2 },
-  fire_protection: { item: 2, book: 1 },
-  flame: { item: 4, book: 2 },
-  fortune: { item: 4, book: 2 },
-  frost_walker: { item: 4, book: 2 },
-  infinity: { item: 8, book: 4 },
-  knockback: { item: 2, book: 1 },
-  looting: { item: 4, book: 2 },
-  luck_of_the_sea: { item: 4, book: 2 },
-  lure: { item: 4, book: 2 },
-  mending: { item: 4, book: 2 },
-  power: { item: 1, book: 1 },
-  projectile_protection: { item: 2, book: 1 },
-  protection: { item: 1, book: 1 },
-  punch: { item: 4, book: 2 },
-  respiration: { item: 4, book: 2 },
-  sharpness: { item: 1, book: 1 },
-  silk_touch: { item: 8, book: 4 },
-  smite: { item: 2, book: 1 },
-  soul_speed: { item: 8, book: 4 },
-  sweeping_edge: { item: 4, book: 2 },
-  swift_sneak: { item: 8, book: 4 },
-  thorns: { item: 8, book: 4 },
-  unbreaking: { item: 2, book: 1 },
-  vanishing_curse: { item: 8, book: 4 },
-  breach: { item: 4, book: 2 },
-  channeling: { item: 8, book: 4 },
-  density: { item: 2, book: 1 },
-  impaling: { item: 4, book: 2 },
-  loyalty: { item: 2, book: 1 },
-  lunge: { item: 2, book: 1 },
-  multishot: { item: 4, book: 2 },
-  piercing: { item: 1, book: 1 },
-  quick_charge: { item: 2, book: 1 },
-  riptide: { item: 4, book: 2 },
-  wind_burst: { item: 4, book: 2 },
+  aqua_affinity: anvilCost(4, 2),
+  bane_of_arthropods: anvilCost(2, 1),
+  binding_curse: anvilCost(8, 4),
+  blast_protection: anvilCost(4, 2),
+  depth_strider: anvilCost(4, 2),
+  efficiency: anvilCost(1, 1),
+  feather_falling: anvilCost(2, 1),
+  fire_aspect: anvilCost(4, 2),
+  fire_protection: anvilCost(2, 1),
+  flame: anvilCost(4, 2),
+  fortune: anvilCost(4, 2),
+  frost_walker: anvilCost(4, 2),
+  infinity: anvilCost(8, 4),
+  knockback: anvilCost(2, 1),
+  looting: anvilCost(4, 2),
+  luck_of_the_sea: anvilCost(4, 2),
+  lure: anvilCost(4, 2),
+  mending: anvilCost(4, 2),
+  power: anvilCost(1, 1),
+  projectile_protection: anvilCost(2, 1),
+  protection: anvilCost(1, 1),
+  punch: anvilCost(4, 2),
+  respiration: anvilCost(4, 2),
+  sharpness: anvilCost(1, 1),
+  silk_touch: anvilCost(8, 4),
+  smite: anvilCost(2, 1),
+  soul_speed: anvilCost(8, 4),
+  sweeping_edge: anvilCost(4, 2),
+  swift_sneak: anvilCost(8, 4),
+  thorns: anvilCost(8, 4),
+  unbreaking: anvilCost(2, 1),
+  vanishing_curse: anvilCost(8, 4),
+  breach: anvilCost(4, 2),
+  channeling: anvilCost(8, 4),
+  density: anvilCost(2, 1),
+  impaling: anvilCost(4, 2),
+  loyalty: anvilCost(2, 1),
+  lunge: anvilCost(2, 1),
+  multishot: anvilCost(4, 2),
+  piercing: anvilCost(1, 1),
+  quick_charge: anvilCost(2, 1),
+  riptide: anvilCost(4, 2),
+  wind_burst: anvilCost(4, 2),
 } as const satisfies Record<SupportedVanillaEnchantmentId, VanillaAnvilCost>
 
 const ARMOR_ITEMS = [
@@ -144,7 +151,7 @@ const DAMAGEABLE_ITEMS = [
 
 type VanillaEnchantmentRuleDefinition = Readonly<{
   readonly id: SupportedVanillaEnchantmentId
-  readonly maxLevel: number
+  readonly maxLevel: EnchantmentLevel
   readonly applicableItems: ReadonlyArray<ItemType>
   readonly incompatibleWith: ReadonlyArray<SupportedVanillaEnchantmentId>
 }>
@@ -156,7 +163,7 @@ const defineRule = (
   incompatibleWith: ReadonlyArray<SupportedVanillaEnchantmentId> = [],
 ): VanillaEnchantmentRuleDefinition => ({
   id,
-  maxLevel,
+  maxLevel: EnchantmentLevel(maxLevel),
   applicableItems,
   incompatibleWith,
 })

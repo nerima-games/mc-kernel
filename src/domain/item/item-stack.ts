@@ -7,7 +7,12 @@ import {
   type ItemComponentPatch,
 } from "./item-component-patch.js";
 import { isItemType, type ItemType } from "./item-type.js";
-import { StackCount, type StackCount as StackCountValue, type TransferQuantity as TransferQuantityValue } from "../time/quantities.js";
+import {
+  StackCount,
+  type MaxStackSize,
+  type StackCount as StackCountValue,
+  type TransferQuantity as TransferQuantityValue,
+} from "../time/quantities.js";
 
 export type ItemStack = Readonly<{
   readonly item: ItemType;
@@ -36,7 +41,8 @@ export type ItemStackOptions = Readonly<{
 type StackProperties = Readonly<{ readonly item: ItemType; readonly components?: ItemComponents }>;
 
 export const maxStackCountForItem = (item: ItemType): ItemStackLimit => maxStackCountOfItem(item);
-export const maxStackCountForStack = (stack: StackProperties): number => stack.components?.maxStackSize ?? maxStackCountForItem(stack.item);
+export const maxStackCountForStack = (stack: StackProperties): ItemStackLimit | MaxStackSize =>
+  stack.components?.maxStackSize ?? maxStackCountForItem(stack.item);
 
 const stackOptionsFromUnknown = (value: unknown): ItemStackOptions => {
   if (!isRecord(value)) throw new TypeError("Item stack options must be a non-null object");
@@ -51,16 +57,16 @@ const stackOptionsFromUnknown = (value: unknown): ItemStackOptions => {
   };
 };
 
-const itemStackOf = (item: ItemType, count: number, components: ItemComponents): ItemStack =>
-  Object.freeze({ item, count: StackCount(count), components: itemComponentsSnapshot(components) });
+const itemStackOf = (item: ItemType, count: StackCountValue, components: ItemComponents): ItemStack =>
+  Object.freeze({ item, count, components: itemComponentsSnapshot(components) });
 
-export const itemStack = (item: ItemType, count: number, options: ItemStackOptions = {}): ItemStack => {
+export const itemStack = (item: ItemType, count: StackCountValue, options: ItemStackOptions = {}): ItemStack => {
   if (!isItemType(item)) throw new TypeError(`Unknown item type: ${String(item)}`);
   const { components: suppliedComponents, componentPatch } = stackOptionsFromUnknown(options);
   const base = suppliedComponents === undefined ? itemComponents(item) : itemComponentsSnapshot(suppliedComponents);
   const components = componentPatch === undefined ? base : applyItemComponentPatch(base, componentPatch);
   const maxStackSize = maxStackCountForStack({ item, components });
-  if (!Number.isSafeInteger(count) || count < 1 || count > maxStackSize) {
+  if (!StackCount.is(count) || count > maxStackSize) {
     throw new RangeError(`Item stack count for ${item} must be an integer in [1, ${maxStackSize}], received ${String(count)}`);
   }
   return itemStackOf(item, count, components);
@@ -69,7 +75,7 @@ export const itemStack = (item: ItemType, count: number, options: ItemStackOptio
 export const itemStackFromUnknown = (item: unknown, count: unknown, options: unknown = {}): ItemStack => {
   if (!isItemType(item)) throw new TypeError(`Unknown item type: ${String(item)}`);
   if (typeof count !== "number") throw new TypeError(`Item stack count must be a number, received ${String(count)}`);
-  return itemStack(item, count, stackOptionsFromUnknown(options));
+  return itemStack(item, StackCount(count), stackOptionsFromUnknown(options));
 };
 
 export const isItemStack = (value: unknown): value is ItemStack => {
@@ -86,12 +92,12 @@ export const isItemStack = (value: unknown): value is ItemStack => {
   }
 };
 
-export const itemStackWithCount = (stack: ItemStack, count: number): ItemStack => {
+export const itemStackWithCount = (stack: ItemStack, count: StackCountValue): ItemStack => {
   if (!isItemStack(stack)) throw new TypeError("Stack must be an ItemStack");
   return itemStack(stack.item, count, { components: stack.components });
 };
 
-export const transmuteItemStack = (source: ItemStack, result: ItemStack, count: number = result.count): ItemStack => {
+export const transmuteItemStack = (source: ItemStack, result: ItemStack, count: StackCountValue = result.count): ItemStack => {
   if (!isItemStack(source) || !isItemStack(result)) throw new TypeError("Transmute source and result must be ItemStacks");
   return itemStack(result.item, count, { components: result.components });
 };
@@ -107,8 +113,10 @@ export const splitItemStack = (stack: ItemStack, amount: TransferQuantityValue):
     throw new RangeError(`Split amount must be an integer in [1, ${stack.count}]`);
   }
   return {
-    taken: itemStackWithCount(stack, amount),
-    remainder: Number(amount) === Number(stack.count) ? undefined : itemStackWithCount(stack, Number(stack.count) - Number(amount)),
+    taken: itemStackWithCount(stack, StackCount(Number(amount))),
+    remainder: Number(amount) === Number(stack.count)
+      ? undefined
+      : itemStackWithCount(stack, StackCount(Number(stack.count) - Number(amount))),
   };
 };
 
@@ -118,7 +126,7 @@ export const mergeItemStacks = (left: ItemStack, right: ItemStack): { readonly m
   const capacity = maxStackCountForStack(left);
   const total = left.count + right.count;
   return {
-    merged: itemStackWithCount(left, Math.min(capacity, total)),
-    remainder: total > capacity ? itemStackWithCount(right, total - capacity) : undefined,
+    merged: itemStackWithCount(left, StackCount(Math.min(capacity, total))),
+    remainder: total > capacity ? itemStackWithCount(right, StackCount(total - capacity)) : undefined,
   };
 };

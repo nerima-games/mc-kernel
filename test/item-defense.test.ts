@@ -7,27 +7,33 @@ import {
   isItemDamageRule,
 } from '../src/domain/item/item-defense'
 import { isResourceLocationProvider } from '../src/domain/item/item-component-values'
+import { ResourceLocation, TagLocation } from '../src/domain/text/identifiers'
+import * as Quantities from '../src/domain/time/quantities'
 import { describe, expect, it } from 'vitest'
 
 describe('item defense components', () => {
   it('constructs immutable components with official defaults and values', () => {
-    const damageResistant = damageResistantComponent('#minecraft:is_fire')
+    const damageResistant = damageResistantComponent(TagLocation('#minecraft:is_fire'))
     const defaults = blocksAttacksComponent()
     const custom = blocksAttacksComponent({
-      blockDelaySeconds: 0,
-      disableCooldownScale: 0,
+      blockDelaySeconds: Quantities.BlockingDelaySeconds(0),
+      disableCooldownScale: Quantities.DisableCooldownScale(0),
       damageReductions: [
         {
-          type: 'minecraft:player_attack',
-          base: 2,
-          factor: 0.5,
-          horizontalBlockingAngle: 64,
+          type: ResourceLocation('minecraft:player_attack'),
+          base: Quantities.DamageReductionBase(2),
+          factor: Quantities.DamageReductionFactor(0.5),
+          horizontalBlockingAngle: Quantities.HorizontalBlockingAngle(64),
         },
       ],
-      itemDamage: { threshold: 0.25, base: 1, factor: 0.5 },
-      blockSound: 'minecraft:item.shield.block',
-      disabledSound: 'minecraft:item.shield.break',
-      bypassedBy: ['minecraft:arrow', 'minecraft:trident'],
+      itemDamage: {
+        threshold: Quantities.ItemDamageThreshold(0.25),
+        base: Quantities.ItemDamageBase(1),
+        factor: Quantities.ItemDamageFactor(0.5),
+      },
+      blockSound: ResourceLocation('minecraft:item.shield.block'),
+      disabledSound: ResourceLocation('minecraft:item.shield.break'),
+      bypassedBy: [ResourceLocation('minecraft:arrow'), ResourceLocation('minecraft:trident')],
     })
 
     expect(damageResistant).toEqual({ types: '#minecraft:is_fire' })
@@ -67,13 +73,13 @@ describe('item defense components', () => {
   })
 
   it('constructs every accepted resource provider shape', () => {
-    expect(damageResistantComponent('minecraft:fire').types).toBe('minecraft:fire')
-    expect(damageResistantComponent('#minecraft:is_fire').types).toBe('#minecraft:is_fire')
-    expect(damageResistantComponent(['minecraft:fire', 'minecraft:lava']).types).toEqual([
+    expect(damageResistantComponent(ResourceLocation('minecraft:fire')).types).toBe('minecraft:fire')
+    expect(damageResistantComponent(TagLocation('#minecraft:is_fire')).types).toBe('#minecraft:is_fire')
+    expect(damageResistantComponent([ResourceLocation('minecraft:fire'), ResourceLocation('minecraft:lava')]).types).toEqual([
       'minecraft:fire',
       'minecraft:lava',
     ])
-    expect(Object.isFrozen(damageResistantComponent(['minecraft:fire']).types)).toBe(true)
+    expect(Object.isFrozen(damageResistantComponent([ResourceLocation('minecraft:fire')]).types)).toBe(true)
 
     expect(isResourceLocationProvider('minecraft:fire')).toBe(true)
     expect(isResourceLocationProvider('#minecraft:is_fire')).toBe(true)
@@ -85,6 +91,8 @@ describe('item defense components', () => {
   })
 
   it('rejects malformed constructor input at the runtime boundary', () => {
+    const invokeBlocksAttacks = (options: unknown) =>
+      () => Reflect.apply(blocksAttacksComponent, undefined, [options])
     expect(() => Reflect.apply(damageResistantComponent, undefined, [null])).toThrow(TypeError)
     expect(() => Reflect.apply(damageResistantComponent, undefined, [1])).toThrow(TypeError)
     expect(() => Reflect.apply(damageResistantComponent, undefined, ['INVALID!'])).toThrow()
@@ -95,38 +103,45 @@ describe('item defense components', () => {
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [[]])).toThrow(TypeError)
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [1])).toThrow(TypeError)
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ blockDelaySeconds: '0' }])).toThrow(TypeError)
-    expect(() => blocksAttacksComponent({ blockDelaySeconds: -1 })).toThrow(RangeError)
-    expect(() => blocksAttacksComponent({ blockDelaySeconds: Infinity })).toThrow(TypeError)
+    expect(invokeBlocksAttacks({ blockDelaySeconds: -1 })).toThrow(RangeError)
+    expect(invokeBlocksAttacks({ blockDelaySeconds: Infinity })).toThrow(TypeError)
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ disableCooldownScale: '1' }])).toThrow(TypeError)
-    expect(() => blocksAttacksComponent({ disableCooldownScale: -1 })).toThrow(RangeError)
-    expect(() => blocksAttacksComponent({ disableCooldownScale: NaN })).toThrow(TypeError)
+    expect(invokeBlocksAttacks({ disableCooldownScale: -1 })).toThrow(RangeError)
+    expect(invokeBlocksAttacks({ disableCooldownScale: NaN })).toThrow(TypeError)
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ damageReductions: {} }])).toThrow(TypeError)
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ damageReductions: [null] }])).toThrow(TypeError)
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ damageReductions: [{ base: '1', factor: 0 }] }])).toThrow(TypeError)
-    expect(() => blocksAttacksComponent({ damageReductions: [{ base: 0, factor: Infinity }] })).toThrow(TypeError)
-    expect(() => blocksAttacksComponent({ damageReductions: [{ base: 0, factor: 0, horizontalBlockingAngle: 0 }] })).toThrow(RangeError)
-    expect(() => blocksAttacksComponent({ damageReductions: [{ base: 0, factor: 0, type: 'INVALID!' }] })).toThrow()
+    expect(invokeBlocksAttacks({ damageReductions: [{ base: 0, factor: Infinity }] })).toThrow(TypeError)
+    expect(invokeBlocksAttacks({ damageReductions: [{ base: 0, factor: 0, horizontalBlockingAngle: 0 }] })).toThrow(RangeError)
+    expect(invokeBlocksAttacks({ damageReductions: [{ base: 0, factor: 0, type: 'INVALID!' }] })).toThrow()
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ damageReductions: [{ base: 0, factor: 0, type: 1 }] }])).toThrow(TypeError)
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ damageReductions: [{ base: 0, factor: 0, type: ['#minecraft:is_fire'] }] }])).toThrow(TypeError)
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ itemDamage: null }])).toThrow(TypeError)
-    expect(() => blocksAttacksComponent({ itemDamage: { threshold: -1, base: 0, factor: 0 } })).toThrow(RangeError)
+    expect(invokeBlocksAttacks({ itemDamage: { threshold: -1, base: 0, factor: 0 } })).toThrow(RangeError)
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ itemDamage: { threshold: 0, base: '1', factor: 0 } }])).toThrow(TypeError)
-    expect(() => blocksAttacksComponent({ itemDamage: { threshold: 0, base: 0, factor: Infinity } })).toThrow(TypeError)
+    expect(invokeBlocksAttacks({ itemDamage: { threshold: 0, base: 0, factor: Infinity } })).toThrow(TypeError)
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ blockSound: 1 }])).toThrow(TypeError)
-    expect(() => blocksAttacksComponent({ blockSound: 'INVALID!' })).toThrow()
+    expect(invokeBlocksAttacks({ blockSound: 'INVALID!' })).toThrow()
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ disabledSound: 1 }])).toThrow(TypeError)
-    expect(() => blocksAttacksComponent({ disabledSound: 'INVALID!' })).toThrow()
+    expect(invokeBlocksAttacks({ disabledSound: 'INVALID!' })).toThrow()
     expect(() => Reflect.apply(blocksAttacksComponent, undefined, [{ bypassedBy: 1 }])).toThrow(TypeError)
-    expect(() => blocksAttacksComponent({ bypassedBy: ['#minecraft:is_fire'] })).toThrow(TypeError)
+    expect(invokeBlocksAttacks({ bypassedBy: ['#minecraft:is_fire'] })).toThrow(TypeError)
   })
 
   it('guards exact component shapes and value ranges', () => {
     const valid = blocksAttacksComponent({
-      damageReductions: [{ base: 0, factor: 0 }],
-      itemDamage: { threshold: 0, base: 0, factor: 0 },
-      blockSound: 'minecraft:item.shield.block',
-      disabledSound: 'minecraft:item.shield.break',
-      bypassedBy: '#minecraft:axes',
+      damageReductions: [{
+        base: Quantities.DamageReductionBase(0),
+        factor: Quantities.DamageReductionFactor(0),
+      }],
+      itemDamage: {
+        threshold: Quantities.ItemDamageThreshold(0),
+        base: Quantities.ItemDamageBase(0),
+        factor: Quantities.ItemDamageFactor(0),
+      },
+      blockSound: ResourceLocation('minecraft:item.shield.block'),
+      disabledSound: ResourceLocation('minecraft:item.shield.break'),
+      bypassedBy: TagLocation('#minecraft:axes'),
     })
     const validReduction = valid.damageReductions[0]
     const validItemDamage = valid.itemDamage
@@ -134,7 +149,7 @@ describe('item defense components', () => {
       throw new Error('expected item damage rule')
     }
 
-    expect(isDamageResistantComponent(damageResistantComponent('minecraft:fire'))).toBe(true)
+    expect(isDamageResistantComponent(damageResistantComponent(ResourceLocation('minecraft:fire')))).toBe(true)
     expect(isDamageResistantComponent({ types: '#minecraft:is_fire' })).toBe(true)
     expect(isDamageResistantComponent({ types: 'INVALID!' })).toBe(false)
     expect(isDamageResistantComponent({ types: 1 })).toBe(false)

@@ -10,7 +10,7 @@ export type { UseCooldownComponent } from './use-cooldown-data.js'
 export { isUseCooldownComponent } from './use-cooldown-validation.js'
 
 export const useCooldownComponent = (
-  seconds: number,
+  seconds: ReturnType<typeof CooldownSeconds>,
   cooldownGroup: ResourceLocation | undefined = undefined,
 ): UseCooldownComponent =>
   Object.freeze({

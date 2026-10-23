@@ -5,8 +5,8 @@ export type { WeaponComponent } from './weapon-data.js'
 export { isWeaponComponent } from './weapon-validation.js'
 
 export type WeaponComponentOptions = Readonly<{
-  readonly itemDamagePerAttack?: number
-  readonly disableBlockingForSeconds?: number
+  readonly itemDamagePerAttack?: ItemDamage
+  readonly disableBlockingForSeconds?: WeaponDisableBlockingSeconds
 }>
 
 const validateOptions = (options: WeaponComponentOptions): void => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isWeaponComponent, weaponComponent } from '../src/domain/item/weapon.js'
+import { ItemDamage, WeaponDisableBlockingSeconds } from '../src/domain/time/quantities.js'
 
 describe('weapon component', () => {
   it('uses the official defaults and freezes the resolved value', () => {
@@ -15,8 +16,8 @@ describe('weapon component', () => {
   it('accepts custom official values', () => {
     expect(
       weaponComponent({
-        itemDamagePerAttack: 2,
-        disableBlockingForSeconds: 0.25,
+        itemDamagePerAttack: ItemDamage(2),
+        disableBlockingForSeconds: WeaponDisableBlockingSeconds(0.25),
       }),
     ).toEqual({
       itemDamagePerAttack: 2,

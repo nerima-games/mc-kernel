@@ -22,6 +22,13 @@ import {
 } from '../src/domain/item/consumable'
 import { FOOD_DEFINITION_BY_ITEM } from '../src/domain/item/food-data'
 import { ResourceLocation } from '../src/domain/text/identifiers'
+import { ConsumeSeconds } from '../src/domain/time/quantities'
+import {
+  EffectAmplifier,
+  EffectDurationSecs,
+  FoodEffectProbability,
+  RandomTeleportDiameter,
+} from '../src/domain/item/item-primitives'
 
 describe('consumable item components', () => {
   it('publishes the official animation vocabulary and defaults', () => {
@@ -56,7 +63,11 @@ describe('consumable item components', () => {
   })
 
   it('guards official component values without unsafe casts', () => {
-    const statusEffect = consumableStatusEffect(ResourceLocation('minecraft:speed'), 30, 0)
+    const statusEffect = consumableStatusEffect(
+      ResourceLocation('minecraft:speed'),
+      EffectDurationSecs(30),
+      EffectAmplifier(0),
+    )
     const applyEffects = consumableApplyEffects([statusEffect])
     const removeEffects = consumableRemoveEffects([ResourceLocation('minecraft:poison')])
     const clearAllEffects = consumableClearAllEffects()
@@ -153,7 +164,11 @@ describe('consumable item components', () => {
   })
 
   it('constructs every official consume effect and component variant', () => {
-    const statusEffect = consumableStatusEffect(ResourceLocation('minecraft:speed'), 30, 1)
+    const statusEffect = consumableStatusEffect(
+      ResourceLocation('minecraft:speed'),
+      EffectDurationSecs(30),
+      EffectAmplifier(1),
+    )
     expect(statusEffect).toEqual({
       effectId: 'minecraft:speed',
       durationSecs: 30,
@@ -164,7 +179,7 @@ describe('consumable item components', () => {
       effects: [statusEffect],
       probability: 1,
     })
-    expect(consumableApplyEffects([statusEffect], 0.5)).toEqual({
+    expect(consumableApplyEffects([statusEffect], FoodEffectProbability(0.5))).toEqual({
       type: 'minecraft:apply_effects',
       effects: [statusEffect],
       probability: 0.5,
@@ -175,7 +190,10 @@ describe('consumable item components', () => {
     })
     expect(consumableClearAllEffects()).toEqual({ type: 'minecraft:clear_all_effects' })
     expect(consumableTeleportRandomly()).toEqual({ type: 'minecraft:teleport_randomly', diameter: 16 })
-    expect(consumableTeleportRandomly(8)).toEqual({ type: 'minecraft:teleport_randomly', diameter: 8 })
+    expect(consumableTeleportRandomly(RandomTeleportDiameter(8))).toEqual({
+      type: 'minecraft:teleport_randomly',
+      diameter: 8,
+    })
     expect(consumablePlaySound(ResourceLocation('entity.player.burp'))).toEqual({
       type: 'minecraft:play_sound',
       sound: 'entity.player.burp',
@@ -183,7 +201,7 @@ describe('consumable item components', () => {
     expect(consumableComponent()).toEqual(DEFAULT_CONSUMABLE_COMPONENT)
     expect(
       consumableComponent({
-        consumeSeconds: 2,
+        consumeSeconds: ConsumeSeconds(2),
         animation: 'drink',
         sound: ResourceLocation('item.bottle.fill'),
         hasConsumeParticles: false,
@@ -201,18 +219,18 @@ describe('consumable item components', () => {
   it('rejects invalid numeric values at the component boundary', () => {
     const effectId = ResourceLocation('minecraft:speed')
 
-    expect(() => consumableStatusEffect(effectId, 0, 0)).toThrow()
-    expect(() => consumableStatusEffect(effectId, Number.NaN, 0)).toThrow()
-    expect(() => consumableStatusEffect(effectId, 30, -1)).toThrow()
-    expect(() => consumableStatusEffect(effectId, 30, 0.5)).toThrow()
-    expect(() => consumableApplyEffects([], -0.1)).toThrow()
-    expect(() => consumableApplyEffects([], 1.1)).toThrow()
-    expect(() => consumableApplyEffects([], Number.NaN)).toThrow()
-    expect(() => consumableTeleportRandomly(0)).toThrow()
-    expect(() => consumableTeleportRandomly(Number.POSITIVE_INFINITY)).toThrow()
-    expect(consumableComponent({ consumeSeconds: 0 }).consumeSeconds).toBe(0)
-    expect(() => consumableComponent({ consumeSeconds: Number.NaN })).toThrow()
-    expect(() => consumableComponent({ consumeSeconds: Number.POSITIVE_INFINITY })).toThrow()
+    expect(() => Reflect.apply(consumableStatusEffect, undefined, [effectId, 0, 0])).toThrow()
+    expect(() => Reflect.apply(consumableStatusEffect, undefined, [effectId, Number.NaN, 0])).toThrow()
+    expect(() => Reflect.apply(consumableStatusEffect, undefined, [effectId, 30, -1])).toThrow()
+    expect(() => Reflect.apply(consumableStatusEffect, undefined, [effectId, 30, 0.5])).toThrow()
+    expect(() => Reflect.apply(consumableApplyEffects, undefined, [[], -0.1])).toThrow()
+    expect(() => Reflect.apply(consumableApplyEffects, undefined, [[], 1.1])).toThrow()
+    expect(() => Reflect.apply(consumableApplyEffects, undefined, [[], Number.NaN])).toThrow()
+    expect(() => Reflect.apply(consumableTeleportRandomly, undefined, [0])).toThrow()
+    expect(() => Reflect.apply(consumableTeleportRandomly, undefined, [Number.POSITIVE_INFINITY])).toThrow()
+    expect(consumableComponent({ consumeSeconds: ConsumeSeconds(0) }).consumeSeconds).toBe(0)
+    expect(() => Reflect.apply(consumableComponent, undefined, [{ consumeSeconds: Number.NaN }])).toThrow()
+    expect(() => Reflect.apply(consumableComponent, undefined, [{ consumeSeconds: Number.POSITIVE_INFINITY }])).toThrow()
   })
 
   it('projects status effects with namespaced ids and probabilities', () => {

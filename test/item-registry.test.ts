@@ -29,8 +29,8 @@ const BREWING_ITEM_IDS = {
   water_bottle: 127,
 } as const satisfies Readonly<Partial<Record<ItemType, number>>>
 
-const EYE_OF_ENDER_ITEM_ID = 135
-const ENCHANTED_BOOK_ITEM_ID = 136
+const EYE_OF_ENDER_ITEM_ID = ItemId(135)
+const ENCHANTED_BOOK_ITEM_ID = ItemId(136)
 const FLUID_AND_VEHICLE_ITEM_IDS = {
   bucket: 137,
   lava_bucket: 139,
@@ -416,7 +416,7 @@ const expectAppendedItemIds = (ids: Readonly<Partial<Record<ItemType, number>>>)
     const id = ids[type]
     if (id === undefined) continue
     expect(itemIdOf(type), type).toBe(id)
-    expect(itemTypeOfId(id), type).toBe(type)
+    expect(itemTypeOfId(ItemId(id)), type).toBe(type)
     expect(itemDefinitionOf(type).id, type).toBe(id)
   }
 }
@@ -517,7 +517,7 @@ describe('item registry', () => {
       expect(itemIdOf(ITEM_TYPES[0])).toBe(0)
       expect(itemIdOf('stick')).toBe(13)
       expect(itemIdOf('lily_pad')).toBe(126)
-      expect(itemTypeOfId(126)).toBe('lily_pad')
+      expect(Reflect.apply(itemTypeOfId, undefined, [126])).toBe('lily_pad')
       expect(itemTypeOfId(ItemId(126))).toBe('lily_pad')
     })),
   )
@@ -586,9 +586,9 @@ describe('item registry', () => {
       expect(itemIdOf('shears')).toBe(170)
       expect(itemIdOf('wool')).toBe(171)
       expect(itemIdOf('dropper')).toBe(172)
-      expect(itemTypeOfId(170)).toBe('shears')
-      expect(itemTypeOfId(171)).toBe('wool')
-      expect(itemTypeOfId(172)).toBe('dropper')
+      expect(itemTypeOfId(ItemId(170))).toBe('shears')
+      expect(itemTypeOfId(ItemId(171))).toBe('wool')
+      expect(itemTypeOfId(ItemId(172))).toBe('dropper')
       expect(maxStackCountOfItem('shears')).toBe(1)
       expect(maxStackCountOfItem('wool')).toBe(64)
     })),

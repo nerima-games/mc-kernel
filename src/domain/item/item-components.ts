@@ -117,6 +117,7 @@ import {
   type CanPlaceOnOptions,
   type ChargedProjectilesOptions,
   type CustomDataComponent,
+  type DebugStickStateComponent,
   type CustomModelDataOptions,
   type ContainerLootOptions,
   type ContainerOptions,
@@ -207,6 +208,13 @@ import { ResourceLocation } from '../text/identifiers.js'
 import { isTextComponent } from '../text/text-component-validation.js'
 import { textComponent } from '../text/text-component.js'
 import type { TextComponent } from '../text/text-component-data.js'
+import type {
+  MapId,
+} from '../time/quantities.js'
+import type {
+  Enchantability,
+  OminousBottleAmplifier,
+} from './item-primitives.js'
 
 export {
   ITEM_COMPONENT_IDS,
@@ -221,10 +229,10 @@ export { isItemComponents } from './item-components-validation.js'
 export type { ItemComponents } from './item-components-validation.js'
 
 export type ItemComponentOptions = Readonly<{
-  readonly maxStackSize?: number
-  readonly maxDamage?: number
-  readonly damage?: number
-  readonly repairCost?: number
+  readonly maxStackSize?: MaxStackSize
+  readonly maxDamage?: MaxDamage
+  readonly damage?: ItemDamage
+  readonly repairCost?: RepairCost
   readonly unbreakable?: true
   readonly enchantmentGlintOverride?: boolean
   readonly tooltipDisplay?: TooltipDisplayComponent
@@ -253,7 +261,7 @@ export type ItemComponentOptions = Readonly<{
   readonly potionContents?: PotionContentsOptions
   readonly dyedColor?: DyedColorComponent
   readonly customModelData?: CustomModelDataOptions
-  readonly mapId?: number
+  readonly mapId?: MapId
   readonly blockState?: BlockStateComponent
   readonly instrument?: InstrumentComponent
   readonly noteBlockSound?: NoteBlockSoundComponent
@@ -265,17 +273,17 @@ export type ItemComponentOptions = Readonly<{
   readonly glider?: true
   readonly deathProtection?: DeathProtectionOptions
   readonly repairable?: ResourceLocationProviderInput
-  readonly enchantable?: number
-  readonly jukeboxPlayable?: string
-  readonly ominousBottleAmplifier?: number
-  readonly paintingVariant?: string
+  readonly enchantable?: Enchantability
+  readonly jukeboxPlayable?: ResourceLocation
+  readonly ominousBottleAmplifier?: OminousBottleAmplifier
+  readonly paintingVariant?: ResourceLocation
   readonly lodestoneTracker?: LodestoneTrackerOptions
   readonly fireworkExplosion?: FireworkExplosionOptions
   readonly fireworks?: FireworksOptions
   readonly bannerPatterns?: ReadonlyArray<BannerPatternOptions>
   readonly potDecorations?: PotDecorationsOptions
   readonly containerLoot?: ContainerLootOptions
-  readonly debugStickState?: Readonly<Record<string, string>>
+  readonly debugStickState?: DebugStickStateComponent
   readonly rarity?: ItemRarity
   readonly food?: FoodComponent
   readonly consumable?: ConsumableComponent
@@ -761,12 +769,12 @@ export const itemComponents = (item: ItemType, options: ItemComponentOptions = {
   validateOptions(options)
 
   const defaultMaxDamage = itemDurabilityDefinitionFor(item)?.maxDurability
-  const maxStackSize = MaxStackSize(valueOr(options.maxStackSize, itemComponentStackLimitOf(item)))
+  const maxStackSize = MaxStackSize(options.maxStackSize ?? itemComponentStackLimitOf(item))
   const maxDamageValue = valueOrUndefined(options.maxDamage, defaultMaxDamage)
   const useComponents = itemUseComponentsOf(item)
   const maxDamage = optionalComponentOf(maxDamageValue, MaxDamage)
   const damage = itemDamageOf(maxDamage, options.damage)
-  const repairCost = RepairCost(valueOr(options.repairCost, 0))
+  const repairCost = RepairCost(options.repairCost ?? 0)
 
   validateItemComponentRelations(maxStackSize, maxDamage, damage)
 

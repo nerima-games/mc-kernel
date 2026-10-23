@@ -61,8 +61,8 @@ const DEFINITION_BY_TYPE = new Map<ItemType, ItemDefinition>(
   ITEM_REGISTRY.map((definition): [ItemType, ItemDefinition] => [definition.type, definition]),
 )
 
-export const isKnownItemId = (id: number): id is ItemId =>
-  Number.isInteger(id) && id >= ITEM_ID_MIN && id < ITEM_REGISTRY.length
+export const isKnownItemId = (id: unknown): id is ItemId =>
+  typeof id === 'number' && Number.isInteger(id) && id >= ITEM_ID_MIN && id < ITEM_REGISTRY.length
 
 export const itemDefinitionOf = (type: ItemType): ItemDefinition => {
   const definition = DEFINITION_BY_TYPE.get(type)
@@ -79,8 +79,7 @@ export const maxStackCountOfItem = (type: ItemType): ItemStackLimit => itemDefin
 export const itemIdOf = (type: ItemType): ItemId => itemDefinitionOf(type).id
 
 export function itemTypeOfId(id: ItemId): ItemType
-export function itemTypeOfId(id: number): ItemType | undefined
-export function itemTypeOfId(id: number): ItemType | undefined {
+export function itemTypeOfId(id: ItemId): ItemType | undefined {
   return ITEM_REGISTRY[id]?.type
 }
 

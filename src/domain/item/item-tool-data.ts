@@ -1,6 +1,7 @@
 /** Evidence-backed Java item tool defaults shared by item stacks and mining logic. */
 import type { ItemType } from './item-type.js'
 import type { ToolComponent } from './tool-component.js'
+import { ToolDurabilityDamage, ToolMiningSpeed } from './item-primitives.js'
 
 type ToolMiningTag =
   | '#minecraft:mineable/axe'
@@ -9,8 +10,8 @@ type ToolMiningTag =
 
 const toolComponentFor = (blocks: ToolMiningTag, speed: number): ToolComponent =>
   Object.freeze({
-    rules: Object.freeze([{ blocks, speed, correctForDrops: true }]),
-    damagePerBlock: 1,
+    rules: Object.freeze([{ blocks, speed: ToolMiningSpeed(speed), correctForDrops: true }]),
+    damagePerBlock: ToolDurabilityDamage(1),
   })
 
 /**

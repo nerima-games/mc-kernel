@@ -1,4 +1,5 @@
 import { ResourceLocation, TagLocation, UUID } from '../text/identifiers.js'
+import { BlockAxis } from '../coordinates/coordinate-primitives.js'
 import { isItemType } from './item-type.js'
 import { isConsumableEffect } from './consumable-validation.js'
 import { isTextComponent } from '../text/text-component-validation.js'
@@ -100,6 +101,39 @@ import {
   EQUIPPABLE_SLOTS,
 } from './item-component-values-data.js'
 import { AdditionalTradeCost, MapId, PotionDurationScale } from '../time/quantities.js'
+import {
+  BeeHiveTicks,
+  BlockStatePropertyValue,
+  BookAuthor,
+  BookGeneration,
+  BookPageText,
+  CustomModelDataFloat,
+  CustomModelDataString,
+  DyeColorChannel,
+  EffectAmplifier,
+  Enchantability,
+  FireworksFlightDuration,
+  ItemComponentNbtLong,
+  ItemComponentNbtNumber,
+  ItemComponentNbtString,
+  ItemLock,
+  KineticDamageMultiplier,
+  KineticDurationTicks,
+  KineticMovement,
+  KineticSpeed,
+  LootTableSeed,
+  MapDecorationCoordinate,
+  MapDecorationRotation,
+  OminousBottleAmplifier,
+  PotionEffectDurationTicks,
+  ProfileName,
+  ProfilePropertyName,
+  ProfilePropertySignature,
+  ProfilePropertyValue,
+  RgbColor,
+  TrimAssetName,
+  TrimItemModelIndex,
+} from './item-primitives.js'
 
 type RecordValue = Record<string, unknown>
 
@@ -123,9 +157,6 @@ const hasAllKeys = (value: RecordValue, keys: ReadonlyArray<string>): boolean =>
 const DYE_COLOR_SET: ReadonlySet<string> = new Set(DYE_COLORS)
 const FIREWORK_EXPLOSION_SHAPE_SET: ReadonlySet<string> = new Set(FIREWORK_EXPLOSION_SHAPES)
 
-const LONG_MIN = -(2n ** 63n)
-const LONG_MAX = (2n ** 63n) - 1n
-
 const isPlainRecord = (value: unknown): value is RecordValue => {
   if (!isRecord(value)) {
     return false
@@ -135,7 +166,9 @@ const isPlainRecord = (value: unknown): value is RecordValue => {
 }
 
 export const isBlockStateComponent = (value: unknown): value is BlockStateComponent =>
-  isPlainRecord(value) && Object.values(value).every((entry) => typeof entry === 'string')
+  isPlainRecord(value) && Object.values(value).every((entry) =>
+    typeof entry === 'string' && BlockStatePropertyValue.is(entry),
+  )
 
 export const isDyeComponent = (value: unknown): value is DyeColor =>
   typeof value === 'string' && DYE_COLOR_SET.has(value)
@@ -144,11 +177,13 @@ const isItemComponentNbtValueInternal = (
   value: unknown,
   ancestors: WeakSet<object>,
 ): value is ItemComponentNbtValue => {
-  if (typeof value === 'boolean' || typeof value === 'bigint' || typeof value === 'string') {
+  if (typeof value === 'boolean') {
     return true
   }
+  if (typeof value === 'bigint') return ItemComponentNbtLong.is(value)
+  if (typeof value === 'string') return ItemComponentNbtString.is(value)
   if (typeof value === 'number') {
-    return Number.isFinite(value)
+    return ItemComponentNbtNumber.is(value)
   }
   if (typeof value !== 'object' || value === null || ancestors.has(value)) {
     return false
@@ -199,19 +234,21 @@ export const isBlockEntityDataOptions = (value: unknown): value is BlockEntityDa
 export const isBlockEntityDataComponent = (value: unknown): value is BlockEntityDataComponent =>
   isNbtObjectWithResourceLocationId(value)
 
-const PROFILE_NAME_PATTERN = /^[A-Za-z0-9_]{1,16}$/
 const PROFILE_KEYS = ['name', 'id', 'properties'] as const
 const PROFILE_PROPERTY_KEYS = ['name', 'value', 'signature'] as const
 
-const isProfileName = (value: unknown): value is string =>
-  typeof value === 'string' && PROFILE_NAME_PATTERN.test(value)
+const isProfileName = (value: unknown): value is ProfileName =>
+  typeof value === 'string' && ProfileName.is(value)
 
 const isProfileProperty = (value: unknown): value is ProfilePropertyOptions =>
   isPlainRecord(value) &&
   hasOnlyKeys(value, PROFILE_PROPERTY_KEYS) &&
   typeof value['name'] === 'string' &&
+  ProfilePropertyName.is(value['name']) &&
   typeof value['value'] === 'string' &&
-  (value['signature'] === undefined || typeof value['signature'] === 'string')
+  ProfilePropertyValue.is(value['value']) &&
+  (value['signature'] === undefined ||
+    (typeof value['signature'] === 'string' && ProfilePropertySignature.is(value['signature'])))
 
 const isProfileObject = (value: RecordValue): boolean =>
   hasOnlyKeys(value, PROFILE_KEYS) &&
@@ -227,18 +264,19 @@ export const isProfileOptions = (value: unknown): value is ProfileOptions =>
 export const isProfileComponent = (value: unknown): value is ProfileComponent =>
   typeof value === 'string' ? isProfileName(value) : isPlainRecord(value) && isProfileObject(value)
 
-const isNonNegativeSafeInteger = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
-
-const isBeeEntityData = (value: unknown): value is Readonly<Record<string, string>> =>
-  isPlainRecord(value) && Object.values(value).every((entry) => typeof entry === 'string')
+const isBeeEntityData = (value: unknown): value is BeeEntryOptions['entityData'] =>
+  isPlainRecord(value) && Object.values(value).every((entry) =>
+    typeof entry === 'string' && ItemComponentNbtString.is(entry),
+  )
 
 const isBeeEntry = (value: unknown): value is BeeEntryOptions =>
   isPlainRecord(value) &&
   hasExactKeys(value, ['entityData', 'ticksInHive', 'minTicksInHive']) &&
   isBeeEntityData(value['entityData']) &&
-  isNonNegativeSafeInteger(value['ticksInHive']) &&
-  isNonNegativeSafeInteger(value['minTicksInHive'])
+  typeof value['ticksInHive'] === 'number' &&
+  BeeHiveTicks.is(value['ticksInHive']) &&
+  typeof value['minTicksInHive'] === 'number' &&
+  BeeHiveTicks.is(value['minTicksInHive'])
 
 export const isBeesOptions = (value: unknown): value is BeesOptions =>
   Array.isArray(value) && value.every(isBeeEntry)
@@ -257,6 +295,24 @@ const POTION_EFFECT_KEYS = [
 ] as const
 const POTION_EFFECT_REQUIRED_KEYS = ['id', 'amplifier', 'duration', 'ambient', 'showParticles', 'showIcon'] as const
 
+const isPotionEffectInstanceScalarFields = (
+  value: RecordValue,
+  requireDefaults: boolean,
+): boolean =>
+  typeof value['id'] === 'string' &&
+  ResourceLocation.is(value['id']) &&
+  (value['amplifier'] === undefined
+    ? !requireDefaults
+    : typeof value['amplifier'] === 'number' && EffectAmplifier.is(value['amplifier'])) &&
+  (value['duration'] === undefined
+    ? !requireDefaults
+    : typeof value['duration'] === 'number' && PotionEffectDurationTicks.is(value['duration'])) &&
+  (value['ambient'] === undefined ? !requireDefaults : typeof value['ambient'] === 'boolean') &&
+  (value['showParticles'] === undefined
+    ? !requireDefaults
+    : typeof value['showParticles'] === 'boolean') &&
+  (value['showIcon'] === undefined ? !requireDefaults : typeof value['showIcon'] === 'boolean')
+
 const isPotionEffectInstanceFields = (
   value: RecordValue,
   requireDefaults: boolean,
@@ -274,23 +330,7 @@ const isPotionEffectInstanceFields = (
   const hiddenEffectIsValid = hiddenEffect === undefined ||
     (isPlainRecord(hiddenEffect) &&
       isPotionEffectInstanceFields(hiddenEffect, requireDefaults, ancestors))
-  const valid =
-    typeof value['id'] === 'string' &&
-    ResourceLocation.is(value['id']) &&
-    (value['amplifier'] === undefined
-      ? !requireDefaults
-      : isNonNegativeSafeInteger(value['amplifier'])) &&
-    (value['duration'] === undefined
-      ? !requireDefaults
-      : isNonNegativeSafeInteger(value['duration'])) &&
-    (value['ambient'] === undefined ? !requireDefaults : typeof value['ambient'] === 'boolean') &&
-    (value['showParticles'] === undefined
-      ? !requireDefaults
-      : typeof value['showParticles'] === 'boolean') &&
-    (value['showIcon'] === undefined
-      ? !requireDefaults
-      : typeof value['showIcon'] === 'boolean') &&
-    hiddenEffectIsValid
+  const valid = isPotionEffectInstanceScalarFields(value, requireDefaults) && hiddenEffectIsValid
   ancestors.delete(value)
   return valid
 }
@@ -308,8 +348,8 @@ const isPotionEffectInstanceComponent = (
   isPlainRecord(value) &&
   isPotionEffectInstanceFields(value, true, new WeakSet<object>())
 
-const isCustomColor = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 0xffffff
+const isCustomColor = (value: unknown): value is RgbColor =>
+  typeof value === 'number' && RgbColor.is(value)
 
 const isPotionContentsObject = (
   value: unknown,
@@ -363,20 +403,20 @@ export const isVanillaPotionEffectId = (value: unknown): value is ResourceLocati
 
 const MAP_DECORATION_TYPE_SET: ReadonlySet<string> = new Set(MAP_DECORATION_TYPES)
 
-const isFiniteNumber = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value)
-
 const isMapDecoration = (value: unknown): value is MapDecorationComponent =>
   isPlainRecord(value) &&
   hasExactKeys(value, ['type', 'x', 'z', 'rotation']) &&
   typeof value['type'] === 'string' &&
   MAP_DECORATION_TYPE_SET.has(value['type']) &&
-  isFiniteNumber(value['x']) &&
-  isFiniteNumber(value['z']) &&
-  isFiniteNumber(value['rotation'])
+  typeof value['x'] === 'number' &&
+  MapDecorationCoordinate.is(value['x']) &&
+  typeof value['z'] === 'number' &&
+  MapDecorationCoordinate.is(value['z']) &&
+  typeof value['rotation'] === 'number' &&
+  MapDecorationRotation.is(value['rotation'])
 
 export const isMapColorComponent = (value: unknown): value is MapColorComponent =>
-  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 0xffffff
+  typeof value === 'number' && RgbColor.is(value)
 
 export const isMapDecorationsOptions = (value: unknown): value is MapDecorationsOptions =>
   isPlainRecord(value) && Object.values(value).every(isMapDecoration)
@@ -385,10 +425,7 @@ export const isMapDecorationsComponent = (
   value: unknown,
 ): value is MapDecorationsComponent => isMapDecorationsOptions(value)
 
-const isJsonTextComponentString = (value: unknown): value is string => {
-  if (typeof value !== 'string') {
-    return false
-  }
+const isJsonTextComponentString = (value: string): boolean => {
   try {
     const parsed: unknown = JSON.parse(value)
     return isTextComponent(parsed)
@@ -404,20 +441,22 @@ const isBookPageObject = (
   if (!isPlainRecord(value) || !hasOnlyKeys(value, ['raw', 'filtered']) || !hasAllKeys(value, ['raw'])) {
     return false
   }
-  const rawIsValid = pageValueIsJson
-    ? isJsonTextComponentString(value['raw'])
-    : typeof value['raw'] === 'string'
+  const raw = value['raw']
+  const rawIsValid = typeof raw === 'string' && BookPageText.is(raw) &&
+    (!pageValueIsJson || isJsonTextComponentString(raw))
   const filtered = value['filtered']
   const filteredIsValid = filtered === undefined ||
-    (pageValueIsJson ? isJsonTextComponentString(filtered) : typeof filtered === 'string')
+    (typeof filtered === 'string' && BookPageText.is(filtered) &&
+      (!pageValueIsJson || isJsonTextComponentString(filtered)))
   return rawIsValid && filteredIsValid
 }
 
 const isWritableBookPage = (value: unknown): value is WritableBookPageOptions =>
-  typeof value === 'string' || isBookPageObject(value, false)
+  (typeof value === 'string' && BookPageText.is(value)) || isBookPageObject(value, false)
 
 const isWrittenBookPage = (value: unknown): value is WrittenBookPageOptions =>
-  isJsonTextComponentString(value) || isBookPageObject(value, true)
+  (typeof value === 'string' && BookPageText.is(value) && isJsonTextComponentString(value)) ||
+  isBookPageObject(value, true)
 
 const isBookPages = (
   value: unknown,
@@ -446,10 +485,9 @@ export const isWrittenBookContentOptions = (
   isBookPages(value['pages'], isWrittenBookPage) &&
   isWrittenBookPage(value['title']) &&
   typeof value['author'] === 'string' &&
+  BookAuthor.is(value['author']) &&
   typeof value['generation'] === 'number' &&
-  Number.isInteger(value['generation']) &&
-  value['generation'] >= 0 &&
-  value['generation'] <= 3 &&
+  BookGeneration.is(value['generation']) &&
   typeof value['resolved'] === 'boolean'
 
 export const isWrittenBookContentComponent = (
@@ -468,11 +506,13 @@ const isTrimMaterialInline = (value: unknown): value is TrimMaterialInlineOption
   hasOnlyKeys(value, ['assetName', 'ingredient', 'itemModelIndex', 'overrideArmorMaterials', 'description']) &&
   hasAllKeys(value, ['assetName', 'ingredient', 'itemModelIndex', 'description']) &&
   typeof value['assetName'] === 'string' &&
+  TrimAssetName.is(value['assetName']) &&
   isItemType(value['ingredient']) &&
-  isFiniteNumber(value['itemModelIndex']) &&
+  typeof value['itemModelIndex'] === 'number' &&
+  TrimItemModelIndex.is(value['itemModelIndex']) &&
   (value['overrideArmorMaterials'] === undefined ||
     (isPlainRecord(value['overrideArmorMaterials']) &&
-      Object.values(value['overrideArmorMaterials']).every((entry) => typeof entry === 'string'))) &&
+      Object.values(value['overrideArmorMaterials']).every((entry) => isResourceLocation(entry)))) &&
   isTextComponent(value['description'])
 
 const isTrimPattern = (value: unknown): boolean =>
@@ -499,13 +539,15 @@ const isSuspiciousStewEntry = (value: unknown): value is SuspiciousStewEntryOpti
   hasOnlyKeys(value, ['id', 'duration']) &&
   hasAllKeys(value, ['id']) &&
   isResourceLocation(value['id']) &&
-  (value['duration'] === undefined || isNonNegativeSafeInteger(value['duration']))
+  (value['duration'] === undefined ||
+    (typeof value['duration'] === 'number' && PotionEffectDurationTicks.is(value['duration'])))
 
 const isSuspiciousStewEntryComponent = (value: unknown): value is SuspiciousStewEntryComponent =>
   isPlainRecord(value) &&
   hasExactKeys(value, ['id', 'duration']) &&
   isResourceLocation(value['id']) &&
-  isNonNegativeSafeInteger(value['duration'])
+  typeof value['duration'] === 'number' &&
+  PotionEffectDurationTicks.is(value['duration'])
 
 export const isSuspiciousStewOptions = (
   value: unknown,
@@ -560,26 +602,26 @@ export const isCanBreakComponent = (value: unknown): value is CanBreakComponent 
 export const isCanPlaceOnComponent = (value: unknown): value is CanPlaceOnComponent =>
   isCanBreakComponent(value)
 
-const isPackedRgb = (value: number): boolean =>
-  Number.isInteger(value) && value >= 0 && value <= 0xffffff
+const isPackedRgb = (value: unknown): value is RgbColor =>
+  typeof value === 'number' && RgbColor.is(value)
 
-const isNormalizedColorChannel = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+const isNormalizedColorChannel = (value: unknown): value is DyeColorChannel =>
+  typeof value === 'number' && DyeColorChannel.is(value)
 
 export const isDyedColorComponent = (value: unknown): value is DyedColorComponent =>
-  (typeof value === 'number' && isPackedRgb(value)) ||
+  isPackedRgb(value) ||
   (Array.isArray(value) && value.length === 3 && value.every(isNormalizedColorChannel))
 
 const CUSTOM_MODEL_DATA_KEYS = ['floats', 'flags', 'strings', 'colors'] as const
 
-const isFiniteNumberArray = (value: unknown): value is ReadonlyArray<number> =>
-  Array.isArray(value) && value.every((entry) => typeof entry === 'number' && Number.isFinite(entry))
+const isCustomModelDataFloatArray = (value: unknown): value is ReadonlyArray<CustomModelDataFloat> =>
+  Array.isArray(value) && value.every((entry) => CustomModelDataFloat.is(entry))
 
 const isBooleanArray = (value: unknown): value is ReadonlyArray<boolean> =>
   Array.isArray(value) && value.every((entry) => typeof entry === 'boolean')
 
-const isStringArray = (value: unknown): value is ReadonlyArray<string> =>
-  Array.isArray(value) && value.every((entry) => typeof entry === 'string')
+const isStringArray = (value: unknown): value is ReadonlyArray<CustomModelDataString> =>
+  Array.isArray(value) && value.every((entry) => CustomModelDataString.is(entry))
 
 const isDyedColorArray = (value: unknown): value is ReadonlyArray<DyedColorComponent> =>
   Array.isArray(value) && value.every((entry) => isDyedColorComponent(entry))
@@ -592,7 +634,7 @@ const isCustomModelDataFields = (value: RecordValue, requireAll: boolean): boole
   if (requireAll && !hasExactKeys(value, CUSTOM_MODEL_DATA_KEYS)) return false
 
   return (
-    (value['floats'] === undefined ? !requireAll : isFiniteNumberArray(value['floats'])) &&
+    (value['floats'] === undefined ? !requireAll : isCustomModelDataFloatArray(value['floats'])) &&
     (value['flags'] === undefined ? !requireAll : isBooleanArray(value['flags'])) &&
     (value['strings'] === undefined ? !requireAll : isStringArray(value['strings'])) &&
     (value['colors'] === undefined ? !requireAll : isDyedColorArray(value['colors']))
@@ -617,7 +659,8 @@ export const isNoteBlockSoundComponent = (value: unknown): value is NoteBlockSou
 export const isRecipesComponent = (value: unknown): value is RecipesComponent =>
   Array.isArray(value) && value.every((entry) => isResourceLocation(entry))
 
-export const isLockComponent = (value: unknown): value is LockComponent => typeof value === 'string'
+export const isLockComponent = (value: unknown): value is LockComponent =>
+  typeof value === 'string' && ItemLock.is(value)
 
 export const isTooltipStyleComponent = (value: unknown): value is TooltipStyleComponent =>
   isResourceLocation(value)
@@ -701,9 +744,6 @@ export const isEquippableComponent = (value: unknown): value is EquippableCompon
 
 const KINETIC_WEAPON_CONDITION_KEYS = ['maxDurationTicks', 'minSpeed', 'minRelativeSpeed'] as const
 
-const isNonNegativeFiniteNumber = (value: unknown): value is number =>
-  isFiniteNumber(value) && value >= 0
-
 const isKineticWeaponConditionFields = (
   value: RecordValue,
   requireDefaults: boolean,
@@ -711,13 +751,13 @@ const isKineticWeaponConditionFields = (
   hasOnlyKeys(value, KINETIC_WEAPON_CONDITION_KEYS) &&
   (value['maxDurationTicks'] === undefined
     ? !requireDefaults
-    : isNonNegativeSafeInteger(value['maxDurationTicks'])) &&
+    : typeof value['maxDurationTicks'] === 'number' && KineticDurationTicks.is(value['maxDurationTicks'])) &&
   (value['minSpeed'] === undefined
     ? !requireDefaults
-    : isNonNegativeFiniteNumber(value['minSpeed'])) &&
+    : typeof value['minSpeed'] === 'number' && KineticSpeed.is(value['minSpeed'])) &&
   (value['minRelativeSpeed'] === undefined
     ? !requireDefaults
-    : isNonNegativeFiniteNumber(value['minRelativeSpeed']))
+    : typeof value['minRelativeSpeed'] === 'number' && KineticSpeed.is(value['minRelativeSpeed']))
 
 export const isKineticWeaponConditionOptions = (
   value: unknown,
@@ -754,19 +794,19 @@ const isKineticWeaponFields = (value: RecordValue, requireDefaults: boolean): bo
   hasOnlyKeys(value, KINETIC_WEAPON_KEYS) &&
   (value['contactCooldownTicks'] === undefined
     ? !requireDefaults
-    : isNonNegativeSafeInteger(value['contactCooldownTicks'])) &&
+    : typeof value['contactCooldownTicks'] === 'number' && KineticDurationTicks.is(value['contactCooldownTicks'])) &&
   (value['delayTicks'] === undefined
     ? !requireDefaults
-    : isNonNegativeSafeInteger(value['delayTicks'])) &&
+    : typeof value['delayTicks'] === 'number' && KineticDurationTicks.is(value['delayTicks'])) &&
   isOptionalKineticWeaponCondition(value['dismountConditions']) &&
   isOptionalKineticWeaponCondition(value['knockbackConditions']) &&
   isOptionalKineticWeaponCondition(value['damageConditions']) &&
   (value['forwardMovement'] === undefined
     ? !requireDefaults
-    : isFiniteNumber(value['forwardMovement'])) &&
+    : typeof value['forwardMovement'] === 'number' && KineticMovement.is(value['forwardMovement'])) &&
   (value['damageMultiplier'] === undefined
     ? !requireDefaults
-    : isFiniteNumber(value['damageMultiplier'])) &&
+    : typeof value['damageMultiplier'] === 'number' && KineticDamageMultiplier.is(value['damageMultiplier'])) &&
   isOptionalResourceLocation(value['sound']) &&
   isOptionalResourceLocation(value['hitSound']) &&
   (!requireDefaults || hasAllKeys(value, KINETIC_WEAPON_REQUIRED_KEYS))
@@ -818,8 +858,8 @@ export const isRepairableComponent = (value: unknown): value is RepairableCompon
   hasExactKeys(value, ['items']) &&
   isResourceLocationProvider(value['items'])
 
-export const isEnchantableValue = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+export const isEnchantableValue = (value: unknown): value is Enchantability =>
+  typeof value === 'number' && Enchantability.is(value)
 
 export const isEnchantableComponent = (value: unknown): value is EnchantableComponent =>
   isPlainRecord(value) && hasExactKeys(value, ['value']) && isEnchantableValue(value['value'])
@@ -830,15 +870,15 @@ export const isJukeboxPlayableComponent = (value: unknown): value is JukeboxPlay
 export const isOminousBottleAmplifierComponent = (
   value: unknown,
 ): value is OminousBottleAmplifierComponent =>
-  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= 4
+  typeof value === 'number' && OminousBottleAmplifier.is(value)
 
 export const isPaintingVariantComponent = (value: unknown): value is PaintingVariantComponent =>
   isResourceLocation(value)
 
-const isBlockPosition = (value: unknown): value is readonly [number, number, number] =>
+const isBlockPosition = (value: unknown): value is readonly [BlockAxis, BlockAxis, BlockAxis] =>
   Array.isArray(value) &&
   value.length === 3 &&
-  value.every((entry) => typeof entry === 'number' && Number.isSafeInteger(entry))
+  value.every((entry) => BlockAxis.is(entry))
 
 const isLodestoneTrackerTargetOptions = (value: unknown): boolean =>
   isPlainRecord(value) &&
@@ -871,8 +911,8 @@ export const isLodestoneTrackerComponent = (
 const isFireworkExplosionShape = (value: unknown): boolean =>
   typeof value === 'string' && FIREWORK_EXPLOSION_SHAPE_SET.has(value)
 
-const isPackedRgbArray = (value: unknown): value is ReadonlyArray<number> =>
-  Array.isArray(value) && value.every((entry) => typeof entry === 'number' && isPackedRgb(entry))
+const isPackedRgbArray = (value: unknown): value is ReadonlyArray<RgbColor> =>
+  Array.isArray(value) && value.every(isPackedRgb)
 
 const isFireworkExplosionFields = (value: RecordValue, requireDefaults: boolean): boolean => {
   if (!hasOnlyKeys(value, ['shape', 'colors', 'fadeColors', 'hasTrail', 'hasTwinkle'])) {
@@ -900,9 +940,6 @@ export const isFireworkExplosionComponent = (
 ): value is FireworkExplosionComponent =>
   isPlainRecord(value) && isFireworkExplosionFields(value, true)
 
-const isUnsignedByte = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 0xff
-
 const isFireworkExplosionOptionsArray = (value: unknown): boolean =>
   Array.isArray(value) && value.every(isFireworkExplosionOptions)
 
@@ -913,13 +950,15 @@ export const isFireworksOptions = (value: unknown): value is FireworksOptions =>
   isPlainRecord(value) &&
   hasOnlyKeys(value, ['explosions', 'flightDuration']) &&
   (value['explosions'] === undefined || isFireworkExplosionOptionsArray(value['explosions'])) &&
-  (value['flightDuration'] === undefined || isUnsignedByte(value['flightDuration']))
+  (value['flightDuration'] === undefined ||
+    (typeof value['flightDuration'] === 'number' && FireworksFlightDuration.is(value['flightDuration'])))
 
 export const isFireworksComponent = (value: unknown): value is FireworksComponent =>
   isPlainRecord(value) &&
   hasExactKeys(value, ['explosions', 'flightDuration']) &&
   isFireworkExplosionComponentArray(value['explosions']) &&
-  isUnsignedByte(value['flightDuration'])
+  typeof value['flightDuration'] === 'number' &&
+  FireworksFlightDuration.is(value['flightDuration'])
 
 const isBannerPatternEntryOptions = (value: unknown): value is BannerPatternOptions =>
   isPlainRecord(value) &&
@@ -950,8 +989,8 @@ export const isPotDecorationsComponent = (value: unknown): value is PotDecoratio
   value.length === 4 &&
   value.every(isResourceLocation)
 
-const isLong = (value: unknown): value is bigint =>
-  typeof value === 'bigint' && value >= LONG_MIN && value <= LONG_MAX
+const isLong = (value: unknown): value is LootTableSeed =>
+  typeof value === 'bigint' && LootTableSeed.is(value)
 
 export const isContainerLootOptions = (value: unknown): value is ContainerLootOptions =>
   isPlainRecord(value) &&
@@ -970,7 +1009,10 @@ export const isContainerLootComponent = (value: unknown): value is ContainerLoot
 export const isDebugStickStateComponent = (value: unknown): value is DebugStickStateComponent =>
   isPlainRecord(value) &&
   Object.entries(value).every(
-    ([block, property]) => ResourceLocation.is(block) && typeof property === 'string',
+    ([block, property]) =>
+      ResourceLocation.is(block) &&
+      typeof property === 'string' &&
+      BlockStatePropertyValue.is(property),
   )
 
 export const isPotionDurationScaleComponent = (value: unknown): value is PotionDurationScale =>

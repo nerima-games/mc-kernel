@@ -1,9 +1,46 @@
 /** Portable data contracts for simple Java item components. */
 import type { ResourceLocation, TagLocation, UUID } from '../text/identifiers.js'
+import type { BlockAxis } from '../coordinates/coordinate-primitives.js'
 import type { ConsumableEffect } from './consumable-data.js'
 import type { ItemStack } from './item-stack.js'
 import type { ItemType } from './item-type.js'
 import type { MapId } from '../time/quantities.js'
+import type {
+  BeeHiveTicks,
+  BlockStatePropertyValue,
+  BookAuthor,
+  BookGeneration,
+  BookPageText,
+  ContainerSlotIndex,
+  CustomModelDataFloat,
+  CustomModelDataString,
+  DyeColorChannel,
+  EffectAmplifier,
+  Enchantability,
+  FireworksFlightDuration,
+  ItemComponentNbtKey,
+  ItemComponentNbtLong,
+  ItemComponentNbtNumber,
+  ItemComponentNbtString,
+  ItemLock,
+  KineticDamageMultiplier,
+  KineticDurationTicks,
+  KineticMovement,
+  KineticSpeed,
+  LootTableSeed,
+  MapDecorationCoordinate,
+  MapDecorationRotation,
+  OminousBottleAmplifier,
+  PotionEffectDurationTicks,
+  ProfileName,
+  ProfilePropertyName,
+  ProfilePropertySignature,
+  ProfilePropertyValue,
+  RgbColor,
+  TrimAssetName,
+  TrimArmorMaterialKey,
+  TrimItemModelIndex,
+} from './item-primitives.js'
 import { STATUS_EFFECT_NAMES, statusEffectId } from '../entity/status-effect-data.js'
 import type { TextComponent } from '../text/text-component-data.js'
 
@@ -28,7 +65,12 @@ export const DYE_COLORS = [
 
 export type DyeColor = (typeof DYE_COLORS)[number]
 
-export type ItemComponentNbtPrimitive = boolean | bigint | number | string
+export type ItemComponentNbtPrimitive =
+  | boolean
+  | ItemComponentNbtLong
+  | ItemComponentNbtNumber
+  | ItemComponentNbtString
+  | ResourceLocation
 
 export interface ItemComponentNbtObject {
   readonly [key: string]: ItemComponentNbtValue
@@ -44,7 +86,7 @@ export type EntityDataComponent = Readonly<
   ItemComponentNbtObject & { readonly id: ResourceLocation }
 >
 
-export type EntityDataOptions = Readonly<ItemComponentNbtObject & { readonly id: string }>
+export type EntityDataOptions = Readonly<ItemComponentNbtObject & { readonly id: ResourceLocation }>
 
 export type BucketEntityDataComponent = Readonly<ItemComponentNbtObject>
 
@@ -54,42 +96,42 @@ export type BlockEntityDataComponent = Readonly<
   ItemComponentNbtObject & { readonly id: ResourceLocation }
 >
 
-export type BlockEntityDataOptions = Readonly<ItemComponentNbtObject & { readonly id: string }>
+export type BlockEntityDataOptions = Readonly<ItemComponentNbtObject & { readonly id: ResourceLocation }>
 
 export type ProfilePropertyComponent = Readonly<{
-  readonly name: string
-  readonly value: string
-  readonly signature?: string
+  readonly name: ProfilePropertyName
+  readonly value: ProfilePropertyValue
+  readonly signature?: ProfilePropertySignature
 }>
 
 export type ProfilePropertyOptions = ProfilePropertyComponent
 
 export type ProfileObjectComponent = Readonly<{
-  readonly name?: string
+  readonly name?: ProfileName
   readonly id?: UUID
   readonly properties?: ReadonlyArray<ProfilePropertyComponent>
 }>
 
 export type ProfileObjectOptions = Readonly<{
-  readonly name?: string
-  readonly id?: string
+  readonly name?: ProfileName
+  readonly id?: UUID
   readonly properties?: ReadonlyArray<ProfilePropertyOptions>
 }>
 
-export type ProfileComponent = string | ProfileObjectComponent
+export type ProfileComponent = ProfileName | ProfileObjectComponent
 
-export type ProfileOptions = string | ProfileObjectOptions
+export type ProfileOptions = ProfileName | ProfileObjectOptions
 
 export type BeeEntryComponent = Readonly<{
-  readonly entityData: Readonly<Record<string, string>>
-  readonly ticksInHive: number
-  readonly minTicksInHive: number
+  readonly entityData: Readonly<Record<ItemComponentNbtKey, ItemComponentNbtString>>
+  readonly ticksInHive: BeeHiveTicks
+  readonly minTicksInHive: BeeHiveTicks
 }>
 
 export type BeeEntryOptions = Readonly<{
-  readonly entityData: Readonly<Record<string, string>>
-  readonly ticksInHive: number
-  readonly minTicksInHive: number
+  readonly entityData: Readonly<Record<ItemComponentNbtKey, ItemComponentNbtString>>
+  readonly ticksInHive: BeeHiveTicks
+  readonly minTicksInHive: BeeHiveTicks
 }>
 
 export type BeesComponent = ReadonlyArray<BeeEntryComponent>
@@ -98,8 +140,8 @@ export type BeesOptions = ReadonlyArray<BeeEntryOptions>
 
 export type PotionEffectInstanceComponent = Readonly<{
   readonly id: ResourceLocation
-  readonly amplifier: number
-  readonly duration: number
+  readonly amplifier: EffectAmplifier
+  readonly duration: PotionEffectDurationTicks
   readonly ambient: boolean
   readonly showParticles: boolean
   readonly showIcon: boolean
@@ -107,9 +149,9 @@ export type PotionEffectInstanceComponent = Readonly<{
 }>
 
 export type PotionEffectInstanceOptions = Readonly<{
-  readonly id: string
-  readonly amplifier?: number
-  readonly duration?: number
+  readonly id: ResourceLocation
+  readonly amplifier?: EffectAmplifier
+  readonly duration?: PotionEffectDurationTicks
   readonly ambient?: boolean
   readonly showParticles?: boolean
   readonly showIcon?: boolean
@@ -129,13 +171,13 @@ export const VANILLA_STATUS_EFFECT_IDS: ReadonlyArray<ResourceLocation> =
 
 export type PotionContentsComponent = ResourceLocation | Readonly<{
   readonly potion?: ResourceLocation
-  readonly customColor?: number
+  readonly customColor?: RgbColor
   readonly customEffects: ReadonlyArray<PotionEffectInstanceComponent>
 }>
 
-export type PotionContentsOptions = string | Readonly<{
-  readonly potion?: string
-  readonly customColor?: number
+export type PotionContentsOptions = ResourceLocation | Readonly<{
+  readonly potion?: ResourceLocation
+  readonly customColor?: RgbColor
   readonly customEffects?: ReadonlyArray<PotionEffectInstanceOptions>
 }>
 
@@ -148,7 +190,7 @@ export type BundleContentsComponent = ReadonlyArray<ItemStack>
 export type BundleContentsOptions = ReadonlyArray<ItemStack>
 
 export type ContainerEntryComponent = Readonly<{
-  readonly slot: number
+  readonly slot: ContainerSlotIndex
   readonly item: ItemStack
 }>
 
@@ -160,9 +202,9 @@ export type ContainerOptions = ReadonlyArray<ContainerEntryOptions>
 
 export type SulfurCubeContentComponent = ResourceLocation
 
-export type SulfurCubeContentOptions = string
+export type SulfurCubeContentOptions = ResourceLocation
 
-export type MapColorComponent = number
+export type MapColorComponent = RgbColor
 
 export const MAP_DECORATION_TYPES = [
   'player',
@@ -206,9 +248,9 @@ export type MapDecorationType = (typeof MAP_DECORATION_TYPES)[number]
 
 export type MapDecorationComponent = Readonly<{
   readonly type: MapDecorationType
-  readonly x: number
-  readonly z: number
-  readonly rotation: number
+  readonly x: MapDecorationCoordinate
+  readonly z: MapDecorationCoordinate
+  readonly rotation: MapDecorationRotation
 }>
 
 export type MapDecorationOptions = MapDecorationComponent
@@ -217,9 +259,9 @@ export type MapDecorationsComponent = Readonly<Record<string, MapDecorationCompo
 
 export type MapDecorationsOptions = Readonly<Record<string, MapDecorationOptions>>
 
-export type WritableBookPageComponent = string | Readonly<{
-  readonly raw: string
-  readonly filtered?: string
+export type WritableBookPageComponent = BookPageText | Readonly<{
+  readonly raw: BookPageText
+  readonly filtered?: BookPageText
 }>
 
 export type WritableBookPageOptions = WritableBookPageComponent
@@ -232,9 +274,9 @@ export type WritableBookContentOptions = Readonly<{
   readonly pages?: ReadonlyArray<WritableBookPageOptions>
 }>
 
-export type WrittenBookPageComponent = string | Readonly<{
-  readonly raw: string
-  readonly filtered?: string
+export type WrittenBookPageComponent = BookPageText | Readonly<{
+  readonly raw: BookPageText
+  readonly filtered?: BookPageText
 }>
 
 export type WrittenBookPageOptions = WrittenBookPageComponent
@@ -242,16 +284,16 @@ export type WrittenBookPageOptions = WrittenBookPageComponent
 export type WrittenBookContentComponent = Readonly<{
   readonly pages: ReadonlyArray<WrittenBookPageComponent>
   readonly title: WrittenBookPageComponent
-  readonly author: string
-  readonly generation: number
+  readonly author: BookAuthor
+  readonly generation: BookGeneration
   readonly resolved: boolean
 }>
 
 export type WrittenBookContentOptions = Readonly<{
   readonly pages: ReadonlyArray<WrittenBookPageOptions>
   readonly title: WrittenBookPageOptions
-  readonly author: string
-  readonly generation: number
+  readonly author: BookAuthor
+  readonly generation: BookGeneration
   readonly resolved: boolean
 }>
 
@@ -264,32 +306,32 @@ export type TrimPatternInlineComponent = Readonly<{
 export type TrimPatternComponent = ResourceLocation | TrimPatternInlineComponent
 
 export type TrimPatternInlineOptions = Readonly<{
-  readonly assetId: string
+  readonly assetId: ResourceLocation
   readonly description: TextComponent
   readonly decal: boolean
 }>
 
-export type TrimPatternOptions = string | TrimPatternInlineOptions
+export type TrimPatternOptions = ResourceLocation | TrimPatternInlineOptions
 
 export type TrimMaterialInlineComponent = Readonly<{
-  readonly assetName: string
+  readonly assetName: TrimAssetName
   readonly ingredient: ItemType
-  readonly itemModelIndex: number
-  readonly overrideArmorMaterials?: Readonly<Record<string, string>>
+  readonly itemModelIndex: TrimItemModelIndex
+  readonly overrideArmorMaterials?: Readonly<Record<TrimArmorMaterialKey, ResourceLocation>>
   readonly description: TextComponent
 }>
 
 export type TrimMaterialComponent = ResourceLocation | TrimMaterialInlineComponent
 
 export type TrimMaterialInlineOptions = Readonly<{
-  readonly assetName: string
+  readonly assetName: TrimAssetName
   readonly ingredient: ItemType
-  readonly itemModelIndex: number
-  readonly overrideArmorMaterials?: Readonly<Record<string, string>>
+  readonly itemModelIndex: TrimItemModelIndex
+  readonly overrideArmorMaterials?: Readonly<Record<TrimArmorMaterialKey, ResourceLocation>>
   readonly description: TextComponent
 }>
 
-export type TrimMaterialOptions = string | TrimMaterialInlineOptions
+export type TrimMaterialOptions = ResourceLocation | TrimMaterialInlineOptions
 
 export type TrimComponent = Readonly<{
   readonly pattern: TrimPatternComponent
@@ -303,12 +345,12 @@ export type TrimOptions = Readonly<{
 
 export type SuspiciousStewEntryComponent = Readonly<{
   readonly id: ResourceLocation
-  readonly duration: number
+  readonly duration: PotionEffectDurationTicks
 }>
 
 export type SuspiciousStewEntryOptions = Readonly<{
-  readonly id: string
-  readonly duration?: number
+  readonly id: ResourceLocation
+  readonly duration?: PotionEffectDurationTicks
 }>
 
 export type SuspiciousStewComponent = ReadonlyArray<SuspiciousStewEntryComponent>
@@ -324,7 +366,10 @@ export type BlockPredicateBlockComponent =
   | TagLocation
   | ReadonlyArray<ResourceLocation | TagLocation>
 
-export type BlockPredicateBlockOptions = string | ReadonlyArray<string>
+export type BlockPredicateBlockOptions =
+  | ResourceLocation
+  | TagLocation
+  | ReadonlyArray<ResourceLocation | TagLocation>
 
 export type BlockPredicateComponent = Readonly<{
   readonly blocks?: BlockPredicateBlockComponent
@@ -335,7 +380,7 @@ export type BlockPredicateComponent = Readonly<{
 export type BlockPredicateOptions = Readonly<{
   readonly blocks?: BlockPredicateBlockOptions
   readonly nbt?: ItemComponentNbtObject
-  readonly state?: Readonly<Record<string, string>>
+  readonly state?: BlockStateComponent
 }>
 
 export type CanBreakComponent = BlockPredicateComponent | ReadonlyArray<BlockPredicateComponent>
@@ -346,13 +391,13 @@ export type CanPlaceOnComponent = CanBreakComponent
 
 export type CanPlaceOnOptions = CanBreakOptions
 
-export type DyedColorComponent = number | readonly [number, number, number]
+export type DyedColorComponent = RgbColor | readonly [DyeColorChannel, DyeColorChannel, DyeColorChannel]
 
 export type BaseColorComponent = DyeColor
 
 export type MapIdComponent = MapId
 
-export type BlockStateComponent = Readonly<Record<string, string>>
+export type BlockStateComponent = Readonly<Record<string, BlockStatePropertyValue>>
 
 export type InstrumentComponent = ResourceLocation
 
@@ -360,21 +405,21 @@ export type NoteBlockSoundComponent = ResourceLocation
 
 export type RecipesComponent = ReadonlyArray<ResourceLocation>
 
-export type LockComponent = string
+export type LockComponent = ItemLock
 
 export type TooltipStyleComponent = ResourceLocation
 
 export type CustomModelDataComponent = Readonly<{
-  readonly floats: ReadonlyArray<number>
+  readonly floats: ReadonlyArray<CustomModelDataFloat>
   readonly flags: ReadonlyArray<boolean>
-  readonly strings: ReadonlyArray<string>
+  readonly strings: ReadonlyArray<CustomModelDataString>
   readonly colors: ReadonlyArray<DyedColorComponent>
 }>
 
 export type CustomModelDataOptions = Readonly<{
-  readonly floats?: ReadonlyArray<number>
+  readonly floats?: ReadonlyArray<CustomModelDataFloat>
   readonly flags?: ReadonlyArray<boolean>
-  readonly strings?: ReadonlyArray<string>
+  readonly strings?: ReadonlyArray<CustomModelDataString>
   readonly colors?: ReadonlyArray<DyedColorComponent>
 }>
 
@@ -383,7 +428,7 @@ export type ResourceLocationProvider =
   | TagLocation
   | ReadonlyArray<ResourceLocation>
 
-export type ResourceLocationProviderInput = string | ReadonlyArray<string>
+export type ResourceLocationProviderInput = ResourceLocation | TagLocation | ReadonlyArray<ResourceLocation>
 
 export type BannerPatternProvider = ResourceLocationProvider
 
@@ -416,12 +461,12 @@ export type EquippableComponent = Readonly<{
 
 export type EquippableOptions = Readonly<{
   readonly slot: EquippableSlot
-  readonly equipSound?: string
-  readonly model?: string
-  readonly cameraOverlay?: string
+  readonly equipSound?: ResourceLocation
+  readonly model?: ResourceLocation
+  readonly cameraOverlay?: ResourceLocation
   readonly allowedEntities?: ResourceLocationProviderInput
   readonly canBeSheared?: boolean
-  readonly shearingSound?: string
+  readonly shearingSound?: ResourceLocation
   readonly dispensable?: boolean
   readonly swappable?: boolean
   readonly damageOnHurt?: boolean
@@ -429,39 +474,39 @@ export type EquippableOptions = Readonly<{
 }>
 
 export type KineticWeaponCondition = Readonly<{
-  readonly maxDurationTicks: number
-  readonly minSpeed: number
-  readonly minRelativeSpeed: number
+  readonly maxDurationTicks: KineticDurationTicks
+  readonly minSpeed: KineticSpeed
+  readonly minRelativeSpeed: KineticSpeed
 }>
 
 export type KineticWeaponConditionOptions = Readonly<{
-  readonly maxDurationTicks: number
-  readonly minSpeed?: number
-  readonly minRelativeSpeed?: number
+  readonly maxDurationTicks: KineticDurationTicks
+  readonly minSpeed?: KineticSpeed
+  readonly minRelativeSpeed?: KineticSpeed
 }>
 
 export type KineticWeaponComponent = Readonly<{
-  readonly contactCooldownTicks: number
-  readonly delayTicks: number
+  readonly contactCooldownTicks: KineticDurationTicks
+  readonly delayTicks: KineticDurationTicks
   readonly dismountConditions?: KineticWeaponCondition
   readonly knockbackConditions?: KineticWeaponCondition
   readonly damageConditions?: KineticWeaponCondition
-  readonly forwardMovement: number
-  readonly damageMultiplier: number
+  readonly forwardMovement: KineticMovement
+  readonly damageMultiplier: KineticDamageMultiplier
   readonly sound?: ResourceLocation
   readonly hitSound?: ResourceLocation
 }>
 
 export type KineticWeaponOptions = Readonly<{
-  readonly contactCooldownTicks?: number
-  readonly delayTicks?: number
+  readonly contactCooldownTicks?: KineticDurationTicks
+  readonly delayTicks?: KineticDurationTicks
   readonly dismountConditions?: KineticWeaponConditionOptions
   readonly knockbackConditions?: KineticWeaponConditionOptions
   readonly damageConditions?: KineticWeaponConditionOptions
-  readonly forwardMovement?: number
-  readonly damageMultiplier?: number
-  readonly sound?: string
-  readonly hitSound?: string
+  readonly forwardMovement?: KineticMovement
+  readonly damageMultiplier?: KineticDamageMultiplier
+  readonly sound?: ResourceLocation
+  readonly hitSound?: ResourceLocation
 }>
 
 export type PiercingWeaponComponent = Readonly<{
@@ -474,8 +519,8 @@ export type PiercingWeaponComponent = Readonly<{
 export type PiercingWeaponOptions = Readonly<{
   readonly dealsKnockback?: boolean
   readonly dismounts?: boolean
-  readonly sound?: string
-  readonly hitSound?: string
+  readonly sound?: ResourceLocation
+  readonly hitSound?: ResourceLocation
 }>
 
 export type GliderComponent = Readonly<Record<string, never>>
@@ -493,14 +538,14 @@ export type RepairableComponent = Readonly<{
 }>
 
 export type EnchantableComponent = Readonly<{
-  readonly value: number
+  readonly value: Enchantability
 }>
 
 export type JukeboxPlayableComponent = Readonly<{
   readonly song: ResourceLocation
 }>
 
-export type OminousBottleAmplifierComponent = number
+export type OminousBottleAmplifierComponent = OminousBottleAmplifier
 
 export type PaintingVariantComponent = ResourceLocation
 
@@ -520,13 +565,13 @@ export const FIREWORK_EXPLOSION_SHAPES = [
 export type FireworkExplosionShape = (typeof FIREWORK_EXPLOSION_SHAPES)[number]
 
 export type LodestoneTrackerTarget = Readonly<{
-  readonly pos: readonly [number, number, number]
+  readonly pos: readonly [BlockAxis, BlockAxis, BlockAxis]
   readonly dimension: ResourceLocation
 }>
 
 export type LodestoneTrackerTargetOptions = Readonly<{
-  readonly pos: readonly [number, number, number]
-  readonly dimension: string
+  readonly pos: readonly [BlockAxis, BlockAxis, BlockAxis]
+  readonly dimension: ResourceLocation
 }>
 
 export type LodestoneTrackerComponent = Readonly<{
@@ -541,28 +586,28 @@ export type LodestoneTrackerOptions = Readonly<{
 
 export type FireworkExplosionComponent = Readonly<{
   readonly shape: FireworkExplosionShape
-  readonly colors: ReadonlyArray<number>
-  readonly fadeColors: ReadonlyArray<number>
+  readonly colors: ReadonlyArray<RgbColor>
+  readonly fadeColors: ReadonlyArray<RgbColor>
   readonly hasTrail: boolean
   readonly hasTwinkle: boolean
 }>
 
 export type FireworkExplosionOptions = Readonly<{
   readonly shape: FireworkExplosionShape
-  readonly colors?: ReadonlyArray<number>
-  readonly fadeColors?: ReadonlyArray<number>
+  readonly colors?: ReadonlyArray<RgbColor>
+  readonly fadeColors?: ReadonlyArray<RgbColor>
   readonly hasTrail?: boolean
   readonly hasTwinkle?: boolean
 }>
 
 export type FireworksComponent = Readonly<{
   readonly explosions: ReadonlyArray<FireworkExplosionComponent>
-  readonly flightDuration: number
+  readonly flightDuration: FireworksFlightDuration
 }>
 
 export type FireworksOptions = Readonly<{
   readonly explosions?: ReadonlyArray<FireworkExplosionOptions>
-  readonly flightDuration?: number
+  readonly flightDuration?: FireworksFlightDuration
 }>
 
 export type BannerPatternEntry = Readonly<{
@@ -571,13 +616,13 @@ export type BannerPatternEntry = Readonly<{
 }>
 
 export type BannerPatternOptions = Readonly<{
-  readonly pattern: string
+  readonly pattern: ResourceLocation
   readonly color: DyeColor
 }>
 
 export type BannerPatternsComponent = ReadonlyArray<BannerPatternEntry>
 
-export type PotDecorationsOptions = readonly [string, string, string, string]
+export type PotDecorationsOptions = readonly [ResourceLocation, ResourceLocation, ResourceLocation, ResourceLocation]
 
 export type PotDecorationsComponent = readonly [
   ResourceLocation,
@@ -588,12 +633,12 @@ export type PotDecorationsComponent = readonly [
 
 export type ContainerLootComponent = Readonly<{
   readonly lootTable: ResourceLocation
-  readonly seed?: bigint
+  readonly seed?: LootTableSeed
 }>
 
 export type ContainerLootOptions = Readonly<{
-  readonly lootTable: string
-  readonly seed?: bigint
+  readonly lootTable: ResourceLocation
+  readonly seed?: LootTableSeed
 }>
 
-export type DebugStickStateComponent = Readonly<Record<string, string>>
+export type DebugStickStateComponent = Readonly<Record<string, BlockStatePropertyValue>>

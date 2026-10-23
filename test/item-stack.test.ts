@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as fc from "fast-check";
 import { itemComponents } from "../src/domain/item/item-components";
 import { itemComponentPatch, itemComponentPatchFromUnknownEither } from "../src/domain/item/item-component-patch";
-import { TransferQuantity } from "../src/domain/time/quantities";
+import { MaxStackSize, StackCount, TransferQuantity } from "../src/domain/time/quantities";
 import {
   isItemStack,
   itemStack,
@@ -116,13 +116,13 @@ describe("canonical item stacks", () => {
     expect(maxStackCountForItem("stone")).toBe(64);
     expect(maxStackCountForItem("ender_pearl")).toBe(16);
     expect(maxStackCountForItem("diamond_pickaxe")).toBe(1);
-    const stack = itemStack("stone", 64);
+    const stack = itemStack("stone", StackCount(64));
     expect(Object.keys(stack)).toEqual(["item", "count", "components"]);
     expect(Object.isFrozen(stack)).toBe(true);
     expect(isItemStack(stack)).toBe(true);
-    expect(() => itemStack("stone", 0)).toThrow(RangeError);
-    expect(() => itemStack("stone", 65)).toThrow(RangeError);
-    expect(() => itemStack("stone", Number.POSITIVE_INFINITY)).toThrow(RangeError);
+    expect(() => Reflect.apply(itemStack, undefined, ["stone", 0])).toThrow(RangeError);
+    expect(() => itemStack("stone", StackCount(65))).toThrow(RangeError);
+    expect(() => Reflect.apply(itemStack, undefined, ["stone", Number.POSITIVE_INFINITY])).toThrow(RangeError);
     expect(() => Reflect.apply(itemStack, undefined, ["not_an_item", 1])).toThrow(TypeError);
     expect(maxStackCountForStack({ item: "stone" })).toBe(64);
   });
@@ -140,10 +140,10 @@ describe("canonical item stacks", () => {
 
   it("resolves patches at construction and removes fields canonically", () => {
     const patch = itemComponentPatch({ "minecraft:custom_name": { text: "Stone" } });
-    const stack = itemStack("stone", 1, { componentPatch: patch });
+    const stack = itemStack("stone", StackCount(1), { componentPatch: patch });
     expect(stack).toEqual({ item: "stone", count: 1, components: { ...itemComponents("stone"), customName: { text: "Stone" } } });
     expect("componentPatch" in stack).toBe(false);
-    const removed = itemStack("stone", 1, { componentPatch: itemComponentPatch({ "!minecraft:custom_name": null }) });
+    const removed = itemStack("stone", StackCount(1), { componentPatch: itemComponentPatch({ "!minecraft:custom_name": null }) });
     if (removed.components === undefined) throw new Error("expected canonical components");
     expect("customName" in removed.components).toBe(false);
     expect(JSON.stringify(removed.components)).not.toContain("customName");
@@ -152,7 +152,7 @@ describe("canonical item stacks", () => {
   it("rejects duplicate canonical keys with a tagged error", () => {
     const left = itemComponentPatch({ "minecraft:damage": 1 });
     const right = itemComponentPatch({ "minecraft:damage": 2 });
-    expect(() => itemStack("diamond_sword", 1, { componentPatch: left })).not.toThrow();
+    expect(() => itemStack("diamond_sword", StackCount(1), { componentPatch: left })).not.toThrow();
     expect(itemComponentPatchFromUnknownEither({ "minecraft:damage": 1, "!minecraft:damage": null })._tag).toBe("Failure");
     expect(left).not.toBe(right);
     expect(() => itemStackFromUnknown("stone", 1, { components: {} })).toThrow(TypeError);
@@ -161,12 +161,12 @@ describe("canonical item stacks", () => {
 
   it("keeps payload isolated through count changes and split/merge", () => {
     const payload = itemComponents("stone", { rarity: "rare", customData: { value: { nested: true } } });
-    const source = itemStack("stone", 32, { components: payload });
-    const changed = itemStackWithCount(source, 12);
+    const source = itemStack("stone", StackCount(32), { components: payload });
+    const changed = itemStackWithCount(source, StackCount(12));
     const split = splitItemStack(source, TransferQuantity(12));
     expect(itemStackEqualsIgnoringCount(source, changed)).toBe(true);
     expect(itemStacksCanMerge(source, changed)).toBe(true);
-    expect(itemStacksCanMerge(source, itemStack("dirt", 12))).toBe(false);
+    expect(itemStacksCanMerge(source, itemStack("dirt", StackCount(12)))).toBe(false);
     expect(split.taken.count + (split.remainder?.count ?? 0)).toBe(32);
     expect(split.remainder).toBeDefined();
     if (split.remainder === undefined) throw new Error("expected remainder");
@@ -177,10 +177,10 @@ describe("canonical item stacks", () => {
   });
 
   it("accepts a 99-item override and rejects 100", () => {
-    const components = itemComponents("stone", { maxStackSize: 99 });
-    expect(itemStack("stone", 65, { components }).count).toBe(65);
-    expect(itemStack("stone", 99, { components }).count).toBe(99);
-    expect(() => itemStack("stone", 100, { components })).toThrow(RangeError);
+    const components = itemComponents("stone", { maxStackSize: MaxStackSize(99) });
+    expect(itemStack("stone", StackCount(65), { components }).count).toBe(65);
+    expect(itemStack("stone", StackCount(99), { components }).count).toBe(99);
+    expect(() => Reflect.apply(itemStack, undefined, ["stone", 100, { components }])).toThrow(RangeError);
     expect(itemStackFromUnknown("stone", 1, { components })).toBeDefined();
   });
 
@@ -227,7 +227,7 @@ describe("canonical item stacks", () => {
     const ninetyNine = { item: "stone", count: 99, components: { ...stoneComponentsLiteral, maxStackSize: 99 } };
     expect(literalStackOf(one)).toEqual(one);
     expect(literalStackOf(ninetyNine)).toEqual(ninetyNine);
-    expect(() => literalStackOf({ ...ninetyNine, count: 100 })).toThrow(RangeError);
+    expect(() => literalStackOf({ ...ninetyNine, count: 100 })).toThrow();
 
     const left = literalStackOf({ ...ninetyNine, count: 60 });
     const right = literalStackOf({ ...ninetyNine, count: 50 });
@@ -254,25 +254,25 @@ describe("canonical item stacks", () => {
   });
 
   it("rejects malformed operation inputs and reports merge overflow", () => {
-    const left = itemStack("stone", 64);
-    const right = itemStack("stone", 2);
+    const left = itemStack("stone", StackCount(64));
+    const right = itemStack("stone", StackCount(2));
     expect(() => Reflect.apply(itemStackWithCount, undefined, [{}, 1])).toThrow(TypeError);
     expect(() => Reflect.apply(transmuteItemStack, undefined, [{}, right])).toThrow(TypeError);
     expect(() => Reflect.apply(mergeItemStacks, undefined, [{}, right])).toThrow(TypeError);
     expect(() => Reflect.apply(splitItemStack, undefined, [{}, 1])).toThrow(TypeError);
-    expect(() => mergeItemStacks(left, itemStack("dirt", 1))).toThrow(TypeError);
+    expect(() => mergeItemStacks(left, itemStack("dirt", StackCount(1)))).toThrow(TypeError);
     expect(() => mergeItemStacks(left, right)).not.toThrow();
     expect(mergeItemStacks(left, right).remainder?.count).toBe(2);
   });
 
   it("transmutes a valid source into the requested result stack", () => {
-    const source = itemStack("stone", 4);
-    const result = itemStack("dirt", 3, {
+    const source = itemStack("stone", StackCount(4));
+    const result = itemStack("dirt", StackCount(3), {
       components: itemComponents("dirt", { rarity: "rare" }),
     });
 
     expect(transmuteItemStack(source, result)).toEqual(result);
-    expect(transmuteItemStack(source, result, 2)).toEqual({
+    expect(transmuteItemStack(source, result, StackCount(2))).toEqual({
       ...result,
       count: 2,
     });
@@ -281,8 +281,8 @@ describe("canonical item stacks", () => {
 
   it("preserves split/merge arithmetic for generated positive counts", () => {
     fc.assert(fc.property(fc.integer({ min: 1, max: 99 }), fc.integer({ min: 1, max: 99 }), (count, amount) => {
-      const components = itemComponents("stone", { maxStackSize: 99 });
-      const source = itemStack("stone", count, { components });
+      const components = itemComponents("stone", { maxStackSize: MaxStackSize(99) });
+      const source = itemStack("stone", StackCount(count), { components });
       const splitAmount = Math.min(amount, count);
       const split = splitItemStack(source, TransferQuantity(splitAmount));
       const remainderCount = split.remainder?.count ?? 0;

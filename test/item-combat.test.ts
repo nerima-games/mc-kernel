@@ -12,12 +12,21 @@ import {
   useEffectsComponent,
 } from '../src/domain/item/item-combat'
 import { describe, expect, it } from 'vitest'
+import { ResourceLocation } from '../src/domain/text/identifiers'
+import {
+  AttackCharge,
+  AttackHitboxMargin,
+  AttackRangeDistance,
+  MobAttackRangeFactor,
+  SwingAnimationDuration,
+  UseSpeedMultiplier,
+} from '../src/domain/time/quantities'
 
 describe('item combat components', () => {
   it('constructs immutable components with official defaults', () => {
     const useEffects = useEffectsComponent()
-    const minimumAttackCharge = minimumAttackChargeComponent(0.5)
-    const damageType = damageTypeComponent('minecraft:player_attack')
+    const minimumAttackCharge = minimumAttackChargeComponent(AttackCharge(0.5))
+    const damageType = damageTypeComponent(ResourceLocation('minecraft:player_attack'))
     const swingAnimation = swingAnimationComponent()
     const attackRange = attackRangeComponent()
 
@@ -39,28 +48,28 @@ describe('item combat components', () => {
   })
 
   it('constructs every configurable value at its accepted boundaries', () => {
-    expect(useEffectsComponent({ canSprint: true, speedMultiplier: 0 })).toEqual({
+    expect(useEffectsComponent({ canSprint: true, speedMultiplier: UseSpeedMultiplier(0) })).toEqual({
       canSprint: true,
       speedMultiplier: 0,
     })
-    expect(useEffectsComponent({ speedMultiplier: 1 })).toEqual({
+    expect(useEffectsComponent({ speedMultiplier: UseSpeedMultiplier(1) })).toEqual({
       canSprint: false,
       speedMultiplier: 1,
     })
-    expect(minimumAttackChargeComponent(0)).toBe(0)
-    expect(minimumAttackChargeComponent(1)).toBe(1)
-    expect(damageTypeComponent('stone')).toBe('stone')
+    expect(minimumAttackChargeComponent(AttackCharge(0))).toBe(0)
+    expect(minimumAttackChargeComponent(AttackCharge(1))).toBe(1)
+    expect(damageTypeComponent(ResourceLocation('stone'))).toBe('stone')
 
     for (const type of SWING_ANIMATION_TYPES) {
-      expect(swingAnimationComponent({ type, duration: 0 }).type).toBe(type)
+      expect(swingAnimationComponent({ type, duration: SwingAnimationDuration(0) }).type).toBe(type)
     }
     expect(attackRangeComponent({
-      minReach: 64,
-      maxReach: 64,
-      minCreativeReach: 64,
-      maxCreativeReach: 64,
-      hitboxMargin: 1,
-      mobFactor: 2,
+      minReach: AttackRangeDistance(64),
+      maxReach: AttackRangeDistance(64),
+      minCreativeReach: AttackRangeDistance(64),
+      maxCreativeReach: AttackRangeDistance(64),
+      hitboxMargin: AttackHitboxMargin(1),
+      mobFactor: MobAttackRangeFactor(2),
     })).toEqual({
       minReach: 64,
       maxReach: 64,

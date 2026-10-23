@@ -23,24 +23,24 @@ import type {
 
 export type DamageReductionOptions = Readonly<{
   readonly type?: ResourceLocationProviderInput
-  readonly base: number
-  readonly factor: number
-  readonly horizontalBlockingAngle?: number
+  readonly base: DamageReductionRule['base']
+  readonly factor: DamageReductionRule['factor']
+  readonly horizontalBlockingAngle?: DamageReductionRule['horizontalBlockingAngle']
 }>
 
 export type ItemDamageRuleOptions = Readonly<{
-  readonly threshold: number
-  readonly base: number
-  readonly factor: number
+  readonly threshold: ItemDamageRule['threshold']
+  readonly base: ItemDamageRule['base']
+  readonly factor: ItemDamageRule['factor']
 }>
 
 export type BlocksAttacksOptions = Readonly<{
-  readonly blockDelaySeconds?: number
-  readonly disableCooldownScale?: number
+  readonly blockDelaySeconds?: BlocksAttacksComponent['blockDelaySeconds']
+  readonly disableCooldownScale?: BlocksAttacksComponent['disableCooldownScale']
   readonly damageReductions?: ReadonlyArray<DamageReductionOptions>
   readonly itemDamage?: ItemDamageRuleOptions
-  readonly blockSound?: string
-  readonly disabledSound?: string
+  readonly blockSound?: NonNullable<BlocksAttacksComponent['blockSound']>
+  readonly disabledSound?: NonNullable<BlocksAttacksComponent['disabledSound']>
   readonly bypassedBy?: ResourceLocationProviderInput
 }>
 

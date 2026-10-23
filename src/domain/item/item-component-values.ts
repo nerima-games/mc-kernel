@@ -1,5 +1,6 @@
 /** Constructors and guards for simple Java item-component values. */
 import { ResourceLocation, TagLocation, UUID } from '../text/identifiers.js'
+import { BlockAxis } from '../coordinates/coordinate-primitives.js'
 import {
   type BlockEntityDataComponent,
   type BlockEntityDataOptions,
@@ -163,6 +164,37 @@ import {
 } from './item-component-values-validation.js'
 import { AdditionalTradeCost, MapId, PotionDurationScale } from '../time/quantities.js'
 import { textComponent } from '../text/text-component.js'
+import {
+  BeeHiveTicks,
+  BlockStatePropertyValue,
+  BookAuthor,
+  BookGeneration,
+  BookPageText,
+  ContainerSlotIndex,
+  DyeColorChannel,
+  EffectAmplifier,
+  Enchantability,
+  FireworksFlightDuration,
+  ItemComponentNbtKey,
+  ItemComponentNbtString,
+  ItemLock,
+  KineticDamageMultiplier,
+  KineticDurationTicks,
+  KineticMovement,
+  KineticSpeed,
+  MapDecorationCoordinate,
+  MapDecorationRotation,
+  OminousBottleAmplifier,
+  PotionEffectDurationTicks,
+  ProfileName,
+  ProfilePropertyName,
+  ProfilePropertySignature,
+  ProfilePropertyValue,
+  RgbColor,
+  TrimAssetName,
+  TrimArmorMaterialKey,
+  TrimItemModelIndex,
+} from './item-primitives.js'
 
 export { DYE_COLORS, EQUIPPABLE_SLOTS, FIREWORK_EXPLOSION_SHAPES, MAP_DECORATION_TYPES }
 export type { MapDecorationType } from './item-component-values-data.js'
@@ -374,21 +406,25 @@ export type { BeeEntryOptions } from './item-component-values-data.js'
 
 export type TooltipDisplayOptions = Readonly<{
   readonly hideTooltip?: boolean
-  readonly hiddenComponents?: ReadonlyArray<string>
+  readonly hiddenComponents?: ReadonlyArray<ResourceLocation>
 }>
 
-export const potionDurationScaleComponent = (value = 1): PotionDurationScale =>
+export const potionDurationScaleComponent = (
+  value: PotionDurationScale = PotionDurationScale(1),
+): PotionDurationScale =>
   PotionDurationScale(value)
 
-export const additionalTradeCostComponent = (value = 0): AdditionalTradeCost =>
+export const additionalTradeCostComponent = (
+  value: AdditionalTradeCost = AdditionalTradeCost(0),
+): AdditionalTradeCost =>
   AdditionalTradeCost(value)
 
-export const breakSoundComponent = (value: string): ResourceLocation => ResourceLocation(value)
+export const breakSoundComponent = (value: ResourceLocation): ResourceLocation => ResourceLocation(value)
 
-export const providesTrimMaterialComponent = (value: string): ResourceLocation => ResourceLocation(value)
+export const providesTrimMaterialComponent = (value: ResourceLocation): ResourceLocation => ResourceLocation(value)
 
 export const providesBannerPatternsComponent = (
-  value: string | ReadonlyArray<string>,
+  value: ResourceLocationProviderInput,
 ): BannerPatternProvider => {
   if (typeof value === 'string') {
     return value.startsWith('#') ? TagLocation(value) : ResourceLocation(value)
@@ -402,7 +438,7 @@ export const providesBannerPatternsComponent = (
   return Object.freeze(value.map((entry) => ResourceLocation(entry)))
 }
 
-export const dyeComponent = (value: string): DyeColor => {
+export const dyeComponent = (value: DyeColor): DyeColor => {
   if (!isDyeComponent(value)) {
     throw new RangeError(`Unknown dye color: ${value}`)
   }
@@ -446,21 +482,43 @@ export const dyedColorComponent = (value: DyedColorComponent): DyedColorComponen
     throw new RangeError('dyed_color must be an RGB integer or three normalized color channels')
   }
   if (typeof value === 'number') {
-    return value
+    return RgbColor(value)
   }
-  const channels: [number, number, number] = [value[0], value[1], value[2]]
+  const channels: [DyeColorChannel, DyeColorChannel, DyeColorChannel] = [
+    DyeColorChannel(value[0]),
+    DyeColorChannel(value[1]),
+    DyeColorChannel(value[2]),
+  ]
   return Object.freeze(channels)
 }
 
-const frozenStringRecord = (
-  value: Readonly<Record<string, string>>,
-): Readonly<Record<string, string>> => {
-  const copy: Record<string, string> = {}
+const frozenStringRecord = <Value extends string>(
+  value: Readonly<Record<string, Value>>,
+): Readonly<Record<string, Value>> => {
+  const copy: Record<string, Value> = {}
   for (const [key, entry] of Object.entries(value)) {
     Object.defineProperty(copy, key, {
       configurable: false,
       enumerable: true,
       value: entry,
+      writable: false,
+    })
+  }
+  return Object.freeze(copy)
+}
+
+const frozenBrandedStringRecord = <Key extends string, Value extends string>(
+  value: Readonly<Record<Key, Value>>,
+  keyOf: (value: string) => Key,
+  valueOf: (value: string) => Value,
+): Readonly<Record<Key, Value>> => {
+  const copy: Record<string, Value> = {}
+  for (const key of Object.keys(value)) {
+    const brandedKey = keyOf(key)
+    Object.defineProperty(copy, brandedKey, {
+      configurable: false,
+      enumerable: true,
+      value: valueOf(value[brandedKey]),
       writable: false,
     })
   }
@@ -505,18 +563,24 @@ export const profileComponent = (value: ProfileOptions): ProfileComponent => {
     throw new TypeError('Invalid profile component options')
   }
   if (typeof value === 'string') {
-    return value
+    return ProfileName(value)
   }
 
   const properties = value.properties === undefined
     ? undefined
     : frozenArray(
         value.properties.map(
-          (property): ProfilePropertyComponent => Object.freeze({ ...property }),
+          (property): ProfilePropertyComponent => Object.freeze({
+            name: ProfilePropertyName(property.name),
+            value: ProfilePropertyValue(property.value),
+            ...(property.signature === undefined
+              ? {}
+              : { signature: ProfilePropertySignature(property.signature) }),
+          }),
         ),
       )
   const normalized: ProfileObjectComponent = {
-    ...(value.name === undefined ? {} : { name: value.name }),
+    ...(value.name === undefined ? {} : { name: ProfileName(value.name) }),
     ...(value.id === undefined ? {} : { id: UUID(value.id) }),
     ...(properties === undefined ? {} : { properties }),
   }
@@ -531,8 +595,8 @@ const potionEffectInstanceComponentOf = (
     : potionEffectInstanceComponentOf(value.hiddenEffect)
   return Object.freeze({
     id: ResourceLocation(value.id),
-    amplifier: value.amplifier ?? 0,
-    duration: value.duration ?? 0,
+    amplifier: EffectAmplifier(value.amplifier ?? 0),
+    duration: PotionEffectDurationTicks(value.duration ?? 0),
     ambient: value.ambient ?? false,
     showParticles: value.showParticles ?? true,
     showIcon: value.showIcon ?? true,
@@ -547,9 +611,13 @@ export const beesComponent = (value: BeesOptions = []): BeesComponent => {
   return Object.freeze(
     value.map(
       (entry): BeeEntryComponent => Object.freeze({
-        entityData: frozenStringRecord(entry.entityData),
-        ticksInHive: entry.ticksInHive,
-        minTicksInHive: entry.minTicksInHive,
+        entityData: frozenBrandedStringRecord(
+          entry.entityData,
+          ItemComponentNbtKey,
+          ItemComponentNbtString,
+        ),
+        ticksInHive: BeeHiveTicks(entry.ticksInHive),
+        minTicksInHive: BeeHiveTicks(entry.minTicksInHive),
       }),
     ),
   )
@@ -627,9 +695,7 @@ const isContainerEntryOptions = (value: unknown): value is ContainerEntryOptions
     Object.hasOwn(value, 'slot') &&
     Object.hasOwn(value, 'item') &&
     typeof value['slot'] === 'number' &&
-    Number.isSafeInteger(value['slot']) &&
-    value['slot'] >= 0 &&
-    value['slot'] <= 255 &&
+    ContainerSlotIndex.is(value['slot']) &&
     isItemStack(value['item'])
   )
 }
@@ -648,7 +714,7 @@ export const containerComponent = (value: ContainerOptions = []): ContainerCompo
   }
   return frozenArray(
     value.map((entry): ContainerEntryOptions =>
-      Object.freeze({ slot: entry['slot'], item: entry['item'] }),
+      Object.freeze({ slot: ContainerSlotIndex(entry['slot']), item: entry['item'] }),
     ),
   )
 }
@@ -657,16 +723,16 @@ const mapDecorationComponentOf = (
   value: MapDecorationOptions,
 ): MapDecorationComponent => Object.freeze({
   type: value.type,
-  x: value.x,
-  z: value.z,
-  rotation: value.rotation,
+  x: MapDecorationCoordinate(value.x),
+  z: MapDecorationCoordinate(value.z),
+  rotation: MapDecorationRotation(value.rotation),
 })
 
-export const mapColorComponent = (value = 4603950): MapColorComponent => {
+export const mapColorComponent = (value: MapColorComponent = RgbColor(4603950)): MapColorComponent => {
   if (!isMapColorComponent(value)) {
     throw new RangeError(`Invalid map_color component value: ${String(value)}`)
   }
-  return value
+  return RgbColor(value)
 }
 
 export const mapDecorationsComponent = (
@@ -691,11 +757,11 @@ const writableBookPageComponentOf = (
   page: WritableBookPageOptions,
 ): WritableBookPageComponent => {
   if (typeof page === 'string') {
-    return page
+    return BookPageText(page)
   }
   return Object.freeze({
-    raw: page.raw,
-    ...(page.filtered === undefined ? {} : { filtered: page.filtered }),
+    raw: BookPageText(page.raw),
+    ...(page.filtered === undefined ? {} : { filtered: BookPageText(page.filtered) }),
   })
 }
 
@@ -714,11 +780,11 @@ const writtenBookPageComponentOf = (
   page: WrittenBookPageOptions,
 ): WrittenBookPageComponent => {
   if (typeof page === 'string') {
-    return page
+    return BookPageText(page)
   }
   return Object.freeze({
-    raw: page.raw,
-    ...(page.filtered === undefined ? {} : { filtered: page.filtered }),
+    raw: BookPageText(page.raw),
+    ...(page.filtered === undefined ? {} : { filtered: BookPageText(page.filtered) }),
   })
 }
 
@@ -731,8 +797,8 @@ export const writtenBookContentComponent = (
   return Object.freeze({
     pages: frozenArray(value.pages.map(writtenBookPageComponentOf)),
     title: writtenBookPageComponentOf(value.title),
-    author: value.author,
-    generation: value.generation,
+    author: BookAuthor(value.author),
+    generation: BookGeneration(value.generation),
     resolved: value.resolved,
   })
 }
@@ -758,11 +824,15 @@ const trimMaterialComponentOf = (
   }
   const overrideArmorMaterials = value.overrideArmorMaterials === undefined
     ? undefined
-    : frozenStringRecord(value.overrideArmorMaterials)
+    : frozenBrandedStringRecord(
+      value.overrideArmorMaterials,
+      TrimArmorMaterialKey,
+      ResourceLocation,
+    )
   return Object.freeze({
-    assetName: value.assetName,
+    assetName: TrimAssetName(value.assetName),
     ingredient: value.ingredient,
-    itemModelIndex: value.itemModelIndex,
+    itemModelIndex: TrimItemModelIndex(value.itemModelIndex),
     ...(overrideArmorMaterials === undefined ? {} : { overrideArmorMaterials }),
     description: textComponent(value.description),
   })
@@ -788,7 +858,7 @@ export const suspiciousStewComponent = (
     value.map(
       (entry): SuspiciousStewEntryComponent => Object.freeze({
         id: ResourceLocation(entry.id),
-        duration: entry.duration ?? 160,
+        duration: PotionEffectDurationTicks(entry.duration ?? 160),
       }),
     ),
   )
@@ -800,7 +870,7 @@ export const hideAdditionalTooltipComponent = (): HideAdditionalTooltipComponent
 const blockPredicateBlockComponentOf = (
   value: BlockPredicateBlockOptions,
 ): BlockPredicateBlockComponent => {
-  const resourceLocationOf = (entry: string): ResourceLocation | TagLocation =>
+  const resourceLocationOf = (entry: ResourceLocation | TagLocation): ResourceLocation | TagLocation =>
     entry.startsWith('#') ? TagLocation(entry) : ResourceLocation(entry)
   return typeof value === 'string'
     ? resourceLocationOf(value)
@@ -866,46 +936,46 @@ export const customModelDataComponent = (options: CustomModelDataOptions = {}): 
   })
 }
 
-export const mapIdComponent = (value: number): MapIdComponent => {
+export const mapIdComponent = (value: MapId): MapIdComponent => {
   if (!isMapIdComponent(value)) throw new RangeError(`Invalid map_id component value: ${String(value)}`)
   return MapId(value)
 }
 
-export const blockStateComponent = (value: Readonly<Record<string, string>>): BlockStateComponent => {
+export const blockStateComponent = (value: BlockStateComponent): BlockStateComponent => {
   if (!isBlockStateComponent(value)) throw new TypeError('Invalid block_state component value')
   return frozenStringRecord(value)
 }
 
-export const instrumentComponent = (value: string): InstrumentComponent => {
+export const instrumentComponent = (value: ResourceLocation): InstrumentComponent => {
   if (!isInstrumentComponent(value)) throw new TypeError(`Invalid instrument component value: ${String(value)}`)
   return ResourceLocation(value)
 }
 
-export const noteBlockSoundComponent = (value: string): NoteBlockSoundComponent => {
+export const noteBlockSoundComponent = (value: ResourceLocation): NoteBlockSoundComponent => {
   if (!isNoteBlockSoundComponent(value)) {
     throw new TypeError(`Invalid note_block_sound component value: ${String(value)}`)
   }
   return ResourceLocation(value)
 }
 
-export const recipesComponent = (value: ReadonlyArray<string>): RecipesComponent => {
+export const recipesComponent = (value: ReadonlyArray<ResourceLocation>): RecipesComponent => {
   if (!isRecipesComponent(value)) throw new TypeError('Invalid recipes component value')
   return frozenArray(value.map((entry) => ResourceLocation(entry)))
 }
 
-export const lockComponent = (value: string): LockComponent => {
+export const lockComponent = (value: ItemLock): LockComponent => {
   if (!isLockComponent(value)) throw new TypeError(`Invalid lock component value: ${String(value)}`)
-  return value
+  return ItemLock(value)
 }
 
-export const tooltipStyleComponent = (value: string): TooltipStyleComponent => {
+export const tooltipStyleComponent = (value: ResourceLocation): TooltipStyleComponent => {
   if (!isTooltipStyleComponent(value)) {
     throw new TypeError(`Invalid tooltip_style component value: ${String(value)}`)
   }
   return ResourceLocation(value)
 }
 
-export const baseColorComponent = (value: string): BaseColorComponent => {
+export const baseColorComponent = (value: DyeColor): BaseColorComponent => {
   if (!isBaseColorComponent(value)) throw new TypeError(`Invalid base_color component value: ${String(value)}`)
   return value
 }
@@ -936,9 +1006,9 @@ const kineticWeaponConditionOf = (
   options: KineticWeaponConditionOptions,
 ): KineticWeaponCondition => {
   return Object.freeze({
-    maxDurationTicks: options.maxDurationTicks,
-    minSpeed: options.minSpeed ?? 0,
-    minRelativeSpeed: options.minRelativeSpeed ?? 0,
+    maxDurationTicks: KineticDurationTicks(options.maxDurationTicks),
+    minSpeed: KineticSpeed(options.minSpeed ?? KineticSpeed(0)),
+    minRelativeSpeed: KineticSpeed(options.minRelativeSpeed ?? KineticSpeed(0)),
   })
 }
 
@@ -947,8 +1017,8 @@ export const kineticWeaponComponent = (
 ): KineticWeaponComponent => {
   if (!isKineticWeaponOptions(options)) throw new TypeError('Invalid kinetic_weapon component options')
   const normalized = {
-    contactCooldownTicks: options.contactCooldownTicks ?? 10,
-    delayTicks: options.delayTicks ?? 0,
+    contactCooldownTicks: KineticDurationTicks(options.contactCooldownTicks ?? KineticDurationTicks(10)),
+    delayTicks: KineticDurationTicks(options.delayTicks ?? KineticDurationTicks(0)),
     ...(options.dismountConditions === undefined
       ? {}
       : { dismountConditions: kineticWeaponConditionOf(options.dismountConditions) }),
@@ -958,8 +1028,8 @@ export const kineticWeaponComponent = (
     ...(options.damageConditions === undefined
       ? {}
       : { damageConditions: kineticWeaponConditionOf(options.damageConditions) }),
-    forwardMovement: options.forwardMovement ?? 0,
-    damageMultiplier: options.damageMultiplier ?? 1,
+    forwardMovement: KineticMovement(options.forwardMovement ?? KineticMovement(0)),
+    damageMultiplier: KineticDamageMultiplier(options.damageMultiplier ?? KineticDamageMultiplier(1)),
     ...(options.sound === undefined ? {} : { sound: ResourceLocation(options.sound) }),
     ...(options.hitSound === undefined ? {} : { hitSound: ResourceLocation(options.hitSound) }),
   }
@@ -992,26 +1062,28 @@ export const repairableComponent = (value: ResourceLocationProviderInput): Repai
   return Object.freeze({ items: resourceLocationProviderOf(value) })
 }
 
-export const enchantableComponent = (value: number): EnchantableComponent => {
+export const enchantableComponent = (value: Enchantability): EnchantableComponent => {
   if (!isEnchantableValue(value)) throw new RangeError(`Invalid enchantable component value: ${String(value)}`)
-  return Object.freeze({ value })
+  return Object.freeze({ value: Enchantability(value) })
 }
 
-export const jukeboxPlayableComponent = (value: string): JukeboxPlayableComponent => {
+export const jukeboxPlayableComponent = (value: ResourceLocation): JukeboxPlayableComponent => {
   if (typeof value !== 'string' || !ResourceLocation.is(value)) {
     throw new TypeError(`Invalid jukebox_playable component value: ${String(value)}`)
   }
   return Object.freeze({ song: ResourceLocation(value) })
 }
 
-export const ominousBottleAmplifierComponent = (value: number): OminousBottleAmplifierComponent => {
+export const ominousBottleAmplifierComponent = (
+  value: OminousBottleAmplifier,
+): OminousBottleAmplifierComponent => {
   if (!isOminousBottleAmplifierComponent(value)) {
     throw new RangeError(`Invalid ominous_bottle_amplifier value: ${String(value)}`)
   }
-  return value
+  return OminousBottleAmplifier(value)
 }
 
-export const paintingVariantComponent = (value: string): PaintingVariantComponent => {
+export const paintingVariantComponent = (value: ResourceLocation): PaintingVariantComponent => {
   if (!isPaintingVariantComponent(value)) {
     throw new TypeError(`Invalid painting/variant component value: ${String(value)}`)
   }
@@ -1028,9 +1100,9 @@ export const sulfurCubeContentComponent = (
 }
 
 const frozenPosition = (
-  value: readonly [number, number, number],
-): readonly [number, number, number] =>
-  Object.freeze([value[0], value[1], value[2]])
+  value: readonly [ReturnType<typeof BlockAxis>, ReturnType<typeof BlockAxis>, ReturnType<typeof BlockAxis>],
+): readonly [ReturnType<typeof BlockAxis>, ReturnType<typeof BlockAxis>, ReturnType<typeof BlockAxis>] =>
+  Object.freeze([BlockAxis(value[0]), BlockAxis(value[1]), BlockAxis(value[2])])
 
 export const lodestoneTrackerComponent = (
   options: LodestoneTrackerOptions = {},
@@ -1072,7 +1144,7 @@ export const fireworksComponent = (options: FireworksOptions = {}): FireworksCom
   }
   return Object.freeze({
     explosions: frozenArray((options.explosions ?? []).map(fireworkExplosionComponent)),
-    flightDuration: options.flightDuration ?? 1,
+    flightDuration: FireworksFlightDuration(options.flightDuration ?? FireworksFlightDuration(1)),
   })
 }
 
@@ -1094,10 +1166,10 @@ export const bannerPatternsComponent = (
 }
 
 const DEFAULT_POT_DECORATIONS: PotDecorationsOptions = [
-  'minecraft:brick',
-  'minecraft:brick',
-  'minecraft:brick',
-  'minecraft:brick',
+  ResourceLocation('minecraft:brick'),
+  ResourceLocation('minecraft:brick'),
+  ResourceLocation('minecraft:brick'),
+  ResourceLocation('minecraft:brick'),
 ]
 
 export const potDecorationsComponent = (
@@ -1126,17 +1198,17 @@ export const containerLootComponent = (options: ContainerLootOptions): Container
 }
 
 export const debugStickStateComponent = (
-  value: Readonly<Record<string, string>> = {},
+  value: DebugStickStateComponent = {},
 ): DebugStickStateComponent => {
   if (!isDebugStickStateComponent(value)) {
     throw new TypeError('Invalid debug_stick_state component value')
   }
-  const normalized: Record<string, string> = {}
+  const normalized: Record<string, DebugStickStateComponent[string]> = {}
   for (const [block, property] of Object.entries(value)) {
     Object.defineProperty(normalized, ResourceLocation(block), {
       configurable: false,
       enumerable: true,
-      value: property,
+      value: BlockStatePropertyValue(property),
       writable: false,
     })
   }

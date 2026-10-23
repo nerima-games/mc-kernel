@@ -37,21 +37,21 @@ export type {
 
 export type UseEffectsOptions = Readonly<{
   readonly canSprint?: boolean
-  readonly speedMultiplier?: number
+  readonly speedMultiplier?: UseSpeedMultiplier
 }>
 
 export type SwingAnimationOptions = Readonly<{
   readonly type?: SwingAnimationType
-  readonly duration?: number
+  readonly duration?: SwingAnimationDuration
 }>
 
 export type AttackRangeOptions = Readonly<{
-  readonly minReach?: number
-  readonly maxReach?: number
-  readonly minCreativeReach?: number
-  readonly maxCreativeReach?: number
-  readonly hitboxMargin?: number
-  readonly mobFactor?: number
+  readonly minReach?: AttackRangeDistance
+  readonly maxReach?: AttackRangeDistance
+  readonly minCreativeReach?: AttackRangeDistance
+  readonly maxCreativeReach?: AttackRangeDistance
+  readonly hitboxMargin?: AttackHitboxMargin
+  readonly mobFactor?: MobAttackRangeFactor
 }>
 
 const validateOptionsObject = (value: unknown, name: string): void => {
@@ -122,12 +122,12 @@ export const useEffectsComponent = (options: UseEffectsOptions = {}): UseEffects
   })
 }
 
-export const minimumAttackChargeComponent = (value: number): MinimumAttackChargeComponent => {
+export const minimumAttackChargeComponent = (value: AttackCharge): MinimumAttackChargeComponent => {
   validateMinimumAttackCharge(value)
   return AttackCharge(value)
 }
 
-export const damageTypeComponent = (value: string): DamageTypeComponent => {
+export const damageTypeComponent = (value: ResourceLocation): DamageTypeComponent => {
   validateDamageType(value)
   return ResourceLocation(value)
 }
