@@ -11,6 +11,7 @@ import {
 import type { FoodStatusEffectName } from '../src/domain/item/food-data'
 import { VANILLA_STATUS_EFFECT_IDS } from '../src/domain/item/item-component-values-data'
 import { isVanillaPotionEffectId } from '../src/domain/item/item-component-values-validation'
+import { EffectAmplifier, RgbColor } from '../src/domain/item/item-primitives'
 
 // Count is derived from the pinned Java Edition 26.3 mob-effect golden.
 const EXPECTED_STATUS_EFFECT_COUNT = 40
@@ -32,6 +33,8 @@ describe('STATUS_EFFECT_DEFINITIONS', () => {
       expect(definition.particleColor).toBeGreaterThanOrEqual(0)
       expect(definition.particleColor).toBeLessThanOrEqual(0xffffff)
       expect(definition.maxAmplifier).toBe(STATUS_EFFECT_AMPLIFIER_MAX)
+      expect(RgbColor.is(definition.particleColor)).toBe(true)
+      expect(EffectAmplifier.is(definition.maxAmplifier)).toBe(true)
     }
   })
 

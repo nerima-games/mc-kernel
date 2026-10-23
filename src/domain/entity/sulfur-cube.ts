@@ -1,4 +1,4 @@
-import { ResourceLocation, TagLocation } from "../text/identifiers.js";
+import { NamespacedResourceLocation, ResourceLocation, TagLocation } from "../text/identifiers.js";
 import { isSulfurCubeArchetypeOptions } from "./sulfur-cube-validation.js";
 import type {
   SulfurCubeArchetype,
@@ -9,7 +9,14 @@ import type {
   SulfurCubeKnockbackModifiers,
   SulfurCubeSoundSettings,
 } from "./sulfur-cube-data.js";
-import { AttributeModifierAmount } from "../time/quantities.js";
+import { AttributeModifierAmount, PositiveTickCount } from "../time/quantities.js";
+import {
+  SulfurCubeContactDamageAmount,
+  SulfurCubeExplosionPower,
+  SulfurCubeKnockbackPower,
+  SulfurCubePushSoundCooldown,
+  SulfurCubePushSoundImpulseThreshold,
+} from "./sulfur-cube-data.js";
 
 const explosionOf = (
   options: SulfurCubeArchetypeOptions["explosion"],
@@ -18,8 +25,8 @@ const explosionOf = (
     return undefined;
   }
   return Object.freeze({
-    fuse: options.fuse,
-    power: options.power,
+    fuse: PositiveTickCount(options.fuse),
+    power: SulfurCubeExplosionPower(options.power),
     causesFire: options.causesFire,
   });
 };
@@ -31,7 +38,7 @@ const contactDamageOf = (
     return undefined;
   }
   return Object.freeze({
-    amount: options.amount,
+    amount: SulfurCubeContactDamageAmount(options.amount),
     damageType: ResourceLocation(options.damageType),
     attributeToSource: options.attributeToSource,
   });
@@ -41,8 +48,8 @@ const attributeModifierOf = (
   options: SulfurCubeArchetypeOptions["attributeModifiers"][number],
 ): SulfurCubeAttributeModifier =>
   Object.freeze({
-    attribute: ResourceLocation(options.attribute),
-    id: ResourceLocation(options.id),
+    attribute: NamespacedResourceLocation(options.attribute),
+    id: NamespacedResourceLocation(options.id),
     amount: AttributeModifierAmount(options.amount),
     operation: options.operation,
   });
@@ -51,8 +58,8 @@ const knockbackModifiersOf = (
   options: SulfurCubeArchetypeOptions["knockbackModifiers"],
 ): SulfurCubeKnockbackModifiers =>
   Object.freeze({
-    horizontalPower: options.horizontalPower,
-    verticalPower: options.verticalPower,
+    horizontalPower: SulfurCubeKnockbackPower(options.horizontalPower),
+    verticalPower: SulfurCubeKnockbackPower(options.verticalPower),
   });
 
 const soundSettingsOf = (
@@ -61,8 +68,8 @@ const soundSettingsOf = (
   Object.freeze({
     hitSound: ResourceLocation(options.hitSound),
     pushSound: ResourceLocation(options.pushSound),
-    pushSoundImpulseThreshold: options.pushSoundImpulseThreshold,
-    pushSoundCooldown: options.pushSoundCooldown,
+    pushSoundImpulseThreshold: SulfurCubePushSoundImpulseThreshold(options.pushSoundImpulseThreshold),
+    pushSoundCooldown: SulfurCubePushSoundCooldown(options.pushSoundCooldown),
   });
 
 export const sulfurCubeArchetype = (
@@ -101,6 +108,11 @@ export const sulfurCubeArchetypeFromUnknown = (
 };
 
 export {
+  SulfurCubeContactDamageAmount,
+  SulfurCubeExplosionPower,
+  SulfurCubeKnockbackPower,
+  SulfurCubePushSoundCooldown,
+  SulfurCubePushSoundImpulseThreshold,
   SULFUR_CUBE_ARCHETYPE_REGISTRY,
   SULFUR_CUBE_ATTRIBUTE_MODIFIER_OPERATIONS,
   SULFUR_CUBE_BLOCK_TAGS,

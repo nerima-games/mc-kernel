@@ -5,7 +5,7 @@ import {
   selectDataPackRegistry,
   dataPackLayerFromUnknown,
 } from "../world/data-pack-registry.js";
-import type { DataPackFormat, DataPackLayer } from "../world/data-pack-registry.js";
+import type { DataPackFormat, DataPackLayer, DataPackLayerOptions, DataPackResourcePath } from "../world/data-pack-registry.js";
 import { NamespacedResourceLocation } from "../text/identifiers.js";
 import {
   SULFUR_CUBE_ARCHETYPE_REGISTRY,
@@ -20,14 +20,7 @@ const SULFUR_CUBE_ARCHETYPE_REGISTRY_ID = NamespacedResourceLocation(
 export type SulfurCubeArchetypeDataPackLayer =
   DataPackLayer<SulfurCubeArchetype>;
 
-export type SulfurCubeArchetypeDataPackLayerOptions = Readonly<{
-  readonly pack: string;
-  readonly format: number;
-  readonly priority: number;
-  readonly entries: ReadonlyArray<
-    Readonly<{ readonly id: string; readonly value: unknown }>
-  >;
-}>;
+export type SulfurCubeArchetypeDataPackLayerOptions = DataPackLayerOptions<unknown>;
 
 export const sulfurCubeArchetypeDataPackLayer = (
   options: SulfurCubeArchetypeDataPackLayerOptions,
@@ -55,4 +48,4 @@ export const selectSulfurCubeArchetypes = (
 
 export const sulfurCubeArchetypeDataPath = (
   entry: NamespacedResourceLocation,
-): string => dataPackResourcePath(SULFUR_CUBE_ARCHETYPE_REGISTRY_ID, entry);
+): DataPackResourcePath => dataPackResourcePath(SULFUR_CUBE_ARCHETYPE_REGISTRY_ID, entry);

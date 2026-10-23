@@ -16,10 +16,16 @@
  * cross-check for `beneficial`, but has no `breath_of_the_nautilus` row. This
  * source does not define 26.3 membership or cover that effect.
  */
-import { ResourceLocation, vanillaId } from '../text/identifiers.js'
+import { ResourceLocation, VanillaResourcePath, vanillaId } from '../text/identifiers.js'
 import { VANILLA_26_3_MOB_EFFECT_IDS } from '../world/vanilla-26-3-generated.js'
+import { EffectAmplifier, RgbColor, type EffectAmplifier as EffectAmplifierValue } from '../item/item-primitives.js'
 
-export const STATUS_EFFECT_AMPLIFIER_MAX = 255
+/**
+ * The `/effect give <targets> <effect> [<seconds>] [<amplifier>]` argument
+ * is a byte; a negative NBT amplifier is clamped to 255 rather than erroring
+ * (minecraft.wiki, Commands/effect). Every effect shares this ceiling.
+ */
+export const STATUS_EFFECT_AMPLIFIER_MAX: EffectAmplifierValue = EffectAmplifier(255)
 
 export const STATUS_EFFECT_NAMES: typeof VANILLA_26_3_MOB_EFFECT_IDS = VANILLA_26_3_MOB_EFFECT_IDS
 
@@ -28,53 +34,53 @@ export type StatusEffectName = (typeof STATUS_EFFECT_NAMES)[number]
 export type StatusEffectDefinition = Readonly<{
   readonly name: StatusEffectName
   readonly beneficial: boolean
-  readonly particleColor: number
-  readonly maxAmplifier: number
+  readonly particleColor: RgbColor
+  readonly maxAmplifier: EffectAmplifier
 }>
 
 export const STATUS_EFFECT_DEFINITIONS: Readonly<Record<StatusEffectName, StatusEffectDefinition>> = Object.freeze({
-  speed: Object.freeze({ name: 'speed', beneficial: true, particleColor: 0x33ebff, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  slowness: Object.freeze({ name: 'slowness', beneficial: false, particleColor: 0x8bafe0, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  haste: Object.freeze({ name: 'haste', beneficial: true, particleColor: 0xd9c043, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  mining_fatigue: Object.freeze({ name: 'mining_fatigue', beneficial: false, particleColor: 0x4a4217, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  strength: Object.freeze({ name: 'strength', beneficial: true, particleColor: 0xffc700, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  instant_health: Object.freeze({ name: 'instant_health', beneficial: true, particleColor: 0xf82423, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  instant_damage: Object.freeze({ name: 'instant_damage', beneficial: false, particleColor: 0xa9656a, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  jump_boost: Object.freeze({ name: 'jump_boost', beneficial: true, particleColor: 0xfdff84, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  nausea: Object.freeze({ name: 'nausea', beneficial: false, particleColor: 0x551d4a, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  regeneration: Object.freeze({ name: 'regeneration', beneficial: true, particleColor: 0xcd5cab, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  resistance: Object.freeze({ name: 'resistance', beneficial: true, particleColor: 0x9146f0, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  fire_resistance: Object.freeze({ name: 'fire_resistance', beneficial: true, particleColor: 0xff9900, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  water_breathing: Object.freeze({ name: 'water_breathing', beneficial: true, particleColor: 0x98dac0, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  invisibility: Object.freeze({ name: 'invisibility', beneficial: true, particleColor: 0xf6f6f6, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  blindness: Object.freeze({ name: 'blindness', beneficial: false, particleColor: 0x1f1f23, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  night_vision: Object.freeze({ name: 'night_vision', beneficial: true, particleColor: 0xc2ff66, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  hunger: Object.freeze({ name: 'hunger', beneficial: false, particleColor: 0x587653, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  weakness: Object.freeze({ name: 'weakness', beneficial: false, particleColor: 0x484d48, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  poison: Object.freeze({ name: 'poison', beneficial: false, particleColor: 0x87a363, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  wither: Object.freeze({ name: 'wither', beneficial: false, particleColor: 0x736156, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  health_boost: Object.freeze({ name: 'health_boost', beneficial: true, particleColor: 0xf87d23, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  absorption: Object.freeze({ name: 'absorption', beneficial: true, particleColor: 0x2552a5, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  saturation: Object.freeze({ name: 'saturation', beneficial: true, particleColor: 0xf82423, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  glowing: Object.freeze({ name: 'glowing', beneficial: false, particleColor: 0x94a061, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  levitation: Object.freeze({ name: 'levitation', beneficial: false, particleColor: 0xceffff, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  luck: Object.freeze({ name: 'luck', beneficial: true, particleColor: 0x59c106, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  unluck: Object.freeze({ name: 'unluck', beneficial: false, particleColor: 0xc0a44d, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  slow_falling: Object.freeze({ name: 'slow_falling', beneficial: true, particleColor: 0xf3cfb9, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  conduit_power: Object.freeze({ name: 'conduit_power', beneficial: true, particleColor: 0x1dc2d1, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  dolphins_grace: Object.freeze({ name: 'dolphins_grace', beneficial: true, particleColor: 0x88a3be, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  bad_omen: Object.freeze({ name: 'bad_omen', beneficial: false, particleColor: 0x0b6138, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  hero_of_the_village: Object.freeze({ name: 'hero_of_the_village', beneficial: true, particleColor: 0x44ff44, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  darkness: Object.freeze({ name: 'darkness', beneficial: false, particleColor: 0x292721, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  trial_omen: Object.freeze({ name: 'trial_omen', beneficial: false, particleColor: 0x16a6a6, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  raid_omen: Object.freeze({ name: 'raid_omen', beneficial: false, particleColor: 0xde4058, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  wind_charged: Object.freeze({ name: 'wind_charged', beneficial: false, particleColor: 0xbdc9ff, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  weaving: Object.freeze({ name: 'weaving', beneficial: false, particleColor: 0x78695a, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  oozing: Object.freeze({ name: 'oozing', beneficial: false, particleColor: 0x99ffa3, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  infested: Object.freeze({ name: 'infested', beneficial: false, particleColor: 0x8c9b8c, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
-  breath_of_the_nautilus: Object.freeze({ name: 'breath_of_the_nautilus', beneficial: true, particleColor: 0x7bdff2, maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  speed: Object.freeze({ name: 'speed', beneficial: true, particleColor: RgbColor(0x33ebff), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  slowness: Object.freeze({ name: 'slowness', beneficial: false, particleColor: RgbColor(0x8bafe0), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  haste: Object.freeze({ name: 'haste', beneficial: true, particleColor: RgbColor(0xd9c043), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  mining_fatigue: Object.freeze({ name: 'mining_fatigue', beneficial: false, particleColor: RgbColor(0x4a4217), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  strength: Object.freeze({ name: 'strength', beneficial: true, particleColor: RgbColor(0xffc700), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  instant_health: Object.freeze({ name: 'instant_health', beneficial: true, particleColor: RgbColor(0xf82423), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  instant_damage: Object.freeze({ name: 'instant_damage', beneficial: false, particleColor: RgbColor(0xa9656a), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  jump_boost: Object.freeze({ name: 'jump_boost', beneficial: true, particleColor: RgbColor(0xfdff84), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  nausea: Object.freeze({ name: 'nausea', beneficial: false, particleColor: RgbColor(0x551d4a), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  regeneration: Object.freeze({ name: 'regeneration', beneficial: true, particleColor: RgbColor(0xcd5cab), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  resistance: Object.freeze({ name: 'resistance', beneficial: true, particleColor: RgbColor(0x9146f0), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  fire_resistance: Object.freeze({ name: 'fire_resistance', beneficial: true, particleColor: RgbColor(0xff9900), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  water_breathing: Object.freeze({ name: 'water_breathing', beneficial: true, particleColor: RgbColor(0x98dac0), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  invisibility: Object.freeze({ name: 'invisibility', beneficial: true, particleColor: RgbColor(0xf6f6f6), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  blindness: Object.freeze({ name: 'blindness', beneficial: false, particleColor: RgbColor(0x1f1f23), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  night_vision: Object.freeze({ name: 'night_vision', beneficial: true, particleColor: RgbColor(0xc2ff66), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  hunger: Object.freeze({ name: 'hunger', beneficial: false, particleColor: RgbColor(0x587653), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  weakness: Object.freeze({ name: 'weakness', beneficial: false, particleColor: RgbColor(0x484d48), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  poison: Object.freeze({ name: 'poison', beneficial: false, particleColor: RgbColor(0x87a363), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  wither: Object.freeze({ name: 'wither', beneficial: false, particleColor: RgbColor(0x736156), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  health_boost: Object.freeze({ name: 'health_boost', beneficial: true, particleColor: RgbColor(0xf87d23), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  absorption: Object.freeze({ name: 'absorption', beneficial: true, particleColor: RgbColor(0x2552a5), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  saturation: Object.freeze({ name: 'saturation', beneficial: true, particleColor: RgbColor(0xf82423), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  glowing: Object.freeze({ name: 'glowing', beneficial: false, particleColor: RgbColor(0x94a061), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  levitation: Object.freeze({ name: 'levitation', beneficial: false, particleColor: RgbColor(0xceffff), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  luck: Object.freeze({ name: 'luck', beneficial: true, particleColor: RgbColor(0x59c106), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  unluck: Object.freeze({ name: 'unluck', beneficial: false, particleColor: RgbColor(0xc0a44d), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  slow_falling: Object.freeze({ name: 'slow_falling', beneficial: true, particleColor: RgbColor(0xf3cfb9), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  conduit_power: Object.freeze({ name: 'conduit_power', beneficial: true, particleColor: RgbColor(0x1dc2d1), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  dolphins_grace: Object.freeze({ name: 'dolphins_grace', beneficial: true, particleColor: RgbColor(0x88a3be), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  bad_omen: Object.freeze({ name: 'bad_omen', beneficial: false, particleColor: RgbColor(0x0b6138), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  hero_of_the_village: Object.freeze({ name: 'hero_of_the_village', beneficial: true, particleColor: RgbColor(0x44ff44), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  darkness: Object.freeze({ name: 'darkness', beneficial: false, particleColor: RgbColor(0x292721), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  trial_omen: Object.freeze({ name: 'trial_omen', beneficial: false, particleColor: RgbColor(0x16a6a6), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  raid_omen: Object.freeze({ name: 'raid_omen', beneficial: false, particleColor: RgbColor(0xde4058), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  wind_charged: Object.freeze({ name: 'wind_charged', beneficial: false, particleColor: RgbColor(0xbdc9ff), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  weaving: Object.freeze({ name: 'weaving', beneficial: false, particleColor: RgbColor(0x78695a), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  oozing: Object.freeze({ name: 'oozing', beneficial: false, particleColor: RgbColor(0x99ffa3), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  infested: Object.freeze({ name: 'infested', beneficial: false, particleColor: RgbColor(0x8c9b8c), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
+  breath_of_the_nautilus: Object.freeze({ name: 'breath_of_the_nautilus', beneficial: true, particleColor: RgbColor(0x7bdff2), maxAmplifier: STATUS_EFFECT_AMPLIFIER_MAX }),
 })
 
 /** Returns the `minecraft:` resource location for a status effect name. */
 export const statusEffectId = (name: StatusEffectName): ResourceLocation =>
-  vanillaId(name)
+  vanillaId(VanillaResourcePath(name))

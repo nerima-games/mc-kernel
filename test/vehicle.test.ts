@@ -3,6 +3,9 @@ import {
   OccupantId,
   VEHICLE_TYPES,
   VehicleId,
+  VehicleValidationPath,
+  VehicleValidationReason,
+  VehicleVelocityComponent,
   isVehicleType,
 } from '../src/domain/entity/vehicle'
 
@@ -17,5 +20,16 @@ describe('vehicle vocabulary', () => {
     expect(OccupantId('player-1')).toBe('player-1')
     expect(() => VehicleId('')).toThrow()
     expect(() => OccupantId(' ')).toThrow()
+  })
+
+  it('validates finite velocity components and brands diagnostic strings', () => {
+    expect(VehicleVelocityComponent(0)).toBe(0)
+    expect(VehicleVelocityComponent(-Number.MAX_VALUE)).toBe(-Number.MAX_VALUE)
+    expect(() => VehicleVelocityComponent(Number.NaN)).toThrow()
+    expect(() => VehicleVelocityComponent(Number.POSITIVE_INFINITY)).toThrow()
+    expect(VehicleValidationPath('')).toBe('')
+    expect(VehicleValidationReason('invalid velocity')).toBe('invalid velocity')
+    expect(() => Reflect.apply(VehicleValidationPath, undefined, [1])).toThrow()
+    expect(() => Reflect.apply(VehicleValidationReason, undefined, [null])).toThrow()
   })
 })

@@ -53,12 +53,12 @@ describe('entity attributes', () => {
     expect(isEntityAttributes(DEFAULT_ENTITY_ATTRIBUTES)).toBe(true)
 
     const configured = entityAttributes({
-      bounciness: 0.5,
-      frictionModifier: 1.25,
-      airDragModifier: 0.75,
-      nameTagDistance: 128,
-      belowNameDistance: 20,
-      knockbackResistance: -1,
+      bounciness: Bounciness(0.5),
+      frictionModifier: EntityPhysicsModifier(1.25),
+      airDragModifier: EntityPhysicsModifier(0.75),
+      nameTagDistance: EntityVisibilityDistance(128),
+      belowNameDistance: EntityVisibilityDistance(20),
+      knockbackResistance: KnockbackResistance(-1),
     })
     expect(configured).toStrictEqual({
       bounciness: 0.5,
@@ -70,7 +70,7 @@ describe('entity attributes', () => {
     })
     expect(Object.isFrozen(configured)).toBe(true)
     expect(isEntityAttributeOptions(configured)).toBe(true)
-    expect(() => entityAttributes({ frictionModifier: -1 })).toThrow()
+    expect(() => Reflect.apply(entityAttributes, undefined, [{ frictionModifier: -1 }])).toThrow()
   })
 
   it('rejects malformed option and attribute records', () => {
@@ -142,7 +142,7 @@ describe('entity attributes', () => {
     expect(entityAttributeDefinitionOf('knockbackResistance').maximum).toBeUndefined()
     expect(effectiveBounciness(Bounciness(0.25), Bounciness(0.75))).toBe(0.75)
     expect(effectiveBounciness(Bounciness(0.9), Bounciness(0.2))).toBe(0.9)
-    expect(() => effectiveBounciness(-1, 0.5)).toThrow()
-    expect(() => effectiveBounciness(0.5, 2)).toThrow()
+    expect(() => Reflect.apply(effectiveBounciness, undefined, [-1, 0.5])).toThrow()
+    expect(() => Reflect.apply(effectiveBounciness, undefined, [0.5, 2])).toThrow()
   })
 })

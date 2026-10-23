@@ -40,10 +40,12 @@ export const entityAttributes = (options: EntityAttributeOptions = {}): EntityAt
 
 export const DEFAULT_ENTITY_ATTRIBUTES: EntityAttributes = entityAttributes()
 
-export const entityAttributeDefinitionOf = (name: EntityAttributeName): EntityAttributeDefinition =>
+export const entityAttributeDefinitionOf = (
+  name: EntityAttributeName,
+): EntityAttributeDefinition =>
   ENTITY_ATTRIBUTE_DEFINITIONS[name]
 
-export const effectiveBounciness = (block: number, entity: number): Bounciness => {
+export const effectiveBounciness = (block: Bounciness, entity: Bounciness): Bounciness => {
   if (!Bounciness.is(block) || !Bounciness.is(entity)) {
     throw new TypeError('Block and entity bounciness must be finite numbers in [0, 1]')
   }

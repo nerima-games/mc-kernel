@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { ResourceLocation, TagLocation } from "../src/domain/text/identifiers";
-import { AttributeModifierAmount } from "../src/domain/time/quantities";
+import { NamespacedResourceLocation, ResourceLocation, TagLocation } from "../src/domain/text/identifiers";
+import { AttributeModifierAmount, PositiveTickCount } from "../src/domain/time/quantities";
 import {
   SULFUR_CUBE_ARCHETYPE_REGISTRY,
   SULFUR_CUBE_ATTRIBUTE_MODIFIER_OPERATIONS,
@@ -13,6 +13,11 @@ import {
   SULFUR_CUBE_GAME_EVENTS,
   SULFUR_CUBE_ITEM_TAGS,
   SULFUR_CUBE_PARTICLES,
+  SulfurCubeContactDamageAmount,
+  SulfurCubeExplosionPower,
+  SulfurCubeKnockbackPower,
+  SulfurCubePushSoundCooldown,
+  SulfurCubePushSoundImpulseThreshold,
   isSulfurCubeArchetype,
   isSulfurCubeArchetypeOptions,
   sulfurCubeArchetype,
@@ -26,50 +31,50 @@ import {
 } from "../src/domain/entity/sulfur-cube";
 
 const explosionOptions: SulfurCubeExplosionOptions = {
-  fuse: 20,
-  power: 4,
+  fuse: PositiveTickCount(20),
+  power: SulfurCubeExplosionPower(4),
   causesFire: true,
 };
 
 const contactDamageOptions: SulfurCubeContactDamageOptions = {
-  amount: 3.5,
+  amount: SulfurCubeContactDamageAmount(3.5),
   damageType: SULFUR_CUBE_DAMAGE_TYPES.hot,
   attributeToSource: true,
 };
 
 const firstAttributeModifier: SulfurCubeAttributeModifierOptions = {
-  attribute: "minecraft:bounciness",
-  id: "minecraft:sulfur_cube_bounciness",
-  amount: 0.25,
+  attribute: NamespacedResourceLocation("minecraft:bounciness"),
+  id: NamespacedResourceLocation("minecraft:sulfur_cube_bounciness"),
+  amount: AttributeModifierAmount(0.25),
   operation: "add_value",
 };
 
 const attributeModifiers: ReadonlyArray<SulfurCubeAttributeModifierOptions> = [
   firstAttributeModifier,
   {
-    attribute: "minecraft:friction_modifier",
-    id: "minecraft:sulfur_cube_friction",
-    amount: -0.1,
+    attribute: NamespacedResourceLocation("minecraft:friction_modifier"),
+    id: NamespacedResourceLocation("minecraft:sulfur_cube_friction"),
+    amount: AttributeModifierAmount(-0.1),
     operation: "add_multiplied_base",
   },
   {
-    attribute: "minecraft:air_drag_modifier",
-    id: "minecraft:sulfur_cube_air_drag",
-    amount: 0.2,
+    attribute: NamespacedResourceLocation("minecraft:air_drag_modifier"),
+    id: NamespacedResourceLocation("minecraft:sulfur_cube_air_drag"),
+    amount: AttributeModifierAmount(0.2),
     operation: "add_multiplied_total",
   },
 ];
 
 const knockbackModifiers: SulfurCubeKnockbackModifiersOptions = {
-  horizontalPower: 1.25,
-  verticalPower: 0.5,
+  horizontalPower: SulfurCubeKnockbackPower(1.25),
+  verticalPower: SulfurCubeKnockbackPower(0.5),
 };
 
 const soundSettings: SulfurCubeSoundSettingsOptions = {
-  hitSound: "minecraft:entity.slime.squish",
-  pushSound: "minecraft:entity.slime.jump",
-  pushSoundImpulseThreshold: 0.4,
-  pushSoundCooldown: 0.2,
+  hitSound: ResourceLocation("minecraft:entity.slime.squish"),
+  pushSound: ResourceLocation("minecraft:entity.slime.jump"),
+  pushSoundImpulseThreshold: SulfurCubePushSoundImpulseThreshold(0.4),
+  pushSoundCooldown: SulfurCubePushSoundCooldown(0.2),
 };
 
 const validOptions = {
@@ -125,6 +130,28 @@ const withoutOptionalValues = (): SulfurCubeArchetypeOptions => ({
 });
 
 describe("Sulfur Cube archetype registry", () => {
+  it("validates the new quantity brands at their accepted and rejected boundaries", () => {
+    expect(PositiveTickCount(1)).toBe(1)
+    expect(() => PositiveTickCount(0)).toThrow()
+    expect(SulfurCubeExplosionPower(0)).toBe(0)
+    expect(SulfurCubeExplosionPower(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER)
+    expect(() => SulfurCubeExplosionPower(-1)).toThrow()
+    expect(() => SulfurCubeExplosionPower(1.5)).toThrow()
+    expect(() => SulfurCubeExplosionPower(Number.MAX_SAFE_INTEGER + 1)).toThrow()
+    expect(SulfurCubeContactDamageAmount(0)).toBe(0)
+    expect(SulfurCubeContactDamageAmount(Number.MAX_VALUE)).toBe(Number.MAX_VALUE)
+    expect(() => SulfurCubeContactDamageAmount(-Number.EPSILON)).toThrow()
+    expect(() => SulfurCubeContactDamageAmount(Number.POSITIVE_INFINITY)).toThrow()
+    expect(() => SulfurCubeContactDamageAmount(Number.NaN)).toThrow()
+    expect(SulfurCubeKnockbackPower(-Number.MAX_VALUE)).toBe(-Number.MAX_VALUE)
+    expect(() => SulfurCubeKnockbackPower(Number.NaN)).toThrow()
+    expect(() => SulfurCubeKnockbackPower(Number.NEGATIVE_INFINITY)).toThrow()
+    expect(SulfurCubePushSoundImpulseThreshold(0)).toBe(0)
+    expect(() => SulfurCubePushSoundImpulseThreshold(Number.POSITIVE_INFINITY)).toThrow()
+    expect(SulfurCubePushSoundCooldown(0)).toBe(0)
+    expect(() => SulfurCubePushSoundCooldown(Number.NEGATIVE_INFINITY)).toThrow()
+  })
+
   it("constructs the complete official registry shape with branded values", () => {
     const archetype = sulfurCubeArchetype(validOptions);
 

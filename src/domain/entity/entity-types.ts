@@ -1,6 +1,35 @@
 import { Brand } from 'effect'
 import { PositionAxis, position, type Position } from '../coordinates/coordinate-primitives.js'
 
+export type EntitySerial = number & Brand.Brand<'EntitySerial'>
+
+export const EntitySerial: Brand.Constructor<EntitySerial> = Brand.make<EntitySerial>(
+  (value) =>
+    Number.isSafeInteger(value) && value >= 0
+      ? true
+      : `EntitySerial must be a non-negative safe integer, received ${value}`,
+)
+
+export type EntityHealthPoints = number & Brand.Brand<'EntityHealthPoints'>
+
+export const EntityHealthPoints: Brand.Constructor<EntityHealthPoints> =
+  Brand.make<EntityHealthPoints>(
+    (value) =>
+      Number.isFinite(value) && value >= 0
+        ? true
+        : `EntityHealthPoints must be finite and non-negative, received ${value}`,
+  )
+
+export type EntityRosterRepairCount = number & Brand.Brand<'EntityRosterRepairCount'>
+
+export const EntityRosterRepairCount: Brand.Constructor<EntityRosterRepairCount> =
+  Brand.make<EntityRosterRepairCount>(
+    (value) =>
+      Number.isSafeInteger(value) && value >= 0
+        ? true
+        : `EntityRosterRepairCount must be a non-negative safe integer, received ${value}`,
+  )
+
 export type EntityId = string & Brand.Brand<'EntityId'>
 
 const entityId: Brand.Constructor<EntityId> = Brand.make<EntityId>(
@@ -31,19 +60,19 @@ export const isEntityKind = (value: unknown): value is EntityKind =>
 
 export const ENTITY_ID_PREFIX = 'e:'
 
-export const mintEntityId = (serial: number): EntityId => entityId(`${ENTITY_ID_PREFIX}${serial}`)
+export const mintEntityId = (serial: EntitySerial): EntityId => entityId(`${ENTITY_ID_PREFIX}${serial}`)
 
-export const serialOfEntityId = (id: string): number | undefined => {
+export const serialOfEntityId = (id: EntityId): EntitySerial | undefined => {
   if (!id.startsWith(ENTITY_ID_PREFIX)) return undefined
   const digits = id.slice(ENTITY_ID_PREFIX.length)
   if (digits.length === 0 || !/^\d+$/.test(digits)) return undefined
   const serial = Number(digits)
-  return Number.isSafeInteger(serial) ? serial : undefined
+  return Number.isSafeInteger(serial) ? EntitySerial(serial) : undefined
 }
 
 export type EntityState<S> = Readonly<{
   feetPosition: Position
-  healthPoints: number
+  healthPoints: EntityHealthPoints
   behaviour: S
 }>
 
@@ -55,7 +84,7 @@ export type Entity<S> = EntityState<S> &
 
 export type EntityRoster<S> = Readonly<{
   entities: ReadonlyArray<Entity<S>>
-  nextSerial: number
+  nextSerial: EntitySerial
 }>
 
 export const NO_ENTITIES: ReadonlyArray<never> = []
@@ -71,8 +100,8 @@ const repairPosition = (value: Position): Position =>
       )
     : position(PositionAxis(0), PositionAxis(0), PositionAxis(0))
 
-const repairHealth = (value: number): number =>
-  typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : 0
+const repairHealth = (value: EntityHealthPoints): EntityHealthPoints =>
+  EntityHealthPoints(typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : 0)
 
 export const repairState = <S>(state: EntityState<S>): EntityState<S> => ({
   feetPosition: repairPosition(state.feetPosition),
@@ -83,7 +112,7 @@ export const repairState = <S>(state: EntityState<S>): EntityState<S> => ({
 export type SpawnRequest<S> = Readonly<{
   kind: EntityKind
   feetPosition: Position
-  healthPoints: number
+  healthPoints: EntityHealthPoints
   behaviour: S
 }>
 
@@ -115,8 +144,8 @@ export type SweepOutcome<S, A> = Readonly<{
 export type BehaviourRepair<S> = (kind: EntityKind, behaviour: S) => S
 
 export type RosterRepair = Readonly<{
-  discarded: number
-  reidentified: number
+  discarded: EntityRosterRepairCount
+  reidentified: EntityRosterRepairCount
 }>
 
 export type NormaliseRosterOutcome<S> = RosterRepair &
