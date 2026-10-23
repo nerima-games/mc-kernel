@@ -12,8 +12,7 @@ import {
   TOOL_BREAK_SPEED,
 } from "../src/domain/block/block-break-speed";
 import * as bedrockMining from "../src/domain/block/bedrock-mining";
-import * as brewingModule from "../src/domain/recipe/brewing";
-import * as cookingModule from "../src/domain/recipe/cooking";
+import * as brewingModule from "../src/domain/recipe/brewing-data";
 import * as cameraPoseModule from "../src/domain/presentation/camera-pose";
 import * as dataPackRegistryModule from "../src/domain/world/data-pack-registry";
 import * as cropModule from "../src/domain/block/crop";
@@ -61,13 +60,10 @@ import * as explosionModule from "../src/domain/entity/explosion";
 import * as primedTntModule from "../src/domain/entity/primed-tnt";
 import * as projectileModule from "../src/domain/entity/projectile";
 import * as portalModule from "../src/domain/entity/portal";
-import * as smeltingModule from "../src/domain/recipe/smelting";
+import * as smeltingModule from "../src/domain/recipe/smelting-data";
 import * as redstoneModule from "../src/domain/block/redstone";
 import * as redstoneNetworkModule from "../src/domain/block/redstone-network";
 import * as redstoneUpdateModule from "../src/domain/block/redstone-update";
-import * as smithingModule from "../src/domain/recipe/smithing";
-import * as stonecuttingModule from "../src/domain/recipe/stonecutting";
-import * as transmuteModule from "../src/domain/recipe/transmute";
 import * as biomeModule from "../src/domain/world/biome";
 import * as blockEntityModule from "../src/domain/block/block-entity";
 import * as damageTypeModule from "../src/domain/entity/damage-type";
@@ -534,30 +530,9 @@ describe("public API surface", () => {
           "cellAt",
           "ingredientMatches",
           "VANILLA_CRAFTING_RECIPES",
-          // Pure cooking data and logic
           "COOKING_STATIONS",
           "VANILLA_FUEL_RULES",
           "VANILLA_SMELTING_RECIPES",
-          "furnaceState",
-          "emptyFurnaceState",
-          "matchSmeltingRecipe",
-          "advanceFurnace",
-          "cookingRecipe",
-          "cookingRecipeForItem",
-          "isCookingRecipe",
-          "matchesCookingRecipe",
-          "matchCookingRecipes",
-          "matchCookingRecipe",
-          "applyCooking",
-          "TRANSMUTE_MAX_MATERIAL_SLOTS",
-          "isTransmuteMaterialCount",
-          "isTransmuteRecipe",
-          "transmuteRecipe",
-          "transmuteRecipeForItem",
-          "matchesTransmuteRecipe",
-          "matchTransmuteRecipes",
-          "matchTransmuteRecipe",
-          "applyTransmute",
           // Pure crop and dimension data and logic
           "DIMENSIONS",
           "isDimension",
@@ -622,17 +597,11 @@ describe("public API surface", () => {
           "advanceCrop",
           "advanceCropByBoneMeal",
           "cropLocationKey",
-          // Pure brewing data and logic
           "BREWING_BOTTLE_SLOTS",
           "BREWING_FUEL_ITEM",
           "BREWING_MAX_FUEL_CHARGES",
           "BREWING_TIME_SECS",
           "VANILLA_BREWING_RECIPES",
-          "brewingState",
-          "emptyBrewingState",
-          "matchBrewingRecipe",
-          "addBrewingFuel",
-          "advanceBrewing",
           // Pure fluid vocabulary and persistent fluid-cell state
           "FLUID_BLOCK_IDS",
           "FLUID_MIX_BLOCK_IDS",
@@ -724,25 +693,6 @@ describe("public API surface", () => {
           "wirePowerChanges",
           "blockIsWire",
           "updateRedstone",
-          // Pure smithing data and logic
-          "SMITHING_STATION_TAG",
-          "SMITHING_TRIM_TEMPLATE_TAG",
-          "SMITHING_TRIMMABLE_ARMOR_TAG",
-          "SMITHING_TRIM_MATERIAL_TAG",
-          "VANILLA_SMITHING_RECIPES",
-          "smithingTransformRecipe",
-          "smithingTrimRecipe",
-          "smithingInput",
-          "matchesSmithingRecipe",
-          "matchSmithingRecipe",
-          "applySmithing",
-          // Pure stonecutting data and logic
-          "STONECUTTING_STATION_TAG",
-          "VANILLA_STONECUTTING_RECIPES",
-          "stonecuttingRecipe",
-          "matchStonecuttingRecipes",
-          "matchStonecuttingRecipe",
-          "applyStonecutting",
           // Pure projectile data and logic
           "ARROW_GRAVITY",
           "ARROW_AIR_DRAG",
@@ -1816,25 +1766,9 @@ describe("public API surface", () => {
         expect(kernel.VANILLA_CRAFTING_RECIPES).toBe(
           recipeModule.VANILLA_CRAFTING_RECIPES,
         );
-        expect(kernel.advanceFurnace).toBe(smeltingModule.advanceFurnace);
         expect(kernel.VANILLA_SMELTING_RECIPES).toBe(
           smeltingModule.VANILLA_SMELTING_RECIPES,
         );
-        expect(kernel.cookingRecipe).toBe(cookingModule.cookingRecipe);
-        expect(kernel.cookingRecipeForItem).toBe(
-          cookingModule.cookingRecipeForItem,
-        );
-        expect(kernel.isCookingRecipe).toBe(cookingModule.isCookingRecipe);
-        expect(kernel.matchesCookingRecipe).toBe(
-          cookingModule.matchesCookingRecipe,
-        );
-        expect(kernel.matchCookingRecipes).toBe(
-          cookingModule.matchCookingRecipes,
-        );
-        expect(kernel.matchCookingRecipe).toBe(
-          cookingModule.matchCookingRecipe,
-        );
-        expect(kernel.applyCooking).toBe(cookingModule.applyCooking);
         expect(kernel.DIMENSIONS).toBe(dimensionModule.DIMENSIONS);
         expect(kernel.isDimension).toBe(dimensionModule.isDimension);
         expect(kernel.EntityId).toBe(entityModule.EntityId);
@@ -1953,7 +1887,6 @@ describe("public API surface", () => {
           cropModule.advanceCropByBoneMeal,
         );
         expect(kernel.cropLocationKey).toBe(cropModule.cropLocationKey);
-        expect(kernel.advanceBrewing).toBe(brewingModule.advanceBrewing);
         expect(kernel.VANILLA_BREWING_RECIPES).toBe(
           brewingModule.VANILLA_BREWING_RECIPES,
         );
@@ -2109,45 +2042,6 @@ describe("public API surface", () => {
         );
         expect(kernel.blockIsWire).toBe(redstoneNetworkModule.blockIsWire);
         expect(kernel.updateRedstone).toBe(redstoneUpdateModule.updateRedstone);
-        expect(kernel.applySmithing).toBe(smithingModule.applySmithing);
-        expect(kernel.VANILLA_SMITHING_RECIPES).toBe(
-          smithingModule.VANILLA_SMITHING_RECIPES,
-        );
-        expect(kernel.matchStonecuttingRecipes).toBe(
-          stonecuttingModule.matchStonecuttingRecipes,
-        );
-        expect(kernel.matchStonecuttingRecipe).toBe(
-          stonecuttingModule.matchStonecuttingRecipe,
-        );
-        expect(kernel.applyStonecutting).toBe(
-          stonecuttingModule.applyStonecutting,
-        );
-        expect(kernel.VANILLA_STONECUTTING_RECIPES).toBe(
-          stonecuttingModule.VANILLA_STONECUTTING_RECIPES,
-        );
-        expect(kernel.TRANSMUTE_MAX_MATERIAL_SLOTS).toBe(
-          transmuteModule.TRANSMUTE_MAX_MATERIAL_SLOTS,
-        );
-        expect(kernel.isTransmuteMaterialCount).toBe(
-          transmuteModule.isTransmuteMaterialCount,
-        );
-        expect(kernel.isTransmuteRecipe).toBe(
-          transmuteModule.isTransmuteRecipe,
-        );
-        expect(kernel.transmuteRecipe).toBe(transmuteModule.transmuteRecipe);
-        expect(kernel.transmuteRecipeForItem).toBe(
-          transmuteModule.transmuteRecipeForItem,
-        );
-        expect(kernel.matchesTransmuteRecipe).toBe(
-          transmuteModule.matchesTransmuteRecipe,
-        );
-        expect(kernel.matchTransmuteRecipes).toBe(
-          transmuteModule.matchTransmuteRecipes,
-        );
-        expect(kernel.matchTransmuteRecipe).toBe(
-          transmuteModule.matchTransmuteRecipe,
-        );
-        expect(kernel.applyTransmute).toBe(transmuteModule.applyTransmute);
         expect(kernel.ARROW_GRAVITY).toBe(projectileModule.ARROW_GRAVITY);
         expect(kernel.ARROW_AIR_DRAG).toBe(projectileModule.ARROW_AIR_DRAG);
         expect(kernel.ARROW_WATER_DRAG).toBe(projectileModule.ARROW_WATER_DRAG);
@@ -2406,13 +2300,7 @@ describe("public API surface", () => {
         const hotbarPath = "@nerima-games/mc-kernel/domain/hotbar";
         const quantitiesPath = "@nerima-games/mc-kernel/domain/quantities";
         const recipePath = "@nerima-games/mc-kernel/domain/recipe";
-        const brewingPath = "@nerima-games/mc-kernel/domain/brewing";
-        const cookingPath = "@nerima-games/mc-kernel/domain/cooking";
         const cameraPosePath = "@nerima-games/mc-kernel/domain/camera-pose";
-        const smeltingPath = "@nerima-games/mc-kernel/domain/smelting";
-        const smithingPath = "@nerima-games/mc-kernel/domain/smithing";
-        const stonecuttingPath = "@nerima-games/mc-kernel/domain/stonecutting";
-        const transmutePath = "@nerima-games/mc-kernel/domain/transmute";
         const cropPath = "@nerima-games/mc-kernel/domain/crop";
         const dimensionPath = "@nerima-games/mc-kernel/domain/dimension";
         const entityPath = "@nerima-games/mc-kernel/domain/entity";
@@ -2480,13 +2368,7 @@ describe("public API surface", () => {
           hotbarSubpath,
           quantitiesSubpath,
           recipeSubpath,
-          brewingSubpath,
-          cookingSubpath,
           cameraPoseSubpath,
-          smeltingSubpath,
-          smithingSubpath,
-          stonecuttingSubpath,
-          transmuteSubpath,
           cropSubpath,
           dimensionSubpath,
           entitySubpath,
@@ -2550,13 +2432,7 @@ describe("public API surface", () => {
           import(hotbarPath),
           import(quantitiesPath),
           import(recipePath),
-          import(brewingPath),
-          import(cookingPath),
           import(cameraPosePath),
-          import(smeltingPath),
-          import(smithingPath),
-          import(stonecuttingPath),
-          import(transmutePath),
           import(cropPath),
           import(dimensionPath),
           import(entityPath),
@@ -3158,49 +3034,17 @@ describe("public API surface", () => {
         expect(recipeSubpath.VANILLA_CRAFTING_RECIPES).toBe(
           packageRoot.VANILLA_CRAFTING_RECIPES,
         );
-        expect(brewingSubpath.advanceBrewing).toBe(packageRoot.advanceBrewing);
-        expect(brewingSubpath.VANILLA_BREWING_RECIPES).toBe(
+        expect(recipeSubpath.VANILLA_BREWING_RECIPES).toBe(
           packageRoot.VANILLA_BREWING_RECIPES,
         );
-        expect(cookingSubpath.cookingRecipe).toBe(packageRoot.cookingRecipe);
-        expect(cookingSubpath.matchCookingRecipes).toBe(
-          packageRoot.matchCookingRecipes,
+        expect(recipeSubpath.VANILLA_SMELTING_RECIPES).toBe(
+          packageRoot.VANILLA_SMELTING_RECIPES,
         );
-        expect(cookingSubpath.applyCooking).toBe(packageRoot.applyCooking);
         expect(cameraPoseSubpath.applyLook).toBe(packageRoot.applyLook);
         expect(cameraPoseSubpath.cameraPoseOf).toBe(packageRoot.cameraPoseOf);
         expect(cameraPoseSubpath.forwardVector).toBe(packageRoot.forwardVector);
         expect(cameraPoseSubpath.INITIAL_PLAYER_POSE).toBe(
           packageRoot.INITIAL_PLAYER_POSE,
-        );
-        expect(smeltingSubpath.advanceFurnace).toBe(packageRoot.advanceFurnace);
-        expect(smeltingSubpath.VANILLA_SMELTING_RECIPES).toBe(
-          packageRoot.VANILLA_SMELTING_RECIPES,
-        );
-        expect(smithingSubpath.applySmithing).toBe(packageRoot.applySmithing);
-        expect(smithingSubpath.VANILLA_SMITHING_RECIPES).toBe(
-          packageRoot.VANILLA_SMITHING_RECIPES,
-        );
-        expect(stonecuttingSubpath.matchStonecuttingRecipes).toBe(
-          packageRoot.matchStonecuttingRecipes,
-        );
-        expect(stonecuttingSubpath.matchStonecuttingRecipe).toBe(
-          packageRoot.matchStonecuttingRecipe,
-        );
-        expect(stonecuttingSubpath.applyStonecutting).toBe(
-          packageRoot.applyStonecutting,
-        );
-        expect(stonecuttingSubpath.VANILLA_STONECUTTING_RECIPES).toBe(
-          packageRoot.VANILLA_STONECUTTING_RECIPES,
-        );
-        expect(transmuteSubpath.transmuteRecipe).toBe(
-          packageRoot.transmuteRecipe,
-        );
-        expect(transmuteSubpath.matchTransmuteRecipes).toBe(
-          packageRoot.matchTransmuteRecipes,
-        );
-        expect(transmuteSubpath.applyTransmute).toBe(
-          packageRoot.applyTransmute,
         );
         expect(cropSubpath.CROP_TYPES).toBe(packageRoot.CROP_TYPES);
         expect(cropSubpath.CROP_REGISTRY).toBe(packageRoot.CROP_REGISTRY);

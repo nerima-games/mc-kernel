@@ -30,17 +30,31 @@ import {
 } from '../src/domain/block/block-entity'
 import { blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import { itemStack, type Slot } from '../src/domain/item/item-stack'
-import { emptyFurnaceState, furnaceState, type FurnaceState } from '../src/domain/recipe/smelting'
+import type { FurnaceState } from '../src/domain/recipe/smelting-data'
 import {
   BREWING_MAX_FUEL_CHARGES,
   BREWING_TIME_SECS,
-  brewingState,
-  emptyBrewingState,
   type BrewingState,
-} from '../src/domain/recipe/brewing'
+} from '../src/domain/recipe/brewing-data'
 
 const AT_ORIGIN: BlockPosition = blockPosition(0, 0, 0)
 const AT_OTHER: BlockPosition = blockPosition(1, 2, 3)
+const EMPTY_FURNACE: FurnaceState = {
+  station: 'furnace',
+  input: undefined,
+  fuel: undefined,
+  output: undefined,
+  fuelTimeRemainingSecs: 0,
+  fuelTimeTotalSecs: 0,
+  cookProgressSecs: 0,
+}
+const EMPTY_BREWING: BrewingState = {
+  bottles: [undefined, undefined, undefined],
+  ingredient: undefined,
+  fuel: undefined,
+  fuelCharges: 0,
+  brewProgressSecs: 0,
+}
 
 const containerOf = (kind: StorageContainerKind, slots: ReadonlyArray<Slot>): StorageContainer => ({
   kind,
@@ -117,7 +131,7 @@ describe('storage container guard', () => {
 })
 
 describe('furnace state guard', () => {
-  const validFurnace: FurnaceState = furnaceState({
+  const validFurnace: FurnaceState = {
     station: 'blast_furnace',
     input: itemStack('cobblestone', 1),
     fuel: itemStack('coal', 1),
@@ -125,10 +139,10 @@ describe('furnace state guard', () => {
     fuelTimeRemainingSecs: 5,
     fuelTimeTotalSecs: 10,
     cookProgressSecs: 2,
-  })
+  }
 
   it('accepts an empty furnace and a furnace mid-cook', () => {
-    expect(isFurnaceState(emptyFurnaceState())).toBe(true)
+    expect(isFurnaceState(EMPTY_FURNACE)).toBe(true)
     expect(isFurnaceState(validFurnace)).toBe(true)
   })
 
@@ -173,16 +187,16 @@ describe('furnace state guard', () => {
 })
 
 describe('brewing state guard', () => {
-  const validBrewing: BrewingState = brewingState({
+  const validBrewing: BrewingState = {
     bottles: [itemStack('glass_bottle', 1), undefined, undefined],
     ingredient: itemStack('nether_wart', 1),
     fuel: itemStack('blaze_powder', 1),
     fuelCharges: 5,
     brewProgressSecs: 10,
-  })
+  }
 
   it('accepts an empty brewing stand and one mid-brew', () => {
-    expect(isBrewingState(emptyBrewingState())).toBe(true)
+    expect(isBrewingState(EMPTY_BREWING)).toBe(true)
     expect(isBrewingState(validBrewing)).toBe(true)
   })
 
@@ -266,12 +280,12 @@ describe('block entity guard', () => {
   const furnaceEntity: BlockEntity = {
     _tag: 'Furnace',
     position: AT_ORIGIN,
-    state: emptyFurnaceState(),
+    state: EMPTY_FURNACE,
   }
   const brewingEntity: BlockEntity = {
     _tag: 'BrewingStand',
     position: AT_ORIGIN,
-    state: emptyBrewingState(),
+    state: EMPTY_BREWING,
   }
   const signEntity: BlockEntity = {
     _tag: 'Sign',

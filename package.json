@@ -70,16 +70,6 @@
       "import": "./dist/domain/block-support.js",
       "default": "./dist/domain/block-support.js"
     },
-    "./domain/brewing": {
-      "types": "./dist/domain/brewing.d.ts",
-      "import": "./dist/domain/brewing.js",
-      "default": "./dist/domain/brewing.js"
-    },
-    "./domain/cooking": {
-      "types": "./dist/domain/cooking.d.ts",
-      "import": "./dist/domain/cooking.js",
-      "default": "./dist/domain/cooking.js"
-    },
     "./domain/camera": {
       "types": "./dist/domain/camera.d.ts",
       "import": "./dist/domain/camera.js",
@@ -415,35 +405,15 @@
       "import": "./dist/domain/redstone-update.js",
       "default": "./dist/domain/redstone-update.js"
     },
-    "./domain/smelting": {
-      "types": "./dist/domain/smelting.d.ts",
-      "import": "./dist/domain/smelting.js",
-      "default": "./dist/domain/smelting.js"
-    },
     "./domain/settings": {
       "types": "./dist/domain/settings.d.ts",
       "import": "./dist/domain/settings.js",
       "default": "./dist/domain/settings.js"
     },
-    "./domain/smithing": {
-      "types": "./dist/domain/smithing.d.ts",
-      "import": "./dist/domain/smithing.js",
-      "default": "./dist/domain/smithing.js"
-    },
     "./domain/statistics": {
       "types": "./dist/domain/statistics.d.ts",
       "import": "./dist/domain/statistics.js",
       "default": "./dist/domain/statistics.js"
-    },
-    "./domain/stonecutting": {
-      "types": "./dist/domain/stonecutting.d.ts",
-      "import": "./dist/domain/stonecutting.js",
-      "default": "./dist/domain/stonecutting.js"
-    },
-    "./domain/transmute": {
-      "types": "./dist/domain/transmute.d.ts",
-      "import": "./dist/domain/transmute.js",
-      "default": "./dist/domain/transmute.js"
     },
     "./domain/time-of-day": {
       "types": "./dist/domain/time-of-day.d.ts",

@@ -1,13 +1,8 @@
 /**
  * Runtime validation for block entities arriving from save files.
  *
- * Keeping this module separate from the value vocabulary makes the accepted
- * external shape and the resolved domain data independently readable, in the
- * same split `./block-property-validation` uses. `FurnaceState` and
- * `BrewingState` are imported from `./smelting` and `./brewing` as union
- * members only — this module never edits either — so their guards are
- * written here rather than reused, in the same import-without-editing
- * bridge `./block-item` uses for `PlaceableItemType`.
+ * `FurnaceState` and `BrewingState` come from the recipe data modules. Their
+ * block-entity guards live here.
  */
 import {
   BREWING_BOTTLE_SLOTS,
@@ -15,7 +10,7 @@ import {
   BREWING_TIME_SECS,
   type BrewingBottles,
   type BrewingState,
-} from '../recipe/brewing.js'
+} from '../recipe/brewing-data.js'
 import {
   STORAGE_CONTAINER_CAPACITIES,
   STORAGE_CONTAINER_KINDS,
@@ -25,7 +20,7 @@ import {
 } from './block-entity-data.js'
 import type { BlockPosition } from '../coordinates/coordinates.js'
 import { isItemStack, type Slot } from '../item/item-stack.js'
-import { COOKING_STATIONS, type CookingStation, type FurnaceState } from '../recipe/smelting.js'
+import { COOKING_STATIONS, type CookingStation, type FurnaceState } from '../recipe/smelting-data.js'
 import { isTextComponent } from '../text/text-component.js'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
