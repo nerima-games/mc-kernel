@@ -8,25 +8,21 @@ const DATA_PACK_PRIORITY_MIN = 0;
 /** A non-negative data-pack format number, including decimal formats such as 107.1. */
 export type DataPackFormat = number & Brand.Brand<"DataPackFormat">;
 
-export const DataPackFormat: Brand.Brand.Constructor<DataPackFormat> =
-  Brand.refined<DataPackFormat>(
-    (value) => Number.isFinite(value) && value >= DATA_PACK_FORMAT_MIN,
-    (value) =>
-      Brand.error(
-        `DataPackFormat must be a finite non-negative number, received ${value}`,
-      ),
+export const DataPackFormat: Brand.Constructor<DataPackFormat> =
+  Brand.make<DataPackFormat>((value) =>
+    Number.isFinite(value) && value >= DATA_PACK_FORMAT_MIN
+      ? true
+      : `DataPackFormat must be a finite non-negative number, received ${value}`,
   );
 
 /** A stable non-negative precedence for a data-pack layer. Larger values win. */
 export type DataPackPriority = number & Brand.Brand<"DataPackPriority">;
 
-export const DataPackPriority: Brand.Brand.Constructor<DataPackPriority> =
-  Brand.refined<DataPackPriority>(
-    (value) => Number.isSafeInteger(value) && value >= DATA_PACK_PRIORITY_MIN,
-    (value) =>
-      Brand.error(
-        `DataPackPriority must be a non-negative safe integer, received ${value}`,
-      ),
+export const DataPackPriority: Brand.Constructor<DataPackPriority> =
+  Brand.make<DataPackPriority>((value) =>
+    Number.isSafeInteger(value) && value >= DATA_PACK_PRIORITY_MIN
+      ? true
+      : `DataPackPriority must be a non-negative safe integer, received ${value}`,
   );
 
 export type DataPackRegistryEntry<T> = Readonly<{

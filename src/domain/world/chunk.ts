@@ -67,9 +67,11 @@ type ValidatedEncodedChunk = {
   readonly view: DataView
 }
 
-const ChunkHeightBrand = Brand.refined<ChunkHeight>(
-  (value) => Number.isInteger(value) && value > 0 && value <= MAX_CHUNK_HEIGHT,
-  (value) => Brand.error(`Chunk height must be an integer in [1, ${MAX_CHUNK_HEIGHT}], received ${value}`),
+const ChunkHeightBrand = Brand.make<ChunkHeight>(
+  (value) =>
+    Number.isInteger(value) && value > 0 && value <= MAX_CHUNK_HEIGHT
+      ? true
+      : `Chunk height must be an integer in [1, ${MAX_CHUNK_HEIGHT}], received ${value}`,
 )
 
 export const ChunkHeight = (value: number): ChunkHeight => {

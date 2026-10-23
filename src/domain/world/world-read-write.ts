@@ -13,32 +13,42 @@ export type SectionIndex = number & Brand.Brand<'SectionIndex'>
 const isNonNegativeInteger = (value: number): boolean =>
   Number.isSafeInteger(value) && value >= MIN_INDEX
 
-const worldEpochBrand = Brand.refined<WorldEpoch>(
-  isNonNegativeInteger,
-  (value) => Brand.error(`WorldEpoch must be a non-negative safe integer, received ${value}`),
+const worldEpochBrand = Brand.make<WorldEpoch>(
+  (value) =>
+    isNonNegativeInteger(value)
+      ? true
+      : `WorldEpoch must be a non-negative safe integer, received ${value}`,
 )
-const chunkRevisionBrand = Brand.refined<ChunkRevision>(
-  isNonNegativeInteger,
-  (value) => Brand.error(`ChunkRevision must be a non-negative safe integer, received ${value}`),
+const chunkRevisionBrand = Brand.make<ChunkRevision>(
+  (value) =>
+    isNonNegativeInteger(value)
+      ? true
+      : `ChunkRevision must be a non-negative safe integer, received ${value}`,
 )
-const lightRevisionBrand = Brand.refined<LightRevision>(
-  isNonNegativeInteger,
-  (value) => Brand.error(`LightRevision must be a non-negative safe integer, received ${value}`),
+const lightRevisionBrand = Brand.make<LightRevision>(
+  (value) =>
+    isNonNegativeInteger(value)
+      ? true
+      : `LightRevision must be a non-negative safe integer, received ${value}`,
 )
-const chunkLocalIndexBrand = Brand.refined<ChunkLocalIndex>(
-  isNonNegativeInteger,
-  (value) => Brand.error(`ChunkLocalIndex must be a non-negative safe integer, received ${value}`),
+const chunkLocalIndexBrand = Brand.make<ChunkLocalIndex>(
+  (value) =>
+    isNonNegativeInteger(value)
+      ? true
+      : `ChunkLocalIndex must be a non-negative safe integer, received ${value}`,
 )
-const sectionIndexBrand = Brand.refined<SectionIndex>(
-  isNonNegativeInteger,
-  (value) => Brand.error(`SectionIndex must be a non-negative safe integer, received ${value}`),
+const sectionIndexBrand = Brand.make<SectionIndex>(
+  (value) =>
+    isNonNegativeInteger(value)
+      ? true
+      : `SectionIndex must be a non-negative safe integer, received ${value}`,
 )
 
-export const WorldEpoch: Brand.Brand.Constructor<WorldEpoch> = worldEpochBrand
-export const ChunkRevision: Brand.Brand.Constructor<ChunkRevision> = chunkRevisionBrand
-export const LightRevision: Brand.Brand.Constructor<LightRevision> = lightRevisionBrand
-export const ChunkLocalIndex: Brand.Brand.Constructor<ChunkLocalIndex> = chunkLocalIndexBrand
-export const SectionIndex: Brand.Brand.Constructor<SectionIndex> = sectionIndexBrand
+export const WorldEpoch: Brand.Constructor<WorldEpoch> = worldEpochBrand
+export const ChunkRevision: Brand.Constructor<ChunkRevision> = chunkRevisionBrand
+export const LightRevision: Brand.Constructor<LightRevision> = lightRevisionBrand
+export const ChunkLocalIndex: Brand.Constructor<ChunkLocalIndex> = chunkLocalIndexBrand
+export const SectionIndex: Brand.Constructor<SectionIndex> = sectionIndexBrand
 
 export type BlockRead =
   | { readonly _tag: 'Loaded'; readonly blockId: BlockIdType }
