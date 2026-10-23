@@ -37,10 +37,8 @@ export const BLOCK_REGISTRY_FOUNDATION: ReadonlyArray<BlockRegistryEntry> = [
         // consequence — but a column that is right except where nobody looks is
         // a column nobody can check.
         friction: 0,
-        // Swinging at empty space must not manufacture an item. mx-gameplay's
-        // `breakBlock` already refuses to reach here (`Unchanged` ->
-        // `NothingThere`), but the table must not depend on the caller getting
-        // that right: `air` is a sentinel, not a thing (audit §6-6).
+        // Swinging at empty space must not manufacture an item. `air` is a
+        // sentinel, not a thing, so its drops stay empty (audit §6-6).
         drops: DROPS_NOTHING,
       },
     },

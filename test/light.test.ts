@@ -46,6 +46,15 @@ describe('light volume construction and bounds', () => {
     expect(() => channel.at(4)).toThrow(RangeError)
   })
 
+  it('copies channel bytes without exposing its owned buffer', () => {
+    const channel = lightChannel(new Uint8Array([2, 7]))
+    const bytes = channel.toBytes()
+
+    expect(bytes).toStrictEqual(new Uint8Array([2, 7]))
+    bytes[0] = 9
+    expect(channel.at(0)).toBe(2)
+  })
+
   it('rejects a copy that does not fit the destination', () => {
     const channel = lightChannel(new Uint8Array(4))
     expect(() => channel.copyTo(new Uint8Array(2))).toThrow(RangeError)

@@ -2620,40 +2620,6 @@ describe("public API surface", () => {
         expect(settingsSubpath.unbindKey).toBe(packageRoot.unbindKey);
       }),
     ));
-  it("supports retained static-data package subpaths", () =>
-    Effect.runPromise(
-      Effect.promise(async () => {
-        const blockBreakSpeedPath =
-          "@nerima-games/mc-kernel/domain/block-break-speed";
-        const bedrockMiningPath =
-          "@nerima-games/mc-kernel/domain/bedrock-mining";
-        const cropPath = "@nerima-games/mc-kernel/domain/crop";
-        const statisticsPath = "@nerima-games/mc-kernel/domain/statistics";
-        const [blockBreakSpeed, bedrockMining, crop, statistics] =
-          await Promise.all([
-            import(blockBreakSpeedPath),
-            import(bedrockMiningPath),
-            import(cropPath),
-            import(statisticsPath),
-          ]);
-
-        expect(blockBreakSpeed.DEFAULT_MINING_SPEED).toBe(1);
-        expect(blockBreakSpeed.TOOL_BREAK_SPEED).toBeDefined();
-        expect(bedrockMining.DEFAULT_BEDROCK_SECONDS_TO_DESTROY).toBe(0);
-        expect(bedrockMining.BEDROCK_DIGGER_MIN_FORMAT_VERSION).toBe("1.20.30");
-        expect(bedrockMining.parseBedrockTagQuery).toBeDefined();
-        expect(crop.CROP_TYPES).toEqual([
-          "wheat_crop",
-          "potato_crop",
-          "nether_wart_crop",
-        ]);
-        expect(crop.CROP_REGISTRY).toBeDefined();
-        expect(statistics.EMPTY_STATISTICS).toEqual({
-          counters: {},
-          unlocked: [],
-        });
-      }),
-    ));
   it("exports the canonical Eye of Ender item identity", () =>
     Effect.runPromise(
       Effect.sync(() => {

@@ -305,157 +305,49 @@ try {
     if (typeof rootModule.fixedClock !== 'function') {
       throw new Error('The root export does not expose fixedClock');
     }
-    if (
-      typeof rootModule.applyLook !== 'function' ||
-      typeof rootModule.cameraPoseOf !== 'function' ||
-      typeof rootModule.forwardVector !== 'function' ||
-      rootModule.EYE_LEVEL_OFFSET !== 1.62
-    ) {
-      throw new Error('The root export does not expose camera-pose APIs');
-    }
-    const initialCameraSnapshot = rootModule.cameraPoseOf(
-      rootModule.INITIAL_PLAYER_POSE,
-      rootModule.MonotonicTimeSecs(0),
-    );
-    const initialCameraDirection = rootModule.forwardVector(initialCameraSnapshot);
-    if (
-      initialCameraSnapshot.position.y !== 1.62 ||
-      initialCameraDirection.x !== 0 ||
-      initialCameraDirection.y !== 0 ||
-      initialCameraDirection.z !== -1
-    ) {
-      throw new Error('The root export returned invalid camera-pose results');
-    }
-    if (
-      typeof rootModule.launchArrow !== 'function' ||
-      typeof rootModule.stepArrow !== 'function' ||
-      rootModule.ARROW_GRAVITY !== 9.81
-    ) {
-      throw new Error('The root export does not expose projectile APIs');
-    }
-    const packageArrow = rootModule.launchArrow({
+    const cameraModule = modules[specifiers.indexOf(packageName + '/domain/camera')];
+    const cameraSnapshot = {
       position: { x: 0, y: 0, z: 0 },
       yawRadians: 0,
       pitchRadians: 0,
-      speed: 1,
-    });
-    const packageProjectileWorld = {
-      blockBounds: () => [],
-      entities: [],
-      isInWater: () => false,
-      bounds: { min: { x: -10, y: -10, z: -10 }, max: { x: 10, y: 10, z: 10 } },
+      capturedAtSecs: rootModule.MonotonicTimeSecs(1),
     };
-    const steppedArrow = rootModule.stepArrow(packageArrow, 0.01, packageProjectileWorld);
-    if (steppedArrow.arrow.state !== 'flying' || steppedArrow.arrow.ageSeconds <= 0) {
-      throw new Error('The root export returned invalid projectile results');
-    }
     if (
-      typeof rootModule.planExplosion !== 'function' ||
-      typeof rootModule.applyExplosionPlan !== 'function' ||
-      rootModule.DEFAULT_EXPLOSION_LIMITS?.maxRaySteps !== 128 ||
-      typeof rootModule.primeTnt !== 'function' ||
-      typeof rootModule.planPrimedTnt !== 'function' ||
-      typeof rootModule.applyPrimedTntPlan !== 'function' ||
-      rootModule.DEFAULT_TNT_FUSE_SECS !== 4
+      typeof rootModule.snapshotAgeSecs !== 'function' ||
+      cameraModule.snapshotAgeSecs !== rootModule.snapshotAgeSecs ||
+      rootModule.snapshotAgeSecs(cameraSnapshot, rootModule.MonotonicTimeSecs(3)) !== 2
     ) {
-      throw new Error('The root export does not expose explosion and primed-TNT APIs');
+      throw new Error('The camera package export returned an invalid snapshot age');
     }
-    const packageExplosion = rootModule.planExplosion({
-      center: { x: 0.5, y: 0.5, z: 0.5 },
-      radius: 0,
-      seed: 0,
-      blocks: () => undefined,
-      entities: [],
-    });
-    const packageTnt = rootModule.planPrimedTnt({
-      center: { x: 0.5, y: 0.5, z: 0.5 },
-      radius: 0,
-      seed: 0,
-      blocks: () => undefined,
-      entities: [],
-      state: rootModule.primeTnt(),
-      deltaTimeSecs: 4,
+    if (typeof rootModule.normaliseSettings !== 'function') {
+      throw new Error('The root export does not expose normaliseSettings');
+    }
+    const normalisedSettings = rootModule.normaliseSettings({
+      renderDistance: rootModule.MAX_RENDER_DISTANCE + 1,
+      keyBindings: { jump: 'Space' },
     });
     if (
-      packageExplosion.radius !== 0 ||
-      packageExplosion.destroyedBlocks.length !== 0 ||
-      packageTnt.after.kind !== 'detonated' ||
-      packageTnt.explosion === undefined
+      normalisedSettings.renderDistance !== rootModule.MAX_RENDER_DISTANCE ||
+      normalisedSettings.keyBindings.jump !== 'Space'
     ) {
-      throw new Error('The root export returned invalid explosion and primed-TNT results');
+      throw new Error('The root export returned invalid normalised settings');
     }
     if (
-      typeof rootModule.computeBreakTicks !== 'function' ||
-      typeof rootModule.blockHardnessOf !== 'function' ||
-      typeof rootModule.miningSpeedOf !== 'function' ||
-      typeof rootModule.compileToolComponent !== 'function' ||
-      typeof rootModule.resolveToolMiningProperties !== 'function' ||
-      rootModule.DEFAULT_MINING_SPEED !== 1 ||
-      rootModule.TOOL_BREAK_SPEED === null ||
-      typeof rootModule.TOOL_BREAK_SPEED !== 'object'
-    ) {
-      throw new Error('The root export does not expose block break-speed APIs');
-    }
-    if (rootModule.blockHardnessOf('stone') !== 25) {
-      throw new Error('The root export returned an invalid stone hardness');
-    }
-    if (rootModule.miningSpeedOf('gold_pickaxe') !== 12) {
-      throw new Error('The root export returned an invalid resolved mining speed');
-    }
-    if (rootModule.computeBreakTicks({ correctForDrops: false, hardness: 1, miningSpeed: 1 }) !== 3) {
-      throw new Error('The root export returned an invalid break tick result');
-    }
-    const resolvedTool = rootModule.resolveToolMiningProperties(
-      { rules: [{ blocks: ['stone'], speed: 6, correctForDrops: true }], damagePerBlock: 1 },
+    const harvestedDrop = rootModule.resolveDrop(
+      rootModule.DEFAULT_HARVEST_TOOL,
+      rootModule.DEFAULT_BLOCK_DROP,
       'stone',
     );
-    if (
-      JSON.stringify(resolvedTool) !==
-      JSON.stringify({
-        miningSpeed: 6,
-        correctForDrops: true,
-        damagePerBlock: 1,
-        canDestroyBlocksInCreative: true,
-      })
-    ) {
-      throw new Error('The root export returned invalid tool-component rule resolution');
-    }
-    const compiledTool = rootModule.compileToolComponent({
-      rules: [{ blocks: ['stone'], speed: 6, correctForDrops: true }],
-      damagePerBlock: 1,
-    });
-    if (rootModule.resolveToolMiningProperties(compiledTool, 'stone').miningSpeed !== 6) {
-      throw new Error('The root export returned invalid compiled tool-component resolution');
+    if (harvestedDrop?.item !== 'stone' || harvestedDrop.count !== 1) {
+      throw new Error('The root export returned an invalid block-harvest result');
     }
     if (
-      rootModule.BEDROCK_DIGGER_MIN_FORMAT_VERSION !== '1.20.30' ||
-      typeof rootModule.resolveBedrockDiggerSpeed !== 'function' ||
-      typeof rootModule.resolveBedrockDestructionSeconds !== 'function' ||
-      typeof rootModule.resolveBedrockItemSpecificDestroySpeed !== 'function'
+      typeof rootModule.resistsExplosion !== 'function' ||
+      rootModule.DEFAULT_EXPLOSION_LIMITS?.maxRaySteps !== 128 ||
+      !rootModule.resistsExplosion(rootModule.blockIdOf('stone'), 0) ||
+      rootModule.resistsExplosion(rootModule.blockIdOf('stone'), Number.MAX_SAFE_INTEGER)
     ) {
-      throw new Error('The root export does not expose Bedrock mining APIs');
-    }
-    const bedrockBlock = {
-      name: 'minecraft:oak_log',
-      states: {},
-      tags: new Set(['minecraft:wood']),
-    };
-    const bedrockDiggerSpeed = rootModule.resolveBedrockDiggerSpeed(
-      { destroy_speeds: [{ block: { tags: "query.any_tag('minecraft:wood')" }, speed: 7 }] },
-      bedrockBlock,
-    );
-    if (bedrockDiggerSpeed !== 7 || rootModule.bedrockDiggerUsesEfficiency(undefined) !== false) {
-      throw new Error('The root export returned invalid Bedrock digger resolution');
-    }
-    if (rootModule.resolveBedrockDestructionSeconds(false, 5) !== Infinity) {
-      throw new Error('The root export returned invalid Bedrock indestructible resolution');
-    }
-    const bedrockItemSpeed = rootModule.resolveBedrockItemSpecificDestroySpeed(
-      { item_specific_speeds: [{ item: 'minecraft:diamond_axe', destroy_speed: 0.25 }] },
-      { name: 'minecraft:diamond_axe', tags: new Set() },
-    );
-    if (bedrockItemSpeed !== 0.25) {
-      throw new Error('The root export returned invalid Bedrock item-specific speed resolution');
+      throw new Error('The root export returned an invalid explosion-resistance result');
     }
     const stack = rootModule.itemStack('stone', 2);
     if (stack.item !== 'stone' || stack.count !== 2 || rootModule.maxStackCountForItem('stone') !== 64) {
@@ -515,44 +407,26 @@ try {
 ${typeConsumerSubpathImports}
 
 import {
-  blockHardnessOf,
-  computeBreakTicks,
-  miningSpeedOf,
-  compileToolComponent,
-  resolveToolMiningProperties,
-  cameraPoseOf,
-  forwardVector,
-  launchArrow,
-  stepArrow,
-  planExplosion,
-  planPrimedTnt,
-  primeTnt,
-  INITIAL_PLAYER_POSE,
+  blockIdOf,
+  DEFAULT_EXPLOSION_LIMITS,
+  DEFAULT_BLOCK_DROP,
+  DEFAULT_HARVEST_TOOL,
+  MAX_RENDER_DISTANCE,
+  normaliseSettings,
+  resistsExplosion,
+  resolveDrop,
+  snapshotAgeSecs,
   MonotonicTimeSecs,
   itemStack,
   maxStackCountForItem,
   shapedRecipe,
-  resolveBedrockDiggerSpeed,
-  resolveBedrockDestructionSeconds,
-  resolveBedrockItemSpecificDestroySpeed,
-  BEDROCK_DIGGER_MIN_FORMAT_VERSION,
-  type BedrockBlock,
-  type BedrockDiggerComponent,
-  type BedrockItem,
   type BlockType,
   type BrewingState,
   type FurnaceState,
   type ItemStack,
-  type ItemType,
   type Recipe,
-  type ToolComponent,
-  type CompiledToolComponent,
+  type Settings,
   type CameraPoseSnapshot,
-  type Arrow,
-  type ProjectileHit,
-  type ProjectileWorld,
-  type ExplosionPlan,
-  type PrimedTntPlan,
 } from ${JSON.stringify(packageName)}
 
 const declaredPackageExports: readonly object[] = [
@@ -563,7 +437,6 @@ if (declaredPackageExports.length !== ${importSpecifiers.length}) {
 }
 
 const block: BlockType = 'stone'
-const tool: ItemType = 'gold_pickaxe'
 const stack: ItemStack = itemStack('stone', 2)
 const recipe: Recipe = shapedRecipe(
   'minecraft:declaration-probe',
@@ -588,79 +461,45 @@ const brewing: BrewingState = {
   fuelCharges: 1,
   brewProgressSecs: 0,
 }
-const cameraSnapshot: CameraPoseSnapshot = cameraPoseOf(INITIAL_PLAYER_POSE, MonotonicTimeSecs(0))
-const cameraDirection = forwardVector(cameraSnapshot)
-const projectileWorld: ProjectileWorld = {
-  blockBounds: () => [],
-  entities: [],
-  isInWater: () => false,
-  bounds: { min: { x: -10, y: -10, z: -10 }, max: { x: 10, y: 10, z: 10 } },
-}
-const launchedArrow: Arrow = launchArrow({
+const cameraSnapshot: CameraPoseSnapshot = {
   position: { x: 0, y: 0, z: 0 },
   yawRadians: 0,
   pitchRadians: 0,
-  speed: 1,
+  capturedAtSecs: MonotonicTimeSecs(1),
+}
+const snapshotAge = snapshotAgeSecs(cameraSnapshot, MonotonicTimeSecs(3))
+const settings: Settings = normaliseSettings({
+  renderDistance: 1_000,
+  keyBindings: { jump: 'Space' },
 })
-const projectileStep = stepArrow(launchedArrow, 0.01, projectileWorld)
-const projectileHit: ProjectileHit | undefined = projectileStep.hit
-const explosionPlan: ExplosionPlan = planExplosion({
-  center: { x: 0.5, y: 0.5, z: 0.5 },
-  radius: 0,
-  seed: 0,
-  blocks: () => undefined,
-  entities: [],
-})
-const primedTntPlan: PrimedTntPlan = planPrimedTnt({
-  center: { x: 0.5, y: 0.5, z: 0.5 },
-  radius: 0,
-  seed: 0,
-  blocks: () => undefined,
-  entities: [],
-  state: primeTnt(),
-  deltaTimeSecs: 4,
-})
-const hardness = blockHardnessOf(block)
-const ticks = computeBreakTicks({ correctForDrops: true, hardness, miningSpeed: miningSpeedOf(tool) })
-const component: ToolComponent = { rules: [{ blocks: [block], speed: 2 }], damagePerBlock: 1 }
-const compiledComponent: CompiledToolComponent = compileToolComponent(component)
-const resolved = resolveToolMiningProperties(compiledComponent, block)
-const bedrockBlock: BedrockBlock = { name: 'minecraft:oak_log', states: {}, tags: new Set(['minecraft:wood']) }
-const digger: BedrockDiggerComponent = {
-  destroy_speeds: [{ block: { tags: "query.any_tag('minecraft:wood')" }, speed: 7 }],
-}
-const bedrockItem: BedrockItem = { name: 'minecraft:diamond_axe', tags: new Set() }
-const bedrockSpeed = resolveBedrockDiggerSpeed(digger, bedrockBlock)
-const bedrockSeconds = resolveBedrockDestructionSeconds({ seconds_to_destroy: 2 }, 5)
-const itemSpecificSpeed = resolveBedrockItemSpecificDestroySpeed(
-  { item_specific_speeds: [{ item: 'minecraft:diamond_axe', destroy_speed: 0.25 }] },
-  bedrockItem,
-)
-if (BEDROCK_DIGGER_MIN_FORMAT_VERSION !== '1.20.30' || bedrockSpeed !== 7 || bedrockSeconds !== 2 || itemSpecificSpeed !== 0.25) {
-  throw new Error('Bedrock mining declaration consumer returned an invalid result')
-}
-if (ticks < 0) {
-  throw new Error('Break ticks must be non-negative')
-}
-if (resolved.miningSpeed !== 2 || resolved.damagePerBlock !== 1) {
-  throw new Error('Tool component declaration consumer returned an invalid result')
-}
+const drop = resolveDrop(DEFAULT_HARVEST_TOOL, DEFAULT_BLOCK_DROP, block)
+const maxExplosionRaySteps = DEFAULT_EXPLOSION_LIMITS.maxRaySteps
+const resistsZeroPower = resistsExplosion(blockIdOf(block), 0)
+const resistsExtremePower = resistsExplosion(blockIdOf(block), Number.MAX_SAFE_INTEGER)
 if (stack.count !== 2 || maxStackCountForItem(stack.item) !== 64 || recipe._tag !== 'Shaped') {
   throw new Error('Recipe declaration consumer returned an invalid result')
 }
 if (furnace.station !== 'furnace' || brewing.bottles[0]?.item !== 'water_bottle') {
   throw new Error('Recipe data declaration consumer returned an invalid result')
 }
-if (cameraSnapshot.position.y !== 1.62 || cameraDirection.z !== -1) {
-  throw new Error('Camera-pose declaration consumer returned an invalid result')
+if (snapshotAge !== 2) {
+  throw new Error('Camera snapshot declaration consumer returned an invalid result')
 }
-if (projectileStep.arrow.state !== 'flying' || projectileStep.arrow.ageSeconds <= 0) {
-  throw new Error('Projectile declaration consumer returned an invalid result')
+if (
+  settings.renderDistance !== MAX_RENDER_DISTANCE ||
+  settings.keyBindings.jump !== 'Space'
+) {
+  throw new Error('Settings declaration consumer returned an invalid result')
 }
-if (explosionPlan.radius !== 0 || primedTntPlan.after.kind !== 'detonated' || primedTntPlan.explosion === undefined) {
-  throw new Error('Explosion declaration consumer returned an invalid result')
+if (drop?.item !== 'stone' || drop.count !== 1) {
+  throw new Error('Block-harvest declaration consumer returned an invalid result')
 }
-void projectileHit
+if (maxExplosionRaySteps !== 128) {
+  throw new Error('Explosion data declaration consumer returned an invalid result')
+}
+if (!resistsZeroPower || resistsExtremePower) {
+  throw new Error('Explosion-resistance declaration consumer returned an invalid result')
+}
 `;
   if (typeConsumerSource.trim().length === 0) {
     throw new Error("TypeScript consumer source must not be empty");

@@ -30,11 +30,6 @@
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     },
-    "./domain/block-break-speed": {
-      "types": "./dist/domain/block-break-speed.d.ts",
-      "import": "./dist/domain/block-break-speed.js",
-      "default": "./dist/domain/block-break-speed.js"
-    },
     "./domain/block-capabilities": {
       "types": "./dist/domain/block-capabilities.d.ts",
       "import": "./dist/domain/block-capabilities.js",
@@ -90,11 +85,6 @@
       "import": "./dist/domain/block-type.js",
       "default": "./dist/domain/block-type.js"
     },
-    "./domain/bedrock-mining": {
-      "types": "./dist/domain/bedrock-mining.d.ts",
-      "import": "./dist/domain/bedrock-mining.js",
-      "default": "./dist/domain/bedrock-mining.js"
-    },
     "./domain/biome": {
       "types": "./dist/domain/biome.d.ts",
       "import": "./dist/domain/biome.js",
@@ -149,11 +139,6 @@
       "types": "./dist/domain/data-pack-registry.d.ts",
       "import": "./dist/domain/data-pack-registry.js",
       "default": "./dist/domain/data-pack-registry.js"
-    },
-    "./domain/crop": {
-      "types": "./dist/domain/crop.d.ts",
-      "import": "./dist/domain/crop.js",
-      "default": "./dist/domain/crop.js"
     },
     "./domain/damage-type": {
       "types": "./dist/domain/damage-type.d.ts",
@@ -334,11 +319,6 @@
       "types": "./dist/domain/settings.d.ts",
       "import": "./dist/domain/settings.js",
       "default": "./dist/domain/settings.js"
-    },
-    "./domain/statistics": {
-      "types": "./dist/domain/statistics.d.ts",
-      "import": "./dist/domain/statistics.js",
-      "default": "./dist/domain/statistics.js"
     },
     "./domain/tool-component": {
       "types": "./dist/domain/tool-component.d.ts",

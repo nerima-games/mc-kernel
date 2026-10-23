@@ -41,62 +41,64 @@ export const normaliseKeyBindings = (bindings: unknown): Readonly<Record<string,
 }
 
 export const normaliseSettings = (settings: unknown): Settings => {
-  const source: Record<string, unknown> =
+  const valueAt = (key: string): unknown =>
     typeof settings === 'object' && settings !== null && !Array.isArray(settings)
-      ? settings as Record<string, unknown>
-      : {}
+      ? Reflect.get(settings, key)
+      : undefined
+  const audioEnabled = valueAt('audioEnabled')
+  const captionsEnabled = valueAt('captionsEnabled')
   const clamp = (value: unknown, minimum: number, maximum: number, fallback: number): number => {
     const number = typeof value === 'number' && !Number.isNaN(value) ? value : fallback
     return Math.min(maximum, Math.max(minimum, number))
   }
-  const graphicsQuality = GRAPHICS_QUALITIES.find((quality) => quality === source['graphicsQuality'])
+  const graphicsQuality = GRAPHICS_QUALITIES.find((quality) => quality === valueAt('graphicsQuality'))
   return {
     renderDistance: Math.floor(
       clamp(
-        source['renderDistance'],
+        valueAt('renderDistance'),
         MIN_RENDER_DISTANCE,
         MAX_RENDER_DISTANCE,
         DEFAULT_SETTINGS.renderDistance,
       ),
     ),
     fovDegrees: clamp(
-      source['fovDegrees'],
+      valueAt('fovDegrees'),
       MIN_FOV_DEGREES,
       MAX_FOV_DEGREES,
       DEFAULT_SETTINGS.fovDegrees,
     ),
     graphicsQuality: graphicsQuality ?? DEFAULT_SETTINGS.graphicsQuality,
-    audioEnabled: typeof source['audioEnabled'] === 'boolean'
-      ? source['audioEnabled']
+    audioEnabled: typeof audioEnabled === 'boolean'
+      ? audioEnabled
       : DEFAULT_SETTINGS.audioEnabled,
     masterVolume: clamp(
-      source['masterVolume'],
+      valueAt('masterVolume'),
       MIN_VOLUME,
       MAX_VOLUME,
       DEFAULT_SETTINGS.masterVolume,
     ),
     musicVolume: clamp(
-      source['musicVolume'],
+      valueAt('musicVolume'),
       MIN_VOLUME,
       MAX_VOLUME,
       DEFAULT_SETTINGS.musicVolume,
     ),
     sfxVolume: clamp(
-      source['sfxVolume'],
+      valueAt('sfxVolume'),
       MIN_VOLUME,
       MAX_VOLUME,
       DEFAULT_SETTINGS.sfxVolume,
     ),
     mouseSensitivity: clamp(
-      source['mouseSensitivity'],
+      valueAt('mouseSensitivity'),
       MIN_MOUSE_SENSITIVITY,
       MAX_MOUSE_SENSITIVITY,
       DEFAULT_SETTINGS.mouseSensitivity,
     ),
-    captionsEnabled: typeof source['captionsEnabled'] === 'boolean'
-      ? source['captionsEnabled']
+    captionsEnabled: typeof captionsEnabled === 'boolean'
+      ? captionsEnabled
       : DEFAULT_SETTINGS.captionsEnabled,
-    keyBindings: normaliseKeyBindings(source['keyBindings']),
+    keyBindings: normaliseKeyBindings(valueAt('keyBindings')),
   }
 }
 
