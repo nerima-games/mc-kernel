@@ -1,6 +1,6 @@
 /* eslint-disable max-statements, no-magic-numbers -- Constants define the fixed binary wire format. */
 import { Brand } from 'effect'
-import { BlockState, blockState } from '../block/block-state.js'
+import { BlockState, BlockStateByteOffset, BlockStateLength, blockState } from '../block/block-state.js'
 import { CHUNK_SIZE_XZ, ChunkAxis, type ChunkCoord, chunkCoord } from '../coordinates/coordinates.js'
 import { chunkCoordFromAxes } from '../coordinates/coordinate-primitives.js'
 
@@ -38,6 +38,8 @@ const bytesPerBlockElement = (version: number): number => {
 
 /** Vertical block count of a chunk column. Integer in [1, MAX_CHUNK_HEIGHT]. */
 export type ChunkHeight = number & Brand.Brand<'ChunkHeight'>
+export type ChunkLocalY = number & Brand.Brand<'ChunkLocalY'>
+export type ChunkBlockCount = number & Brand.Brand<'ChunkBlockCount'>
 export type ChunkBlocks = BlockState & Brand.Brand<'ChunkBlocks'>
 const brandChunkBlocks = Brand.nominal<ChunkBlocks>()
 type ReadonlyByteArray = Omit<
@@ -74,13 +76,26 @@ const ChunkHeightBrand = Brand.make<ChunkHeight>(
       : `Chunk height must be an integer in [1, ${MAX_CHUNK_HEIGHT}], received ${value}`,
 )
 
-export const ChunkHeight = (value: number): ChunkHeight => {
-  try {
-    return ChunkHeightBrand(value)
-  } catch {
-    throw new RangeError(`Chunk height must be an integer in [1, ${MAX_CHUNK_HEIGHT}], received ${value}`)
-  }
-}
+export const ChunkHeight: Brand.Constructor<ChunkHeight> = ChunkHeightBrand
+
+export const ChunkLocalY: Brand.Constructor<ChunkLocalY> = Brand.make<ChunkLocalY>(
+  (value) =>
+    Number.isInteger(value) && value >= 0 && value < MAX_CHUNK_HEIGHT
+      ? true
+      : `ChunkLocalY must be an integer in [0, ${MAX_CHUNK_HEIGHT - 1}], received ${value}`,
+)
+
+const chunkBlockCountBrand = Brand.make<ChunkBlockCount>(
+  (value) =>
+    Number.isSafeInteger(value) &&
+    value >= CHUNK_SIZE_XZ * CHUNK_SIZE_XZ &&
+    value <= CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * MAX_CHUNK_HEIGHT &&
+    value % (CHUNK_SIZE_XZ * CHUNK_SIZE_XZ) === 0
+      ? true
+      : `ChunkBlockCount must be a positive multiple of ${CHUNK_SIZE_XZ * CHUNK_SIZE_XZ} in [${CHUNK_SIZE_XZ * CHUNK_SIZE_XZ}, ${CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * MAX_CHUNK_HEIGHT}], received ${value}`,
+)
+
+export const ChunkBlockCount: Brand.Constructor<ChunkBlockCount> = chunkBlockCountBrand
 
 /** A complete vertical chunk column, stored x-major then z-major then y-major. */
 export type Chunk = {
@@ -89,7 +104,8 @@ export type Chunk = {
   readonly blocks: ChunkBlocks
 }
 
-export const chunkBlockCount = (height: ChunkHeight): number => CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * height
+export const chunkBlockCount = (height: ChunkHeight): ChunkBlockCount =>
+  ChunkBlockCount(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * height)
 
 const isRecord = (value: unknown): value is RecordValue =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -111,13 +127,13 @@ const assertBlocks = (blocks: unknown, height: ChunkHeight): BlockState => {
     throw new TypeError('Chunk blocks must be a BlockState')
   }
   const expected = chunkBlockCount(height)
-  if (blocks.length !== expected) {
+  if (Number(blocks.length) !== Number(expected)) {
     throw new RangeError(`Chunk block data length must be ${expected}, received ${blocks.length}`)
   }
   return blocks
 }
 
-export const ChunkBlocks = (height: number, blocks: Uint8Array): ChunkBlocks => {
+export const ChunkBlocks = (height: ChunkHeight, blocks: Uint8Array): ChunkBlocks => {
   const validatedHeight = ChunkHeight(height)
   const expected = chunkBlockCount(validatedHeight)
   if (blocks.length !== expected) {
@@ -223,7 +239,7 @@ const validateChunkForEncoding = (value: unknown): EncodableChunk => {
 }
 
 /** Construct a validated chunk without retaining the caller's mutable buffer. */
-export const chunk = (coord: ChunkCoord, height: number, blocks: Uint8Array): Chunk => {
+export const chunk = (coord: ChunkCoord, height: ChunkHeight, blocks: Uint8Array): Chunk => {
   assertCoord(coord.cx, 'cx')
   assertCoord(coord.cz, 'cz')
   const validatedHeight = ChunkHeight(height)
@@ -250,7 +266,7 @@ export function encodeChunk(value: Chunk): EncodedChunk {
   view.setInt32(12, coord.cx, true)
   view.setInt32(16, coord.cz, true)
   view.setUint32(20, payloadLength, true)
-  blocks.copyTo(encoded, CHUNK_HEADER_BYTES)
+  blocks.copyTo(encoded, BlockStateByteOffset(CHUNK_HEADER_BYTES))
   // Every wire field was written from validated inputs; avoid revalidating this fresh buffer.
   return brandEncodedChunk(encoded)
 }
@@ -267,7 +283,7 @@ export const decodeChunk = (encoded: EncodedChunkInput): Chunk => {
   const blocks =
     version === CHUNK_CODEC_VERSION_V1
       ? chunkBlocksFromValidatedHeight(payload)
-      : brandChunkBlocks(BlockState.fromElementBytes(payload, chunkBlockCount(height)))
+      : brandChunkBlocks(BlockState.fromElementBytes(payload, BlockStateLength(chunkBlockCount(height))))
 
   return validatedChunk(
     chunkCoord(ChunkAxis(view.getInt32(12, true)), ChunkAxis(view.getInt32(16, true))),

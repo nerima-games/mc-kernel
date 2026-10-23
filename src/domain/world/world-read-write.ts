@@ -1,5 +1,6 @@
 import { Brand } from 'effect'
 import { BlockId, isKnownBlockId, type BlockId as BlockIdType } from '../block/block-registry.js'
+import { LightLevel } from '../block/block-property-data.js'
 import { CHUNK_SIZE_XZ, ChunkAxis, chunkCoord, type BlockPosition } from '../coordinates/coordinate-primitives.js'
 import { type ChunkKey, chunkKeyOf } from '../coordinates/coordinate-keys.js'
 
@@ -9,6 +10,7 @@ export type ChunkRevision = number & Brand.Brand<'ChunkRevision'>
 export type LightRevision = number & Brand.Brand<'LightRevision'>
 export type ChunkLocalIndex = number & Brand.Brand<'ChunkLocalIndex'>
 export type SectionIndex = number & Brand.Brand<'SectionIndex'>
+export type SectionLength = number & Brand.Brand<'SectionLength'>
 
 const isNonNegativeInteger = (value: number): boolean =>
   Number.isSafeInteger(value) && value >= MIN_INDEX
@@ -43,12 +45,19 @@ const sectionIndexBrand = Brand.make<SectionIndex>(
       ? true
       : `SectionIndex must be a non-negative safe integer, received ${value}`,
 )
+const sectionLengthBrand = Brand.make<SectionLength>(
+  (value) =>
+    Number.isSafeInteger(value) && value >= MIN_INDEX
+      ? true
+      : `SectionLength must be a non-negative safe integer, received ${value}`,
+)
 
 export const WorldEpoch: Brand.Constructor<WorldEpoch> = worldEpochBrand
 export const ChunkRevision: Brand.Constructor<ChunkRevision> = chunkRevisionBrand
 export const LightRevision: Brand.Constructor<LightRevision> = lightRevisionBrand
 export const ChunkLocalIndex: Brand.Constructor<ChunkLocalIndex> = chunkLocalIndexBrand
 export const SectionIndex: Brand.Constructor<SectionIndex> = sectionIndexBrand
+export const SectionLength: Brand.Constructor<SectionLength> = sectionLengthBrand
 
 export type BlockRead =
   | { readonly _tag: 'Loaded'; readonly blockId: BlockIdType }
@@ -59,9 +68,9 @@ export const loadedBlock = (blockId: BlockIdType): BlockRead => Object.freeze({ 
 export const unloadedChunk = (chunk: ChunkKey): BlockRead => Object.freeze({ _tag: 'Unloaded', chunk })
 export const outOfWorld = (position: BlockPosition): BlockRead => Object.freeze({ _tag: 'OutOfWorld', position })
 
-export type ReadonlyUint16Array = {
-  readonly length: number
-  readonly get: (index: number) => number
+export type ReadonlyUint16Array<Value extends number = BlockIdType | LightLevel> = {
+  readonly length: SectionLength
+  readonly get: (index: SectionIndex) => Value
   readonly snapshot: () => Uint16Array
 }
 
@@ -70,23 +79,26 @@ export type ReadView = {
   readonly chunk: ChunkKey
   readonly blockRevision: ChunkRevision
   readonly lightRevision: LightRevision
-  readonly length: number
-  readonly getBlock: (index: number) => BlockIdType
-  readonly getLight: (index: number) => number
-  readonly blocks: ReadonlyUint16Array
-  readonly light: ReadonlyUint16Array
+  readonly length: SectionLength
+  readonly getBlock: (index: SectionIndex) => BlockIdType
+  readonly getLight: (index: SectionIndex) => LightLevel
+  readonly blocks: ReadonlyUint16Array<BlockIdType>
+  readonly light: ReadonlyUint16Array<LightLevel>
 }
 
-const checkedIndex = (index: number, length: number): number => {
+const checkedIndex = (index: SectionIndex, length: number): number => {
   if (!Number.isSafeInteger(index) || index < MIN_INDEX || index >= length) {
     throw new RangeError(`Section index must be an integer in [0, ${length - 1}], received ${index}`)
   }
   return index
 }
 
-const readOnlySection = (values: Uint16Array): ReadonlyUint16Array => Object.freeze({
-  length: values.length,
-  get: (index: number): number => Number(values.at(checkedIndex(index, values.length))),
+const readOnlySection = <Value extends number>(
+  values: Uint16Array,
+  makeValue: (value: number) => Value,
+): ReadonlyUint16Array<Value> => Object.freeze({
+  length: SectionLength(values.length),
+  get: (index: SectionIndex): Value => makeValue(Number(values.at(checkedIndex(index, values.length)))),
   snapshot: (): Uint16Array => values.slice(),
 })
 
@@ -106,26 +118,30 @@ export const readView = (input: ReadViewInput): ReadView => {
   const blockData = input.blocks.slice()
   const lightData = input.light.slice()
   for (const blockId of blockData) {
-    if (!isKnownBlockId(blockId)) {
+    const validatedBlockId = BlockId(Number(blockId))
+    if (!isKnownBlockId(validatedBlockId)) {
       throw new RangeError(`Section contains an unknown block id ${blockId}`)
     }
+  }
+  for (const lightLevel of lightData) {
+    LightLevel(Number(lightLevel))
   }
   return Object.freeze({
     epoch: input.epoch,
     chunk: input.chunk,
     blockRevision: input.blockRevision,
     lightRevision: input.lightRevision,
-    length: blockData.length,
+    length: SectionLength(blockData.length),
     getBlock: (index) => {
       const checked = checkedIndex(index, blockData.length)
       return BlockId(Number(blockData.at(checked)))
     },
     getLight: (index) => {
       const checked = checkedIndex(index, lightData.length)
-      return Number(lightData.at(checked))
+      return LightLevel(Number(lightData.at(checked)))
     },
-    blocks: readOnlySection(blockData),
-    light: readOnlySection(lightData),
+    blocks: readOnlySection(blockData, BlockId),
+    light: readOnlySection(lightData, LightLevel),
   })
 }
 export const ReadView: (input: ReadViewInput) => ReadView = readView

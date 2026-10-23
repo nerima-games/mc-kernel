@@ -25,13 +25,25 @@ export const DataPackPriority: Brand.Constructor<DataPackPriority> =
       : `DataPackPriority must be a non-negative safe integer, received ${value}`,
   );
 
+/** Safe relative JSON path below a data-pack's `data/` directory. */
+export type DataPackResourcePath = string & Brand.Brand<"DataPackResourcePath">;
+
+export const DataPackResourcePath: Brand.Constructor<DataPackResourcePath> =
+  Brand.make<DataPackResourcePath>((value) => {
+    const segments = value.split("/");
+    return value.startsWith("data/") && value.endsWith(".json") &&
+      segments.every((segment) => /^[a-z0-9._-]+$/.test(segment) && segment !== "." && segment !== "..")
+      ? true
+      : `DataPackResourcePath must be a safe relative JSON path below data/, received ${JSON.stringify(value)}`;
+  });
+
 export type DataPackRegistryEntry<T> = Readonly<{
   readonly id: NamespacedResourceLocation;
   readonly value: T;
 }>;
 
 export type DataPackRegistryEntryOptions<T> = Readonly<{
-  readonly id: string;
+  readonly id: NamespacedResourceLocation;
   readonly value: T;
 }>;
 
@@ -43,9 +55,9 @@ export type DataPackLayer<T> = Readonly<{
 }>;
 
 export type DataPackLayerOptions<T> = Readonly<{
-  readonly pack: string;
-  readonly format: number;
-  readonly priority: number;
+  readonly pack: NamespacedResourceLocation;
+  readonly format: DataPackFormat;
+  readonly priority: DataPackPriority;
   readonly entries: ReadonlyArray<DataPackRegistryEntryOptions<T>>;
 }>;
 
@@ -66,7 +78,7 @@ const hasAllKeys = (
 
 const dataPackEntryFromUnknown = <T>(
   value: unknown,
-  decodeValue: (id: string, value: unknown) => T,
+  decodeValue: (id: NamespacedResourceLocation, value: unknown) => T,
 ): DataPackRegistryEntryOptions<T> => {
   if (
     !isRecord(value) ||
@@ -80,7 +92,8 @@ const dataPackEntryFromUnknown = <T>(
   if (typeof value["id"] !== "string") {
     throw new TypeError("Data-pack registry entry id must be a string");
   }
-  return { id: value["id"], value: decodeValue(value["id"], value["value"]) };
+  const id = NamespacedResourceLocation(value["id"]);
+  return { id, value: decodeValue(id, value["value"]) };
 };
 
 const namespacedEntryOf = <T>(
@@ -121,7 +134,7 @@ export const dataPackLayer = <T>(
  */
 const dataPackLayerFromUnknownWithDecoder = <T>(
   value: unknown,
-  decodeValue: (id: string, value: unknown) => T,
+  decodeValue: (id: NamespacedResourceLocation, value: unknown) => T,
 ): DataPackLayer<T> => {
   if (
     !isRecord(value) ||
@@ -145,9 +158,9 @@ const dataPackLayerFromUnknownWithDecoder = <T>(
     throw new TypeError("Data-pack layer entries must be an array");
   }
   return dataPackLayer({
-    pack: value["pack"],
-    format: value["format"],
-    priority: value["priority"],
+    pack: NamespacedResourceLocation(value["pack"]),
+    format: DataPackFormat(value["format"]),
+    priority: DataPackPriority(value["priority"]),
     entries: value["entries"].map((entry) =>
       dataPackEntryFromUnknown(entry, decodeValue),
     ),
@@ -164,7 +177,7 @@ export const dataPackLayerFromUnknown = <T>(
 
 export const dataPackLayerFromUnknownWithId = <T>(
   value: unknown,
-  decodeValue: (id: string, value: unknown) => T,
+  decodeValue: (id: NamespacedResourceLocation, value: unknown) => T,
 ): DataPackLayer<T> => dataPackLayerFromUnknownWithDecoder(value, decodeValue);
 
 export const mapDataPackLayer = <Input, Output>(
@@ -210,9 +223,9 @@ export const selectDataPackRegistry = <T>(
 export const dataPackResourcePath = (
   registry: NamespacedResourceLocation,
   entry: NamespacedResourceLocation,
-): string => {
+): DataPackResourcePath => {
   const registrySeparator = registry.indexOf(":");
   const registryPath = registry.slice(registrySeparator + 1);
   const entrySeparator = entry.indexOf(":");
-  return `data/${entry.slice(0, entrySeparator)}/${registryPath}/${entry.slice(entrySeparator + 1)}.json`;
+  return DataPackResourcePath(`data/${entry.slice(0, entrySeparator)}/${registryPath}/${entry.slice(entrySeparator + 1)}.json`);
 };

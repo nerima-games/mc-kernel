@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { ingredientMatches, tagged } from "../src/domain/recipe/recipe-data";
-import { DataPackFormat } from "../src/domain/world/data-pack-registry";
+import { DataPackFormat, DataPackPriority } from "../src/domain/world/data-pack-registry";
+import { NamespacedResourceLocation, TagLocation } from "../src/domain/text/identifiers";
+import type { ItemType } from "../src/domain/item/item-type";
 import {
   extendItemTagMemberships,
   isTaggedItem,
@@ -10,22 +12,34 @@ import {
   VANILLA_ITEM_TAG_MEMBERSHIPS,
 } from "../src/domain/world/tag-membership";
 
+const tagLayerFromRaw = (options: {
+  readonly pack: string;
+  readonly format: number;
+  readonly priority: number;
+  readonly entries: ReadonlyArray<Readonly<{ readonly id: string; readonly value: ReadonlySet<ItemType> }>>;
+}) => itemTagMembershipLayer({
+  pack: NamespacedResourceLocation(options.pack),
+  format: DataPackFormat(options.format),
+  priority: DataPackPriority(options.priority),
+  entries: options.entries.map(({ id, value }) => ({ id: NamespacedResourceLocation(id), value })),
+});
+
 describe("vanilla item-tag memberships", () => {
   it("covers the tags the kernel's shipped smithing trim recipe references", () => {
     expect(
-      itemTagMembers(VANILLA_ITEM_TAG_MEMBERSHIPS, "#minecraft:trim_templates"),
+      itemTagMembers(VANILLA_ITEM_TAG_MEMBERSHIPS, TagLocation("#minecraft:trim_templates")),
     ).toEqual(new Set(["netherite_upgrade_smithing_template"]));
     expect(
       isTaggedItem(
         VANILLA_ITEM_TAG_MEMBERSHIPS,
-        "#minecraft:trimmable_armor",
+        TagLocation("#minecraft:trimmable_armor"),
         "diamond_helmet",
       ),
     ).toBe(true);
     expect(
       isTaggedItem(
         VANILLA_ITEM_TAG_MEMBERSHIPS,
-        "#minecraft:trim_materials",
+        TagLocation("#minecraft:trim_materials"),
         "gold_ingot",
       ),
     ).toBe(true);
@@ -34,15 +48,15 @@ describe("vanilla item-tag memberships", () => {
   it("matches a tag ingredient against the kernel's own item vocabulary without a caller-supplied table", () => {
     expect(
       ingredientMatches(
-        tagged("#minecraft:trim_templates"),
+        tagged(TagLocation("#minecraft:trim_templates")),
         "netherite_upgrade_smithing_template",
       ),
     ).toBe(true);
     expect(
-      ingredientMatches(tagged("#minecraft:trim_materials"), "gold_ingot"),
+      ingredientMatches(tagged(TagLocation("#minecraft:trim_materials")), "gold_ingot"),
     ).toBe(true);
     expect(
-      ingredientMatches(tagged("#minecraft:trim_materials"), "oak_planks"),
+      ingredientMatches(tagged(TagLocation("#minecraft:trim_materials")), "oak_planks"),
     ).toBe(false);
   });
 });
@@ -50,7 +64,7 @@ describe("vanilla item-tag memberships", () => {
 describe("itemTagMembers", () => {
   it("returns the empty set for a tag the table does not know", () => {
     expect(
-      itemTagMembers(VANILLA_ITEM_TAG_MEMBERSHIPS, "#minecraft:unknown_tag"),
+      itemTagMembers(VANILLA_ITEM_TAG_MEMBERSHIPS, TagLocation("#minecraft:unknown_tag")),
     ).toEqual(new Set());
   });
 });
@@ -60,14 +74,14 @@ describe("isTaggedItem", () => {
     expect(
       isTaggedItem(
         VANILLA_ITEM_TAG_MEMBERSHIPS,
-        "#minecraft:unknown_tag",
+        TagLocation("#minecraft:unknown_tag"),
         "gold_ingot",
       ),
     ).toBe(false);
     expect(
       isTaggedItem(
         VANILLA_ITEM_TAG_MEMBERSHIPS,
-        "#minecraft:trim_materials",
+        TagLocation("#minecraft:trim_materials"),
         "oak_planks",
       ),
     ).toBe(false);
@@ -76,7 +90,7 @@ describe("isTaggedItem", () => {
 
 describe("extendItemTagMemberships", () => {
   it("unions a data-pack layer's members into an existing base tag", () => {
-    const layer = itemTagMembershipLayer({
+    const layer = tagLayerFromRaw({
       pack: "example:datapack",
       format: 41,
       priority: 0,
@@ -91,16 +105,16 @@ describe("extendItemTagMemberships", () => {
       DataPackFormat(41),
     );
 
-    expect(itemTagMembers(extended, "#minecraft:trim_materials")).toEqual(
+    expect(itemTagMembers(extended, TagLocation("#minecraft:trim_materials"))).toEqual(
       new Set(["iron_ingot", "gold_ingot", "lapis_lazuli", "emerald", "diamond", "redstone_dust", "amethyst_shard", "netherite_ingot", "netherite_scrap"]),
     );
-    expect(itemTagMembers(VANILLA_ITEM_TAG_MEMBERSHIPS, "#minecraft:trim_materials")).not.toContain(
+    expect(itemTagMembers(VANILLA_ITEM_TAG_MEMBERSHIPS, TagLocation("#minecraft:trim_materials"))).not.toContain(
       "netherite_scrap",
     );
   });
 
   it("adds a tag the base table does not have", () => {
-    const layer = itemTagMembershipLayer({
+    const layer = tagLayerFromRaw({
       pack: "example:datapack",
       format: 41,
       priority: 0,
@@ -113,19 +127,19 @@ describe("extendItemTagMemberships", () => {
       DataPackFormat(41),
     );
 
-    expect(itemTagMembers(extended, "#minecraft:custom_tag")).toEqual(
+    expect(itemTagMembers(extended, TagLocation("#minecraft:custom_tag"))).toEqual(
       new Set(["wool"]),
     );
   });
 
   it("ignores layers whose format does not match the requested format", () => {
-    const matching = itemTagMembershipLayer({
+    const matching = tagLayerFromRaw({
       pack: "example:matching",
       format: 41,
       priority: 0,
       entries: [{ id: "minecraft:custom_tag", value: new Set(["wool"]) }],
     });
-    const nonMatching = itemTagMembershipLayer({
+    const nonMatching = tagLayerFromRaw({
       pack: "example:stale",
       format: 6,
       priority: 1,
@@ -138,19 +152,19 @@ describe("extendItemTagMemberships", () => {
       DataPackFormat(41),
     );
 
-    expect(itemTagMembers(extended, "#minecraft:custom_tag")).toEqual(
+    expect(itemTagMembers(extended, TagLocation("#minecraft:custom_tag"))).toEqual(
       new Set(["wool"]),
     );
   });
 
   it("orders several matching-format layers by priority before merging", () => {
-    const lowerPriority = itemTagMembershipLayer({
+    const lowerPriority = tagLayerFromRaw({
       pack: "example:lower",
       format: 41,
       priority: 0,
       entries: [{ id: "minecraft:custom_tag", value: new Set(["wool"]) }],
     });
-    const higherPriority = itemTagMembershipLayer({
+    const higherPriority = tagLayerFromRaw({
       pack: "example:higher",
       format: 41,
       priority: 1,
@@ -163,7 +177,7 @@ describe("extendItemTagMemberships", () => {
       DataPackFormat(41),
     );
 
-    expect(itemTagMembers(extended, "#minecraft:custom_tag")).toEqual(
+    expect(itemTagMembers(extended, TagLocation("#minecraft:custom_tag"))).toEqual(
       new Set(["wool", "string"]),
     );
   });

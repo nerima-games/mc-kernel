@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { chunk } from '../src/domain/world/chunk'
-import { CHUNK_SIZE_XZ, ChunkAxis, chunkCoord } from '../src/domain/coordinates/coordinates'
+import { ChunkHeight, chunk } from '../src/domain/world/chunk'
+import { CHUNK_SIZE_XZ, ChunkAxis, LocalAxis, chunkCoord } from '../src/domain/coordinates/coordinates'
 import { BLOCK_IDS, blockIdOf, opacityOfBlockId, propertyOfBlockId } from '../src/domain/block/block-registry'
 import {
-  heightmapColumnIndex,
+  heightmapColumnIndex as makeHeightmapColumnIndex,
+  HeightmapColumnIndex,
   motionBlockingHeightmapOf,
   opaqueHeightmapOf,
   type Heightmap,
@@ -12,6 +13,7 @@ import {
 const CHUNK_HEIGHT = 4
 const COLUMN_COUNT = CHUNK_SIZE_XZ * CHUNK_SIZE_XZ
 const BLOCK_COUNT = COLUMN_COUNT * CHUNK_HEIGHT
+const columnIndex = (lx: number, lz: number) => makeHeightmapColumnIndex(LocalAxis(lx), LocalAxis(lz))
 
 type Placement = readonly [lx: number, lz: number, ly: number, blockId: number]
 
@@ -23,13 +25,23 @@ const buildChunk = (placements: ReadonlyArray<Placement>) => {
   for (const [lx, lz, ly, blockId] of placements) {
     blocks[blockIndexOf(lx, lz, ly)] = blockId
   }
-  return chunk(chunkCoord(ChunkAxis(0), ChunkAxis(0)), CHUNK_HEIGHT, blocks)
+  return chunk(chunkCoord(ChunkAxis(0), ChunkAxis(0)), ChunkHeight(CHUNK_HEIGHT), blocks)
 }
 
 const everyColumnIsUndefined = (heightmap: Heightmap): boolean =>
   heightmap.every((value) => value === undefined)
 
 describe('heightmap', () => {
+  it('brands all valid flat column indices and rejects values outside the chunk area', () => {
+    expect(HeightmapColumnIndex(0)).toBe(0)
+    expect(HeightmapColumnIndex(COLUMN_COUNT - 1)).toBe(COLUMN_COUNT - 1)
+    expect(columnIndex(0, 0)).toBe(0)
+    expect(columnIndex(CHUNK_SIZE_XZ - 1, CHUNK_SIZE_XZ - 1)).toBe(COLUMN_COUNT - 1)
+    expect(() => HeightmapColumnIndex(-1)).toThrow()
+    expect(() => HeightmapColumnIndex(COLUMN_COUNT)).toThrow()
+    expect(() => LocalAxis(CHUNK_SIZE_XZ)).toThrow()
+  })
+
   it('yields no qualifying block for every column of an all-air chunk', () => {
     const source = buildChunk([])
 
@@ -55,9 +67,9 @@ describe('heightmap', () => {
 
     const opaque = opaqueHeightmapOf(source)
     const motionBlocking = motionBlockingHeightmapOf(source)
-    const stoneIndex = heightmapColumnIndex(stoneColumn.lx, stoneColumn.lz)
-    const torchIndex = heightmapColumnIndex(torchColumn.lx, torchColumn.lz)
-    const emptyIndex = heightmapColumnIndex(0, 0)
+    const stoneIndex = columnIndex(stoneColumn.lx, stoneColumn.lz)
+    const torchIndex = columnIndex(torchColumn.lx, torchColumn.lz)
+    const emptyIndex = columnIndex(0, 0)
 
     expect(opaque[stoneIndex]).toBe(stoneColumn.ly)
     expect(motionBlocking[stoneIndex]).toBe(stoneColumn.ly)
@@ -81,7 +93,7 @@ describe('heightmap', () => {
 
     const column = { lx: 2, lz: 2, ly: 1 }
     const source = buildChunk([[column.lx, column.lz, column.ly, differingBlockId]])
-    const index = heightmapColumnIndex(column.lx, column.lz)
+    const index = columnIndex(column.lx, column.lz)
 
     const opaque = opaqueHeightmapOf(source)
     const motionBlocking = motionBlockingHeightmapOf(source)
@@ -118,7 +130,7 @@ describe('heightmap', () => {
       [column.lx, column.lz, 0, opaqueBlockId],
       [column.lx, column.lz, 1, motionOnlyBlockId],
     ])
-    const index = heightmapColumnIndex(column.lx, column.lz)
+    const index = columnIndex(column.lx, column.lz)
 
     const opaque = opaqueHeightmapOf(source)
     const motionBlocking = motionBlockingHeightmapOf(source)
@@ -157,9 +169,9 @@ describe('heightmap', () => {
       [motionOnlyColumn.lx, motionOnlyColumn.lz, motionOnlyColumn.ly, motionOnlyBlockId],
       [neitherColumn.lx, neitherColumn.lz, neitherColumn.ly, neitherBlockId],
     ])
-    const bothIndex = heightmapColumnIndex(bothColumn.lx, bothColumn.lz)
-    const motionOnlyIndex = heightmapColumnIndex(motionOnlyColumn.lx, motionOnlyColumn.lz)
-    const neitherIndex = heightmapColumnIndex(neitherColumn.lx, neitherColumn.lz)
+    const bothIndex = columnIndex(bothColumn.lx, bothColumn.lz)
+    const motionOnlyIndex = columnIndex(motionOnlyColumn.lx, motionOnlyColumn.lz)
+    const neitherIndex = columnIndex(neitherColumn.lx, neitherColumn.lz)
 
     const opaque = opaqueHeightmapOf(source)
     const motionBlocking = motionBlockingHeightmapOf(source)

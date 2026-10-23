@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DataPackFormat,
   DataPackPriority,
+  DataPackResourcePath,
   dataPackLayer,
   dataPackLayerFromUnknown,
   dataPackLayerFromUnknownWithId,
@@ -10,11 +11,15 @@ import {
   mapDataPackLayer,
   selectDataPackRegistry,
 } from "../src/domain/world/data-pack-registry";
-import { NamespacedResourceLocation } from "../src/domain/text/identifiers";
+import { NamespacedResourceLocation, ResourceLocation } from "../src/domain/text/identifiers";
 import {
   SULFUR_CUBE_ITEM_TAGS,
+  SulfurCubeKnockbackPower,
+  SulfurCubePushSoundCooldown,
+  SulfurCubePushSoundImpulseThreshold,
   type SulfurCubeArchetypeOptions,
 } from "../src/domain/entity/sulfur-cube";
+import { AttributeModifierAmount } from "../src/domain/time/quantities";
 import {
   selectSulfurCubeArchetypes,
   sulfurCubeArchetypeDataPackLayer,
@@ -22,42 +27,73 @@ import {
   sulfurCubeArchetypeDataPath,
 } from "../src/domain/entity/sulfur-cube-registry";
 
+const dataPackLayerFromRaw = <T>(options: {
+  readonly pack: string;
+  readonly format: number;
+  readonly priority: number;
+  readonly entries: ReadonlyArray<Readonly<{ readonly id: string; readonly value: T }>>;
+}) => dataPackLayer({
+  pack: NamespacedResourceLocation(options.pack),
+  format: DataPackFormat(options.format),
+  priority: DataPackPriority(options.priority),
+  entries: options.entries.map(({ id, value }) => ({ id: NamespacedResourceLocation(id), value })),
+});
+
+const sulfurCubeLayerFromRaw = (options: {
+  readonly pack: string;
+  readonly format: number;
+  readonly priority: number;
+  readonly entries: ReadonlyArray<Readonly<{ readonly id: string; readonly value: unknown }>>;
+}) => sulfurCubeArchetypeDataPackLayer({
+  pack: NamespacedResourceLocation(options.pack),
+  format: DataPackFormat(options.format),
+  priority: DataPackPriority(options.priority),
+  entries: options.entries.map(({ id, value }) => ({ id: NamespacedResourceLocation(id), value })),
+});
+
 const sulfurCubeOptions = {
   items: SULFUR_CUBE_ITEM_TAGS.food,
   buoyant: true,
   attributeModifiers: [
     {
-      attribute: "minecraft:bounciness",
-      id: "minecraft:test_bounciness",
-      amount: 0.25,
+      attribute: NamespacedResourceLocation("minecraft:bounciness"),
+      id: NamespacedResourceLocation("minecraft:test_bounciness"),
+      amount: AttributeModifierAmount(0.25),
       operation: "add_value",
     },
   ],
   knockbackModifiers: {
-    horizontalPower: 1,
-    verticalPower: 0.5,
+    horizontalPower: SulfurCubeKnockbackPower(1),
+    verticalPower: SulfurCubeKnockbackPower(0.5),
   },
   soundSettings: {
-    hitSound: "minecraft:entity.slime.squish",
-    pushSound: "minecraft:entity.slime.jump",
-    pushSoundImpulseThreshold: 0.4,
-    pushSoundCooldown: 0.2,
+    hitSound: ResourceLocation("minecraft:entity.slime.squish"),
+    pushSound: ResourceLocation("minecraft:entity.slime.jump"),
+    pushSoundImpulseThreshold: SulfurCubePushSoundImpulseThreshold(0.4),
+    pushSoundCooldown: SulfurCubePushSoundCooldown(0.2),
   },
 } satisfies SulfurCubeArchetypeOptions;
 
 describe("data-pack registry", () => {
   it("brands valid formats and priorities and rejects invalid values", () => {
+    expect(DataPackFormat(0)).toBe(0);
     expect(DataPackFormat(107.1)).toBe(107.1);
     expect(DataPackPriority(3)).toBe(3);
+    expect(DataPackPriority(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER);
     expect(() => DataPackFormat(Number.NaN)).toThrow();
     expect(() => DataPackFormat(Number.POSITIVE_INFINITY)).toThrow();
     expect(() => DataPackFormat(-1)).toThrow();
     expect(() => DataPackPriority(1.5)).toThrow();
     expect(() => DataPackPriority(-1)).toThrow();
+    expect(() => DataPackPriority(Number.MAX_SAFE_INTEGER + 1)).toThrow();
+    expect(DataPackResourcePath("data/example/recipe/regular.json")).toBe("data/example/recipe/regular.json");
+    expect(() => DataPackResourcePath("data/example/../recipe/regular.json")).toThrow();
+    expect(() => DataPackResourcePath("data/example\\recipe/regular.json")).toThrow();
+    expect(() => DataPackResourcePath("/data/example/recipe/regular.json")).toThrow();
   });
 
   it("normalizes and freezes a namespaced layer", () => {
-    const layer = dataPackLayer({
+    const layer = dataPackLayerFromRaw({
       pack: "example:base",
       format: 107.1,
       priority: 0,
@@ -75,7 +111,7 @@ describe("data-pack registry", () => {
     expect(Object.isFrozen(layer.entries)).toBe(true);
     expect(Object.isFrozen(layer.entries[0])).toBe(true);
     expect(() =>
-      dataPackLayer({
+      dataPackLayerFromRaw({
         pack: "example:base",
         format: 107.1,
         priority: 0,
@@ -86,7 +122,7 @@ describe("data-pack registry", () => {
       }),
     ).toThrow();
     expect(() =>
-      dataPackLayer({
+      dataPackLayerFromRaw({
         pack: "base",
         format: 107.1,
         priority: 0,
@@ -94,7 +130,7 @@ describe("data-pack registry", () => {
       }),
     ).toThrow();
     expect(() =>
-      dataPackLayer({
+      dataPackLayerFromRaw({
         pack: "example:base",
         format: 107.1,
         priority: 0,
@@ -104,7 +140,7 @@ describe("data-pack registry", () => {
   });
 
   it("maps values while preserving the layer identity and frozen entries", () => {
-    const layer = dataPackLayer({
+    const layer = dataPackLayerFromRaw({
       pack: "example:base",
       format: 107.1,
       priority: 0,
@@ -204,7 +240,7 @@ describe("data-pack registry", () => {
   });
 
   it("selects exact formats and applies priority with stable equal-priority ordering", () => {
-    const base = dataPackLayer({
+    const base = dataPackLayerFromRaw({
       pack: "example:base",
       format: 107.1,
       priority: 0,
@@ -213,19 +249,19 @@ describe("data-pack registry", () => {
         { id: "example:other", value: "base-other" },
       ],
     });
-    const samePriority = dataPackLayer({
+    const samePriority = dataPackLayerFromRaw({
       pack: "example:same",
       format: 107.1,
       priority: 1,
       entries: [{ id: "example:regular", value: "same-priority" }],
     });
-    const higherPriority = dataPackLayer({
+    const higherPriority = dataPackLayerFromRaw({
       pack: "example:higher",
       format: 107.1,
       priority: 2,
       entries: [{ id: "example:regular", value: "higher" }],
     });
-    const differentFormat = dataPackLayer({
+    const differentFormat = dataPackLayerFromRaw({
       pack: "example:other-format",
       format: 107,
       priority: 100,
@@ -247,13 +283,13 @@ describe("data-pack registry", () => {
       false,
     );
 
-    const equalPriorityFirst = dataPackLayer({
+    const equalPriorityFirst = dataPackLayerFromRaw({
       pack: "example:first",
       format: 107.1,
       priority: 1,
       entries: [{ id: "example:regular", value: "first" }],
     });
-    const equalPrioritySecond = dataPackLayer({
+    const equalPrioritySecond = dataPackLayerFromRaw({
       pack: "example:second",
       format: 107.1,
       priority: 1,
@@ -281,13 +317,13 @@ describe("data-pack registry", () => {
 
 describe("Sulfur Cube data-pack registry", () => {
   it("decodes and selects typed archetype layers", () => {
-    const base = sulfurCubeArchetypeDataPackLayer({
+    const base = sulfurCubeLayerFromRaw({
       pack: "example:base",
       format: 107.1,
       priority: 0,
       entries: [{ id: "example:regular", value: sulfurCubeOptions }],
     });
-    const override = sulfurCubeArchetypeDataPackLayer({
+    const override = sulfurCubeLayerFromRaw({
       pack: "example:override",
       format: 107.1,
       priority: 1,
@@ -301,7 +337,7 @@ describe("Sulfur Cube data-pack registry", () => {
 
     expect(base.entries[0]?.value.buoyant).toBe(true);
     expect(() =>
-      sulfurCubeArchetypeDataPackLayer({
+      sulfurCubeLayerFromRaw({
         pack: "example:invalid",
         format: 107.1,
         priority: 0,

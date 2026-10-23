@@ -11,9 +11,45 @@
  * real entropy source; that belongs to the consuming platform.
  */
 
+import { Brand } from 'effect'
+
+const RANDOM_INT_MIN = 0
+const RANDOM_INT_BOUND_MIN = 1
+const RANDOM_FRACTION_MIN = 0
+const RANDOM_FRACTION_MAX = 1
+
+export type RandomSeed = number & Brand.Brand<'RandomSeed'>
+export const RandomSeed: Brand.Constructor<RandomSeed> = Brand.make<RandomSeed>(
+  (value) => Number.isSafeInteger(value) || 'RandomSeed must be a safe integer',
+)
+
+export type RandomIntBound = number & Brand.Brand<'RandomIntBound'>
+export const RandomIntBound: Brand.Constructor<RandomIntBound> = Brand.make<RandomIntBound>(
+  (value) =>
+    Number.isSafeInteger(value) && value >= RANDOM_INT_BOUND_MIN
+      ? true
+      : 'RandomIntBound must be a positive safe integer',
+)
+
+export type RandomInt = number & Brand.Brand<'RandomInt'>
+export const RandomInt: Brand.Constructor<RandomInt> = Brand.make<RandomInt>(
+  (value) =>
+    Number.isSafeInteger(value) && value >= RANDOM_INT_MIN
+      ? true
+      : 'RandomInt must be a non-negative safe integer',
+)
+
+export type RandomFraction = number & Brand.Brand<'RandomFraction'>
+export const RandomFraction: Brand.Constructor<RandomFraction> = Brand.make<RandomFraction>(
+  (value) =>
+    Number.isFinite(value) && value >= RANDOM_FRACTION_MIN && value < RANDOM_FRACTION_MAX
+      ? true
+      : 'RandomFraction must be in [0, 1)',
+)
+
 export type RandomSource = Readonly<{
-  readonly nextInt: (bound: number) => number
-  readonly nextFloat: () => number
+  readonly nextInt: (bound: RandomIntBound) => RandomInt
+  readonly nextFloat: () => RandomFraction
 }>
 
 const validateBound = (bound: number): void => {
@@ -45,21 +81,21 @@ const normalizeSeed = (seed: number): number => {
  * kernel processes replaying the same recorded inputs therefore reproduce
  * the same offers, drops, or ticks without sharing any other state.
  */
-export const seededRandomSource = (seed: number): RandomSource => {
+export const seededRandomSource = (seed: RandomSeed): RandomSource => {
   if (!Number.isSafeInteger(seed)) {
     throw new TypeError(`RandomSource seed must be a safe integer, received ${String(seed)}`)
   }
 
   let state = normalizeSeed(seed)
 
-  const nextFloat = (): number => {
+  const nextFloat = (): RandomFraction => {
     state = (state * MCG_MULTIPLIER) % MCG_MODULUS
-    return state / MCG_MODULUS
+    return RandomFraction(state / MCG_MODULUS)
   }
 
-  const nextInt = (bound: number): number => {
+  const nextInt = (bound: RandomIntBound): RandomInt => {
     validateBound(bound)
-    return Math.floor(nextFloat() * bound)
+    return RandomInt(Math.floor(nextFloat() * bound))
   }
 
   return { nextInt, nextFloat }
@@ -67,8 +103,8 @@ export const seededRandomSource = (seed: number): RandomSource => {
 
 /** A caller-supplied replay sequence for `fixedRandomSource`. */
 export type RandomSourceScript = Readonly<{
-  readonly nextInts?: ReadonlyArray<number>
-  readonly nextFloats?: ReadonlyArray<number>
+  readonly nextInts?: ReadonlyArray<RandomInt>
+  readonly nextFloats?: ReadonlyArray<RandomFraction>
 }>
 
 /**
@@ -85,7 +121,7 @@ export const fixedRandomSource = (script: RandomSourceScript): RandomSource => {
   let intIndex = 0
   let floatIndex = 0
 
-  const nextInt = (bound: number): number => {
+  const nextInt = (bound: RandomIntBound): RandomInt => {
     validateBound(bound)
     const value = ints[intIndex]
     if (value === undefined) {
@@ -95,7 +131,7 @@ export const fixedRandomSource = (script: RandomSourceScript): RandomSource => {
     return value
   }
 
-  const nextFloat = (): number => {
+  const nextFloat = (): RandomFraction => {
     const value = floats[floatIndex]
     if (value === undefined) {
       throw new RangeError(`fixedRandomSource nextFloat sequence exhausted after ${String(floatIndex)} calls`)

@@ -3,6 +3,9 @@ import {
   BIOME_PROPERTY_DEFAULTS,
   BIOME_PROPERTY_OVERRIDES,
   BIOME_TYPES,
+  BiomeDownfall,
+  BiomeTemperature,
+  BiomeTint,
   SNOW_TEMPERATURE_THRESHOLD,
   derivePrecipitationKind,
   isBiomeType,
@@ -13,8 +16,8 @@ import {
 } from '../src/domain/world/biome'
 
 const TEMPERATURE_STEP = 0.01
-const BELOW_THRESHOLD_TEMPERATURE = SNOW_TEMPERATURE_THRESHOLD - TEMPERATURE_STEP
-const ABOVE_THRESHOLD_TEMPERATURE = SNOW_TEMPERATURE_THRESHOLD + TEMPERATURE_STEP
+const BELOW_THRESHOLD_TEMPERATURE = BiomeTemperature(SNOW_TEMPERATURE_THRESHOLD - TEMPERATURE_STEP)
+const ABOVE_THRESHOLD_TEMPERATURE = BiomeTemperature(SNOW_TEMPERATURE_THRESHOLD + TEMPERATURE_STEP)
 
 const KNOWN_BIOME: BiomeType = 'plains'
 const UNKNOWN_BIOME_NAME = 'not_a_biome'
@@ -284,7 +287,7 @@ describe('resolved properties against the fetched upstream fixture (independent 
       const resolved = propertiesOfBiomeType(biome)
       expect(resolved.temperature).toBe(temperature)
       expect(resolved.downfall).toBe(downfall)
-      expect(resolved.precipitation).toBe(hasPrecipitation ? derivePrecipitationKind(temperature) : 'none')
+      expect(resolved.precipitation).toBe(hasPrecipitation ? derivePrecipitationKind(BiomeTemperature(temperature)) : 'none')
     },
   )
 
@@ -305,6 +308,25 @@ describe('resolved properties against the fetched upstream fixture (independent 
       expect(propertiesOfBiomeType(biome).foliageTint).toBe(foliage ?? BIOME_PROPERTY_DEFAULTS.foliageTint)
     },
   )
+})
+
+describe('biome climate and tint brands', () => {
+  it('accepts the table boundary values and rejects values outside each unit range', () => {
+    expect(BiomeTemperature(-0.7)).toBe(-0.7)
+    expect(BiomeTemperature(2)).toBe(2)
+    expect(() => BiomeTemperature(-0.71)).toThrow()
+    expect(() => BiomeTemperature(2.01)).toThrow()
+    expect(BiomeTemperature(0)).toBe(0)
+    expect(BiomeDownfall(0)).toBe(0)
+    expect(BiomeDownfall(1)).toBe(1)
+    expect(() => BiomeDownfall(-0.01)).toThrow()
+    expect(() => BiomeDownfall(1.01)).toThrow()
+    expect(BiomeTint(0)).toBe(0)
+    expect(BiomeTint(0xffffff)).toBe(0xffffff)
+    expect(() => BiomeTint(-1)).toThrow()
+    expect(() => BiomeTint(0x1000000)).toThrow()
+    expect(() => BiomeTint(1.5)).toThrow()
+  })
 })
 
 describe('isBiomeType', () => {

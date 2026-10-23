@@ -23,10 +23,17 @@ export * from "./_weather.js";
 export {
   DataPackFormat,
   DataPackPriority,
+  DataPackResourcePath,
   dataPackLayer,
   dataPackLayerFromUnknown,
   dataPackLayerFromUnknownWithId,
   mapDataPackLayer,
   selectDataPackRegistry,
   dataPackResourcePath,
+} from "./_data-pack-registry.js";
+export type {
+  DataPackLayer,
+  DataPackLayerOptions,
+  DataPackRegistryEntry,
+  DataPackRegistryEntryOptions,
 } from "./_data-pack-registry.js";

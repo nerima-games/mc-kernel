@@ -12,6 +12,7 @@ import {
   ChunkLocalIndex,
   LightRevision,
   SectionIndex,
+  SectionLength,
   WorldEpoch,
   blockEdit,
   blockWriteBatch,
@@ -55,7 +56,7 @@ describe('world read/write vocabulary', () => {
     blocks[0] = air
     const detached = view.blocks.snapshot()
     detached[0] = air
-    expect(view.getBlock(0)).toBe(stone)
+    expect(view.getBlock(SectionIndex(0))).toBe(stone)
     expect(blocks[0]).toBe(air)
   })
 
@@ -115,7 +116,7 @@ describe('world read/write vocabulary', () => {
     })
     const detached = view.light.snapshot()
     detached[0] = 15
-    expect(view.getLight(0)).toBe(0)
+    expect(view.getLight(SectionIndex(0))).toBe(0)
   })
 
   it('rejectsInvalidSectionIndices', () => {
@@ -127,11 +128,12 @@ describe('world read/write vocabulary', () => {
       blocks: new Uint16Array(1),
       light: new Uint16Array(1),
     })
+    // @ts-expect-error Raw indices are rejected at the type boundary.
     expect(() => view.getBlock(-1)).toThrow(RangeError)
-    expect(() => view.getLight(1)).toThrow(RangeError)
-    expect(view.blocks.get(0)).toBe(0)
-    expect(view.light.get(0)).toBe(0)
-    expect(() => view.blocks.get(1)).toThrow(RangeError)
+    expect(() => view.getLight(SectionIndex(1))).toThrow(RangeError)
+    expect(view.blocks.get(SectionIndex(0))).toBe(0)
+    expect(view.light.get(SectionIndex(0))).toBe(0)
+    expect(() => view.blocks.get(SectionIndex(1))).toThrow(RangeError)
   })
 
   it('rejectsInvalidReadViewAndEditInputs', () => {
@@ -151,6 +153,14 @@ describe('world read/write vocabulary', () => {
       blocks: new Uint16Array([0xffff]),
       light: new Uint16Array(1),
     })).toThrow(/unknown block id/)
+    expect(() => readView({
+      epoch: WorldEpoch(0),
+      chunk,
+      blockRevision: ChunkRevision(0),
+      lightRevision: LightRevision(0),
+      blocks: new Uint16Array(1),
+      light: new Uint16Array([16]),
+    })).toThrow(/LightLevel/)
     expect(() => blockEdit(origin, BlockId(0xffff))).toThrow(/unknown block id/)
   })
 
@@ -161,6 +171,15 @@ describe('world read/write vocabulary', () => {
     expect(ChunkLocalIndex(0)).toBe(0)
     expect(() => ChunkLocalIndex(-1)).toThrow()
     expect(SectionIndex(0)).toBe(0)
+    expect(SectionIndex(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER)
     expect(() => SectionIndex(-1)).toThrow()
+    expect(() => SectionIndex(Number.MAX_SAFE_INTEGER + 1)).toThrow()
+    expect(() => SectionIndex(0.5)).toThrow()
+    expect(SectionLength(0)).toBe(0)
+    expect(SectionLength(1)).toBe(1)
+    expect(SectionLength(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER)
+    expect(() => SectionLength(-1)).toThrow()
+    expect(() => SectionLength(Number.MAX_SAFE_INTEGER + 1)).toThrow()
+    expect(() => SectionLength(0.5)).toThrow()
   })
 })

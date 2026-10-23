@@ -5,9 +5,11 @@ import { Brand, Effect } from 'effect'
 import {
   CHUNK_CODEC_VERSION,
   CHUNK_HEADER_BYTES,
+  ChunkBlockCount,
   ChunkBlocks,
   EncodedChunk,
   ChunkHeight,
+  ChunkLocalY,
   MAX_CHUNK_HEIGHT,
   chunk,
   chunkBlockCount,
@@ -16,7 +18,7 @@ import {
 } from '../src/domain/world/chunk'
 import { BlockId as blockId, blockIdOf } from '../src/domain/block/block-registry'
 import type { BlockId } from '../src/domain/block/block-registry-types'
-import { blockState } from '../src/domain/block/block-state'
+import { BlockStateByteOffset, BlockStateIndex, blockState } from '../src/domain/block/block-state'
 import {
   CHUNK_SIZE_XZ,
   ChunkAxis,
@@ -180,16 +182,16 @@ describe('chunk binary codec', () => {
       const input = sampleBlocks()
       const source = chunk(chunkCoord(1, 2), height, input)
       input[0] = blockIdOf('water')
-      expect(source.blocks.get(0)).toBe(blockIdOf('stone'))
+      expect(source.blocks.get(BlockStateIndex(0))).toBe(blockIdOf('stone'))
 
       const encoded = encodeChunk(source)
-      source.blocks.set(0, blockIdOf('water'))
+      source.blocks.set(BlockStateIndex(0), blockIdOf('water'))
       expect(encoded[CHUNK_HEADER_BYTES]).toBe(blockIdOf('stone'))
 
       const mutableEncoded = encoded.slice()
       const decoded = decodeChunk(mutableEncoded)
       mutableEncoded[CHUNK_HEADER_BYTES] = blockIdOf('water')
-      expect(decoded.blocks.get(0)).toBe(blockIdOf('stone'))
+      expect(decoded.blocks.get(BlockStateIndex(0))).toBe(blockIdOf('stone'))
     })),
   )
 
@@ -199,12 +201,11 @@ describe('chunk binary codec', () => {
       const copy = state.toBytes()
       copy[0] = blockIdOf('water')
 
-      expect(state.get(0)).toBe(blockIdOf('stone'))
-      state.set(0, blockIdOf('water'))
-      expect(state.get(0)).toBe(blockIdOf('water'))
-      expect(() => state.get(-1)).toThrow(/index/)
-      expect(() => state.get(state.length)).toThrow(/index/)
-      expect(() => state.set(0, blockId(255))).toThrow(/unknown block id 255/)
+      expect(state.get(BlockStateIndex(0))).toBe(blockIdOf('stone'))
+      state.set(BlockStateIndex(0), blockIdOf('water'))
+      expect(state.get(BlockStateIndex(0))).toBe(blockIdOf('water'))
+      expect(() => state.get(BlockStateIndex(state.length))).toThrow(/index/)
+      expect(() => state.set(BlockStateIndex(0), blockId(255))).toThrow(/unknown block id 255/)
       expect(() => blockState(new Uint8Array([255]))).toThrow(/unknown block id 255/)
     })),
   )
@@ -218,9 +219,9 @@ describe('chunk binary codec', () => {
       state.copyTo(target)
       expect(target).toStrictEqual(state.toBytes())
 
-      expect(() => state.copyTo(new Uint8Array(byteLength), -1)).toThrow(/copy range/)
-      expect(() => state.copyTo(new Uint8Array(byteLength - 1), 0)).toThrow(/copy range/)
-      expect(() => state.copyTo(new Uint8Array(byteLength), 1)).toThrow(/copy range/)
+      expect(() => Reflect.apply(state.copyTo, state, [new Uint8Array(byteLength), -1])).toThrow(/copy range/)
+      expect(() => state.copyTo(new Uint8Array(byteLength - 1), BlockStateByteOffset(0))).toThrow(/copy range/)
+      expect(() => state.copyTo(new Uint8Array(byteLength), BlockStateByteOffset(1))).toThrow(/copy range/)
     })),
   )
 
@@ -240,15 +241,27 @@ describe('chunk binary codec', () => {
 
   it('rejects constructor values outside the binary format bounds', () =>
     Effect.runPromise(Effect.sync(() => {
+      expect(ChunkHeight(1)).toBe(1)
+      expect(ChunkHeight(MAX_CHUNK_HEIGHT)).toBe(MAX_CHUNK_HEIGHT)
       expect(() => ChunkHeight(0)).toThrow(/height/)
       expect(() => ChunkHeight(MAX_CHUNK_HEIGHT + 1)).toThrow(/height/)
       expect(() => ChunkBlocks(ChunkHeight(1), new Uint8Array())).toThrow(/length/)
       expect(() => ChunkBlocks(ChunkHeight(1), new Uint8Array([255, ...new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ - 1)]))).toThrow(/unknown block id 255/)
       expect(() => EncodedChunk(new Uint8Array())).toThrow(/header/)
-      expect(() => chunk(chunkCoord(0, 0), 1, new Uint8Array(255))).toThrow(/block data length must be 256, received 255/i)
-      expect(() => chunk(chunkCoord(0, 0), 0x1_0000, new Uint8Array())).toThrow(/height/)
-      expect(() => chunk(chunkCoord(0x8000_0000, 0), 1, new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cx/)
-      expect(() => chunk(chunkCoord(0, -0x8000_0001), 1, new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cz/)
+      expect(() => chunk(chunkCoord(0, 0), ChunkHeight(1), new Uint8Array(255))).toThrow(/block data length must be 256, received 255/i)
+      expect(() => ChunkHeight(0x1_0000)).toThrow(/height/)
+      expect(ChunkLocalY(0)).toBe(0)
+      expect(ChunkLocalY(MAX_CHUNK_HEIGHT - 1)).toBe(MAX_CHUNK_HEIGHT - 1)
+      expect(() => ChunkLocalY(-1)).toThrow()
+      expect(() => ChunkLocalY(MAX_CHUNK_HEIGHT)).toThrow()
+      expect(() => chunk(chunkCoord(0x8000_0000, 0), ChunkHeight(1), new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cx/)
+      expect(() => chunk(chunkCoord(0, -0x8000_0001), ChunkHeight(1), new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cz/)
+      expect(ChunkBlockCount(256)).toBe(256)
+      expect(ChunkBlockCount(512)).toBe(512)
+      expect(ChunkBlockCount(256 * MAX_CHUNK_HEIGHT)).toBe(256 * MAX_CHUNK_HEIGHT)
+      expect(() => ChunkBlockCount(255)).toThrow()
+      expect(() => ChunkBlockCount(257)).toThrow()
+      expect(() => ChunkBlockCount(256 * (MAX_CHUNK_HEIGHT + 1))).toThrow()
     })),
   )
 
@@ -320,9 +333,9 @@ describe('chunk binary codec', () => {
       expect(decoded.coord).toStrictEqual(chunkCoord(5, -9))
       expect(decoded.height).toBe(legacyHeight)
       expect(decoded.blocks.length).toBe(legacyBlockCount)
-      expect(decoded.blocks.get(0)).toBe(stoneId)
-      expect(decoded.blocks.get(1)).toBe(blockIdOf('air'))
-      expect(decoded.blocks.get(legacyBlockCount - 1)).toBe(waterId)
+      expect(decoded.blocks.get(BlockStateIndex(0))).toBe(stoneId)
+      expect(decoded.blocks.get(BlockStateIndex(1))).toBe(blockIdOf('air'))
+      expect(decoded.blocks.get(BlockStateIndex(legacyBlockCount - 1))).toBe(waterId)
     })),
   )
 
@@ -384,7 +397,7 @@ describe('chunk binary codec', () => {
       return {
         ...actual,
         BLOCK_IDS: [...actual.BLOCK_IDS, wideBlockId],
-        isKnownBlockId: (id: number): boolean => id === WIDE_BLOCK_ID_VALUE || actual.isKnownBlockId(id),
+        isKnownBlockId: (id: BlockId): boolean => id === wideBlockId || actual.isKnownBlockId(id),
       }
     })
 
@@ -406,11 +419,11 @@ describe('chunk binary codec', () => {
       view.setUint16(CHUNK_HEADER_BYTES, WIDE_BLOCK_ID_VALUE, true)
 
       const decoded = wideChunkModule.decodeChunk(encoded)
-      expect(decoded.blocks.get(0)).toBe(WIDE_BLOCK_ID_VALUE)
+      expect(decoded.blocks.get(BlockStateIndex(0))).toBe(WIDE_BLOCK_ID_VALUE)
 
       const reencoded = wideChunkModule.encodeChunk(decoded)
       const redecoded = wideChunkModule.decodeChunk(reencoded)
-      expect(redecoded.blocks.get(0)).toBe(WIDE_BLOCK_ID_VALUE)
+      expect(redecoded.blocks.get(BlockStateIndex(0))).toBe(WIDE_BLOCK_ID_VALUE)
     } finally {
       vi.doUnmock('../src/domain/block/block-registry.js')
       vi.resetModules()
