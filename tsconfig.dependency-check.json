@@ -4,7 +4,7 @@
   // reference.
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2024", "DOM"],
+    "lib": ["ES2024", "ESNext.Disposable", "DOM"],
     "skipLibCheck": false
   },
   "include": ["src/index.ts", "src/domain/**/*.ts"],
