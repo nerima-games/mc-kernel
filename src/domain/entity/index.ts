@@ -8,6 +8,4 @@ export * from "./_explosion.js";
 export * from "./_projectile.js";
 export * from "./_primed-tnt.js";
 export * from "./_portal.js";
-export * from "./_vitals.js";
 export * from "./_vehicle.js";
-export * from "./_wither.js";
