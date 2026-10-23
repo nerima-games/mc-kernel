@@ -1,12 +1,12 @@
 /** Registry entries 0-17; the numeric order is the wire-level BlockId order. */
 import { BlockId } from './block-registry-types.js'
-import type { BlockRegistryEntry } from './block-registry-types.js'
+import type { BlockRegistryEntryInput } from './block-registry-entry-input.js'
 import { StackCount } from '../time/quantities.js'
 import { DEFAULT_BLOCK_DROP } from './block-harvest-data.js'
 import { NEEDS_ANY_SUPPORT } from './block-support-data.js'
 import { DROPS_NOTHING, NEEDS_WOODEN_PICKAXE, FASTER_WITH_SHOVEL, FASTER_WITH_AXE, FASTER_WITH_SHEARS } from './block-registry-rules.js'
 
-export const BLOCK_REGISTRY_FOUNDATION: ReadonlyArray<BlockRegistryEntry> = [
+export const BLOCK_REGISTRY_FOUNDATION: ReadonlyArray<BlockRegistryEntryInput> = [
   {
     // Not a block so much as the absence of one. Everything about it is an
     // override, which is what you would expect of the one entry that is not a

@@ -6,6 +6,9 @@ import type { LocalBlockCoord } from '../src/domain/coordinates/coordinate-conve
 import {
   LIGHT_VOLUME_CODEC_VERSION,
   LIGHT_VOLUME_HEADER_BYTES,
+  LightChannelByteOffset,
+  LightChannelIndex,
+  LightChannelLength,
   LightVolumeHeight,
   blockLightAt,
   decodeLightVolume,
@@ -23,16 +26,37 @@ const at = (lx: number, ly: number, lz: number): LocalBlockCoord => ({
 })
 
 describe('light volume construction and bounds', () => {
+  it('validates non-negative safe light-channel lengths, indexes, and byte offsets', () => {
+    expect(LightChannelLength(0)).toBe(0)
+    expect(LightChannelLength(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER)
+    expect(LightChannelIndex(0)).toBe(0)
+    expect(LightChannelIndex(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER)
+    expect(LightChannelByteOffset(0)).toBe(0)
+    expect(LightChannelByteOffset(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER)
+
+    expect(() => LightChannelLength(-1)).toThrow()
+    expect(() => LightChannelLength(1.5)).toThrow()
+    expect(() => LightChannelLength(Number.MAX_SAFE_INTEGER + 1)).toThrow()
+    expect(() => LightChannelIndex(-1)).toThrow()
+    expect(() => LightChannelIndex(1.5)).toThrow()
+    expect(() => LightChannelByteOffset(-1)).toThrow()
+    expect(() => LightChannelByteOffset(1.5)).toThrow()
+  })
+
   it('rejects an invalid volume height', () => {
-    expect(() => LightVolumeHeight(0)).toThrow(RangeError)
-    expect(() => LightVolumeHeight(1.5)).toThrow(RangeError)
-    expect(() => LightVolumeHeight(0x10000)).toThrow(RangeError)
+    expect(() => LightVolumeHeight(0)).toThrow()
+    expect(() => LightVolumeHeight(1.5)).toThrow()
+    expect(() => LightVolumeHeight(0x10000)).toThrow()
   })
 
   it('rejects a channel whose length does not match the declared height', () => {
-    expect(() => lightVolume(1, new Uint8Array(10), new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(
-      RangeError,
-    )
+    expect(() =>
+      Reflect.apply(lightVolume, undefined, [
+        LightVolumeHeight(1),
+        new Uint8Array(10),
+        new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ),
+      ]),
+    ).toThrow(RangeError)
   })
 
   it('rejects an out-of-range light value in a channel', () => {
@@ -41,9 +65,10 @@ describe('light volume construction and bounds', () => {
 
   it('rejects an out-of-range channel index', () => {
     const channel = lightChannel(new Uint8Array(4))
-    expect(() => channel.at(-1)).toThrow(RangeError)
-    expect(() => channel.at(1.5)).toThrow(RangeError)
-    expect(() => channel.at(4)).toThrow(RangeError)
+    expect(channel.at(LightChannelIndex(0))).toBe(0)
+    expect(() => Reflect.apply(channel.at, channel, [-1])).toThrow(RangeError)
+    expect(() => Reflect.apply(channel.at, channel, [1.5])).toThrow(RangeError)
+    expect(() => channel.at(LightChannelIndex(4))).toThrow(RangeError)
   })
 
   it('copies channel bytes without exposing its owned buffer', () => {
@@ -52,14 +77,15 @@ describe('light volume construction and bounds', () => {
 
     expect(bytes).toStrictEqual(new Uint8Array([2, 7]))
     bytes[0] = 9
-    expect(channel.at(0)).toBe(2)
+    expect(channel.at(LightChannelIndex(0))).toBe(2)
   })
 
   it('rejects a copy that does not fit the destination', () => {
     const channel = lightChannel(new Uint8Array(4))
     expect(() => channel.copyTo(new Uint8Array(2))).toThrow(RangeError)
-    expect(() => channel.copyTo(new Uint8Array(10), -1)).toThrow(RangeError)
-    expect(() => channel.copyTo(new Uint8Array(10), 1.5)).toThrow(RangeError)
+    expect(() => Reflect.apply(channel.copyTo, channel, [new Uint8Array(10), -1])).toThrow(RangeError)
+    expect(() => Reflect.apply(channel.copyTo, channel, [new Uint8Array(10), 1.5])).toThrow(RangeError)
+    expect(() => channel.copyTo(new Uint8Array(10), LightChannelByteOffset(7))).toThrow(RangeError)
   })
 
   it('rejects a chunk-local y outside the declared height', () => {
@@ -79,7 +105,7 @@ describe('light volume construction and bounds', () => {
 describe('light volume binary codec', () => {
   it('writes the fixed header fields', () => {
     const volume = lightVolume(
-      1,
+      LightVolumeHeight(1),
       new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ),
       new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ),
     )
@@ -96,7 +122,7 @@ describe('light volume binary codec', () => {
 
   it('rejects damaged headers and payloads explicitly', () => {
     const valid = encodeLightVolume(lightVolume(
-      1,
+      LightVolumeHeight(1),
       new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ),
       new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ),
     ))

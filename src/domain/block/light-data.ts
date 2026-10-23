@@ -20,6 +20,34 @@ const MAX_VOLUME_HEIGHT = MAX_CHUNK_HEIGHT
 /** Vertical block count of the single-chunk-column light volume. */
 export type LightVolumeHeight = number & Brand.Brand<'LightVolumeHeight'>
 
+/** Number of byte-sized cells in a light channel. */
+export type LightChannelLength = number & Brand.Brand<'LightChannelLength'>
+export const LightChannelLength: Brand.Constructor<LightChannelLength> = Brand.make<LightChannelLength>(
+  (value) =>
+    Number.isSafeInteger(value) && value >= 0
+      ? true
+      : `LightChannelLength must be a non-negative safe integer, received ${value}`,
+)
+
+/** Zero-based light-channel cell offset. */
+export type LightChannelIndex = number & Brand.Brand<'LightChannelIndex'>
+export const LightChannelIndex: Brand.Constructor<LightChannelIndex> = Brand.make<LightChannelIndex>(
+  (value) =>
+    Number.isSafeInteger(value) && value >= 0
+      ? true
+      : `LightChannelIndex must be a non-negative safe integer, received ${value}`,
+)
+
+/** Zero-based byte offset when copying a light channel into a wire buffer. */
+export type LightChannelByteOffset = number & Brand.Brand<'LightChannelByteOffset'>
+export const LightChannelByteOffset: Brand.Constructor<LightChannelByteOffset> =
+  Brand.make<LightChannelByteOffset>(
+    (value) =>
+      Number.isSafeInteger(value) && value >= 0
+        ? true
+        : `LightChannelByteOffset must be a non-negative safe integer, received ${value}`,
+  )
+
 const lightVolumeHeightMessage = (value: number): string =>
   `Light volume height must be an integer in [${MIN_VOLUME_HEIGHT}, ${MAX_VOLUME_HEIGHT}], received ${value}`
 
@@ -30,27 +58,20 @@ const LightVolumeHeightBrand = Brand.make<LightVolumeHeight>(
       : lightVolumeHeightMessage(value),
 )
 
-/** Validate and brand a light volume height, normalising Effect's raw throw into a real RangeError. */
-export const LightVolumeHeight = (value: number): LightVolumeHeight => {
-  try {
-    return LightVolumeHeightBrand(value)
-  } catch {
-    throw new RangeError(lightVolumeHeightMessage(value))
-  }
-}
+export const LightVolumeHeight: Brand.Constructor<LightVolumeHeight> = LightVolumeHeightBrand
 
-export const lightVolumeCellCount = (height: LightVolumeHeight): number =>
-  CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * height
+export const lightVolumeCellCount = (height: LightVolumeHeight): LightChannelLength =>
+  LightChannelLength(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * height)
 
 const indexOfAxes = (height: number, lx: number, ly: number, lz: number): number =>
   (lx * CHUNK_SIZE_XZ + lz) * height + ly
 
 /** The linear offset of a chunk-local cell, stored x-major then z-major then y-major. */
-export const lightVolumeIndexOf = (height: LightVolumeHeight, local: LocalBlockCoord): number => {
+export const lightVolumeIndexOf = (height: LightVolumeHeight, local: LocalBlockCoord): LightChannelIndex => {
   if (!Number.isInteger(local.ly) || local.ly < 0 || local.ly >= height) {
     throw new RangeError(`Light volume y must be an integer in [0, ${height - 1}], received ${local.ly}`)
   }
-  return indexOfAxes(height, local.lx, local.ly, local.lz)
+  return LightChannelIndex(indexOfAxes(height, local.lx, local.ly, local.lz))
 }
 
 /** An owned, range-validated 0..15 light channel for one chunk column. */
@@ -74,12 +95,12 @@ export class LightChannel {
     Object.freeze(this)
   }
 
-  get length(): number {
-    return this.#bytes.length
+  get length(): LightChannelLength {
+    return LightChannelLength(this.#bytes.length)
   }
 
   /** Read a validated light level at a checked linear index. */
-  at(index: number): LightLevel {
+  at(index: LightChannelIndex): LightLevel {
     if (!Number.isInteger(index) || index < 0 || index >= this.length) {
       throw new RangeError(`Light channel index must be an integer in [0, ${this.length - 1}], received ${index}`)
     }
@@ -92,7 +113,7 @@ export class LightChannel {
   }
 
   /** Copy the channel into a caller-owned destination without an element scan. */
-  copyTo(target: Uint8Array, offset: number = 0): void {
+  copyTo(target: Uint8Array, offset: LightChannelByteOffset = LightChannelByteOffset(0)): void {
     if (!Number.isInteger(offset) || offset < 0 || offset + this.length > target.length) {
       throw new RangeError(`Light channel copy range must fit target at offset ${offset}`)
     }
@@ -122,7 +143,7 @@ const assertChannelLength = (bytes: Uint8Array, expected: number): void => {
 
 /** Construct a validated light volume without retaining the caller's mutable buffers. */
 export const lightVolume = (
-  height: number,
+  height: LightVolumeHeight,
   blockLight: Uint8Array,
   skyLight: Uint8Array,
 ): LightVolume => {
@@ -155,8 +176,8 @@ export const encodeLightVolume = (volume: LightVolume): Uint8Array => {
   view.setUint16(8, CHUNK_SIZE_XZ, true)
   view.setUint16(10, volume.height, true)
   view.setUint32(12, payloadLength, true)
-  volume.blockLight.copyTo(encoded, LIGHT_VOLUME_HEADER_BYTES)
-  volume.skyLight.copyTo(encoded, LIGHT_VOLUME_HEADER_BYTES + cellCount)
+  volume.blockLight.copyTo(encoded, LightChannelByteOffset(LIGHT_VOLUME_HEADER_BYTES))
+  volume.skyLight.copyTo(encoded, LightChannelByteOffset(LIGHT_VOLUME_HEADER_BYTES + cellCount))
   return encoded
 }
 

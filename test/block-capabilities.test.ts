@@ -9,6 +9,7 @@ import {
 } from '../src/domain/block/block-capabilities'
 import {
   BLOCK_IDS,
+  type BlockId,
   blockIdOf,
   blockTypeOfId,
   capabilitiesOfBlockId,
@@ -436,10 +437,10 @@ describe('audit §4.9, continued — the roster additions that make the argument
       // If someone were to redefine any of these four in terms of another, the
       // Pair would agree on every row and this fails naming the pair.
       const READINGS = {
-        canSupportAttachments: (id: number) => capabilityOfBlockId(id, 'canSupportAttachments'),
-        solidForCollision: (id: number) => !capabilityOfBlockId(id, 'passable'),
-        suffocates: (id: number) => capabilityOfBlockId(id, 'suffocates'),
-        validSpawnSurface: (id: number) => capabilityOfBlockId(id, 'validSpawnSurface'),
+        canSupportAttachments: (id: BlockId) => capabilityOfBlockId(id, 'canSupportAttachments'),
+        solidForCollision: (id: BlockId) => !capabilityOfBlockId(id, 'passable'),
+        suffocates: (id: BlockId) => capabilityOfBlockId(id, 'suffocates'),
+        validSpawnSurface: (id: BlockId) => capabilityOfBlockId(id, 'validSpawnSurface'),
       } as const
       const names = Object.keys(READINGS).filter(
         (name): name is keyof typeof READINGS => name in READINGS,

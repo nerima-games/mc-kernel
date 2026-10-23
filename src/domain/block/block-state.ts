@@ -1,3 +1,4 @@
+import { Brand } from 'effect'
 import { BLOCK_IDS, BLOCK_ID_MAX, isKnownBlockId } from './block-registry.js'
 import { BlockId } from './block-registry-types.js'
 
@@ -5,6 +6,34 @@ const MIN_INDEX = 0
 const INDEX_INCREMENT = 1
 const LAST_INDEX_OFFSET = 1
 const BLOCK_ID_ENABLED = 1
+
+/** Number of block elements held by one state buffer. */
+export type BlockStateLength = number & Brand.Brand<'BlockStateLength'>
+export const BlockStateLength: Brand.Constructor<BlockStateLength> = Brand.make<BlockStateLength>(
+  (value) =>
+    Number.isSafeInteger(value) && value >= 0
+      ? true
+      : `BlockStateLength must be a non-negative safe integer, received ${value}`,
+)
+
+/** Zero-based block element index in a state buffer. */
+export type BlockStateIndex = number & Brand.Brand<'BlockStateIndex'>
+export const BlockStateIndex: Brand.Constructor<BlockStateIndex> = Brand.make<BlockStateIndex>(
+  (value) =>
+    Number.isSafeInteger(value) && value >= 0
+      ? true
+      : `BlockStateIndex must be a non-negative safe integer, received ${value}`,
+)
+
+/** Zero-based byte offset into a block-state wire buffer. */
+export type BlockStateByteOffset = number & Brand.Brand<'BlockStateByteOffset'>
+export const BlockStateByteOffset: Brand.Constructor<BlockStateByteOffset> =
+  Brand.make<BlockStateByteOffset>(
+    (value) =>
+      Number.isSafeInteger(value) && value >= 0
+        ? true
+        : `BlockStateByteOffset must be a non-negative safe integer, received ${value}`,
+  )
 
 /**
  * Bytes reserved per stored element, little-endian. Exported so a caller
@@ -24,7 +53,7 @@ for (const blockId of BLOCK_IDS) {
   KNOWN_BLOCK_ID_TABLE[blockId] = BLOCK_ID_ENABLED
 }
 
-const assertIndex = (index: number, length: number): void => {
+const assertIndex = (index: BlockStateIndex, length: BlockStateLength): void => {
   if (!Number.isInteger(index) || index < MIN_INDEX || index >= length) {
     throw new RangeError(
       `Block state index must be an integer in [${MIN_INDEX}, ${length - LAST_INDEX_OFFSET}], received ${index}`,
@@ -32,13 +61,17 @@ const assertIndex = (index: number, length: number): void => {
   }
 }
 
-const assertKnownBlockId = (blockId: number, index: number): void => {
+const assertKnownBlockId = (blockId: BlockId, index: BlockStateIndex): void => {
   if (!isKnownBlockId(blockId)) {
     throw new RangeError(`Block state contains unknown block id ${blockId} at index ${index}`)
   }
 }
 
-const assertCopyRange = (targetLength: number, sourceLength: number, offset: number): void => {
+const assertCopyRange = (
+  targetLength: number,
+  sourceLength: number,
+  offset: BlockStateByteOffset,
+): void => {
   if (!Number.isInteger(offset) || offset < MIN_INDEX || offset + sourceLength > targetLength) {
     throw new RangeError(
       `Block state copy range must fit target at offset ${offset}, target length ${targetLength}, source length ${sourceLength}`,
@@ -82,10 +115,11 @@ export class BlockState {
    * are read; trailing bytes beyond `elementCount * BYTES_PER_ELEMENT` are
    * ignored rather than validated.
    */
-  static fromElementBytes(payload: Uint8Array, elementCount: number): BlockState {
-    const owned = payload.slice(MIN_INDEX, elementCount * BYTES_PER_ELEMENT)
+  static fromElementBytes(payload: Uint8Array, elementCount: BlockStateLength): BlockState {
+    const validatedElementCount = BlockStateLength(elementCount)
+    const owned = payload.slice(MIN_INDEX, validatedElementCount * BYTES_PER_ELEMENT)
     const view = new DataView(owned.buffer, owned.byteOffset, owned.byteLength)
-    for (let index = MIN_INDEX; index < elementCount; index += INDEX_INCREMENT) {
+    for (let index = MIN_INDEX; index < validatedElementCount; index += INDEX_INCREMENT) {
       const value = view.getUint16(index * BYTES_PER_ELEMENT, true)
       if (KNOWN_BLOCK_ID_TABLE[value] !== BLOCK_ID_ENABLED) {
         throw new RangeError(`Block state contains unknown block id ${value} at index ${index}`)
@@ -101,18 +135,18 @@ export class BlockState {
     Object.freeze(this)
   }
 
-  get length(): number {
-    return this.#bytes.length / BYTES_PER_ELEMENT
+  get length(): BlockStateLength {
+    return BlockStateLength(this.#bytes.length / BYTES_PER_ELEMENT)
   }
 
   /** Read a known block id at a checked linear index. */
-  get(index: number): BlockId {
+  get(index: BlockStateIndex): BlockId {
     assertIndex(index, this.length)
     return BlockId(this.#view.getUint16(index * BYTES_PER_ELEMENT, true))
   }
 
   /** Replace a block id after checking both the index and registry membership. */
-  set(index: number, blockId: BlockId): void {
+  set(index: BlockStateIndex, blockId: BlockId): void {
     assertIndex(index, this.length)
     assertKnownBlockId(blockId, index)
     this.#view.setUint16(index * BYTES_PER_ELEMENT, blockId, true)
@@ -138,7 +172,7 @@ export class BlockState {
    * required bytes; `assertCopyRange` rejects that with a `RangeError`
    * instead of writing a truncated copy.
    */
-  copyTo(target: Uint8Array, offset: number = MIN_INDEX): void {
+  copyTo(target: Uint8Array, offset: BlockStateByteOffset = BlockStateByteOffset(MIN_INDEX)): void {
     assertCopyRange(target.length, this.#bytes.length, offset)
     target.set(this.#bytes, offset)
   }

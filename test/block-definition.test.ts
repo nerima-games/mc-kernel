@@ -7,7 +7,12 @@ import {
   resolveBlock,
 } from '../src/domain/block/block-definition'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block/block-capabilities'
-import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block/block-properties'
+import {
+  BLOCK_PROPERTY_DEFAULTS,
+  BLOCK_PROPERTY_NAMES,
+  BlockContactDamage,
+  LightLevel,
+} from '../src/domain/block/block-properties'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 
@@ -46,10 +51,10 @@ describe('adding a block is one table row plus flag settings (the design contrac
         },
         properties: {
           collisionShape: 'none',
-          contactDamage: LAVA_CONTACT_DAMAGE,
+          contactDamage: BlockContactDamage(LAVA_CONTACT_DAMAGE),
           drops: undefined,
           fluid: 'lava',
-          lightEmission: MAXIMUM_LIGHT_EMISSION,
+          lightEmission: LightLevel(MAXIMUM_LIGHT_EMISSION),
           opacity: 'fluid',
           renderKind: 'fluid',
         },
@@ -106,7 +111,7 @@ describe('resolveBlock', () => {
   it('resolves both halves and agrees with resolving each half separately', () =>
     Effect.runPromise(Effect.sync(() => {
       const glowstone: BlockDefinition = {
-        properties: { lightEmission: MAXIMUM_LIGHT_EMISSION, opacity: 'transparentSolid' },
+        properties: { lightEmission: LightLevel(MAXIMUM_LIGHT_EMISSION), opacity: 'transparentSolid' },
         type: 'glowstone',
       }
       const resolved = resolveBlock(glowstone)

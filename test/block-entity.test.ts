@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   BARREL_SLOT_COUNT,
   CHEST_SLOT_COUNT,
+  ContainerSlotCount,
   DISPENSER_SLOT_COUNT,
   DROPPER_SLOT_COUNT,
   HOPPER_SLOT_COUNT,
@@ -23,10 +24,12 @@ import {
 } from '../src/domain/block/block-entity-validation'
 import { BlockAxis, blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import { itemStack, type Slot } from '../src/domain/item/item-stack'
+import { FixedDurationSecs, StackCount } from '../src/domain/time/quantities'
 import type { FurnaceState } from '../src/domain/recipe/smelting-data'
 import {
   BREWING_MAX_FUEL_CHARGES,
   BREWING_TIME_SECS,
+  BrewingFuelCharges,
   type BrewingState,
 } from '../src/domain/recipe/brewing-data'
 
@@ -36,16 +39,16 @@ const EMPTY_FURNACE: FurnaceState = {
   input: undefined,
   fuel: undefined,
   output: undefined,
-  fuelTimeRemainingSecs: 0,
-  fuelTimeTotalSecs: 0,
-  cookProgressSecs: 0,
+  fuelTimeRemainingSecs: FixedDurationSecs(0),
+  fuelTimeTotalSecs: FixedDurationSecs(0),
+  cookProgressSecs: FixedDurationSecs(0),
 }
 const EMPTY_BREWING: BrewingState = {
   bottles: [undefined, undefined, undefined],
   ingredient: undefined,
   fuel: undefined,
-  fuelCharges: 0,
-  brewProgressSecs: 0,
+  fuelCharges: BrewingFuelCharges(0),
+  brewProgressSecs: FixedDurationSecs(0),
 }
 
 const containerOf = (kind: StorageContainerKind, slots: ReadonlyArray<Slot>): StorageContainer => ({
@@ -54,6 +57,15 @@ const containerOf = (kind: StorageContainerKind, slots: ReadonlyArray<Slot>): St
   slots,
 })
 describe('storage container capacities', () => {
+  it('accepts positive safe-integer capacities and rejects values outside that range', () => {
+    expect(ContainerSlotCount(1)).toBe(1)
+    expect(ContainerSlotCount(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER)
+    expect(() => ContainerSlotCount(0)).toThrow()
+    expect(() => ContainerSlotCount(-1)).toThrow()
+    expect(() => ContainerSlotCount(1.5)).toThrow()
+    expect(() => ContainerSlotCount(Number.MAX_SAFE_INTEGER + 1)).toThrow()
+  })
+
   it('names every capacity and matches the declared table (cross-checked against Minecraft Wiki: Inventory, Shulker Box)', () => {
     expect(STORAGE_CONTAINER_CAPACITIES).toStrictEqual({
       chest: CHEST_SLOT_COUNT,
@@ -82,7 +94,7 @@ describe('storage container guard', () => {
   })
 
   it('accepts a container filled to exactly its capacity', () => {
-    const stack = itemStack('cobblestone', 1)
+    const stack = itemStack('cobblestone', StackCount(1))
     const full = Array.from({ length: HOPPER_SLOT_COUNT }, () => stack)
     expect(isStorageContainer(containerOf('hopper', full))).toBe(true)
   })
@@ -124,12 +136,12 @@ describe('storage container guard', () => {
 describe('furnace state guard', () => {
   const validFurnace: FurnaceState = {
     station: 'blast_furnace',
-    input: itemStack('cobblestone', 1),
-    fuel: itemStack('coal', 1),
-    output: itemStack('stone', 1),
-    fuelTimeRemainingSecs: 5,
-    fuelTimeTotalSecs: 10,
-    cookProgressSecs: 2,
+    input: itemStack('cobblestone', StackCount(1)),
+    fuel: itemStack('coal', StackCount(1)),
+    output: itemStack('stone', StackCount(1)),
+    fuelTimeRemainingSecs: FixedDurationSecs(5),
+    fuelTimeTotalSecs: FixedDurationSecs(10),
+    cookProgressSecs: FixedDurationSecs(2),
   }
 
   it('accepts an empty furnace and a furnace mid-cook', () => {
@@ -179,11 +191,11 @@ describe('furnace state guard', () => {
 
 describe('brewing state guard', () => {
   const validBrewing: BrewingState = {
-    bottles: [itemStack('glass_bottle', 1), undefined, undefined],
-    ingredient: itemStack('nether_wart', 1),
-    fuel: itemStack('blaze_powder', 1),
-    fuelCharges: 5,
-    brewProgressSecs: 10,
+    bottles: [itemStack('glass_bottle', StackCount(1)), undefined, undefined],
+    ingredient: itemStack('nether_wart', StackCount(1)),
+    fuel: itemStack('blaze_powder', StackCount(1)),
+    fuelCharges: BrewingFuelCharges(5),
+    brewProgressSecs: FixedDurationSecs(10),
   }
 
   it('accepts an empty brewing stand and one mid-brew', () => {

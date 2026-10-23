@@ -68,7 +68,7 @@ const ABOVE_TABLE_SAMPLE_IDS: ReadonlyArray<number> = [
   .filter((id) => id > highestRegisteredId && id <= BLOCK_ID_MAX)
   .sort((first, second) => first - second)
 
-const expectUnknownCapabilityDefaults = (unknown: number) => {
+const expectUnknownCapabilityDefaults = (unknown: BlockId) => {
   const capabilities = capabilitiesOfBlockId(unknown)
   expect(capabilities).toStrictEqual({ ...BLOCK_CAPABILITY_DEFAULTS })
   for (const flag of BLOCK_CAPABILITY_FLAGS) {
@@ -81,7 +81,7 @@ describe('unknown-id fallbacks stay total even for non-byte numbers', () => {
   it('treats negative, fractional, and NaN ids as default-opacity blocks', () =>
     Effect.runPromise(Effect.sync(() => {
       for (const unknown of [number('-1'), number('1.5'), Number.NaN]) {
-        expect(transmitsLight(unknown)).toBe(false)
+        expect(Reflect.apply(transmitsLight, undefined, [unknown])).toBe(false)
       }
     })),
   )
@@ -101,10 +101,10 @@ describe('reading behaviour off a chunk buffer byte', () => {
     Effect.runPromise(Effect.sync(() => {
       // THE slice question. Note that no block NAME appears on the read side:
       // The input is a number that came out of a Uint8Array.
-      expect(capabilityOfBlockId(number('5'), 'fallsWhenUnsupported')).toBe(true)
-      expect(capabilityOfBlockId(number('8'), 'fallsWhenUnsupported')).toBe(true)
-      expect(capabilityOfBlockId(number('2'), 'fallsWhenUnsupported')).toBe(false)
-      expect(capabilityOfBlockId(number('0'), 'fallsWhenUnsupported')).toBe(false)
+      expect(capabilityOfBlockId(BlockId(number('5')), 'fallsWhenUnsupported')).toBe(true)
+      expect(capabilityOfBlockId(BlockId(number('8')), 'fallsWhenUnsupported')).toBe(true)
+      expect(capabilityOfBlockId(BlockId(number('2')), 'fallsWhenUnsupported')).toBe(false)
+      expect(capabilityOfBlockId(BlockId(number('0')), 'fallsWhenUnsupported')).toBe(false)
 
       expect(
         [...blockIdsWithCapability('fallsWhenUnsupported')].sort((firstId, secondId) => firstId - secondId),
@@ -215,21 +215,23 @@ describe('the named light readings', () => {
       // at its boundaries and midpoint (see `ABOVE_TABLE_SAMPLE_IDS`).
       // Everything else below is a worked example of a consequence.
       for (let id = number('0'); id <= highestRegisteredId; id += number('1')) {
-        expect(opacityOfBlockId(id)).toBe(propertyOfBlockId(id, 'opacity'))
-        expect(lightEmissionOfBlockId(id)).toBe(propertyOfBlockId(id, 'lightEmission'))
-        expect(transmitsLight(id)).toBe(propertyOfBlockId(id, 'opacity') !== 'opaque')
+        const blockId = BlockId(id)
+        expect(opacityOfBlockId(blockId)).toBe(propertyOfBlockId(blockId, 'opacity'))
+        expect(lightEmissionOfBlockId(blockId)).toBe(propertyOfBlockId(blockId, 'lightEmission'))
+        expect(transmitsLight(blockId)).toBe(propertyOfBlockId(blockId, 'opacity') !== 'opaque')
       }
       for (const id of ABOVE_TABLE_SAMPLE_IDS) {
-        expect(opacityOfBlockId(id)).toBe(propertyOfBlockId(id, 'opacity'))
-        expect(lightEmissionOfBlockId(id)).toBe(propertyOfBlockId(id, 'lightEmission'))
-        expect(transmitsLight(id)).toBe(propertyOfBlockId(id, 'opacity') !== 'opaque')
+        const blockId = BlockId(id)
+        expect(opacityOfBlockId(blockId)).toBe(propertyOfBlockId(blockId, 'opacity'))
+        expect(lightEmissionOfBlockId(blockId)).toBe(propertyOfBlockId(blockId, 'lightEmission'))
+        expect(transmitsLight(blockId)).toBe(propertyOfBlockId(blockId, 'opacity') !== 'opaque')
       }
     })),
   )
 
   it('are TOTAL, so a corrupt or newer-build byte reads as an unlit opaque cube', () =>
     Effect.runPromise(Effect.sync(() => {
-      const unknown = number('200')
+      const unknown = BlockId(number('200'))
       expect(isKnownBlockId(unknown)).toBe(false)
 
       expect(opacityOfBlockId(unknown)).toBe('opaque')
@@ -239,8 +241,8 @@ describe('the named light readings', () => {
       // Non-integers and out-of-range bytes take the same arm rather than
       // Throwing: `StageRegistration`'s `run` has error channel `never`, so a
       // Rule reading light out of a chunk buffer has nowhere to put a failure.
-      expect(opacityOfBlockId(number('-1'))).toBe('opaque')
-      expect(lightEmissionOfBlockId(number('1.5'))).toBe(number('0'))
+      expect(Reflect.apply(opacityOfBlockId, undefined, [number('-1')])).toBe('opaque')
+      expect(Reflect.apply(lightEmissionOfBlockId, undefined, [number('1.5')])).toBe(number('0'))
     })),
   )
 
@@ -485,7 +487,7 @@ describe('the named light readings', () => {
 describe('unknown ids', () => {
   it('resolve to an ordinary opaque cube rather than failing', () =>
     Effect.runPromise(Effect.sync(() => {
-      const unknown = number('200')
+      const unknown = BlockId(number('200'))
 
       expect(isKnownBlockId(unknown)).toBe(false)
       expect(blockTypeOfId(unknown)).toBeUndefined()
@@ -507,7 +509,7 @@ describe('unknown ids', () => {
       // Falsy, so physics would agree with the right answer for the wrong
       // Reason and keep agreeing until someone asked a flag whose default is
       // `true`.
-      const unknown = number('200')
+      const unknown = BlockId(number('200'))
       expectUnknownCapabilityDefaults(unknown)
     })),
   )
@@ -526,11 +528,18 @@ describe('unknown ids', () => {
       // expensive part — tens of thousands of ids that all take the identical
       // `isWithinTable === false` branch — so that gets boundary and midpoint
       // samples instead of a full walk.
-      for (let id = number('-2'); id <= highestRegisteredId; id += number('1')) {
-        expect(isKnownBlockId(id)).toBe(resolvedBlockOfId(id) !== globalThis.undefined)
+      for (let id = number('0'); id <= highestRegisteredId; id += number('1')) {
+        const blockId = BlockId(id)
+        expect(isKnownBlockId(blockId)).toBe(resolvedBlockOfId(blockId) !== globalThis.undefined)
       }
       for (const id of [...ABOVE_TABLE_SAMPLE_IDS, BLOCK_ID_MAX + number('1'), BLOCK_ID_MAX + number('2')]) {
-        expect(isKnownBlockId(id)).toBe(resolvedBlockOfId(id) !== globalThis.undefined)
+        if (id > BLOCK_ID_MAX) {
+          expect(Reflect.apply(isKnownBlockId, undefined, [id])).toBe(false)
+          expect(Reflect.apply(resolvedBlockOfId, undefined, [id])).toBeUndefined()
+          continue
+        }
+        const blockId = BlockId(id)
+        expect(isKnownBlockId(blockId)).toBe(resolvedBlockOfId(blockId) !== globalThis.undefined)
       }
       for (const id of BLOCK_IDS) {
         expect(isKnownBlockId(id)).toBe(true)
@@ -540,7 +549,7 @@ describe('unknown ids', () => {
 
   it('narrow numbers to BlockId when known', () =>
     Effect.runPromise(Effect.sync(() => {
-      const id: number = 2
+      const id: BlockId = BlockId(2)
       if (!isKnownBlockId(id)) {
         throw new Error('expected known block id in type-narrowing test')
       }
@@ -552,7 +561,7 @@ describe('unknown ids', () => {
     Effect.runPromise(Effect.sync(() => {
       // The failure mode of guessing wrong is a mystery block, never a player
       // Falling through the world or terrain deleting itself.
-      const unknown = number('250')
+      const unknown = BlockId(number('250'))
       expect(capabilityOfBlockId(unknown, 'fallsWhenUnsupported')).toBe(false)
       expect(capabilityOfBlockId(unknown, 'flammable')).toBe(false)
       expect(capabilityOfBlockId(unknown, 'passable')).toBe(false)
@@ -563,9 +572,9 @@ describe('unknown ids', () => {
   it('treats non-integers and out-of-range numbers the same way', () =>
     Effect.runPromise(Effect.sync(() => {
       for (const value of [number('-1'), number('1.5'), Number.NaN, BLOCK_ID_MAX + number('1')]) {
-        expect(isKnownBlockId(value)).toBe(false)
-        expect(blockTypeOfId(value)).toBeUndefined()
-        expect(capabilityOfBlockId(value, 'fallsWhenUnsupported')).toBe(false)
+        expect(Reflect.apply(isKnownBlockId, undefined, [value])).toBe(false)
+        expect(Reflect.apply(blockTypeOfId, undefined, [value])).toBeUndefined()
+        expect(Reflect.apply(capabilityOfBlockId, undefined, [value, 'fallsWhenUnsupported'])).toBe(false)
       }
     })),
   )
@@ -630,23 +639,25 @@ describe('the table states differences only', () => {
       // midpoint — carries the same information as walking all ~65,400 of
       // them would.
       for (let rawId = number('0'); rawId <= highestRegisteredId; rawId += number('1')) {
-        const resolved = resolvedBlockOfId(rawId)
-        expect(capabilitiesOfBlockId(rawId)).toStrictEqual(
+        const id = BlockId(rawId)
+        const resolved = resolvedBlockOfId(id)
+        expect(capabilitiesOfBlockId(id)).toStrictEqual(
           resolved?.capabilities ?? BLOCK_CAPABILITY_DEFAULTS,
         )
         for (const flag of BLOCK_CAPABILITY_FLAGS) {
-          expect(capabilityOfBlockId(rawId, flag)).toBe(
+          expect(capabilityOfBlockId(id, flag)).toBe(
             resolved?.capabilities[flag] ?? BLOCK_CAPABILITY_DEFAULTS[flag],
           )
         }
       }
       for (const rawId of ABOVE_TABLE_SAMPLE_IDS) {
-        const resolved = resolvedBlockOfId(rawId)
-        expect(capabilitiesOfBlockId(rawId)).toStrictEqual(
+        const id = BlockId(rawId)
+        const resolved = resolvedBlockOfId(id)
+        expect(capabilitiesOfBlockId(id)).toStrictEqual(
           resolved?.capabilities ?? BLOCK_CAPABILITY_DEFAULTS,
         )
         for (const flag of BLOCK_CAPABILITY_FLAGS) {
-          expect(capabilityOfBlockId(rawId, flag)).toBe(
+          expect(capabilityOfBlockId(id, flag)).toBe(
             resolved?.capabilities[flag] ?? BLOCK_CAPABILITY_DEFAULTS[flag],
           )
         }

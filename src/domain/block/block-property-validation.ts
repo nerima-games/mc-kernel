@@ -5,6 +5,12 @@
  * external shape and the resolved domain data independently readable.
  */
 import {
+  BlockBlastResistance,
+  BlockContactDamage,
+  BlockExperiencePoints,
+  BlockFriction,
+  BlockHardness,
+  BlockMovementDrag,
   BLOCK_OPACITIES,
   BLOCK_PROPERTY_DEFAULTS,
   BLOCK_PROPERTY_NAMES,
@@ -16,11 +22,11 @@ import {
   RAIL_KINDS,
   RENDER_KINDS,
   UNBREAKABLE_HARDNESS,
+  LightLevel,
   isLightLevel,
   type BlockProperties,
   type BlockPropertyName,
   type BlockPropertyOverrides,
-  type LightLevel,
 } from './block-property-data.js'
 import { HARVEST_TIERS, HARVEST_TOOL_CATEGORIES } from './block-harvest-data.js'
 import { isBlockType } from './block-type.js'
@@ -152,79 +158,98 @@ const validateSupportRule = (value: unknown): void => {
   throw new TypeError(`unknown block property supportRule kind ${String(kind)}`)
 }
 
-const validateCategoricalProperties = (overrides: BlockPropertyOverrides): void => {
-  if (overrides.opacity !== undefined && !isOneOf(BLOCK_OPACITIES, overrides.opacity)) {
-    throw new TypeError(`unknown block property opacity ${String(overrides.opacity)}`)
+const validateCategoricalProperties = (overrides: Readonly<Record<string, unknown>>): void => {
+  if (overrides['opacity'] !== undefined && !isOneOf(BLOCK_OPACITIES, overrides['opacity'])) {
+    throw new TypeError(`unknown block property opacity ${String(overrides['opacity'])}`)
   }
-  if (overrides.lightEmission !== undefined && !isLightLevel(overrides.lightEmission)) {
+  if (
+    overrides['lightEmission'] !== undefined &&
+    (typeof overrides['lightEmission'] !== 'number' || !isLightLevel(overrides['lightEmission']))
+  ) {
     throw new TypeError(
-      `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${overrides.lightEmission}`,
+      `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${overrides['lightEmission']}`,
     )
   }
-  if (overrides.fluid !== undefined && !isOneOf(FLUID_KINDS, overrides.fluid)) {
-    throw new TypeError(`unknown block property fluid ${String(overrides.fluid)}`)
+  if (overrides['fluid'] !== undefined && !isOneOf(FLUID_KINDS, overrides['fluid'])) {
+    throw new TypeError(`unknown block property fluid ${String(overrides['fluid'])}`)
   }
-  if (overrides.collisionShape !== undefined && !isOneOf(COLLISION_SHAPES, overrides.collisionShape)) {
-    throw new TypeError(`unknown block property collisionShape ${String(overrides.collisionShape)}`)
+  if (overrides['collisionShape'] !== undefined && !isOneOf(COLLISION_SHAPES, overrides['collisionShape'])) {
+    throw new TypeError(`unknown block property collisionShape ${String(overrides['collisionShape'])}`)
   }
-  if (overrides.renderKind !== undefined && !isOneOf(RENDER_KINDS, overrides.renderKind)) {
-    throw new TypeError(`unknown block property renderKind ${String(overrides.renderKind)}`)
+  if (overrides['renderKind'] !== undefined && !isOneOf(RENDER_KINDS, overrides['renderKind'])) {
+    throw new TypeError(`unknown block property renderKind ${String(overrides['renderKind'])}`)
   }
-  if (overrides.footstepMaterial !== undefined && !isOneOf(FOOTSTEP_MATERIALS, overrides.footstepMaterial)) {
-    throw new TypeError(`unknown block property footstepMaterial ${String(overrides.footstepMaterial)}`)
+  if (
+    overrides['footstepMaterial'] !== undefined &&
+    !isOneOf(FOOTSTEP_MATERIALS, overrides['footstepMaterial'])
+  ) {
+    throw new TypeError(`unknown block property footstepMaterial ${String(overrides['footstepMaterial'])}`)
   }
-  if (overrides.railKind !== undefined && !isOneOf(RAIL_KINDS, overrides.railKind)) {
-    throw new TypeError(`unknown block property railKind ${String(overrides.railKind)}`)
+  if (overrides['railKind'] !== undefined && !isOneOf(RAIL_KINDS, overrides['railKind'])) {
+    throw new TypeError(`unknown block property railKind ${String(overrides['railKind'])}`)
   }
 }
 
-const validateFriction = (value: number): void => {
-  if (value < 0 || value > 1) {
+const validateFriction = (value: unknown): void => {
+  if (typeof value === 'number' && value > 1) {
     throw new RangeError('block property friction must be a finite number in [0, 1]')
   }
 }
 
-const validateNumericProperties = (overrides: BlockPropertyOverrides): void => {
-  if (overrides.hardness !== undefined) {
-    assertHardness(overrides.hardness)
+const validateNumericProperties = (overrides: Readonly<Record<string, unknown>>): void => {
+  if (overrides['hardness'] !== undefined) {
+    assertHardness(overrides['hardness'])
   }
-  if (overrides.friction !== undefined) {
-    assertFiniteNonNegative('block property friction', overrides.friction)
-    validateFriction(overrides.friction)
+  if (overrides['friction'] !== undefined) {
+    assertFiniteNonNegative('block property friction', overrides['friction'])
+    validateFriction(overrides['friction'])
   }
-  if (overrides.contactDamage !== undefined) {
-    assertFiniteNonNegative('block property contactDamage', overrides.contactDamage)
+  if (overrides['contactDamage'] !== undefined) {
+    assertFiniteNonNegative('block property contactDamage', overrides['contactDamage'])
   }
-  if (overrides.movementDrag !== undefined) {
-    assertFiniteNonNegative('block property movementDrag', overrides.movementDrag)
+  if (overrides['movementDrag'] !== undefined) {
+    assertFiniteNonNegative('block property movementDrag', overrides['movementDrag'])
   }
-  if (overrides.xpOnBreak !== undefined) {
-    assertFiniteNonNegative('block property xpOnBreak', overrides.xpOnBreak)
+  if (overrides['xpOnBreak'] !== undefined) {
+    assertFiniteNonNegative('block property xpOnBreak', overrides['xpOnBreak'])
   }
-  if (overrides.blastResistance !== undefined) {
-    assertBlastResistance(overrides.blastResistance)
-  }
-}
-
-const validateStructuredProperties = (overrides: BlockPropertyOverrides): void => {
-  if (overrides.harvestTool !== undefined) {
-    validateHarvestToolRequirement(overrides.harvestTool)
-  }
-  if (overrides.drops !== undefined) {
-    validateDropRule(overrides.drops)
-  }
-  if (overrides.supportRule !== undefined) {
-    validateSupportRule(overrides.supportRule)
+  if (overrides['blastResistance'] !== undefined) {
+    assertBlastResistance(overrides['blastResistance'])
   }
 }
 
-type ValidatedBlockPropertyOverrides = Omit<BlockPropertyOverrides, 'lightEmission'> & {
-  readonly lightEmission?: LightLevel
+const validateStructuredProperties = (overrides: Readonly<Record<string, unknown>>): void => {
+  if (overrides['harvestTool'] !== undefined) {
+    validateHarvestToolRequirement(overrides['harvestTool'])
+  }
+  if (overrides['drops'] !== undefined) {
+    validateDropRule(overrides['drops'])
+  }
+  if (overrides['supportRule'] !== undefined) {
+    validateSupportRule(overrides['supportRule'])
+  }
 }
 
-function validateBlockPropertyOverrides(
-  overrides: unknown,
-): asserts overrides is ValidatedBlockPropertyOverrides {
+type RawNumericBlockPropertyOverrides =
+  | 'lightEmission'
+  | 'hardness'
+  | 'friction'
+  | 'blastResistance'
+  | 'contactDamage'
+  | 'movementDrag'
+  | 'xpOnBreak'
+
+type ValidatedBlockPropertyOverrides = Omit<BlockPropertyOverrides, RawNumericBlockPropertyOverrides> & {
+  readonly lightEmission?: number
+  readonly hardness?: number
+  readonly friction?: number
+  readonly blastResistance?: number
+  readonly contactDamage?: number
+  readonly movementDrag?: number
+  readonly xpOnBreak?: number
+}
+
+function validateBlockPropertyOverrides(overrides: unknown): asserts overrides is ValidatedBlockPropertyOverrides {
   if (!isRecord(overrides)) {
     throw new TypeError('block property overrides must be an object')
   }
@@ -234,19 +259,47 @@ function validateBlockPropertyOverrides(
   validateStructuredProperties(overrides)
 }
 
-const resolveLightEmission = (overrides: ValidatedBlockPropertyOverrides): LightLevel => {
+/** Validate external or table data and brand its numeric property values. */
+export const normalizeBlockPropertyOverrides = (overrides: unknown): BlockPropertyOverrides => {
+  validateBlockPropertyOverrides(overrides)
+  const {
+    lightEmission,
+    hardness,
+    friction,
+    blastResistance,
+    contactDamage,
+    movementDrag,
+    xpOnBreak,
+    ...otherOverrides
+  } = overrides
+
+  return {
+    ...otherOverrides,
+    ...(lightEmission === undefined ? {} : { lightEmission: LightLevel(lightEmission) }),
+    ...(hardness === undefined ? {} : { hardness: BlockHardness(hardness) }),
+    ...(friction === undefined ? {} : { friction: BlockFriction(friction) }),
+    ...(blastResistance === undefined
+      ? {}
+      : { blastResistance: BlockBlastResistance(blastResistance) }),
+    ...(contactDamage === undefined ? {} : { contactDamage: BlockContactDamage(contactDamage) }),
+    ...(movementDrag === undefined ? {} : { movementDrag: BlockMovementDrag(movementDrag) }),
+    ...(xpOnBreak === undefined ? {} : { xpOnBreak: BlockExperiencePoints(xpOnBreak) }),
+  }
+}
+
+const resolveLightEmission = (overrides: BlockPropertyOverrides): LightLevel => {
   const lightEmission = overrides.lightEmission
   return lightEmission ?? BLOCK_PROPERTY_DEFAULTS.lightEmission
 }
 
 /** Fill in defaults for every property the overrides do not mention. */
 export const resolveBlockProperties = (overrides: BlockPropertyOverrides): BlockProperties => {
-  validateBlockPropertyOverrides(overrides)
+  const normalized = normalizeBlockPropertyOverrides(overrides)
 
   return {
     ...BLOCK_PROPERTY_DEFAULTS,
-    ...overrides,
-    lightEmission: resolveLightEmission(overrides),
+    ...normalized,
+    lightEmission: resolveLightEmission(normalized),
   }
 }
 
@@ -266,15 +319,15 @@ export function propertyOf(
   overrides: BlockPropertyOverrides,
   name: BlockPropertyName,
 ): BlockProperties[BlockPropertyName] {
-  validateBlockPropertyOverrides(overrides)
+  const normalized = normalizeBlockPropertyOverrides(overrides)
   if (!isBlockPropertyName(name)) {
     throw new TypeError(`unknown block property ${String(name)}`)
   }
 
   const resolved: BlockProperties = {
     ...BLOCK_PROPERTY_DEFAULTS,
-    ...overrides,
-    lightEmission: resolveLightEmission(overrides),
+    ...normalized,
+    lightEmission: resolveLightEmission(normalized),
   }
   return resolved[name]
 }

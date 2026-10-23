@@ -28,7 +28,7 @@ import {
 import * as blockRegistryIndexes from '../src/domain/block/block-registry-indexes'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block/block-capabilities'
 import { BLOCK_PROPERTY_NAMES } from '../src/domain/block/block-properties'
-import { BLOCK_ID_MAX } from '../src/domain/block/block-registry-types'
+import { BLOCK_ID_MAX, BlockId } from '../src/domain/block/block-registry-types'
 
 // The complete, currently-reviewed set of value exports from
 // `block-registry-indexes.ts`. A new zero-initialised typed-array column
@@ -74,7 +74,9 @@ describe('block registry indexes', () => {
 
   it('rejects missing derived registry rows', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => resolvedBlockAt(-1)).toThrow('Block registry is missing a resolved row for -1')
+      expect(() => Reflect.apply(resolvedBlockAt, undefined, [-1])).toThrow(
+        'Block registry is missing a resolved row for -1',
+      )
       expect(() => buildSupportBlockIdsById([])).toThrow('Block registry is missing a support rule')
 
       const invalidSupportRule = { kind: 'oneOf', blocks: ['invalid'] }
@@ -90,7 +92,7 @@ describe('block registry indexes', () => {
       const firstBlockId = BLOCK_IDS[0]
       if (firstBlockId === undefined) throw new Error('Block registry fixture must not be empty')
       expect(propertyOfBlockId(firstBlockId, 'opacity')).toBeDefined()
-      expect(propertyOfBlockId(-1, 'opacity')).toBe(BLOCK_PROPERTY_DEFAULTS.opacity)
+      expect(Reflect.apply(propertyOfBlockId, undefined, [-1, 'opacity'])).toBe(BLOCK_PROPERTY_DEFAULTS.opacity)
     })),
   )
 
@@ -148,8 +150,8 @@ describe('block registry indexes', () => {
   it('resolves an id above the resized table exactly as a known-unregistered id resolves', () =>
     Effect.runPromise(Effect.sync(() => {
       const highestRegisteredId = BLOCK_IDS.reduce((highest, id) => Math.max(highest, id), -1)
-      const knownUnregisteredId = -1
-      const idsAboveTheResizedTable = [highestRegisteredId + 1, BLOCK_ID_MAX]
+      const knownUnregisteredId = BlockId(BLOCK_ID_MAX)
+      const idsAboveTheResizedTable = [highestRegisteredId + 1, BLOCK_ID_MAX].map((id) => BlockId(id))
 
       for (const id of idsAboveTheResizedTable) {
         expect(isKnownBlockId(id)).toBe(isKnownBlockId(knownUnregisteredId))
@@ -179,8 +181,8 @@ describe('block registry indexes', () => {
         expect(isSupportSensitiveBlockId(id)).toBe(isSupportSensitiveBlockId(knownUnregisteredId))
         expect(isSupportSensitiveBlockId(id)).toBe(false)
 
-        expect(canBlockStaySupported(id, 0)).toBe(canBlockStaySupported(knownUnregisteredId, 0))
-        expect(canBlockStaySupported(id, 0)).toBe(true)
+        expect(canBlockStaySupported(id, BlockId(0))).toBe(canBlockStaySupported(knownUnregisteredId, BlockId(0)))
+        expect(canBlockStaySupported(id, BlockId(0))).toBe(true)
 
         expect(capabilitiesOfBlockId(id)).toEqual(capabilitiesOfBlockId(knownUnregisteredId))
         expect(capabilitiesOfBlockId(id)).toEqual(BLOCK_CAPABILITY_DEFAULTS)
@@ -221,14 +223,16 @@ describe('block registry indexes', () => {
   // only way an in-range read still misses is a non-integer id: neither a
   // plain array nor a typed array recognises a fractional index as an
   // element, so `column[1.5]` reads as a missing property and returns
-  // `undefined`. A caller passes a raw `number`, not a validated `BlockId`,
-  // so this is a real input this function must default correctly for.
+  // `undefined`. Typed callers pass `BlockId`; JavaScript callers can still
+  // supply a fractional number, which must receive the documented default.
   it('defaults a fractional in-range id the same as an out-of-range one', () =>
     Effect.runPromise(Effect.sync(() => {
       const fractionalId = 0.5
 
-      expect(propertyOfBlockId(fractionalId, 'opacity')).toBe(BLOCK_PROPERTY_DEFAULTS.opacity)
-      expect(opacityOfBlockId(fractionalId)).toBe(BLOCK_PROPERTY_DEFAULTS.opacity)
+      expect(Reflect.apply(propertyOfBlockId, undefined, [fractionalId, 'opacity'])).toBe(
+        BLOCK_PROPERTY_DEFAULTS.opacity,
+      )
+      expect(Reflect.apply(opacityOfBlockId, undefined, [fractionalId])).toBe(BLOCK_PROPERTY_DEFAULTS.opacity)
     })),
   )
 
@@ -247,7 +251,7 @@ describe('block registry indexes', () => {
     Effect.runPromise(Effect.sync(() => {
       const highestRegisteredId = BLOCK_IDS.reduce((highest, id) => Math.max(highest, id), -1)
 
-      const resolved = resolvedBlockOfId(highestRegisteredId)
+      const resolved = resolvedBlockOfId(BlockId(highestRegisteredId))
       expect(resolved).toBeDefined()
       if (resolved === undefined) throw new Error('unreachable: asserted defined above')
 

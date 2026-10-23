@@ -1,8 +1,15 @@
 import {
   BLOCK_OPACITIES,
+  BlockBlastResistance,
+  BlockContactDamage,
+  BlockExperiencePoints,
+  BlockFriction,
+  BlockHardness,
+  BlockMovementDrag,
   BLOCK_PROPERTY_DEFAULTS,
   BLOCK_PROPERTY_NAMES,
   LightLevel,
+  LightLevelCandidate,
   type BlockProperties,
   type BlockPropertyOverrides,
   type LightLevel as LightLevelType,
@@ -57,7 +64,7 @@ describe('block properties — the additive-safety guarantee, extended to non-bo
         // Widening `emissive: boolean` to a number LATER would not be additive,
         // It would be a five-deep republish cascade.
         const torch: BlockDefinition = {
-          properties: { lightEmission: TORCH_LIGHT_LEVEL },
+          properties: { lightEmission: LightLevel(TORCH_LIGHT_LEVEL) },
           type: 'torch',
         }
 
@@ -95,21 +102,21 @@ describe('block properties — the additive-safety guarantee, extended to non-bo
         lightEmission: LightLevel(0),
         fluid: 'none',
         collisionShape: 'full',
-        blastResistance: NO_PROPERTIES,
-        contactDamage: NO_PROPERTIES,
+        blastResistance: BlockBlastResistance(NO_PROPERTIES),
+        contactDamage: BlockContactDamage(NO_PROPERTIES),
         drops: { affectedByFortune: false, count: StackCount(1), item: 'self', requiresSilkTouch: false },
         footstepMaterial: 'default',
-        friction: 0.6,
-        hardness: DEFAULT_HARDNESS,
+        friction: BlockFriction(0.6),
+        hardness: BlockHardness(DEFAULT_HARDNESS),
         harvestTool: { category: 'none', minTier: 'none' },
-        movementDrag: NO_PROPERTIES,
+        movementDrag: BlockMovementDrag(NO_PROPERTIES),
         railKind: 'none',
         renderKind: 'cube',
         // Audit §4.6 states this default in as many words: `supportRule='none'`.
         // An ordinary cube requires nothing beneath it, so a block that says
         // Nothing about support is not "unsupported" — it is uninterested.
         supportRule: { kind: 'none' },
-        xpOnBreak: NO_PROPERTIES,
+        xpOnBreak: BlockExperiencePoints(NO_PROPERTIES),
       }
       expect({ ...BLOCK_PROPERTY_DEFAULTS }).toStrictEqual(expected)
     })),
@@ -117,7 +124,7 @@ describe('block properties — the additive-safety guarantee, extended to non-bo
 
   it('the resolved set is a fresh object and never aliases the shared defaults table', () =>
     Effect.runPromise(Effect.sync(() => {
-      const first = resolveBlockProperties({ hardness: 50 })
+      const first = resolveBlockProperties({ hardness: BlockHardness(50) })
       const second = resolveBlockProperties({})
       expect(first).not.toBe(second)
       expect(second.hardness).toBe(BLOCK_PROPERTY_DEFAULTS.hardness)
@@ -141,7 +148,7 @@ describe('the three corrected types (audit §5)', () => {
       ]
       for (const [, level] of cases) {
         expect(isLightLevel(level)).toBe(true)
-        expect(resolveBlockProperties({ lightEmission: level }).lightEmission).toBe(level)
+        expect(resolveBlockProperties({ lightEmission: LightLevel(level) }).lightEmission).toBe(level)
       }
       // ...and they are genuinely distinct, which is what a boolean destroys.
       expect(new Set(cases.map(([, level]) => level)).size).toBe(cases.length)
@@ -189,19 +196,62 @@ describe('light level helpers', () => {
 
   it('clamps into range and truncates toward zero', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(clampLightLevel(FAR_BELOW_MINIMUM_LIGHT_LEVEL)).toBe(EXPECTED_LIGHT_LEVEL_MINIMUM)
-      expect(clampLightLevel(FAR_ABOVE_MAXIMUM_LIGHT_LEVEL)).toBe(EXPECTED_LIGHT_LEVEL_MAXIMUM)
-      expect(clampLightLevel(FRACTIONAL_LIGHT_LEVEL_TO_TRUNCATE)).toBe(TRUNCATED_LIGHT_LEVEL)
-      expect(clampLightLevel(EXPECTED_LIGHT_LEVEL_MAXIMUM)).toBe(EXPECTED_LIGHT_LEVEL_MAXIMUM)
-      expectTypeOf(clampLightLevel(7.9)).toEqualTypeOf<LightLevelType>()
+      expect(clampLightLevel(LightLevelCandidate(FAR_BELOW_MINIMUM_LIGHT_LEVEL))).toBe(
+        EXPECTED_LIGHT_LEVEL_MINIMUM,
+      )
+      expect(clampLightLevel(LightLevelCandidate(FAR_ABOVE_MAXIMUM_LIGHT_LEVEL))).toBe(
+        EXPECTED_LIGHT_LEVEL_MAXIMUM,
+      )
+      expect(clampLightLevel(LightLevelCandidate(FRACTIONAL_LIGHT_LEVEL_TO_TRUNCATE))).toBe(
+        TRUNCATED_LIGHT_LEVEL,
+      )
+      expect(clampLightLevel(LightLevelCandidate(EXPECTED_LIGHT_LEVEL_MAXIMUM))).toBe(
+        EXPECTED_LIGHT_LEVEL_MAXIMUM,
+      )
+      expect(clampLightLevel(LightLevelCandidate(Number.NEGATIVE_INFINITY))).toBe(EXPECTED_LIGHT_LEVEL_MINIMUM)
+      expect(clampLightLevel(LightLevelCandidate(Number.POSITIVE_INFINITY))).toBe(EXPECTED_LIGHT_LEVEL_MAXIMUM)
+      expectTypeOf(clampLightLevel(LightLevelCandidate(7.9))).toEqualTypeOf<LightLevelType>()
+      expect(() => LightLevelCandidate(Number.NaN)).toThrow()
     })),
   )
 })
 
 describe('light level branding', () => {
-  it('brands resolved light emission values while preserving numeric override ergonomics', () =>
+  it('validates the bounds of numeric block-property brands', () => {
+    expect(BlockHardness(0)).toBe(0)
+    expect(BlockHardness(-1)).toBe(-1)
+    expect(() => BlockHardness(-2)).toThrow()
+    expect(() => BlockHardness(Number.POSITIVE_INFINITY)).toThrow()
+
+    expect(BlockFriction(0)).toBe(0)
+    expect(BlockFriction(1)).toBe(1)
+    expect(() => BlockFriction(-0.01)).toThrow()
+    expect(() => BlockFriction(1.01)).toThrow()
+
+    expect(BlockBlastResistance(0)).toBe(0)
+    expect(BlockBlastResistance(Number.POSITIVE_INFINITY)).toBe(Number.POSITIVE_INFINITY)
+    expect(() => BlockBlastResistance(-1)).toThrow()
+    expect(() => BlockBlastResistance(Number.NaN)).toThrow()
+
+    expect(BlockContactDamage(0)).toBe(0)
+    expect(BlockContactDamage(1)).toBe(1)
+    expect(() => BlockContactDamage(-1)).toThrow()
+    expect(() => BlockContactDamage(Number.POSITIVE_INFINITY)).toThrow()
+
+    expect(BlockMovementDrag(0)).toBe(0)
+    expect(BlockMovementDrag(1)).toBe(1)
+    expect(() => BlockMovementDrag(-1)).toThrow()
+    expect(() => BlockMovementDrag(Number.NaN)).toThrow()
+
+    expect(BlockExperiencePoints(0)).toBe(0)
+    expect(BlockExperiencePoints(1)).toBe(1)
+    expect(() => BlockExperiencePoints(-1)).toThrow()
+    expect(() => BlockExperiencePoints(Number.POSITIVE_INFINITY)).toThrow()
+  })
+
+  it('brands resolved light emission values after an explicit LightLevel override', () =>
     Effect.runPromise(Effect.sync(() => {
-      const resolved = resolveBlockProperties({ lightEmission: 14 })
+      const resolved = resolveBlockProperties({ lightEmission: LightLevel(14) })
 
       expect(resolved.lightEmission).toBe(14)
       expectTypeOf(resolved.lightEmission).toEqualTypeOf<LightLevelType>()
@@ -210,7 +260,9 @@ describe('light level branding', () => {
 
   it('rejects invalid light emission overrides', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => resolveBlockProperties({ lightEmission: 16 })).toThrow(/LightLevel must be an integer/)
+      expect(() => Reflect.apply(resolveBlockProperties, undefined, [{ lightEmission: 16 }])).toThrow(
+        /LightLevel must be an integer/,
+      )
     })),
   )
 
@@ -221,22 +273,24 @@ describe('light level branding', () => {
       expect(() => Reflect.apply(resolve, undefined, [{ futureProperty: true }])).toThrow(
         'unknown block property futureProperty',
       )
-      expect(resolve({ hardness: -1 }).hardness).toBe(-1)
-      expect(() => resolve({ hardness: -2 })).toThrow(
+      expect(resolve({ hardness: BlockHardness(-1) }).hardness).toBe(-1)
+      expect(() => Reflect.apply(resolve, undefined, [{ hardness: -2 }])).toThrow(
         'block property hardness must be a finite number greater than or equal to zero or -1',
       )
-      expect(() => resolve({ friction: 2 })).toThrow('block property friction must be a finite number in [0, 1]')
-      expect(() => resolve({ friction: -1 })).toThrow(
+      expect(() => Reflect.apply(resolve, undefined, [{ friction: 2 }])).toThrow(
+        'block property friction must be a finite number in [0, 1]',
+      )
+      expect(() => Reflect.apply(resolve, undefined, [{ friction: -1 }])).toThrow(
         'block property friction must be a finite number greater than or equal to zero',
       )
-      expect(resolve({ blastResistance: Number.POSITIVE_INFINITY }).blastResistance).toBe(
+      expect(resolve({ blastResistance: BlockBlastResistance(Number.POSITIVE_INFINITY) }).blastResistance).toBe(
         Number.POSITIVE_INFINITY,
       )
-      expect(resolve({ blastResistance: NO_PROPERTIES }).blastResistance).toBe(NO_PROPERTIES)
-      expect(() => resolve({ blastResistance: -1 })).toThrow(
+      expect(resolve({ blastResistance: BlockBlastResistance(NO_PROPERTIES) }).blastResistance).toBe(NO_PROPERTIES)
+      expect(() => Reflect.apply(resolve, undefined, [{ blastResistance: -1 }])).toThrow(
         'block property blastResistance must be a non-negative number or Infinity',
       )
-      expect(() => resolve({ blastResistance: Number.NaN })).toThrow(
+      expect(() => Reflect.apply(resolve, undefined, [{ blastResistance: Number.NaN }])).toThrow(
         'block property blastResistance must be a non-negative number or Infinity',
       )
       expect(() =>
@@ -446,7 +500,7 @@ describe('harvestTool and drops (the two struct fields, audit §7)', () => {
 describe('propertyOf', () => {
   it('agrees with resolveBlockProperties for every property, with and without overrides', () =>
     Effect.runPromise(Effect.sync(() => {
-      const overrides: BlockPropertyOverrides = { fluid: 'water', lightEmission: NO_PROPERTIES, opacity: 'fluid' }
+      const overrides: BlockPropertyOverrides = { fluid: 'water', lightEmission: LightLevel(NO_PROPERTIES), opacity: 'fluid' }
       const resolved = resolveBlockProperties(overrides)
       for (const name of BLOCK_PROPERTY_NAMES) {
         expect(propertyOf(overrides, name)).toStrictEqual(resolved[name])
@@ -459,7 +513,7 @@ describe('propertyOf', () => {
     Effect.runPromise(Effect.sync(() => {
       // `??` not `||`. lightEmission defaults to 0 so this looks like a
       // No-op; hardness does not, so it is the one that actually proves it.
-      expect(propertyOf({ hardness: NO_PROPERTIES }, 'hardness')).toBe(NO_PROPERTIES)
+      expect(propertyOf({ hardness: BlockHardness(NO_PROPERTIES) }, 'hardness')).toBe(NO_PROPERTIES)
       expect(propertyOf({}, 'hardness')).toBe(DEFAULT_HARDNESS)
     })),
   )

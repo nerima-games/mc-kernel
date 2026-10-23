@@ -1,11 +1,11 @@
 /** Registry entries 50-70; the numeric order is the wire-level BlockId order. */
 import { BlockId } from './block-registry-types.js'
-import type { BlockRegistryEntry } from './block-registry-types.js'
+import type { BlockRegistryEntryInput } from './block-registry-entry-input.js'
 import { StackCount } from '../time/quantities.js'
 import { DEFAULT_BLOCK_DROP } from './block-harvest-data.js'
 import { NEEDS_WOODEN_PICKAXE, NEEDS_STONE_PICKAXE, NEEDS_IRON_PICKAXE } from './block-registry-rules.js'
 
-export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntry> = [
+export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInput> = [
   // ---------------------------------------------------------------------------
   // ids 50-63: ores (`blocks.config.ores.ts`, `harvestable-blocks.ts`)
   // ---------------------------------------------------------------------------

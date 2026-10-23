@@ -23,6 +23,7 @@
 import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block/block-properties'
 import {
   BLOCK_REGISTRY,
+  BlockId,
   blockIdOf,
   canBlockStaySupported,
   isSupportSensitiveBlockId,
@@ -42,11 +43,9 @@ import { Effect } from 'effect'
 const UNNAMED_BLOCK_TYPE = BLOCK_TYPES.at(BLOCK_TYPES.length)
 const NON_SENSITIVE_BLOCK_COUNT = 103
 const NO_NAMED_SUPPORTS = 0
-const UNKNOWN_BLOCK_ID = 200
-const MAX_BLOCK_ID = 255
-const NEGATIVE_BLOCK_ID = -1
-const FRACTIONAL_BLOCK_ID = 1.5
-const UNKNOWN_BLOCK_IDS = [UNKNOWN_BLOCK_ID, MAX_BLOCK_ID, NEGATIVE_BLOCK_ID, FRACTIONAL_BLOCK_ID, Number.NaN]
+const UNKNOWN_BLOCK_ID = BlockId(200)
+const UNKNOWN_BLOCK_IDS = [UNKNOWN_BLOCK_ID, BlockId(255)]
+const INVALID_BLOCK_IDS = [-1, 1.5, Number.NaN]
 
 // ---------------------------------------------------------------------------
 // The three arms, in isolation
@@ -415,6 +414,11 @@ describe('the id-keyed readings are total', () => {
         expect(supportRuleOfBlockId(id)).toStrictEqual(NEEDS_NO_SUPPORT)
         expect(isSupportSensitiveBlockId(id)).toBe(false)
         expect(canBlockStaySupported(id, blockIdOf('air'))).toBe(true)
+      }
+      for (const id of INVALID_BLOCK_IDS) {
+        expect(Reflect.apply(supportRuleOfBlockId, undefined, [id])).toStrictEqual(NEEDS_NO_SUPPORT)
+        expect(Reflect.apply(isSupportSensitiveBlockId, undefined, [id])).toBe(false)
+        expect(Reflect.apply(canBlockStaySupported, undefined, [id, blockIdOf('air')])).toBe(true)
       }
     })),
   )

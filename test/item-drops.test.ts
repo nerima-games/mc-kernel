@@ -318,7 +318,7 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
       // Ordinary-cube defaults here: doing so would print items into an
       // Inventory from a corrupt chunk.
         for (const unknown of UNKNOWN_BLOCK_IDS) {
-        expect(dropOfBlockId(unknown, FULLY_EQUIPPED)).toBeUndefined()
+        expect(Reflect.apply(dropOfBlockId, undefined, [unknown, FULLY_EQUIPPED])).toBeUndefined()
       }
     })),
   )

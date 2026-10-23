@@ -59,7 +59,7 @@ const buildResolvedById = (): ReadonlyArray<ResolvedBlock | undefined> => {
 const RESOLVED_BY_ID = buildResolvedById()
 
 /** Exported only for focused invariant tests; the package surface is the stable registry facade. */
-export const resolvedBlockAt = (id: number): ResolvedBlock => {
+export const resolvedBlockAt = (id: BlockId): ResolvedBlock => {
   const resolved = RESOLVED_BY_ID[id]
 
   if (resolved === undefined) {
@@ -289,15 +289,15 @@ export const buildIdByType = (
 
 const ID_BY_TYPE = buildIdByType(BLOCK_REGISTRY, BLOCK_TYPES)
 
-type SupportBlockIdsById = ReadonlyMap<BlockId, ReadonlySet<number>>
+type SupportBlockIdsById = ReadonlyMap<BlockId, ReadonlySet<BlockId>>
 
-const EMPTY_SUPPORT_BLOCK_IDS: ReadonlySet<number> = new Set()
+const EMPTY_SUPPORT_BLOCK_IDS: ReadonlySet<BlockId> = new Set()
 
 /** Exported only for focused invariant tests; the package surface is the stable registry facade. */
 export const buildSupportBlockIdsById = (
   supportRules: ReadonlyArray<SupportRule | undefined> = PROPERTY_COLUMNS.supportRule,
 ): SupportBlockIdsById => {
-  const blockIdsById = new Map<BlockId, ReadonlySet<number>>()
+  const blockIdsById = new Map<BlockId, ReadonlySet<BlockId>>()
 
   for (const entry of BLOCK_REGISTRY) {
     blockIdsById.set(entry.id, EMPTY_SUPPORT_BLOCK_IDS)
@@ -311,7 +311,7 @@ export const buildSupportBlockIdsById = (
     }
 
     if (supportRule.kind === 'oneOf') {
-      const supportedBlockIds = new Set<number>()
+      const supportedBlockIds = new Set<BlockId>()
 
       for (const type of supportRule.blocks) {
         const blockId = ID_BY_TYPE.get(type)
@@ -332,7 +332,7 @@ export const buildSupportBlockIdsById = (
 
 const SUPPORT_BLOCK_IDS_BY_ID = buildSupportBlockIdsById()
 
-const supportBlockIdsOf = (blockIdsById: SupportBlockIdsById, id: BlockId): ReadonlySet<number> => {
+const supportBlockIdsOf = (blockIdsById: SupportBlockIdsById, id: BlockId): ReadonlySet<BlockId> => {
   return requiredMapValue(blockIdsById, id, `Block registry is missing support ids for ${id}`)
 }
 
@@ -351,26 +351,26 @@ export const blockIdOf = (type: BlockType): BlockId => {
 }
 
 /** Block id to its resolved definition, or `undefined` for an unknown byte. */
-export const blockTypeOfId = (id: number): BlockType | undefined =>
+export const blockTypeOfId = (id: BlockId): BlockType | undefined =>
   isWithinTable(id) ? RESOLVED_BY_ID[id]?.type : undefined
 
 /** Block id to its fully resolved definition, or `undefined` when unknown. */
-export const resolvedBlockOfId = (id: number): ResolvedBlock | undefined =>
+export const resolvedBlockOfId = (id: BlockId): ResolvedBlock | undefined =>
   isWithinTable(id) ? RESOLVED_BY_ID[id] : undefined
 
 /** Whether this number names a block in the current registry. */
-export const isKnownBlockId = (id: number): id is BlockId =>
+export const isKnownBlockId = (id: BlockId): id is BlockId =>
   isWithinTable(id) && KNOWN_BY_ID[id] === 1
 
 /** Read one capability from a raw chunk-buffer byte. */
-export const capabilityOfBlockId = (id: number, flag: BlockCapabilityFlag): boolean => {
+export const capabilityOfBlockId = (id: BlockId, flag: BlockCapabilityFlag): boolean => {
   const value = isWithinTable(id) ? CAPABILITIES_BY_ID.get(flag)?.[id] : undefined
 
   return value === undefined ? BLOCK_CAPABILITY_DEFAULTS[flag] : value === 1
 }
 
 /** Read one resolved property from a raw chunk-buffer byte. */
-export const propertyOfBlockId = <K extends BlockPropertyName>(id: number, name: K): BlockProperties[K] => {
+export const propertyOfBlockId = <K extends BlockPropertyName>(id: BlockId, name: K): BlockProperties[K] => {
   if (!isWithinTable(id)) {
     return BLOCK_PROPERTY_DEFAULTS[name]
   }
@@ -379,11 +379,11 @@ export const propertyOfBlockId = <K extends BlockPropertyName>(id: number, name:
 }
 
 /** Read all resolved capabilities from a raw chunk-buffer byte. */
-export const capabilitiesOfBlockId = (id: number): BlockCapabilities =>
+export const capabilitiesOfBlockId = (id: BlockId): BlockCapabilities =>
   resolvedBlockOfId(id)?.capabilities ?? BLOCK_CAPABILITY_DEFAULTS
 
 /** Resolve the item dropped by a raw chunk-buffer byte. */
-export const dropOfBlockId = (id: number, context: HarvestContext = BARE_HANDED): BlockDrop | undefined => {
+export const dropOfBlockId = (id: BlockId, context: HarvestContext = BARE_HANDED): BlockDrop | undefined => {
   const resolved = resolvedBlockOfId(id)
 
   return resolved === undefined
@@ -391,9 +391,9 @@ export const dropOfBlockId = (id: number, context: HarvestContext = BARE_HANDED)
     : resolveDrop(resolved.properties.harvestTool, resolved.properties.drops, resolved.type, context)
 }
 
-const buildIdsByCapability = (): ReadonlyMap<BlockCapabilityFlag, ReadonlySet<number>> =>
+const buildIdsByCapability = (): ReadonlyMap<BlockCapabilityFlag, ReadonlySet<BlockId>> =>
   seededMap(BLOCK_CAPABILITY_FLAGS, (flag) => {
-    const members = new Set<number>()
+    const members = new Set<BlockId>()
 
     for (const entry of BLOCK_REGISTRY) {
       if (capabilityOfBlockId(entry.id, flag)) {
@@ -407,15 +407,15 @@ const buildIdsByCapability = (): ReadonlyMap<BlockCapabilityFlag, ReadonlySet<nu
 const IDS_BY_CAPABILITY = buildIdsByCapability()
 
 /** Return the shared native set of ids carrying a capability. */
-export const blockIdsWithCapability = (flag: BlockCapabilityFlag): ReadonlySet<number> => {
+export const blockIdsWithCapability = (flag: BlockCapabilityFlag): ReadonlySet<BlockId> => {
   return requiredMapValue(IDS_BY_CAPABILITY, flag, `Block capability index is missing ${flag}`)
 }
 
-const buildIdsByOpacity = (): ReadonlyMap<BlockOpacity, ReadonlySet<number>> => {
-  const table = new Map<BlockOpacity, Set<number>>()
+const buildIdsByOpacity = (): ReadonlyMap<BlockOpacity, ReadonlySet<BlockId>> => {
+  const table = new Map<BlockOpacity, Set<BlockId>>()
 
   for (const opacity of BLOCK_OPACITIES) {
-    table.set(opacity, new Set<number>())
+    table.set(opacity, new Set<BlockId>())
   }
 
   for (const entry of BLOCK_REGISTRY) {
@@ -430,16 +430,16 @@ const buildIdsByOpacity = (): ReadonlyMap<BlockOpacity, ReadonlySet<number>> => 
 const IDS_BY_OPACITY = buildIdsByOpacity()
 
 /** Return the shared native set of ids in an opacity bucket. */
-export const blockIdsWithOpacity = (opacity: BlockOpacity): ReadonlySet<number> => {
+export const blockIdsWithOpacity = (opacity: BlockOpacity): ReadonlySet<BlockId> => {
   return requiredMapValue(IDS_BY_OPACITY, opacity, `Block opacity index is missing ${opacity}`)
 }
 
 /** Read the meshing/light-attenuation class of a raw chunk-buffer byte. */
-export const opacityOfBlockId = (id: number): BlockOpacity =>
+export const opacityOfBlockId = (id: BlockId): BlockOpacity =>
   isWithinTable(id) ? (PROPERTY_COLUMNS.opacity[id] ?? BLOCK_PROPERTY_DEFAULTS.opacity) : BLOCK_PROPERTY_DEFAULTS.opacity
 
 /** Read the emitted light level of a raw chunk-buffer byte. */
-export const lightEmissionOfBlockId = (id: number): LightLevel => {
+export const lightEmissionOfBlockId = (id: BlockId): LightLevel => {
   if (!isWithinTable(id)) {
     return BLOCK_PROPERTY_DEFAULTS.lightEmission
   }
@@ -450,22 +450,22 @@ export const lightEmissionOfBlockId = (id: number): LightLevel => {
 }
 
 /** Whether light can cross the cell represented by a raw chunk-buffer byte. */
-export const transmitsLight = (id: number): boolean => {
+export const transmitsLight = (id: BlockId): boolean => {
   return isWithinTable(id) && PROPERTY_COLUMNS.transmitsLight[id] === 1
 }
 
 /** Read the support rule of a raw chunk-buffer byte. */
-export const supportRuleOfBlockId = (id: number): SupportRule =>
+export const supportRuleOfBlockId = (id: BlockId): SupportRule =>
   isWithinTable(id)
     ? (PROPERTY_COLUMNS.supportRule[id] ?? BLOCK_PROPERTY_DEFAULTS.supportRule)
     : BLOCK_PROPERTY_DEFAULTS.supportRule
 
 /** Whether a raw chunk-buffer byte needs support below it. */
-export const isSupportSensitiveBlockId = (id: number): boolean =>
+export const isSupportSensitiveBlockId = (id: BlockId): boolean =>
   isWithinTable(id) && PROPERTY_COLUMNS.supportSensitive[id] === 1
 
 /** Evaluate whether a block can remain supported by the byte below it. */
-export const canBlockStaySupported = (id: number, supportBelow: number): boolean => {
+export const canBlockStaySupported = (id: BlockId, supportBelow: BlockId): boolean => {
   if (!isKnownBlockId(id)) {
     return true
   }

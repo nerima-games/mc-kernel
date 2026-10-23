@@ -1,10 +1,10 @@
 /** Registry entries 33-35; the numeric order is the wire-level BlockId order. */
 import { BlockId } from './block-registry-types.js'
-import type { BlockRegistryEntry } from './block-registry-types.js'
+import type { BlockRegistryEntryInput } from './block-registry-entry-input.js'
 import { NEEDS_ANY_SUPPORT } from './block-support-data.js'
 import { NEEDS_SAND_OR_CACTUS, NEEDS_WOODEN_PICKAXE } from './block-registry-rules.js'
 
-export const BLOCK_REGISTRY_COLLISION_SHAPES: ReadonlyArray<BlockRegistryEntry> = [
+export const BLOCK_REGISTRY_COLLISION_SHAPES: ReadonlyArray<BlockRegistryEntryInput> = [
   // -------------------------------------------------------------------------
   // ids 33-35: the three non-`full` collision shapes
   // -------------------------------------------------------------------------
