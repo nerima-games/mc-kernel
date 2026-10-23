@@ -1,6 +1,6 @@
 # mc-kernel 0.8から0.9への移行
 
-このガイドは0.9の公開面とEffect 4への移行を説明する。表のソースパスは実装の所有元を示し、packageのimport pathではない。公開import例は、export mapとbarrelの両方で確認できたものだけを示す。このガイドは下流リポジトリの移行完了を示すものではない。
+このガイドは0.9の公開面とEffect 4への移行を説明する。表のソースパスは実装の所有元を示し、packageのimport pathではない。公開import例は、export mapとbarrelの両方で確認できたものだけを示す。
 
 ## 実行時処理の所有元を確認する
 
@@ -15,7 +15,7 @@
 | レッドストーンの実行時処理 | `mx-redstone:src/domain/` |
 | 飛翔体の実行時処理 | `mc-physics:src/domain/projectile.ts` |
 
-この表は処理の実装所有元を示すだけで、同じパスをpackage importとして使えることを示さない。確認できた公開importは `@nerima-games/mc-physics` のrootである。たとえば `launchProjectile` はこのroot exportから利用できる。
+確認できた公開importは `@nerima-games/mc-physics` のrootである。たとえば `launchProjectile` はこのroot exportから利用できる。
 
 `mc-sim`、`mx-gameplay`、`mc-worldgen`、`mx-redstone`では、移動対象の各シンボルを利用する公開APIを確認できていない。これらの処理に依存するconsumerは、kernel 0.8のpinを保ち、owner packageが該当APIを公開してから切り替える。ソースディレクトリから直接importしたり、未確認の関数名を移行先として仮定したりしない。
 
@@ -26,8 +26,8 @@
 | 醸造・製錬のレシピ、燃料データ、定数と共有state/data型 | `@nerima-games/mc-kernel`のroot、または実在する`@nerima-games/mc-kernel/domain/recipe`から読み込む。`BrewingState`、`BrewingBottles`、`FurnaceState`、`CookingStation`などは共有する値の形であり、stateの生成・更新や処理結果ではない。 |
 | `itemDurabilityDefinitionFor` | `@nerima-games/mc-kernel`のrootから読み込む。定義元の`src/domain/item/equipment-data.ts`はソースパスであり、import pathではない。 |
 | エンチャントID、コスト表、ルール配列、3種の `SUPPORTED_VANILLA_*_ANVIL_RULE_SET` 定数 | `@nerima-games/mc-kernel`のrootまたは実在する`@nerima-games/mc-kernel/domain/enchantment`から静的データとして読み込む。金床state・計画・適用APIとは別の契約である。 |
-| `BlockAt`、`PortalAxis`、`PortalFrame`、`PortalLayout`、ポータル寸法定数 | 共有型・寸法データとしてkernelに残る。生成・検出の実行時処理は上表のowner packageの公開APIが確認できてから移す。 |
-| entity/vehicleの共有型、爆発データ、block entityのデータと検証、fluid/light/redstoneの静的データ、weather/settingsの共有語彙 | kernelのroot、またはexport mapにあるsubpathから読み込む。state更新やcollection操作はruntime ownerが提供する。 |
+| `BlockAt`、`PortalAxis`、`PortalFrame`、`PortalLayout`、ポータル寸法定数 | `@nerima-games/mc-kernel`のrootから共有型・寸法データを読み込む。生成・検出の実行時処理は上表のowner packageの公開APIが確認できてから移す。 |
+| entity/vehicleの共有型、爆発データ、block entityのデータと検証、fluid/light/redstoneの静的データ、weather/settingsの共有語彙 | `@nerima-games/mc-kernel`のrootから読み込む。state更新やcollection操作はruntime ownerが提供する。 |
 
 ### Effect 4のResultへ移行する
 
@@ -71,7 +71,7 @@ if (Result.isFailure(merged)) {
 
 座標では`BlockAxis`、`ChunkAxis`、`LocalAxis`、`PositionAxis`を使います。`blockPosition`には3つの`BlockAxis`、`chunkCoord`には2つの`ChunkAxis`、`position`には3つの`PositionAxis`を渡してください。`BlockAxis`と`ChunkAxis`は安全な整数、`LocalAxis`は0〜15の整数、`PositionAxis`は有限値です。
 
-各brand構築子は値域を検証します。無効な値で構築子を直接呼び出すと例外が投げられます。外部値の検証では、例外を投げない`SimulationTick.result(value)`または`BlockAxis.option(value)`を使ってください。
+各brand構築子は値域を検証します。無効な値で構築子を直接呼び出すと例外が投げられます。外部値の検証では、例外を投げない`SimulationTick.result(value)`（`@nerima-games/mc-kernel/domain/quantities`）または`BlockAxis.option(value)`（`@nerima-games/mc-kernel/domain/coordinates`）を使ってください。
 
 ## ClockPortのサービス宣言を変更する
 

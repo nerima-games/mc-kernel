@@ -189,7 +189,7 @@ const isKnownBlockId(id: number): id is BlockId
 const resolvedBlockOfId(id: number): ResolvedBlock | undefined
 ```
 
-`block-registry.ts` は安定した公開 import path である。
+安定した公開 import path は `@nerima-games/mc-kernel/domain/block-registry` である。
 
 **チャンクバイトから直接読む関数群。** いずれも `resolveBlock` で定義を都度組み立てるのではなく、
 `BLOCK_REGISTRY` から起動時に一度だけ構築した `Uint8Array` / `ReadonlySet` の列を引く。
@@ -1039,7 +1039,7 @@ root と `@nerima-games/mc-kernel/domain/explosion` subpath から利用でき�
 ### 4-1. 能力フラグ（boolean）：`domain/block-capabilities.ts` / `domain/block-capability-data.ts`
 
 `block-capability-data.ts` が能力の型・既定値・反復順を持ち、`block-capabilities.ts` が外部入力の検証と既定値解決を担当する。
-公開 import path は `block-capabilities.ts` のまま維持する。
+安定した公開 import path は `@nerima-games/mc-kernel/domain/block-capabilities` である。
 
 ```typescript
 const BLOCK_CAPABILITY_DEFAULTS = { passable: false, ..., validSpawnSurface: true }
