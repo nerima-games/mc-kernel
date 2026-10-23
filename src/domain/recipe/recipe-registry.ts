@@ -4,7 +4,7 @@ import {
   dataPackResourcePath,
   selectDataPackRegistry,
 } from "../world/data-pack-registry.js";
-import type { DataPackFormat, DataPackLayer } from "../world/data-pack-registry.js";
+import type { DataPackFormat, DataPackLayer, DataPackLayerOptions, DataPackResourcePath } from "../world/data-pack-registry.js";
 import { NamespacedResourceLocation } from "../text/identifiers.js";
 import {
   portableRecipeFromUnknown,
@@ -15,14 +15,7 @@ const RECIPE_DATA_REGISTRY = NamespacedResourceLocation("minecraft:recipe");
 
 export type RecipeDataPackLayer = DataPackLayer<PortableRecipe>;
 
-export type RecipeDataPackLayerOptions = Readonly<{
-  readonly pack: string;
-  readonly format: number;
-  readonly priority: number;
-  readonly entries: ReadonlyArray<
-    Readonly<{ readonly id: string; readonly value: unknown }>
-  >;
-}>;
+export type RecipeDataPackLayerOptions = DataPackLayerOptions<unknown>;
 
 export const recipeDataPackLayer = (
   options: RecipeDataPackLayerOptions,
@@ -48,5 +41,5 @@ export const selectRecipes = (
 ): ReadonlyMap<NamespacedResourceLocation, PortableRecipe> =>
   selectDataPackRegistry(layers, format);
 
-export const recipeDataPackPath = (entry: NamespacedResourceLocation): string =>
+export const recipeDataPackPath = (entry: NamespacedResourceLocation): DataPackResourcePath =>
   dataPackResourcePath(RECIPE_DATA_REGISTRY, entry);

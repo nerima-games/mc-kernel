@@ -1,5 +1,6 @@
 export {
   TRANSMUTE_MAX_MATERIAL_SLOTS,
+  TransmuteMaterialSlotCount,
   isTransmuteMaterialCount,
   isTransmuteRecipe,
   transmuteRecipe,

@@ -4,14 +4,21 @@ import {
   type ItemStack,
   type Slot,
 } from "../item/item-stack.js";
+import { PositiveTickCount, StackCount } from "../time/quantities.js";
 import {
   craftingIngredient,
   isCraftingIngredient,
   isCraftingIngredientInput,
+  RecipeId,
+  RecipeGroup,
+  RecipeExperience,
+  RecipePriority,
   type CraftingIngredient,
   type CraftingIngredientInput,
   type RecipeCategory,
-  type RecipeId,
+  type RecipeGroup as RecipeGroupValue,
+  type RecipeExperience as RecipeExperienceValue,
+  type RecipePriority as RecipePriorityValue,
 } from "./recipe-data.js";
 import type { ItemType } from "../item/item-type.js";
 
@@ -26,8 +33,8 @@ export type CookingStation = (typeof COOKING_STATIONS)[number];
 
 export type CookingRecipeOptions = {
   readonly category?: RecipeCategory;
-  readonly group?: string;
-  readonly priority?: number;
+  readonly group?: RecipeGroupValue;
+  readonly priority?: RecipePriorityValue;
   readonly showNotification?: boolean;
 };
 
@@ -37,11 +44,11 @@ export type CookingRecipe = {
   readonly station: CookingStation;
   readonly ingredient: CraftingIngredient;
   readonly output: ItemStack;
-  readonly cookTimeTicks: number;
-  readonly experience: number;
+  readonly cookTimeTicks: PositiveTickCount;
+  readonly experience: RecipeExperienceValue;
   readonly category?: RecipeCategory;
-  readonly group?: string;
-  readonly priority: number;
+  readonly group?: RecipeGroupValue;
+  readonly priority: RecipePriorityValue;
   readonly showNotification?: boolean;
 };
 
@@ -74,10 +81,10 @@ const isRecipeCategory = (value: unknown): value is RecipeCategory =>
   value === "redstone";
 
 const assertRecipeId = (value: unknown): RecipeId => {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new TypeError("Cooking recipe id must be a non-empty string");
+  if (typeof value !== "string" || !RecipeId.is(value)) {
+    throw new TypeError("Cooking recipe id must be a resource location");
   }
-  return value;
+  return RecipeId(value);
 };
 
 const assertStation = (value: unknown): CookingStation => {
@@ -101,22 +108,22 @@ const assertOutput = (value: unknown): ItemStack => {
   return value;
 };
 
-const assertCookTimeTicks = (value: unknown): number => {
+const assertCookTimeTicks = (value: unknown): PositiveTickCount => {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) {
     throw new RangeError(
       `Cooking time must be a positive safe integer, received ${String(value)}`,
     );
   }
-  return value;
+  return PositiveTickCount(value);
 };
 
-const assertExperience = (value: unknown): number => {
+const assertExperience = (value: unknown): RecipeExperienceValue => {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
     throw new RangeError(
       `Cooking experience must be a finite non-negative number, received ${String(value)}`,
     );
   }
-  return value;
+  return RecipeExperience(value);
 };
 
 const normalizeOptions = (
@@ -126,7 +133,7 @@ const normalizeOptions = (
   "category" | "group" | "priority" | "showNotification"
 > => {
   if (options === undefined) {
-    return { priority: 0 };
+    return { priority: RecipePriority(0) };
   }
   if (!isRecord(options)) {
     throw new TypeError("Cooking recipe options must be an object");
@@ -157,8 +164,8 @@ const normalizeOptions = (
   }
   return {
     ...(category === undefined ? {} : { category }),
-    ...(group === undefined ? {} : { group }),
-    priority,
+    ...(group === undefined ? {} : { group: RecipeGroup(group) }),
+    priority: RecipePriority(priority),
     ...(showNotification === undefined ? {} : { showNotification }),
   };
 };
@@ -168,8 +175,8 @@ export function cookingRecipe(
   station: CookingStation,
   ingredient: CraftingIngredientInput,
   output: ItemStack,
-  cookTimeTicks: number,
-  experience: number,
+  cookTimeTicks: PositiveTickCount,
+  experience: RecipeExperienceValue,
   options?: CookingRecipeOptions,
 ): CookingRecipe;
 export function cookingRecipe(
@@ -177,8 +184,8 @@ export function cookingRecipe(
   station: CookingStation,
   ingredient: CraftingIngredientInput,
   output: ItemStack,
-  cookTimeTicks: number,
-  experience: number,
+  cookTimeTicks: PositiveTickCount,
+  experience: RecipeExperienceValue,
   options?: CookingRecipeOptions,
 ): CookingRecipe {
   return {
@@ -196,25 +203,23 @@ export function cookingRecipe(
 const hasCookingIdentity = (value: RecordValue): boolean =>
   value._tag === "Cooking" &&
   typeof value.id === "string" &&
-  value.id.trim().length > 0 &&
+  RecipeId.is(value.id) &&
   isCookingStation(value.station) &&
   isCraftingIngredient(value.ingredient) &&
   isItemStack(value.output);
 
 const hasCookingQuantities = (value: RecordValue): boolean =>
   typeof value.cookTimeTicks === "number" &&
-  Number.isSafeInteger(value.cookTimeTicks) &&
-  value.cookTimeTicks >= 1 &&
+  PositiveTickCount.is(value.cookTimeTicks) &&
   typeof value.experience === "number" &&
-  Number.isFinite(value.experience) &&
-  value.experience >= 0 &&
+  RecipeExperience.is(value.experience) &&
   typeof value.priority === "number" &&
-  Number.isSafeInteger(value.priority) &&
-  value.priority >= 0;
+  RecipePriority.is(value.priority);
 
 const hasCookingMetadata = (value: RecordValue): boolean =>
   (value.category === undefined || isRecipeCategory(value.category)) &&
-  (value.group === undefined || typeof value.group === "string") &&
+  (value.group === undefined ||
+    (typeof value.group === "string" && RecipeGroup.is(value.group))) &&
   (value.showNotification === undefined ||
     typeof value.showNotification === "boolean");
 
@@ -229,9 +234,9 @@ export const cookingRecipeForItem = (
   station: CookingStation,
   ingredient: CraftingIngredientInput,
   output: ItemType,
-  count: number,
-  cookTimeTicks: number,
-  experience: number,
+  count: StackCount,
+  cookTimeTicks: PositiveTickCount,
+  experience: RecipeExperienceValue,
   options?: CookingRecipeOptions,
 ): CookingRecipe =>
   cookingRecipe(

@@ -22,22 +22,24 @@ import {
   isCraftingSpecialRecipe,
 } from "../src/domain/recipe/crafting-special-data";
 import { itemStack } from "../src/domain/item/item-stack";
+import { StackCount } from "../src/domain/time/quantities";
 import { ResourceLocation } from "../src/domain/text/identifiers";
-import { exactly } from "../src/domain/recipe/recipe-data";
+import { BookGeneration } from "../src/domain/item/item-primitives";
+import { RecipeGroup, RecipePriority, exactly } from "../src/domain/recipe/recipe-data";
 
 const dyeRecipe = craftingDyeRecipe(
   ResourceLocation("minecraft:leather_dye"),
   exactly("leather"),
   exactly("redstone_dust"),
-  itemStack("leather", 1),
-  { priority: 1 },
+  itemStack("leather", StackCount(1)),
+  { priority: RecipePriority(1) },
 );
 
 const imbueRecipe = craftingImbueRecipe(
   ResourceLocation("minecraft:arrow_imbue"),
   exactly("arrow"),
   exactly("glass_bottle"),
-  itemStack("arrow", 1),
+  itemStack("arrow", StackCount(1)),
 );
 
 describe("crafting special recipe data", () => {
@@ -92,7 +94,7 @@ describe("crafting special recipe data", () => {
         "",
         exactly("leather"),
         exactly("redstone_dust"),
-        itemStack("leather", 1),
+        itemStack("leather", StackCount(1)),
       ]),
     ).toThrow(TypeError);
     expect(() =>
@@ -100,7 +102,7 @@ describe("crafting special recipe data", () => {
         "minecraft:bad",
         exactly("leather"),
         exactly("redstone_dust"),
-        itemStack("leather", 1),
+        itemStack("leather", StackCount(1)),
         null,
       ]),
     ).toThrow(TypeError);
@@ -117,7 +119,7 @@ describe("crafting special recipe data", () => {
           "minecraft:bad",
           exactly("leather"),
           exactly("redstone_dust"),
-          itemStack("leather", 1),
+          itemStack("leather", StackCount(1)),
           options,
         ]),
       ).toThrow();
@@ -127,7 +129,7 @@ describe("crafting special recipe data", () => {
         "minecraft:bad",
         exactly("arrow"),
         exactly("glass_bottle"),
-        itemStack("arrow", 1),
+        itemStack("arrow", StackCount(1)),
         { tags: "crafting_table" },
       ]),
     ).toThrow(TypeError);
@@ -138,11 +140,11 @@ describe("crafting special recipe data", () => {
       ResourceLocation("minecraft:described_dye"),
       exactly("leather"),
       exactly("redstone_dust"),
-      itemStack("leather", 1),
+      itemStack("leather", StackCount(1)),
       {
         category: "misc",
-        group: "dyeing",
-        priority: 3,
+        group: RecipeGroup("dyeing"),
+        priority: RecipePriority(3),
         showNotification: false,
       },
     );
@@ -150,13 +152,13 @@ describe("crafting special recipe data", () => {
       {
         id: ResourceLocation("minecraft:described_dye"),
         category: "misc",
-        group: "dyeing",
-        priority: 3,
+        group: RecipeGroup("dyeing"),
+        priority: RecipePriority(3),
         showNotification: false,
       },
       exactly("leather"),
       exactly("redstone_dust"),
-      itemStack("leather", 1),
+      itemStack("leather", StackCount(1)),
     );
     expect(fromOptions).toEqual(fromId);
     expect(fromId).toMatchObject({
@@ -169,11 +171,11 @@ describe("crafting special recipe data", () => {
     const imbueFromOptions = craftingImbueRecipe(
       {
         id: ResourceLocation("minecraft:described_imbue"),
-        group: "imbuing",
+        group: RecipeGroup("imbuing"),
       },
       exactly("arrow"),
       exactly("glass_bottle"),
-      itemStack("arrow", 1),
+      itemStack("arrow", StackCount(1)),
     );
     expect(imbueFromOptions.group).toBe("imbuing");
 
@@ -191,16 +193,25 @@ describe("crafting special recipe data", () => {
         ResourceLocation("minecraft:default_generations"),
         exactly("written_book"),
         exactly("paper"),
-        itemStack("written_book", 1),
+        itemStack("written_book", StackCount(1)),
       ).allowedGenerations,
     ).toEqual([0, 1]);
+    expect(
+      craftingBookCloningRecipe(
+        ResourceLocation("minecraft:max_generations"),
+        exactly("written_book"),
+        exactly("paper"),
+        itemStack("written_book", StackCount(1)),
+        [BookGeneration(2), BookGeneration(2)],
+      ).allowedGenerations,
+    ).toEqual([2, 2]);
     for (const generations of [
       [0],
       [0.5, 1],
       [0, 1.5],
       [-1, 1],
       [3, 3],
-      [0, 3],
+      [0, 4],
       [2, 1],
     ]) {
       expect(() =>
@@ -208,7 +219,7 @@ describe("crafting special recipe data", () => {
           ResourceLocation("minecraft:bad_generations"),
           exactly("written_book"),
           exactly("paper"),
-          itemStack("written_book", 1),
+          itemStack("written_book", StackCount(1)),
           generations,
         ]),
       ).toThrow(RangeError);
@@ -222,7 +233,7 @@ describe("crafting special recipe data", () => {
         exactly("gunpowder"),
         exactly("red_dye"),
         { spiral: exactly("fire_charge") },
-        itemStack("firework_star", 1),
+        itemStack("firework_star", StackCount(1)),
       ]),
     ).toThrow(TypeError);
   });
@@ -232,8 +243,8 @@ describe("crafting special recipe data", () => {
       ResourceLocation("minecraft:guarded_cloning"),
       exactly("written_book"),
       exactly("paper"),
-      itemStack("written_book", 1),
-      [0, 1],
+      itemStack("written_book", StackCount(1)),
+      [BookGeneration(0), BookGeneration(1)],
     );
     expect(isCraftingSpecialRecipe(cloning)).toBe(true);
     for (const allowedGenerations of [
@@ -243,7 +254,7 @@ describe("crafting special recipe data", () => {
       ["0", 1],
       [0, "1"],
       [-1, 1],
-      [0, 3],
+      [0, 4],
       [2, 1],
     ]) {
       expect(
@@ -258,7 +269,7 @@ describe("crafting special recipe data", () => {
       exactly("gunpowder"),
       exactly("red_dye"),
       { star: exactly("fire_charge") },
-      itemStack("firework_star", 1),
+      itemStack("firework_star", StackCount(1)),
     );
     expect(isCraftingSpecialRecipe(star)).toBe(true);
     for (const shapes of [
@@ -274,7 +285,7 @@ describe("crafting special recipe data", () => {
     const bannerDuplicate = craftingBannerDuplicateRecipe(
       ResourceLocation("minecraft:banner_duplicate"),
       exactly("white_banner"),
-      itemStack("white_banner", 1),
+      itemStack("white_banner", StackCount(1)),
     );
     const decoratedPot = craftingDecoratedPotRecipe(
       ResourceLocation("minecraft:decorated_pot"),
@@ -282,32 +293,32 @@ describe("crafting special recipe data", () => {
       exactly("brick"),
       exactly("brick"),
       exactly("brick"),
-      itemStack("decorated_pot", 1),
+      itemStack("decorated_pot", StackCount(1)),
     );
     const fireworkRocket = craftingFireworkRocketRecipe(
       ResourceLocation("minecraft:firework_rocket"),
       exactly("paper"),
       exactly("gunpowder"),
       exactly("firework_star"),
-      itemStack("firework_rocket", 1),
+      itemStack("firework_rocket", StackCount(1)),
     );
     const fireworkStarFade = craftingFireworkStarFadeRecipe(
       ResourceLocation("minecraft:firework_star_fade"),
       exactly("firework_star"),
       exactly("red_dye"),
-      itemStack("firework_star", 1),
+      itemStack("firework_star", StackCount(1)),
     );
     const mapExtending = craftingMapExtendingRecipe(
       ResourceLocation("minecraft:map_extending"),
       exactly("filled_map"),
       exactly("paper"),
-      itemStack("filled_map", 1),
+      itemStack("filled_map", StackCount(1)),
     );
     const shieldDecoration = craftingShieldDecorationRecipe(
       ResourceLocation("minecraft:shield_decoration"),
       exactly("white_banner"),
       exactly("shield"),
-      itemStack("shield", 1),
+      itemStack("shield", StackCount(1)),
     );
 
     expect(isCraftingBannerDuplicateRecipe(bannerDuplicate)).toBe(true);

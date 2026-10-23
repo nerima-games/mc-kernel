@@ -1,50 +1,56 @@
 import { isItemStack, itemStack } from "../item/item-stack.js";
 import type { ItemStack, Slot } from "../item/item-stack.js";
+import { StackCount } from "../time/quantities.js";
+import { TagLocation } from "../text/identifiers.js";
 import {
   craftingIngredient,
   exactly,
   isCraftingIngredientInput,
+  RecipeId,
+  RecipePriority,
+  RecipeStationTag,
   tagged,
   type CraftingIngredient,
   type CraftingIngredientInput,
   type RecipeItemTag,
-  type RecipeStationTag,
+  type RecipePriority as RecipePriorityValue,
 } from "./recipe-data.js";
 import type { ItemType } from "../item/item-type.js";
 
-export const SMITHING_STATION_TAG: RecipeStationTag = "smithing_table";
+export const SMITHING_STATION_TAG: RecipeStationTag =
+  RecipeStationTag("smithing_table");
 export const SMITHING_TRIM_TEMPLATE_TAG: RecipeItemTag =
-  "#minecraft:trim_templates";
+  TagLocation("#minecraft:trim_templates");
 export const SMITHING_TRIMMABLE_ARMOR_TAG: RecipeItemTag =
-  "#minecraft:trimmable_armor";
+  TagLocation("#minecraft:trimmable_armor");
 export const SMITHING_TRIM_MATERIAL_TAG: RecipeItemTag =
-  "#minecraft:trim_materials";
+  TagLocation("#minecraft:trim_materials");
 
 export type SmithingRecipeOptions = {
-  readonly priority?: number;
+  readonly priority?: RecipePriorityValue;
   readonly showNotification?: boolean;
   readonly tags?: ReadonlyArray<RecipeStationTag>;
 };
 
 export type SmithingTransformRecipe = {
   readonly _tag: "SmithingTransform";
-  readonly id: string;
+  readonly id: RecipeId;
   readonly template: CraftingIngredient;
   readonly base: CraftingIngredient;
   readonly addition: CraftingIngredient;
   readonly output: ItemStack;
-  readonly priority: number;
+  readonly priority: RecipePriorityValue;
   readonly showNotification?: boolean;
   readonly tags: ReadonlyArray<RecipeStationTag>;
 };
 
 export type SmithingTrimRecipe = {
   readonly _tag: "SmithingTrim";
-  readonly id: string;
+  readonly id: RecipeId;
   readonly template: CraftingIngredient;
   readonly base: CraftingIngredient;
   readonly addition: CraftingIngredient;
-  readonly priority: number;
+  readonly priority: RecipePriorityValue;
   readonly showNotification?: boolean;
   readonly tags: ReadonlyArray<RecipeStationTag>;
 };
@@ -64,12 +70,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const assertStationTag = (tag: unknown): RecipeStationTag => {
-  if (typeof tag !== "string" || tag.trim().length === 0) {
-    throw new TypeError(
-      "Smithing recipe station tags must be non-empty strings",
-    );
+  if (typeof tag !== "string" || !RecipeStationTag.is(tag)) {
+    throw new TypeError("Smithing recipe station tags must be resource locations");
   }
-  return tag;
+  return RecipeStationTag(tag);
 };
 
 const normalizeOptions = (
@@ -98,17 +102,17 @@ const normalizeOptions = (
     throw new TypeError("Smithing recipe show notification must be a boolean");
   }
   return {
-    priority,
+    priority: RecipePriority(priority),
     ...(showNotification === undefined ? {} : { showNotification }),
     tags: tags.map(assertStationTag),
   };
 };
 
-const assertRecipeId = (id: unknown): string => {
-  if (typeof id !== "string" || id.trim().length === 0) {
-    throw new TypeError("Smithing recipe id must be a non-empty string");
+const assertRecipeId = (id: unknown): RecipeId => {
+  if (typeof id !== "string" || !RecipeId.is(id)) {
+    throw new TypeError("Smithing recipe id must be a resource location");
   }
-  return id;
+  return RecipeId(id);
 };
 
 const normalizeIngredient = (
@@ -122,7 +126,7 @@ const normalizeIngredient = (
 };
 
 export function smithingTransformRecipe(
-  id: string,
+  id: RecipeId,
   template: CraftingIngredientInput,
   base: CraftingIngredientInput,
   addition: CraftingIngredientInput,
@@ -130,7 +134,7 @@ export function smithingTransformRecipe(
   options?: SmithingRecipeOptions,
 ): SmithingTransformRecipe;
 export function smithingTransformRecipe(
-  id: string,
+  id: RecipeId,
   template: CraftingIngredientInput,
   base: CraftingIngredientInput,
   addition: CraftingIngredientInput,
@@ -152,14 +156,14 @@ export function smithingTransformRecipe(
 }
 
 export function smithingTrimRecipe(
-  id: string,
+  id: RecipeId,
   template: CraftingIngredientInput,
   base: CraftingIngredientInput,
   addition: CraftingIngredientInput,
   options?: SmithingRecipeOptions,
 ): SmithingTrimRecipe;
 export function smithingTrimRecipe(
-  id: string,
+  id: RecipeId,
   template: CraftingIngredientInput,
   base: CraftingIngredientInput,
   addition: CraftingIngredientInput,
@@ -180,11 +184,11 @@ const netheriteTransform = (
   output: ItemType,
 ): SmithingTransformRecipe =>
   smithingTransformRecipe(
-    `minecraft:netherite_${output}`,
+    RecipeId(`minecraft:netherite_${output}`),
     exactly("netherite_upgrade_smithing_template"),
     exactly(base),
     exactly("netherite_ingot"),
-    itemStack(output, 1),
+    itemStack(output, StackCount(1)),
     { tags: [SMITHING_STATION_TAG] },
   );
 
@@ -199,7 +203,7 @@ export const VANILLA_SMITHING_RECIPES: SmithingRecipeTable = [
   netheriteTransform("diamond_leggings", "netherite_leggings"),
   netheriteTransform("diamond_boots", "netherite_boots"),
   smithingTrimRecipe(
-    "minecraft:trim",
+    RecipeId("minecraft:trim"),
     tagged(SMITHING_TRIM_TEMPLATE_TAG),
     tagged(SMITHING_TRIMMABLE_ARMOR_TAG),
     tagged(SMITHING_TRIM_MATERIAL_TAG),

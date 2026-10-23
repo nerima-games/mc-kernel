@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DataPackFormat,
+  DataPackPriority,
   dataPackLayer,
 } from "../src/domain/world/data-pack-registry";
 import { NamespacedResourceLocation } from "../src/domain/text/identifiers";
@@ -10,6 +11,30 @@ import {
   recipeDataPackPath,
   selectRecipes,
 } from "../src/domain/recipe/recipe-registry";
+
+const recipeLayerFromRaw = (options: {
+  readonly pack: string;
+  readonly format: number;
+  readonly priority: number;
+  readonly entries: ReadonlyArray<Readonly<{ readonly id: string; readonly value: unknown }>>;
+}) => recipeDataPackLayer({
+  pack: NamespacedResourceLocation(options.pack),
+  format: DataPackFormat(options.format),
+  priority: DataPackPriority(options.priority),
+  entries: options.entries.map(({ id, value }) => ({ id: NamespacedResourceLocation(id), value })),
+});
+
+const genericLayerFromRaw = (options: {
+  readonly pack: string;
+  readonly format: number;
+  readonly priority: number;
+  readonly entries: ReadonlyArray<Readonly<{ readonly id: string; readonly value: unknown }>>;
+}) => dataPackLayer({
+  pack: NamespacedResourceLocation(options.pack),
+  format: DataPackFormat(options.format),
+  priority: DataPackPriority(options.priority),
+  entries: options.entries.map(({ id, value }) => ({ id: NamespacedResourceLocation(id), value })),
+});
 
 const craftingDocument = {
   type: "minecraft:crafting_shapeless",
@@ -27,13 +52,13 @@ const cookingDocument = {
 
 describe("recipe registry", () => {
   it("decodes layers and applies exact-format priority overrides", () => {
-    const base = recipeDataPackLayer({
+    const base = recipeLayerFromRaw({
       pack: "example:base",
       format: 107.1,
       priority: 0,
       entries: [{ id: "example:shared", value: craftingDocument }],
     });
-    const override = recipeDataPackLayer({
+    const override = recipeLayerFromRaw({
       pack: "example:override",
       format: 107.1,
       priority: 1,
@@ -73,7 +98,7 @@ describe("recipe registry", () => {
   });
 
   it("keeps the generic data-pack layer compatible with recipe layer values", () => {
-    const layer = dataPackLayer({
+    const layer = genericLayerFromRaw({
       pack: "example:generic",
       format: 107.1,
       priority: 0,

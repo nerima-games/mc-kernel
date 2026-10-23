@@ -4,44 +4,61 @@ import {
   maxStackCountForStack,
   type ItemStack,
 } from "../item/item-stack.js";
+import { Brand } from "effect";
+import { StackCount } from "../time/quantities.js";
 import { type ItemType } from "../item/item-type.js";
 import {
   craftingIngredient,
   isCraftingIngredient,
   isCraftingIngredientInput,
+  RecipeId,
+  RecipeGroup,
+  RecipePriority,
   type CraftingIngredient,
   type CraftingIngredientInput,
   type RecipeCategory,
-  type RecipeId,
+  type RecipeGroup as RecipeGroupValue,
+  type RecipeId as RecipeIdValue,
+  type RecipePriority as RecipePriorityValue,
 } from "./recipe-data.js";
 
 export const TRANSMUTE_MAX_MATERIAL_SLOTS = 8;
 
+export type TransmuteMaterialSlotCount = number &
+  Brand.Brand<"TransmuteMaterialSlotCount">;
+
+export const TransmuteMaterialSlotCount: Brand.Constructor<TransmuteMaterialSlotCount> =
+  Brand.make<TransmuteMaterialSlotCount>((value) =>
+    Number.isSafeInteger(value) && value >= 1 && value <= TRANSMUTE_MAX_MATERIAL_SLOTS
+      ? true
+      : `TransmuteMaterialSlotCount must be an integer in [1, ${TRANSMUTE_MAX_MATERIAL_SLOTS}], received ${value}`,
+  );
+
 export type TransmuteMaterialCount = Readonly<{
-  readonly min: number;
-  readonly max: number;
+  readonly min: TransmuteMaterialSlotCount;
+  readonly max: TransmuteMaterialSlotCount;
 }>;
 
 export type TransmuteRecipeOptions = Readonly<{
   readonly addMaterialCountToResult?: boolean;
   readonly category?: RecipeCategory;
-  readonly group?: string;
+  readonly group?: RecipeGroupValue;
   readonly materialCount?: TransmuteMaterialCount;
-  readonly priority?: number;
+  readonly priority?: RecipePriorityValue;
   readonly showNotification?: boolean;
 }>;
 
 export type TransmuteRecipe = {
   readonly _tag: "Transmute";
-  readonly id: RecipeId;
+  readonly id: RecipeIdValue;
   readonly source: CraftingIngredient;
   readonly material: CraftingIngredient;
   readonly output: ItemStack;
   readonly materialCount: TransmuteMaterialCount;
   readonly addMaterialCountToResult: boolean;
   readonly category?: RecipeCategory;
-  readonly group?: string;
-  readonly priority: number;
+  readonly group?: RecipeGroupValue;
+  readonly priority: RecipePriorityValue;
   readonly showNotification?: boolean;
 };
 
@@ -72,11 +89,11 @@ const isRecipeCategory = (value: unknown): value is RecipeCategory =>
   value === "misc" ||
   value === "redstone";
 
-const assertRecipeId = (id: unknown): RecipeId => {
-  if (typeof id !== "string" || id.trim().length === 0) {
-    throw new TypeError("Transmute recipe id must be a non-empty string");
+const assertRecipeId = (id: unknown): RecipeIdValue => {
+  if (typeof id !== "string" || !RecipeId.is(id)) {
+    throw new TypeError("Transmute recipe id must be a resource location");
   }
-  return id;
+  return RecipeId(id);
 };
 
 const isInteger = (value: unknown): value is number =>
@@ -85,7 +102,13 @@ const isInteger = (value: unknown): value is number =>
 export const isTransmuteMaterialCount = (
   value: unknown,
 ): value is TransmuteMaterialCount => {
-  if (!isRecord(value) || !isInteger(value.min) || !isInteger(value.max)) {
+  if (
+    !isRecord(value) ||
+    typeof value.min !== "number" ||
+    !TransmuteMaterialSlotCount.is(value.min) ||
+    typeof value.max !== "number" ||
+    !TransmuteMaterialSlotCount.is(value.max)
+  ) {
     return false;
   }
   if (
@@ -104,7 +127,10 @@ const assertMaterialCount = (value: unknown): TransmuteMaterialCount => {
       `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}], received ${String(value)}`,
     );
   }
-  return { min: value.min, max: value.max };
+  return {
+    min: TransmuteMaterialSlotCount(value.min),
+    max: TransmuteMaterialSlotCount(value.max),
+  };
 };
 
 const assertIngredient = (ingredient: unknown): CraftingIngredient => {
@@ -128,21 +154,21 @@ const assertCategory = (value: unknown): RecipeCategory | undefined => {
   return value;
 };
 
-const assertGroup = (value: unknown): string | undefined => {
+const assertGroup = (value: unknown): RecipeGroupValue | undefined => {
   if (value !== undefined && typeof value !== "string") {
     throw new TypeError("Transmute recipe group must be a string");
   }
-  return value;
+  return value === undefined ? undefined : RecipeGroup(value);
 };
 
-const assertPriority = (value: unknown): number => {
+const assertPriority = (value: unknown): RecipePriorityValue => {
   const priority = value ?? 0;
   if (!isInteger(priority) || priority < 0) {
     throw new RangeError(
       `Transmute recipe priority must be a non-negative safe integer, received ${String(priority)}`,
     );
   }
-  return priority;
+  return RecipePriority(priority);
 };
 
 const assertShowNotification = (value: unknown): boolean | undefined => {
@@ -194,14 +220,14 @@ const normalizeOptions = (
 };
 
 export function transmuteRecipe(
-  id: RecipeId,
+  id: RecipeIdValue,
   source: CraftingIngredientInput,
   material: CraftingIngredientInput,
   output: ItemStack,
   options?: TransmuteRecipeOptions,
 ): TransmuteRecipe;
 export function transmuteRecipe(
-  id: RecipeId,
+  id: RecipeIdValue,
   source: CraftingIngredientInput,
   material: CraftingIngredientInput,
   output: ItemStack,
@@ -235,27 +261,28 @@ export const isTransmuteRecipe = (value: unknown): value is TransmuteRecipe => {
   return (
     value._tag === "Transmute" &&
     typeof value.id === "string" &&
-    value.id.trim().length > 0 &&
+    RecipeId.is(value.id) &&
     isCraftingIngredient(value.source) &&
     isCraftingIngredient(value.material) &&
     isItemStack(value.output) &&
     isTransmuteMaterialCount(value.materialCount) &&
     typeof value.addMaterialCountToResult === "boolean" &&
     (value.category === undefined || isRecipeCategory(value.category)) &&
-    (value.group === undefined || typeof value.group === "string") &&
-    isInteger(value.priority) &&
-    value.priority >= 0 &&
+    (value.group === undefined ||
+      (typeof value.group === "string" && RecipeGroup.is(value.group))) &&
+    typeof value.priority === "number" &&
+    RecipePriority.is(value.priority) &&
     (value.showNotification === undefined ||
       typeof value.showNotification === "boolean")
   );
 };
 
 export const transmuteRecipeForItem = (
-  id: RecipeId,
+  id: RecipeIdValue,
   source: CraftingIngredientInput,
   material: CraftingIngredientInput,
   output: ItemType,
-  count: number,
+  count: StackCount,
   options?: TransmuteRecipeOptions,
 ): TransmuteRecipe =>
   transmuteRecipe(id, source, material, itemStack(output, count), options);

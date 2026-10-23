@@ -3,36 +3,42 @@ import {
   type FireworkExplosionShape,
 } from "../item/item-component-values-data.js";
 import { isItemStack, type ItemStack } from "../item/item-stack.js";
+import { BookGeneration } from "../item/item-primitives.js";
 import {
   craftingIngredient,
   isCraftingIngredient,
+  RecipeGroup,
+  RecipePriority,
+  type RecipeId,
   type CraftingIngredient,
   type CraftingIngredientInput,
   type RecipeCategory,
+  type RecipeGroup as RecipeGroupValue,
+  type RecipePriority as RecipePriorityValue,
+  type RecipeStationTag,
 } from "./recipe-data.js";
 import {
   ResourceLocation,
-  type ResourceLocation as ResourceLocationValue,
 } from "../text/identifiers.js";
 
-export const CRAFTING_SPECIAL_STATION_TAG: ResourceLocationValue =
+export const CRAFTING_SPECIAL_STATION_TAG: RecipeStationTag =
   ResourceLocation("crafting_table");
 
 export interface CraftingSpecialRecipeOptions {
   readonly category?: RecipeCategory;
-  readonly group?: string;
-  readonly priority?: number;
+  readonly group?: RecipeGroupValue;
+  readonly priority?: RecipePriorityValue;
   readonly showNotification?: boolean;
-  readonly tags?: readonly ResourceLocationValue[];
+  readonly tags?: readonly RecipeStationTag[];
 }
 
 type CraftingSpecialRecipeFields = {
-  readonly id: ResourceLocationValue;
+  readonly id: RecipeId;
   readonly category?: RecipeCategory;
-  readonly group?: string;
-  readonly priority: number;
+  readonly group?: RecipeGroupValue;
+  readonly priority: RecipePriorityValue;
   readonly showNotification?: boolean;
-  readonly tags: readonly ResourceLocationValue[];
+  readonly tags: readonly RecipeStationTag[];
 };
 
 export type CraftingDyeRecipe = CraftingSpecialRecipeFields & {
@@ -59,7 +65,7 @@ export type CraftingBookCloningRecipe = CraftingSpecialRecipeFields & {
   readonly _tag: "CraftingBookCloning";
   readonly source: CraftingIngredient;
   readonly material: CraftingIngredient;
-  readonly allowedGenerations: readonly [number, number];
+  readonly allowedGenerations: readonly [BookGeneration, BookGeneration];
   readonly output: ItemStack;
 };
 
@@ -158,7 +164,7 @@ type RecordValue = {
 const isRecord = (value: unknown): value is RecordValue =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-const assertRecipeId = (value: unknown): ResourceLocationValue => {
+const assertRecipeId = (value: unknown): RecipeId => {
   if (typeof value !== "string" || !ResourceLocation.is(value)) {
     throw new TypeError(
       "Crafting special recipe id must be a resource location",
@@ -178,9 +184,9 @@ const assertOutput = (value: ItemStack): ItemStack => {
 };
 
 const assertAllowedGenerations = (
-  value: readonly [number, number] | undefined,
-): readonly [number, number] => {
-  const generations = value ?? [0, 1];
+  value: readonly [BookGeneration, BookGeneration] | undefined,
+): readonly [BookGeneration, BookGeneration] => {
+  const generations = value ?? [BookGeneration(0), BookGeneration(1)];
   if (
     generations.length !== 2 ||
     !Number.isInteger(generations[0]) ||
@@ -195,7 +201,7 @@ const assertAllowedGenerations = (
       "Allowed book generations must be an ordered range from 0 to 2",
     );
   }
-  return [generations[0], generations[1]];
+  return [BookGeneration(generations[0]), BookGeneration(generations[1])];
 };
 
 const isFireworkExplosionShape = (
@@ -219,7 +225,7 @@ const assertShapeIngredients = (
   return shapes;
 };
 
-const isTags = (value: unknown): value is readonly ResourceLocationValue[] =>
+const isTags = (value: unknown): value is readonly RecipeStationTag[] =>
   Array.isArray(value) &&
   value.every((tag) => typeof tag === "string" && ResourceLocation.is(tag));
 
@@ -235,8 +241,8 @@ const isRecipeCategory = (value: unknown): value is RecipeCategory =>
 
 // A recipe's priority orders it against its rivals, so a negative value would
 // sort a special recipe ahead of the shaped ones it is meant to lose to.
-const isRecipePriority = (value: unknown): value is number =>
-  typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+const isRecipePriority = (value: unknown): value is RecipePriorityValue =>
+  typeof value === "number" && RecipePriority.is(value);
 
 const assertCategory = (value: unknown): RecipeCategory | undefined => {
   if (value !== undefined && !isRecipeCategory(value)) {
@@ -247,23 +253,23 @@ const assertCategory = (value: unknown): RecipeCategory | undefined => {
   return value;
 };
 
-const assertGroup = (value: unknown): string | undefined => {
+const assertGroup = (value: unknown): RecipeGroupValue | undefined => {
   if (value !== undefined && typeof value !== "string") {
     throw new TypeError("Crafting special recipe group must be a string");
   }
-  return value;
+  return value === undefined ? undefined : RecipeGroup(value);
 };
 
 // `?? default` would swallow an explicit null, so only an absent field
 // defaults; anything else present has to survive the guard.
-const assertPriority = (value: unknown): number => {
+const assertPriority = (value: unknown): RecipePriorityValue => {
   const priority = value === undefined ? 0 : value;
   if (!isRecipePriority(priority)) {
     throw new RangeError(
       `Crafting special recipe priority must be a non-negative safe integer, received ${String(value)}`,
     );
   }
-  return priority;
+  return RecipePriority(priority);
 };
 
 const assertShowNotification = (value: unknown): boolean | undefined => {
@@ -275,7 +281,7 @@ const assertShowNotification = (value: unknown): boolean | undefined => {
   return value;
 };
 
-const assertRecipeTags = (value: unknown): readonly ResourceLocationValue[] => {
+const assertRecipeTags = (value: unknown): readonly RecipeStationTag[] => {
   const tags = value === undefined ? [CRAFTING_SPECIAL_STATION_TAG] : value;
   if (!isTags(tags)) {
     throw new TypeError(
@@ -287,7 +293,7 @@ const assertRecipeTags = (value: unknown): readonly ResourceLocationValue[] => {
 
 const normalizeOptions = (
   options: CraftingSpecialRecipeOptions & {
-    readonly id: ResourceLocationValue;
+    readonly id: RecipeId;
   },
 ): CraftingSpecialRecipeFields => {
   const category = assertCategory(options.category);
@@ -304,14 +310,14 @@ const normalizeOptions = (
 };
 
 type RecipeOptionsWithId = CraftingSpecialRecipeOptions & {
-  readonly id: ResourceLocationValue;
+  readonly id: RecipeId;
 };
 
 // Spreading a non-object options argument yields `{}`, so an outright wrong
 // value would silently become "no options" instead of an error.
 const withRecipeId = (
   options: Omit<CraftingSpecialRecipeOptions, "id"> | undefined,
-  id: ResourceLocationValue,
+  id: RecipeId,
 ): RecipeOptionsWithId => {
   if (options !== undefined && !isRecord(options)) {
     throw new TypeError(
@@ -322,7 +328,7 @@ const withRecipeId = (
 };
 
 export function craftingDyeRecipe(
-  id: ResourceLocationValue,
+  id: RecipeId,
   target: CraftingIngredientInput,
   dye: CraftingIngredientInput,
   output: ItemStack,
@@ -335,7 +341,7 @@ export function craftingDyeRecipe(
   output: ItemStack,
 ): CraftingDyeRecipe;
 export function craftingDyeRecipe(
-  idOrOptions: ResourceLocationValue | RecipeOptionsWithId,
+  idOrOptions: RecipeId | RecipeOptionsWithId,
   target: CraftingIngredientInput,
   dye: CraftingIngredientInput,
   output: ItemStack,
@@ -355,7 +361,7 @@ export function craftingDyeRecipe(
 }
 
 export function craftingImbueRecipe(
-  id: ResourceLocationValue,
+  id: RecipeId,
   source: CraftingIngredientInput,
   material: CraftingIngredientInput,
   output: ItemStack,
@@ -368,7 +374,7 @@ export function craftingImbueRecipe(
   output: ItemStack,
 ): CraftingImbueRecipe;
 export function craftingImbueRecipe(
-  idOrOptions: ResourceLocationValue | RecipeOptionsWithId,
+  idOrOptions: RecipeId | RecipeOptionsWithId,
   source: CraftingIngredientInput,
   material: CraftingIngredientInput,
   output: ItemStack,
@@ -388,7 +394,7 @@ export function craftingImbueRecipe(
 }
 
 export const craftingBannerDuplicateRecipe = (
-  id: ResourceLocationValue,
+  id: RecipeId,
   banner: CraftingIngredientInput,
   output: ItemStack,
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
@@ -400,11 +406,11 @@ export const craftingBannerDuplicateRecipe = (
 });
 
 export const craftingBookCloningRecipe = (
-  id: ResourceLocationValue,
+  id: RecipeId,
   source: CraftingIngredientInput,
   material: CraftingIngredientInput,
   output: ItemStack,
-  allowedGenerations?: readonly [number, number],
+  allowedGenerations?: readonly [BookGeneration, BookGeneration],
   options?: Omit<CraftingSpecialRecipeOptions, "id">,
 ): CraftingBookCloningRecipe => ({
   _tag: "CraftingBookCloning",
@@ -416,7 +422,7 @@ export const craftingBookCloningRecipe = (
 });
 
 export const craftingDecoratedPotRecipe = (
-  id: ResourceLocationValue,
+  id: RecipeId,
   back: CraftingIngredientInput,
   left: CraftingIngredientInput,
   right: CraftingIngredientInput,
@@ -434,7 +440,7 @@ export const craftingDecoratedPotRecipe = (
 });
 
 export const craftingFireworkRocketRecipe = (
-  id: ResourceLocationValue,
+  id: RecipeId,
   shell: CraftingIngredientInput,
   fuel: CraftingIngredientInput,
   star: CraftingIngredientInput,
@@ -450,7 +456,7 @@ export const craftingFireworkRocketRecipe = (
 });
 
 export const craftingFireworkStarFadeRecipe = (
-  id: ResourceLocationValue,
+  id: RecipeId,
   target: CraftingIngredientInput,
   dye: CraftingIngredientInput,
   output: ItemStack,
@@ -464,7 +470,7 @@ export const craftingFireworkStarFadeRecipe = (
 });
 
 export const craftingFireworkStarRecipe = (
-  id: ResourceLocationValue,
+  id: RecipeId,
   trail: CraftingIngredientInput,
   twinkle: CraftingIngredientInput,
   fuel: CraftingIngredientInput,
@@ -486,7 +492,7 @@ export const craftingFireworkStarRecipe = (
 });
 
 export const craftingMapExtendingRecipe = (
-  id: ResourceLocationValue,
+  id: RecipeId,
   map: CraftingIngredientInput,
   material: CraftingIngredientInput,
   output: ItemStack,
@@ -500,7 +506,7 @@ export const craftingMapExtendingRecipe = (
 });
 
 export const craftingShieldDecorationRecipe = (
-  id: ResourceLocationValue,
+  id: RecipeId,
   banner: CraftingIngredientInput,
   target: CraftingIngredientInput,
   output: ItemStack,
@@ -515,21 +521,15 @@ export const craftingShieldDecorationRecipe = (
 
 const isAllowedGenerations = (
   value: unknown,
-): value is readonly [number, number] => {
+): value is readonly [BookGeneration, BookGeneration] => {
   if (!Array.isArray(value) || value.length !== 2) {
     return false;
   }
   const min = value[0];
   const max = value[1];
   return (
-    typeof min === "number" &&
-    Number.isInteger(min) &&
-    min >= 0 &&
-    min <= 2 &&
-    typeof max === "number" &&
-    Number.isInteger(max) &&
-    max >= 0 &&
-    max <= 2 &&
+    BookGeneration.is(min) &&
+    BookGeneration.is(max) &&
     min <= max
   );
 };
@@ -553,7 +553,8 @@ const isBaseRecipe = (value: RecordValue, tag: string): boolean =>
   typeof value.id === "string" &&
   ResourceLocation.is(value.id) &&
   (value.category === undefined || isRecipeCategory(value.category)) &&
-  (value.group === undefined || typeof value.group === "string") &&
+  (value.group === undefined ||
+    typeof value.group === "string") &&
   isRecipePriority(value.priority) &&
   (value.showNotification === undefined ||
     typeof value.showNotification === "boolean") &&

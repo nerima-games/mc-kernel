@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { itemStack } from "../src/domain/item/item-stack";
-import { transmuteRecipe, transmuteRecipeForItem, isTransmuteMaterialCount, isTransmuteRecipe, TRANSMUTE_MAX_MATERIAL_SLOTS } from "../src/domain/recipe/transmute-data";
+import { StackCount } from "../src/domain/time/quantities";
+import { RecipeGroup, RecipeId, RecipePriority } from "../src/domain/recipe/recipe-data";
+import { transmuteRecipe, transmuteRecipeForItem, isTransmuteMaterialCount, isTransmuteRecipe, TRANSMUTE_MAX_MATERIAL_SLOTS, TransmuteMaterialSlotCount } from "../src/domain/recipe/transmute-data";
 
 describe("transmute recipe data", () => {
   it("validates material ranges and constructs recipes", () => {
@@ -22,16 +24,19 @@ describe("transmute recipe data", () => {
     }
 
     const recipe = transmuteRecipe(
-      "minecraft:convert_stone",
+      RecipeId("minecraft:convert_stone"),
       "stone",
       "dirt",
-      itemStack("sand", 1),
+      itemStack("sand", StackCount(1)),
       {
         addMaterialCountToResult: true,
         category: "redstone",
-        group: "conversion",
-        materialCount: { min: 2, max: 4 },
-        priority: 3,
+        group: RecipeGroup("conversion"),
+        materialCount: {
+          min: TransmuteMaterialSlotCount(2),
+          max: TransmuteMaterialSlotCount(4),
+        },
+        priority: RecipePriority(3),
         showNotification: false,
       },
     );
@@ -39,7 +44,7 @@ describe("transmute recipe data", () => {
       _tag: "Transmute",
       source: { _tag: "Exact", item: "stone", count: 1 },
       material: { _tag: "Exact", item: "dirt", count: 1 },
-      output: itemStack("sand", 1),
+      output: itemStack("sand", StackCount(1)),
       materialCount: { min: 2, max: 4 },
       addMaterialCountToResult: true,
       category: "redstone",
@@ -49,16 +54,16 @@ describe("transmute recipe data", () => {
     });
     expect(isTransmuteRecipe(recipe)).toBe(true);
     expect(transmuteRecipeForItem(
-      "minecraft:convert_gravel",
+      RecipeId("minecraft:convert_gravel"),
       "stone",
       "dirt",
       "gravel",
-      2,
-    ).output).toEqual(itemStack("gravel", 2));
+      StackCount(2),
+    ).output).toEqual(itemStack("gravel", StackCount(2)));
   });
 
   it("rejects invalid constructor fields and unsafe result counts", () => {
-    const output = itemStack("sand", 1);
+    const output = itemStack("sand", StackCount(1));
     expect(() => Reflect.apply(transmuteRecipe, undefined, [" ", "stone", "dirt", output])).toThrow(TypeError);
     expect(() => Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", null, "dirt", output])).toThrow(TypeError);
     expect(() => Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", "stone", null, output])).toThrow(TypeError);
@@ -83,21 +88,27 @@ describe("transmute recipe data", () => {
       ])).toThrow();
     }
     expect(() => transmuteRecipe(
-      "minecraft:overflow",
+      RecipeId("minecraft:overflow"),
       "stone",
       "dirt",
-      itemStack("diamond_sword", 1),
-      { addMaterialCountToResult: true, materialCount: { min: 2, max: 2 } },
+      itemStack("diamond_sword", StackCount(1)),
+      {
+        addMaterialCountToResult: true,
+        materialCount: {
+          min: TransmuteMaterialSlotCount(2),
+          max: TransmuteMaterialSlotCount(2),
+        },
+      },
     )).toThrow(RangeError);
   });
 
   it("guards recipe records and rejects invalid metadata", () => {
     const valid = transmuteRecipe(
-      "minecraft:guarded",
+      RecipeId("minecraft:guarded"),
       "stone",
       "dirt",
-      itemStack("sand", 1),
-      { category: "misc", group: "test", priority: 1, showNotification: true },
+      itemStack("sand", StackCount(1)),
+      { category: "misc", group: RecipeGroup("test"), priority: RecipePriority(1), showNotification: true },
     );
     expect(isTransmuteRecipe(valid)).toBe(true);
     expect(isTransmuteRecipe(null)).toBe(false);

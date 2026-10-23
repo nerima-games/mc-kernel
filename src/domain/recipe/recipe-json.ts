@@ -1,4 +1,5 @@
 import { dataPackResourcePath } from "../world/data-pack-registry.js";
+import type { DataPackResourcePath } from "../world/data-pack-registry.js";
 import {
   cookingRecipe,
   type CookingRecipe,
@@ -8,6 +9,11 @@ import {
   FIREWORK_EXPLOSION_SHAPES,
   type FireworkExplosionShape,
 } from "../item/item-component-values-data.js";
+import {
+  PositiveTickCount,
+  StackCount,
+} from "../time/quantities.js";
+import { BookGeneration } from "../item/item-primitives.js";
 import {
   craftingBannerDuplicateRecipe,
   craftingBookCloningRecipe,
@@ -33,7 +39,7 @@ import {
 import {
   ResourceLocation,
   NamespacedResourceLocation,
-  type NamespacedResourceLocation as NamespacedResourceLocationValue,
+  TagLocation,
 } from "../text/identifiers.js";
 import {
   applyItemComponentPatch,
@@ -41,9 +47,14 @@ import {
 } from "../item/item-component-patch.js";
 import { isItemType, type ItemType } from "../item/item-type.js";
 import { itemComponents } from "../item/item-components.js";
-import { itemStack } from "../item/item-stack.js";
+import { itemStack, itemStackFromUnknown } from "../item/item-stack.js";
 import {
   anyOf,
+  RecipeExperience,
+  RecipeGroup,
+  RecipePatternRow,
+  RecipePatternSymbol,
+  RecipeStationTag,
   shapelessRecipe,
   shapedRecipe,
   tagged,
@@ -51,6 +62,7 @@ import {
   type Recipe,
   type RecipeCategory,
   type RecipeOptions,
+  type RecipePatternKeyMap,
 } from "./recipe-data.js";
 import {
   SMITHING_STATION_TAG,
@@ -66,6 +78,7 @@ import {
 } from "./stonecutting-data.js";
 import {
   transmuteRecipe,
+  TransmuteMaterialSlotCount,
   type TransmuteMaterialCount,
   type TransmuteRecipe,
 } from "./transmute-data.js";
@@ -104,14 +117,14 @@ const minecraftItemOf = (value: unknown, allowAir: boolean): ItemType => {
   return item;
 };
 
-const itemTagOf = (value: string): `#${NamespacedResourceLocationValue}` => {
+const itemTagOf = (value: string): TagLocation => {
   const location = value.slice(1);
   if (!NamespacedResourceLocation.is(location)) {
     throw new TypeError(
       `Recipe item tag must be namespaced, received ${value}`,
     );
   }
-  return `#${location}`;
+  return TagLocation(`#${location}`);
 };
 
 const decodeIngredient = (value: unknown): CraftingIngredientInput => {
@@ -141,29 +154,29 @@ const decodeIngredient = (value: unknown): CraftingIngredientInput => {
   );
 };
 
-const decodePattern = (value: unknown): ReadonlyArray<string> => {
+const decodePattern = (value: unknown): ReadonlyArray<RecipePatternRow> => {
   if (!Array.isArray(value)) {
     throw new TypeError("Shaped recipe pattern must be an array");
   }
-  const pattern: Array<string> = [];
+  const pattern: Array<RecipePatternRow> = [];
   for (const row of value) {
     if (typeof row !== "string") {
       throw new TypeError("Shaped recipe pattern rows must be strings");
     }
-    pattern.push(row);
+    pattern.push(RecipePatternRow(row));
   }
   return pattern;
 };
 
 const decodeKey = (
   value: unknown,
-): Readonly<Record<string, CraftingIngredientInput>> => {
+): RecipePatternKeyMap => {
   if (!isRecord(value)) {
     throw new TypeError("Shaped recipe key must be an object");
   }
-  const key: Record<string, CraftingIngredientInput> = {};
+  const key: Record<RecipePatternSymbol, CraftingIngredientInput> = {};
   for (const [character, ingredient] of Object.entries(value)) {
-    key[character] = decodeIngredient(ingredient);
+    key[RecipePatternSymbol(character)] = decodeIngredient(ingredient);
   }
   return key;
 };
@@ -186,7 +199,7 @@ const decodeResultItem = (value: string | UnknownRecord): ItemType => {
 
 const decodeResult = (value: unknown) => {
   if (typeof value === "string") {
-    return itemStack(decodeResultItem(value), 1);
+    return itemStack(decodeResultItem(value), StackCount(1));
   }
   if (!isRecord(value)) {
     throw new TypeError(
@@ -205,10 +218,10 @@ const decodeResult = (value: unknown) => {
     throw new TypeError("Recipe result count must be a number");
   }
   if (!Object.hasOwn(value, "components")) {
-    return itemStack(item, count);
+    return itemStackFromUnknown(item, count);
   }
   const patch = itemComponentPatchFromUnknown(value["components"]);
-  return itemStack(item, count, {
+  return itemStackFromUnknown(item, count, {
     components: applyItemComponentPatch(itemComponents(item), patch),
   });
 };
@@ -229,13 +242,13 @@ const decodeCategory = (value: unknown): RecipeCategory => {
 
 type CommonRecipeOptions = Readonly<{
   readonly category?: RecipeCategory;
-  readonly group?: string;
+  readonly group?: RecipeGroup;
   readonly showNotification?: boolean;
 }>;
 
 const decodeCommonOptions = (value: UnknownRecord): CommonRecipeOptions => {
   let category: RecipeCategory | undefined;
-  let group: string | undefined;
+  let group: RecipeGroup | undefined;
   let showNotification: boolean | undefined;
   if (Object.hasOwn(value, "category")) {
     category = decodeCategory(value["category"]);
@@ -244,7 +257,7 @@ const decodeCommonOptions = (value: UnknownRecord): CommonRecipeOptions => {
     if (typeof value["group"] !== "string") {
       throw new TypeError("Recipe group must be a string");
     }
-    group = value["group"];
+    group = RecipeGroup(value["group"]);
   }
   if (Object.hasOwn(value, "show_notification")) {
     if (typeof value["show_notification"] !== "boolean") {
@@ -260,7 +273,7 @@ const decodeCommonOptions = (value: UnknownRecord): CommonRecipeOptions => {
 };
 
 const decodeCraftingOptions = (value: UnknownRecord): RecipeOptions => ({
-  tags: ["crafting_table"],
+  tags: [RecipeStationTag("crafting_table")],
   ...decodeCommonOptions(value),
 });
 
@@ -325,7 +338,10 @@ const decodeMaterialCount = (value: unknown): TransmuteMaterialCount => {
   ) {
     throw new TypeError("Transmute material_count bounds must be integers");
   }
-  return { min, max };
+  return {
+    min: TransmuteMaterialSlotCount(min),
+    max: TransmuteMaterialSlotCount(max),
+  };
 };
 
 const decodeIntegerRange = (
@@ -360,8 +376,16 @@ const decodeIntegerRange = (
   return [min, max];
 };
 
-const decodeAllowedGenerations = (value: unknown): readonly [number, number] =>
-  decodeIntegerRange(value, "Book cloning allowed_generations", 2);
+const decodeAllowedGenerations = (
+  value: unknown,
+): readonly [BookGeneration, BookGeneration] => {
+  const [min, max] = decodeIntegerRange(
+    value,
+    "Book cloning allowed_generations",
+    2,
+  );
+  return [BookGeneration(min), BookGeneration(max)];
+}
 
 const isFireworkExplosionShape = (
   value: string,
@@ -397,7 +421,7 @@ const decodeRecipeId = (value: string) => {
 
 /** Decodes a current Java crafting recipe document at the JSON boundary. */
 export const craftingRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): Recipe => {
   const recipeId = decodeRecipeId(id);
@@ -456,7 +480,7 @@ export const craftingRecipeFromUnknown = (
 
 /** Decodes one of the current Java furnace-family recipe documents. */
 export const cookingRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): CookingRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -492,15 +516,15 @@ export const cookingRecipeFromUnknown = (
     station,
     decodeIngredient(value["ingredient"]),
     decodeResult(value["result"]),
-    decodeNumber(value["cookingtime"], "cookingtime"),
-    decodeNumber(value["experience"], "experience"),
+    PositiveTickCount(decodeNumber(value["cookingtime"], "cookingtime")),
+    RecipeExperience(decodeNumber(value["experience"], "experience")),
     options,
   );
 };
 
 /** Decodes a current Java crafting transmute recipe document. */
 export const transmuteRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): TransmuteRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -556,7 +580,7 @@ export const transmuteRecipeFromUnknown = (
 
 /** Decodes the current Java crafting dye recipe document. */
 export const craftingDyeRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): CraftingDyeRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -587,7 +611,7 @@ export const craftingDyeRecipeFromUnknown = (
     decodeResult(value["result"]),
     {
       category: options.category ?? "misc",
-      group: options.group ?? "",
+      group: options.group ?? RecipeGroup(""),
       showNotification: options.showNotification ?? true,
     },
   );
@@ -595,7 +619,7 @@ export const craftingDyeRecipeFromUnknown = (
 
 /** Decodes the current Java crafting imbue recipe document. */
 export const craftingImbueRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): CraftingImbueRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -626,7 +650,7 @@ export const craftingImbueRecipeFromUnknown = (
     decodeResult(value["result"]),
     {
       category: options.category ?? "misc",
-      group: options.group ?? "",
+      group: options.group ?? RecipeGroup(""),
       showNotification: options.showNotification ?? true,
     },
   );
@@ -634,7 +658,7 @@ export const craftingImbueRecipeFromUnknown = (
 
 /** Decodes the current Java banner duplication recipe document. */
 export const craftingBannerDuplicateRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): CraftingBannerDuplicateRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -664,7 +688,7 @@ export const craftingBannerDuplicateRecipeFromUnknown = (
 
 /** Decodes the current Java written-book cloning recipe document. */
 export const craftingBookCloningRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): CraftingBookCloningRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -704,7 +728,7 @@ export const craftingBookCloningRecipeFromUnknown = (
 
 /** Decodes the current Java decorated-pot recipe document. */
 export const craftingDecoratedPotRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): CraftingDecoratedPotRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -743,7 +767,7 @@ export const craftingDecoratedPotRecipeFromUnknown = (
 
 /** Decodes the current Java firework rocket recipe document. */
 export const craftingFireworkRocketRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): CraftingFireworkRocketRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -780,7 +804,7 @@ export const craftingFireworkRocketRecipeFromUnknown = (
 
 /** Decodes the current Java firework star fade recipe document. */
 export const craftingFireworkStarFadeRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): CraftingFireworkStarFadeRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -817,7 +841,7 @@ export const craftingFireworkStarFadeRecipeFromUnknown = (
 
 /** Decodes the current Java firework star recipe document. */
 export const craftingFireworkStarRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): CraftingFireworkStarRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -866,7 +890,7 @@ export const craftingFireworkStarRecipeFromUnknown = (
 
 /** Decodes the current Java map-extending recipe document. */
 export const craftingMapExtendingRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): CraftingMapExtendingRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -901,7 +925,7 @@ export const craftingMapExtendingRecipeFromUnknown = (
 
 /** Decodes the current Java shield-decoration recipe document. */
 export const craftingShieldDecorationRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): CraftingShieldDecorationRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -938,7 +962,7 @@ export const craftingShieldDecorationRecipeFromUnknown = (
 
 /** Decodes a current Java stonecutting recipe document. */
 export const stonecuttingRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): StonecuttingRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -968,7 +992,7 @@ export const stonecuttingRecipeFromUnknown = (
 
 /** Decodes a current Java smithing transform recipe document. */
 export const smithingTransformRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): SmithingTransformRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -1002,7 +1026,7 @@ export const smithingTransformRecipeFromUnknown = (
 
 /** Decodes a current Java smithing trim recipe document. */
 export const smithingTrimRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): SmithingTrimRecipe => {
   const recipeId = decodeRecipeId(id);
@@ -1034,7 +1058,7 @@ export const smithingTrimRecipeFromUnknown = (
 
 /** Decodes either current Java smithing recipe document. */
 export const smithingRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): SmithingRecipe => {
   if (!isRecord(value) || typeof value["type"] !== "string") {
@@ -1068,7 +1092,7 @@ export type PortableRecipe =
 
 /** Decodes every portable Java recipe kind currently modeled by mc-kernel. */
 export const portableRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ): PortableRecipe => {
   if (!isRecord(value) || typeof value["type"] !== "string") {
@@ -1133,7 +1157,7 @@ export const recipeFromUnknown: typeof portableRecipeFromUnknown =
   portableRecipeFromUnknown;
 
 /** Returns the canonical data-pack path for a namespaced recipe id. */
-export const recipeDataPath = (id: string): string =>
+export const recipeDataPath = (id: NamespacedResourceLocation): DataPackResourcePath =>
   dataPackResourcePath(
     NamespacedResourceLocation("minecraft:recipe"),
     NamespacedResourceLocation(decodeRecipeId(id)),

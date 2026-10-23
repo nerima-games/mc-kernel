@@ -1,15 +1,37 @@
+import { Brand } from 'effect'
 import { itemStack } from '../item/item-stack.js'
 import type { ItemStack, Slot } from '../item/item-stack.js'
 import type { ItemType } from '../item/item-type.js'
+import { StackCount, FixedDurationSecs } from '../time/quantities.js'
+import type { FixedDurationSecs as FixedDurationSecsValue } from '../time/quantities.js'
+import { RecipeId } from './recipe-data.js'
+import type {
+  RecipeCompletionCount as RecipeCompletionCountValue,
+  RecipeId as RecipeIdValue,
+} from './recipe-data.js'
 
 export const BREWING_BOTTLE_SLOTS = 3
-export const BREWING_TIME_SECS = 20
-export const BREWING_MAX_FUEL_CHARGES = 20
+export const BREWING_TIME_SECS: FixedDurationSecsValue = FixedDurationSecs(20)
+const BREWING_FUEL_CHARGES_MIN = 0
+const BREWING_FUEL_CHARGES_MAX = 20
+
+export type BrewingFuelCharges = number & Brand.Brand<'BrewingFuelCharges'>
+
+export const BrewingFuelCharges: Brand.Constructor<BrewingFuelCharges> =
+  Brand.make<BrewingFuelCharges>((value) =>
+    Number.isSafeInteger(value) &&
+    value >= BREWING_FUEL_CHARGES_MIN &&
+    value <= BREWING_FUEL_CHARGES_MAX
+      ? true
+      : `BrewingFuelCharges must be an integer in [${BREWING_FUEL_CHARGES_MIN}, ${BREWING_FUEL_CHARGES_MAX}], received ${value}`,
+  )
+
+export const BREWING_MAX_FUEL_CHARGES: BrewingFuelCharges = BrewingFuelCharges(20)
 export const BREWING_FUEL_ITEM: ItemType = 'blaze_powder'
 
 export type BrewingRecipe = {
   readonly _tag: 'Brewing'
-  readonly id: string
+  readonly id: RecipeIdValue
   readonly input: ItemType
   readonly ingredient: ItemType
   readonly output: ItemType
@@ -22,26 +44,26 @@ export type BrewingState = {
   readonly bottles: BrewingBottles
   readonly ingredient: Slot
   readonly fuel: Slot
-  readonly fuelCharges: number
-  readonly brewProgressSecs: number
+  readonly fuelCharges: BrewingFuelCharges
+  readonly brewProgressSecs: FixedDurationSecsValue
 }
 
 export type BrewingStateInput = {
   readonly bottles?: ReadonlyArray<Slot>
   readonly ingredient?: Slot
   readonly fuel?: Slot
-  readonly fuelCharges?: number
-  readonly brewProgressSecs?: number
+  readonly fuelCharges?: BrewingFuelCharges
+  readonly brewProgressSecs?: FixedDurationSecsValue
 }
 
 export type BrewingAdvanceResult = {
   readonly state: BrewingState
-  readonly brewedCount: number
+  readonly brewedCount: RecipeCompletionCountValue
 }
 
 const brewingRecipe = (id: string, input: ItemType, ingredient: ItemType, output: ItemType): BrewingRecipe => ({
   _tag: 'Brewing',
-  id,
+  id: RecipeId(id),
   ingredient,
   input,
   output,
@@ -54,4 +76,4 @@ export const VANILLA_BREWING_RECIPES: BrewingRecipeTable = [
   brewingRecipe('minecraft:regeneration', 'awkward_potion', 'ghast_tear', 'potion_of_regeneration'),
 ]
 
-export const brewingOutput = (recipe: BrewingRecipe): ItemStack => itemStack(recipe.output, 1)
+export const brewingOutput = (recipe: BrewingRecipe): ItemStack => itemStack(recipe.output, StackCount(1))

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { itemStack } from "../src/domain/item/item-stack";
-import { exactly } from "../src/domain/recipe/recipe-data";
+import { StackCount } from "../src/domain/time/quantities";
+import { RecipeId, RecipePriority, exactly } from "../src/domain/recipe/recipe-data";
 import {
   SMITHING_STATION_TAG,
   SMITHING_TRIM_MATERIAL_TAG,
@@ -20,12 +21,12 @@ describe("smithing recipe data", () => {
     expect(SMITHING_TRIM_MATERIAL_TAG).toBe("#minecraft:trim_materials");
 
     const transform = smithingTransformRecipe(
-      "minecraft:custom_netherite_sword",
+      RecipeId("minecraft:custom_netherite_sword"),
       SMITHING_TRIM_TEMPLATE_TAG,
       exactly("diamond_sword"),
       "netherite_ingot",
-      itemStack("netherite_sword", 1),
-      { priority: 2, showNotification: true, tags: [SMITHING_STATION_TAG] },
+      itemStack("netherite_sword", StackCount(1)),
+      { priority: RecipePriority(2), showNotification: true, tags: [SMITHING_STATION_TAG] },
     );
     expect(transform).toMatchObject({
       _tag: "SmithingTransform",
@@ -33,14 +34,14 @@ describe("smithing recipe data", () => {
       template: { _tag: "ItemTag", tag: SMITHING_TRIM_TEMPLATE_TAG },
       base: exactly("diamond_sword"),
       addition: exactly("netherite_ingot"),
-      output: itemStack("netherite_sword", 1),
+      output: itemStack("netherite_sword", StackCount(1)),
       priority: 2,
       showNotification: true,
       tags: [SMITHING_STATION_TAG],
     });
 
     const trim = smithingTrimRecipe(
-      "minecraft:trim_armor",
+      RecipeId("minecraft:trim_armor"),
       SMITHING_TRIM_TEMPLATE_TAG,
       SMITHING_TRIMMABLE_ARMOR_TAG,
       SMITHING_TRIM_MATERIAL_TAG,
@@ -56,7 +57,7 @@ describe("smithing recipe data", () => {
   });
 
   it("rejects malformed identifiers, ingredients, outputs, and options", () => {
-    const output = itemStack("netherite_sword", 1);
+    const output = itemStack("netherite_sword", StackCount(1));
     const ingredients = [SMITHING_TRIM_TEMPLATE_TAG, "diamond_sword", "netherite_ingot"] as const;
     expect(() => Reflect.apply(smithingTransformRecipe, undefined, [" ", ...ingredients, output])).toThrow(TypeError);
     expect(() => Reflect.apply(smithingTransformRecipe, undefined, ["minecraft:bad", null, ...ingredients.slice(1), output])).toThrow(TypeError);

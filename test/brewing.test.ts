@@ -9,6 +9,7 @@ import {
   VANILLA_BREWING_RECIPES,
 } from '../src/domain/recipe/brewing-data'
 import { itemStack } from '../src/domain/item/item-stack'
+import { StackCount } from '../src/domain/time/quantities'
 
 describe('brewing data', () => {
   it('keeps the brewing constants and built-in recipe table', () => {
@@ -18,7 +19,7 @@ describe('brewing data', () => {
     expect(BREWING_FUEL_ITEM).toBe('blaze_powder')
     expect(VANILLA_BREWING_RECIPES.length).toBeGreaterThan(3)
     expect(VANILLA_BREWING_RECIPES.map((recipe) => brewingOutput(recipe))).toContainEqual(
-      itemStack('awkward_potion', 1),
+      itemStack('awkward_potion', StackCount(1)),
     )
   })
 })
