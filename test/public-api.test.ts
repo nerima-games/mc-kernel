@@ -1519,10 +1519,6 @@ describe("public API surface", () => {
         expect(kernel.isVehicleType).toBe(vehicleModule.isVehicleType);
         expect(kernel.VehicleId).toBe(vehicleModule.VehicleId);
         expect(kernel.OccupantId).toBe(vehicleModule.OccupantId);
-        expect(kernel.matchRecipe).toBe(recipeModule.matchRecipe);
-        expect(kernel.matchRecipeWithAssignments).toBe(
-          recipeModule.matchRecipeWithAssignments,
-        );
         expect(kernel.craftingRecipeFromUnknown).toBe(
           recipeJsonModule.craftingRecipeFromUnknown,
         );

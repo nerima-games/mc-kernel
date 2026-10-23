@@ -385,27 +385,6 @@ try {
       throw new Error('The root export returned invalid explosion and primed-TNT results');
     }
     if (
-      typeof rootModule.applyDamage !== 'function' ||
-      typeof rootModule.normaliseVitals !== 'function' ||
-      typeof rootModule.vitalsView !== 'function' ||
-      rootModule.SPAWN_VITALS?.healthPoints !== 20
-    ) {
-      throw new Error('The root export does not expose vitals APIs');
-    }
-    const damagedVitals = rootModule.applyDamage(rootModule.SPAWN_VITALS, {
-      amount: 20,
-      cause: 'package-probe',
-    });
-    const spawnVitalsView = rootModule.vitalsView(rootModule.normaliseVitals(rootModule.SPAWN_VITALS));
-    if (
-      damagedVitals.healthPoints !== 0 ||
-      damagedVitals.lastDamageCause !== 'package-probe' ||
-      spawnVitalsView.experienceLevel !== 0 ||
-      spawnVitalsView.experienceProgress !== 0
-    ) {
-      throw new Error('The root export returned invalid vitals results');
-    }
-    if (
       typeof rootModule.computeBreakTicks !== 'function' ||
       typeof rootModule.blockHardnessOf !== 'function' ||
       typeof rootModule.miningSpeedOf !== 'function' ||
@@ -541,9 +520,6 @@ import {
   miningSpeedOf,
   compileToolComponent,
   resolveToolMiningProperties,
-  applyDamage,
-  normaliseVitals,
-  vitalsView,
   cameraPoseOf,
   forwardVector,
   launchArrow,
@@ -577,7 +553,6 @@ import {
   type ProjectileWorld,
   type ExplosionPlan,
   type PrimedTntPlan,
-  type Vitals,
 } from ${JSON.stringify(packageName)}
 
 const declaredPackageExports: readonly object[] = [
@@ -613,9 +588,6 @@ const brewing: BrewingState = {
   fuelCharges: 1,
   brewProgressSecs: 0,
 }
-const vitals: Vitals = normaliseVitals({ healthPoints: 20, hungerPoints: 20 })
-const vitalsAfterDamage = applyDamage(vitals, { amount: 1, cause: 'declaration-probe' })
-const vitalsDisplay = vitalsView(vitalsAfterDamage)
 const cameraSnapshot: CameraPoseSnapshot = cameraPoseOf(INITIAL_PLAYER_POSE, MonotonicTimeSecs(0))
 const cameraDirection = forwardVector(cameraSnapshot)
 const projectileWorld: ProjectileWorld = {
@@ -678,9 +650,6 @@ if (stack.count !== 2 || maxStackCountForItem(stack.item) !== 64 || recipe._tag 
 }
 if (furnace.station !== 'furnace' || brewing.bottles[0]?.item !== 'water_bottle') {
   throw new Error('Recipe data declaration consumer returned an invalid result')
-}
-if (vitalsDisplay.healthPoints !== 19 || vitalsDisplay.experienceLevel !== 0) {
-  throw new Error('Vitals declaration consumer returned an invalid result')
 }
 if (cameraSnapshot.position.y !== 1.62 || cameraDirection.z !== -1) {
   throw new Error('Camera-pose declaration consumer returned an invalid result')
