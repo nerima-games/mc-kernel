@@ -1,4 +1,4 @@
-import { Brand } from 'effect'
+import { Brand, Result } from 'effect'
 import { BlockId, isKnownBlockId, type BlockId as BlockIdType } from '../block/block-registry.js'
 import { LightLevel } from '../block/block-property-data.js'
 import { CHUNK_SIZE_XZ, ChunkAxis, chunkCoord, type BlockPosition } from '../coordinates/coordinate-primitives.js'
@@ -11,6 +11,22 @@ export type LightRevision = number & Brand.Brand<'LightRevision'>
 export type ChunkLocalIndex = number & Brand.Brand<'ChunkLocalIndex'>
 export type SectionIndex = number & Brand.Brand<'SectionIndex'>
 export type SectionLength = number & Brand.Brand<'SectionLength'>
+
+export type WorldReadWriteFailure = Readonly<{
+  readonly _tag: 'WorldReadWriteFailure'
+  readonly reason: 'invalid-epoch' | 'invalid-revision' | 'invalid-index' | 'invalid-read-view' | 'unknown-block-id' | 'duplicate-position'
+  readonly message: string
+}>
+
+const failureValue = (
+  reason: WorldReadWriteFailure['reason'],
+  message: string,
+): WorldReadWriteFailure => ({ _tag: 'WorldReadWriteFailure', reason, message })
+
+const failure = (
+  reason: WorldReadWriteFailure['reason'],
+  message: string,
+): Result.Result<never, WorldReadWriteFailure> => Result.fail(failureValue(reason, message))
 
 const isNonNegativeInteger = (value: number): boolean =>
   Number.isSafeInteger(value) && value >= MIN_INDEX
@@ -52,12 +68,32 @@ const sectionLengthBrand = Brand.make<SectionLength>(
       : `SectionLength must be a non-negative safe integer, received ${value}`,
 )
 
-export const WorldEpoch: Brand.Constructor<WorldEpoch> = worldEpochBrand
-export const ChunkRevision: Brand.Constructor<ChunkRevision> = chunkRevisionBrand
-export const LightRevision: Brand.Constructor<LightRevision> = lightRevisionBrand
-export const ChunkLocalIndex: Brand.Constructor<ChunkLocalIndex> = chunkLocalIndexBrand
-export const SectionIndex: Brand.Constructor<SectionIndex> = sectionIndexBrand
-export const SectionLength: Brand.Constructor<SectionLength> = sectionLengthBrand
+const nonNegativeBrand = <A extends number & Brand.Brand<any>>(
+  value: number,
+  label: string,
+  reason: 'invalid-epoch' | 'invalid-revision' | 'invalid-index',
+  brand: Brand.Constructor<A>,
+): Result.Result<A, WorldReadWriteFailure> =>
+  Result.mapError(
+    brand.result(value),
+    () => failureValue(reason, `${label} must be a non-negative safe integer, received ${value}`),
+  )
+
+export const WorldEpoch = (value: number): Result.Result<WorldEpoch, WorldReadWriteFailure> =>
+  nonNegativeBrand(value, 'WorldEpoch', 'invalid-epoch', worldEpochBrand)
+export const ChunkRevision = (value: number): Result.Result<ChunkRevision, WorldReadWriteFailure> =>
+  nonNegativeBrand(value, 'ChunkRevision', 'invalid-revision', chunkRevisionBrand)
+export const LightRevision = (value: number): Result.Result<LightRevision, WorldReadWriteFailure> =>
+  nonNegativeBrand(value, 'LightRevision', 'invalid-revision', lightRevisionBrand)
+export const ChunkLocalIndex = (value: number): Result.Result<ChunkLocalIndex, WorldReadWriteFailure> =>
+  nonNegativeBrand(value, 'ChunkLocalIndex', 'invalid-index', chunkLocalIndexBrand)
+export const SectionIndex = (value: number): Result.Result<SectionIndex, WorldReadWriteFailure> =>
+  nonNegativeBrand(value, 'SectionIndex', 'invalid-index', sectionIndexBrand)
+export const SectionLength = (value: number): Result.Result<SectionLength, WorldReadWriteFailure> =>
+  Result.mapError(
+    sectionLengthBrand.result(value),
+    () => failureValue('invalid-read-view', `SectionLength must be a non-negative safe integer, received ${value}`),
+  )
 
 export type BlockRead =
   | { readonly _tag: 'Loaded'; readonly blockId: BlockIdType }
@@ -70,7 +106,7 @@ export const outOfWorld = (position: BlockPosition): BlockRead => Object.freeze(
 
 export type ReadonlyUint16Array<Value extends number = BlockIdType | LightLevel> = {
   readonly length: SectionLength
-  readonly get: (index: SectionIndex) => Value
+  readonly get: (index: SectionIndex) => Result.Result<Value, WorldReadWriteFailure>
   readonly snapshot: () => Uint16Array
 }
 
@@ -80,27 +116,46 @@ export type ReadView = {
   readonly blockRevision: ChunkRevision
   readonly lightRevision: LightRevision
   readonly length: SectionLength
-  readonly getBlock: (index: SectionIndex) => BlockIdType
-  readonly getLight: (index: SectionIndex) => LightLevel
+  readonly getBlock: (index: SectionIndex) => Result.Result<BlockIdType, WorldReadWriteFailure>
+  readonly getLight: (index: SectionIndex) => Result.Result<LightLevel, WorldReadWriteFailure>
   readonly blocks: ReadonlyUint16Array<BlockIdType>
   readonly light: ReadonlyUint16Array<LightLevel>
 }
 
-const checkedIndex = (index: SectionIndex, length: number): number => {
-  if (!Number.isSafeInteger(index) || index < MIN_INDEX || index >= length) {
-    throw new RangeError(`Section index must be an integer in [0, ${length - 1}], received ${index}`)
-  }
-  return index
-}
+const checkedIndex = (index: SectionIndex, length: number): Result.Result<number, WorldReadWriteFailure> =>
+  Result.flatMap(SectionIndex(index), (checked) =>
+    checked < length
+      ? Result.succeed(checked)
+      : failure('invalid-index', `Section index must be an integer in [0, ${length - 1}], received ${index}`),
+  )
 
 const readOnlySection = <Value extends number>(
   values: Uint16Array,
-  makeValue: (value: number) => Value,
+  length: SectionLength,
+  makeValue: (value: number) => Result.Result<Value, WorldReadWriteFailure>,
 ): ReadonlyUint16Array<Value> => Object.freeze({
-  length: SectionLength(values.length),
-  get: (index: SectionIndex): Value => makeValue(Number(values.at(checkedIndex(index, values.length)))),
+  length,
+  get: (index: SectionIndex): Result.Result<Value, WorldReadWriteFailure> =>
+    Result.flatMap(checkedIndex(index, values.length), (checked) => makeValue(Number(values.at(checked)))),
   snapshot: (): Uint16Array => values.slice(),
 })
+
+const blockIdOfValue = (value: number): Result.Result<BlockIdType, WorldReadWriteFailure> =>
+  Result.flatMap(
+    Result.mapError(
+      BlockId.result(value),
+      () => failureValue('unknown-block-id', `Section contains an unknown block id ${value}`),
+    ),
+    (blockId) => isKnownBlockId(blockId)
+      ? Result.succeed(blockId)
+      : failure('unknown-block-id', `Section contains an unknown block id ${value}`),
+  )
+
+const lightLevelOfValue = (value: number): Result.Result<LightLevel, WorldReadWriteFailure> =>
+  Result.mapError(
+    LightLevel.result(value),
+    () => failureValue('invalid-read-view', `Section contains an invalid light level ${value}`),
+  )
 
 export type ReadViewInput = {
   readonly epoch: WorldEpoch
@@ -111,53 +166,54 @@ export type ReadViewInput = {
   readonly light: Uint16Array
 }
 
-export const readView = (input: ReadViewInput): ReadView => {
-  if (input.blocks.length !== input.light.length) {
-    throw new RangeError('ReadView block and light sections must have equal lengths')
-  }
-  const blockData = input.blocks.slice()
-  const lightData = input.light.slice()
-  for (const blockId of blockData) {
-    const validatedBlockId = BlockId(Number(blockId))
-    if (!isKnownBlockId(validatedBlockId)) {
-      throw new RangeError(`Section contains an unknown block id ${blockId}`)
+export const readView = (input: ReadViewInput): Result.Result<ReadView, WorldReadWriteFailure> =>
+  Result.gen(function* () {
+    if (input.blocks.length !== input.light.length) {
+      return yield* failure('invalid-read-view', 'ReadView block and light sections must have equal lengths')
     }
-  }
-  for (const lightLevel of lightData) {
-    LightLevel(Number(lightLevel))
-  }
-  return Object.freeze({
-    epoch: input.epoch,
-    chunk: input.chunk,
-    blockRevision: input.blockRevision,
-    lightRevision: input.lightRevision,
-    length: SectionLength(blockData.length),
-    getBlock: (index) => {
-      const checked = checkedIndex(index, blockData.length)
-      return BlockId(Number(blockData.at(checked)))
-    },
-    getLight: (index) => {
-      const checked = checkedIndex(index, lightData.length)
-      return LightLevel(Number(lightData.at(checked)))
-    },
-    blocks: readOnlySection(blockData, BlockId),
-    light: readOnlySection(lightData, LightLevel),
+    const blockData = input.blocks.slice()
+    const lightData = input.light.slice()
+    for (const blockId of blockData) {
+      yield* blockIdOfValue(Number(blockId))
+    }
+    for (const lightLevel of lightData) {
+      yield* lightLevelOfValue(Number(lightLevel))
+    }
+    const length = yield* SectionLength(blockData.length)
+    return Object.freeze({
+      epoch: input.epoch,
+      chunk: input.chunk,
+      blockRevision: input.blockRevision,
+      lightRevision: input.lightRevision,
+      length,
+      getBlock: (index: SectionIndex) =>
+        Result.flatMap(checkedIndex(index, blockData.length), (checked) => blockIdOfValue(Number(blockData.at(checked)))),
+      getLight: (index: SectionIndex) =>
+        Result.flatMap(checkedIndex(index, lightData.length), (checked) => lightLevelOfValue(Number(lightData.at(checked)))),
+      blocks: readOnlySection(blockData, length, blockIdOfValue),
+      light: readOnlySection(lightData, length, lightLevelOfValue),
+    })
   })
-}
-export const ReadView: (input: ReadViewInput) => ReadView = readView
+export const ReadView: (input: ReadViewInput) => Result.Result<ReadView, WorldReadWriteFailure> = readView
 
 export type BlockEdit = {
   readonly position: BlockPosition
   readonly blockId: BlockIdType
 }
 
-export const blockEdit = (position: BlockPosition, blockId: BlockIdType): BlockEdit => {
+export const blockEdit = (
+  position: BlockPosition,
+  blockId: BlockIdType,
+): Result.Result<BlockEdit, WorldReadWriteFailure> => {
   if (!isKnownBlockId(blockId)) {
-    throw new RangeError(`Block edit contains an unknown block id ${blockId}`)
+    return failure('unknown-block-id', `Block edit contains an unknown block id ${blockId}`)
   }
-  return Object.freeze({ position, blockId })
+  return Result.succeed(Object.freeze({ position, blockId }))
 }
-export const BlockEdit: (position: BlockPosition, blockId: BlockIdType) => BlockEdit = blockEdit
+export const BlockEdit: (
+  position: BlockPosition,
+  blockId: BlockIdType,
+) => Result.Result<BlockEdit, WorldReadWriteFailure> = blockEdit
 
 export type ExpectedChunk = {
   readonly epoch: WorldEpoch
@@ -176,33 +232,35 @@ export type BlockWriteBatch = {
 export const blockWriteBatch = (
   expected: ExpectedChunk,
   edits: readonly BlockEdit[],
-): BlockWriteBatch => {
-  const validated = edits.map((edit) => blockEdit(edit.position, edit.blockId))
-  const seen = new Map<number, Map<number, Set<number>>>()
-  for (const edit of validated) {
-    let seenY = seen.get(edit.position.x)
-    if (seenY === undefined) {
-      seenY = new Map()
-      seen.set(edit.position.x, seenY)
+): Result.Result<BlockWriteBatch, WorldReadWriteFailure> =>
+  Result.gen(function* () {
+    const validated = yield* Result.all(edits.map((edit) => blockEdit(edit.position, edit.blockId)))
+    const seen = new Map<number, Map<number, Set<number>>>()
+    for (const edit of validated) {
+      let seenY = seen.get(edit.position.x)
+      if (seenY === undefined) {
+        seenY = new Map()
+        seen.set(edit.position.x, seenY)
+      }
+      let seenZ = seenY.get(edit.position.y)
+      if (seenZ === undefined) {
+        seenZ = new Set()
+        seenY.set(edit.position.y, seenZ)
+      }
+      if (seenZ.has(edit.position.z)) {
+        return yield* failure(
+          'duplicate-position',
+          `Block write batch contains duplicate position (${edit.position.x},${edit.position.y},${edit.position.z})`,
+        )
+      }
+      seenZ.add(edit.position.z)
     }
-    let seenZ = seenY.get(edit.position.y)
-    if (seenZ === undefined) {
-      seenZ = new Set()
-      seenY.set(edit.position.y, seenZ)
-    }
-    if (seenZ.has(edit.position.z)) {
-      throw new RangeError(
-        `Block write batch contains duplicate position (${edit.position.x},${edit.position.y},${edit.position.z})`,
-      )
-    }
-    seenZ.add(edit.position.z)
-  }
-  return Object.freeze({ expected, edits: Object.freeze(validated) })
-}
+    return Object.freeze({ expected, edits: Object.freeze(validated) })
+  })
 export const BlockWriteBatch: (
   expected: ExpectedChunk,
   edits: readonly BlockEdit[],
-) => BlockWriteBatch = blockWriteBatch
+) => Result.Result<BlockWriteBatch, WorldReadWriteFailure> = blockWriteBatch
 
 export const chunkKeyOfPosition = (position: BlockPosition): ChunkKey =>
   chunkKeyOf(

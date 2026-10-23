@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resultValue } from "./block-result-helpers.js";
 
 import { ingredientMatches, tagged } from "../src/domain/recipe/recipe-data";
 import { DataPackFormat, DataPackPriority } from "../src/domain/world/data-pack-registry";
@@ -17,12 +18,12 @@ const tagLayerFromRaw = (options: {
   readonly format: number;
   readonly priority: number;
   readonly entries: ReadonlyArray<Readonly<{ readonly id: string; readonly value: ReadonlySet<ItemType> }>>;
-}) => itemTagMembershipLayer({
+}) => resultValue(itemTagMembershipLayer({
   pack: NamespacedResourceLocation(options.pack),
-  format: DataPackFormat(options.format),
-  priority: DataPackPriority(options.priority),
+  format: resultValue(DataPackFormat(options.format)),
+  priority: resultValue(DataPackPriority(options.priority)),
   entries: options.entries.map(({ id, value }) => ({ id: NamespacedResourceLocation(id), value })),
-});
+}));
 
 describe("vanilla item-tag memberships", () => {
   it("covers the tags the kernel's shipped smithing trim recipe references", () => {
@@ -47,16 +48,22 @@ describe("vanilla item-tag memberships", () => {
 
   it("matches a tag ingredient against the kernel's own item vocabulary without a caller-supplied table", () => {
     expect(
-      ingredientMatches(
-        tagged(TagLocation("#minecraft:trim_templates")),
+      resultValue(ingredientMatches(
+        resultValue(tagged(TagLocation("#minecraft:trim_templates"))),
         "netherite_upgrade_smithing_template",
-      ),
+      )),
     ).toBe(true);
     expect(
-      ingredientMatches(tagged(TagLocation("#minecraft:trim_materials")), "gold_ingot"),
+      resultValue(ingredientMatches(
+        resultValue(tagged(TagLocation("#minecraft:trim_materials"))),
+        "gold_ingot",
+      )),
     ).toBe(true);
     expect(
-      ingredientMatches(tagged(TagLocation("#minecraft:trim_materials")), "oak_planks"),
+      resultValue(ingredientMatches(
+        resultValue(tagged(TagLocation("#minecraft:trim_materials"))),
+        "oak_planks",
+      )),
     ).toBe(false);
   });
 });
@@ -102,7 +109,7 @@ describe("extendItemTagMemberships", () => {
     const extended = extendItemTagMemberships(
       VANILLA_ITEM_TAG_MEMBERSHIPS,
       [layer],
-      DataPackFormat(41),
+      resultValue(DataPackFormat(41)),
     );
 
     expect(itemTagMembers(extended, TagLocation("#minecraft:trim_materials"))).toEqual(
@@ -124,7 +131,7 @@ describe("extendItemTagMemberships", () => {
     const extended = extendItemTagMemberships(
       VANILLA_ITEM_TAG_MEMBERSHIPS,
       [layer],
-      DataPackFormat(41),
+      resultValue(DataPackFormat(41)),
     );
 
     expect(itemTagMembers(extended, TagLocation("#minecraft:custom_tag"))).toEqual(
@@ -149,7 +156,7 @@ describe("extendItemTagMemberships", () => {
     const extended = extendItemTagMemberships(
       VANILLA_ITEM_TAG_MEMBERSHIPS,
       [nonMatching, matching],
-      DataPackFormat(41),
+      resultValue(DataPackFormat(41)),
     );
 
     expect(itemTagMembers(extended, TagLocation("#minecraft:custom_tag"))).toEqual(
@@ -174,7 +181,7 @@ describe("extendItemTagMemberships", () => {
     const extended = extendItemTagMemberships(
       VANILLA_ITEM_TAG_MEMBERSHIPS,
       [higherPriority, lowerPriority],
-      DataPackFormat(41),
+      resultValue(DataPackFormat(41)),
     );
 
     expect(itemTagMembers(extended, TagLocation("#minecraft:custom_tag"))).toEqual(
@@ -186,7 +193,7 @@ describe("extendItemTagMemberships", () => {
     const extended = extendItemTagMemberships(
       VANILLA_ITEM_TAG_MEMBERSHIPS,
       [],
-      DataPackFormat(41),
+      resultValue(DataPackFormat(41)),
     );
 
     expect(extended).toEqual(VANILLA_ITEM_TAG_MEMBERSHIPS);

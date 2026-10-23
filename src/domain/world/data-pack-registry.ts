@@ -1,29 +1,54 @@
-import { Brand } from "effect";
+import { Brand, Result } from "effect";
 
 import { NamespacedResourceLocation } from "../text/identifiers.js";
 
 const DATA_PACK_FORMAT_MIN = 0;
 const DATA_PACK_PRIORITY_MIN = 0;
 
+export type DataPackRegistryFailure = Readonly<{
+  readonly _tag: 'DataPackRegistryFailure'
+  readonly reason:
+    | 'invalid-layer'
+    | 'invalid-entry'
+    | 'invalid-format'
+    | 'invalid-priority'
+    | 'invalid-resource-location'
+    | 'duplicate-entry'
+  readonly message: string
+}>
+
+const failure = (
+  reason: DataPackRegistryFailure['reason'],
+  message: string,
+): Result.Result<never, DataPackRegistryFailure> => Result.fail({ _tag: 'DataPackRegistryFailure', reason, message })
+
 /** A non-negative data-pack format number, including decimal formats such as 107.1. */
 export type DataPackFormat = number & Brand.Brand<"DataPackFormat">;
 
-export const DataPackFormat: Brand.Constructor<DataPackFormat> =
-  Brand.make<DataPackFormat>((value) =>
-    Number.isFinite(value) && value >= DATA_PACK_FORMAT_MIN
-      ? true
-      : `DataPackFormat must be a finite non-negative number, received ${value}`,
-  );
+const dataPackFormatBrand = Brand.make<DataPackFormat>((value) =>
+  Number.isFinite(value) && value >= DATA_PACK_FORMAT_MIN
+    ? true
+    : `DataPackFormat must be a finite non-negative number, received ${value}`,
+)
+
+export const DataPackFormat = (value: number): Result.Result<DataPackFormat, DataPackRegistryFailure> =>
+  Number.isFinite(value) && value >= DATA_PACK_FORMAT_MIN
+    ? Result.succeed(dataPackFormatBrand(value))
+    : failure('invalid-format', `DataPackFormat must be a finite non-negative number, received ${value}`)
 
 /** A stable non-negative precedence for a data-pack layer. Larger values win. */
 export type DataPackPriority = number & Brand.Brand<"DataPackPriority">;
 
-export const DataPackPriority: Brand.Constructor<DataPackPriority> =
-  Brand.make<DataPackPriority>((value) =>
-    Number.isSafeInteger(value) && value >= DATA_PACK_PRIORITY_MIN
-      ? true
-      : `DataPackPriority must be a non-negative safe integer, received ${value}`,
-  );
+const dataPackPriorityBrand = Brand.make<DataPackPriority>((value) =>
+  Number.isSafeInteger(value) && value >= DATA_PACK_PRIORITY_MIN
+    ? true
+    : `DataPackPriority must be a non-negative safe integer, received ${value}`,
+)
+
+export const DataPackPriority = (value: number): Result.Result<DataPackPriority, DataPackRegistryFailure> =>
+  Number.isSafeInteger(value) && value >= DATA_PACK_PRIORITY_MIN
+    ? Result.succeed(dataPackPriorityBrand(value))
+    : failure('invalid-priority', `DataPackPriority must be a non-negative safe integer, received ${value}`)
 
 /** Safe relative JSON path below a data-pack's `data/` directory. */
 export type DataPackResourcePath = string & Brand.Brand<"DataPackResourcePath">;
@@ -76,122 +101,140 @@ const hasAllKeys = (
   keys: ReadonlyArray<string>,
 ): boolean => keys.every((key) => Object.hasOwn(value, key));
 
-const dataPackEntryFromUnknown = <T>(
+const namespacedResourceLocation = (value: string): Result.Result<NamespacedResourceLocation, DataPackRegistryFailure> =>
+  Result.mapError(
+    NamespacedResourceLocation.result(value),
+    (error) => ({ _tag: 'DataPackRegistryFailure', reason: 'invalid-resource-location', message: error.message }),
+  )
+
+const dataPackEntryFromUnknown = <T, E>(
   value: unknown,
-  decodeValue: (id: NamespacedResourceLocation, value: unknown) => T,
-): DataPackRegistryEntryOptions<T> => {
+  decodeValue: (id: NamespacedResourceLocation, value: unknown) => Result.Result<T, E>,
+): Result.Result<DataPackRegistryEntryOptions<T>, DataPackRegistryFailure | E> => {
   if (
     !isRecord(value) ||
     !hasOnlyKeys(value, ["id", "value"]) ||
     !hasAllKeys(value, ["id", "value"])
   ) {
-    throw new TypeError(
-      "Data-pack registry entries must contain exactly id and value",
-    );
+    return failure('invalid-entry', "Data-pack registry entries must contain exactly id and value")
   }
   if (typeof value["id"] !== "string") {
-    throw new TypeError("Data-pack registry entry id must be a string");
+    return failure('invalid-entry', "Data-pack registry entry id must be a string")
   }
-  const id = NamespacedResourceLocation(value["id"]);
-  return { id, value: decodeValue(id, value["value"]) };
-};
+  return Result.flatMap(namespacedResourceLocation(value["id"]), (id) =>
+    Result.map(decodeValue(id, value["value"]), (decoded) => ({ id, value: decoded })),
+  )
+}
 
 const namespacedEntryOf = <T>(
   entry: DataPackRegistryEntryOptions<T>,
   ids: ReadonlySet<NamespacedResourceLocation>,
-): DataPackRegistryEntry<T> => {
-  const id = NamespacedResourceLocation(entry.id);
-  if (ids.has(id)) {
-    throw new TypeError(`Data-pack registry entry is duplicated: ${id}`);
-  }
-  return Object.freeze({ id, value: entry.value });
-};
+): Result.Result<DataPackRegistryEntry<T>, DataPackRegistryFailure> =>
+  Result.flatMap(namespacedResourceLocation(entry.id), (id) => {
+    if (ids.has(id)) {
+      return failure('duplicate-entry', `Data-pack registry entry is duplicated: ${id}`)
+    }
+    return Result.succeed(Object.freeze({ id, value: entry.value }))
+  })
 
 export const dataPackLayer = <T>(
   options: DataPackLayerOptions<T>,
-): DataPackLayer<T> => {
-  const pack = NamespacedResourceLocation(options.pack);
-  const ids = new Set<NamespacedResourceLocation>();
-  const entries = Object.freeze(
-    options.entries.map((entry) => {
-      const normalized = namespacedEntryOf(entry, ids);
-      ids.add(normalized.id);
-      return normalized;
-    }),
-  );
-  return Object.freeze({
-    pack,
-    format: DataPackFormat(options.format),
-    priority: DataPackPriority(options.priority),
-    entries,
-  });
-};
+): Result.Result<DataPackLayer<T>, DataPackRegistryFailure> =>
+  Result.gen(function* () {
+    if (
+      !isRecord(options) ||
+      typeof options['pack'] !== 'string' ||
+      typeof options['format'] !== 'number' ||
+      typeof options['priority'] !== 'number' ||
+      !Array.isArray(options['entries'])
+    ) {
+      return yield* failure('invalid-layer', 'Data-pack layer must contain a pack, format, priority, and entries array')
+    }
+    const pack = yield* namespacedResourceLocation(options.pack)
+    const format = yield* DataPackFormat(options.format)
+    const priority = yield* DataPackPriority(options.priority)
+    const ids = new Set<NamespacedResourceLocation>()
+    const entries: Array<DataPackRegistryEntry<T>> = []
+    for (const entry of options.entries) {
+      const unknownEntry: unknown = entry
+      if (!isRecord(unknownEntry) || typeof unknownEntry['id'] !== 'string') {
+        return yield* failure('invalid-entry', 'Data-pack registry entry id must be a string')
+      }
+      const normalized = yield* namespacedEntryOf({ id: unknownEntry['id'], value: entry.value }, ids)
+      ids.add(normalized.id)
+      entries.push(normalized)
+    }
+    return Object.freeze({
+      pack,
+      format,
+      priority,
+      entries: Object.freeze(entries),
+    })
+  })
 
 /**
  * Decodes the portable data-pack layer document used by kernel integrations.
  * The caller owns JSON loading; this function owns the structural boundary and
  * delegates each registry value to the supplied domain decoder.
  */
-const dataPackLayerFromUnknownWithDecoder = <T>(
+const dataPackLayerFromUnknownWithDecoder = <T, E>(
   value: unknown,
-  decodeValue: (id: NamespacedResourceLocation, value: unknown) => T,
-): DataPackLayer<T> => {
-  if (
-    !isRecord(value) ||
-    !hasOnlyKeys(value, ["pack", "format", "priority", "entries"]) ||
-    !hasAllKeys(value, ["pack", "format", "priority", "entries"])
-  ) {
-    throw new TypeError(
-      "Data-pack layer must contain exactly pack, format, priority, and entries",
-    );
-  }
-  if (typeof value["pack"] !== "string") {
-    throw new TypeError("Data-pack layer pack must be a string");
-  }
-  if (typeof value["format"] !== "number") {
-    throw new TypeError("Data-pack layer format must be a number");
-  }
-  if (typeof value["priority"] !== "number") {
-    throw new TypeError("Data-pack layer priority must be a number");
-  }
-  if (!Array.isArray(value["entries"])) {
-    throw new TypeError("Data-pack layer entries must be an array");
-  }
-  return dataPackLayer({
-    pack: NamespacedResourceLocation(value["pack"]),
-    format: DataPackFormat(value["format"]),
-    priority: DataPackPriority(value["priority"]),
-    entries: value["entries"].map((entry) =>
-      dataPackEntryFromUnknown(entry, decodeValue),
-    ),
-  });
-};
+  decodeValue: (id: NamespacedResourceLocation, value: unknown) => Result.Result<T, E>,
+): Result.Result<DataPackLayer<T>, DataPackRegistryFailure | E> =>
+  Result.gen(function* () {
+    if (
+      !isRecord(value) ||
+      !hasOnlyKeys(value, ["pack", "format", "priority", "entries"]) ||
+      !hasAllKeys(value, ["pack", "format", "priority", "entries"])
+    ) {
+      return yield* failure('invalid-layer', "Data-pack layer must contain exactly pack, format, priority, and entries")
+    }
+    if (typeof value["pack"] !== "string") {
+      return yield* failure('invalid-layer', "Data-pack layer pack must be a string")
+    }
+    if (typeof value["format"] !== "number") {
+      return yield* failure('invalid-layer', "Data-pack layer format must be a number")
+    }
+    const format = yield* DataPackFormat(value['format'])
+    if (typeof value["priority"] !== "number") {
+      return yield* failure('invalid-layer', "Data-pack layer priority must be a number")
+    }
+    const priority = yield* DataPackPriority(value['priority'])
+    if (!Array.isArray(value["entries"])) {
+      return yield* failure('invalid-layer', "Data-pack layer entries must be an array")
+    }
+    const pack = yield* namespacedResourceLocation(value['pack'])
+    const entries = yield* Result.all(value['entries'].map((entry) => dataPackEntryFromUnknown(entry, decodeValue)))
+    return yield* dataPackLayer({
+      pack,
+      format,
+      priority,
+      entries,
+    })
+  })
 
-export const dataPackLayerFromUnknown = <T>(
+export const dataPackLayerFromUnknown = <T, E>(
   value: unknown,
-  decodeValue: (value: unknown) => T,
-): DataPackLayer<T> =>
-  dataPackLayerFromUnknownWithDecoder(value, (_id, entryValue) =>
-    decodeValue(entryValue),
-  );
+  decodeValue: (value: unknown) => Result.Result<T, E>,
+): Result.Result<DataPackLayer<T>, DataPackRegistryFailure | E> =>
+  dataPackLayerFromUnknownWithDecoder(value, (_id, entryValue) => decodeValue(entryValue))
 
-export const dataPackLayerFromUnknownWithId = <T>(
+export const dataPackLayerFromUnknownWithId = <T, E>(
   value: unknown,
-  decodeValue: (id: NamespacedResourceLocation, value: unknown) => T,
-): DataPackLayer<T> => dataPackLayerFromUnknownWithDecoder(value, decodeValue);
+  decodeValue: (id: NamespacedResourceLocation, value: unknown) => Result.Result<T, E>,
+): Result.Result<DataPackLayer<T>, DataPackRegistryFailure | E> =>
+  dataPackLayerFromUnknownWithDecoder(value, decodeValue)
 
-export const mapDataPackLayer = <Input, Output>(
+export const mapDataPackLayer = <Input, Output, E>(
   layer: DataPackLayer<Input>,
-  mapValue: (value: Input) => Output,
-): DataPackLayer<Output> =>
-  Object.freeze({
-    ...layer,
-    entries: Object.freeze(
-      layer.entries.map((entry) =>
-        Object.freeze({ id: entry.id, value: mapValue(entry.value) }),
-      ),
-    ),
-  });
+  mapValue: (value: Input) => Result.Result<Output, E>,
+): Result.Result<DataPackLayer<Output>, E> =>
+  Result.map(
+    Result.all(layer.entries.map((entry) =>
+      Result.map(mapValue(entry.value), (value) => Object.freeze({ id: entry.id, value })),
+    )),
+    (entries) => Object.freeze({ ...layer, entries: Object.freeze(entries) }),
+  )
 
 /**
  * Resolves the exact-format data-pack stack. Higher priorities override lower

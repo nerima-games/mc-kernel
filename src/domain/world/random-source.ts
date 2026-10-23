@@ -10,8 +10,7 @@
  * generator, and a scripted replay for tests. It ships no adapter over a
  * real entropy source; that belongs to the consuming platform.
  */
-
-import { Brand } from 'effect'
+import { Brand, Result } from 'effect'
 
 const RANDOM_INT_MIN = 0
 const RANDOM_INT_BOUND_MIN = 1
@@ -47,16 +46,37 @@ export const RandomFraction: Brand.Constructor<RandomFraction> = Brand.make<Rand
       : 'RandomFraction must be in [0, 1)',
 )
 
-export type RandomSource = Readonly<{
-  readonly nextInt: (bound: RandomIntBound) => RandomInt
-  readonly nextFloat: () => RandomFraction
+export type RandomSourceFailure = Readonly<{
+  readonly _tag: 'RandomSourceFailure'
+  readonly reason: 'invalid-seed' | 'invalid-bound' | 'sequence-exhausted' | 'invalid-script'
+  readonly message: string
 }>
 
-const validateBound = (bound: number): void => {
-  if (!Number.isInteger(bound) || bound <= 0) {
-    throw new RangeError(`RandomSource bound must be a positive integer, received ${String(bound)}`)
-  }
-}
+const failure = (
+  reason: RandomSourceFailure['reason'],
+  message: string,
+): Result.Result<never, RandomSourceFailure> => Result.fail({ _tag: 'RandomSourceFailure', reason, message })
+
+const brandFailure = (
+  reason: RandomSourceFailure['reason'],
+  label: string,
+  error: unknown,
+): RandomSourceFailure => ({
+  _tag: 'RandomSourceFailure',
+  reason,
+  message: `${label}: ${error instanceof Error ? error.message : String(error)}`,
+})
+
+export type RandomSource = Readonly<{
+  readonly nextInt: (bound: number) => Result.Result<RandomInt, RandomSourceFailure>
+  readonly nextFloat: () => Result.Result<RandomFraction, RandomSourceFailure>
+}>
+
+const validateBound = (bound: number): Result.Result<RandomIntBound, RandomSourceFailure> =>
+  Result.mapError(
+    RandomIntBound.result(bound),
+    (error) => brandFailure('invalid-bound', 'RandomSource bound is invalid', error),
+  )
 
 /**
  * Park–Miller "minimal standard" Lehmer generator: `state' = (state *
@@ -81,25 +101,33 @@ const normalizeSeed = (seed: number): number => {
  * kernel processes replaying the same recorded inputs therefore reproduce
  * the same offers, drops, or ticks without sharing any other state.
  */
-export const seededRandomSource = (seed: RandomSeed): RandomSource => {
-  if (!Number.isSafeInteger(seed)) {
-    throw new TypeError(`RandomSource seed must be a safe integer, received ${String(seed)}`)
-  }
+export const seededRandomSource = (seed: number): Result.Result<RandomSource, RandomSourceFailure> =>
+  Result.mapError(
+    Result.map(RandomSeed.result(seed), (validSeed) => {
+      let state = normalizeSeed(validSeed)
 
-  let state = normalizeSeed(seed)
+      const nextFloat = (): Result.Result<RandomFraction, RandomSourceFailure> => {
+        state = (state * MCG_MULTIPLIER) % MCG_MODULUS
+        return Result.mapError(
+          RandomFraction.result(state / MCG_MODULUS),
+          (error) => brandFailure('invalid-seed', 'RandomSource generated an invalid fraction', error),
+        )
+      }
 
-  const nextFloat = (): RandomFraction => {
-    state = (state * MCG_MULTIPLIER) % MCG_MODULUS
-    return RandomFraction(state / MCG_MODULUS)
-  }
+      const nextInt = (bound: number): Result.Result<RandomInt, RandomSourceFailure> =>
+        Result.flatMap(validateBound(bound), (validBound) =>
+          Result.flatMap(nextFloat(), (fraction) =>
+            Result.mapError(
+              RandomInt.result(Math.floor(fraction * validBound)),
+              (error) => brandFailure('invalid-bound', 'RandomSource generated an invalid integer', error),
+            ),
+          ),
+        )
 
-  const nextInt = (bound: RandomIntBound): RandomInt => {
-    validateBound(bound)
-    return RandomInt(Math.floor(nextFloat() * bound))
-  }
-
-  return { nextInt, nextFloat }
-}
+      return { nextInt, nextFloat }
+    }),
+    (error) => brandFailure('invalid-seed', 'RandomSource seed is invalid', error),
+  )
 
 /** A caller-supplied replay sequence for `fixedRandomSource`. */
 export type RandomSourceScript = Readonly<{
@@ -107,38 +135,75 @@ export type RandomSourceScript = Readonly<{
   readonly nextFloats?: ReadonlyArray<RandomFraction>
 }>
 
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
 /**
  * A `RandomSource` that replays a fixed, caller-supplied sequence rather
  * than generating one, analogous to `fixedClock`. Kernel ships this rather
  * than a real entropy adapter on purpose: a scripted source is
  * platform-independent, whereas every real one is not. Each call consumes
- * the next scripted value; a call past the end of its sequence throws
- * rather than silently wrapping or defaulting.
+ * the next scripted value; a call past the end of its sequence returns a
+ * failure rather than silently wrapping or defaulting.
  */
-export const fixedRandomSource = (script: RandomSourceScript): RandomSource => {
-  const ints = script.nextInts ?? []
-  const floats = script.nextFloats ?? []
+export const fixedRandomSource = (
+  script: RandomSourceScript,
+): Result.Result<RandomSource, RandomSourceFailure> => {
+  if (
+    !isRecord(script) ||
+    (script['nextInts'] !== undefined && !Array.isArray(script['nextInts'])) ||
+    (script['nextFloats'] !== undefined && !Array.isArray(script['nextFloats']))
+  ) {
+    return failure('invalid-script', 'RandomSource script must contain optional int and float arrays')
+  }
+
+  const ints: Array<RandomInt> = []
+  for (const value of script.nextInts ?? []) {
+    if (typeof value !== 'number') {
+      return failure('invalid-script', 'RandomSource script integer values must be numbers')
+    }
+    const validInt = Result.mapError(
+      RandomInt.result(value),
+      (error) => brandFailure('invalid-script', 'RandomSource script contains an invalid integer', error),
+    )
+    if (Result.isFailure(validInt)) return Result.fail(validInt.failure)
+    ints.push(validInt.success)
+  }
+
+  const floats: Array<RandomFraction> = []
+  for (const value of script.nextFloats ?? []) {
+    if (typeof value !== 'number') {
+      return failure('invalid-script', 'RandomSource script fraction values must be numbers')
+    }
+    const validFraction = Result.mapError(
+      RandomFraction.result(value),
+      (error) => brandFailure('invalid-script', 'RandomSource script contains an invalid fraction', error),
+    )
+    if (Result.isFailure(validFraction)) return Result.fail(validFraction.failure)
+    floats.push(validFraction.success)
+  }
+
   let intIndex = 0
   let floatIndex = 0
 
-  const nextInt = (bound: RandomIntBound): RandomInt => {
-    validateBound(bound)
-    const value = ints[intIndex]
-    if (value === undefined) {
-      throw new RangeError(`fixedRandomSource nextInt sequence exhausted after ${String(intIndex)} calls`)
-    }
-    intIndex += 1
-    return value
-  }
+  const nextInt = (bound: number): Result.Result<RandomInt, RandomSourceFailure> =>
+    Result.flatMap(validateBound(bound), () => {
+      const value = ints[intIndex]
+      if (value === undefined) {
+        return failure('sequence-exhausted', `fixedRandomSource nextInt sequence exhausted after ${String(intIndex)} calls`)
+      }
+      intIndex += 1
+      return Result.succeed(value)
+    })
 
-  const nextFloat = (): RandomFraction => {
+  const nextFloat = (): Result.Result<RandomFraction, RandomSourceFailure> => {
     const value = floats[floatIndex]
     if (value === undefined) {
-      throw new RangeError(`fixedRandomSource nextFloat sequence exhausted after ${String(floatIndex)} calls`)
+      return failure('sequence-exhausted', `fixedRandomSource nextFloat sequence exhausted after ${String(floatIndex)} calls`)
     }
     floatIndex += 1
-    return value
+    return Result.succeed(value)
   }
 
-  return { nextInt, nextFloat }
+  return Result.succeed({ nextInt, nextFloat })
 }

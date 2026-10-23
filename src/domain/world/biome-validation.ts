@@ -4,6 +4,7 @@
  * Keeping this module separate from the property table makes the accepted
  * external shape and the resolved domain data independently readable.
  */
+import { Result } from 'effect'
 import {
   BIOME_PROPERTY_DEFAULTS,
   BIOME_PROPERTY_OVERRIDES,
@@ -13,6 +14,12 @@ import {
   type BiomePropertyOverrides,
   type BiomeType,
 } from './biome-data.js'
+
+export type BiomeValidationFailure = Readonly<{
+  readonly _tag: 'BiomeValidationFailure'
+  readonly reason: 'unknown-biome'
+  readonly message: string
+}>
 
 const BIOME_TYPE_LOOKUP: ReadonlySet<string> = new Set<string>(BIOME_TYPES)
 
@@ -45,10 +52,10 @@ export const propertiesOfBiomeType = (biome: BiomeType): BiomeProperties =>
   resolveBiomeProperties(BIOME_PROPERTY_OVERRIDES[biome])
 
 /** Resolve a biome's properties from an untrusted value such as save-file or network input. */
-export const propertiesOfBiome = (biome: unknown): BiomeProperties => {
+export const propertiesOfBiome = (biome: unknown): Result.Result<BiomeProperties, BiomeValidationFailure> => {
   if (!isBiomeType(biome)) {
-    throw new TypeError(`unknown biome ${String(biome)}`)
+    return Result.fail({ _tag: 'BiomeValidationFailure', reason: 'unknown-biome', message: `unknown biome ${String(biome)}` })
   }
 
-  return propertiesOfBiomeType(biome)
+  return Result.succeed(propertiesOfBiomeType(biome))
 }

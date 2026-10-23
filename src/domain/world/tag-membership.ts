@@ -1,8 +1,10 @@
+import { Result } from "effect";
 import {
   dataPackLayer,
   type DataPackFormat,
   type DataPackLayer,
   type DataPackLayerOptions,
+  type DataPackRegistryFailure,
 } from "./data-pack-registry.js";
 import type { ItemType } from "../item/item-type.js";
 import { TagLocation } from "../text/identifiers.js";
@@ -38,7 +40,8 @@ export type ItemTagMembershipLayerOptions =
 /** Builds a data-pack layer of tag membership additions, reusing data-pack-registry's format/priority stacking. */
 export const itemTagMembershipLayer = (
   options: ItemTagMembershipLayerOptions,
-): ItemTagMembershipLayer => dataPackLayer(options);
+): Result.Result<ItemTagMembershipLayer, DataPackRegistryFailure> =>
+  dataPackLayer(options);
 
 /**
  * Extends a base tag table with data-pack layers.

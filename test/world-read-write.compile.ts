@@ -1,3 +1,4 @@
+import { resultValue } from './block-result-helpers.js'
 import {
   BlockAxis,
   ChunkAxis,
@@ -58,9 +59,9 @@ export const localAxes: readonly [LocalAxis, LocalAxis, LocalAxis] = [
   // @ts-expect-error ChunkAxis and LocalAxis are distinct brands.
   chunk,
 ]
-const epoch = WorldEpoch(0)
-const chunkRevision = ChunkRevision(0)
-const lightRevision = LightRevision(0)
+const epoch = resultValue(WorldEpoch(0))
+const chunkRevision = resultValue(ChunkRevision(0))
+const lightRevision = resultValue(LightRevision(0))
 export const epochRevisions: readonly [WorldEpoch, WorldEpoch, WorldEpoch] = [
   epoch,
   // @ts-expect-error ChunkRevision and WorldEpoch are distinct brands.
@@ -82,16 +83,16 @@ export const lightRevisions: readonly [LightRevision, LightRevision, LightRevisi
   // @ts-expect-error ChunkRevision and LightRevision are distinct brands.
   chunkRevision,
 ]
-const view = readView({
+const view = resultValue(readView({
   epoch,
   chunk: chunkKeyOf(chunkCoord(chunk, chunk)),
   blockRevision: chunkRevision,
   lightRevision,
   blocks: new Uint16Array(1),
   light: new Uint16Array(1),
-})
+}))
 const section = view.blocks
-const sectionIndex = SectionIndex(0)
+const sectionIndex = resultValue(SectionIndex(0))
 export const sectionLength: SectionLength = view.length
 view.getBlock(sectionIndex)
 view.getLight(sectionIndex)
@@ -109,11 +110,11 @@ export const dataPath: DataPackResourcePath = dataPackResourcePath(
 derivePrecipitationKind(BiomeTemperature(0))
 dataPackLayer({
   pack: NamespacedResourceLocation('example:pack'),
-  format: DataPackFormat(1),
-  priority: DataPackPriority(0),
+  format: resultValue(DataPackFormat(1)),
+  priority: resultValue(DataPackPriority(0)),
   entries: [{ id: NamespacedResourceLocation('example:entry'), value: 1 }],
 })
-tagged(TagLocation('#minecraft:planks'))
+resultValue(tagged(TagLocation('#minecraft:planks')))
 
 // @ts-expect-error Chunk construction requires a validated height.
 makeChunk(chunkCoord(chunk, chunk), 1, new Uint8Array(0))

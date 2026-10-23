@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { resultFailure, resultValue } from './block-result-helpers.js'
 import {
   BIOME_PROPERTY_DEFAULTS,
   BIOME_PROPERTY_OVERRIDES,
@@ -351,15 +352,20 @@ describe('isBiomeType', () => {
 describe('propertiesOfBiome (the unknown-input boundary)', () => {
   it('resolves a valid, untyped biome name the same way as the typed accessor', () => {
     const value: unknown = KNOWN_BIOME
-    expect(propertiesOfBiome(value)).toStrictEqual(propertiesOfBiomeType(KNOWN_BIOME))
+    expect(resultValue(propertiesOfBiome(value))).toStrictEqual(propertiesOfBiomeType(KNOWN_BIOME))
   })
 
-  it('throws a TypeError naming the rejected value for an unknown biome', () => {
-    expect(() => propertiesOfBiome(UNKNOWN_BIOME_NAME)).toThrow(TypeError)
-    expect(() => propertiesOfBiome(UNKNOWN_BIOME_NAME)).toThrow(UNKNOWN_BIOME_NAME)
+  it('returns a tagged failure naming the rejected value for an unknown biome', () => {
+    const failure = resultFailure(propertiesOfBiome(UNKNOWN_BIOME_NAME))
+    expect(failure._tag).toBe('BiomeValidationFailure')
+    expect(failure.reason).toBe('unknown-biome')
+    expect(failure.message).toContain(UNKNOWN_BIOME_NAME)
   })
 
-  it('throws for non-string input', () => {
-    expect(() => propertiesOfBiome(NON_STRING_BIOME)).toThrow(TypeError)
+  it('returns a tagged failure for non-string input', () => {
+    const failure = resultFailure(propertiesOfBiome(NON_STRING_BIOME))
+    expect(failure._tag).toBe('BiomeValidationFailure')
+    expect(failure.reason).toBe('unknown-biome')
+    expect(failure.message).toContain(String(NON_STRING_BIOME))
   })
 })
