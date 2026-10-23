@@ -123,12 +123,14 @@ re-exports that barrel.
 all exports from that index are available at the package root: recipe
 constructors and types, vanilla crafting recipes, JSON and registry helpers,
 and static brewing, smelting, and special-crafting data. The narrower
-`./domain/recipe` subpath exposes shared constructors, types, and vanilla
-crafting recipes, which are also available at the root. A source file does not
-necessarily have its own package subpath; the table below lists every non-root
-domain export.
+`./domain/recipe` subpath exposes crafting ingredient and grid helpers,
+including `craftingIngredient` and `craftGrid`, and shaped and shapeless recipe
+constructors (`shapedRecipe` and `shapelessRecipe`), their related types, and
+vanilla crafting recipes; these exports are also available at the root. A
+source file does not necessarily have its own package subpath; the table below
+lists every non-root domain export.
 
-Rows follow the non-root key order in `package.json`'s `exports` map.
+Rows follow the order of the non-root keys in `package.json`'s `exports` map.
 
 | package subpath | implemented barrel |
 | --- | --- |
