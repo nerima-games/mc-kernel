@@ -10,10 +10,6 @@ import {
   MIN_MOUSE_SENSITIVITY,
   MIN_RENDER_DISTANCE,
   MIN_VOLUME,
-  applySettings,
-  isGraphicsQuality,
-  isValidSettings,
-  keyBindingFor,
   normaliseSettings,
   rebindKey,
   unbindKey,
@@ -35,9 +31,6 @@ describe('settings', () => {
       captionsEnabled: true,
       keyBindings: {},
     })
-    expect(isGraphicsQuality('ultra')).toBe(true)
-    expect(isGraphicsQuality('cinematic')).toBe(false)
-    expect(isGraphicsQuality(null)).toBe(false)
   })
 
   it('normalises malformed and out-of-range input without assertions', () => {
@@ -78,14 +71,12 @@ describe('settings', () => {
     expect(normaliseSettings({ captionsEnabled: false }).captionsEnabled).toBe(false)
   })
 
-  it('rebinds by swapping the conflicting action, and applies settings immutably', () => {
+  it('rebinds by swapping the conflicting action immutably', () => {
     const settings: Settings = {
       ...DEFAULT_SETTINGS,
       keyBindings: { jump: 'Space', sneak: 'ShiftLeft' },
     }
 
-    expect(keyBindingFor(settings, 'jump')).toBe('Space')
-    expect(keyBindingFor(settings, 'missing')).toBeUndefined()
     expect(rebindKey(settings, '', 'KeyA')).toBe(settings)
     expect(rebindKey(settings, 'jump', '')).toBe(settings)
 
@@ -107,45 +98,9 @@ describe('settings', () => {
     const stolen = rebindKey(settings, 'sprint', 'Space')
     expect(stolen.keyBindings).toEqual({ sneak: 'ShiftLeft', sprint: 'Space' })
 
-    expect(applySettings(settings, { renderDistance: 40 }).renderDistance).toBe(16)
-    expect(applySettings(settings, { audioEnabled: false }).audioEnabled).toBe(false)
   })
 
-  it('validates the complete settings shape', () => {
-    expect(isValidSettings(DEFAULT_SETTINGS)).toBe(true)
-
-    const invalidSettings: unknown[] = [
-      null,
-      [],
-      { ...DEFAULT_SETTINGS, renderDistance: '5' },
-      { ...DEFAULT_SETTINGS, renderDistance: 2.5 },
-      { ...DEFAULT_SETTINGS, renderDistance: 1 },
-      { ...DEFAULT_SETTINGS, fovDegrees: '75' },
-      { ...DEFAULT_SETTINGS, fovDegrees: Number.NaN },
-      { ...DEFAULT_SETTINGS, fovDegrees: 29 },
-      { ...DEFAULT_SETTINGS, graphicsQuality: 'cinematic' },
-      { ...DEFAULT_SETTINGS, audioEnabled: 'false' },
-      { ...DEFAULT_SETTINGS, masterVolume: Number.NaN },
-      { ...DEFAULT_SETTINGS, musicVolume: 2 },
-      { ...DEFAULT_SETTINGS, sfxVolume: -1 },
-      { ...DEFAULT_SETTINGS, mouseSensitivity: Number.POSITIVE_INFINITY },
-      { ...DEFAULT_SETTINGS, mouseSensitivity: 0 },
-      { ...DEFAULT_SETTINGS, captionsEnabled: 'true' },
-      { ...DEFAULT_SETTINGS, keyBindings: null },
-      { ...DEFAULT_SETTINGS, keyBindings: [] },
-      { ...DEFAULT_SETTINGS, keyBindings: { '': 'KeyA' } },
-      { ...DEFAULT_SETTINGS, keyBindings: { jump: '' } },
-      { ...DEFAULT_SETTINGS, keyBindings: { jump: 4 } },
-    ]
-
-    for (const settings of invalidSettings) {
-      expect(isValidSettings(settings)).toBe(false)
-    }
-  })
-
-  // Second verification angle (enumerated-input property/invariant checks), alongside the
-  // example-based tests above: clamping totality, rebind's bijection invariant, and
-  // normalise/validate round-tripping as an encode/decode identity.
+  // Additional invariant checks alongside the example-based tests above.
   describe('invariants over enumerated inputs', () => {
     const NUMERIC_PROBES = [
       Number.NaN,
@@ -195,7 +150,7 @@ describe('settings', () => {
       }
     })
 
-    it('round-trips any already-valid settings value through normalise/validate as identity', () => {
+    it('preserves already-normalised settings and remains idempotent', () => {
       const validSamples: Settings[] = [
         DEFAULT_SETTINGS,
         { ...DEFAULT_SETTINGS, renderDistance: MIN_RENDER_DISTANCE },
@@ -211,7 +166,6 @@ describe('settings', () => {
       ]
 
       for (const sample of validSamples) {
-        expect(isValidSettings(sample)).toBe(true)
         const decoded = normaliseSettings(sample)
         expect(decoded).toEqual(sample)
         // Idempotent: decoding an already-decoded value changes nothing further.

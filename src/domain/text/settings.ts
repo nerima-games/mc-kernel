@@ -10,7 +10,7 @@ import {
   MIN_RENDER_DISTANCE,
   MIN_VOLUME,
 } from './settings-data.js'
-import type { GraphicsQuality, Settings } from './settings-data.js'
+import type { Settings } from './settings-data.js'
 
 export {
   DEFAULT_SETTINGS,
@@ -26,31 +26,8 @@ export {
 } from './settings-data.js'
 export type { GraphicsQuality, Settings } from './settings-data.js'
 
-type UnknownRecord = Readonly<Record<string, unknown>>
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-export const isGraphicsQuality = (value: unknown): value is GraphicsQuality =>
-  GRAPHICS_QUALITIES.some((quality) => quality === value)
-
-const hasMagnitude = (value: unknown): value is number =>
-  typeof value === 'number' && !Number.isNaN(value)
-
-const clampWithDefault = (
-  value: unknown,
-  minimum: number,
-  maximum: number,
-  fallback: number,
-): number => {
-  if (!hasMagnitude(value)) {
-    return fallback
-  }
-  return Math.min(maximum, Math.max(minimum, value))
-}
-
-const normaliseKeyBindings = (bindings: unknown): Readonly<Record<string, string>> => {
-  if (!isRecord(bindings)) {
+export const normaliseKeyBindings = (bindings: unknown): Readonly<Record<string, string>> => {
+  if (typeof bindings !== 'object' || bindings === null || Array.isArray(bindings)) {
     return {}
   }
 
@@ -64,47 +41,53 @@ const normaliseKeyBindings = (bindings: unknown): Readonly<Record<string, string
 }
 
 export const normaliseSettings = (settings: unknown): Settings => {
-  const source: UnknownRecord = isRecord(settings) ? settings : {}
+  const source: Record<string, unknown> =
+    typeof settings === 'object' && settings !== null && !Array.isArray(settings)
+      ? settings as Record<string, unknown>
+      : {}
+  const clamp = (value: unknown, minimum: number, maximum: number, fallback: number): number => {
+    const number = typeof value === 'number' && !Number.isNaN(value) ? value : fallback
+    return Math.min(maximum, Math.max(minimum, number))
+  }
+  const graphicsQuality = GRAPHICS_QUALITIES.find((quality) => quality === source['graphicsQuality'])
   return {
     renderDistance: Math.floor(
-      clampWithDefault(
+      clamp(
         source['renderDistance'],
         MIN_RENDER_DISTANCE,
         MAX_RENDER_DISTANCE,
         DEFAULT_SETTINGS.renderDistance,
       ),
     ),
-    fovDegrees: clampWithDefault(
+    fovDegrees: clamp(
       source['fovDegrees'],
       MIN_FOV_DEGREES,
       MAX_FOV_DEGREES,
       DEFAULT_SETTINGS.fovDegrees,
     ),
-    graphicsQuality: isGraphicsQuality(source['graphicsQuality'])
-      ? source['graphicsQuality']
-      : DEFAULT_SETTINGS.graphicsQuality,
+    graphicsQuality: graphicsQuality ?? DEFAULT_SETTINGS.graphicsQuality,
     audioEnabled: typeof source['audioEnabled'] === 'boolean'
       ? source['audioEnabled']
       : DEFAULT_SETTINGS.audioEnabled,
-    masterVolume: clampWithDefault(
+    masterVolume: clamp(
       source['masterVolume'],
       MIN_VOLUME,
       MAX_VOLUME,
       DEFAULT_SETTINGS.masterVolume,
     ),
-    musicVolume: clampWithDefault(
+    musicVolume: clamp(
       source['musicVolume'],
       MIN_VOLUME,
       MAX_VOLUME,
       DEFAULT_SETTINGS.musicVolume,
     ),
-    sfxVolume: clampWithDefault(
+    sfxVolume: clamp(
       source['sfxVolume'],
       MIN_VOLUME,
       MAX_VOLUME,
       DEFAULT_SETTINGS.sfxVolume,
     ),
-    mouseSensitivity: clampWithDefault(
+    mouseSensitivity: clamp(
       source['mouseSensitivity'],
       MIN_MOUSE_SENSITIVITY,
       MAX_MOUSE_SENSITIVITY,
@@ -116,12 +99,6 @@ export const normaliseSettings = (settings: unknown): Settings => {
     keyBindings: normaliseKeyBindings(source['keyBindings']),
   }
 }
-
-export const applySettings = (current: Settings, patch: Partial<Settings>): Settings =>
-  normaliseSettings({ ...current, ...patch })
-
-export const keyBindingFor = (settings: Settings, action: string): string | undefined =>
-  settings.keyBindings[action]
 
 /**
  * Binds `action` to `code`, swapping with whichever other action currently holds `code`
@@ -157,7 +134,7 @@ export const rebindKey = (settings: Settings, action: string, code: string): Set
     }
   }
 
-  return normaliseSettings({ ...settings, keyBindings: nextBindings })
+  return { ...settings, keyBindings: normaliseKeyBindings(nextBindings) }
 }
 
 export const unbindKey = (settings: Settings, action: string): Settings => {
@@ -166,38 +143,5 @@ export const unbindKey = (settings: Settings, action: string): Settings => {
   }
   const keyBindings = { ...settings.keyBindings }
   delete keyBindings[action]
-  return normaliseSettings({ ...settings, keyBindings })
-}
-
-const isFiniteInRange = (value: unknown, minimum: number, maximum: number): value is number =>
-  typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum
-
-const isIntegerInRange = (value: unknown, minimum: number, maximum: number): value is number =>
-  typeof value === 'number' && Number.isInteger(value) && value >= minimum && value <= maximum
-
-const isValidKeyBindings = (value: unknown): value is Readonly<Record<string, string>> => {
-  if (!isRecord(value)) {
-    return false
-  }
-  return Object.entries(value).every(
-    ([action, code]) => action.length > 0 && typeof code === 'string' && code.length > 0,
-  )
-}
-
-export const isValidSettings = (settings: unknown): settings is Settings => {
-  if (!isRecord(settings)) {
-    return false
-  }
-  return (
-    isIntegerInRange(settings['renderDistance'], MIN_RENDER_DISTANCE, MAX_RENDER_DISTANCE) &&
-    isFiniteInRange(settings['fovDegrees'], MIN_FOV_DEGREES, MAX_FOV_DEGREES) &&
-    isGraphicsQuality(settings['graphicsQuality']) &&
-    typeof settings['audioEnabled'] === 'boolean' &&
-    isFiniteInRange(settings['masterVolume'], MIN_VOLUME, MAX_VOLUME) &&
-    isFiniteInRange(settings['musicVolume'], MIN_VOLUME, MAX_VOLUME) &&
-    isFiniteInRange(settings['sfxVolume'], MIN_VOLUME, MAX_VOLUME) &&
-    isFiniteInRange(settings['mouseSensitivity'], MIN_MOUSE_SENSITIVITY, MAX_MOUSE_SENSITIVITY) &&
-    typeof settings['captionsEnabled'] === 'boolean' &&
-    isValidKeyBindings(settings['keyBindings'])
-  )
+  return { ...settings, keyBindings: normaliseKeyBindings(keyBindings) }
 }
