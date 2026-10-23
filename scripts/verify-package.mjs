@@ -427,7 +427,6 @@ import {
   resolveDrop,
   snapshotAgeSecs,
   MonotonicTimeSecs,
-  PositionAxis,
   itemStack,
   maxStackCountForItem,
   StackCount,
