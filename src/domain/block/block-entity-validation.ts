@@ -70,10 +70,6 @@ const isCookingStation = (value: unknown): value is CookingStation =>
 
 /**
  * Guard for a furnace's cooking state.
- *
- * Field-for-field mirror of `assertFurnaceState` in `./smelting.ts`,
- * including the derived bound `fuelTimeRemainingSecs <= fuelTimeTotalSecs`.
- * An edit to one invariant requires the matching edit there.
  */
 export const isFurnaceState = (value: unknown): value is FurnaceState => {
   if (!isRecord(value)) {
@@ -97,10 +93,6 @@ const isBrewingBottles = (value: unknown): value is BrewingBottles =>
 
 /**
  * Guard for a brewing stand's state.
- *
- * Field-for-field mirror of `assertBrewingState` in `./brewing.ts`,
- * including the derived bound `brewProgressSecs <= BREWING_TIME_SECS`.
- * An edit to one invariant requires the matching edit there.
  */
 export const isBrewingState = (value: unknown): value is BrewingState => {
   if (!isRecord(value)) {
