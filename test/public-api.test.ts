@@ -75,7 +75,7 @@ import * as lightModule from "../src/domain/block/light";
 import * as randomSourceModule from "../src/domain/world/random-source";
 import * as statusEffectModule from "../src/domain/entity/status-effect";
 import * as tagMembershipModule from "../src/domain/world/tag-membership";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { Effect } from "effect";
 
 const ORIGIN_AXIS = 0;
@@ -165,6 +165,38 @@ describe("public API surface", () => {
           // Identifiers
           "WorldId",
           "StageId",
+          "QaNamespaceNameSchema",
+          "QaOperationNameSchema",
+          "ModuleContractIdSchema",
+          "ModuleContractKindSchema",
+          "SaveSliceIdSchema",
+          "SaveVersionSchema",
+          "QaBlockPositionInput",
+          "QaBlockIdOutput",
+          "defineSaveMigration",
+          "DamageAmountSchema",
+          "ExplosionPowerSchema",
+          "ExperienceLevelSchema",
+          "LevelUpLevelSchema",
+          "AchievementIdSchema",
+          "DomainEventSchema",
+          "EntityIdSchema",
+          "DimensionIdSchema",
+          "WorldIdSchema",
+          "BlockIdSchema",
+          "ItemIdSchema",
+          "BlockPositionSchema",
+          "BlockAddressSchema",
+          "WorldPositionSchema",
+          "SimulationTickSchema",
+          "WorldRevisionSchema",
+          "DimensionRevisionSchema",
+          "BlockEditSchema",
+          "WorldWriteBatchSchema",
+          "WorldWriteCommitSchema",
+          "WorldWriteConflict",
+          "WorldWriteInvalidBatch",
+          "WorldWritePort",
           "ResourceLocation",
           "NamespacedResourceLocation",
           "TagLocation",
@@ -2079,6 +2111,71 @@ describe("public API surface", () => {
         for (const itemType of PUBLIC_ITEM_TYPES) {
           expect(kernel.isItemType(itemType)).toBe(true);
         }
+      }),
+    ));
+
+  it("re-exports W1 contract types from the package root", () => {
+    expectTypeOf<kernel.KernelGameModule<never, never, never>>()
+      .toMatchTypeOf<kernel.GameModule<never, never, never>>();
+    expectTypeOf<kernel.SaveSliceId>().toEqualTypeOf<
+      import("../src/domain/module-contracts/module-contracts.js").SaveSliceId
+    >();
+    expectTypeOf<kernel.DomainEvent>().toEqualTypeOf<
+      import("../src/domain/event/domain-event.js").DomainEvent
+    >();
+    expectTypeOf<kernel.DomainEventAchievementId>().toEqualTypeOf<
+      import("../src/domain/event/domain-event.js").AchievementId
+    >();
+    expectTypeOf<kernel.WorldPosition>().toEqualTypeOf<
+      import("../src/domain/shared-vocabulary/shared-vocabulary.js").WorldPosition
+    >();
+    expectTypeOf<kernel.WorldWriteBlockEdit>().toEqualTypeOf<
+      import("../src/domain/world/world-write-port.js").BlockEdit
+    >();
+  });
+
+  it("supports W1 contract package subpaths", () =>
+    Effect.runPromise(
+      Effect.promise(async () => {
+        const packageRootPath = "@nerima-games/mc-kernel";
+        const eventPath = "@nerima-games/mc-kernel/domain/domain-event";
+        const moduleContractsPath =
+          "@nerima-games/mc-kernel/domain/module-contracts";
+        const saveSlicesPath = "@nerima-games/mc-kernel/domain/save-slices";
+        const sharedVocabularyPath =
+          "@nerima-games/mc-kernel/domain/shared-vocabulary";
+        const worldWritePortPath =
+          "@nerima-games/mc-kernel/domain/world-write-port";
+        const [
+          packageRoot,
+          event,
+          moduleContracts,
+          saveSlices,
+          sharedVocabulary,
+          worldWritePort,
+        ] = await Promise.all([
+          import(packageRootPath),
+          import(eventPath),
+          import(moduleContractsPath),
+          import(saveSlicesPath),
+          import(sharedVocabularyPath),
+          import(worldWritePortPath),
+        ]);
+
+        expect(event.DomainEventSchema).toBe(packageRoot.DomainEventSchema);
+        expect(moduleContracts.SaveSliceIdSchema).toBe(
+          packageRoot.SaveSliceIdSchema,
+        );
+        expect(saveSlices.defineSaveMigration).toBe(
+          packageRoot.defineSaveMigration,
+        );
+        expect(sharedVocabulary.BlockIdSchema).toBe(
+          packageRoot.BlockIdSchema,
+        );
+        expect(worldWritePort.BlockEditSchema).toBe(
+          packageRoot.BlockEditSchema,
+        );
+        expect(worldWritePort.WorldWritePort).toBe(packageRoot.WorldWritePort);
       }),
     ));
 

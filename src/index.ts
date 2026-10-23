@@ -10,3 +10,7 @@ export * from "./domain/entity/index.js";
 export * from "./domain/time/index.js";
 export * from "./domain/text/index.js";
 export * from "./domain/presentation/index.js";
+export * from "./domain/event/index.js";
+export * from "./domain/module-contracts/index.js";
+export * from "./domain/save-slices/index.js";
+export * from "./domain/shared-vocabulary/index.js";

@@ -449,6 +449,31 @@
       "types": "./dist/domain/wither.d.ts",
       "import": "./dist/domain/wither.js",
       "default": "./dist/domain/wither.js"
+    },
+    "./domain/domain-event": {
+      "types": "./dist/domain/domain-event.d.ts",
+      "import": "./dist/domain/domain-event.js",
+      "default": "./dist/domain/domain-event.js"
+    },
+    "./domain/module-contracts": {
+      "types": "./dist/domain/module-contracts.d.ts",
+      "import": "./dist/domain/module-contracts.js",
+      "default": "./dist/domain/module-contracts.js"
+    },
+    "./domain/save-slices": {
+      "types": "./dist/domain/save-slices.d.ts",
+      "import": "./dist/domain/save-slices.js",
+      "default": "./dist/domain/save-slices.js"
+    },
+    "./domain/shared-vocabulary": {
+      "types": "./dist/domain/shared-vocabulary.d.ts",
+      "import": "./dist/domain/shared-vocabulary.js",
+      "default": "./dist/domain/shared-vocabulary.js"
+    },
+    "./domain/world-write-port": {
+      "types": "./dist/domain/world-write-port.d.ts",
+      "import": "./dist/domain/world-write-port.js",
+      "default": "./dist/domain/world-write-port.js"
     }
   },
   "files": [
