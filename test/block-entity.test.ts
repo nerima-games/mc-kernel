@@ -23,7 +23,7 @@ import {
   isStorageContainer,
 } from '../src/domain/block/block-entity-validation'
 import { BlockAxis, blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
-import { itemStack, type Slot } from '../src/domain/item/item-stack'
+import { itemStack as itemStackResult, type Slot } from '../src/domain/item/item-stack'
 import { FixedDurationSecs, StackCount } from '../src/domain/time/quantities'
 import type { FurnaceState } from '../src/domain/recipe/smelting-data'
 import {
@@ -32,6 +32,9 @@ import {
   BrewingFuelCharges,
   type BrewingState,
 } from '../src/domain/recipe/brewing-data'
+import { resultValue } from './block-result-helpers'
+
+const itemStack = (...args: Parameters<typeof itemStackResult>) => resultValue(itemStackResult(...args))
 
 const AT_ORIGIN: BlockPosition = blockPosition(BlockAxis(0), BlockAxis(0), BlockAxis(0))
 const EMPTY_FURNACE: FurnaceState = {

@@ -99,13 +99,14 @@ const resourceLocationProviderOf = (
     try: () => Array.isArray(value) ? Array.from(value) : undefined,
     catch: () => failure(field, `Unable to inspect ${field}`, value, 'hostile-input'),
   })))
-  if (Result.isFailure(copiedEntries)) return copiedEntries
+  if (Result.isFailure(copiedEntries)) return Result.fail(copiedEntries.failure)
   if (copiedEntries.success === undefined) {
     return Result.fail(failure(field, `${field} must be a string or an array of resource locations`, value, 'invalid-type'))
   }
+  const entries = copiedEntries.success
   return Result.gen(function* () {
     const locations: ResourceLocation[] = []
-    for (const entry of copiedEntries.success) {
+    for (const entry of entries) {
       if (typeof entry !== 'string' || entry.startsWith('#')) {
         return yield* Result.fail(failure(field, `${field} lists must contain resource locations`, entry, 'invalid-type'))
       }

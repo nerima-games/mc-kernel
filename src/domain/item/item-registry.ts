@@ -57,14 +57,19 @@ export const ITEM_REGISTRY: ReadonlyArray<ItemDefinition> = ITEM_TYPES.map((type
 
 export const ITEM_IDS: ReadonlyArray<ItemId> = ITEM_REGISTRY.map(({ id }) => id)
 
-const DEFINITION_BY_TYPE: Readonly<Record<ItemType, ItemDefinition>> = Object.fromEntries(
+const DEFINITION_BY_TYPE = Object.fromEntries(
   ITEM_REGISTRY.map((definition) => [definition.type, definition]),
 )
 
 export const isKnownItemId = (id: unknown): id is ItemId =>
   typeof id === 'number' && Number.isInteger(id) && id >= ITEM_ID_MIN && id < ITEM_REGISTRY.length
 
-export const itemDefinitionOf = (type: ItemType): ItemDefinition => DEFINITION_BY_TYPE[type]
+export function itemDefinitionOf(type: ItemType): ItemDefinition
+export function itemDefinitionOf(type: unknown): ItemDefinition | undefined
+export function itemDefinitionOf(type: unknown): ItemDefinition | undefined {
+  if (typeof type !== 'string') return undefined
+  return DEFINITION_BY_TYPE[type]
+}
 
 export const maxStackCountOfItem = (type: ItemType): ItemStackLimit => itemDefinitionOf(type).maxStackCount
 
@@ -83,7 +88,7 @@ const itemIdOfBytes = (bytes: ItemIdBytesInput): Result.Result<ItemId, ItemRegis
     try: () => bytes.slice(),
     catch: () => itemValidationFailure('bytes', 'Unable to read ItemIdBytes input', 'hostile-input', bytes),
   })))
-  if (Result.isFailure(copied)) return copied
+  if (Result.isFailure(copied)) return Result.fail(copied.failure)
   if (copied.success.length !== ITEM_ID_BYTES) {
     return Result.fail(itemValidationFailure(
       'bytes',
@@ -93,7 +98,12 @@ const itemIdOfBytes = (bytes: ItemIdBytesInput): Result.Result<ItemId, ItemRegis
       'RangeError',
     ))
   }
-  const id = copied.success[ITEM_ID_BYTE_OFFSET] * ITEM_ID_BYTE_BASE + copied.success[ITEM_ID_BYTE_OFFSET + 1]
+  const highByte = copied.success[ITEM_ID_BYTE_OFFSET]
+  const lowByte = copied.success[ITEM_ID_BYTE_OFFSET + 1]
+  if (highByte === undefined || lowByte === undefined) {
+    return Result.fail(itemValidationFailure('bytes', 'ItemIdBytes must contain exactly two bytes', 'out-of-range', copied.success.length, 'RangeError'))
+  }
+  const id = highByte * ITEM_ID_BYTE_BASE + lowByte
   if (!isKnownItemId(id)) {
     return Result.fail(itemValidationFailure(
       'id',
@@ -109,7 +119,7 @@ const itemIdOfBytes = (bytes: ItemIdBytesInput): Result.Result<ItemId, ItemRegis
 
 export const ItemIdBytes = (bytes: ItemIdBytesInput): Result.Result<ItemIdBytes, ItemRegistryFailure> => {
   const validated = itemIdOfBytes(bytes)
-  if (Result.isFailure(validated)) return validated
+  if (Result.isFailure(validated)) return Result.fail(validated.failure)
   const copied = Effect.runSync(Effect.result(Effect.try({
     try: () => bytes.slice(),
     catch: () => itemValidationFailure('bytes', 'Unable to read ItemIdBytes input', 'hostile-input', bytes),

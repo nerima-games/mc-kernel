@@ -207,7 +207,7 @@ import type {
 } from './item-enchantments-data.js'
 import { ResourceLocation } from '../text/identifiers.js'
 import { isTextComponent } from '../text/text-component-validation.js'
-import { textComponent } from '../text/text-component.js'
+import { textComponent, type TextComponentFailure } from '../text/text-component.js'
 import type { TextComponent } from '../text/text-component-data.js'
 import type {
   MapId,
@@ -217,6 +217,8 @@ import type {
   OminousBottleAmplifier,
 } from './item-primitives.js'
 import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
+
+type ItemComponentFailure = ItemValidationFailure | TextComponentFailure
 
 export {
   ITEM_COMPONENT_IDS,
@@ -751,7 +753,7 @@ const snapshotOptions = (value: ItemComponentOptions): Result.Result<ItemCompone
     },
     catch: () => optionsFailure('options', 'Unable to inspect item component options', value, 'hostile-input'),
   })))
-  if (Result.isFailure(snapshot)) return snapshot
+  if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
   if (snapshot.success === undefined) {
     return Result.fail(optionsFailure('options', 'Item component options must be a non-null object', value, 'invalid-type'))
   }
@@ -768,7 +770,7 @@ const validateOptions = (
       try: () => isValid(value),
       catch: () => optionsFailure(String(key), `Unable to inspect item component option ${String(key)}`, value, 'hostile-input'),
     })))
-    if (Result.isFailure(checked)) return checked
+    if (Result.isFailure(checked)) return Result.fail(checked.failure)
     if (!checked.success) {
       return Result.fail(optionsFailure(
         String(key),
@@ -801,14 +803,14 @@ const itemDamageOf = (
 
 const optionalComponentOf = <T, U>(
   value: T | undefined,
-  normalize: (value: T) => Result.Result<U, ItemValidationFailure>,
-): Result.Result<U | undefined, ItemValidationFailure> =>
+  normalize: (value: T) => Result.Result<U, ItemComponentFailure>,
+): Result.Result<U | undefined, ItemComponentFailure> =>
   value === undefined ? Result.succeed(undefined) : normalize(value)
 
 const presentComponentOf = <T>(
   value: true | undefined,
-  normalize: () => Result.Result<T, ItemValidationFailure>,
-): Result.Result<T | undefined, ItemValidationFailure> =>
+  normalize: () => Result.Result<T, ItemComponentFailure>,
+): Result.Result<T | undefined, ItemComponentFailure> =>
   value === undefined ? Result.succeed(undefined) : normalize()
 
 const valueOr = <T>(value: T | undefined, fallback: T): T =>
@@ -817,7 +819,7 @@ const valueOr = <T>(value: T | undefined, fallback: T): T =>
 const valueOrUndefined = <T>(value: T | undefined, fallback: T | undefined): T | undefined =>
   value === undefined ? fallback : value
 
-export const itemComponents = (item: ItemType, options: ItemComponentOptions = {}): Result.Result<ItemComponents, ItemValidationFailure> => {
+export const itemComponents = (item: ItemType, options: ItemComponentOptions = {}): Result.Result<ItemComponents, ItemComponentFailure> => {
   if (!isItemType(item)) {
     return Result.fail(optionsFailure('item', `Unknown item type: ${String(item)}`, item, 'invalid-value'))
   }
@@ -831,7 +833,7 @@ export const itemComponents = (item: ItemType, options: ItemComponentOptions = {
 const buildItemComponents = (
   item: ItemType,
   options: ItemComponentOptions,
-): Result.Result<ItemComponents, ItemValidationFailure> => {
+): Result.Result<ItemComponents, ItemComponentFailure> => {
   const defaultMaxDamage = itemDurabilityDefinitionFor(item)?.maxDurability
   const useComponents = itemUseComponentsOf(item)
   return Result.gen(function* () {
@@ -842,9 +844,11 @@ const buildItemComponents = (
   const repairCost = yield* brandValue(RepairCost.result(valueOr(options.repairCost, 0)), 'repairCost', options.repairCost ?? 0, 'out-of-range')
   yield* validateItemComponentRelations(maxStackSize, maxDamage, damage)
 
-  const customName = options.customName === undefined ? undefined : textComponent(options.customName)
-  const itemName = options.itemName === undefined ? undefined : textComponent(options.itemName)
-  const lore = options.lore === undefined ? undefined : Object.freeze(options.lore.map(textComponent))
+  const customName = options.customName === undefined ? undefined : yield* textComponent(options.customName)
+  const itemName = options.itemName === undefined ? undefined : yield* textComponent(options.itemName)
+  const loreValues: TextComponent[] = []
+  for (const entry of options.lore ?? []) loreValues.push(yield* textComponent(entry))
+  const lore = options.lore === undefined ? undefined : Object.freeze(loreValues)
   const itemModel = yield* optionalComponentOf(options.itemModel, (value) => brandValue(ResourceLocation.result(value), 'itemModel', value))
   const customData = yield* optionalComponentOf(options.customData, customDataComponent)
   const entityData = yield* optionalComponentOf(options.entityData, entityDataComponent)

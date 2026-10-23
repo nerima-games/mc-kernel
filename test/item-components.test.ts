@@ -516,9 +516,12 @@ describe('item components', () => {
     ])
     const enchantments = enchantmentsComponent({ 'minecraft:sharpness': 5 })
     const storedEnchantments = storedEnchantmentsComponent({ 'minecraft:protection': 4 })
-    const customName = textComponent({ text: 'Custom name', color: 'gold' })
-    const itemName = textComponent('Custom item')
-    const lore = [textComponent({ text: 'Line 1' }), textComponent({ text: 'Line 2', italic: true })]
+    const customName = itemResultValue(textComponent({ text: 'Custom name', color: 'gold' }))
+    const itemName = itemResultValue(textComponent('Custom item'))
+    const lore = [
+      itemResultValue(textComponent({ text: 'Line 1' })),
+      itemResultValue(textComponent({ text: 'Line 2', italic: true })),
+    ]
     const itemModel = ResourceLocation('minecraft:test_model')
     const customData = customDataComponent({
       source: ItemPrimitive.ItemComponentNbtString('test'),

@@ -38,24 +38,24 @@ const enchantmentLevelMapOf = (
   name: string,
 ): Result.Result<EnchantmentLevelMap, ItemValidationFailure> => {
   const validObject = validateOptionsObject(options, `${name} options`)
-  if (Result.isFailure(validObject)) return validObject
+  if (Result.isFailure(validObject)) return Result.fail(validObject.failure)
   const decodedEntries = Effect.runSync(Effect.result(Effect.try({
     try: () => Object.entries(options),
     catch: () => itemValidationFailure('options', `${name} options could not be inspected`, 'hostile-input', options),
   })))
-  if (Result.isFailure(decodedEntries)) return decodedEntries
+  if (Result.isFailure(decodedEntries)) return Result.fail(decodedEntries.failure)
   const normalized: Record<string, EnchantmentLevel> = {}
   for (const [id, level] of decodedEntries.success) {
     if (!ResourceLocation.is(id)) {
       return Result.fail(itemValidationFailure(id, `${name} keys must be valid resource locations: ${id}`, 'invalid-value', id))
     }
     const checkedLevel = validateLevel(level, `${name}[${id}]`)
-    if (Result.isFailure(checkedLevel)) return checkedLevel
+    if (Result.isFailure(checkedLevel)) return Result.fail(checkedLevel.failure)
     const brandedLevel = Result.mapError(
       EnchantmentLevel.result(checkedLevel.success),
       () => itemValidationFailure(`${name}[${id}]`, `${name}[${id}] must be a safe integer in [0, 255]`, 'out-of-range', level),
     )
-    if (Result.isFailure(brandedLevel)) return brandedLevel
+    if (Result.isFailure(brandedLevel)) return Result.fail(brandedLevel.failure)
     normalized[id] = brandedLevel.success
   }
   return Result.succeed(Object.freeze(normalized))

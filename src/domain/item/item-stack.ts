@@ -16,6 +16,7 @@ import {
   type StackCount as StackCountValue,
   type TransferQuantity as TransferQuantityValue,
 } from '../time/quantities.js'
+import type { TextComponentFailure } from '../text/text-component.js'
 import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
 
 export type ItemStack = Readonly<{
@@ -42,7 +43,7 @@ export type ItemStackOptions = Readonly<{
   readonly componentPatch?: ItemComponentPatch | undefined
 }>
 
-export type ItemStackFailure = ItemValidationFailure | ItemComponentPatchDecodeError
+export type ItemStackFailure = ItemValidationFailure | ItemComponentPatchDecodeError | TextComponentFailure
 
 type StackProperties = Readonly<{ readonly item: ItemType; readonly components?: ItemComponents }>
 
@@ -76,7 +77,7 @@ const stackOptionsFromUnknown = (
     try: () => Array.isArray(value),
     catch: () => failure('options', 'Unable to inspect item stack options', 'hostile-input', value),
   })))
-  if (Result.isFailure(array)) return array
+  if (Result.isFailure(array)) return Result.fail(array.failure)
   if (array.success) {
     return Result.fail(failure('options', 'Item stack options must be a non-null object', 'invalid-type', value))
   }

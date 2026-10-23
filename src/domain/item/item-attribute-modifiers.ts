@@ -16,7 +16,7 @@ import {
   isAttributeModifiersComponent,
 } from './item-attribute-modifiers-validation.js'
 import { AttributeModifierAmount } from '../time/quantities.js'
-import { textComponent } from '../text/text-component.js'
+import { textComponent, type TextComponentFailure } from '../text/text-component.js'
 import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
 
 export type AttributeModifierOptions = Readonly<{
@@ -28,7 +28,7 @@ export type AttributeModifierOptions = Readonly<{
   readonly display?: AttributeModifierDisplay
 }>
 
-type AttributeModifierResult<A> = Result.Result<A, ItemValidationFailure>
+type AttributeModifierResult<A> = Result.Result<A, ItemValidationFailure | TextComponentFailure>
 
 const failure = (
   field: string,
@@ -58,12 +58,12 @@ const snapshotOptions = (
   }
   const snapshot = Effect.runSync(Effect.result(Effect.try({
     try: () => Object.freeze({
-      type: value.type,
-      id: value.id,
-      amount: value.amount,
-      operation: value.operation,
-      slot: value.slot,
-      display: value.display,
+      type: Reflect.get(value, 'type'),
+      id: Reflect.get(value, 'id'),
+      amount: Reflect.get(value, 'amount'),
+      operation: Reflect.get(value, 'operation'),
+      slot: Reflect.get(value, 'slot'),
+      display: Reflect.get(value, 'display'),
     }),
     catch: () => failure('options', 'Unable to inspect attribute modifier options', value, 'hostile-input'),
   })))
@@ -77,9 +77,9 @@ export const attributeModifierDisplay = (
     return Result.fail(failure('display', 'Attribute modifier display must be valid', display, 'invalid-value'))
   }
   if (display.type === 'override') {
-    return Result.succeed(Object.freeze({
+    return Result.map(textComponent(display.value), (value) => Object.freeze({
       type: 'override',
-      value: textComponent(display.value),
+      value,
     }))
   }
   return Result.succeed(Object.freeze({ type: display.type }))
@@ -89,12 +89,12 @@ export const attributeModifier = (
   options: AttributeModifierOptions,
 ): AttributeModifierResult<AttributeModifier> => {
   const parsed = snapshotOptions(options)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   const input = parsed.success
   const type = validResourceLocation(input.type, 'type')
-  if (Result.isFailure(type)) return type
+  if (Result.isFailure(type)) return Result.fail(type.failure)
   const id = validResourceLocation(input.id, 'id')
-  if (Result.isFailure(id)) return id
+  if (Result.isFailure(id)) return Result.fail(id.failure)
   if (typeof input.amount !== 'number' || !Number.isFinite(input.amount)) {
     return Result.fail(failure('amount', 'amount must be a finite number', input.amount, 'invalid-type'))
   }

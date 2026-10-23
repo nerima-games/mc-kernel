@@ -164,7 +164,7 @@ import {
   isWrittenBookContentOptions,
 } from './item-component-values-validation.js'
 import { AdditionalTradeCost, MapId, PotionDurationScale } from '../time/quantities.js'
-import { textComponent } from '../text/text-component.js'
+import { textComponent, type TextComponentFailure } from '../text/text-component.js'
 import {
   BeeHiveTicks,
   BlockStatePropertyValue,
@@ -198,7 +198,7 @@ import {
 } from './item-primitives.js'
 import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
 
-type ItemComponentResult<A> = Result.Result<A, ItemValidationFailure>
+type ItemComponentResult<A> = Result.Result<A, ItemValidationFailure | TextComponentFailure>
 
 const componentFailure = (
   field: string,
@@ -224,7 +224,7 @@ const snapshotInputValue = (
 ): ItemComponentResult<unknown> => {
   if (value === null || typeof value !== 'object') return Result.succeed(value)
   const array = reflectionResult(field, value, () => Array.isArray(value))
-  if (Result.isFailure(array)) return array
+  if (Result.isFailure(array)) return Result.fail(array.failure)
   if (ancestors.has(value)) {
     return Result.fail(componentFailure(field, `Cyclic ${field} input is invalid`, value, 'invalid-value'))
   }
@@ -233,19 +233,19 @@ const snapshotInputValue = (
     const length = reflectionResult(field, value, () => Reflect.get(value, 'length'))
     if (Result.isFailure(length)) {
       ancestors.delete(value)
-      return length
+      return Result.fail(length.failure)
     }
     const copied: unknown[] = []
     for (let index = 0; index < length.success; index += 1) {
       const entry = reflectionResult(`${field}[${index}]`, value, () => Reflect.get(value, String(index)))
       if (Result.isFailure(entry)) {
         ancestors.delete(value)
-        return entry
+        return Result.fail(entry.failure)
       }
       const child = snapshotInputValue(entry.success, `${field}[${index}]`, ancestors)
       if (Result.isFailure(child)) {
         ancestors.delete(value)
-        return child
+        return Result.fail(child.failure)
       }
       copied.push(child.success)
     }
@@ -256,7 +256,7 @@ const snapshotInputValue = (
   const prototype = reflectionResult(field, value, () => Object.getPrototypeOf(value))
   if (Result.isFailure(prototype)) {
     ancestors.delete(value)
-    return prototype
+    return Result.fail(prototype.failure)
   }
   if (prototype !== Object.prototype && prototype !== null) {
     ancestors.delete(value)
@@ -265,19 +265,19 @@ const snapshotInputValue = (
   const keys = reflectionResult(field, value, () => Object.keys(value))
   if (Result.isFailure(keys)) {
     ancestors.delete(value)
-    return keys
+    return Result.fail(keys.failure)
   }
   const copied: Record<string, unknown> = prototype === null ? Object.create(null) : {}
   for (const key of keys.success) {
     const entry = reflectionResult(`${field}.${key}`, value, () => Reflect.get(value, key))
     if (Result.isFailure(entry)) {
       ancestors.delete(value)
-      return entry
+      return Result.fail(entry.failure)
     }
     const child = snapshotInputValue(entry.success, `${field}.${key}`, ancestors)
     if (Result.isFailure(child)) {
       ancestors.delete(value)
-      return child
+      return Result.fail(child.failure)
     }
     Object.defineProperty(copied, key, {
       configurable: true,
@@ -290,6 +290,8 @@ const snapshotInputValue = (
   return Result.succeed(copied)
 }
 
+type InputValidation<A> = Readonly<{ readonly valid: true; readonly value: A }> | Readonly<{ readonly valid: false }>
+
 const validatedInput = <A>(
   value: A,
   field: string,
@@ -298,14 +300,14 @@ const validatedInput = <A>(
   kind: ItemValidationFailure['kind'] = 'TypeError',
 ): ItemComponentResult<A> => {
   const snapshot = snapshotInputValue(value, field)
-  if (Result.isFailure(snapshot)) return snapshot
-  const checked = reflectionResult(field, snapshot.success, () => isValid(snapshot.success)
-    ? { valid: true, value: snapshot.success }
-    : { valid: false })
-  if (Result.isFailure(checked)) return checked
-  return checked.success.valid
-    ? Result.succeed(checked.success.value)
-    : Result.fail(componentFailure(field, message, value, kind === 'RangeError' ? 'out-of-range' : 'invalid-value', kind))
+  if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
+  const checked = reflectionResult(field, snapshot.success, (): InputValidation<A> => {
+    if (isValid(snapshot.success)) return { valid: true, value: snapshot.success }
+    return { valid: false }
+  })
+  if (Result.isFailure(checked)) return Result.fail(checked.failure)
+  if (checked.success.valid) return Result.succeed(checked.success.value)
+  return Result.fail(componentFailure(field, message, value, kind === 'RangeError' ? 'out-of-range' : 'invalid-value', kind))
 }
 
 const brandResult = <A, E extends Readonly<{ readonly message: string }>>(
@@ -579,6 +581,8 @@ function freezeItemComponentNbtValue(value: BucketEntityDataComponent): BucketEn
 function freezeItemComponentNbtValue(value: EntityDataComponent): EntityDataComponent
 function freezeItemComponentNbtValue(value: ItemComponentNbtObject): CustomDataComponent
 function freezeItemComponentNbtValue(value: ItemComponentNbtValue): ItemComponentNbtValue
+function freezeItemComponentNbtValue<T extends ItemComponentNbtObject>(value: T): Readonly<T>
+function freezeItemComponentNbtValue(value: ItemComponentNbtValue): ItemComponentNbtValue
 function freezeItemComponentNbtValue(value: ItemComponentNbtValue): ItemComponentNbtValue {
   if (Array.isArray(value)) {
     return Object.freeze(value.map(freezeItemComponentNbtValue))
@@ -600,10 +604,10 @@ function freezeItemComponentNbtValue(value: ItemComponentNbtValue): ItemComponen
 }
 
 export const customDataComponent = (value: CustomDataComponent): ItemComponentResult<CustomDataComponent> => {
-  return Result.map(
-    validatedInput(value, 'custom_data', 'custom_data must be a non-empty object containing NBT-compatible values', isCustomDataComponent),
-    freezeItemComponentNbtValue,
-  )
+  return Result.gen(function* () {
+    const input = yield* validatedInput(value, 'custom_data', 'custom_data must be a non-empty object containing NBT-compatible values', isCustomDataComponent)
+    return freezeItemComponentNbtValue(input)
+  })
 }
 
 export const dyedColorComponent = (value: DyedColorComponent): ItemComponentResult<DyedColorComponent> => {
@@ -662,7 +666,7 @@ const frozenArray = <T>(value: ReadonlyArray<T>): ReadonlyArray<T> => Object.fre
 
 export const entityDataComponent = (value: EntityDataOptions): ItemComponentResult<EntityDataComponent> => {
   const parsed = validatedInput(value, 'entity_data', 'Invalid entity_data component options', isEntityDataOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.map(brandResult(ResourceLocation.result(parsed.success.id), 'entity_data.id', parsed.success.id), (id) =>
     freezeItemComponentNbtValue({ ...parsed.success, id }))
 }
@@ -670,20 +674,22 @@ export const entityDataComponent = (value: EntityDataOptions): ItemComponentResu
 export const bucketEntityDataComponent = (
   value: BucketEntityDataOptions = {},
 ): ItemComponentResult<BucketEntityDataComponent> => {
-  const parsed = validatedInput(value, 'bucket_entity_data', 'Invalid bucket_entity_data component options', isBucketEntityDataOptions)
-  return Result.map(parsed, freezeItemComponentNbtValue)
+  return Result.gen(function* () {
+    const input = yield* validatedInput(value, 'bucket_entity_data', 'Invalid bucket_entity_data component options', isBucketEntityDataOptions)
+    return freezeItemComponentNbtValue(input)
+  })
 }
 
 export const blockEntityDataComponent = (value: BlockEntityDataOptions): ItemComponentResult<BlockEntityDataComponent> => {
   const parsed = validatedInput(value, 'block_entity_data', 'Invalid block_entity_data component options', isBlockEntityDataOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.map(brandResult(ResourceLocation.result(parsed.success.id), 'block_entity_data.id', parsed.success.id), (id) =>
     freezeItemComponentNbtValue({ ...parsed.success, id }))
 }
 
 export const profileComponent = (value: ProfileOptions): ItemComponentResult<ProfileComponent> => {
   const parsed = validatedInput(value, 'profile', 'Invalid profile component options', isProfileOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   const profile = parsed.success
   if (typeof profile === 'string') {
     return brandResult(ProfileName.result(profile), 'profile', profile)
@@ -743,7 +749,7 @@ const potionEffectInstanceComponentOf = (
 
 export const beesComponent = (value: BeesOptions = []): ItemComponentResult<BeesComponent> => {
   const parsed = validatedInput(value, 'bees', 'Invalid bees component options', isBeesOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const entries: BeeEntryComponent[] = []
     for (const entry of parsed.success) {
@@ -765,21 +771,22 @@ export const potionContentsComponent = (
   value: PotionContentsOptions = {},
 ): ItemComponentResult<PotionContentsComponent> => {
   const parsed = validatedInput(value, 'potion_contents', 'Invalid potion_contents component options', isPotionContentsOptions)
-  if (Result.isFailure(parsed)) return parsed
-  if (typeof parsed.success === 'string') {
-    return brandResult(ResourceLocation.result(parsed.success), 'potion_contents', parsed.success)
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
+  const input = parsed.success
+  if (typeof input === 'string') {
+    return brandResult(ResourceLocation.result(input), 'potion_contents', input)
   }
   return Result.gen(function* () {
-    const potion = parsed.success.potion === undefined
+    const potion = input.potion === undefined
       ? undefined
-      : yield* brandResult(ResourceLocation.result(parsed.success.potion), 'potion_contents.potion', parsed.success.potion)
+      : yield* brandResult(ResourceLocation.result(input.potion), 'potion_contents.potion', input.potion)
     const customEffects: PotionEffectInstanceComponent[] = []
-    for (const effect of parsed.success.customEffects ?? []) {
+    for (const effect of input.customEffects ?? []) {
       customEffects.push(yield* potionEffectInstanceComponentOf(effect))
     }
     return Object.freeze({
       ...(potion === undefined ? {} : { potion }),
-      ...(parsed.success.customColor === undefined ? {} : { customColor: parsed.success.customColor }),
+      ...(input.customColor === undefined ? {} : { customColor: input.customColor }),
       customEffects: frozenArray(customEffects),
     })
   })
@@ -878,7 +885,7 @@ export const mapDecorationsComponent = (
   value: MapDecorationsOptions = {},
 ): ItemComponentResult<MapDecorationsComponent> => {
   const parsed = validatedInput(value, 'map_decorations', 'Invalid map_decorations component options', isMapDecorationsOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const normalized: Record<string, MapDecorationComponent> = {}
     for (const [id, decoration] of Object.entries(parsed.success)) {
@@ -959,11 +966,11 @@ const trimPatternComponentOf = (
   if (typeof value === 'string') {
     return brandResult(ResourceLocation.result(value), 'trim.pattern', value)
   }
-  return Result.map(brandResult(ResourceLocation.result(value.assetId), 'trim.pattern.assetId', value.assetId), (assetId) => Object.freeze({
-    assetId,
-    description: textComponent(value.description),
-    decal: value.decal,
-  }))
+  return Result.gen(function* () {
+    const assetId = yield* brandResult(ResourceLocation.result(value.assetId), 'trim.pattern.assetId', value.assetId)
+    const description = yield* textComponent(value.description)
+    return Object.freeze({ assetId, description, decal: value.decal })
+  })
 }
 
 const trimMaterialComponentOf = (
@@ -974,6 +981,7 @@ const trimMaterialComponentOf = (
   }
   return Result.gen(function* () {
     const assetName = yield* brandResult(TrimAssetName.result(value.assetName), 'trim.material.assetName', value.assetName)
+    const ingredient = yield* brandResult(ResourceLocation.result(value.ingredient), 'trim.material.ingredient', value.ingredient)
     const itemModelIndex = yield* brandResult(TrimItemModelIndex.result(value.itemModelIndex), 'trim.material.itemModelIndex', value.itemModelIndex, 'RangeError', 'out-of-range')
     const overrideArmorMaterials = value.overrideArmorMaterials === undefined
       ? undefined
@@ -991,19 +999,20 @@ const trimMaterialComponentOf = (
         }
         return Object.freeze(normalized)
       })
+    const description = yield* textComponent(value.description)
     return Object.freeze({
       assetName,
-      ingredient: value.ingredient,
+      ingredient,
       itemModelIndex,
       ...(overrideArmorMaterials === undefined ? {} : { overrideArmorMaterials }),
-      description: textComponent(value.description),
+      description,
     })
   })
 }
 
 export const trimComponent = (value: TrimOptions): ItemComponentResult<TrimComponent> => {
   const parsed = validatedInput(value, 'trim', 'Invalid trim component options', isTrimOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const pattern = yield* trimPatternComponentOf(parsed.success.pattern)
     const material = yield* trimMaterialComponentOf(parsed.success.material)
@@ -1015,7 +1024,7 @@ export const suspiciousStewComponent = (
   value: SuspiciousStewOptions = [],
 ): ItemComponentResult<SuspiciousStewComponent> => {
   const parsed = validatedInput(value, 'suspicious_stew', 'Invalid suspicious_stew component options', isSuspiciousStewOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const entries: SuspiciousStewEntryComponent[] = []
     for (const entry of parsed.success) {
@@ -1147,7 +1156,7 @@ export const noteBlockSoundComponent = (value: string): ItemComponentResult<Note
 
 export const recipesComponent = (value: ReadonlyArray<string>): ItemComponentResult<RecipesComponent> => {
   const parsed = validatedInput(value, 'recipes', 'Invalid recipes component value', isRecipesComponent)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const locations: ResourceLocation[] = []
     for (const entry of parsed.success) locations.push(yield* brandResult(ResourceLocation.result(entry), 'recipes', entry))
@@ -1174,7 +1183,7 @@ export const baseColorComponent = (value: string): ItemComponentResult<BaseColor
 
 export const equippableComponent = (options: EquippableOptions): ItemComponentResult<EquippableComponent> => {
   const parsed = validatedInput(options, 'equippable', 'Invalid equippable component options', isEquippableOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   const input = parsed.success
   return Result.gen(function* () {
     const equipSound = input.equipSound === undefined ? undefined : yield* brandResult(ResourceLocation.result(input.equipSound), 'equippable.equipSound', input.equipSound)
@@ -1211,7 +1220,7 @@ export const kineticWeaponComponent = (
   options: KineticWeaponOptions = {},
 ): ItemComponentResult<KineticWeaponComponent> => {
   const parsed = validatedInput(options, 'kinetic_weapon', 'Invalid kinetic_weapon component options', isKineticWeaponOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   const input = parsed.success
   return Result.gen(function* () {
     const sound = input.sound === undefined ? undefined : yield* brandResult(ResourceLocation.result(input.sound), 'kinetic_weapon.sound', input.sound)
@@ -1244,7 +1253,7 @@ export const piercingWeaponComponent = (
   options: PiercingWeaponOptions = {},
 ): ItemComponentResult<PiercingWeaponComponent> => {
   const parsed = validatedInput(options, 'piercing_weapon', 'Invalid piercing_weapon component options', isPiercingWeaponOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const sound = parsed.success.sound === undefined ? undefined : yield* brandResult(ResourceLocation.result(parsed.success.sound), 'piercing_weapon.sound', parsed.success.sound)
     const hitSound = parsed.success.hitSound === undefined ? undefined : yield* brandResult(ResourceLocation.result(parsed.success.hitSound), 'piercing_weapon.hitSound', parsed.success.hitSound)
@@ -1320,7 +1329,7 @@ export const lodestoneTrackerComponent = (
   options: LodestoneTrackerOptions = {},
 ): ItemComponentResult<LodestoneTrackerComponent> => {
   const parsed = validatedInput(options, 'lodestone_tracker', 'Invalid lodestone_tracker component options', isLodestoneTrackerOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const target = parsed.success.target === undefined
       ? undefined
@@ -1350,7 +1359,7 @@ export const fireworkExplosionComponent = (
 
 export const fireworksComponent = (options: FireworksOptions = {}): ItemComponentResult<FireworksComponent> => {
   const parsed = validatedInput(options, 'fireworks', 'Invalid fireworks component options', isFireworksOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const explosions: FireworkExplosionComponent[] = []
     for (const explosion of parsed.success.explosions ?? []) explosions.push(yield* fireworkExplosionComponent(explosion))
@@ -1366,7 +1375,7 @@ export const bannerPatternsComponent = (
   value: ReadonlyArray<BannerPatternOptions> = [],
 ): ItemComponentResult<BannerPatternsComponent> => {
   const parsed = validatedInput(value, 'banner_patterns', 'Invalid banner_patterns component value', isBannerPatternsOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const patterns: BannerPatternsComponent[number][] = []
     for (const entry of parsed.success) {
@@ -1392,7 +1401,7 @@ export const potDecorationsComponent = (
   value: PotDecorationsOptions = DEFAULT_POT_DECORATIONS,
 ): ItemComponentResult<PotDecorationsComponent> => {
   const parsed = validatedInput(value, 'pot_decorations', 'Invalid pot_decorations component value', isPotDecorationsOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const normalized: [ResourceLocation, ResourceLocation, ResourceLocation, ResourceLocation] = [
       yield* brandResult(ResourceLocation.result(parsed.success[0]), 'pot_decorations[0]', parsed.success[0]),
@@ -1406,7 +1415,7 @@ export const potDecorationsComponent = (
 
 export const containerLootComponent = (options: ContainerLootOptions): ItemComponentResult<ContainerLootComponent> => {
   const parsed = validatedInput(options, 'container_loot', 'Invalid container_loot component options', isContainerLootOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.map(brandResult(ResourceLocation.result(parsed.success.lootTable), 'container_loot.lootTable', parsed.success.lootTable), (lootTable) => Object.freeze({
     lootTable,
     ...(parsed.success.seed === undefined ? {} : { seed: parsed.success.seed }),
@@ -1417,7 +1426,7 @@ export const debugStickStateComponent = (
   value: Readonly<Record<string, string>> = {},
 ): ItemComponentResult<DebugStickStateComponent> => {
   const parsed = validatedInput(value, 'debug_stick_state', 'Invalid debug_stick_state component value', isDebugStickStateComponent)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const normalized: Record<string, DebugStickStateComponent[string]> = {}
     for (const [block, property] of Object.entries(parsed.success)) {
@@ -1455,10 +1464,10 @@ const validateTooltipDisplayOptions = (options: TooltipDisplayOptions): ItemComp
 export const tooltipDisplayComponent = (
   options: TooltipDisplayOptions = {},
 ): ItemComponentResult<TooltipDisplayComponent> => {
-  const parsed = validatedInput(options, 'tooltipDisplay', 'Invalid tooltip display options', (value): value is TooltipDisplayOptions => true)
-  if (Result.isFailure(parsed)) return parsed
+  const parsed = validatedInput(options, 'tooltipDisplay', 'Invalid tooltip display options', (_value): _value is TooltipDisplayOptions => true)
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   const validated = validateTooltipDisplayOptions(parsed.success)
-  if (Result.isFailure(validated)) return validated
+  if (Result.isFailure(validated)) return Result.fail(validated.failure)
   return Result.gen(function* () {
     const hiddenComponents: ResourceLocation[] = []
     for (const component of validated.success.hiddenComponents ?? []) {

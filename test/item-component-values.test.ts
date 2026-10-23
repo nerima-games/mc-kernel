@@ -596,7 +596,7 @@ describe('item component values', () => {
       expect(TagLocation.is(tag)).toBe(true)
     }
     if (typeof location === 'string') {
-      expect(ResourceLocation.is(location)).toBe(true)
+      expect(ResourceLocationBrand.is(location)).toBe(true)
     }
     expect(locations).toEqual(['minecraft:pattern_item', 'minecraft:other'])
     expect(Object.isFrozen(locations)).toBe(true)
