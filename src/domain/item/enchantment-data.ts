@@ -1,4 +1,3 @@
-import { AnvilEnchantmentId, type AnvilEnchantmentRule } from './anvil.js'
 import type { ItemType } from './item-type.js'
 import { VANILLA_26_3_ENCHANTMENT_IDS, VANILLA_26_3_ENCHANTMENT_MAX_LEVELS } from '../world/vanilla-26-3-generated.js'
 
@@ -39,6 +38,14 @@ export const SUPPORTED_VANILLA_ENCHANTMENT_IDS: typeof VANILLA_26_3_ENCHANTMENT_
 ] as const */
 
 export type SupportedVanillaEnchantmentId = (typeof SUPPORTED_VANILLA_ENCHANTMENT_IDS)[number]
+
+type VanillaEnchantmentRule = Readonly<{
+  readonly id: SupportedVanillaEnchantmentId
+  readonly maxLevel: number
+  readonly applicableItems: ReadonlyArray<ItemType>
+  readonly incompatibleWith: ReadonlyArray<SupportedVanillaEnchantmentId>
+  readonly costPerLevel: number
+}>
 
 export type VanillaAnvilCost = Readonly<{
   readonly item: number
@@ -204,18 +211,18 @@ type VanillaAnvilCostSource = keyof VanillaAnvilCost
 
 const rulesForCostSource = (
   costSource: VanillaAnvilCostSource,
-): ReadonlyArray<AnvilEnchantmentRule> =>
+): ReadonlyArray<VanillaEnchantmentRule> =>
   VANILLA_ENCHANTMENT_RULE_DEFINITIONS.map(({ id, maxLevel, applicableItems, incompatibleWith }) => ({
-    id: AnvilEnchantmentId(id),
+    id,
     maxLevel,
     applicableItems,
-    incompatibleWith: incompatibleWith.map((value) => AnvilEnchantmentId(value)),
+    incompatibleWith,
     costPerLevel: VANILLA_ENCHANTMENT_COSTS[id][costSource],
   }))
 
-export const SUPPORTED_VANILLA_BOOK_ENCHANTMENT_RULES: ReadonlyArray<AnvilEnchantmentRule> =
+export const SUPPORTED_VANILLA_BOOK_ENCHANTMENT_RULES: ReadonlyArray<VanillaEnchantmentRule> =
   rulesForCostSource('book')
-export const SUPPORTED_VANILLA_ITEM_ENCHANTMENT_RULES: ReadonlyArray<AnvilEnchantmentRule> =
+export const SUPPORTED_VANILLA_ITEM_ENCHANTMENT_RULES: ReadonlyArray<VanillaEnchantmentRule> =
   rulesForCostSource('item')
-export const SUPPORTED_VANILLA_ENCHANTMENT_RULES: ReadonlyArray<AnvilEnchantmentRule> =
+export const SUPPORTED_VANILLA_ENCHANTMENT_RULES: ReadonlyArray<VanillaEnchantmentRule> =
   SUPPORTED_VANILLA_BOOK_ENCHANTMENT_RULES
