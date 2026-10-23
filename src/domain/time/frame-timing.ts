@@ -4,8 +4,10 @@ import {
   FixedDurationSecs,
   InterpolationFraction,
   SimulationTick,
+  type DeltaTimeSecs as DeltaTimeSecsValue,
   type FixedDurationSecs as FixedDurationSecsValue,
   type InterpolationFraction as InterpolationFractionValue,
+  type MonotonicTimeSecs as MonotonicTimeSecsValue,
   type NonNegativeTickCount as NonNegativeTickCountValue,
   type SimulationTick as SimulationTickValue,
 } from './quantities.js'
@@ -14,19 +16,33 @@ export const MIN_FRAME_DELTA_SECS = 0.001
 export const MAX_FRAME_DELTA_SECS = 0.05
 export const FIRST_FRAME_DELTA_SECS: DeltaTimeSecs = DeltaTimeSecs(0.016)
 
-export const clampFrameDelta = (rawDeltaSecs: number): DeltaTimeSecs =>
+const clampFrameDeltaValue = (rawDeltaSecs: number): DeltaTimeSecsValue =>
   Number.isNaN(rawDeltaSecs)
     ? FIRST_FRAME_DELTA_SECS
     : DeltaTimeSecs(Math.min(Math.max(MIN_FRAME_DELTA_SECS, rawDeltaSecs), MAX_FRAME_DELTA_SECS))
 
-export const frameDeltaBetween = (previousSecs: number | undefined, nowSecs: number): DeltaTimeSecs =>
-  previousSecs === undefined ? FIRST_FRAME_DELTA_SECS : clampFrameDelta(nowSecs - previousSecs)
+const frameDeltaLossValue = (rawDeltaSecs: number): DeltaTimeSecsValue =>
+  Number.isNaN(rawDeltaSecs)
+    ? DeltaTimeSecs(0)
+    : DeltaTimeSecs(Math.max(0, rawDeltaSecs - clampFrameDeltaValue(rawDeltaSecs)))
 
-export const frameDeltaLossSecs = (rawDeltaSecs: number): number =>
-  Number.isNaN(rawDeltaSecs) ? 0 : Math.max(0, rawDeltaSecs - clampFrameDelta(rawDeltaSecs))
+export const clampFrameDelta = (rawDeltaSecs: DeltaTimeSecsValue): DeltaTimeSecsValue =>
+  clampFrameDeltaValue(rawDeltaSecs)
 
-export const frameDeltaLossBetween = (previousSecs: number | undefined, nowSecs: number): number =>
-  previousSecs === undefined ? 0 : frameDeltaLossSecs(nowSecs - previousSecs)
+export const frameDeltaBetween = (
+  previousSecs: MonotonicTimeSecsValue | undefined,
+  nowSecs: MonotonicTimeSecsValue,
+): DeltaTimeSecsValue =>
+  previousSecs === undefined ? FIRST_FRAME_DELTA_SECS : clampFrameDeltaValue(nowSecs - previousSecs)
+
+export const frameDeltaLossSecs = (rawDeltaSecs: DeltaTimeSecsValue): DeltaTimeSecsValue =>
+  frameDeltaLossValue(rawDeltaSecs)
+
+export const frameDeltaLossBetween = (
+  previousSecs: MonotonicTimeSecsValue | undefined,
+  nowSecs: MonotonicTimeSecsValue,
+): DeltaTimeSecsValue =>
+  previousSecs === undefined ? DeltaTimeSecs(0) : frameDeltaLossValue(nowSecs - previousSecs)
 
 export const tickDuration: FixedDurationSecsValue = FixedDurationSecs(0.05)
 export const physicsSubstepDuration: FixedDurationSecsValue = FixedDurationSecs(0.025)
