@@ -1,17 +1,14 @@
 # 公開 API
 
-`index.ts` が公開バレルであり、利用リポジトリはここだけを import する。
+`src/index.ts` が公開バレルであり、利用リポジトリは root package または公開済み subpath を import する。
 `test/public-api.test.ts` がバレルの再エクスポート漏れを固定している
 （バレルから 1 つ落ちても kernel 内の他のテストは全部通るが、組織全体が壊れるため）。
 
-配布物では、公開バレルに加えて、`src/index.ts` が公開する各 `domain/*.ts` entrypoint を
-同名の `@nerima-games/mc-kernel/domain/*` subpath から個別に import できる。いずれも `dist` の
-型宣言と実装を同じ公開境界から提供する。`*-data` 内部モジュールは公開サブパスにせず、registry の
-構築方法を利用側へ固定しない。
+配布物では公開バレルに加えて、`package.json` に列挙された `domain/*.ts` entrypoint を
+`@nerima-games/mc-kernel/domain/*` から個別に import できる。型宣言と実装は同じ `dist` の公開境界から
+提供する。`*-data` モジュールは通常は内部扱いだが、`crafting-special-data` は public subpath として公開されている。
 
-**なぜこれらの型が kernel にあるのか** は plan.md §4.3「横断の型（kernel に置く共有界面）」が答えである。
-判定基準は 1 つ: **2 つ以上のリポジトリが同じものを指す必要があり、かつ片方に置くと依存の向きが壊れるか？**
-壊れるなら kernel、壊れないなら所有者のリポジトリ。
+複数リポジトリが共有し、どれか一つの所有リポジトリに置くと依存方向が崩れる型は kernel に置く。それ以外の型は、その所有者のリポジトリに置く。
 
 ## 1. ブランデッド型（identifiers / quantities）
 
@@ -78,11 +75,7 @@ const aabb / aabbOfBlock / aabbIntersects / aabbContainsPoint
 `HORIZONTAL_BLOCK_FACES` は既存 gameplay 規則と互換な `west, east, north, south` の順を固定する。
 北は -Z、西は -X であり、近傍探索を実行ごとに同じ順序に保つ。
 
-**`Position` と `BlockPosition` を型で区別している理由**は plan.md §3.4 の実測知見に直結する。
-
-> 「物が浮く」バグ類は例外なく**足元原点 vs AABB 中心の Y 規約不一致**が原因。座標規約を型で区別する
-
-連続座標と格子座標を同じ `{x,y,z}` にしていると、この不一致は型検査を通り抜けて実行時に「浮く」として現れる。
+`Position` は連続座標、`BlockPosition` はブロック格子上の座標を表す。両方を `{x,y,z}` で表すと、足元原点と AABB 中心の Y 規約を取り違えても型検査で検出できず、位置ずれが実行時まで残る。
 
 ### 2-bis. 座標のキー化（coordinate-keys）
 
@@ -126,17 +119,11 @@ type BlockType = (typeof BLOCK_TYPES)[number]
 const isBlockType = (value: string): value is BlockType
 ```
 
-**現行の `BlockType` は 123 種である。** 監査時点の参照実装は 120 リテラルであり、kernel はそれを基礎に
-`soul_soil`、`wither_skeleton_skull`、`dropper` を追加している。plan.md の「約 119」は監査時点の概数である。
+現行の `BlockType` は 123 種である。
 
-**ブロックの追加は加算的だが、語彙だけの追加ではない。** 挙動は名前ではなく能力から読むので、消費側のコードは
-通常変えずに済む。一方で追加する各リテラルには、安定した ID と能力・属性を持つレジストリ行が必要である。
-これが plan.md §3.1 の要求「ブロック追加 = 定義テーブル 1 行 + フラグ設定」の意味である。
+ブロックの追加は語彙だけの変更ではない。挙動は名前ではなく能力から読むため、消費側のコードは通常変えずに済む。一方、新しいリテラルごとに安定した ID と、能力・属性を持つレジストリ行が必要である。
 
-**なぜ kernel か**: `BlockType` は網羅性チェックのための語彙であり、セーブフォーマット（`mc-save`）・
-メッシュ（`mc-meshing`）・物理（`mc-physics`）・ルール（`mx-gameplay`）が同じ集合を指す必要がある。
-plan.md §5.3 は「core と block の分離」を「ブロック追加が必ず両方を共変更する」という理由で棄却しており、
-語彙と能力モデルが同じリポジトリにあることは意図的である。
+`BlockType` は網羅性チェックのための語彙であり、セーブ形式（`mc-save`）・メッシュ（`mc-meshing`）・物理（`mc-physics`）・ルール（`mx-gameplay`）が同じ集合を必要とする。語彙と能力モデルを同じリポジトリに置くことで、追加した block を各 consumer が同じ型として使える。
 
 ### 3-1. 数値ブロック ID と空気判定（block-registry）
 
@@ -221,16 +208,7 @@ const itemOfBlock(block: BlockType): PlaceableItemType | undefined   // 部分�
 const blockOfPlaceableItem(item: PlaceableItemType): BlockType       // 全域、証明済みの設置 item 上だけ
 ```
 
-plan.md §3.1 は kernel の公開 API に 「`BlockType` / `ItemType`（リテラル型）」 を挙げていたが、
-**アイテム側は書かれていなかった。** その結果、以前の下流リポジトリには暫定の
-`type ItemId = string` が置かれていた。kernel は現在 `ItemType` を公開し、`mc-sim/domain/inventory.ts` は
-この型を直接使って暫定エイリアスを削除済みである。ほかの下流コードを移行する際も、文字列エイリアスを
-再導入せず `ItemType` を直接利用する。
-
-**なぜリテラル union か（ブランデッド文字列ではなく）**: `BlockType` と同じ理由。
-plan.md §3.1 の主張は「挙動は名前比較ではなく能力から読む」であり、それを機械検査可能にしているのは
-**閉じたリテラル集合**である。ブランドは外部からの侵入は塞ぐが綴り間違いは塞がない（`ItemId('stik')` は通る）。
-だから `domain/item-type.ts` は `domain/block-type.ts` を差分で読めるように、ガードの形まで揃えてある。
+`ItemType` をブランデッド文字列でなくリテラル union にする理由は `BlockType` と同じである。**挙動は名前比較ではなく能力から読む**ため、閉じたリテラル集合でそれを機械検査できる。ブランドは外部からの侵入を防ぐが、綴り間違いは防げない（`ItemId('stik')` も通る）。そのため `domain/item-type.ts` のガードは `domain/block-type.ts` と同じ形にしてある。
 
 **`ItemType` は `BlockType` の部分集合ではない。両方向で。**
 
@@ -246,9 +224,6 @@ plan.md §3.1 の主張は「挙動は名前比較ではなく能力から読む
 （`test/clock-and-frame.test.ts` の `FrameServices` と同じ手法）。片方の roster がもう片方を
 飲み込んだ瞬間に区別が飾りになるので、等式としてではなく**両方が空でないこと**として固定してある。
 
-**交差そのものが有用な型である。** 監査 §6-8 は参照実装の手書きリスト `BLOCK_ITEMS`
-（`first-person-held-item.ts:58-76`、監査時点で KELP / SEAGRASS / AMETHYST\_\* / RAIL が既に漏れていた）を見て
-「これは `ItemType ∩ BlockType` の導出であり、フラグではなく型レベルで解決すべき」と結論している。
 `PLACEABLE_ITEM_TYPES` は item roster と block roster の交差に、明示した設置例外だけを加えて**計算**される。
 例外は `SPECIAL_BLOCK_BY_ITEM` / `SPECIAL_ITEM_BY_BLOCK` の対応表に限定されるため、別の手書き名簿としては増殖しない。
 
@@ -698,8 +673,7 @@ crafting transmute を同じ境界で厳格に decode する。これらの結�
 result の `components` は `ItemComponentPatch` になる。`recipeDataPath(id)` は namespaced recipe id を data-pack の canonical path へ変換し、
 `recipeDataPackLayer` / `recipeDataPackLayerFromUnknown` / `selectRecipes` は recipe id 付きの data-pack layer と format・priority による選択を提供する。
 旧 object-form ingredient、tag を含む alternative array、未知の recipe type、非 vanilla item、各 recipe type の未知キーは decoder で拒否する。
-`crafting_dye` / `crafting_imbue` と個別の special recipe type も decode できる（§3-ter-4）。かつてこれらを対象外にしていたのは
-実行 semantics が無かったためで、その理由は解消した。
+`crafting_dye` / `crafting_imbue` と個別の special recipe type も decode できる（§3-ter-4）。
 全 recipe type・全 edition/version の完全な registry、JSON ファイルの読み出し、pack の適用順序は data-pack layer と上位層が所有する。
 
 ```typescript
@@ -1288,7 +1262,23 @@ type ProjectileWorld = Readonly<{
   isInWater: (position: Position) => boolean;
   bounds: AABB;
 }>;
-type Arrow = /* state: 'flying' | 'stuck' | 'despawned' */ object;
+type ArrowBase = Readonly<{
+  position: Position;
+  velocity: Position;
+  ageSeconds: number;
+  shooterId?: string;
+}>;
+type Arrow =
+  | (ArrowBase & Readonly<{ state: "flying" }>)
+  | (ArrowBase & Readonly<{
+      state: "stuck";
+      hit: ProjectileHit;
+      recoverable: boolean;
+    }>)
+  | (ArrowBase & Readonly<{
+      state: "despawned";
+      reason: "invalid" | "lifetime" | "world" | "entity-hit";
+    }>);
 type ArrowLaunch = Readonly<{
   position: Position;
   yawRadians: number;
@@ -1343,8 +1333,6 @@ root と `@nerima-games/mc-kernel/domain/explosion`、`@nerima-games/mc-kernel/d
 **権威は `docs/capability-flag-audit.md`。** 監査 §3 の表は 28 行であり、この表を採用している。
 
 2 つの仕組みに分かれる。boolean は能力フラグ表、それ以外は型付きプロパティ表。
-plan.md §3.1 が boolean として挙げた 7 つのうち 4 つはそのまま boolean、**3 つは型が誤っていた**。
-
 ### 4-1. 能力フラグ（boolean）— `domain/block-capabilities.ts` / `domain/block-capability-data.ts`
 
 `block-capability-data.ts` が能力の型・既定値・反復順を持ち、`block-capabilities.ts` が外部入力の検証と既定値解決を担当する。
@@ -1371,7 +1359,7 @@ const capabilityOf(overrides, flag): boolean
 | `replaceable`           | `false`    | 監査 §4.2 `block-service-place-load.ts:50`                                    |
 | `flammable`             | `false`    | 監査 §4.3 `fire-lifecycle.ts:18-30`                                           |
 | `fireSource`            | `false`    | 監査 §4.3 `fire-lifecycle.ts:77-78`                                           |
-| `pistonImmovable`       | `false`    | plan.md §3.12                                                                 |
+| `pistonImmovable`       | `false`    | `src/domain/block/block-capability-data.ts`                                   |
 | `brokenByWaterFlow`     | `false`    | 監査 §4.6 `block-support.ts:34-45`                                            |
 | `climbable`             | `false`    | 監査 §4.1 `block-collision-predicates.ts:177-182`                             |
 | `tillable`              | `false`    | 監査 §4.8 / §5-20 `block-service.config.ts:264-267`。クワで耕地に変換できるか |
@@ -1524,10 +1512,8 @@ kernel は純粋で決定的（`StageRegistration.run` のエラーチャネル�
 const dropOfBlockId(id: number, context?: HarvestContext): BlockDrop | undefined
 ```
 
-**mc-compose の横断 E2E が書けなかった関数がこれである。**
-`mx-gameplay` の `breakBlock` は `BlockId`（`Uint8Array` から出てきた**数値**）を返し、
-`mc-sim` の `InventoryService.add` は**アイテム**を取る。kernel はこの 2 つを繋いでいなかったので、
-plan.md §3.15 が mc-compose の存在理由として挙げる「採掘がインベントリに反映される」が表現できなかった。
+`mx-gameplay` の `breakBlock` は数値の `BlockId` を返し、`mc-sim` の `InventoryService.add` は item を受け取る。
+`dropOfBlockId` はこの両者をつなぐ `BlockDrop` を返す。
 
 呼び出しは 1 回、読み出し側にブロック名は現れない —— 落下ブロック規則に対する
 `capabilityOfBlockId` と同じ形である。
@@ -1809,21 +1795,53 @@ type BlockRead =
   | { readonly _tag: "Unloaded"; readonly chunk: ChunkKey }
   | { readonly _tag: "OutOfWorld"; readonly position: BlockPosition };
 
+const loadedBlock: (blockId: BlockId) => BlockRead;
+const unloadedChunk: (chunk: ChunkKey) => BlockRead;
+const outOfWorld: (position: BlockPosition) => BlockRead;
+
+type ReadonlyUint16Array = {
+  readonly length: number;
+  readonly get: (index: number) => number;
+  readonly snapshot: () => Uint16Array;
+};
+
+type ReadViewInput = {
+  readonly epoch: WorldEpoch;
+  readonly chunk: ChunkKey;
+  readonly blockRevision: ChunkRevision;
+  readonly lightRevision: LightRevision;
+  readonly blocks: Uint16Array;
+  readonly light: Uint16Array;
+};
+
 type ReadView = {
   readonly epoch: WorldEpoch;
   readonly chunk: ChunkKey;
   readonly blockRevision: ChunkRevision;
   readonly lightRevision: LightRevision;
+  readonly length: number;
+  readonly getBlock: (index: number) => BlockId;
+  readonly getLight: (index: number) => number;
   readonly blocks: ReadonlyUint16Array;
   readonly light: ReadonlyUint16Array;
 };
+const readView: (input: ReadViewInput) => ReadView;
+const ReadView: (input: ReadViewInput) => ReadView;
 
 type BlockEdit = { readonly position: BlockPosition; readonly blockId: BlockId };
+const blockEdit: (position: BlockPosition, blockId: BlockId) => BlockEdit;
+const BlockEdit: (position: BlockPosition, blockId: BlockId) => BlockEdit;
 type ExpectedChunk = { readonly epoch: WorldEpoch; readonly revision: ChunkRevision };
+const expectedChunk: (epoch: WorldEpoch, revision: ChunkRevision) => ExpectedChunk;
+const ExpectedChunk: (epoch: WorldEpoch, revision: ChunkRevision) => ExpectedChunk;
 type BlockWriteBatch = {
   readonly expected: ExpectedChunk;
   readonly edits: readonly BlockEdit[];
 };
+const blockWriteBatch: (
+  expected: ExpectedChunk,
+  edits: readonly BlockEdit[],
+) => BlockWriteBatch;
 ```
 
 `WorldEpoch`、`ChunkRevision`、`LightRevision`、`ChunkLocalIndex`、`SectionIndex` は `Brand.make` による別ブランドであり、負値・非整数を受け付けない。`BlockWriteBatch` は `BlockAxis` の safe integer 全域を受け付け、座標比較で重複 position を検証するが、live chunk の mutation、STM/COW、load/unload、dirty event は所有しない。
@@ -2245,7 +2263,7 @@ roster と各フィールドは `test/golden/vanilla-damage-type.json` として
 
 `item-combat-data.ts` の `DamageTypeComponent = ResourceLocation` という既存の素通しエイリアスは、この語彙を使う `isVanillaDamageTypeComponent`（`item-combat-validation.ts`）で vanilla 部分集合への絞り込みができるようになった。既存の `isDamageTypeComponent` は任意の well-formed `ResourceLocation` を受け付けたままなので、data pack が独自に登録するダメージ種別は引き続き扱える。
 
-**なぜ kernel か**: `mc-audio` が種別ごとの hurt sound を選び、`mx-ui` が同じ種別から死亡メッセージを組み立てる。両者は依存グラフ上で互いに届かない（`mc-audio` は kernel 以外にエッジを持たない）ため、§3-2 の判定条件を満たす。root のほか `domain/damage-type` subpath から利用できる。
+`mc-audio` は damage type ごとの hurt sound を選び、`mx-ui` は同じ type から死亡メッセージを組み立てる。両者は依存グラフ上で互いに届かないため、共通型を kernel に置く。型は root と `domain/damage-type` subpath から利用できる。
 
 ## 5. `CameraPoseSnapshot`（camera）
 
@@ -2259,15 +2277,7 @@ type CameraPoseSnapshot = {
 const snapshotAgeSecs(snapshot, now: MonotonicTimeSecs): number
 ```
 
-**なぜ kernel か**: plan.md §4.3 が明示する横断界面。**正は `mc-sim` が所有し、`mc-render` の THREE カメラはミラー**である。
-型を `mc-sim` に置くと `mc-render` が `mc-sim` に依存する……のは実際そうなのだが、
-`mc-playground-kit` や将来のリプレイ機構も同じ型を必要とし、方向が増えるたびに依存が濃くなる。
-型そのものは語彙なので kernel に置く。
-
-plan.md §3.8 の実測知見:
-
-> 参照実装は THREE カメラが正でシミュレーションが描画から視線を読む**逆転構造**だった
-> （「camera.position を読むな matrixWorld を使え」という慢性 gotcha の根源）
+`CameraPoseSnapshot` の正本は `mc-sim` が所有し、`mc-render` の THREE カメラはミラーである。`mc-playground-kit` やリプレイ機構も同じ型を使うため、型を kernel に置いて consumer 間の依存を避ける。
 
 `capturedAtSecs` があるのは、ミラー側が「今見ているスナップショットが何フレーム前のものか」を判定できるようにするため。
 
@@ -2318,15 +2328,13 @@ const monotonicSecs: Effect.Effect<MonotonicTimeSecs, never, ClockPort>
 const wallClockEpochMillis: Effect.Effect<EpochMillis, never, ClockPort>
 ```
 
-**なぜ kernel か**: plan.md §4.3 / §5.1-3。**決定論と fast-forward の要**であり、
-`mc-sim` のシナリオテスト・`mc-worldgen` のチャンク寿命・`mc-save` の自動保存・`mx-gameplay` の昼夜が全部同じ時計を見る必要がある。
+ClockPort は決定論と fast-forward の要である。`mc-sim` のシナリオテスト、`mc-worldgen` のチャンク寿命、`mc-save` の自動保存、`mx-gameplay` の昼夜はすべて同じ時計を見る必要がある。
 
 kernel はテスト用の固定実装だけを持ち、**実クロックを読むアダプタは持たない**。
 実装は利用側（ブラウザなら `performance` / Node なら `process.hrtime`）が注入する。
 
-壁時計の直接参照（`Date.now()` / `new Date()` / `performance.now()`）は kernel のシミュレーションコードに置かない。
-現行の自動 import 境界は `.oxlintrc.json` の `no-restricted-imports` と `pnpm lint` が担う一方、
-oxlint 0.12 はこの wall-clock の構文・プロパティ禁止を表現できないため、時刻ソースの禁止は設計規約として扱う。
+kernel のシミュレーションコードでは、`Date.now()`、`new Date()`、`performance.now()` を直接呼ばない。
+`.oxlintrc.json` の `no-restricted-imports` と `pnpm lint` は import 境界を検査するが、wall-clock 参照は検出しない。したがって、時刻ソースの禁止は設計規約である。
 Port を実装するプラットフォームアダプタだけが実クロックを読み、kernel の利用側には `ClockPort` を注入する。
 
 ## 6-bis. 乱数契約（random-source）
@@ -2374,44 +2382,17 @@ interface GameModule<ROut, E, RIn, RRegister = never> {
 }
 ```
 
-`StageRegistration` は plan.md §4.1 から**逐語的に**転記してある（`type` ではなく `interface` である点も含む）。
-このリポジトリの lint 設定は `type` を推奨しているが、契約は仕様と文字単位で一致しているほうが価値が高いので例外扱いにしてある。
+各モジュールは共通の `GameModule` 契約を実装する。これを `mc-compose` に置くと、全モジュールが `mc-compose` に依存するため、依存グラフが反転する。
 
-`GameModule` は §4.1 から **2 点だけ意図的に離れている**。どちらもスパイクの結果である（下記）。
+`run` での失敗に対するフレーム単位の回復策はない。実行時に失敗しうる stage は、自分で処理するか defect にする。
 
-**なぜ kernel か**: `mc-compose` が全モジュールを束ねるためには、各モジュールが同じ契約型を実装している必要がある。
-契約型を `mc-compose` に置くと全モジュールが `mc-compose` に依存し、依存グラフが完全に反転する。
+### 未解決の `after` 依存
 
-エラーチャネルが `run` ではなく Layer 側にあるのは、「physics がフレーム 12048 で失敗した」に対するフレームレベルの回復策が存在しないから。
-実行時に失敗しうる stage は自分で握るか defect にする。
+`mc-compose` の `StageOrderPlan` は、存在しない stage への依存を `dangling` として返し、フレーム骨格に対応する phase がない stage を `unmatchedPhase` として返す。ホストは両方を表示する。存在しない入力 stage の後に実行する拡張 stage を宣言できるため、未解決の依存は拒否しない。
 
-### `frameStages` は Effect である（§4.1 との差分 1）
+`frameStages` は Effect なので、stage 登録時に必要な service を取得できる。その環境 `RRegister` は Layer 構築時の `RIn` と stage 実行時の `FrameServices` とは異なる。
 
-§4.1 は `ReadonlyArray<StageRegistration>` — **値** — と書いていた。値には文脈が無いので、
-モジュールが stage を**組み立てる**ためにサービスを取得できる瞬間が存在しない。
-残る唯一の経路は `run` であり、結果として「どれか 1 つの stage が触るサービス」は全部
-`FrameServices` に入らざるを得なくなる。スパイクで実測したその和は
-
-```
-ClockPort | PlayerService | InventoryService | InputService | FrameInput | BlockStore | RenderTarget
-```
-
-であり、これを別名にすると kernel が `mc-sim` と `mc-render` を import しなければ名前を書けない。
-tier モデル（plan.md §2.2）が明確に禁じている。**配列そのものが原因だった。**
-
-> **後日談**: この和に現れる `BlockStore` はスパイクが使い捨てコードで発明した仮の名前で、
-> 当時どのリポジトリも所有していなかった。現在は `mc-worldgen` の `ChunkStore`
-> （`@nerima-games/mc-worldgen/ChunkStore`）として実在する。所有者を §3.7 と §3.8 の間で
-> 決めた根拠は `mc-worldgen/docs/public-api.md` §6-0。
-> `FrameServices` の結論はこれに影響されない — 上の和が崩れたのは `frameStages` が
-> Effect になったからであって、`BlockStore` の置き場によってではない。
-
-徴候はスパイク以前からロスターに出ていた。`mx-gameplay/stages/registration.ts` は
-`makeGameplayStages: Effect.Effect<ReadonlyArray<StageRegistration>>` を公開し、
-「サービス集合 `RIn` に名前が付けられないので、これはまだ `GameModule` ではない」とコメントしていた。
-形は最初から正しく、契約の型のほうが追いついていなかった。
-
-### `RRegister` は `RIn` とは別のパラメータである（§4.1 との差分 2）
+### `RRegister` と `RIn` は別の環境である
 
 登録時に必要な文脈と Layer 構築時に必要な文脈は、実測すると別の集合だった。両方向に例がある:
 
@@ -2422,7 +2403,7 @@ tier モデル（plan.md §2.2）が明確に禁じている。**配列そのも
   登録文脈に畳むと、ホストが同じものを 2 回供給することになる。
 
 1 つに潰すのは簡略化ではなく**誤った等式**であり、しかも壊れる向きが悪い。
-自前提供のサービスが外部依存に見える — plan.md §3.8 が参照実装の最悪の構造バグとして記録している逆転そのものである。
+自前提供のサービスが外部依存に見える逆転が起きる。
 
 既定値 `never` を置いてあるので、「stage の構築に何も要らない」通常のモジュールは今までどおり 3 パラメータで書ける。
 
@@ -2446,7 +2427,7 @@ readonly cameraPose: Effect.Effect<CameraPoseSnapshot, never, ClockPort>
 登録時にサービスを掴んだ stage は、1 フレーム後にそのメソッドを呼ぶ時点で `ClockPort` を必要とし、
 そしてそれ以外は必要としない。上に挙げた他の候補はすべて逆の性質だった — 一度取得すれば残余要求は無い。
 
-stage は時間を読まずに進めず、かつグローバルから読んではならない（plan.md §5.1-3）ので、`never` も候補ではなかった。
+stage は時間を読まずに進めず、かつグローバルから読んではならないので、`never` も候補ではなかった。
 
 **この別名を広げるのは stage の _提供者_（ランタイムを組む人）にとって破壊的変更である**（stage の _著者_ にとってはそうではない）。
 1.0.0 で凍結され、広げるのは MAJOR である。
@@ -2569,11 +2550,7 @@ const blockState(bytes: Uint8Array): BlockState   // BlockState.fromBytes のラ
 要素の v2 ではその 2 つが一致しなくなるため、`encodeChunk` の書き出し、`validateEncodedChunk` の検証、
 v1/v2 の decode 分岐の 3 箇所が同じ「バイト数」解釈を共有するよう明示的に揃えてある。
 
-**v2 の decode は narrowing の前に 16-bit 値を registry へ照会する。** `decodeChunk` は v2 payload を
-`BlockState` が要求する 1 バイト 1 要素の形へ詰め直す前に、各要素の 16-bit 値を丸ごと
-`isKnownBlockId` へ渡して検証する。先に切り詰めてから検証する順序だと、256 以上の壊れた id が下位バイトの
-一致によって有効な `BlockId` に化ける可能性があるため、narrowing より前に全幅の値で検査することが
-この保証の前提になっている。
+`decodeChunk` は v2 の 16-bit 値を全幅のまま `isKnownBlockId` に渡し、`BlockState` に 2 バイト要素として保持する。下位 1 バイトに切り詰めてから検証すると、256 以上の未知 ID が有効な `BlockId` に化ける可能性があるため、全幅での検証が必要である。
 
 `encodeChunk` / `decodeChunk` は固定 `CHUNK_HEADER_BYTES`（24）バイトヘッダーとブロック列を用いる。
 ヘッダーは magic (`MCHK`)、`CHUNK_CODEC_VERSION`、幅・奥行き、height、符号付き 32-bit の `cx` / `cz`、
@@ -2581,10 +2558,3 @@ payload 長を little-endian で保持する。decoder は magic、version、寸
 末尾の余剰データを破損として拒否する。`EncodedChunk` は書き込み API を公開しない read-only branded byte view で、
 `encodeChunk` の戻り値と `decodeChunk` への入力の両方に使われる。constructor は検証済みの入力をコピーするため、
 入力側の `Uint8Array` を後から変更しても `EncodedChunk` の内容は変わらない。可変なコピーが必要なら `slice()` を使う。
-
-### `after` が存在しない stage を指したとき
-
-スパイクの判断: **何も強制せず、両方を報告する。**
-ダングリングエッジは「input があるなら input の後」を表明する正規の手段なので、拒否するとその語法が消える。
-一方で、落ちたエッジも、フレーム骨格が知らない stage も、失敗地点では誤字と区別がつかない。
-そこで `mc-compose` の `StageOrderPlan` が `dangling` と `unmatchedPhase` の両方を運び、ホストがそれを表示する。
