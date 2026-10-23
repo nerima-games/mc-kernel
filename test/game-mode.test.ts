@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DifficultyDamageMultiplier,
+  DifficultyHungerMultiplier,
   DIFFICULTIES,
   DIFFICULTY_PROPERTIES,
   GAME_MODES,
@@ -126,6 +128,22 @@ describe('DIFFICULTY_PROPERTIES', () => {
     expect(DIFFICULTY_PROPERTIES.hard.hostileMobsMaySpawn).toBe(true)
     expect(DIFFICULTY_PROPERTIES.hard.damageMultiplier).toBe(1.5)
     expect(DIFFICULTY_PROPERTIES.hard.hungerMultiplier).toBe(1)
+  })
+
+  it('validates difficulty multiplier boundaries', () => {
+    expect(DifficultyDamageMultiplier.is(0)).toBe(true)
+    expect(DifficultyDamageMultiplier.is(0.5)).toBe(true)
+    expect(DifficultyDamageMultiplier.is(1.5)).toBe(true)
+    expect(DifficultyDamageMultiplier.is(-0.1)).toBe(false)
+    expect(DifficultyDamageMultiplier.is(1.6)).toBe(false)
+    expect(DifficultyDamageMultiplier.is(Number.POSITIVE_INFINITY)).toBe(false)
+
+    expect(DifficultyHungerMultiplier.is(0)).toBe(true)
+    expect(DifficultyHungerMultiplier.is(0.5)).toBe(true)
+    expect(DifficultyHungerMultiplier.is(1)).toBe(true)
+    expect(DifficultyHungerMultiplier.is(-0.1)).toBe(false)
+    expect(DifficultyHungerMultiplier.is(1.1)).toBe(false)
+    expect(DifficultyHungerMultiplier.is(Number.NaN)).toBe(false)
   })
 
   it('carries no behaviour — a difficulty row is only flags, numbers and a name, never a callable', () => {

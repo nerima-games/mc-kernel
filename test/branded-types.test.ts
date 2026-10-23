@@ -16,7 +16,15 @@ import {
   WeaponDisableBlockingSeconds,
 } from '../src/domain/time/quantities'
 import { Effect, Result } from 'effect'
-import { ResourceLocation, StageId, TagLocation, UUID, WorldId, vanillaId } from '../src/domain/text/identifiers'
+import {
+  ResourceLocation,
+  StageId,
+  TagLocation,
+  UUID,
+  VanillaResourcePath,
+  WorldId,
+  vanillaId,
+} from '../src/domain/text/identifiers'
 import { describe, expect, it } from 'vitest'
 
 const SINGLE_ITEM_STACK_COUNT = 1
@@ -292,6 +300,15 @@ describe('identifiers', () => {
     expect(Result.isFailure(TagLocation.result('sulfur_cube_archetype/regular'))).toBe(true)
   })
 
+  it('VanillaResourcePath accepts unqualified resource paths only', () => {
+    expect(Result.isSuccess(VanillaResourcePath.result('arrow'))).toBe(true)
+    expect(Result.isSuccess(VanillaResourcePath.result('blocks/water'))).toBe(true)
+    expect(Result.isFailure(VanillaResourcePath.result(''))).toBe(true)
+    expect(Result.isFailure(VanillaResourcePath.result('minecraft:arrow'))).toBe(true)
+    expect(Result.isFailure(VanillaResourcePath.result('Minecraft:arrow'))).toBe(true)
+    expect(Result.isFailure(VanillaResourcePath.result('stone block'))).toBe(true)
+  })
+
   it('UUID accepts canonical syntax and rejects malformed values', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(Result.isSuccess(UUID.result('123e4567-e89b-12d3-a456-426614174000'))).toBe(true)
@@ -303,9 +320,9 @@ describe('identifiers', () => {
 
   it('vanillaId namespaces a bare name under minecraft:, the one spelling damageTypeId, statusEffectId, and crafting-special share', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(vanillaId('arrow')).toBe('minecraft:arrow')
-      expect(vanillaId('speed')).toBe('minecraft:speed')
-      expect(Result.isSuccess(ResourceLocation.result(vanillaId('brick')))).toBe(true)
+      expect(vanillaId(VanillaResourcePath('arrow'))).toBe('minecraft:arrow')
+      expect(vanillaId(VanillaResourcePath('speed'))).toBe('minecraft:speed')
+      expect(Result.isSuccess(ResourceLocation.result(vanillaId(VanillaResourcePath('brick'))))).toBe(true)
     })),
   )
 })

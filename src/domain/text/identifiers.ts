@@ -5,6 +5,7 @@ import { Brand } from "effect";
 
 const NON_BLANK_STRING_MIN_LENGTH = 0;
 const RESOURCE_LOCATION_PATTERN = /^(?:[a-z0-9._-]+:)?[a-z0-9/._-]+$/;
+const VANILLA_RESOURCE_PATH_PATTERN = /^[a-z0-9/._-]+$/;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -83,6 +84,16 @@ export const TagLocation: Brand.Constructor<TagLocation> =
         : `TagLocation has invalid syntax, received ${JSON.stringify(value)}`,
   );
 
+export type VanillaResourcePath = string & Brand.Brand<"VanillaResourcePath">;
+
+export const VanillaResourcePath: Brand.Constructor<VanillaResourcePath> =
+  Brand.make<VanillaResourcePath>(
+    (value) =>
+      VANILLA_RESOURCE_PATH_PATTERN.test(value)
+        ? true
+        : `VanillaResourcePath has invalid syntax, received ${JSON.stringify(value)}`,
+  );
+
 /**
  * The single place that spells `minecraft:<name>` for a vanilla id.
  * `damageTypeId`, `statusEffectId`, and `crafting-special.ts`'s pot
@@ -90,5 +101,5 @@ export const TagLocation: Brand.Constructor<TagLocation> =
  * string itself, which is what keeps the concept from drifting back into
  * independent spellings (docs/design-notes.md §1).
  */
-export const vanillaId = (name: string): ResourceLocation =>
+export const vanillaId = (name: VanillaResourcePath): ResourceLocation =>
   ResourceLocation(`minecraft:${name}`);

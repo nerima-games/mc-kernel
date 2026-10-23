@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_SETTINGS,
+  FieldOfViewDegrees,
   GRAPHICS_QUALITIES,
+  InputAction,
+  KeyCode,
   MAX_FOV_DEGREES,
   MAX_MOUSE_SENSITIVITY,
   MAX_RENDER_DISTANCE,
@@ -10,9 +13,13 @@ import {
   MIN_MOUSE_SENSITIVITY,
   MIN_RENDER_DISTANCE,
   MIN_VOLUME,
+  MouseSensitivity,
+  normaliseKeyBindings,
   normaliseSettings,
   rebindKey,
+  RenderDistanceChunks,
   unbindKey,
+  VolumeLevel,
   type Settings,
 } from '../src/domain/text/settings'
 
@@ -54,6 +61,8 @@ describe('settings', () => {
           empty: '',
           bad: 4,
           '': 'KeyX',
+          '   ': 'KeyY',
+          invalidCode: ' ',
         },
       }),
     ).toEqual({
@@ -74,30 +83,70 @@ describe('settings', () => {
   it('rebinds by swapping the conflicting action immutably', () => {
     const settings: Settings = {
       ...DEFAULT_SETTINGS,
-      keyBindings: { jump: 'Space', sneak: 'ShiftLeft' },
+      keyBindings: normaliseKeyBindings({ jump: 'Space', sneak: 'ShiftLeft' }),
     }
 
-    expect(rebindKey(settings, '', 'KeyA')).toBe(settings)
-    expect(rebindKey(settings, 'jump', '')).toBe(settings)
+    expect(
+      Reflect.apply(rebindKey, undefined, [settings, '', KeyCode('KeyW')]),
+    ).toBe(settings)
+    expect(
+      Reflect.apply(rebindKey, undefined, [settings, InputAction('sprint'), '']),
+    ).toBe(settings)
+
+    expect(InputAction.is('')).toBe(false)
+    expect(KeyCode.is('')).toBe(false)
 
     // No conflict: a fresh action just gets the code.
-    const bound = rebindKey(settings, 'sprint', 'KeyW')
+    const bound = rebindKey(settings, InputAction('sprint'), KeyCode('KeyW'))
     expect(bound.keyBindings).toEqual({ jump: 'Space', sneak: 'ShiftLeft', sprint: 'KeyW' })
-    expect(unbindKey(bound, 'missing')).toBe(bound)
+    expect(unbindKey(bound, InputAction('missing'))).toBe(bound)
 
-    const unbound = unbindKey(bound, 'jump')
+    const unbound = unbindKey(bound, InputAction('jump'))
     expect(unbound.keyBindings).toEqual({ sneak: 'ShiftLeft', sprint: 'KeyW' })
 
     // Conflict, both sides already bound: rebinding 'sneak' onto jump's code swaps —
     // jump inherits sneak's old code rather than losing its binding.
-    const swapped = rebindKey(settings, 'sneak', 'Space')
+    const swapped = rebindKey(settings, InputAction('sneak'), KeyCode('Space'))
     expect(swapped.keyBindings).toEqual({ jump: 'ShiftLeft', sneak: 'Space' })
 
     // Conflict, the rebound action had no prior code: nothing to swap in, so the
     // conflicting action is unbound rather than left pointing at a fabricated default.
-    const stolen = rebindKey(settings, 'sprint', 'Space')
+    const stolen = rebindKey(settings, InputAction('sprint'), KeyCode('Space'))
     expect(stolen.keyBindings).toEqual({ sneak: 'ShiftLeft', sprint: 'Space' })
 
+  })
+
+  it('validates the numeric and string brand boundaries', () => {
+    expect(RenderDistanceChunks.is(MIN_RENDER_DISTANCE)).toBe(true)
+    expect(RenderDistanceChunks.is(8)).toBe(true)
+    expect(RenderDistanceChunks.is(MAX_RENDER_DISTANCE)).toBe(true)
+    expect(RenderDistanceChunks.is(MIN_RENDER_DISTANCE - 1)).toBe(false)
+    expect(RenderDistanceChunks.is(MAX_RENDER_DISTANCE + 1)).toBe(false)
+    expect(RenderDistanceChunks.is(2.5)).toBe(false)
+
+    expect(FieldOfViewDegrees.is(MIN_FOV_DEGREES)).toBe(true)
+    expect(FieldOfViewDegrees.is(75)).toBe(true)
+    expect(FieldOfViewDegrees.is(MAX_FOV_DEGREES)).toBe(true)
+    expect(FieldOfViewDegrees.is(MIN_FOV_DEGREES - 0.1)).toBe(false)
+    expect(FieldOfViewDegrees.is(MAX_FOV_DEGREES + 0.1)).toBe(false)
+
+    expect(VolumeLevel.is(MIN_VOLUME)).toBe(true)
+    expect(VolumeLevel.is(0.5)).toBe(true)
+    expect(VolumeLevel.is(MAX_VOLUME)).toBe(true)
+    expect(VolumeLevel.is(-0.1)).toBe(false)
+    expect(VolumeLevel.is(1.1)).toBe(false)
+    expect(VolumeLevel.is(Number.NaN)).toBe(false)
+
+    expect(MouseSensitivity.is(MIN_MOUSE_SENSITIVITY)).toBe(true)
+    expect(MouseSensitivity.is(1)).toBe(true)
+    expect(MouseSensitivity.is(MAX_MOUSE_SENSITIVITY)).toBe(true)
+    expect(MouseSensitivity.is(MIN_MOUSE_SENSITIVITY - 0.001)).toBe(false)
+    expect(MouseSensitivity.is(MAX_MOUSE_SENSITIVITY + 0.001)).toBe(false)
+
+    expect(InputAction.is('jump')).toBe(true)
+    expect(InputAction.is('   ')).toBe(false)
+    expect(KeyCode.is('Space')).toBe(true)
+    expect(KeyCode.is(' ')).toBe(false)
   })
 
   // Additional invariant checks alongside the example-based tests above.
@@ -153,16 +202,24 @@ describe('settings', () => {
     it('preserves already-normalised settings and remains idempotent', () => {
       const validSamples: Settings[] = [
         DEFAULT_SETTINGS,
-        { ...DEFAULT_SETTINGS, renderDistance: MIN_RENDER_DISTANCE },
-        { ...DEFAULT_SETTINGS, renderDistance: MAX_RENDER_DISTANCE },
-        { ...DEFAULT_SETTINGS, fovDegrees: MIN_FOV_DEGREES },
-        { ...DEFAULT_SETTINGS, fovDegrees: MAX_FOV_DEGREES },
+        { ...DEFAULT_SETTINGS, renderDistance: RenderDistanceChunks(MIN_RENDER_DISTANCE) },
+        { ...DEFAULT_SETTINGS, renderDistance: RenderDistanceChunks(MAX_RENDER_DISTANCE) },
+        { ...DEFAULT_SETTINGS, fovDegrees: FieldOfViewDegrees(MIN_FOV_DEGREES) },
+        { ...DEFAULT_SETTINGS, fovDegrees: FieldOfViewDegrees(MAX_FOV_DEGREES) },
         { ...DEFAULT_SETTINGS, graphicsQuality: 'ultra' },
         { ...DEFAULT_SETTINGS, audioEnabled: false, captionsEnabled: false },
-        { ...DEFAULT_SETTINGS, mouseSensitivity: MIN_MOUSE_SENSITIVITY },
-        { ...DEFAULT_SETTINGS, mouseSensitivity: MAX_MOUSE_SENSITIVITY },
-        { ...DEFAULT_SETTINGS, masterVolume: MIN_VOLUME, musicVolume: MAX_VOLUME, sfxVolume: MIN_VOLUME },
-        { ...DEFAULT_SETTINGS, keyBindings: { jump: 'Space', sneak: 'ShiftLeft', sprint: 'KeyW' } },
+        { ...DEFAULT_SETTINGS, mouseSensitivity: MouseSensitivity(MIN_MOUSE_SENSITIVITY) },
+        { ...DEFAULT_SETTINGS, mouseSensitivity: MouseSensitivity(MAX_MOUSE_SENSITIVITY) },
+        {
+          ...DEFAULT_SETTINGS,
+          masterVolume: VolumeLevel(MIN_VOLUME),
+          musicVolume: VolumeLevel(MAX_VOLUME),
+          sfxVolume: VolumeLevel(MIN_VOLUME),
+        },
+        {
+          ...DEFAULT_SETTINGS,
+          keyBindings: normaliseKeyBindings({ jump: 'Space', sneak: 'ShiftLeft', sprint: 'KeyW' }),
+        },
       ]
 
       for (const sample of validSamples) {
@@ -182,18 +239,18 @@ describe('settings', () => {
       // enough to hit every swap and steal-when-unbound case.
       let settings: Settings = {
         ...DEFAULT_SETTINGS,
-        keyBindings: { jump: 'Space', sneak: 'ShiftLeft' },
+        keyBindings: normaliseKeyBindings({ jump: 'Space', sneak: 'ShiftLeft' }),
       }
 
       for (const action of actions) {
         for (const code of codes) {
-          settings = rebindKey(settings, action, code)
+          settings = rebindKey(settings, InputAction(action), KeyCode(code))
 
           const boundCodes = Object.values(settings.keyBindings)
           const uniqueCodes = new Set(boundCodes)
           expect(uniqueCodes.size).toBe(boundCodes.length)
           // The action just rebound always holds the requested code.
-          expect(settings.keyBindings[action]).toBe(code)
+          expect(settings.keyBindings[InputAction(action)]).toBe(code)
         }
       }
     })

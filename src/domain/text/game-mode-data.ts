@@ -17,6 +17,7 @@
  * mode-granted flight (Creative's double-jump toggle, Spectator's always-on
  * flight).
  */
+import { Brand } from 'effect'
 
 export const GAME_MODES = ['survival', 'creative', 'adventure', 'spectator'] as const
 
@@ -75,43 +76,59 @@ export const DIFFICULTIES = ['peaceful', 'easy', 'normal', 'hard'] as const
 
 export type Difficulty = (typeof DIFFICULTIES)[number]
 
+export type DifficultyDamageMultiplier = number & Brand.Brand<'DifficultyDamageMultiplier'>
+export const DifficultyDamageMultiplier: Brand.Constructor<DifficultyDamageMultiplier> =
+  Brand.make<DifficultyDamageMultiplier>((value) =>
+    Number.isFinite(value) && value >= 0 && value <= 1.5
+      ? true
+      : `DifficultyDamageMultiplier must be between 0 and 1.5, received ${value}`,
+  )
+
+export type DifficultyHungerMultiplier = number & Brand.Brand<'DifficultyHungerMultiplier'>
+export const DifficultyHungerMultiplier: Brand.Constructor<DifficultyHungerMultiplier> =
+  Brand.make<DifficultyHungerMultiplier>((value) =>
+    Number.isFinite(value) && value >= 0 && value <= 1
+      ? true
+      : `DifficultyHungerMultiplier must be between 0 and 1, received ${value}`,
+  )
+
 export type DifficultyProperties = Readonly<{
   readonly difficulty: Difficulty
   readonly hostileMobsMaySpawn: boolean
   /** Multiplier on Normal-difficulty mob damage (minecraft.wiki "Difficulty"). */
-  readonly damageMultiplier: number
+  readonly damageMultiplier: DifficultyDamageMultiplier
   /**
    * Whether the hunger bar depletes at all. Vanilla's exhaustion mechanic
    * runs at the same rate on Easy/Normal/Hard — only the consequence of an
    * empty bar differs (capped damage vs. lethal) — so every non-Peaceful
    * difficulty shares the same multiplier; Peaceful's bar never depletes.
    */
-  readonly hungerMultiplier: number
+  readonly hungerMultiplier: DifficultyHungerMultiplier
 }>
 
 export const DIFFICULTY_PROPERTIES: Readonly<Record<Difficulty, DifficultyProperties>> = Object.freeze({
   peaceful: Object.freeze({
     difficulty: 'peaceful',
     hostileMobsMaySpawn: false,
-    damageMultiplier: 0,
-    hungerMultiplier: 0,
+    damageMultiplier: DifficultyDamageMultiplier(0),
+    hungerMultiplier: DifficultyHungerMultiplier(0),
   }),
   easy: Object.freeze({
     difficulty: 'easy',
     hostileMobsMaySpawn: true,
-    damageMultiplier: 0.5,
-    hungerMultiplier: 1,
+    damageMultiplier: DifficultyDamageMultiplier(0.5),
+    hungerMultiplier: DifficultyHungerMultiplier(1),
   }),
   normal: Object.freeze({
     difficulty: 'normal',
     hostileMobsMaySpawn: true,
-    damageMultiplier: 1,
-    hungerMultiplier: 1,
+    damageMultiplier: DifficultyDamageMultiplier(1),
+    hungerMultiplier: DifficultyHungerMultiplier(1),
   }),
   hard: Object.freeze({
     difficulty: 'hard',
     hostileMobsMaySpawn: true,
-    damageMultiplier: 1.5,
-    hungerMultiplier: 1,
+    damageMultiplier: DifficultyDamageMultiplier(1.5),
+    hungerMultiplier: DifficultyHungerMultiplier(1),
   }),
 })
