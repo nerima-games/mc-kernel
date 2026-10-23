@@ -3034,12 +3034,6 @@ describe("public API surface", () => {
         expect(recipeSubpath.VANILLA_CRAFTING_RECIPES).toBe(
           packageRoot.VANILLA_CRAFTING_RECIPES,
         );
-        expect(recipeSubpath.VANILLA_BREWING_RECIPES).toBe(
-          packageRoot.VANILLA_BREWING_RECIPES,
-        );
-        expect(recipeSubpath.VANILLA_SMELTING_RECIPES).toBe(
-          packageRoot.VANILLA_SMELTING_RECIPES,
-        );
         expect(cameraPoseSubpath.applyLook).toBe(packageRoot.applyLook);
         expect(cameraPoseSubpath.cameraPoseOf).toBe(packageRoot.cameraPoseOf);
         expect(cameraPoseSubpath.forwardVector).toBe(packageRoot.forwardVector);

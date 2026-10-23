@@ -489,42 +489,17 @@ try {
       rootModule.itemStack('stick', 1),
       { tags: ['crafting_table'] },
     );
-    const recipeMatch = rootModule.matchRecipe(
-      [recipe],
-      rootModule.craftGrid(3, 3, ['stone']),
-      { station: 'crafting_table' },
-    );
-    if (recipeMatch._tag !== 'Match' || recipeMatch.recipe.id !== 'minecraft:package-probe') {
-      throw new Error('The root export returned an invalid recipe match');
+    if (recipe._tag !== 'Shaped' || recipe.output.item !== 'stick') {
+      throw new Error('The root export returned an invalid shaped recipe');
     }
     if (!Array.isArray(rootModule.VANILLA_CRAFTING_RECIPES) || rootModule.VANILLA_CRAFTING_RECIPES.length === 0) {
       throw new Error('The root export returned no vanilla crafting recipes');
     }
-    const cooked = rootModule.advanceFurnace(
-      rootModule.furnaceState({ input: rootModule.itemStack('sand', 1), fuel: rootModule.itemStack('coal', 1) }),
-      10,
-    );
-    if (cooked.smeltedCount !== 1 || cooked.state.output?.item !== 'glass') {
-      throw new Error('The root export returned an invalid furnace result');
+    if (!Array.isArray(rootModule.VANILLA_BREWING_RECIPES) || rootModule.VANILLA_BREWING_RECIPES.length === 0) {
+      throw new Error('The root export returned no vanilla brewing recipes');
     }
-    const brewed = rootModule.advanceBrewing(
-      rootModule.brewingState({
-        bottles: [rootModule.itemStack('water_bottle', 1), undefined, undefined],
-        ingredient: rootModule.itemStack('nether_wart', 1),
-        fuelCharges: 1,
-      }),
-      20,
-    );
-    if (brewed.brewedCount !== 1 || brewed.state.bottles[0]?.item !== 'awkward_potion') {
-      throw new Error('The root export returned an invalid brewing result');
-    }
-    const smithing = rootModule.applySmithing(rootModule.smithingInput({
-      template: rootModule.itemStack('netherite_upgrade_smithing_template', 1),
-      base: rootModule.itemStack('diamond_sword', 1),
-      addition: rootModule.itemStack('netherite_ingot', 1),
-    }));
-    if (smithing._tag !== 'Transform' || smithing.output.item !== 'netherite_sword') {
-      throw new Error('The root export returned an invalid smithing result');
+    if (!Array.isArray(rootModule.VANILLA_SMELTING_RECIPES) || rootModule.VANILLA_SMELTING_RECIPES.length === 0) {
+      throw new Error('The root export returned no vanilla smelting recipes');
     }
     const clock = rootModule.fixedClock({ monotonicSecs: 1, wallClockEpochMillis: 2 });
     const monotonic = await Effect.runPromise(clock.monotonicSecs);
@@ -566,9 +541,6 @@ import {
   miningSpeedOf,
   compileToolComponent,
   resolveToolMiningProperties,
-  advanceBrewing,
-  advanceFurnace,
-  applySmithing,
   applyDamage,
   normaliseVitals,
   vitalsView,
@@ -581,14 +553,9 @@ import {
   primeTnt,
   INITIAL_PLAYER_POSE,
   MonotonicTimeSecs,
-  brewingState,
-  craftGrid,
-  furnaceState,
   itemStack,
-  matchRecipe,
   maxStackCountForItem,
   shapedRecipe,
-  smithingInput,
   resolveBedrockDiggerSpeed,
   resolveBedrockDestructionSeconds,
   resolveBedrockItemSpecificDestroySpeed,
@@ -602,8 +569,6 @@ import {
   type ItemStack,
   type ItemType,
   type Recipe,
-  type SmithingInput,
-  type SmithingOperation,
   type ToolComponent,
   type CompiledToolComponent,
   type CameraPoseSnapshot,
@@ -632,21 +597,22 @@ const recipe: Recipe = shapedRecipe(
   itemStack('stick', 1),
   { tags: ['crafting_table'] },
 )
-const recipeMatch = matchRecipe([recipe], craftGrid(3, 3, ['stone']), { station: 'crafting_table' })
-const furnace: FurnaceState = furnaceState({ input: itemStack('sand', 1), fuel: itemStack('coal', 1) })
-const cooked = advanceFurnace(furnace, 10)
-const brewing: BrewingState = brewingState({
+const furnace: FurnaceState = {
+  station: 'furnace',
+  input: itemStack('sand', 1),
+  fuel: itemStack('coal', 1),
+  output: undefined,
+  fuelTimeRemainingSecs: 0,
+  fuelTimeTotalSecs: 0,
+  cookProgressSecs: 0,
+}
+const brewing: BrewingState = {
   bottles: [itemStack('water_bottle', 1), undefined, undefined],
   ingredient: itemStack('nether_wart', 1),
+  fuel: undefined,
   fuelCharges: 1,
-})
-const brewed = advanceBrewing(brewing, 20)
-const smithingInputValue: SmithingInput = smithingInput({
-  template: itemStack('netherite_upgrade_smithing_template', 1),
-  base: itemStack('diamond_sword', 1),
-  addition: itemStack('netherite_ingot', 1),
-})
-const smithing: SmithingOperation = applySmithing(smithingInputValue)
+  brewProgressSecs: 0,
+}
 const vitals: Vitals = normaliseVitals({ healthPoints: 20, hungerPoints: 20 })
 const vitalsAfterDamage = applyDamage(vitals, { amount: 1, cause: 'declaration-probe' })
 const vitalsDisplay = vitalsView(vitalsAfterDamage)
@@ -707,14 +673,11 @@ if (ticks < 0) {
 if (resolved.miningSpeed !== 2 || resolved.damagePerBlock !== 1) {
   throw new Error('Tool component declaration consumer returned an invalid result')
 }
-if (stack.count !== 2 || maxStackCountForItem(stack.item) !== 64 || recipeMatch._tag !== 'Match') {
+if (stack.count !== 2 || maxStackCountForItem(stack.item) !== 64 || recipe._tag !== 'Shaped') {
   throw new Error('Recipe declaration consumer returned an invalid result')
 }
-if (cooked.smeltedCount !== 1 || brewed.brewedCount !== 1) {
-  throw new Error('Cooking declaration consumer returned an invalid result')
-}
-if (smithing._tag !== 'Transform' || smithing.output.item !== 'netherite_sword') {
-  throw new Error('Smithing declaration consumer returned an invalid result')
+if (furnace.station !== 'furnace' || brewing.bottles[0]?.item !== 'water_bottle') {
+  throw new Error('Recipe data declaration consumer returned an invalid result')
 }
 if (vitalsDisplay.healthPoints !== 19 || vitalsDisplay.experienceLevel !== 0) {
   throw new Error('Vitals declaration consumer returned an invalid result')

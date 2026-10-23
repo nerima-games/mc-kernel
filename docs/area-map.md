@@ -1,20 +1,23 @@
 # Domain area map
 
-This is the implemented map for the `src/domain` reorganization. The package
-boundary remains one package and `package.json#exports` is unchanged.
+This is the current map for the internal `src/domain` reorganization after the
+recipe API removals. The package remains a single package.
 
 ## Scope and invariant
 
-The implemented tree contains 216 TypeScript files. This map records every
-one exactly once, and the completeness test fails if a domain file is missing
-or listed twice. It also fixes the public set at 92 subpaths.
+The inventory lists 210 files under `src/domain` whose names do not begin with
+`_` and are not `index.ts`. The completeness test checks that each appears
+exactly once. The subpath table maps the 84 underscore-prefixed leaf barrels;
+each area's `index.ts` is noted below.
+
+The public set contains 84 package subpaths.
 
 ## Areas
 
 The implemented layout has nine area directories. A public entry point has
 one leaf barrel inside its area (`<area>/_<subpath>.ts`); internal data,
 validation, and implementation files stay beside that leaf barrel. Thus there
-are 92 public leaf barrels for 92 public subpaths. Each area has an index
+are 84 public leaf barrels for 84 public subpaths. Each area has an index
 barrel at `src/domain/<area>/index.ts`, and `src/index.ts` re-exports through
 those nine barrels. The area directory itself is not an additional public
 export.
@@ -23,7 +26,7 @@ The initial prefix-based inventory produced eleven candidate buckets. The
 implemented map uses nine areas because the remaining candidates were
 implementation prefixes or cross-cutting data groups, not stable public
 responsibility boundaries. Keeping them inside the nine domain areas avoids
-artificial public boundaries while preserving every existing subpath.
+artificial public boundaries.
 
 <!-- area-inventory:begin -->
 
@@ -76,16 +79,14 @@ artificial public boundaries while preserving every existing subpath.
 `use-cooldown-data.ts`, `use-cooldown-validation.ts`, `use-cooldown.ts`,
 `weapon-data.ts`, `weapon-validation.ts`, `weapon.ts`
 
-### recipe (26)
+### recipe (20)
 
-`brewing-data.ts`, `brewing-indexes.ts`, `brewing.ts`, `cooking-data.ts`,
+`brewing-data.ts`, `brewing.ts`, `cooking-data.ts`,
 `cooking.ts`, `crafting-data.ts`, `crafting-special-data.ts`,
-`crafting-special.ts`, `crafting.ts`, `recipe-data.ts`, `recipe-json.ts`,
-`recipe-matching.ts`, `recipe-registry.ts`, `recipe-vanilla-data.ts`,
-`recipe.ts`, `smelting-data.ts`, `smelting-indexes.ts`, `smelting.ts`,
-`smithing-data.ts`, `smithing-indexes.ts`, `smithing.ts`,
-`stonecutting-data.ts`, `stonecutting-indexes.ts`, `stonecutting.ts`,
-`transmute-data.ts`, `transmute.ts`
+`crafting.ts`, `recipe-data.ts`, `recipe-json.ts`, `recipe-registry.ts`,
+`recipe-vanilla-data.ts`, `recipe.ts`, `smelting-data.ts`, `smelting.ts`,
+`smithing-data.ts`, `smithing.ts`, `stonecutting-data.ts`,
+`stonecutting.ts`, `transmute-data.ts`, `transmute.ts`
 
 ### entity (38)
 
@@ -127,12 +128,12 @@ artificial public boundaries while preserving every existing subpath.
 
 <!-- area-inventory:end -->
 
-The area counts sum to 216. `world` has 13 files; its heading includes `chunk`,
+The area counts sum to 210. `world` has 13 files; its heading includes `chunk`,
 `heightmap`, and the generated vanilla table.
 
 ## Public subpath to barrel map
 
-The following is the complete 92-entry mapping. Every right-hand path is an
+The following is the complete 84-entry mapping. Every right-hand path is an
 implemented leaf barrel in the corresponding area.
 
 | subpath | implemented barrel |
@@ -145,8 +146,6 @@ implemented leaf barrel in the corresponding area.
 | `./domain/block-item` | `block/_block-item.ts` |
 | `./domain/block-properties` | `block/_block-properties.ts` |
 | `./domain/block-support` | `block/_block-support.ts` |
-| `./domain/brewing` | `recipe/_brewing.ts` |
-| `./domain/cooking` | `recipe/_cooking.ts` |
 | `./domain/camera` | `presentation/_camera.ts` |
 | `./domain/camera-pose` | `presentation/_camera-pose.ts` |
 | `./domain/block-registry` | `block/_block-registry.ts` |
@@ -207,21 +206,15 @@ implemented leaf barrel in the corresponding area.
 | `./domain/recipe` | `recipe/_recipe.ts` |
 | `./domain/recipe-json` | `recipe/_recipe-json.ts` |
 | `./domain/recipe-registry` | `recipe/_recipe-registry.ts` |
-| `./domain/crafting` | `recipe/_crafting.ts` |
 | `./domain/crafting-special-data` | `recipe/_crafting-special-data.ts` |
-| `./domain/crafting-special` | `recipe/_crafting-special.ts` |
 | `./domain/projectile` | `entity/_projectile.ts` |
 | `./domain/primed-tnt` | `entity/_primed-tnt.ts` |
 | `./domain/portal` | `entity/_portal.ts` |
 | `./domain/redstone` | `block/_redstone.ts` |
 | `./domain/redstone-network` | `block/_redstone-network.ts` |
 | `./domain/redstone-update` | `block/_redstone-update.ts` |
-| `./domain/smelting` | `recipe/_smelting.ts` |
 | `./domain/settings` | `text/_settings.ts` |
-| `./domain/smithing` | `recipe/_smithing.ts` |
 | `./domain/statistics` | `text/_statistics.ts` |
-| `./domain/stonecutting` | `recipe/_stonecutting.ts` |
-| `./domain/transmute` | `recipe/_transmute.ts` |
 | `./domain/time-of-day` | `time/_time-of-day.ts` |
 | `./domain/tool-component` | `item/_tool-component.ts` |
 | `./domain/weapon` | `item/_weapon.ts` |
@@ -254,8 +247,8 @@ out of scope for the move. They must not be hidden by a barrel:
 - `entity -> world`: damage/status tables use generated vanilla data; vehicles use dimensions; sulfur-cube registry uses data-pack registry.
 - `item -> entity`: food, item components, and combat validation use status/damage/vitals vocabulary.
 - `item -> world`: enchantment data uses generated vanilla tables; enchantment-table uses random source.
-- `recipe -> world`: recipe matching/registry use tag membership and data-pack registry.
-- `world -> recipe` and `world -> item`: tag membership owns item and recipe matching vocabulary.
+- `recipe -> world`: the recipe registry uses the data-pack registry.
+- `world -> recipe` and `world -> item`: tag membership uses item and recipe tag vocabulary.
 - `time -> text`: clock/frame contracts consume quantities and identifiers.
 
 The move preserved these imports. Dependency cleanup, including whether
