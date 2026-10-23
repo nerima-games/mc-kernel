@@ -26,8 +26,8 @@ import {
   BlockId,
   blockIdOf as blockIdOfOption,
   canBlockStaySupported as canBlockStaySupportedResult,
-  isSupportSensitiveBlockId,
-  supportRuleOfBlockId,
+  isSupportSensitiveBlockId as isSupportSensitiveBlockIdResult,
+  supportRuleOfBlockId as supportRuleOfBlockIdResult,
 } from '../src/domain/block/block-registry'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
 import {
@@ -44,6 +44,8 @@ import { optionValue, resultFailure, resultValue } from './block-result-helpers'
 const blockIdOf = (type: BlockType) => optionValue(blockIdOfOption(type))
 const canBlockStaySupported = (...args: Parameters<typeof canBlockStaySupportedResult>) =>
   resultValue(canBlockStaySupportedResult(...args))
+const isSupportSensitiveBlockId = (id: number) => resultValue(isSupportSensitiveBlockIdResult(id))
+const supportRuleOfBlockId = (id: number) => resultValue(supportRuleOfBlockIdResult(id))
 const satisfiesSupportRule = (...args: Parameters<typeof satisfiesSupportRuleResult>) =>
   resultValue(satisfiesSupportRuleResult(...args))
 

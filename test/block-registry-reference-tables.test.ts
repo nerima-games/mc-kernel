@@ -28,19 +28,25 @@ import {
   BLOCK_ID_MAX,
   BLOCK_REGISTRY,
   blockIdOf as blockIdOfOption,
-  blockIdsWithCapability as blockIdsWithCapabilityOption,
-  blockTypeOfId,
-  capabilitiesOfBlockId,
-  capabilityOfBlockId,
-  propertyOfBlockId,
+  blockIdsWithCapability as blockIdsWithCapabilityResult,
+  blockTypeOfId as blockTypeOfIdResult,
+  capabilitiesOfBlockId as capabilitiesOfBlockIdResult,
+  capabilityOfBlockId as capabilityOfBlockIdResult,
+  propertyOfBlockId as propertyOfBlockIdResult,
 } from '../src/domain/block/block-registry'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
-import { optionValue } from './block-result-helpers'
+import { optionValue, resultValue } from './block-result-helpers'
 
 const number = Number
 const blockIdOf = (type: BlockType) => optionValue(blockIdOfOption(type))
-const blockIdsWithCapability = (flag: Parameters<typeof blockIdsWithCapabilityOption>[0]) =>
-  optionValue(blockIdsWithCapabilityOption(flag))
+const blockIdsWithCapability = (flag: Parameters<typeof blockIdsWithCapabilityResult>[0]) =>
+  optionValue(resultValue(blockIdsWithCapabilityResult(flag)))
+const blockTypeOfId = (id: number) => resultValue(blockTypeOfIdResult(id))
+const capabilitiesOfBlockId = (id: number) => resultValue(capabilitiesOfBlockIdResult(id))
+const capabilityOfBlockId = (...args: Parameters<typeof capabilityOfBlockIdResult>) =>
+  resultValue(capabilityOfBlockIdResult(...args))
+const propertyOfBlockId = <K extends Parameters<typeof propertyOfBlockIdResult>[1]>(id: number, name: K) =>
+  resultValue(propertyOfBlockIdResult(id, name))
 
 const EXPECTED_BLOCK_TYPES: ReadonlyArray<BlockType> = [
   'air',

@@ -1,6 +1,7 @@
-import { Option } from 'effect'
+import { Option, Result } from 'effect'
 import { blockIdOf, propertyOfBlockId, type BlockId } from './block-registry.js'
 import type { FluidKind } from './block-properties.js'
+import type { BlockRegistryResolutionFailure } from './block-registry-indexes.js'
 
 export type FlowingFluidKind = Exclude<FluidKind, 'none'>
 
@@ -28,7 +29,7 @@ export const FLOWING_FLUID_LEVEL = 7
 
 export const blockIdOfFluidKind = (kind: FlowingFluidKind): Option.Option<BlockId> => FLUID_BLOCK_IDS[kind]
 
-export const fluidKindOfBlockId = (blockId: BlockId): FlowingFluidKind | null => {
-  const kind = propertyOfBlockId(blockId, 'fluid')
-  return kind === 'none' ? null : kind
-}
+export const fluidKindOfBlockId = (
+  blockId: BlockId,
+): Result.Result<FlowingFluidKind | null, BlockRegistryResolutionFailure> =>
+  Result.map(propertyOfBlockId(blockId, 'fluid'), (kind) => kind === 'none' ? null : kind)

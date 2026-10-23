@@ -106,7 +106,7 @@ function validateBlockDefinition(
     return failure('invalid-shape', 'block definition must be an object')
   }
   const knownKeys = validateKnownDefinitionKeys(definition)
-  if (Result.isFailure(knownKeys)) return knownKeys
+  if (Result.isFailure(knownKeys)) return Result.fail(knownKeys.failure)
 
   if (!isBlockType(definition['type'])) {
     return failure('invalid-shape', 'BlockDefinition.type must be a registered BlockType')

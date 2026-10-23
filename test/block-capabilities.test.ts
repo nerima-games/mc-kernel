@@ -11,9 +11,9 @@ import {
   BLOCK_IDS,
   type BlockId,
   blockIdOf as blockIdOption,
-  blockTypeOfId,
-  capabilitiesOfBlockId,
-  capabilityOfBlockId,
+  blockTypeOfId as blockTypeOfIdResult,
+  capabilitiesOfBlockId as capabilitiesOfBlockIdResult,
+  capabilityOfBlockId as capabilityOfBlockIdResult,
 } from '../src/domain/block/block-registry'
 import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block/block-properties'
 import { type BlockDefinition, blockCapabilitiesOf as blockCapabilitiesOfResult } from '../src/domain/block/block-definition'
@@ -27,6 +27,10 @@ const resolveBlockCapabilities = (overrides: BlockCapabilityOverrides) =>
   resultValue(resolveBlockCapabilitiesResult(overrides))
 const blockCapabilitiesOf = (definition: BlockDefinition) => resultValue(blockCapabilitiesOfResult(definition))
 const blockIdOf = (type: Parameters<typeof blockIdOption>[0]) => optionValue(blockIdOption(type))
+const blockTypeOfId = (id: number) => resultValue(blockTypeOfIdResult(id))
+const capabilitiesOfBlockId = (id: number) => resultValue(capabilitiesOfBlockIdResult(id))
+const capabilityOfBlockId = (...args: Parameters<typeof capabilityOfBlockIdResult>) =>
+  resultValue(capabilityOfBlockIdResult(...args))
 
 const EMPTY_COLLECTION_LENGTH = 0
 const MINIMUM_DISTINCT_CAPABILITY_VALUES = 1

@@ -258,7 +258,7 @@ export const decodeLightVolume = (encoded: Uint8Array): Result.Result<LightVolum
   }
 
   const validatedHeight = LightVolumeHeight(view.getUint16(10, true))
-  if (Result.isFailure(validatedHeight)) return validatedHeight
+  if (Result.isFailure(validatedHeight)) return Result.fail(validatedHeight.failure)
   const height = validatedHeight.success
   const payloadLength = view.getUint32(12, true)
   const cellCount = lightVolumeCellCount(height)

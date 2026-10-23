@@ -1,7 +1,7 @@
 /* eslint-disable max-statements, no-magic-numbers, sort-imports -- Group test framework before subject imports. */
 import { runInNewContext } from 'node:vm'
 import { describe, expect, it, vi } from 'vitest'
-import { Brand, Effect, Result } from 'effect'
+import { Effect, Result } from 'effect'
 import {
   CHUNK_CODEC_VERSION,
   CHUNK_HEADER_BYTES,
@@ -468,12 +468,13 @@ describe('chunk binary codec', () => {
     vi.resetModules()
     vi.doMock('../src/domain/block/block-registry.js', async (importOriginal) => {
       const actual = await importOriginal<typeof import('../src/domain/block/block-registry')>()
-      const wideBlockId = Brand.nominal<BlockId>()(WIDE_BLOCK_ID_VALUE)
+      const wideBlockId = resultValue(blockId.result(WIDE_BLOCK_ID_VALUE))
 
       return {
         ...actual,
         BLOCK_IDS: [...actual.BLOCK_IDS, wideBlockId],
-        isKnownBlockId: (id: BlockId): boolean => id === wideBlockId || actual.isKnownBlockId(id),
+        isKnownBlockId: (id: BlockId) =>
+          Result.map(actual.isKnownBlockId(id), (known) => id === wideBlockId || known),
       }
     })
 

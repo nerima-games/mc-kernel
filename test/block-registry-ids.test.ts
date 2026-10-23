@@ -10,17 +10,20 @@ import {
   BlockId,
   UNREGISTERED_BLOCK_TYPES,
   blockIdOf as blockIdOfOption,
-  blockTypeOfId,
+  blockTypeOfId as blockTypeOfIdResult,
   isEmpty,
-  isKnownBlockId,
-  resolvedBlockOfId
+  isKnownBlockId as isKnownBlockIdResult,
+  resolvedBlockOfId as resolvedBlockOfIdResult
 } from '../src/domain/block/block-registry'
 import { normalizeBlockRegistryEntry } from '../src/domain/block/block-registry-entries'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
-import { optionValue, resultFailure } from './block-result-helpers'
+import { optionValue, resultFailure, resultValue } from './block-result-helpers'
 
 const number = Number
 const blockIdOf = (type: BlockType) => optionValue(blockIdOfOption(type))
+const blockTypeOfId = (id: number) => resultValue(blockTypeOfIdResult(id))
+const isKnownBlockId = (id: number) => resultValue(isKnownBlockIdResult(id))
+const resolvedBlockOfId = (id: number) => resultValue(resolvedBlockOfIdResult(id))
 
 describe('id assignment is permanent', () => {
   it('omits optional properties when normalizing propertyless registry input', () => {

@@ -6,7 +6,7 @@
  * numeric id: capability, opacity, light, and the resolved definition.
  */
 import { describe, expect, it } from 'vitest'
-import { Effect } from 'effect'
+import { Effect, Result } from 'effect'
 import { expectTypeOf } from 'vitest'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block/block-capabilities'
 import {
@@ -25,26 +25,38 @@ import {
   BLOCK_REGISTRY,
   BlockId,
   blockIdOf as blockIdOfOption,
-  blockIdsWithCapability as blockIdsWithCapabilityOption,
-  blockIdsWithOpacity as blockIdsWithOpacityOption,
-  blockTypeOfId,
-  capabilitiesOfBlockId,
-  capabilityOfBlockId,
-  isKnownBlockId,
-  lightEmissionOfBlockId,
-  opacityOfBlockId,
-  propertyOfBlockId,
-  resolvedBlockOfId,
-  transmitsLight,
+  blockIdsWithCapability as blockIdsWithCapabilityResult,
+  blockIdsWithOpacity as blockIdsWithOpacityResult,
+  blockTypeOfId as blockTypeOfIdResult,
+  capabilitiesOfBlockId as capabilitiesOfBlockIdResult,
+  capabilityOfBlockId as capabilityOfBlockIdResult,
+  isKnownBlockId as isKnownBlockIdResult,
+  lightEmissionOfBlockId as lightEmissionOfBlockIdResult,
+  opacityOfBlockId as opacityOfBlockIdResult,
+  propertyOfBlockId as propertyOfBlockIdResult,
+  resolvedBlockOfId as resolvedBlockOfIdResult,
+  transmitsLight as transmitsLightResult,
 } from '../src/domain/block/block-registry'
+import type { BlockRegistryResolutionFailure } from '../src/domain/block/block-registry-indexes'
 import { optionValue, resultValue } from './block-result-helpers'
 const number = Number
 
 const blockIdOf = (type: Parameters<typeof blockIdOfOption>[0]) => optionValue(blockIdOfOption(type))
-const blockIdsWithCapability = (flag: Parameters<typeof blockIdsWithCapabilityOption>[0]) =>
-  optionValue(blockIdsWithCapabilityOption(flag))
-const blockIdsWithOpacity = (opacity: Parameters<typeof blockIdsWithOpacityOption>[0]) =>
-  optionValue(blockIdsWithOpacityOption(opacity))
+const blockIdsWithCapability = (flag: Parameters<typeof blockIdsWithCapabilityResult>[0]) =>
+  optionValue(resultValue(blockIdsWithCapabilityResult(flag)))
+const blockIdsWithOpacity = (opacity: Parameters<typeof blockIdsWithOpacityResult>[0]) =>
+  optionValue(resultValue(blockIdsWithOpacityResult(opacity)))
+const blockTypeOfId = (id: BlockId) => resultValue(blockTypeOfIdResult(id))
+const capabilitiesOfBlockId = (id: BlockId) => resultValue(capabilitiesOfBlockIdResult(id))
+const capabilityOfBlockId = (...args: Parameters<typeof capabilityOfBlockIdResult>) =>
+  resultValue(capabilityOfBlockIdResult(...args))
+const isKnownBlockId = (id: BlockId) => resultValue(isKnownBlockIdResult(id))
+const lightEmissionOfBlockId = (id: BlockId) => resultValue(lightEmissionOfBlockIdResult(id))
+const opacityOfBlockId = (id: BlockId) => resultValue(opacityOfBlockIdResult(id))
+const propertyOfBlockId = <K extends Parameters<typeof propertyOfBlockIdResult>[1]>(id: BlockId, name: K) =>
+  resultValue(propertyOfBlockIdResult(id, name))
+const resolvedBlockOfId = (id: BlockId) => resultValue(resolvedBlockOfIdResult(id))
+const transmitsLight = (id: BlockId) => resultValue(transmitsLightResult(id))
 const blockCapabilitiesOf = (definition: Parameters<typeof blockCapabilitiesOfResult>[0]) =>
   resultValue(blockCapabilitiesOfResult(definition))
 const resolveBlock = (definition: Parameters<typeof resolveBlockResult>[0]) => resultValue(resolveBlockResult(definition))
@@ -90,11 +102,12 @@ const expectUnknownCapabilityDefaults = (unknown: BlockId) => {
   }
 }
 
-describe('unknown-id fallbacks stay total even for non-byte numbers', () => {
-  it('treats negative, fractional, and NaN ids as default-opacity blocks', () =>
+describe('unknown-id fallbacks stay total for valid BlockIds', () => {
+  it('rejects negative, fractional, and NaN ids through Result failures', () =>
     Effect.runPromise(Effect.sync(() => {
       for (const unknown of [number('-1'), number('1.5'), Number.NaN]) {
-        expect(Reflect.apply(transmitsLight, undefined, [unknown])).toBe(false)
+        const failure = resultFailure(BlockId.result(unknown))
+        expect(resultFailure(Reflect.apply(transmitsLightResult, undefined, [unknown]))).toEqual(failure)
       }
     })),
   )
@@ -228,7 +241,7 @@ describe('the named light readings', () => {
       // at its boundaries and midpoint (see `ABOVE_TABLE_SAMPLE_IDS`).
       // Everything else below is a worked example of a consequence.
       for (let id = number('0'); id <= highestRegisteredId; id += number('1')) {
-        const blockId = BlockId(id)
+        const blockId = resultValue(BlockId.result(id))
         expect(opacityOfBlockId(blockId)).toBe(propertyOfBlockId(blockId, 'opacity'))
         expect(lightEmissionOfBlockId(blockId)).toBe(propertyOfBlockId(blockId, 'lightEmission'))
         expect(transmitsLight(blockId)).toBe(propertyOfBlockId(blockId, 'opacity') !== 'opaque')
@@ -244,18 +257,18 @@ describe('the named light readings', () => {
 
   it('are TOTAL, so a corrupt or newer-build byte reads as an unlit opaque cube', () =>
     Effect.runPromise(Effect.sync(() => {
-      const unknown = BlockId(number('200'))
+      const unknown = resultValue(BlockId.result(number('200')))
       expect(isKnownBlockId(unknown)).toBe(false)
 
       expect(opacityOfBlockId(unknown)).toBe('opaque')
       expect(transmitsLight(unknown)).toBe(false)
       expect(lightEmissionOfBlockId(unknown)).toBe(BLOCK_PROPERTY_DEFAULTS.lightEmission)
 
-      // Non-integers and out-of-range bytes take the same arm rather than
-      // Throwing: `StageRegistration`'s `run` has error channel `never`, so a
-      // Rule reading light out of a chunk buffer has nowhere to put a failure.
-      expect(Reflect.apply(opacityOfBlockId, undefined, [number('-1')])).toBe('opaque')
-      expect(Reflect.apply(lightEmissionOfBlockId, undefined, [number('1.5')])).toBe(number('0'))
+      for (const invalidId of [number('-1'), number('1.5')]) {
+        const failure = resultFailure(BlockId.result(invalidId))
+        expect(resultFailure(Reflect.apply(opacityOfBlockIdResult, undefined, [invalidId]))).toEqual(failure)
+        expect(resultFailure(Reflect.apply(lightEmissionOfBlockIdResult, undefined, [invalidId]))).toEqual(failure)
+      }
     })),
   )
 
@@ -327,7 +340,9 @@ describe('the named light readings', () => {
 
   it('returns the branded light-level type', () =>
     Effect.runPromise(Effect.sync(() => {
-      expectTypeOf(lightEmissionOfBlockId(blockIdOf('torch'))).toEqualTypeOf<LightLevel>()
+      expectTypeOf(lightEmissionOfBlockIdResult(blockIdOf('torch'))).toEqualTypeOf<
+        Result.Result<LightLevel, BlockRegistryResolutionFailure>
+      >()
     })),
   )
 
@@ -500,7 +515,7 @@ describe('the named light readings', () => {
 describe('unknown ids', () => {
   it('resolve to an ordinary opaque cube rather than failing', () =>
     Effect.runPromise(Effect.sync(() => {
-      const unknown = BlockId(number('200'))
+      const unknown = resultValue(BlockId.result(number('200')))
 
       expect(isKnownBlockId(unknown)).toBe(false)
       expect(blockTypeOfId(unknown)).toBeUndefined()
@@ -542,16 +557,17 @@ describe('unknown ids', () => {
       // `isWithinTable === false` branch — so that gets boundary and midpoint
       // samples instead of a full walk.
       for (let id = number('0'); id <= highestRegisteredId; id += number('1')) {
-        const blockId = BlockId(id)
+        const blockId = resultValue(BlockId.result(id))
         expect(isKnownBlockId(blockId)).toBe(resolvedBlockOfId(blockId) !== globalThis.undefined)
       }
       for (const id of [...ABOVE_TABLE_SAMPLE_IDS, BLOCK_ID_MAX + number('1'), BLOCK_ID_MAX + number('2')]) {
         if (id > BLOCK_ID_MAX) {
-          expect(Reflect.apply(isKnownBlockId, undefined, [id])).toBe(false)
-          expect(Reflect.apply(resolvedBlockOfId, undefined, [id])).toBeUndefined()
+          const failure = resultFailure(BlockId.result(id))
+          expect(resultFailure(Reflect.apply(isKnownBlockIdResult, undefined, [id]))).toEqual(failure)
+          expect(resultFailure(Reflect.apply(resolvedBlockOfIdResult, undefined, [id]))).toEqual(failure)
           continue
         }
-        const blockId = BlockId(id)
+        const blockId = resultValue(BlockId.result(id))
         expect(isKnownBlockId(blockId)).toBe(resolvedBlockOfId(blockId) !== globalThis.undefined)
       }
       for (const id of BLOCK_IDS) {
@@ -560,11 +576,15 @@ describe('unknown ids', () => {
     })),
   )
 
-  it('accepts branded ids and identifies registered ids', () =>
+  it('accepts branded ids and returns a Result for known-id checks', () =>
     Effect.runPromise(Effect.sync(() => {
-      const id: BlockId = BlockId(2)
+      const id = resultValue(BlockId.result(number('2')))
       expect(isKnownBlockId(id)).toBe(true)
-      expectTypeOf(isKnownBlockId).parameter(0).toEqualTypeOf<BlockId>()
+      expectTypeOf(isKnownBlockIdResult).parameter(0).toEqualTypeOf<BlockId>()
+      expectTypeOf(isKnownBlockIdResult(id)).toEqualTypeOf<
+        Result.Result<boolean, BlockRegistryResolutionFailure>
+      >()
+      expectTypeOf(id).toEqualTypeOf<BlockId>()
     })),
   )
 
@@ -572,7 +592,7 @@ describe('unknown ids', () => {
     Effect.runPromise(Effect.sync(() => {
       // The failure mode of guessing wrong is a mystery block, never a player
       // Falling through the world or terrain deleting itself.
-      const unknown = BlockId(number('250'))
+      const unknown = resultValue(BlockId.result(number('250')))
       expect(capabilityOfBlockId(unknown, 'fallsWhenUnsupported')).toBe(false)
       expect(capabilityOfBlockId(unknown, 'flammable')).toBe(false)
       expect(capabilityOfBlockId(unknown, 'passable')).toBe(false)
@@ -580,12 +600,15 @@ describe('unknown ids', () => {
     })),
   )
 
-  it('treats non-integers and out-of-range numbers the same way', () =>
+  it('propagates BlockId validation failures for malformed numbers', () =>
     Effect.runPromise(Effect.sync(() => {
       for (const value of [number('-1'), number('1.5'), Number.NaN, BLOCK_ID_MAX + number('1')]) {
-        expect(Reflect.apply(isKnownBlockId, undefined, [value])).toBe(false)
-        expect(Reflect.apply(blockTypeOfId, undefined, [value])).toBeUndefined()
-        expect(Reflect.apply(capabilityOfBlockId, undefined, [value, 'fallsWhenUnsupported'])).toBe(false)
+        const failure = resultFailure(BlockId.result(value))
+        expect(resultFailure(Reflect.apply(isKnownBlockIdResult, undefined, [value]))).toEqual(failure)
+        expect(resultFailure(Reflect.apply(blockTypeOfIdResult, undefined, [value]))).toEqual(failure)
+        expect(resultFailure(Reflect.apply(capabilityOfBlockIdResult, undefined, [value, 'fallsWhenUnsupported']))).toEqual(
+          failure,
+        )
       }
     })),
   )

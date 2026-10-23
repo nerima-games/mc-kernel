@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest'
 import { ok } from 'node:assert/strict'
 import { Effect, Option } from 'effect'
 import { expectTypeOf } from 'vitest'
-import { blockPropertiesOf, type BlockDefinition } from '../src/domain/block/block-definition'
+import { blockPropertiesOf as blockPropertiesOfResult, type BlockDefinition } from '../src/domain/block/block-definition'
 import {
   BARE_HANDED,
   type BlockDropRule,
@@ -32,11 +32,22 @@ import {
   resolveDrop,
   resolveDropItem,
 } from '../src/domain/block/block-harvest'
-import { BLOCK_IDS, BLOCK_REGISTRY, blockIdOf, dropOfBlockId, type BlockId } from '../src/domain/block/block-registry'
+import {
+  BLOCK_IDS,
+  BLOCK_REGISTRY,
+  blockIdOf,
+  dropOfBlockId as dropOfBlockIdResult,
+  type BlockId,
+} from '../src/domain/block/block-registry'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
 import { ITEM_TYPES, type ItemType, isItemType } from '../src/domain/item/item-type'
 import { itemOfBlock } from '../src/domain/block/block-item'
 import { StackCount, type StackCount as StackCountValue } from '../src/domain/time/quantities'
+import { resultValue } from './block-result-helpers'
+
+const blockPropertiesOf = (...args: Parameters<typeof blockPropertiesOfResult>) =>
+  resultValue(blockPropertiesOfResult(...args))
+const dropOfBlockId = (...args: Parameters<typeof dropOfBlockIdResult>) => resultValue(dropOfBlockIdResult(...args))
 
 const knownBlockIdOf = (type: BlockType): BlockId => {
   const id = blockIdOf(type)

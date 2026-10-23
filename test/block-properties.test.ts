@@ -360,8 +360,6 @@ describe('light level branding', () => {
 
   it('rejects malformed values for every public property vocabulary', () =>
     Effect.runPromise(Effect.sync(() => {
-      const resolve = resolveBlockProperties
-
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [null]), 'type', 'block property overrides must be an object')
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ opacity: 'future' }]), 'type', 'unknown block property opacity future')
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ fluid: 'future' }]), 'type', 'unknown block property fluid future')
