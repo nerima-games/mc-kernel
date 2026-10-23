@@ -1,8 +1,7 @@
-# R-K1 area map
+# Domain area map
 
-This is the implemented map for the internal `src/domain` reorganization. It
-covers the merged contracts at `ffbbd33` and the R-K1 implementation. The
-package boundary remains one package and `package.json#exports` is unchanged.
+This is the implemented map for the `src/domain` reorganization. The package
+boundary remains one package and `package.json#exports` is unchanged.
 
 ## Scope and invariant
 
@@ -10,19 +9,15 @@ The implemented tree contains 216 TypeScript files. This map records every
 one exactly once, and the completeness test fails if a domain file is missing
 or listed twice. It also fixes the public set at 92 subpaths.
 
-The selected document is a new `docs/area-map.md`, rather than extending
-`docs/architecture.md`, because architecture §6 states the existing
-responsibility boundaries while this artifact is an executable, file-level
-inventory for a one-time move.
-
 ## Areas
 
 The implemented layout has nine area directories. A public entry point has
 one leaf barrel inside its area (`<area>/_<subpath>.ts`); internal data,
 validation, and implementation files stay beside that leaf barrel. Thus there
-are 92 public leaf barrels for 92 public subpaths. Each area also has an
-an area index, and `src/index.ts` re-exports through those nine area barrels. The
-area directory itself is not an additional public export.
+are 92 public leaf barrels for 92 public subpaths. Each area has an index
+barrel at `src/domain/<area>/index.ts`, and `src/index.ts` re-exports through
+those nine barrels. The area directory itself is not an additional public
+export.
 
 The initial prefix-based inventory produced eleven candidate buckets. The
 implemented map uses nine areas because the remaining candidates were
@@ -132,9 +127,8 @@ artificial public boundaries while preserving every existing subpath.
 
 <!-- area-inventory:end -->
 
-The area counts sum to 216. `world` has 13 files (the heading intentionally
-includes `chunk`, `heightmap`, and the generated vanilla table); this corrects
-the initial automated prefix classification that left them unassigned.
+The area counts sum to 216. `world` has 13 files; its heading includes `chunk`,
+`heightmap`, and the generated vanilla table.
 
 ## Public subpath to barrel map
 
@@ -238,10 +232,11 @@ implemented leaf barrel in the corresponding area.
 
 ## Dependency direction and exceptions
 
-The intended direction is `coordinates -> time/text -> item -> recipe -> block
--> entity -> world`, with `presentation` consuming foundational contracts.
-In the notation below, `A <- B` means B imports A. This is a dependency
-direction, not a proposed runtime package dependency.
+The intended layer order from foundations to consumers is `coordinates`,
+`time/text`, `item`, `recipe`, `block`, `entity`, then `world`; `presentation`
+consumes foundational contracts. This order is not an import direction. In the
+notation below, `A <- B` means B imports A. These are TypeScript module edges,
+not runtime package dependencies.
 
 The observed cross-area edges that are compatible with the direction are:
 
@@ -263,20 +258,6 @@ out of scope for the move. They must not be hidden by a barrel:
 - `world -> recipe` and `world -> item`: tag membership owns item and recipe matching vocabulary.
 - `time -> text`: clock/frame contracts consume quantities and identifiers.
 
-Phase 2 will preserve these imports while moving files. Dependency cleanup,
-including whether `quantities`, tags, and generated tables should be promoted
-to a foundational `vocabulary` area, is a separate deliverable.
-
-## Implemented procedure
-
-1. Rebase on the merged `origin/main` contracts before moving the domain files.
-2. Move every mapped source path with `git mv`, refusing unlisted files.
-3. Rewrite only relative import paths, preserving module contents, then run the completeness test.
-4. Add the 92 leaf barrels and the nine area barrels without changing `package.json#exports`.
-5. Replace `src/index.ts` with exports through the area barrels and verify the public declaration consumer surface.
-6. Run the subpath/barrel, test, coverage, package, dependency typecheck, and benchmark checks.
-7. Verify that `git diff --stat -M origin/main` recognizes all 216 moves as renames.
-
-The implementation commits and their verification are recorded in `git log`
-for this branch; this section describes the procedure that produced the
-current tree rather than a future plan. `.mediator/` and `.omo/` are excluded.
+The move preserved these imports. Dependency cleanup, including whether
+`quantities`, tags, and generated tables should be promoted to a foundational
+`vocabulary` area, is a separate deliverable.

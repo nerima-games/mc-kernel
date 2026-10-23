@@ -1,8 +1,7 @@
 # 公開 API
 
 `src/index.ts` が公開バレルであり、利用リポジトリは root package または公開済み subpath を import する。
-`test/public-api.test.ts` がバレルの再エクスポート漏れを固定している
-（バレルから 1 つ落ちても kernel 内の他のテストは全部通るが、組織全体が壊れるため）。
+`test/public-api.test.ts` が公開バレルの再エクスポートを検証している。
 
 配布物では公開バレルに加えて、`package.json` に列挙された `domain/*.ts` entrypoint を
 `@nerima-games/mc-kernel/domain/*` から個別に import できる。型宣言と実装は同じ `dist` の公開境界から
@@ -59,14 +58,39 @@ type Position      = { readonly x: number; readonly y: number; readonly z: numbe
 type BlockPosition = { readonly x: BlockAxis; readonly y: BlockAxis; readonly z: BlockAxis }
 type BlockFace = 'down' | 'up' | 'north' | 'south' | 'west' | 'east'
 type ChunkCoord    = { readonly cx: ChunkAxis; readonly cz: ChunkAxis }
-type LocalBlockCoord = { readonly lx: LocalAxis; readonly y: BlockAxis; readonly lz: LocalAxis }
+type LocalBlockCoord = { readonly lx: LocalAxis; readonly ly: BlockAxis; readonly lz: LocalAxis }
 type AABB          = { readonly min: Position; readonly max: Position }
 
-const position / blockPosition / chunkCoord
-const BLOCK_FACES / HORIZONTAL_BLOCK_FACES / isBlockFace / oppositeBlockFace
-const adjacentBlockPosition / horizontalBlockNeighbours / blockNeighbours
-const blockPositionOfPosition / chunkCoordOfBlock / localCoordOfBlock / blockPositionOfChunkLocal
-const aabb / aabbOfBlock / aabbIntersects / aabbContainsPoint
+const position: (x: number, y: number, z: number) => Position
+const blockPosition: (x: number, y: number, z: number) => BlockPosition
+const chunkCoord: (cx: number, cz: number) => ChunkCoord
+const BLOCK_FACES: readonly ['down', 'up', 'north', 'south', 'west', 'east']
+const HORIZONTAL_BLOCK_FACES: readonly ['west', 'east', 'north', 'south']
+const isBlockFace: (value: unknown) => value is BlockFace
+const oppositeBlockFace: (face: BlockFace) => BlockFace
+const adjacentBlockPosition: (source: BlockPosition, face: BlockFace) => BlockPosition
+const horizontalBlockNeighbours: (source: BlockPosition) => readonly [
+  west: BlockPosition,
+  east: BlockPosition,
+  north: BlockPosition,
+  south: BlockPosition,
+]
+const blockNeighbours: (source: BlockPosition) => readonly [
+  down: BlockPosition,
+  up: BlockPosition,
+  north: BlockPosition,
+  south: BlockPosition,
+  west: BlockPosition,
+  east: BlockPosition,
+]
+const blockPositionOfPosition: (value: Position) => BlockPosition
+const chunkCoordOfBlock: (value: BlockPosition) => ChunkCoord
+const localCoordOfBlock: (value: BlockPosition) => LocalBlockCoord
+const blockPositionOfChunkLocal: (chunk: ChunkCoord, local: LocalBlockCoord) => BlockPosition
+const aabb: (firstCorner: Position, secondCorner: Position) => AABB
+const aabbOfBlock: (value: BlockPosition) => AABB
+const aabbIntersects: (firstBox: AABB, secondBox: AABB) => boolean
+const aabbContainsPoint: (box: AABB, point: Position) => boolean
 ```
 
 **なぜ kernel か**: 座標変換は `mc-worldgen`（生成）・`mc-meshing`（メッシュ）・`mc-physics`（衝突）・`mc-sim`（エンティティ）・`mc-render`（描画）が
@@ -114,7 +138,7 @@ const decodeChunkKey(value: string): ChunkCoord | undefined
 ## 3. ブロック語彙（block-type）
 
 ```typescript
-const BLOCK_TYPES = ['air', 'stone', ..., 'snow'] as const
+const BLOCK_TYPES = ['air', 'stone', ..., 'snow'] as const // abbreviated roster
 type BlockType = (typeof BLOCK_TYPES)[number]
 const isBlockType = (value: string): value is BlockType
 ```
@@ -134,17 +158,11 @@ const AIR_BLOCK_ID: BlockId = 0;
 const isEmpty: (id: number) => boolean;
 ```
 
-`BlockId` はチャンクバッファに格納する安定した密な数値 ID である。上限は**格納幅の都合ではなく
-レジストリ側の事実**になった。`BlockState` は 1 要素 2 バイトで保持するので（`domain/block-state.ts`
-の `BYTES_PER_ELEMENT`）、roster を 255 の先へ伸ばすのはレジストリ行の追加だけで済み、
-もう一度 chunk フォーマットを移行する必要はない。
-
-**上限と索引テーブルの大きさは別々の値である。** `domain/block-registry-indexes.ts` の能力・プロパティごとの
-密な配列は `BLOCK_ID_MAX + 1` ではなく、`BLOCK_REGISTRY` に登録済みの id の最大値 + 1（`BLOCK_ID_TABLE_LENGTH`）
-から構築する。`BLOCK_ID_MAX` が答えるのは「`BlockId` として許される値の上限」、`BLOCK_ID_TABLE_LENGTH` が答えるのは
-「このテーブルが何要素必要か」という別の問いであり、両者が一致していたのは格納幅が上限を決めていた間だけである。
-テーブル長を超える id はすべてのアクセサが `isWithinTable` で弾き、能力・プロパティの既定値に解決する。
-roster の追加でテーブル長は伸びるが、`BLOCK_ID_MAX` を動かさない限り常駐メモリはレジストリの大きさに比例する。
+`BlockId` はレジストリ行に割り当てる安定した数値 ID である。`BLOCK_ID_MAX` は
+`BlockState` が格納できる unsigned 16-bit の上限（65535）であり、現在の registry で
+割り当て済みの最大 ID とは異なる。能力・プロパティの lookup table は登録済み ID の範囲で
+構築されるため、まだ登録されていないが `BlockId` の範囲内にある値は既定値へ解決する。
+65535 を超える ID を使うには chunk format の幅を変える必要がある。
 
 `isEmpty` の引数は意図的に `number` とし、チャンクバッファから読み出した未ブランドの値を直接受け取る。
 空気は ID 0 だけであり、判定はレジストリ lookup ではなく定数比較で行う。
@@ -163,10 +181,7 @@ const isKnownBlockId(id: number): id is BlockId
 const resolvedBlockOfId(id: number): ResolvedBlock | undefined
 ```
 
-`block-registry.ts` は安定した公開 import path であり、実データは `block-registry-entries*.ts`
-（地形・鉱石・作物とレッドストーン・構造物とネザー・エンドの 5 ファイルに分割）に、
-派生インデックスと lookup ロジックは `block-registry-indexes.ts` に分離している。
-データ行を見るのにインデックス実装を読む必要をなくすための分割であり、公開 API は変わらない。
+`block-registry.ts` は安定した公開 import path である。
 
 **チャンクバイトから直接読む関数群。** いずれも `resolveBlock` で定義を都度組み立てるのではなく、
 `BLOCK_REGISTRY` から起動時に一度だけ構築した `Uint8Array` / `ReadonlySet` の列を引く。
@@ -197,7 +212,7 @@ const blockIdsWithOpacity(opacity: BlockOpacity): ReadonlySet<number>
 ## 3-bis. アイテム語彙とブロック↔アイテムの橋（item-type / block-item）
 
 ```typescript
-const ITEM_TYPES = ['stone', 'cobblestone', ..., 'snowball', 'sapling', ..., 'lily_pad'] as const
+const ITEM_TYPES = ['stone', 'cobblestone', ..., 'snowball', 'sapling', ..., 'lily_pad'] as const // abbreviated roster
 type ItemType = (typeof ITEM_TYPES)[number]
 const isItemType = (value: string): value is ItemType
 
@@ -220,13 +235,6 @@ const blockOfPlaceableItem(item: PlaceableItemType): BlockType       // 全域�
 `air` が入らないのは監査 §6-6（「`AIR` は『ブロックが無い』ことを表す番兵であり能力ではない」）の帰結である。
 2 つの union は**交差**するのであって入れ子ではない。`PlaceableItemType` はその交差に
 `redstone_dust`（`redstone_wire` を設置する名前付き例外）を加えた型である。
-`test/item-drops.test.ts` が `Exclude` で両方向をピン留めしている
-（`test/clock-and-frame.test.ts` の `FrameServices` と同じ手法）。片方の roster がもう片方を
-飲み込んだ瞬間に区別が飾りになるので、等式としてではなく**両方が空でないこと**として固定してある。
-
-`PLACEABLE_ITEM_TYPES` は item roster と block roster の交差に、明示した設置例外だけを加えて**計算**される。
-例外は `SPECIAL_BLOCK_BY_ITEM` / `SPECIAL_ITEM_BY_BLOCK` の対応表に限定されるため、別の手書き名簿としては増殖しない。
-
 **橋は名前一致を既定とし、設置名の例外は橋自身に置く。** ブロックのアイテム形はブロックと同じ名前を持つ
 （`dirt` ブロック → `dirt` アイテム）。同名でないブロックは自分の行でそう言う
 （`redstone_wire` ブロック → `redstone_dust` アイテム）。一方、採掘時の文脈依存ドロップ
@@ -248,8 +256,7 @@ kernel は現在の `ItemType` roster に対応する純粋な装備スロット
 
 `BlockId` と対になる、アイテム側の永続数値 ID とその 2 バイト wire 表現。
 
-以下でいう `ReadonlyByteArray` は、`Uint8Array` の読み取り API と数値インデックスだけを残し、
-`buffer`、長さ・offset の可変ビュー情報、書き込みメソッドを除いた構造型である。
+以下でいう `ReadonlyByteArray` は、item registry と chunk codec の各 module が内部で使う構造型の略記であり、公開 export ではない。`Uint8Array` の読み取り API と数値インデックスだけを残し、`buffer`、長さ・offset の可変ビュー情報、書き込みメソッドを除く。
 
 ```typescript
 type ItemId = number & Brand.Brand<'ItemId'>
@@ -283,9 +290,8 @@ const ItemIdBytes(bytes: Uint8Array | ItemIdBytes): ItemIdBytes // 長さと既�
 `BlockId` の許容範囲は `BLOCK_ID_MAX` が定める 0..65535 であり、chunk では各要素を 2 バイトで保存する。`ItemId` は
 `unsigned 16-bit`（0..65535）を確保してあり、205 種の現行語彙に対して十分な余裕を持つ。
 
-`maxStackCountOfItem` の答えは 3 段階（64 / 16 / 1）で、道具・防具・薬品・ボート等
-1 個までしか重ならないアイテムの集合と、雪玉・エンダーパール・バケツの 16 個上限を
-`item-registry.ts` 内の 2 つの `Set` で持つ。それ以外は既定の 64。
+`maxStackCountOfItem` は vanilla の上限に従い、通常は 64、雪玉・エンダーパール・バケツ等は 16、
+道具・防具・薬品・ボート等は 1 を返す。
 
 ### 3-bis-3. ブロック採掘時間（block-break-speed）
 
@@ -530,6 +536,21 @@ kernel はインベントリの搬送サービス、所有権、コンテナの�
 ```typescript
 const INVENTORY_SLOT_COUNT = 36;
 type Inventory = { readonly slots: ReadonlyArray<Slot> };
+type AddOutcome = { readonly inventory: Inventory; readonly leftover: number };
+type RemoveOutcome = { readonly inventory: Inventory; readonly removed: number };
+type RemoveAtResult =
+  | { readonly _tag: 'Removed'; readonly removed: number }
+  | { readonly _tag: 'InvalidSlot' }
+  | { readonly _tag: 'InvalidCount' }
+  | { readonly _tag: 'EmptySlot' }
+  | { readonly _tag: 'ItemMismatch'; readonly actualItem: ItemType }
+  | { readonly _tag: 'Insufficient'; readonly available: number };
+type RemoveAtOutcome = { readonly inventory: Inventory; readonly result: RemoveAtResult };
+type NormaliseOutcome = {
+  readonly inventory: Inventory;
+  readonly leftover: number;
+  readonly discarded: number;
+};
 
 const emptyInventory: () => Inventory;
 const slotAt: (inventory: Inventory, index: number) => Slot;
@@ -626,11 +647,9 @@ const matchRecipe: (
 ) => RecipeMatch;
 ```
 
-`VANILLA_CRAFTING_RECIPES` は kernel が同梱する検証済みの公式 recipe data の集合である。Minecraft の全バージョン・全エディションの
-完全な recipe registry ではなく、対応範囲はデータ表とテストで固定する。Bedrock の shaped / shapeless recipe の仕様は
-[Recipe introduction](https://learn.microsoft.com/en-us/minecraft/creator/documents/recipeintroduction?view=minecraft-bedrock-stable)、
-[recipe_shaped](https://learn.microsoft.com/en-us/minecraft/creator/reference/content/recipereference/examples/recipedefinitions/recipe_shaped?view=minecraft-bedrock-stable)、
-[minecraft:recipe_shapeless](https://learn.microsoft.com/en-us/minecraft/creator/reference/content/recipereference/examples/recipedefinitions/minecraftrecipe_shapeless?view=minecraft-bedrock-stable) を根拠にする。
+`VANILLA_CRAFTING_RECIPES` は kernel が同梱する、Minecraft Java Edition 26.3 向けの検証済み recipe data である。
+全バージョン・全エディションの recipe registry ではなく、対応範囲は `test/golden/` と
+`test/vanilla-26-3.test.ts` で固定する。
 
 ### 3-ter-3. JSON 値・item component patch・Java recipe JSON
 
@@ -899,9 +918,8 @@ const applySmithing: (input: SmithingInput) => SmithingOperation;
 ```
 
 これらは root に加えて `domain/item-stack`、`domain/inventory`、`domain/recipe`、`domain/smelting`、`domain/brewing`、`domain/food`、`domain/consumable`、`domain/use-cooldown`、`domain/crop`、`domain/dimension`、`domain/stonecutting`、`domain/smithing`、`domain/grindstone`、`domain/settings`、`domain/statistics`、`domain/vehicle` の subpath から公開する。
-Smithing の transform / trim の recipe schema は
-[recipe_smithing_transform](https://learn.microsoft.com/en-us/minecraft/creator/reference/content/recipereference/examples/recipedefinitions/recipe_smithing_transform?view=minecraft-bedrock-stable) と
-[recipe_smithing_trim](https://learn.microsoft.com/en-us/minecraft/creator/reference/content/recipereference/examples/recipe_smithing_trim?view=minecraft-bedrock-stable) を根拠にする。
+Smithing の recipe data は Java Edition 26.3 を対象とし、pin と範囲は
+[conformance.md](./conformance.md) に記録する。
 
 `BlockWorld`、fluid の純粋更新、redstone のネットワーク評価・更新は root と `domain/block-world`、`domain/fluid-update`、`domain/redstone-network`、`domain/redstone-update` の subpath から公開する。既存の `domain/fluid` と `domain/redstone` は、それぞれの data・state・update API をまとめた barrel である。
 
@@ -1066,7 +1084,7 @@ const isStatusEffectId: (value: unknown) => value is ResourceLocation;
 const resolveStatusEffectDefinition: (value: unknown) => StatusEffectDefinition;
 ```
 
-**3 重に綴られていた効果名を 1 つに畳んだ射影である。** `FoodStatusEffectName`（`food-data.ts`）、`ConsumableStatusEffect`（`consumable-data.ts`）、`PotionContentsComponent`（`item-component-values-data.ts`、直上の節）は同じ効果名の概念をそれぞれ独立に綴っていた。3 つとも既存の公開シグネチャは変えないまま、内部でこの語彙への射影に置き換えてある。`minecraft:` という namespace 文字列を組み立てる箇所は `statusEffectId` の 1 箇所だけになった。data pack が独自の custom effect id を持ち込める `PotionEffectInstanceComponent.id` はこの閉じた語彙より広い `ResourceLocation` のままだが、vanilla の部分集合だけを検査したい呼び出し側向けに `domain/item-component-values` が `VANILLA_STATUS_EFFECT_IDS` と `isVanillaPotionEffectId`（この語彙からの射影）を公開する。
+data pack が独自の custom effect id を持ち込める `PotionEffectInstanceComponent.id` はこの閉じた語彙より広い `ResourceLocation` のままである。vanilla の部分集合だけを検査したい呼び出し側向けに `domain/item-component-values` が `VANILLA_STATUS_EFFECT_IDS` と `isVanillaPotionEffectId` を公開する。
 
 **なぜ kernel か**: 同じ効果名の集合を `mc-sim`（`Vitals` への適用）と `mx-gameplay`（食料・スープ・ポーション効果）が同一のメンバーシップで参照する必要があり、どちらか一方に置くと依存の向きが壊れる。
 
@@ -1143,32 +1161,6 @@ const sulfurCubeArchetypeDataPath: (
 
 公式 26.2 が列挙する archetype の挙動名、block/item/entity tag、`minecraft:bounce` game event、`minecraft:sulfur_cube_content` component、`minecraft:sulfur_cube_hot` damage type、Sulfur Cube particle の識別子を branded な portable data として公開する。`#` 付きの block/item/entity tag は `TagLocation`、registry・component・game event・damage type・particle は `ResourceLocation` で区別する。`sulfurCubeArchetypeDataPackLayer` は JSON の外部値を decoder 境界で検証し、`selectSulfurCubeArchetypes` は対象 format の layer を priority 順に重ねて registry を解決する。公式ページが個別 archetype JSON の数値を掲載していないため、kernel は vanilla の数値を推測して固定しない。JSON・pack filesystem の読み出しと、Sulfur Cube の物理・爆発・接触イベントの実行は上位層の責務である。仕様は [Minecraft Java Edition 26.2](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-2) を参照する。
 
-### 3-quinquies-bis. 設定値と統計
-
-設定と統計は、下流の UI・状態所有・保存形式から独立した値モデルとして公開する。`Settings` は描画距離、視野角、品質、音量、感度、key binding の既定値・境界・正規化・更新を、`Statistics` は counter の記録、achievement の解放、重複除去、正規化を扱う。
-
-```typescript
-const DEFAULT_SETTINGS: Settings;
-const normaliseSettings: (input: unknown) => Settings;
-const applySettings: (settings: Settings, patch: Partial<Settings>) => Settings;
-const bindKey: (settings: Settings, action: string, code: string) => Settings;
-const unbindKey: (settings: Settings, action: string) => Settings;
-
-const EMPTY_STATISTICS: Statistics;
-const normaliseStatistics: (input: unknown) => Statistics;
-const record: (
-  statistics: Statistics,
-  key: StatisticKey,
-  amount?: number,
-) => Statistics;
-const unlock: (
-  statistics: Statistics,
-  achievement: AchievementId,
-) => Statistics;
-```
-
-root のほか `domain/settings` と `domain/statistics` から利用できる。画面・renderer preset・入力デバイスへの適用、ゲームイベントの意味付け、achievement registry、player state の所有、永続化は下流の責務である。
-
 ### 3-quinquies. エンチャントとエンチャントテーブル
 
 エンチャントは `ItemStack` に直接埋め込まず、既存の Anvil の入力・計画・適用プリミティブへ接続する独立したデータ／ロジック境界である。
@@ -1226,7 +1218,33 @@ const enchantmentTableOutputItemOf: (input: EnchantmentTableItem) => ItemType;
 未収録の item、edition 差分、将来の enchantment は、明示的なデータとテストを追加してから公開範囲へ加える。
 root のほか `domain/enchantment` と `domain/enchantment-table` subpath から利用できる。
 
-### 3-quinquies-2. 砥石（grindstone）
+### 3-quinquies-bis. 設定値と統計
+
+設定と統計は、下流の UI・状態所有・保存形式から独立した値モデルとして公開する。`Settings` は描画距離、視野角、品質、音量、感度、key binding の既定値・境界・正規化・更新を、`Statistics` は counter の記録、achievement の解放、重複除去、正規化を扱う。
+
+```typescript
+const DEFAULT_SETTINGS: Settings;
+const normaliseSettings: (input: unknown) => Settings;
+const applySettings: (settings: Settings, patch: Partial<Settings>) => Settings;
+const bindKey: (settings: Settings, action: string, code: string) => Settings;
+const unbindKey: (settings: Settings, action: string) => Settings;
+
+const EMPTY_STATISTICS: Statistics;
+const normaliseStatistics: (input: unknown) => Statistics;
+const record: (
+  statistics: Statistics,
+  key: StatisticKey,
+  amount?: number,
+) => Statistics;
+const unlock: (
+  statistics: Statistics,
+  achievement: AchievementId,
+) => Statistics;
+```
+
+root のほか `domain/settings` と `domain/statistics` から利用できる。画面・renderer preset・入力デバイスへの適用、ゲームイベントの意味付け、achievement registry、player state の所有、永続化は下流の責務である。
+
+### 3-quinquies-ter. 砥石（grindstone）
 
 砥石は、入力を変更せずに結果と経験値コストを返す純粋な計画である。単体入力では通常エンチャントを除去し、呪いを保持する。呪いが残らないエンチャント本は通常の本へ変換する。二入力では同一アイテムのダメージ値を合成し、耐久アイテムは最大耐久の 5% を加算した回復量、非耐久アイテムは同一コンポーネントのスタック条件を検証する。
 
@@ -1302,7 +1320,7 @@ root と `@nerima-games/mc-kernel/domain/projectile` subpath から利用でき�
 
 ### 3-septies. 爆発と着火済み TNT（explosion / primed-tnt）
 
-爆発は、中心・半径・seed と上位層が提供するブロック／Entity の読み取りから、破壊対象・Entity 効果・ノックバックを決定論的に計画する。抵抗値、遮蔽、有限の ray step・visited block・affected entity 上限を同じ計画に含めるため、ワールド更新やダメージ適用を行わない。
+`planExplosion` は中心・半径・seed と上位層が提供するブロック／Entity の読み取りから、破壊対象・Entity 効果・ノックバックを決定論的に計画する。抵抗値、遮蔽、有限の ray step・visited block・affected entity 上限も計画に含める。`applyExplosionPlan` は結果を呼び出し側の commit callback に渡し、kernel 自身はワールド更新やダメージ適用を所有しない。
 
 ```typescript
 const DEFAULT_EXPLOSION_LIMITS: ExplosionLimits;
@@ -1313,7 +1331,7 @@ const applyExplosionPlan: (
 ) => void;
 ```
 
-着火済み TNT は fuse の正規化、経過時間の上限、detonated への遷移と爆発計画を一つの純粋な値遷移として扱う。`applyPrimedTntPlan` は fuse 状態と爆発 mutation を上位層の一回の commit に渡すだけである。
+`planPrimedTnt` は fuse の正規化、経過時間の上限、detonated への遷移を計算し、爆発時には爆発計画も返す。`applyPrimedTntPlan` は fuse 状態と爆発 mutation を呼び出し側の commit callback に渡す。状態更新とワールド変更は callback 側の責務である。
 
 ```typescript
 const DEFAULT_TNT_FUSE_SECS = 4;
@@ -1413,8 +1431,7 @@ const propertyOf<K>(overrides, name: K): BlockProperties[K]
 
 ### 4-2-bis. `SupportRule` の値 — `domain/block-support.ts` / `domain/block-support-data.ts`
 
-`supportRule` プロパティの値型そのものは、能力監査 §4.6 が挙げる 3 つのテーブル
-（sensitive か / per-block の許可リスト / それ以外の既定）を 1 列に畳んだ判別共用体である。
+`supportRule` は配置に必要な支持条件を値として表す判別共用体である。
 
 ```typescript
 type SupportRule =
@@ -1434,12 +1451,9 @@ const satisfiesSupportRule(
 ): boolean
 ```
 
-**`isSupportSensitive` は独立したフラグではなく `SupportRule` からの導出。** 「sensitive だがリストが無い」
-「リストはあるが sensitive でない」という、2 つの真偽値を独立に持てば作れてしまう無意味な組み合わせを
-型で作れなくしている。3 つ目のテーブルである `canSupportAttachments` 能力フラグ（§4-1）とは別のファイルに
-分けてあり、`satisfiesSupportRule` が両方を引数として受け取って合成する（`blockBelow` が `undefined` の
-ときは `'oneOf'` アームだけが偽になり、`'anySupporting'` アームは偽にならない —— 未知のブロックは
-「普通の不透明立方体」として扱われ、それは支え能力を持つため）。
+`isSupportSensitive` は `rule.kind !== 'none'` から導出する。
+`satisfiesSupportRule` は rule と下のブロックの `canSupportAttachments` 能力を組み合わせて判定する。
+下の ID が未知の場合は通常の不透明ブロックとして支え能力を持つものと扱う。
 
 `domain/block-registry.ts` の `canBlockStaySupported(id, supportBelow)` はこの純関数を
 id ベースの lookup に配線したものである（§3-1-bis）。
@@ -1466,11 +1480,6 @@ const resolveDropItem(rule, brokenBlock): ItemType | undefined
 const resolveDrop(requirement, rule, brokenBlock, context?): BlockDrop | undefined
 ```
 
-監査 §7 の指示に従い**別ファイルに切り出してある**。
-
-> `drops` / `harvestTool` は struct のため最も揺れやすい。`BlockDefinition` にも API ロックを適用し、
-> この 2 フィールドを別ファイルに切り出して差分レビューを容易にすること
-
 `category`（速度ボーナス）と `minTier`（ドロップ可否）は**別軸**である。参照実装ではこの 2 つが無関係な場所に散っており
 （`harvestable-blocks.ts` と `block-utils.ts`）、`satisfiesHarvestTier` が category を一切見ないのはそのためである。
 間違った道具は遅いだけでドロップはする。
@@ -1495,11 +1504,6 @@ const resolveDrop(requirement, rule, brokenBlock, context?): BlockDrop | undefin
 2. 道具のティアが `harvestTool.minTier` に届かない —— 素手で石を殴る。**カテゴリは見ない**
 3. `requiresSilkTouch` なのにシルクタッチが無い —— ガラスを割る
 4. （拒否ではなく不在）`'self'` なのにそのブロックにアイテム形が無い
-
-`HarvestContext` の**全メンバが optional** なのは、これが**引数**の struct だからである。
-`BlockCapabilityOverrides` と同じ形にしてある: 必須メンバを後から足すと 14 リポジトリの
-全呼び出し側が壊れるが、optional なら 1 つも壊れない（[versioning.md](./versioning.md) §5-2）。
-エンチャントが成長方向として明らかにある。
 
 **幸運は kernel で適用しない。** `BlockDrop.affectedByFortune` を**運び出す**だけで、倍率は掛けない。
 幸運は乱数関数であり、監査 §6-9 が乱数を伴うドロップ規則を `mx-gameplay` に置いている。
@@ -1598,18 +1602,59 @@ const DOWNSTREAM_CAPABILITIES: ReadonlyArray<{ name, kind, owner, why }> // 下�
 
 ### 4-5. 能力境界（`DOWNSTREAM_CAPABILITIES`）
 
-`supportRule` は実装済みになった（`domain/block-support.ts`、監査 §4.6.1）。
-監査 §4.8 の `textureTiles` は kernel が担当する未定義 property ではなく、renderer が所有する境界として
-分類する。renderer 側の tile assignment は面の役割から renderer 所有のアトラスへ対応づける構造で、
-画像 asset とレイアウトも renderer に属する。kernel の registry 順序と renderer の map 順序が異なるため、
-storage-index の数値列を kernel に複製すると第二の source of truth になる。
+`textureTiles` は renderer が所有し、kernel の `BlockProperties` には含めない。
 
 | 能力           | 種別     | 所有者   | 境界理由                                                  |
 | -------------- | -------- | -------- | --------------------------------------------------------- |
 | `textureTiles` | property | renderer | アトラス・面別 tile 割当・画像 asset は renderer の責務。 |
 
-`test/block-definition.test.ts` が「実装済み 27 + 下流所有 1 = 監査の 28」を機械的に検査している。
-監査にあるものを黙って落とすことも、監査にないものを勝手に足すこともできない。
+## 5. `CameraPoseSnapshot`（camera）
+
+```typescript
+type CameraPoseSnapshot = {
+  readonly position: Position
+  readonly yawRadians: number
+  readonly pitchRadians: number
+  readonly capturedAtSecs: MonotonicTimeSecs
+}
+const snapshotAgeSecs(snapshot, now: MonotonicTimeSecs): number
+```
+
+`CameraPoseSnapshot` の正本は `mc-sim` が所有し、`mc-render` の THREE カメラはミラーである。`mc-playground-kit` やリプレイ機構も同じ型を使うため、型を kernel に置いて consumer 間の依存を避ける。
+
+`capturedAtSecs` があるのは、ミラー側が「今見ているスナップショットが何フレーム前のものか」を判定できるようにするため。
+
+### 5-1. プレイヤー姿勢の純粋計算（camera-pose）
+
+```typescript
+type PlayerPose = {
+  readonly feetPosition: Position;
+  readonly yawRadians: number;
+  readonly pitchRadians: number;
+};
+const INITIAL_PLAYER_POSE: PlayerPose;
+const clampPitch: (pitchRadians: number) => number;
+const applyLook: (
+  pose: PlayerPose,
+  deltaYawRadians: number,
+  deltaPitchRadians: number,
+) => PlayerPose;
+const withFeetPosition: (
+  pose: PlayerPose,
+  feetPosition: Position,
+) => PlayerPose;
+const cameraPoseOf: (
+  pose: PlayerPose,
+  capturedAtSecs: MonotonicTimeSecs,
+) => CameraPoseSnapshot;
+const forwardVector: (
+  orientation: Pick<CameraPoseSnapshot, "yawRadians" | "pitchRadians">,
+) => Position;
+```
+
+`camera-pose` はプレイヤーの足元位置・視線角度から、目の高さを加えた `CameraPoseSnapshot` と視線方向を決定論的に計算する。
+pitch は上下反転を防ぐため `±(π / 2 - 0.01)` に収め、入力姿勢を変更せず次の値を返す。
+姿勢の所有、入力デバイス、マウス感度、カメラの描画反映は上位層が所有する。
 
 ## 5-bis. フレーム時間（frame-timing）
 
@@ -1785,7 +1830,7 @@ const emptyVehicleSnapshot: () => VehicleSnapshot;
 
 `validateVehicleSnapshot` は未知入力の配列形状、有限座標・速度・向き、dimension、ID と搭乗者の重複、`v:<serial>` の安全整数、`nextSerial` の先行性を検証する。
 
-## Chunk read/edit vocabulary
+## 5-quinquies-bis. Chunk read/edit vocabulary
 
 `BlockRead` は loaded air、unloaded chunk、out-of-world position を判別可能なまま表現する。`ReadView` は epoch、chunk、block/light revision と section accessor を持ち、構築時に authoritative input を検証・保持する。section accessor は mutable typed-array API を公開せず、`snapshot()` を呼んだ場合だけ worker-owned `Uint16Array` を作るため、meshing の per-cell read では配列コピーを発生させない。
 
@@ -1934,7 +1979,7 @@ const updateRedstone: (
 指定した寸法の黒曜石と内部セルの配置を返す。
 
 ```typescript
-type BlockAt = (x: number, y: number, z: number) => number; // BlockId
+type BlockAt = (x: number, y: number, z: number) => number; // unbranded numeric block ID
 type PortalAxis = "x" | "z";
 type PortalFrame = Readonly<{
   axis: PortalAxis;
@@ -1964,8 +2009,8 @@ const generatePortalLayout: (
 ) => PortalLayout;
 ```
 
-`BlockAt` が返すのは `BlockType` ではなく数値の `BlockId` である。枠の検出はチャンクバッファの
-バイトから直接答えられる必要があり、語彙への変換を挟むと呼び出し側にその変換を強いる。
+`BlockAt` は `BlockType` や branded `BlockId` ではなく、registry と同じ数値 ID を返す。
+この callback を使うと、呼び出し側はチャンクバッファから直接値を読み出せる。
 
 vanilla の寸法上限の外、黒曜石の欠落、内部が塞がっている枠、既に埋まっている着火位置は
 いずれも枠として成立しない。ワールドへの書き込み、ポータル間の紐付け、移動、
@@ -2150,8 +2195,6 @@ const setBlockEntity: (state: BlockEntities, entity: BlockEntity) => BlockEntiti
 const clearBlockEntity: (state: BlockEntities, position: BlockPosition) => BlockEntities;
 ```
 
-`BlockEntities` の形は `fluid-state.ts` / `redstone-state.ts` が既に使っている「`BlockPositionKey` をキーにした `ReadonlyMap` を包み、`empty*` / `*At` / `set*` / `clear*` を揃える」collection 形をそのまま踏襲している——per-cell の派生状態を持つモジュールが同じ読み書きの語法を共有するためで、新しい形は発明していない。
-
 ## 5-undecies. ゲームモードと難易度（game-mode）
 
 `GameMode` と `Difficulty` の閉じた語彙と、メンバーごとの値表（`GameModeProperties` / `DifficultyProperties`）を公開する。値表が答えるのは「そのモード・難易度で何が許可され何が起きるか」だけであり、プレイヤーのモードを実際に切り替えてよいかという権限判定は上位層の責務である。
@@ -2259,59 +2302,13 @@ const isDamageTypeId: (value: unknown) => value is ResourceLocation;
 const resolveDamageTypeDefinition: (value: unknown) => DamageTypeDefinition;
 ```
 
+`isDamageTypeId` は戻り値の型を `ResourceLocation` に絞り込むと同時に、閉じた vanilla roster への所属を検証する。任意の well-formed `ResourceLocation` を許容する item component の検証には `isDamageTypeComponent` を使う。
+
 roster と各フィールドは `test/golden/vanilla-damage-type.json` として固定した misode/mcmeta の Java Edition 26.3 pin に照合する。`kind` は `is_fire` / `is_explosion` / `is_projectile` / `is_fall` / `is_drowning` タグの帰属から導出し、どのタグも持たない id は `generic` になる。pin と縮約表の範囲は [conformance.md](./conformance.md) に記録する。
 
 `item-combat-data.ts` の `DamageTypeComponent = ResourceLocation` という既存の素通しエイリアスは、この語彙を使う `isVanillaDamageTypeComponent`（`item-combat-validation.ts`）で vanilla 部分集合への絞り込みができるようになった。既存の `isDamageTypeComponent` は任意の well-formed `ResourceLocation` を受け付けたままなので、data pack が独自に登録するダメージ種別は引き続き扱える。
 
 `mc-audio` は damage type ごとの hurt sound を選び、`mx-ui` は同じ type から死亡メッセージを組み立てる。両者は依存グラフ上で互いに届かないため、共通型を kernel に置く。型は root と `domain/damage-type` subpath から利用できる。
-
-## 5. `CameraPoseSnapshot`（camera）
-
-```typescript
-type CameraPoseSnapshot = {
-  readonly position: Position
-  readonly yawRadians: number
-  readonly pitchRadians: number
-  readonly capturedAtSecs: MonotonicTimeSecs
-}
-const snapshotAgeSecs(snapshot, now: MonotonicTimeSecs): number
-```
-
-`CameraPoseSnapshot` の正本は `mc-sim` が所有し、`mc-render` の THREE カメラはミラーである。`mc-playground-kit` やリプレイ機構も同じ型を使うため、型を kernel に置いて consumer 間の依存を避ける。
-
-`capturedAtSecs` があるのは、ミラー側が「今見ているスナップショットが何フレーム前のものか」を判定できるようにするため。
-
-### 5-1. プレイヤー姿勢の純粋計算（camera-pose）
-
-```typescript
-type PlayerPose = {
-  readonly feetPosition: Position;
-  readonly yawRadians: number;
-  readonly pitchRadians: number;
-};
-const INITIAL_PLAYER_POSE: PlayerPose;
-const clampPitch: (pitchRadians: number) => number;
-const applyLook: (
-  pose: PlayerPose,
-  deltaYawRadians: number,
-  deltaPitchRadians: number,
-) => PlayerPose;
-const withFeetPosition: (
-  pose: PlayerPose,
-  feetPosition: Position,
-) => PlayerPose;
-const cameraPoseOf: (
-  pose: PlayerPose,
-  capturedAtSecs: MonotonicTimeSecs,
-) => CameraPoseSnapshot;
-const forwardVector: (
-  orientation: Pick<CameraPoseSnapshot, "yawRadians" | "pitchRadians">,
-) => Position;
-```
-
-`camera-pose` はプレイヤーの足元位置・視線角度から、目の高さを加えた `CameraPoseSnapshot` と視線方向を決定論的に計算する。
-pitch は上下反転を防ぐため `±(π / 2 - 0.01)` に収め、入力姿勢を変更せず次の値を返す。
-姿勢の所有、入力デバイス、マウス感度、カメラの描画反映は上位層が所有する。
 
 ## 6. クロック Port（clock）
 
@@ -2362,7 +2359,7 @@ const fixedRandomSource: (script: RandomSourceScript) => RandomSource;
 ## 7. `GameModule` / `StageRegistration`（frame）
 
 ```typescript
-type FrameServices = ClockPort; // ← 確定（縦切りスパイク済み）
+type FrameServices = ClockPort
 
 interface StageRegistration {
   readonly id: StageId;
@@ -2394,7 +2391,7 @@ interface GameModule<ROut, E, RIn, RRegister = never> {
 
 ### `RRegister` と `RIn` は別の環境である
 
-登録時に必要な文脈と Layer 構築時に必要な文脈は、実測すると別の集合だった。両方向に例がある:
+登録時と Layer 構築時に必要な依存は異なる。例:
 
 - `mc-render` は `render:input` を登録するために `InputService` を取得する。
   しかし `InputService` は mc-render が**提供する**側（`ROut`）であって、与えられる側ではない。
@@ -2411,11 +2408,9 @@ interface GameModule<ROut, E, RIn, RRegister = never> {
 起動に失敗しうるモジュールは `E` で表明すればよく、ホストはそこを既に見ている。
 「このモジュールは使えない」を意味するチャネルが 2 本あると、ホストは見る場所が 2 つになり、区別する手段が無い。
 
-### `FrameServices` は確定した — `ClockPort` だけ
+### `FrameServices`
 
-**プレースホルダではなくなった。** 縦切りスパイク
-（kernel → physics → worldgen → sim → render → gameplay を 1 本通す使い捨て実装）を通した結果、
-`run` まで生き残った要求は `ClockPort` だけだった。
+stage の実行環境は `ClockPort` だけを要求する。
 
 決め手は `mc-sim` の `PlayerServiceApi.cameraPose`（`mc-sim/application/player-service.ts:35`）である:
 
@@ -2545,11 +2540,6 @@ const blockState(bytes: Uint8Array): BlockState   // BlockState.fromBytes のラ
 引き続き decode できるが、`encodeChunk` は常に v2 を書き出す —— v1 として再 encode されることはない。
 `BlockId` の数値自体は変えていない（`BLOCK.SAND === 5` は 5 のまま）ので、v1 が保存していた id と v2 が
 書く id は同じ意味を持つ。両フォーマットの切り替えはヘッダーの `CHUNK_CODEC_VERSION` フィールドで判定する。
-
-**オフセット 20 の payload length フィールドは、v1 の「要素数」から v2 の「バイト数」へ意味が変わった。**
-8-bit 1 要素の v1 では要素数とバイト数が常に一致していたため、この違いは表面化しなかった。16-bit 2 バイト
-要素の v2 ではその 2 つが一致しなくなるため、`encodeChunk` の書き出し、`validateEncodedChunk` の検証、
-v1/v2 の decode 分岐の 3 箇所が同じ「バイト数」解釈を共有するよう明示的に揃えてある。
 
 `decodeChunk` は v2 の 16-bit 値を全幅のまま `isKnownBlockId` に渡し、`BlockState` に 2 バイト要素として保持する。下位 1 バイトに切り詰めてから検証すると、256 以上の未知 ID が有効な `BlockId` に化ける可能性があるため、全幅での検証が必要である。v2 は16ビットの登録済み ID を保持できるが、`chunk()` と `blockState()` の入力は1バイト形式である。
 

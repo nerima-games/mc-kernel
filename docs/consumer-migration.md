@@ -1,12 +1,12 @@
 # 下流利用・移行契約
 
-この文書は、下流リポジトリが `mc-kernel` の公開 API を利用するときの移行先と責務の境界を定める。目的は、同じ Minecraft の語彙・判定・純粋計算を複数のリポジトリで再定義しないことである。
+この文書は、下流リポジトリが `mc-kernel` の公開 API を利用するときの移行先と責務の境界を定める。目的は同じ Minecraft の語彙・判定・純粋計算を複数のリポジトリで再定義しないことである。
 
-## 正本へ移行するもの
+## kernel の API に移行するもの
 
 ### Dimension
 
-`Dimension` の正本は `@nerima-games/mc-kernel` である。下流で定義した union、ディメンション配列、文字列の三択ガードは削除し、次の API を使う。
+`Dimension` は `@nerima-games/mc-kernel` から import する。下流で定義した union、ディメンション配列、文字列の三択ガードは削除し、次の API を使う。
 
 ```ts
 import {
@@ -18,7 +18,7 @@ import {
 
 `DIMENSIONS` は列挙値、`isDimension` は外部入力の検証、`Dimension` は検証済み値の型として使う。保存データやネットワーク入力では、文字列を型 assertion で通さず `isDimension` を通す。
 
-現在、下流の一部には旧来の `mc-worldgen` 所有型と重複したガードが残っている。この worktree で編集できる範囲は `mc-kernel` なので、下流側の import 差し替えは別作業として明示的に残す。移行が完了するまで、互換目的で二つの `Dimension` を新たに増やしてはならない。
+下流 repository の一部には `mc-worldgen` の型と重複したガードが残っている。kernel が公開する `Dimension` を利用するための import 差し替えは、各下流 repository の作業として残す。移行が完了するまで、互換目的で二つの `Dimension` を新たに増やしてはならない。
 
 ### ブロック状態と能力
 
@@ -32,7 +32,7 @@ import {
 } from '@nerima-games/mc-kernel'
 ```
 
-ブロックの opacity、collision、fluid kind、hardness、support rule、採掘道具、ドロップなど、単一ブロックから決まる能力は kernel の定義表と照会関数を正本にする。テクスチャのタイル番号、描画 atlas、ワールドへの配置・破壊順序は下流の責務である。
+ブロックの opacity、collision、fluid kind、hardness、support rule、採掘道具、ドロップなど、単一ブロックから決まる能力は kernel の定義表と照会関数を使う。テクスチャのタイル番号、描画 atlas、ワールドへの配置・破壊順序は下流の責務である。
 
 ### 設定値と統計
 
@@ -87,7 +87,9 @@ import {
 
 移行後の import は公開 barrel または `package.json` に列挙された公開 subpath に限定し、`src/domain/*-data` の内部実装へ直接依存しない。wire ID、既存保存形式、乱数の責務を持つ呼び出し側の契約は変更しない。
 
-item component の item-aware な既定値は `itemComponents`（`tool` は `ITEM_TOOL_COMPONENTS` / `itemToolComponentOf` を、`weapon` は `weaponComponent` / `isWeaponComponent` を含む）、stack limit は `itemComponentStackLimitOf`、値の runtime guard は `isItemComponents`、`isUseCooldownComponent`、`isWeaponComponent` を正本とする。`ItemComponents.useCooldown` / `ItemComponents.weapon` は公式 component の解決済み値であり、`ItemStack` / inventory の値として下流へ渡す。`ItemStack` の stack ごとの override、保存形式、実際の item 使用イベントは下流が所有し、kernel の既定値解決と重複する registry・数値 guard を残さない。
+### Item component の既定値
+
+item component の item-aware な既定値は `itemComponents`（`tool` は `ITEM_TOOL_COMPONENTS` / `itemToolComponentOf` を、`weapon` は `weaponComponent` / `isWeaponComponent` を含む）、stack limit は `itemComponentStackLimitOf`、値の runtime guard は `isItemComponents`、`isUseCooldownComponent`、`isWeaponComponent` を使う。`ItemComponents.useCooldown` / `ItemComponents.weapon` は公式 component の解決済み値であり、`ItemStack` / inventory の値として下流へ渡す。`ItemStack` の stack ごとの override、保存形式、実際の item 使用イベントは下流が所有し、kernel の既定値解決と重複する registry・数値 guard を残さない。
 
 ### canonical ItemStack への具体的な移行
 
@@ -101,7 +103,7 @@ item component の item-aware な既定値は `itemComponents`（`tool` は `ITE
 | `mx-gameplay` | recipe/anvil の旧 `{ id, count }` result payload、components を別に保持する recipe/anvil sidecar | result を `item` / `count` / 解決済み `components` に正規化し、recipe/anvil の入力・出力と移送量に `TransferQuantity` を使う。patch は recipe/anvil の境界で解決し、gameplay state に未解決 patch を残さない。 |
 | `mx-multiplayer` | wire の旧 `{ id, count }` stack payload、components/metadata の sidecar、null slot | decode 時に canonical `ItemStack` / `ItemSlot` へ検証し、encode 時は `item` / `count` / `components` の payload のみを送る。`null` と `count: 0` の slot は `undefined` として扱い、送信前に再び sentinel 化しない。 |
 
-この表は移行契約の列挙であり、kernel の変更範囲を越えて `mc-sim`、`mx-gameplay`、`mx-multiplayer` の具体的なファイルや実装手順を確定するものではない。また、これらの repository のファイルをこの worktree から変更したことを意味しない。各 repository の型検査・lint・test は各 repository 側の移行作業で実行する。
+この表は下流の移行先を示す契約であり、移行完了の報告ではない。各 repository の型検査・lint・test は、その repository の移行作業で実行する。
 
 ## 下流に残すもの
 
@@ -130,7 +132,7 @@ kernel が公開する `BlockWorld`、`updateFluids`、`updateRedstone` は、�
 
 `mc-sim/src/domain` と kernel の domain basename 比較で残る候補は次の扱いとする。
 
-`vitals-hunger.ts` は差分に残らない。純粋な計算は kernel の同名モジュールへ移植済みで、`vitals.ts` の barrel から公開している。
+純粋な空腹計算は `src/domain/entity/vitals-hunger.ts` にあり、`src/domain/entity/vitals.ts` から公開する。
 
 | 候補 | 判定 | 根拠 |
 | --- | --- | --- |
@@ -152,11 +154,11 @@ kernel が公開する `BlockWorld`、`updateFluids`、`updateRedstone` は、�
 - 下流の型検査、lint、テスト、coverage が実行されている。
 - fluid や world mutation など、下流に残す責務を kernel に逆流させていない。
 
-この文書の移行先は公開 API と責務の契約であり、下流の変更を完了したという報告ではない。現時点で `mc-kernel` 側の API・型安全ゲート・package export は整備済みだが、別 worktree にある下流の重複 import 差し替えは未完了として扱う。
+この文書は公開 API と責務を示すもので、下流の変更を完了したという報告ではない。`mc-kernel` 側の API・型安全検査・package export は整備済みだが、下流の重複 import 差し替えは未完了として扱う。
 
-## K-C 時間契約の下流移行
+## 時間契約の下流移行
 
-K-Cで追加された `FixedDurationSecs`、`SimulationTick`、`InterpolationFraction`、`SessionEpoch`、
+kernel が公開する `FixedDurationSecs`、`SimulationTick`、`InterpolationFraction`、`SessionEpoch`、
 `tickDuration`、`physicsSubstepDuration`、`addTick`、`secondsForTicks`、`interpolationFraction` を
 次の箇所へ置換する。
 
@@ -164,4 +166,4 @@ K-Cで追加された `FixedDurationSecs`、`SimulationTick`、`InterpolationFra
 - `@nerima-games/mc-sim`: `src/application/game-loop.ts` の `FrameHandler` / `GameLoopApi.submitFrame` と `src/domain/frame-timing.ts` の互換forwarderを、kernelの可変フレームAPIと `SimulationTick`/`tickDuration`へ移行する。`tickDuration` は `FixedDurationSecs` のまま accumulator の whole-tick 判定に使い、各 tick の物理呼び出しへ渡す値は `DeltaTimeSecs(tickDuration)` として変換する。accumulator、catch-up、pause/overload、loop状態はsimに残す。
 - `@nerima-games/mc-render`: `src/domain/camera-mirror.ts` と `src/stages/registration.ts` の `MonotonicTimeSecs`利用はkernelの型を継続し、表示補間を追加する箇所では `InterpolationFraction` を使う。
 
-このK-C変更では下流ファイルを編集していない。各置換後に対象packageのtypecheck、lint、test、coverageを実行する。
+下流側の置換は各 repository の作業として残る。各置換後に対象 package の typecheck、lint、test、coverage を実行する。
