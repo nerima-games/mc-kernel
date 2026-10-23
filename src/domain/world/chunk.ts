@@ -1,7 +1,7 @@
 /* eslint-disable max-statements, no-magic-numbers -- Constants define the fixed binary wire format. */
 import { Brand } from 'effect'
 import { BlockState, blockState } from '../block/block-state.js'
-import { CHUNK_SIZE_XZ, type ChunkCoord, chunkCoord } from '../coordinates/coordinates.js'
+import { CHUNK_SIZE_XZ, ChunkAxis, type ChunkCoord, chunkCoord } from '../coordinates/coordinates.js'
 import { chunkCoordFromAxes } from '../coordinates/coordinate-primitives.js'
 
 /** Legacy 8-bit-per-block payload. Still decodable; never encoded again. */
@@ -269,5 +269,9 @@ export const decodeChunk = (encoded: EncodedChunkInput): Chunk => {
       ? chunkBlocksFromValidatedHeight(payload)
       : brandChunkBlocks(BlockState.fromElementBytes(payload, chunkBlockCount(height)))
 
-  return validatedChunk(chunkCoord(view.getInt32(12, true), view.getInt32(16, true)), height, blocks)
+  return validatedChunk(
+    chunkCoord(ChunkAxis(view.getInt32(12, true)), ChunkAxis(view.getInt32(16, true))),
+    height,
+    blocks,
+  )
 }

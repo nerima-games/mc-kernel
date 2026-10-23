@@ -1,4 +1,5 @@
 import {
+  ChunkAxis,
   ChunkKey as parseChunkKey,
   chunkCoord,
   chunkCoordOfKey,
@@ -14,7 +15,7 @@ const NEGATIVE_ZERO = -0
 describe('ChunkKey', () => {
   it('round-trips canonical chunk coordinates, including safe-integer boundaries', () =>
     Effect.runPromise(Effect.sync(() => {
-      const source = chunkCoord(Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)
+      const source = chunkCoord(ChunkAxis(Number.MIN_SAFE_INTEGER), ChunkAxis(Number.MAX_SAFE_INTEGER))
       const key = chunkKeyOf(source)
 
       expect(key).toBe('-9007199254740991,9007199254740991')
@@ -26,7 +27,7 @@ describe('ChunkKey', () => {
 
   it('uses one spelling for each chunk coordinate', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(chunkKeyOf(chunkCoord(NEGATIVE_ZERO, NEGATIVE_ZERO))).toBe('0,0')
+      expect(chunkKeyOf(chunkCoord(ChunkAxis(NEGATIVE_ZERO), ChunkAxis(NEGATIVE_ZERO)))).toBe('0,0')
       expect(isChunkKey('0,0')).toBe(true)
       expect(isChunkKey('-0,0')).toBe(false)
       expect(isChunkKey('01,0')).toBe(false)
@@ -48,6 +49,16 @@ describe('ChunkKey', () => {
       ]) {
         expect(isChunkKey(value)).toBe(false)
         expect(decodeChunkKey(value)).toBeUndefined()
+      }
+    })),
+  )
+
+  it('rejects non-string values at the unknown-input boundary', () =>
+    Effect.runPromise(Effect.sync(() => {
+      for (const value of [null, 0, {}]) {
+        expect(isChunkKey(value)).toBe(false)
+        expect(decodeChunkKey(value)).toBeUndefined()
+        expect(() => parseChunkKey(value)).toThrow(TypeError)
       }
     })),
   )

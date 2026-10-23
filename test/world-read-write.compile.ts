@@ -3,7 +3,11 @@ import {
   ChunkAxis,
   LocalAxis,
   blockPositionFromAxes,
+  blockPosition,
   chunkCoord,
+  PositionAxis,
+  position,
+  type Position,
 } from '../src/domain/coordinates/coordinate-primitives.js'
 import { chunkKeyOf } from '../src/domain/coordinates/coordinate-keys.js'
 import { ChunkRevision, LightRevision, WorldEpoch, readView } from '../src/domain/world/world-read-write.js'
@@ -12,6 +16,17 @@ const block = BlockAxis(0)
 const chunk = ChunkAxis(0)
 const local = LocalAxis(0)
 blockPositionFromAxes(block, block, block)
+const positionAxis = PositionAxis(0)
+position(positionAxis, positionAxis, positionAxis)
+
+// @ts-expect-error Position requires PositionAxis rather than raw numbers.
+position(0, 0, 0)
+// @ts-expect-error Block positions require BlockAxis rather than raw numbers.
+blockPosition(0, 0, 0)
+// @ts-expect-error Chunk coordinates require ChunkAxis rather than raw numbers.
+chunkCoord(0, 0)
+// @ts-expect-error Position fields must carry PositionAxis.
+export const invalidPosition: Position = { x: 0, y: 0, z: 0 }
 
 // @ts-expect-error LocalAxis and BlockAxis are distinct brands.
 blockPositionFromAxes(local, block, block)
@@ -63,7 +78,7 @@ export const lightRevisions: readonly [LightRevision, LightRevision, LightRevisi
 ]
 const view = readView({
   epoch,
-  chunk: chunkKeyOf(chunkCoord(0, 0)),
+  chunk: chunkKeyOf(chunkCoord(chunk, chunk)),
   blockRevision: chunkRevision,
   lightRevision,
   blocks: new Uint16Array(1),

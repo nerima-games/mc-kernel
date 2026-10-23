@@ -1,6 +1,6 @@
 import { Brand } from 'effect'
 import { BlockId, isKnownBlockId, type BlockId as BlockIdType } from '../block/block-registry.js'
-import { CHUNK_SIZE_XZ, chunkCoord, type BlockPosition } from '../coordinates/coordinate-primitives.js'
+import { CHUNK_SIZE_XZ, ChunkAxis, chunkCoord, type BlockPosition } from '../coordinates/coordinate-primitives.js'
 import { type ChunkKey, chunkKeyOf } from '../coordinates/coordinate-keys.js'
 
 const MIN_INDEX = 0
@@ -189,4 +189,9 @@ export const BlockWriteBatch: (
 ) => BlockWriteBatch = blockWriteBatch
 
 export const chunkKeyOfPosition = (position: BlockPosition): ChunkKey =>
-  chunkKeyOf(chunkCoord(Math.floor(position.x / CHUNK_SIZE_XZ), Math.floor(position.z / CHUNK_SIZE_XZ)))
+  chunkKeyOf(
+    chunkCoord(
+      ChunkAxis(Math.floor(position.x / CHUNK_SIZE_XZ)),
+      ChunkAxis(Math.floor(position.z / CHUNK_SIZE_XZ)),
+    ),
+  )

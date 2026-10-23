@@ -1,6 +1,11 @@
 import {
   BLOCK_FACES,
+  BlockAxis,
+  ChunkAxis,
+  LocalAxis,
+  PositionAxis,
   type BlockPosition,
+  type Position,
   CHUNK_SIZE_XZ,
   HORIZONTAL_BLOCK_FACES,
   aabb,
@@ -9,7 +14,7 @@ import {
   aabbOfBlock,
   adjacentBlockPosition,
   blockNeighbours,
-  blockPosition,
+  blockPosition as makeBlockPosition,
   blockPositionOfChunkLocal,
   blockPositionOfPosition,
   chunkCoordOfBlock,
@@ -17,10 +22,15 @@ import {
   isBlockFace,
   localCoordOfBlock,
   oppositeBlockFace,
-  position,
+  position as makePosition,
 } from '../src/domain/coordinates/coordinates'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
+
+const blockPosition = (x: number, y: number, z: number): BlockPosition =>
+  makeBlockPosition(BlockAxis(x), BlockAxis(y), BlockAxis(z))
+const position = (x: number, y: number, z: number): Position =>
+  makePosition(PositionAxis(x), PositionAxis(y), PositionAxis(z))
 
 const NEGATIVE_ZERO = -0
 const NEGATIVE_ONE = -1
@@ -66,6 +76,39 @@ const ONE_TENTH = 0.1
 const ONE_HALF = 0.5
 const NINE_TENTHS = 0.9
 const JUST_ABOVE_ONE = 1.0001
+
+describe('coordinate axis brands', () => {
+  it('validates units, integrality, finiteness, and inclusive coordinate bounds', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(BlockAxis(Number.MIN_SAFE_INTEGER)).toBe(Number.MIN_SAFE_INTEGER)
+      expect(BlockAxis(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER)
+      expect(() => BlockAxis(Number.MIN_SAFE_INTEGER - ONE)).toThrow()
+      expect(() => BlockAxis(Number.MAX_SAFE_INTEGER + ONE)).toThrow()
+      expect(() => BlockAxis(ONE_HALF)).toThrow()
+
+      expect(ChunkAxis(Number.MIN_SAFE_INTEGER)).toBe(Number.MIN_SAFE_INTEGER)
+      expect(ChunkAxis(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER)
+      expect(() => ChunkAxis(Number.MIN_SAFE_INTEGER - ONE)).toThrow()
+      expect(() => ChunkAxis(Number.MAX_SAFE_INTEGER + ONE)).toThrow()
+      expect(() => ChunkAxis(ONE_HALF)).toThrow()
+
+      expect(LocalAxis(ZERO)).toBe(ZERO)
+      expect(LocalAxis(CHUNK_SIZE_XZ - ONE)).toBe(CHUNK_SIZE_XZ - ONE)
+      expect(LocalAxis(EIGHT)).toBe(EIGHT)
+      expect(() => LocalAxis(-ONE)).toThrow()
+      expect(() => LocalAxis(CHUNK_SIZE_XZ)).toThrow()
+      expect(() => LocalAxis(ONE_HALF)).toThrow()
+
+      expect(PositionAxis(-Number.MAX_VALUE)).toBe(-Number.MAX_VALUE)
+      expect(PositionAxis(NEGATIVE_ONE_TENTH)).toBe(NEGATIVE_ONE_TENTH)
+      expect(PositionAxis(ZERO)).toBe(ZERO)
+      expect(PositionAxis(Number.MAX_VALUE)).toBe(Number.MAX_VALUE)
+      expect(() => PositionAxis(Number.NaN)).toThrow()
+      expect(() => PositionAxis(Number.POSITIVE_INFINITY)).toThrow()
+      expect(() => PositionAxis(Number.NEGATIVE_INFINITY)).toThrow()
+    })),
+  )
+})
 
 /** Coordinates chosen to straddle the origin, chunk borders, and both signs. */
 const SAMPLE_COORDINATES: ReadonlyArray<readonly [number, number, number]> = [

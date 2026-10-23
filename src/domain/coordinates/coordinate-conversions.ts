@@ -1,9 +1,10 @@
 import {
   CHUNK_SIZE_XZ,
+  BlockAxis,
   blockPosition,
+  ChunkAxis,
   chunkCoord,
   LocalAxis,
-  normalizeZero,
   type BlockPosition,
   type ChunkCoord,
   type Position,
@@ -30,19 +31,23 @@ const floorMod = (value: number, divisor: number): number => ((value % divisor) 
 
 /** The block cell that contains a continuous position. */
 export const blockPositionOfPosition = (value: Position): BlockPosition =>
-  blockPosition(Math.floor(value.x), Math.floor(value.y), Math.floor(value.z))
+  blockPosition(BlockAxis(Math.floor(value.x)), BlockAxis(Math.floor(value.y)), BlockAxis(Math.floor(value.z)))
 
 /** The chunk column that owns a block cell. */
 export const chunkCoordOfBlock = (value: BlockPosition): ChunkCoord =>
-  chunkCoord(floorDiv(value.x, CHUNK_SIZE_XZ), floorDiv(value.z, CHUNK_SIZE_XZ))
+  chunkCoord(ChunkAxis(floorDiv(value.x, CHUNK_SIZE_XZ)), ChunkAxis(floorDiv(value.z, CHUNK_SIZE_XZ)))
 
 /** The chunk-local address of a block cell. */
 export const localCoordOfBlock = (value: BlockPosition): LocalBlockCoord => ({
-  lx: LocalAxis(normalizeZero(floorMod(value.x, CHUNK_SIZE_XZ))),
+  lx: LocalAxis(floorMod(value.x, CHUNK_SIZE_XZ)),
   ly: value.y,
-  lz: LocalAxis(normalizeZero(floorMod(value.z, CHUNK_SIZE_XZ))),
+  lz: LocalAxis(floorMod(value.z, CHUNK_SIZE_XZ)),
 })
 
 /** Inverse of `chunkCoordOfBlock` + `localCoordOfBlock`. */
 export const blockPositionOfChunkLocal = (chunk: ChunkCoord, local: LocalBlockCoord): BlockPosition =>
-  blockPosition(chunk.cx * CHUNK_SIZE_XZ + local.lx, local.ly, chunk.cz * CHUNK_SIZE_XZ + local.lz)
+  blockPosition(
+    BlockAxis(chunk.cx * CHUNK_SIZE_XZ + local.lx),
+    local.ly,
+    BlockAxis(chunk.cz * CHUNK_SIZE_XZ + local.lz),
+  )

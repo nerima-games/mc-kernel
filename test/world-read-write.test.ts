@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { BlockId, blockIdOf } from '../src/domain/block/block-registry.js'
-import { blockPosition, chunkCoord } from '../src/domain/coordinates/coordinate-primitives.js'
+import {
+  BlockAxis,
+  blockPosition as makeBlockPosition,
+  ChunkAxis,
+  chunkCoord as makeChunkCoord,
+} from '../src/domain/coordinates/coordinate-primitives.js'
 import { chunkKeyOf } from '../src/domain/coordinates/coordinate-keys.js'
 import {
   ChunkRevision,
@@ -19,6 +24,9 @@ import {
 } from '../src/domain/world/world-read-write.js'
 
 const SECTION_LENGTH = 16 * 16 * 16
+const blockPosition = (x: number, y: number, z: number) =>
+  makeBlockPosition(BlockAxis(x), BlockAxis(y), BlockAxis(z))
+const chunkCoord = (cx: number, cz: number) => makeChunkCoord(ChunkAxis(cx), ChunkAxis(cz))
 const stone = blockIdOf('stone')
 const air = blockIdOf('air')
 const origin = blockPosition(0, 0, 0)

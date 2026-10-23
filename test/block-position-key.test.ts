@@ -1,4 +1,5 @@
 import {
+  BlockAxis,
   BlockPositionKey as parseBlockPositionKey,
   blockPosition,
   blockPositionKeyOf,
@@ -16,7 +17,11 @@ const FIRST_UNSAFE_INTEGER = 9_007_199_254_740_992
 describe('BlockPositionKey', () => {
   it('round-trips canonical positions, including safe-integer boundaries', () =>
     Effect.runPromise(Effect.sync(() => {
-      const source = blockPosition(Number.MIN_SAFE_INTEGER, ORIGIN_COMPONENT, Number.MAX_SAFE_INTEGER)
+      const source = blockPosition(
+        BlockAxis(Number.MIN_SAFE_INTEGER),
+        BlockAxis(ORIGIN_COMPONENT),
+        BlockAxis(Number.MAX_SAFE_INTEGER),
+      )
       const key = blockPositionKeyOf(source)
 
       expect(key).toBe('-9007199254740991,0,9007199254740991')
@@ -31,7 +36,11 @@ describe('BlockPositionKey', () => {
       Effect.runPromise(Effect.sync(() => {
         expect(
           blockPositionKeyOf(
-            blockPosition(NEGATIVE_ZERO_COMPONENT, NEGATIVE_ZERO_COMPONENT, NEGATIVE_ZERO_COMPONENT),
+            blockPosition(
+              BlockAxis(NEGATIVE_ZERO_COMPONENT),
+              BlockAxis(NEGATIVE_ZERO_COMPONENT),
+              BlockAxis(NEGATIVE_ZERO_COMPONENT),
+            ),
           ),
         ).toBe('0,0,0')
       expect(isBlockPositionKey('0,0,0')).toBe(true)
@@ -55,6 +64,16 @@ describe('BlockPositionKey', () => {
       ]) {
         expect(isBlockPositionKey(key)).toBe(false)
         expect(decodeBlockPositionKey(key)).toBeUndefined()
+      }
+    })),
+  )
+
+  it('rejects non-string values at the unknown-input boundary', () =>
+    Effect.runPromise(Effect.sync(() => {
+      for (const value of [null, 0, {}]) {
+        expect(isBlockPositionKey(value)).toBe(false)
+        expect(decodeBlockPositionKey(value)).toBeUndefined()
+        expect(() => parseBlockPositionKey(value)).toThrow(TypeError)
       }
     })),
   )

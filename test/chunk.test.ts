@@ -17,10 +17,15 @@ import {
 import { BlockId as blockId, blockIdOf } from '../src/domain/block/block-registry'
 import type { BlockId } from '../src/domain/block/block-registry-types'
 import { blockState } from '../src/domain/block/block-state'
-import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates/coordinates'
+import {
+  CHUNK_SIZE_XZ,
+  ChunkAxis,
+  chunkCoord as makeChunkCoord,
+} from '../src/domain/coordinates/coordinates'
 
 const height = ChunkHeight(2)
 const blockCount = chunkBlockCount(height)
+const chunkCoord = (cx: number, cz: number) => makeChunkCoord(ChunkAxis(cx), ChunkAxis(cz))
 /** v2 wire elements are two little-endian bytes each; see block-state.ts BYTES_PER_ELEMENT. */
 const WIRE_BYTES_PER_ELEMENT = 2
 

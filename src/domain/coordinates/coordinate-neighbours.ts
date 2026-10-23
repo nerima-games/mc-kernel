@@ -1,4 +1,4 @@
-import { blockPosition, type BlockPosition } from './coordinate-primitives.js'
+import { BlockAxis, blockPosition, type BlockPosition } from './coordinate-primitives.js'
 
 /**
  * The six faces of a block, in canonical traversal order.
@@ -62,17 +62,17 @@ export function adjacentBlockPosition(source: BlockPosition, face: BlockFace): B
   }
 
   const [dx, dy, dz] = BLOCK_FACE_STEPS[face]
-  return blockPosition(source.x + dx, source.y + dy, source.z + dz)
+  return blockPosition(BlockAxis(source.x + dx), BlockAxis(source.y + dy), BlockAxis(source.z + dz))
 }
 
 /** Horizontal neighbours in west, east, north, south order. */
 export const horizontalBlockNeighbours = (
   source: BlockPosition,
 ): readonly [west: BlockPosition, east: BlockPosition, north: BlockPosition, south: BlockPosition] => [
-  blockPosition(source.x - UNIT_STEP, source.y, source.z),
-  blockPosition(source.x + UNIT_STEP, source.y, source.z),
-  blockPosition(source.x, source.y, source.z - UNIT_STEP),
-  blockPosition(source.x, source.y, source.z + UNIT_STEP),
+  blockPosition(BlockAxis(source.x - UNIT_STEP), source.y, source.z),
+  blockPosition(BlockAxis(source.x + UNIT_STEP), source.y, source.z),
+  blockPosition(source.x, source.y, BlockAxis(source.z - UNIT_STEP)),
+  blockPosition(source.x, source.y, BlockAxis(source.z + UNIT_STEP)),
 ]
 
 /** All face-adjacent cells, in `BLOCK_FACES` order. */
@@ -86,10 +86,10 @@ export const blockNeighbours = (
   west: BlockPosition,
   east: BlockPosition,
 ] => [
-  blockPosition(source.x, source.y - UNIT_STEP, source.z),
-  blockPosition(source.x, source.y + UNIT_STEP, source.z),
-  blockPosition(source.x, source.y, source.z - UNIT_STEP),
-  blockPosition(source.x, source.y, source.z + UNIT_STEP),
-  blockPosition(source.x - UNIT_STEP, source.y, source.z),
-  blockPosition(source.x + UNIT_STEP, source.y, source.z),
+  blockPosition(source.x, BlockAxis(source.y - UNIT_STEP), source.z),
+  blockPosition(source.x, BlockAxis(source.y + UNIT_STEP), source.z),
+  blockPosition(source.x, source.y, BlockAxis(source.z - UNIT_STEP)),
+  blockPosition(source.x, source.y, BlockAxis(source.z + UNIT_STEP)),
+  blockPosition(BlockAxis(source.x - UNIT_STEP), source.y, source.z),
+  blockPosition(BlockAxis(source.x + UNIT_STEP), source.y, source.z),
 ]

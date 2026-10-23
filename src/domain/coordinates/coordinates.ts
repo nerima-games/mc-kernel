@@ -10,6 +10,7 @@ export {
   BlockAxis,
   ChunkAxis,
   LocalAxis,
+  PositionAxis,
   blockPosition,
   chunkCoord,
   position,

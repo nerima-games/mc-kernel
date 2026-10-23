@@ -5,7 +5,7 @@ import { DeltaTimeSecs, EpochMillis, MonotonicTimeSecs } from '../src/domain/tim
 import type { FrameServices, GameModule, StageRegistration } from '../src/domain/time/frame'
 import { describe, expect, it } from 'vitest'
 import { StageId } from '../src/domain/text/identifiers'
-import { position } from '../src/domain/coordinates/coordinates'
+import { PositionAxis, position } from '../src/domain/coordinates/coordinates'
 
 const ZERO = 0
 const ONE = 1
@@ -85,7 +85,11 @@ describe('CameraPoseSnapshot', () => {
   const snapshot: CameraPoseSnapshot = {
     capturedAtSecs: monotonicTimeSecs(CAPTURED_AT_SECS),
     pitchRadians: ZERO,
-    position: position(SNAPSHOT_POSITION_X, SNAPSHOT_POSITION_Y, SNAPSHOT_POSITION_Z),
+    position: position(
+      PositionAxis(SNAPSHOT_POSITION_X),
+      PositionAxis(SNAPSHOT_POSITION_Y),
+      PositionAxis(SNAPSHOT_POSITION_Z),
+    ),
     yawRadians: ZERO,
   }
 

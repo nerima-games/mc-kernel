@@ -21,7 +21,7 @@ import {
   isFurnaceState,
   isStorageContainer,
 } from '../src/domain/block/block-entity-validation'
-import { blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
+import { BlockAxis, blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
 import { itemStack, type Slot } from '../src/domain/item/item-stack'
 import type { FurnaceState } from '../src/domain/recipe/smelting-data'
 import {
@@ -30,7 +30,7 @@ import {
   type BrewingState,
 } from '../src/domain/recipe/brewing-data'
 
-const AT_ORIGIN: BlockPosition = blockPosition(0, 0, 0)
+const AT_ORIGIN: BlockPosition = blockPosition(BlockAxis(0), BlockAxis(0), BlockAxis(0))
 const EMPTY_FURNACE: FurnaceState = {
   station: 'furnace',
   input: undefined,

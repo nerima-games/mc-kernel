@@ -1650,7 +1650,11 @@ describe("public API surface", () => {
     Effect.runPromise(
       Effect.sync(() => {
         const key: kernel.BlockPositionKey = kernel.blockPositionKeyOf(
-          kernel.blockPosition(ORIGIN_AXIS, ORIGIN_AXIS, ORIGIN_AXIS),
+          kernel.blockPosition(
+            kernel.BlockAxis(ORIGIN_AXIS),
+            kernel.BlockAxis(ORIGIN_AXIS),
+            kernel.BlockAxis(ORIGIN_AXIS),
+          ),
         );
 
         expect(key).toBe("0,0,0");
@@ -1661,7 +1665,7 @@ describe("public API surface", () => {
     Effect.runPromise(
       Effect.sync(() => {
         const key: kernel.ChunkKey = kernel.chunkKeyOf(
-          kernel.chunkCoord(ORIGIN_AXIS, ORIGIN_AXIS),
+          kernel.chunkCoord(kernel.ChunkAxis(ORIGIN_AXIS), kernel.ChunkAxis(ORIGIN_AXIS)),
         );
         expect(key).toBe("0,0");
       }),

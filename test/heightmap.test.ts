@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { chunk } from '../src/domain/world/chunk'
-import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates/coordinates'
+import { CHUNK_SIZE_XZ, ChunkAxis, chunkCoord } from '../src/domain/coordinates/coordinates'
 import { BLOCK_IDS, blockIdOf, opacityOfBlockId, propertyOfBlockId } from '../src/domain/block/block-registry'
 import {
   heightmapColumnIndex,
@@ -23,7 +23,7 @@ const buildChunk = (placements: ReadonlyArray<Placement>) => {
   for (const [lx, lz, ly, blockId] of placements) {
     blocks[blockIndexOf(lx, lz, ly)] = blockId
   }
-  return chunk(chunkCoord(0, 0), CHUNK_HEIGHT, blocks)
+  return chunk(chunkCoord(ChunkAxis(0), ChunkAxis(0)), CHUNK_HEIGHT, blocks)
 }
 
 const everyColumnIsUndefined = (heightmap: Heightmap): boolean =>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { position } from '../src/domain/coordinates/coordinate-primitives'
+import { PositionAxis, position as makePosition } from '../src/domain/coordinates/coordinate-primitives'
 import {
   ENTITY_ID_PREFIX,
   EntityId,
@@ -11,7 +11,9 @@ import {
   repairState,
   serialOfEntityId,
 } from '../src/domain/entity/entity'
-import type { EntityState } from '../src/domain/entity/entity'
+
+const position = (x: number, y: number, z: number) =>
+  makePosition(PositionAxis(x), PositionAxis(y), PositionAxis(z))
 
 describe('entity vocabulary', () => {
   it('validates identifiers and mints serial identifiers', () => {
@@ -38,13 +40,18 @@ describe('entity vocabulary', () => {
   })
 
   it('repairs unsafe state values at entity boundaries', () => {
-    const state: EntityState<string> = {
-      feetPosition: position(Number.NaN, Number.POSITIVE_INFINITY, -3),
+    const state = {
+      feetPosition: { x: Number.NaN, y: Number.POSITIVE_INFINITY, z: -3 },
       healthPoints: -5,
       behaviour: 'idle',
     }
 
-    expect(repairState(state)).toStrictEqual({
+    expect(Reflect.apply(makePosition, undefined, [Number.NaN, Number.POSITIVE_INFINITY, -3])).toStrictEqual({
+      x: Number.NaN,
+      y: Number.POSITIVE_INFINITY,
+      z: -3,
+    })
+    expect(Reflect.apply(repairState, undefined, [state])).toStrictEqual({
       feetPosition: position(0, 0, -3),
       healthPoints: 0,
       behaviour: 'idle',

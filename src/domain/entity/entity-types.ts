@@ -1,5 +1,5 @@
 import { Brand } from 'effect'
-import { position, type Position } from '../coordinates/coordinate-primitives.js'
+import { PositionAxis, position, type Position } from '../coordinates/coordinate-primitives.js'
 
 export type EntityId = string & Brand.Brand<'EntityId'>
 
@@ -64,8 +64,12 @@ const magnitude = (value: number): number => (Number.isFinite(value) ? value : 0
 
 const repairPosition = (value: Position): Position =>
   typeof value === 'object' && value !== null
-    ? position(magnitude(value.x), magnitude(value.y), magnitude(value.z))
-    : position(0, 0, 0)
+    ? position(
+        PositionAxis(magnitude(value.x)),
+        PositionAxis(magnitude(value.y)),
+        PositionAxis(magnitude(value.z)),
+      )
+    : position(PositionAxis(0), PositionAxis(0), PositionAxis(0))
 
 const repairHealth = (value: number): number =>
   typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : 0
