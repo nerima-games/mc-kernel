@@ -1,5 +1,5 @@
 /** Stable block ID allocation contracts independent of runtime lookup behaviour. */
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import {
@@ -9,7 +9,7 @@ import {
   BLOCK_REGISTRY,
   BlockId,
   UNREGISTERED_BLOCK_TYPES,
-  blockIdOf,
+  blockIdOf as blockIdOfOption,
   blockTypeOfId,
   isEmpty,
   isKnownBlockId,
@@ -17,8 +17,10 @@ import {
 } from '../src/domain/block/block-registry'
 import { normalizeBlockRegistryEntry } from '../src/domain/block/block-registry-entries'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
+import { optionValue, resultFailure } from './block-result-helpers'
 
 const number = Number
+const blockIdOf = (type: BlockType) => optionValue(blockIdOfOption(type))
 
 describe('id assignment is permanent', () => {
   it('omits optional properties when normalizing propertyless registry input', () => {
@@ -174,9 +176,7 @@ describe('id assignment is permanent', () => {
         expect(blockIdOf(type)).toBe(id)
         expect(blockTypeOfId(BlockId(id))).toBe(type)
       }
-      expect(() => Reflect.apply(blockIdOf, undefined, ['not_a_block'])).toThrow(
-        'Block registry is missing a row for not_a_block',
-      )
+      expect(Option.isNone(Reflect.apply(blockIdOfOption, undefined, ['not_a_block']))).toBe(true)
     })),
   )
 
@@ -286,9 +286,9 @@ describe('id assignment is permanent', () => {
   it('rejects ids the chunk buffer cannot hold', () =>
     Effect.runPromise(Effect.sync(() => {
       const blockId = BlockId
-      expect(() => blockId(number('-1'))).toThrow()
-      expect(() => blockId(BLOCK_ID_MAX + number('1'))).toThrow()
-      expect(() => blockId(number('1.5'))).toThrow()
+      expect(resultFailure(blockId.result(number('-1'))).message).toMatch(/integer in \[0, 65535\]/)
+      expect(resultFailure(blockId.result(BLOCK_ID_MAX + number('1'))).message).toMatch(/integer in \[0, 65535\]/)
+      expect(resultFailure(blockId.result(number('1.5'))).message).toMatch(/integer in \[0, 65535\]/)
       expect(blockId(BLOCK_ID_MAX)).toBe(BLOCK_ID_MAX)
     })),
   )

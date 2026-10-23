@@ -39,14 +39,17 @@
  * is answered by the mechanism rather than by the location — the table states
  * OVERRIDES only, so a wrong row is one wrong line rather than a fork.
  */
+import { Result } from 'effect'
 import {
   type BlockCapabilities,
   type BlockCapabilityOverrides,
+  type BlockCapabilityFailure,
   resolveBlockCapabilities,
 } from './block-capabilities.js'
 import {
   type BlockProperties,
   type BlockPropertyOverrides,
+  type BlockPropertyFailure,
   resolveBlockProperties,
 } from './block-properties.js'
 import { isBlockType, type BlockType } from './block-type.js'
@@ -73,53 +76,79 @@ export type ResolvedBlock = {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const assertKnownDefinitionKeys = (definition: Record<string, unknown>): void => {
-  for (const key of Object.keys(definition)) {
-    if (!['type', 'capabilities', 'properties'].includes(key)) {
-      throw new TypeError(`unknown block definition field ${key}`)
-    }
-  }
+export type BlockDefinitionFailure = {
+  readonly _tag: 'BlockDefinitionFailure'
+  readonly reason: 'unknown-field' | 'invalid-shape'
+  readonly message: string
 }
 
-function validateBlockDefinition(definition: unknown): asserts definition is BlockDefinition {
-  if (!isRecord(definition)) {
-    throw new TypeError('block definition must be an object')
+const failure = (
+  reason: BlockDefinitionFailure['reason'],
+  message: string,
+): Result.Result<never, BlockDefinitionFailure> =>
+  Result.fail({ _tag: 'BlockDefinitionFailure', reason, message })
+
+const validateKnownDefinitionKeys = (
+  definition: Record<string, unknown>,
+): Result.Result<void, BlockDefinitionFailure> => {
+  for (const key of Object.keys(definition)) {
+    if (!['type', 'capabilities', 'properties'].includes(key)) {
+      return failure('unknown-field', `unknown block definition field ${key}`)
+    }
   }
-  assertKnownDefinitionKeys(definition)
+  return Result.succeed(undefined)
+}
+
+function validateBlockDefinition(
+  definition: unknown,
+): Result.Result<BlockDefinition, BlockDefinitionFailure> {
+  if (!isRecord(definition)) {
+    return failure('invalid-shape', 'block definition must be an object')
+  }
+  const knownKeys = validateKnownDefinitionKeys(definition)
+  if (Result.isFailure(knownKeys)) return knownKeys
 
   if (!isBlockType(definition['type'])) {
-    throw new TypeError('BlockDefinition.type must be a registered BlockType')
+    return failure('invalid-shape', 'BlockDefinition.type must be a registered BlockType')
   }
   if (definition['capabilities'] !== undefined && !isRecord(definition['capabilities'])) {
-    throw new TypeError('BlockDefinition.capabilities must be an object')
+    return failure('invalid-shape', 'BlockDefinition.capabilities must be an object')
   }
   if (definition['properties'] !== undefined && !isRecord(definition['properties'])) {
-    throw new TypeError('BlockDefinition.properties must be an object')
+    return failure('invalid-shape', 'BlockDefinition.properties must be an object')
   }
+  return Result.succeed(definition as BlockDefinition)
 }
 
 /** Resolve a definition's capability flags, defaulting an absent field to the defaults. */
-export const blockCapabilitiesOf = (definition: BlockDefinition): BlockCapabilities => {
-  validateBlockDefinition(definition)
-  return resolveBlockCapabilities(definition.capabilities ?? {})
-}
+export const blockCapabilitiesOf = (
+  definition: BlockDefinition,
+): Result.Result<BlockCapabilities, BlockDefinitionFailure | BlockCapabilityFailure> =>
+  Result.flatMap(validateBlockDefinition(definition), (validated) =>
+    resolveBlockCapabilities(validated.capabilities ?? {}),
+  )
 
 /** Resolve a definition's typed properties, defaulting an absent field to the defaults. */
-export const blockPropertiesOf = (definition: BlockDefinition): BlockProperties => {
-  validateBlockDefinition(definition)
-  return resolveBlockProperties(definition.properties ?? {})
-}
+export const blockPropertiesOf = (
+  definition: BlockDefinition,
+): Result.Result<BlockProperties, BlockDefinitionFailure | BlockPropertyFailure> =>
+  Result.flatMap(validateBlockDefinition(definition), (validated) =>
+    resolveBlockProperties(validated.properties ?? {}),
+  )
 
 /** Resolve both halves at once. */
-export const resolveBlock = (definition: BlockDefinition): ResolvedBlock => {
-  validateBlockDefinition(definition)
-
-  return {
-    capabilities: resolveBlockCapabilities(definition.capabilities ?? {}),
-    properties: resolveBlockProperties(definition.properties ?? {}),
-    type: definition.type,
-  }
-}
+export const resolveBlock = (
+  definition: BlockDefinition,
+): Result.Result<
+  ResolvedBlock,
+  BlockDefinitionFailure | BlockCapabilityFailure | BlockPropertyFailure
+> =>
+  Result.gen(function* () {
+    const validated = yield* validateBlockDefinition(definition)
+    const capabilities = yield* resolveBlockCapabilities(validated.capabilities ?? {})
+    const properties = yield* resolveBlockProperties(validated.properties ?? {})
+    return { capabilities, properties, type: validated.type }
+  })
 
 // ---------------------------------------------------------------------------
 // Capability ledger: what the audit found and where its authoritative data lives

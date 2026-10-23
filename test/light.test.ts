@@ -1,5 +1,17 @@
 /* eslint-disable no-magic-numbers -- Exercises the fixed binary wire format's byte offsets, mirroring test/chunk.test.ts. */
 import { describe, expect, it } from 'vitest'
+import { Result } from 'effect'
+import type { LightVolumeFailure } from '../src/domain/block/light'
+import {
+  LightVolumeHeight as lightVolumeHeightResult,
+  blockLightAt as blockLightAtResult,
+  decodeLightVolume as decodeLightVolumeResult,
+  encodeLightVolume as encodeLightVolumeResult,
+  lightChannel as lightChannelResult,
+  lightVolume as lightVolumeResult,
+  lightVolumeIndexOf as lightVolumeIndexOfResult,
+  skyLightAt as skyLightAtResult,
+} from '../src/domain/block/light'
 import { MAX_CHUNK_HEIGHT } from '../src/domain/world/chunk'
 import { BlockAxis, CHUNK_SIZE_XZ, LocalAxis } from '../src/domain/coordinates/coordinate-primitives'
 import type { LocalBlockCoord } from '../src/domain/coordinates/coordinate-conversions'
@@ -9,15 +21,27 @@ import {
   LightChannelByteOffset,
   LightChannelIndex,
   LightChannelLength,
-  LightVolumeHeight,
-  blockLightAt,
-  decodeLightVolume,
-  encodeLightVolume,
-  lightChannel,
-  lightVolume,
-  lightVolumeIndexOf,
-  skyLightAt,
 } from '../src/domain/block/light'
+import { resultFailure, resultValue } from './block-result-helpers'
+
+const LightVolumeHeight = (value: number) => resultValue(lightVolumeHeightResult(value))
+const blockLightAt = (...args: Parameters<typeof blockLightAtResult>) => resultValue(blockLightAtResult(...args))
+const decodeLightVolume = (bytes: Uint8Array) => resultValue(decodeLightVolumeResult(bytes))
+const encodeLightVolume = (...args: Parameters<typeof encodeLightVolumeResult>) => resultValue(encodeLightVolumeResult(...args))
+const lightChannel = (...args: Parameters<typeof lightChannelResult>) => resultValue(lightChannelResult(...args))
+const lightVolume = (...args: Parameters<typeof lightVolumeResult>) => resultValue(lightVolumeResult(...args))
+const lightVolumeIndexOf = (...args: Parameters<typeof lightVolumeIndexOfResult>) => resultValue(lightVolumeIndexOfResult(...args))
+const skyLightAt = (...args: Parameters<typeof skyLightAtResult>) => resultValue(skyLightAtResult(...args))
+const expectLightFailure = (
+  result: Result.Result<unknown, LightVolumeFailure>,
+  reason: LightVolumeFailure['reason'],
+  message: string | RegExp,
+) => {
+  const failure = resultFailure(result)
+  expect(failure).toMatchObject({ _tag: 'LightVolumeFailure', reason })
+  if (message instanceof RegExp) expect(failure.message).toMatch(message)
+  else expect(failure.message).toBe(message)
+}
 
 const at = (lx: number, ly: number, lz: number): LocalBlockCoord => ({
   lx: LocalAxis(lx),
@@ -44,31 +68,34 @@ describe('light volume construction and bounds', () => {
   })
 
   it('rejects an invalid volume height', () => {
-    expect(() => LightVolumeHeight(0)).toThrow()
-    expect(() => LightVolumeHeight(1.5)).toThrow()
-    expect(() => LightVolumeHeight(0x10000)).toThrow()
+    expectLightFailure(lightVolumeHeightResult(0), 'invalid-height', /height/)
+    expectLightFailure(lightVolumeHeightResult(1.5), 'invalid-height', /height/)
+    expectLightFailure(lightVolumeHeightResult(0x10000), 'invalid-height', /height/)
   })
 
   it('rejects a channel whose length does not match the declared height', () => {
-    expect(() =>
-      Reflect.apply(lightVolume, undefined, [
-        LightVolumeHeight(1),
-        new Uint8Array(10),
-        new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ),
-      ]),
-    ).toThrow(RangeError)
+    expectLightFailure(
+      lightVolumeResult(LightVolumeHeight(1), new Uint8Array(10), new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ)),
+      'invalid-channel-length',
+      `Light channel length must be ${CHUNK_SIZE_XZ * CHUNK_SIZE_XZ}, received 10`,
+    )
   })
 
   it('rejects an out-of-range light value in a channel', () => {
-    expect(() => lightChannel(new Uint8Array([16]))).toThrow(RangeError)
+    expectLightFailure(lightChannelResult(new Uint8Array([16])), 'invalid-channel-value', /out-of-range value 16 at index 0/)
   })
 
   it('rejects an out-of-range channel index', () => {
     const channel = lightChannel(new Uint8Array(4))
-    expect(channel.at(LightChannelIndex(0))).toBe(0)
-    expect(() => Reflect.apply(channel.at, channel, [-1])).toThrow(RangeError)
-    expect(() => Reflect.apply(channel.at, channel, [1.5])).toThrow(RangeError)
-    expect(() => channel.at(LightChannelIndex(4))).toThrow(RangeError)
+    expect(resultValue(channel.at(LightChannelIndex(0)))).toBe(0)
+    for (const index of [-1, 1.5, 4]) {
+      expectLightFailure(
+        Reflect.apply(channel.at, channel, [index]),
+        'invalid-index',
+        /index must be an integer/,
+      )
+    }
+    expectLightFailure(channel.at(LightChannelIndex(4)), 'invalid-index', /index must be an integer/)
   })
 
   it('copies channel bytes without exposing its owned buffer', () => {
@@ -77,28 +104,41 @@ describe('light volume construction and bounds', () => {
 
     expect(bytes).toStrictEqual(new Uint8Array([2, 7]))
     bytes[0] = 9
-    expect(channel.at(LightChannelIndex(0))).toBe(2)
+    expect(resultValue(channel.at(LightChannelIndex(0)))).toBe(2)
   })
 
   it('rejects a copy that does not fit the destination', () => {
     const channel = lightChannel(new Uint8Array(4))
-    expect(() => channel.copyTo(new Uint8Array(2))).toThrow(RangeError)
-    expect(() => Reflect.apply(channel.copyTo, channel, [new Uint8Array(10), -1])).toThrow(RangeError)
-    expect(() => Reflect.apply(channel.copyTo, channel, [new Uint8Array(10), 1.5])).toThrow(RangeError)
-    expect(() => channel.copyTo(new Uint8Array(10), LightChannelByteOffset(7))).toThrow(RangeError)
+    expectLightFailure(channel.copyTo(new Uint8Array(2)), 'invalid-copy-range', /copy range/)
+    expectLightFailure(
+      Reflect.apply(channel.copyTo, channel, [new Uint8Array(10), -1]),
+      'invalid-copy-range',
+      /copy range/,
+    )
+    expectLightFailure(
+      Reflect.apply(channel.copyTo, channel, [new Uint8Array(10), 1.5]),
+      'invalid-copy-range',
+      /copy range/,
+    )
+    expectLightFailure(
+      channel.copyTo(new Uint8Array(10), LightChannelByteOffset(7)),
+      'invalid-copy-range',
+      /copy range/,
+    )
   })
 
   it('rejects a chunk-local y outside the declared height', () => {
     const height = LightVolumeHeight(1)
-    expect(() => lightVolumeIndexOf(height, at(0, 5, 0))).toThrow(RangeError)
+    expectLightFailure(lightVolumeIndexOfResult(height, at(0, 5, 0)), 'invalid-index', /y must be an integer/)
+    expect(lightVolumeIndexOf(LightVolumeHeight(2), at(1, 1, 2))).toBe(37)
   })
 
   it('accepts a light volume height up to the chunk column height bound and rejects one beyond it', () => {
     // A light volume describes exactly one chunk column's vertical extent, so
     // its upper bound must track Chunk's rather than an independently
     // maintained duplicate. This fails if the two bounds ever diverge.
-    expect(() => LightVolumeHeight(MAX_CHUNK_HEIGHT)).not.toThrow()
-    expect(() => LightVolumeHeight(MAX_CHUNK_HEIGHT + 1)).toThrow()
+    expect(resultValue(lightVolumeHeightResult(MAX_CHUNK_HEIGHT))).toBe(MAX_CHUNK_HEIGHT)
+    expectLightFailure(lightVolumeHeightResult(MAX_CHUNK_HEIGHT + 1), 'invalid-height', /height/)
   })
 })
 
@@ -132,13 +172,13 @@ describe('light volume binary codec', () => {
       return result
     }
 
-    expect(() => decodeLightVolume(valid.slice(0, LIGHT_VOLUME_HEADER_BYTES - 1))).toThrow(/header/)
-    expect(() => decodeLightVolume(corrupt(0, 0))).toThrow(/magic/)
-    expect(() => decodeLightVolume(corrupt(4, LIGHT_VOLUME_CODEC_VERSION + 1))).toThrow(/version/)
-    expect(() => decodeLightVolume(corrupt(6, CHUNK_SIZE_XZ - 1))).toThrow(/dimensions/)
-    expect(() => decodeLightVolume(corrupt(10, 0))).toThrow(/height/)
-    expect(() => decodeLightVolume(corrupt(12, 1))).toThrow(/payload length/)
-    expect(() => decodeLightVolume(Uint8Array.from([...valid, 0]))).toThrow(/encoded length/)
+    expectLightFailure(decodeLightVolumeResult(valid.slice(0, LIGHT_VOLUME_HEADER_BYTES - 1)), 'truncated-header', /header/)
+    expectLightFailure(decodeLightVolumeResult(corrupt(0, 0)), 'invalid-magic', /magic/)
+    expectLightFailure(decodeLightVolumeResult(corrupt(4, LIGHT_VOLUME_CODEC_VERSION + 1)), 'unsupported-version', /version/)
+    expectLightFailure(decodeLightVolumeResult(corrupt(6, CHUNK_SIZE_XZ - 1)), 'invalid-dimensions', /dimensions/)
+    expectLightFailure(decodeLightVolumeResult(corrupt(10, 0)), 'invalid-height', /height/)
+    expectLightFailure(decodeLightVolumeResult(corrupt(12, 1)), 'invalid-payload-length', /payload length/)
+    expectLightFailure(decodeLightVolumeResult(Uint8Array.from([...valid, 0])), 'invalid-payload-length', /encoded length/)
   })
 
   it('decodes a payload built directly from the wire format specification, not from encodeLightVolume', () => {

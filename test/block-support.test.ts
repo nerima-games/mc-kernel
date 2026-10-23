@@ -24,8 +24,8 @@ import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/blo
 import {
   BLOCK_REGISTRY,
   BlockId,
-  blockIdOf,
-  canBlockStaySupported,
+  blockIdOf as blockIdOfOption,
+  canBlockStaySupported as canBlockStaySupportedResult,
   isSupportSensitiveBlockId,
   supportRuleOfBlockId,
 } from '../src/domain/block/block-registry'
@@ -35,10 +35,17 @@ import {
   NEEDS_NO_SUPPORT,
   isSupportSensitive,
   needsOneOf,
-  satisfiesSupportRule,
+  satisfiesSupportRule as satisfiesSupportRuleResult,
 } from '../src/domain/block/block-support'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
+import { optionValue, resultFailure, resultValue } from './block-result-helpers'
+
+const blockIdOf = (type: BlockType) => optionValue(blockIdOfOption(type))
+const canBlockStaySupported = (...args: Parameters<typeof canBlockStaySupportedResult>) =>
+  resultValue(canBlockStaySupportedResult(...args))
+const satisfiesSupportRule = (...args: Parameters<typeof satisfiesSupportRuleResult>) =>
+  resultValue(satisfiesSupportRuleResult(...args))
 
 const UNNAMED_BLOCK_TYPE = BLOCK_TYPES.at(BLOCK_TYPES.length)
 const NON_SENSITIVE_BLOCK_COUNT = 103
@@ -129,11 +136,16 @@ describe('SupportRule — the three arms', () => {
 describe('support-rule input validation', () => {
   it('rejects malformed support-rule values at the public boundary', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => Reflect.apply(satisfiesSupportRule, undefined, [{ kind: 'invalid' }, 'stone', true])).toThrow('Unknown support rule kind')
-      expect(() => Reflect.apply(satisfiesSupportRule, undefined, [null, 'stone', true])).toThrow('Unknown support rule kind')
-      expect(() => Reflect.apply(satisfiesSupportRule, undefined, [{ kind: 'oneOf', blocks: ['not-a-block'] }, 'stone', true])).toThrow(
-        'Unknown support rule kind',
-      )
+      for (const rule of [
+        { kind: 'invalid' },
+        null,
+        { kind: 'oneOf', blocks: ['not-a-block'] },
+      ]) {
+        expect(resultFailure(Reflect.apply(satisfiesSupportRuleResult, undefined, [rule, 'stone', true]))).toMatchObject({
+          _tag: 'SupportRuleFailure',
+          message: 'Unknown support rule kind',
+        })
+      }
     })),
   )
 })
@@ -355,7 +367,7 @@ describe('the supportRule column across the whole registry', () => {
       expect(named.length).toBeGreaterThan(NO_NAMED_SUPPORTS)
       for (const block of named) {
         // A rule naming a block with no registry row would be a rule that can
-        // Never be satisfied, and `blockIdOf` would silently answer AIR.
+        // never be satisfied; `blockIdOf` now represents that absence with None.
         expect(BLOCK_TYPES).toContain(block)
       }
       // Every named support must be part of the public block vocabulary.

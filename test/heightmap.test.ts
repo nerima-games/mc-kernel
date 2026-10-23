@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ChunkHeight, chunk } from '../src/domain/world/chunk'
 import { CHUNK_SIZE_XZ, ChunkAxis, LocalAxis, chunkCoord } from '../src/domain/coordinates/coordinates'
 import { BLOCK_IDS, blockIdOf, opacityOfBlockId, propertyOfBlockId } from '../src/domain/block/block-registry'
+import { optionValue, resultValue } from './block-result-helpers.js'
 import {
   heightmapColumnIndex as makeHeightmapColumnIndex,
   HeightmapColumnIndex,
@@ -25,7 +26,7 @@ const buildChunk = (placements: ReadonlyArray<Placement>) => {
   for (const [lx, lz, ly, blockId] of placements) {
     blocks[blockIndexOf(lx, lz, ly)] = blockId
   }
-  return chunk(chunkCoord(ChunkAxis(0), ChunkAxis(0)), ChunkHeight(CHUNK_HEIGHT), blocks)
+  return resultValue(chunk(chunkCoord(ChunkAxis(0), ChunkAxis(0)), ChunkHeight(CHUNK_HEIGHT), blocks))
 }
 
 const everyColumnIsUndefined = (heightmap: Heightmap): boolean =>
@@ -55,8 +56,8 @@ describe('heightmap', () => {
   })
 
   it('resolves a single opaque block to its own column and leaves the rest absent', () => {
-    const stone = blockIdOf('stone')
-    const torch = blockIdOf('torch')
+    const stone = optionValue(blockIdOf('stone'))
+    const torch = optionValue(blockIdOf('torch'))
     const stoneColumn = { lx: 3, lz: 5, ly: 2 }
     const torchColumn = { lx: 7, lz: 9, ly: 1 }
 
@@ -104,7 +105,7 @@ describe('heightmap', () => {
   })
 
   it('is deterministic across repeated calls on the same chunk', () => {
-    const stone = blockIdOf('stone')
+    const stone = optionValue(blockIdOf('stone'))
     const source = buildChunk([[4, 4, 2, stone]])
 
     expect(opaqueHeightmapOf(source)).toStrictEqual(opaqueHeightmapOf(source))

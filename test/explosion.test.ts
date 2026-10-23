@@ -10,6 +10,7 @@ import {
   ExplosionRayStepCount,
   resistsExplosion,
 } from '../src/domain/entity/explosion'
+import { optionValue } from './block-result-helpers.js'
 
 const TNT_POWER = 4
 const CHARGED_CREEPER_POWER = 6
@@ -20,9 +21,9 @@ describe('resistsExplosion', () => {
     // mx-gameplay's mirror (`block-vocabulary.ts:610,649`) flags exactly
     // `bedrock` and `obsidian` as resistant to a normal creeper/TNT
     // explosion; every other block resolves to `false`.
-    const bedrockId = blockIdOf('bedrock')
-    const obsidianId = blockIdOf('obsidian')
-    const stoneId = blockIdOf('stone')
+    const bedrockId = optionValue(blockIdOf('bedrock'))
+    const obsidianId = optionValue(blockIdOf('obsidian'))
+    const stoneId = optionValue(blockIdOf('stone'))
 
     for (const power of [TNT_POWER, CHARGED_CREEPER_POWER, HUGE_POWER].map(BlockBlastResistance)) {
       expect(resistsExplosion(bedrockId, power)).toBe(true)
@@ -32,7 +33,7 @@ describe('resistsExplosion', () => {
   })
 
   it('an ordinary block never resists a positive-power explosion, matching its blastResistance default of 0', () => {
-    const stoneId = blockIdOf('stone')
+    const stoneId = optionValue(blockIdOf('stone'))
     expect(resistsExplosion(stoneId, BlockBlastResistance(Number.EPSILON))).toBe(false)
     // A zero-power explosion destroys nothing, so even a default-resistance
     // block "survives" it — the `>=` boundary, not a special case.

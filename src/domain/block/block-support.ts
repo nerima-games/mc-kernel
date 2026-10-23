@@ -5,6 +5,7 @@
  * `block-support-data.ts`; this module owns the pure predicates that evaluate
  * those values against a block below.
  */
+import { Result } from 'effect'
 import { isBlockType, type BlockType } from './block-type.js'
 import type { SupportRule } from './block-support-data.js'
 
@@ -30,6 +31,11 @@ const isSupportRule = (value: unknown): value is SupportRule => {
   }
 }
 
+export type SupportRuleFailure = {
+  readonly _tag: 'SupportRuleFailure'
+  readonly message: string
+}
+
 /** Does the rule require the caller to inspect the block below? */
 export const isSupportSensitive = (rule: SupportRule): boolean => rule.kind !== 'none'
 
@@ -44,17 +50,17 @@ export function satisfiesSupportRule(
   rule: SupportRule,
   blockBelow: BlockType | undefined,
   belowSupportsAttachments: boolean,
-): boolean
+): Result.Result<boolean, SupportRuleFailure>
 export function satisfiesSupportRule(
   rule: SupportRule,
   blockBelow: BlockType | undefined,
   belowSupportsAttachments: boolean,
-): boolean {
+): Result.Result<boolean, SupportRuleFailure> {
   if (!isSupportRule(rule)) {
-    throw new TypeError('Unknown support rule kind')
+    return Result.fail({ _tag: 'SupportRuleFailure', message: 'Unknown support rule kind' })
   }
 
-  if (rule.kind === 'none') return true
-  if (rule.kind === 'anySupporting') return belowSupportsAttachments
-  return typeof blockBelow === 'string' && rule.blocks.includes(blockBelow)
+  if (rule.kind === 'none') return Result.succeed(true)
+  if (rule.kind === 'anySupporting') return Result.succeed(belowSupportsAttachments)
+  return Result.succeed(typeof blockBelow === 'string' && rule.blocks.includes(blockBelow))
 }

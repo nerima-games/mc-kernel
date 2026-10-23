@@ -1,4 +1,4 @@
-import { Brand } from 'effect'
+import { Brand, Result } from 'effect'
 import { BLOCK_IDS, BLOCK_ID_MAX, isKnownBlockId } from './block-registry.js'
 import { BlockId } from './block-registry-types.js'
 
@@ -41,7 +41,7 @@ export const BlockStateByteOffset: Brand.Constructor<BlockStateByteOffset> =
  * element count can compute the byte length itself instead of hardcoding
  * the width: `elementCount * BYTES_PER_ELEMENT`, never `elementCount` alone.
  * A destination sized by element count fits half the required bytes and
- * `copyTo` rejects it with a range error rather than truncating silently.
+ * `copyTo` returns a failure rather than truncating silently.
  */
 export const BYTES_PER_ELEMENT = 2
 
@@ -53,30 +53,46 @@ for (const blockId of BLOCK_IDS) {
   KNOWN_BLOCK_ID_TABLE[blockId] = BLOCK_ID_ENABLED
 }
 
-const assertIndex = (index: BlockStateIndex, length: BlockStateLength): void => {
+export type BlockStateFailure = {
+  readonly _tag: 'BlockStateFailure'
+  readonly reason: 'invalid-index' | 'unknown-block-id' | 'invalid-copy-range' | 'invalid-element-count'
+  readonly message: string
+}
+
+const failure = (
+  reason: BlockStateFailure['reason'],
+  message: string,
+): Result.Result<never, BlockStateFailure> => Result.fail({ _tag: 'BlockStateFailure', reason, message })
+
+const validateIndex = (index: number, length: number): Result.Result<number, BlockStateFailure> => {
   if (!Number.isInteger(index) || index < MIN_INDEX || index >= length) {
-    throw new RangeError(
+    return failure(
+      'invalid-index',
       `Block state index must be an integer in [${MIN_INDEX}, ${length - LAST_INDEX_OFFSET}], received ${index}`,
     )
   }
+  return Result.succeed(index)
 }
 
-const assertKnownBlockId = (blockId: BlockId, index: BlockStateIndex): void => {
+const validateKnownBlockId = (blockId: number, index: number): Result.Result<number, BlockStateFailure> => {
   if (!isKnownBlockId(blockId)) {
-    throw new RangeError(`Block state contains unknown block id ${blockId} at index ${index}`)
+    return failure('unknown-block-id', `Block state contains unknown block id ${blockId} at index ${index}`)
   }
+  return Result.succeed(blockId)
 }
 
-const assertCopyRange = (
+const validateCopyRange = (
   targetLength: number,
   sourceLength: number,
-  offset: BlockStateByteOffset,
-): void => {
+  offset: number,
+): Result.Result<void, BlockStateFailure> => {
   if (!Number.isInteger(offset) || offset < MIN_INDEX || offset + sourceLength > targetLength) {
-    throw new RangeError(
+    return failure(
+      'invalid-copy-range',
       `Block state copy range must fit target at offset ${offset}, target length ${targetLength}, source length ${sourceLength}`,
     )
   }
+  return Result.succeed(undefined)
 }
 
 /** An owned, registry-validated block buffer with checked mutation boundaries. */
@@ -92,16 +108,16 @@ export class BlockState {
    * 16-bit slot in the owned buffer, which is how a version-1 chunk payload
    * becomes storage-compatible with a version-2 one without a value mapping.
    */
-  static fromBytes(bytes: Uint8Array): BlockState {
+  static fromBytes(bytes: Uint8Array): Result.Result<BlockState, BlockStateFailure> {
     const widened = new Uint8Array(bytes.length * BYTES_PER_ELEMENT)
     const widenedView = new DataView(widened.buffer)
     for (const [index, blockId] of bytes.entries()) {
       if (KNOWN_BLOCK_ID_TABLE[blockId] !== BLOCK_ID_ENABLED) {
-        throw new RangeError(`Block state contains unknown block id ${blockId} at index ${index}`)
+        return failure('unknown-block-id', `Block state contains unknown block id ${blockId} at index ${index}`)
       }
       widenedView.setUint16(index * BYTES_PER_ELEMENT, blockId, true)
     }
-    return new BlockState(widened)
+    return Result.succeed(new BlockState(widened))
   }
 
   /**
@@ -115,17 +131,32 @@ export class BlockState {
    * are read; trailing bytes beyond `elementCount * BYTES_PER_ELEMENT` are
    * ignored rather than validated.
    */
-  static fromElementBytes(payload: Uint8Array, elementCount: BlockStateLength): BlockState {
+  static fromElementBytes(
+    payload: Uint8Array,
+    elementCount: BlockStateLength,
+  ): Result.Result<BlockState, BlockStateFailure> {
+    if (!Number.isSafeInteger(elementCount) || elementCount < MIN_INDEX) {
+      return failure(
+        'invalid-element-count',
+        `Block state element count must be a non-negative safe integer, received ${elementCount}`,
+      )
+    }
     const validatedElementCount = BlockStateLength(elementCount)
+    if (payload.length < validatedElementCount * BYTES_PER_ELEMENT) {
+      return failure(
+        'invalid-element-count',
+        `Block state element payload must contain ${validatedElementCount * BYTES_PER_ELEMENT} bytes, received ${payload.length}`,
+      )
+    }
     const owned = payload.slice(MIN_INDEX, validatedElementCount * BYTES_PER_ELEMENT)
     const view = new DataView(owned.buffer, owned.byteOffset, owned.byteLength)
     for (let index = MIN_INDEX; index < validatedElementCount; index += INDEX_INCREMENT) {
       const value = view.getUint16(index * BYTES_PER_ELEMENT, true)
       if (KNOWN_BLOCK_ID_TABLE[value] !== BLOCK_ID_ENABLED) {
-        throw new RangeError(`Block state contains unknown block id ${value} at index ${index}`)
+        return failure('unknown-block-id', `Block state contains unknown block id ${value} at index ${index}`)
       }
     }
-    return new BlockState(owned)
+    return Result.succeed(new BlockState(owned))
   }
 
   private constructor(bytes: Uint8Array) {
@@ -140,16 +171,19 @@ export class BlockState {
   }
 
   /** Read a known block id at a checked linear index. */
-  get(index: BlockStateIndex): BlockId {
-    assertIndex(index, this.length)
-    return BlockId(this.#view.getUint16(index * BYTES_PER_ELEMENT, true))
+  get(index: BlockStateIndex): Result.Result<BlockId, BlockStateFailure> {
+    return Result.map(validateIndex(index, this.length), (checkedIndex) =>
+      BlockId(this.#view.getUint16(checkedIndex * BYTES_PER_ELEMENT, true)),
+    )
   }
 
   /** Replace a block id after checking both the index and registry membership. */
-  set(index: BlockStateIndex, blockId: BlockId): void {
-    assertIndex(index, this.length)
-    assertKnownBlockId(blockId, index)
-    this.#view.setUint16(index * BYTES_PER_ELEMENT, blockId, true)
+  set(index: BlockStateIndex, blockId: BlockId): Result.Result<void, BlockStateFailure> {
+    return Result.flatMap(validateIndex(index, this.length), (checkedIndex) =>
+      Result.map(validateKnownBlockId(blockId, checkedIndex), (checkedBlockId) => {
+        this.#view.setUint16(checkedIndex * BYTES_PER_ELEMENT, checkedBlockId, true)
+      }),
+    )
   }
 
   /**
@@ -169,14 +203,18 @@ export class BlockState {
    * Copy the wire-byte state into a caller-owned destination without an
    * element scan. `target` must hold `this.length * BYTES_PER_ELEMENT`
    * bytes at `offset` — sizing it by element count alone fits half the
-   * required bytes; `assertCopyRange` rejects that with a `RangeError`
-   * instead of writing a truncated copy.
+   * required bytes, so the returned failure prevents a truncated copy.
    */
-  copyTo(target: Uint8Array, offset: BlockStateByteOffset = BlockStateByteOffset(MIN_INDEX)): void {
-    assertCopyRange(target.length, this.#bytes.length, offset)
-    target.set(this.#bytes, offset)
+  copyTo(
+    target: Uint8Array,
+    offset: BlockStateByteOffset = BlockStateByteOffset(MIN_INDEX),
+  ): Result.Result<void, BlockStateFailure> {
+    return Result.map(validateCopyRange(target.length, this.#bytes.length, offset), () => {
+      target.set(this.#bytes, offset)
+    })
   }
 }
 
 /** Validate a raw chunk buffer once, then retain an owned copy behind BlockState. */
-export const blockState = (bytes: Uint8Array): BlockState => BlockState.fromBytes(bytes)
+export const blockState = (bytes: Uint8Array): Result.Result<BlockState, BlockStateFailure> =>
+  BlockState.fromBytes(bytes)

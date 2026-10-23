@@ -1,8 +1,8 @@
 import { DIMENSIONS, type Dimension } from '../world/dimension.js'
 import { itemStack, type ItemStack } from '../item/item-stack.js'
+import { FixedDurationSecs, StackCount, type FixedDurationSecs as FixedDurationSecsValue } from '../time/quantities.js'
 import type { BlockType } from './block-type.js'
 import type { ItemType } from '../item/item-type.js'
-import { FixedDurationSecs, StackCount, type FixedDurationSecs as FixedDurationSecsValue } from '../time/quantities.js'
 
 export const CROP_TYPES: readonly ['wheat_crop', 'potato_crop', 'nether_wart_crop'] = [
   'wheat_crop',

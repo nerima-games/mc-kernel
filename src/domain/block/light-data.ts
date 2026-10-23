@@ -1,5 +1,5 @@
 /* eslint-disable no-magic-numbers -- Constants define the fixed binary wire format, mirroring src/domain/chunk.ts. */
-import { Brand } from 'effect'
+import { Brand, Result } from 'effect'
 import { isLightLevel, LightLevel } from './block-property-data.js'
 import { MAX_CHUNK_HEIGHT } from '../world/chunk.js'
 import type { LocalBlockCoord } from '../coordinates/coordinate-conversions.js'
@@ -58,7 +58,33 @@ const LightVolumeHeightBrand = Brand.make<LightVolumeHeight>(
       : lightVolumeHeightMessage(value),
 )
 
-export const LightVolumeHeight: Brand.Constructor<LightVolumeHeight> = LightVolumeHeightBrand
+export type LightVolumeFailure = {
+  readonly _tag: 'LightVolumeFailure'
+  readonly reason:
+    | 'invalid-height'
+    | 'invalid-index'
+    | 'invalid-channel-value'
+    | 'invalid-copy-range'
+    | 'invalid-channel-length'
+    | 'truncated-header'
+    | 'invalid-magic'
+    | 'unsupported-version'
+    | 'invalid-dimensions'
+    | 'invalid-payload-length'
+  readonly message: string
+}
+
+const failure = (
+  reason: LightVolumeFailure['reason'],
+  message: string,
+): Result.Result<never, LightVolumeFailure> => Result.fail({ _tag: 'LightVolumeFailure', reason, message })
+
+export const LightVolumeHeight = (value: number): Result.Result<LightVolumeHeight, LightVolumeFailure> => {
+  if (!Number.isInteger(value) || value < MIN_VOLUME_HEIGHT || value > MAX_VOLUME_HEIGHT) {
+    return failure('invalid-height', lightVolumeHeightMessage(value))
+  }
+  return Result.succeed(LightVolumeHeightBrand(value))
+}
 
 export const lightVolumeCellCount = (height: LightVolumeHeight): LightChannelLength =>
   LightChannelLength(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * height)
@@ -67,11 +93,14 @@ const indexOfAxes = (height: number, lx: number, ly: number, lz: number): number
   (lx * CHUNK_SIZE_XZ + lz) * height + ly
 
 /** The linear offset of a chunk-local cell, stored x-major then z-major then y-major. */
-export const lightVolumeIndexOf = (height: LightVolumeHeight, local: LocalBlockCoord): LightChannelIndex => {
+export const lightVolumeIndexOf = (
+  height: LightVolumeHeight,
+  local: LocalBlockCoord,
+): Result.Result<LightChannelIndex, LightVolumeFailure> => {
   if (!Number.isInteger(local.ly) || local.ly < 0 || local.ly >= height) {
-    throw new RangeError(`Light volume y must be an integer in [0, ${height - 1}], received ${local.ly}`)
+    return failure('invalid-index', `Light volume y must be an integer in [0, ${height - 1}], received ${local.ly}`)
   }
-  return LightChannelIndex(indexOfAxes(height, local.lx, local.ly, local.lz))
+  return Result.succeed(LightChannelIndex(indexOfAxes(height, local.lx, local.ly, local.lz)))
 }
 
 /** An owned, range-validated 0..15 light channel for one chunk column. */
@@ -79,14 +108,14 @@ export class LightChannel {
   readonly #bytes: Uint8Array
   readonly #view: DataView
 
-  static fromBytes(bytes: Uint8Array): LightChannel {
+  static fromBytes(bytes: Uint8Array): Result.Result<LightChannel, LightVolumeFailure> {
     const owned = bytes.slice()
     for (const [index, value] of owned.entries()) {
       if (!isLightLevel(value)) {
-        throw new RangeError(`Light channel contains an out-of-range value ${value} at index ${index}`)
+        return failure('invalid-channel-value', `Light channel contains an out-of-range value ${value} at index ${index}`)
       }
     }
-    return new LightChannel(owned)
+    return Result.succeed(new LightChannel(owned))
   }
 
   private constructor(bytes: Uint8Array) {
@@ -100,11 +129,11 @@ export class LightChannel {
   }
 
   /** Read a validated light level at a checked linear index. */
-  at(index: LightChannelIndex): LightLevel {
+  at(index: LightChannelIndex): Result.Result<LightLevel, LightVolumeFailure> {
     if (!Number.isInteger(index) || index < 0 || index >= this.length) {
-      throw new RangeError(`Light channel index must be an integer in [0, ${this.length - 1}], received ${index}`)
+      return failure('invalid-index', `Light channel index must be an integer in [0, ${this.length - 1}], received ${index}`)
     }
-    return LightLevel(this.#view.getUint8(index))
+    return Result.succeed(LightLevel(this.#view.getUint8(index)))
   }
 
   /** Copy the channel out without exposing the owned buffer. */
@@ -113,15 +142,20 @@ export class LightChannel {
   }
 
   /** Copy the channel into a caller-owned destination without an element scan. */
-  copyTo(target: Uint8Array, offset: LightChannelByteOffset = LightChannelByteOffset(0)): void {
+  copyTo(
+    target: Uint8Array,
+    offset: LightChannelByteOffset = LightChannelByteOffset(0),
+  ): Result.Result<void, LightVolumeFailure> {
     if (!Number.isInteger(offset) || offset < 0 || offset + this.length > target.length) {
-      throw new RangeError(`Light channel copy range must fit target at offset ${offset}`)
+      return failure('invalid-copy-range', `Light channel copy range must fit target at offset ${offset}`)
     }
     target.set(this.#bytes, offset)
+    return Result.succeed(undefined)
   }
 }
 
-export const lightChannel = (bytes: Uint8Array): LightChannel => LightChannel.fromBytes(bytes)
+export const lightChannel = (bytes: Uint8Array): Result.Result<LightChannel, LightVolumeFailure> =>
+  LightChannel.fromBytes(bytes)
 
 /**
  * The settled two-channel light state for one chunk column: block light
@@ -135,10 +169,11 @@ export type LightVolume = {
   readonly skyLight: LightChannel
 }
 
-const assertChannelLength = (bytes: Uint8Array, expected: number): void => {
+const validateChannelLength = (bytes: Uint8Array, expected: number): Result.Result<void, LightVolumeFailure> => {
   if (bytes.length !== expected) {
-    throw new RangeError(`Light channel length must be ${expected}, received ${bytes.length}`)
+    return failure('invalid-channel-length', `Light channel length must be ${expected}, received ${bytes.length}`)
   }
+  return Result.succeed(undefined)
 }
 
 /** Construct a validated light volume without retaining the caller's mutable buffers. */
@@ -146,26 +181,35 @@ export const lightVolume = (
   height: LightVolumeHeight,
   blockLight: Uint8Array,
   skyLight: Uint8Array,
-): LightVolume => {
-  const validatedHeight = LightVolumeHeight(height)
-  const expected = lightVolumeCellCount(validatedHeight)
-  assertChannelLength(blockLight, expected)
-  assertChannelLength(skyLight, expected)
-  return {
-    height: validatedHeight,
-    blockLight: lightChannel(blockLight),
-    skyLight: lightChannel(skyLight),
-  }
-}
+): Result.Result<LightVolume, LightVolumeFailure> =>
+  Result.gen(function* () {
+    const validatedHeight = yield* LightVolumeHeight(height)
+    const expected = lightVolumeCellCount(validatedHeight)
+    yield* validateChannelLength(blockLight, expected)
+    yield* validateChannelLength(skyLight, expected)
+    return {
+      height: validatedHeight,
+      blockLight: yield* lightChannel(blockLight),
+      skyLight: yield* lightChannel(skyLight),
+    }
+  })
 
-export const blockLightAt = (volume: LightVolume, local: LocalBlockCoord): LightLevel =>
-  volume.blockLight.at(lightVolumeIndexOf(volume.height, local))
+export const blockLightAt = (
+  volume: LightVolume,
+  local: LocalBlockCoord,
+): Result.Result<LightLevel, LightVolumeFailure> =>
+  Result.flatMap(lightVolumeIndexOf(volume.height, local), (index) => volume.blockLight.at(index))
 
-export const skyLightAt = (volume: LightVolume, local: LocalBlockCoord): LightLevel =>
-  volume.skyLight.at(lightVolumeIndexOf(volume.height, local))
+export const skyLightAt = (
+  volume: LightVolume,
+  local: LocalBlockCoord,
+): Result.Result<LightLevel, LightVolumeFailure> =>
+  Result.flatMap(lightVolumeIndexOf(volume.height, local), (index) => volume.skyLight.at(index))
 
 /** Encode a light volume into the versioned little-endian kernel wire format. */
-export const encodeLightVolume = (volume: LightVolume): Uint8Array => {
+export const encodeLightVolume = (
+  volume: LightVolume,
+): Result.Result<Uint8Array, LightVolumeFailure> => {
   const cellCount = lightVolumeCellCount(volume.height)
   const payloadLength = cellCount * CHANNEL_COUNT
   const encoded = new Uint8Array(LIGHT_VOLUME_HEADER_BYTES + payloadLength)
@@ -176,15 +220,19 @@ export const encodeLightVolume = (volume: LightVolume): Uint8Array => {
   view.setUint16(8, CHUNK_SIZE_XZ, true)
   view.setUint16(10, volume.height, true)
   view.setUint32(12, payloadLength, true)
-  volume.blockLight.copyTo(encoded, LightChannelByteOffset(LIGHT_VOLUME_HEADER_BYTES))
-  volume.skyLight.copyTo(encoded, LightChannelByteOffset(LIGHT_VOLUME_HEADER_BYTES + cellCount))
-  return encoded
+  return Result.flatMap(
+    volume.blockLight.copyTo(encoded, LightChannelByteOffset(LIGHT_VOLUME_HEADER_BYTES)),
+    () => Result.map(
+      volume.skyLight.copyTo(encoded, LightChannelByteOffset(LIGHT_VOLUME_HEADER_BYTES + cellCount)),
+      () => encoded,
+    ),
+  )
 }
 
 /** Decode and validate a light volume. Truncated buffers and wrong magic are corruption. */
-export const decodeLightVolume = (encoded: Uint8Array): LightVolume => {
+export const decodeLightVolume = (encoded: Uint8Array): Result.Result<LightVolume, LightVolumeFailure> => {
   if (encoded.length < LIGHT_VOLUME_HEADER_BYTES) {
-    throw new RangeError(`Light volume data is shorter than the ${LIGHT_VOLUME_HEADER_BYTES}-byte header`)
+    return failure('truncated-header', `Light volume data is shorter than the ${LIGHT_VOLUME_HEADER_BYTES}-byte header`)
   }
   if (
     encoded[0] !== MAGIC[0] ||
@@ -192,29 +240,35 @@ export const decodeLightVolume = (encoded: Uint8Array): LightVolume => {
     encoded[2] !== MAGIC[2] ||
     encoded[3] !== MAGIC[3]
   ) {
-    throw new Error('Invalid light volume magic')
+    return failure('invalid-magic', 'Invalid light volume magic')
   }
 
   const view = new DataView(encoded.buffer, encoded.byteOffset, encoded.byteLength)
   const version = view.getUint16(4, true)
   if (version !== LIGHT_VOLUME_CODEC_VERSION) {
-    throw new Error(`Unsupported light volume codec version ${version}`)
+    return failure('unsupported-version', `Unsupported light volume codec version ${version}`)
   }
   const width = view.getUint16(6, true)
   const depth = view.getUint16(8, true)
   if (width !== CHUNK_SIZE_XZ || depth !== CHUNK_SIZE_XZ) {
-    throw new Error(`Invalid light volume dimensions ${width}x${depth}; expected ${CHUNK_SIZE_XZ}x${CHUNK_SIZE_XZ}`)
+    return failure(
+      'invalid-dimensions',
+      `Invalid light volume dimensions ${width}x${depth}; expected ${CHUNK_SIZE_XZ}x${CHUNK_SIZE_XZ}`,
+    )
   }
 
-  const height = LightVolumeHeight(view.getUint16(10, true))
+  const validatedHeight = LightVolumeHeight(view.getUint16(10, true))
+  if (Result.isFailure(validatedHeight)) return validatedHeight
+  const height = validatedHeight.success
   const payloadLength = view.getUint32(12, true)
   const cellCount = lightVolumeCellCount(height)
   const expectedPayload = cellCount * CHANNEL_COUNT
   if (payloadLength !== expectedPayload) {
-    throw new RangeError(`Light volume payload length must be ${expectedPayload}, header declares ${payloadLength}`)
+    return failure('invalid-payload-length', `Light volume payload length must be ${expectedPayload}, header declares ${payloadLength}`)
   }
   if (encoded.length !== LIGHT_VOLUME_HEADER_BYTES + payloadLength) {
-    throw new RangeError(
+    return failure(
+      'invalid-payload-length',
       `Light volume encoded length must be ${LIGHT_VOLUME_HEADER_BYTES + payloadLength}, received ${encoded.length}`,
     )
   }

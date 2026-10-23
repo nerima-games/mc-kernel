@@ -27,16 +27,20 @@ import {
   BLOCK_IDS,
   BLOCK_ID_MAX,
   BLOCK_REGISTRY,
-  blockIdOf,
-  blockIdsWithCapability,
+  blockIdOf as blockIdOfOption,
+  blockIdsWithCapability as blockIdsWithCapabilityOption,
   blockTypeOfId,
   capabilitiesOfBlockId,
   capabilityOfBlockId,
   propertyOfBlockId,
 } from '../src/domain/block/block-registry'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
+import { optionValue } from './block-result-helpers'
 
 const number = Number
+const blockIdOf = (type: BlockType) => optionValue(blockIdOfOption(type))
+const blockIdsWithCapability = (flag: Parameters<typeof blockIdsWithCapabilityOption>[0]) =>
+  optionValue(blockIdsWithCapabilityOption(flag))
 
 const EXPECTED_BLOCK_TYPES: ReadonlyArray<BlockType> = [
   'air',
@@ -174,7 +178,7 @@ const expectOreProperties = () => {
     expect(propertyOfBlockId(id, 'harvestTool').minTier).toBe(minTier)
     const drops = propertyOfBlockId(id, 'drops')
     expect(drops).toBeDefined()
-    if (drops === undefined) throw new Error(`expected drop rule for ${type}`)
+    if (drops === undefined) return
     expect(drops.item).toBe(item)
     expect(propertyOfBlockId(id, 'xpOnBreak')).toBe(xpOnBreak)
     expect(drops.affectedByFortune).toBe(affectedByFortune)

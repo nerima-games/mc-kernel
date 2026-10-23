@@ -2,9 +2,9 @@ import {
   AUDITED_CAPABILITY_NAMES,
   DOWNSTREAM_CAPABILITIES,
   type BlockDefinition,
-  blockCapabilitiesOf,
-  blockPropertiesOf,
-  resolveBlock,
+  blockCapabilitiesOf as blockCapabilitiesOfResult,
+  blockPropertiesOf as blockPropertiesOfResult,
+  resolveBlock as resolveBlockResult,
 } from '../src/domain/block/block-definition'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block/block-capabilities'
 import {
@@ -15,6 +15,11 @@ import {
 } from '../src/domain/block/block-properties'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
+import { resultFailure, resultValue } from './block-result-helpers'
+
+const blockCapabilitiesOf = (definition: BlockDefinition) => resultValue(blockCapabilitiesOfResult(definition))
+const blockPropertiesOf = (definition: BlockDefinition) => resultValue(blockPropertiesOfResult(definition))
+const resolveBlock = (definition: BlockDefinition) => resultValue(resolveBlockResult(definition))
 
 const AUDITED_CAPABILITY_COUNT = 29
 const IMPLEMENTED_FLAG_COUNT = 12
@@ -122,24 +127,36 @@ describe('resolveBlock', () => {
 
   it('rejects a block type that only satisfies the compile-time type', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => Reflect.apply(resolveBlock, undefined, [{ type: 'not-a-block' }])).toThrow(
-        'BlockDefinition.type must be a registered BlockType',
-      )
+      expect(resultFailure(Reflect.apply(resolveBlockResult, undefined, [{ type: 'not-a-block' }]))).toMatchObject({
+        _tag: 'BlockDefinitionFailure',
+        reason: 'invalid-shape',
+        message: 'BlockDefinition.type must be a registered BlockType',
+      })
     })),
   )
 
   it('rejects malformed definition envelopes before resolving either half', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => Reflect.apply(resolveBlock, undefined, [null])).toThrow('block definition must be an object')
-      expect(() => Reflect.apply(resolveBlock, undefined, [{ type: 'stone', futureField: true }])).toThrow(
-        'unknown block definition field futureField',
-      )
-      expect(() => Reflect.apply(blockCapabilitiesOf, undefined, [{ type: 'stone', capabilities: [] }])).toThrow(
-        'BlockDefinition.capabilities must be an object',
-      )
-      expect(() => Reflect.apply(blockPropertiesOf, undefined, [{ type: 'stone', properties: null }])).toThrow(
-        'BlockDefinition.properties must be an object',
-      )
+      expect(resultFailure(Reflect.apply(resolveBlockResult, undefined, [null]))).toMatchObject({
+        _tag: 'BlockDefinitionFailure',
+        reason: 'invalid-shape',
+        message: 'block definition must be an object',
+      })
+      expect(resultFailure(Reflect.apply(resolveBlockResult, undefined, [{ type: 'stone', futureField: true }]))).toMatchObject({
+        _tag: 'BlockDefinitionFailure',
+        reason: 'unknown-field',
+        message: 'unknown block definition field futureField',
+      })
+      expect(resultFailure(Reflect.apply(blockCapabilitiesOfResult, undefined, [{ type: 'stone', capabilities: [] }]))).toMatchObject({
+        _tag: 'BlockDefinitionFailure',
+        reason: 'invalid-shape',
+        message: 'BlockDefinition.capabilities must be an object',
+      })
+      expect(resultFailure(Reflect.apply(blockPropertiesOfResult, undefined, [{ type: 'stone', properties: null }]))).toMatchObject({
+        _tag: 'BlockDefinitionFailure',
+        reason: 'invalid-shape',
+        message: 'BlockDefinition.properties must be an object',
+      })
     })),
   )
 })

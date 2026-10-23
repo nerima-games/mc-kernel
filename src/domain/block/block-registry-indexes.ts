@@ -5,10 +5,10 @@
  * derived tables and query logic so the data source can be reviewed without
  * also navigating every lookup implementation.
  */
+import { Option, Result } from 'effect'
 import type { BlockCapabilities, BlockCapabilityFlag } from './block-capabilities.js'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from './block-capabilities.js'
-import type { ResolvedBlock } from './block-definition.js'
-import { resolveBlock } from './block-definition.js'
+import type { BlockDefinition, ResolvedBlock } from './block-definition.js'
 import type { BlockDrop, HarvestContext } from './block-harvest.js'
 import { BARE_HANDED, resolveDrop } from './block-harvest.js'
 import type { BlockOpacity, BlockProperties, BlockPropertyName } from './block-properties.js'
@@ -23,7 +23,7 @@ import type { BlockType } from './block-type.js'
 import { BLOCK_TYPES } from './block-type.js'
 import { BLOCK_REGISTRY } from './block-registry-entries.js'
 import type { BlockRegistryEntry } from './block-registry-types.js'
-import { BlockId } from './block-registry-types.js'
+import type { BlockId } from './block-registry-types.js'
 
 /**
  * Every dense lookup table below is sized to the highest REGISTERED id, not
@@ -35,6 +35,23 @@ import { BlockId } from './block-registry-types.js'
  * read to its documented default via `noUncheckedIndexedAccess`.
  */
 const BLOCK_ID_TABLE_LENGTH = BLOCK_REGISTRY.reduce((highest, entry) => Math.max(highest, entry.id), -1) + 1
+
+export type BlockRegistryFailure = {
+  readonly _tag: 'BlockRegistryFailure'
+  readonly reason: 'missing-block-row' | 'missing-support-rule' | 'missing-support-ids'
+  readonly message: string
+}
+
+const failure = (
+  reason: BlockRegistryFailure['reason'],
+  message: string,
+): Result.Result<never, BlockRegistryFailure> => Result.fail({ _tag: 'BlockRegistryFailure', reason, message })
+
+const resolveRegisteredBlock = (definition: BlockDefinition): ResolvedBlock => ({
+  capabilities: { ...BLOCK_CAPABILITY_DEFAULTS, ...definition.capabilities },
+  properties: { ...BLOCK_PROPERTY_DEFAULTS, ...definition.properties },
+  type: definition.type,
+})
 
 /**
  * V8 takes a measurably slower path reading an out-of-bounds index than an
@@ -50,7 +67,7 @@ const buildResolvedById = (): ReadonlyArray<ResolvedBlock | undefined> => {
   const table: Array<ResolvedBlock | undefined> = Array.from({ length: BLOCK_ID_TABLE_LENGTH }, () => undefined)
 
   for (const entry of BLOCK_REGISTRY) {
-    table[entry.id] = resolveBlock(entry.definition)
+    table[entry.id] = resolveRegisteredBlock(entry.definition)
   }
 
   return table
@@ -59,15 +76,8 @@ const buildResolvedById = (): ReadonlyArray<ResolvedBlock | undefined> => {
 const RESOLVED_BY_ID = buildResolvedById()
 
 /** Exported only for focused invariant tests; the package surface is the stable registry facade. */
-export const resolvedBlockAt = (id: BlockId): ResolvedBlock => {
-  const resolved = RESOLVED_BY_ID[id]
-
-  if (resolved === undefined) {
-    throw new Error(`Block registry is missing a resolved row for ${id}`)
-  }
-
-  return resolved
-}
+export const resolvedBlockAt = (id: BlockId): Option.Option<ResolvedBlock> =>
+  Option.fromNullishOr(RESOLVED_BY_ID[id])
 
 /**
  * Exported only for focused invariant tests; the package surface is the
@@ -93,16 +103,6 @@ const seededMap = <K, V>(
   build: (key: K) => V,
 ): ReadonlyMap<K, V> => new Map(keys.map((key): readonly [K, V] => [key, build(key)]))
 
-const requiredMapValue = <K, V>(map: ReadonlyMap<K, V>, key: K, message: string): V => {
-  const value = map.get(key)
-
-  if (value === undefined) {
-    throw new Error(message)
-  }
-
-  return value
-}
-
 const buildCapabilitiesById = (): ReadonlyMap<BlockCapabilityFlag, Uint8Array> => {
   const columns = new Map<BlockCapabilityFlag, Uint8Array>()
 
@@ -113,7 +113,8 @@ const buildCapabilitiesById = (): ReadonlyMap<BlockCapabilityFlag, Uint8Array> =
   }
 
   for (const entry of BLOCK_REGISTRY) {
-    const resolved = resolvedBlockAt(entry.id)
+    const resolved = RESOLVED_BY_ID[entry.id]
+    if (resolved === undefined) continue
 
     for (const [flag, column] of columns) {
       column[entry.id] = resolved.capabilities[flag] ? 1 : 0
@@ -169,7 +170,9 @@ const buildPropertyValuesByName = (): PropertyColumnsByName => {
   }
 
   for (const entry of BLOCK_REGISTRY) {
-    const { properties } = resolvedBlockAt(entry.id)
+    const resolved = RESOLVED_BY_ID[entry.id]
+    if (resolved === undefined) continue
+    const { properties } = resolved
 
     columns.opacity[entry.id] = properties.opacity
     columns.lightEmission[entry.id] = properties.lightEmission
@@ -208,7 +211,9 @@ const buildPropertyColumns = (): PropertyColumns => {
   const supportSensitive = new Uint8Array(BLOCK_ID_TABLE_LENGTH)
 
   for (const entry of BLOCK_REGISTRY) {
-    const { properties } = resolvedBlockAt(entry.id)
+    const resolved = RESOLVED_BY_ID[entry.id]
+    if (resolved === undefined) continue
+    const { properties } = resolved
     opacity[entry.id] = properties.opacity
     lightEmission[entry.id] = properties.lightEmission
     transmitsLight[entry.id] = properties.opacity === 'opaque' ? 0 : 1
@@ -265,7 +270,7 @@ export const RAW_COLUMN_DEFAULTS: ReadonlyArray<{
 export const buildIdByType = (
   entries: ReadonlyArray<Pick<BlockRegistryEntry, 'id' | 'definition'>>,
   types: ReadonlyArray<BlockType>,
-): ReadonlyMap<BlockType, BlockId> => {
+): Result.Result<ReadonlyMap<BlockType, BlockId>, BlockRegistryFailure> => {
   const assignedIds = new Map<BlockType, BlockId>()
 
   for (const entry of entries) {
@@ -278,16 +283,16 @@ export const buildIdByType = (
     const blockId = assignedIds.get(type)
 
     if (blockId === undefined) {
-      throw new Error(`Block registry is missing a row for ${type}`)
+      return failure('missing-block-row', `Block registry is missing a row for ${type}`)
     }
 
     idsByType.set(type, blockId)
   }
 
-  return idsByType
+  return Result.succeed(idsByType)
 }
 
-const ID_BY_TYPE = buildIdByType(BLOCK_REGISTRY, BLOCK_TYPES)
+const ID_BY_TYPE = new Map(BLOCK_REGISTRY.map((entry) => [entry.definition.type, entry.id] as const))
 
 type SupportBlockIdsById = ReadonlyMap<BlockId, ReadonlySet<BlockId>>
 
@@ -296,7 +301,7 @@ const EMPTY_SUPPORT_BLOCK_IDS: ReadonlySet<BlockId> = new Set()
 /** Exported only for focused invariant tests; the package surface is the stable registry facade. */
 export const buildSupportBlockIdsById = (
   supportRules: ReadonlyArray<SupportRule | undefined> = PROPERTY_COLUMNS.supportRule,
-): SupportBlockIdsById => {
+): Result.Result<SupportBlockIdsById, BlockRegistryFailure> => {
   const blockIdsById = new Map<BlockId, ReadonlySet<BlockId>>()
 
   for (const entry of BLOCK_REGISTRY) {
@@ -307,7 +312,7 @@ export const buildSupportBlockIdsById = (
     const supportRule = supportRules[entry.id]
 
     if (supportRule === undefined) {
-      throw new Error(`Block registry is missing a support rule for ${entry.id}`)
+      return failure('missing-support-rule', `Block registry is missing a support rule for ${entry.id}`)
     }
 
     if (supportRule.kind === 'oneOf') {
@@ -317,7 +322,7 @@ export const buildSupportBlockIdsById = (
         const blockId = ID_BY_TYPE.get(type)
 
         if (blockId === undefined) {
-          throw new Error(`Block registry is missing a row for ${type}`)
+          return failure('missing-block-row', `Block registry is missing a row for ${type}`)
         }
 
         supportedBlockIds.add(blockId)
@@ -327,28 +332,27 @@ export const buildSupportBlockIdsById = (
     }
   }
 
-  return blockIdsById
+  return Result.succeed(blockIdsById)
 }
 
 const SUPPORT_BLOCK_IDS_BY_ID = buildSupportBlockIdsById()
 
-const supportBlockIdsOf = (blockIdsById: SupportBlockIdsById, id: BlockId): ReadonlySet<BlockId> => {
-  return requiredMapValue(blockIdsById, id, `Block registry is missing support ids for ${id}`)
+const supportBlockIdsOf = (
+  blockIdsById: SupportBlockIdsById,
+  id: BlockId,
+): Result.Result<ReadonlySet<BlockId>, BlockRegistryFailure> => {
+  const blockIds = blockIdsById.get(id)
+  return blockIds === undefined
+    ? failure('missing-support-ids', `Block registry is missing support ids for ${id}`)
+    : Result.succeed(blockIds)
 }
 
 /** Every id currently assigned, ascending. */
 export const BLOCK_IDS: ReadonlyArray<BlockId> = BLOCK_REGISTRY.map((entry) => entry.id)
 
 /** Block vocabulary to its permanent wire-format id. */
-export const blockIdOf = (type: BlockType): BlockId => {
-  const blockId = ID_BY_TYPE.get(type)
-
-  if (blockId === undefined) {
-    throw new Error(`Block registry is missing a row for ${type}`)
-  }
-
-  return blockId
-}
+export const blockIdOf = (type: BlockType): Option.Option<BlockId> =>
+  Option.fromNullishOr(ID_BY_TYPE.get(type))
 
 /** Block id to its resolved definition, or `undefined` for an unknown byte. */
 export const blockTypeOfId = (id: BlockId): BlockType | undefined =>
@@ -407,9 +411,8 @@ const buildIdsByCapability = (): ReadonlyMap<BlockCapabilityFlag, ReadonlySet<Bl
 const IDS_BY_CAPABILITY = buildIdsByCapability()
 
 /** Return the shared native set of ids carrying a capability. */
-export const blockIdsWithCapability = (flag: BlockCapabilityFlag): ReadonlySet<BlockId> => {
-  return requiredMapValue(IDS_BY_CAPABILITY, flag, `Block capability index is missing ${flag}`)
-}
+export const blockIdsWithCapability = (flag: BlockCapabilityFlag): Option.Option<ReadonlySet<BlockId>> =>
+  Option.fromNullishOr(IDS_BY_CAPABILITY.get(flag))
 
 const buildIdsByOpacity = (): ReadonlyMap<BlockOpacity, ReadonlySet<BlockId>> => {
   const table = new Map<BlockOpacity, Set<BlockId>>()
@@ -420,8 +423,8 @@ const buildIdsByOpacity = (): ReadonlyMap<BlockOpacity, ReadonlySet<BlockId>> =>
 
   for (const entry of BLOCK_REGISTRY) {
     const opacity = propertyOfBlockId(entry.id, 'opacity')
-    const blockIds = requiredMapValue(table, opacity, `Block opacity index is missing ${opacity}`)
-    blockIds.add(entry.id)
+    const blockIds = table.get(opacity)
+    if (blockIds !== undefined) blockIds.add(entry.id)
   }
 
   return table
@@ -430,9 +433,8 @@ const buildIdsByOpacity = (): ReadonlyMap<BlockOpacity, ReadonlySet<BlockId>> =>
 const IDS_BY_OPACITY = buildIdsByOpacity()
 
 /** Return the shared native set of ids in an opacity bucket. */
-export const blockIdsWithOpacity = (opacity: BlockOpacity): ReadonlySet<BlockId> => {
-  return requiredMapValue(IDS_BY_OPACITY, opacity, `Block opacity index is missing ${opacity}`)
-}
+export const blockIdsWithOpacity = (opacity: BlockOpacity): Option.Option<ReadonlySet<BlockId>> =>
+  Option.fromNullishOr(IDS_BY_OPACITY.get(opacity))
 
 /** Read the meshing/light-attenuation class of a raw chunk-buffer byte. */
 export const opacityOfBlockId = (id: BlockId): BlockOpacity =>
@@ -465,22 +467,27 @@ export const isSupportSensitiveBlockId = (id: BlockId): boolean =>
   isWithinTable(id) && PROPERTY_COLUMNS.supportSensitive[id] === 1
 
 /** Evaluate whether a block can remain supported by the byte below it. */
-export const canBlockStaySupported = (id: BlockId, supportBelow: BlockId): boolean => {
+export const canBlockStaySupported = (
+  id: BlockId,
+  supportBelow: BlockId,
+): Result.Result<boolean, BlockRegistryFailure> => {
   if (!isKnownBlockId(id)) {
-    return true
+    return Result.succeed(true)
   }
 
   const rule = supportRuleOfBlockId(id)
 
   if (rule.kind === 'none') {
-    return true
+    return Result.succeed(true)
   }
 
   if (rule.kind === 'anySupporting') {
-    return capabilityOfBlockId(supportBelow, 'canSupportAttachments')
+    return Result.succeed(capabilityOfBlockId(supportBelow, 'canSupportAttachments'))
   }
 
-  return supportBlockIdsOf(SUPPORT_BLOCK_IDS_BY_ID, id).has(supportBelow)
+  return Result.flatMap(SUPPORT_BLOCK_IDS_BY_ID, (blockIdsById) =>
+    Result.map(supportBlockIdsOf(blockIdsById, id), (blockIds) => blockIds.has(supportBelow)),
+  )
 }
 
 /** Block vocabulary entries that have no row in the registry. */

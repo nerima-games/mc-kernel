@@ -11,22 +11,25 @@ import {
   fluidKindOfBlockId,
   SOURCE_FLUID_LEVEL,
 } from '../src/domain/block/fluid'
+import { optionValue } from './block-result-helpers'
 
 describe('fluid data', () => {
   it('exposes fluid block vocabulary and level constants', () => {
-    expect(FLUID_BLOCK_IDS.water).toBe(blockIdOf('water'))
-    expect(FLUID_BLOCK_IDS.lava).toBe(blockIdOf('lava'))
-    expect(FLUID_MIX_BLOCK_IDS.cobblestone).toBe(blockIdOf('cobblestone'))
-    expect(FLUID_MIX_BLOCK_IDS.obsidian).toBe(blockIdOf('obsidian'))
+    const waterId = optionValue(blockIdOf('water'))
+    const lavaId = optionValue(blockIdOf('lava'))
+    expect(optionValue(FLUID_BLOCK_IDS.water)).toBe(waterId)
+    expect(optionValue(FLUID_BLOCK_IDS.lava)).toBe(lavaId)
+    expect(optionValue(FLUID_MIX_BLOCK_IDS.cobblestone)).toBe(optionValue(blockIdOf('cobblestone')))
+    expect(optionValue(FLUID_MIX_BLOCK_IDS.obsidian)).toBe(optionValue(blockIdOf('obsidian')))
     expect(FLUID_LEVEL_MIN).toBe(1)
     expect(FLUID_LEVEL_MAX).toBe(8)
     expect(FLUID_LEVEL_STEP).toBe(1)
     expect(SOURCE_FLUID_LEVEL).toBe(8)
     expect(FLOWING_FLUID_LEVEL).toBe(7)
-    expect(blockIdOfFluidKind('water')).toBe(FLUID_BLOCK_IDS.water)
-    expect(blockIdOfFluidKind('lava')).toBe(FLUID_BLOCK_IDS.lava)
-    expect(fluidKindOfBlockId(FLUID_BLOCK_IDS.water)).toBe('water')
-    expect(fluidKindOfBlockId(FLUID_BLOCK_IDS.lava)).toBe('lava')
-    expect(fluidKindOfBlockId(blockIdOf('air'))).toBeNull()
+    expect(optionValue(blockIdOfFluidKind('water'))).toBe(waterId)
+    expect(optionValue(blockIdOfFluidKind('lava'))).toBe(lavaId)
+    expect(fluidKindOfBlockId(waterId)).toBe('water')
+    expect(fluidKindOfBlockId(lavaId)).toBe('lava')
+    expect(fluidKindOfBlockId(optionValue(blockIdOf('air')))).toBeNull()
   })
 })

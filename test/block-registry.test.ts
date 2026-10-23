@@ -9,7 +9,10 @@ import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 import { expectTypeOf } from 'vitest'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block/block-capabilities'
-import { blockCapabilitiesOf, resolveBlock } from '../src/domain/block/block-definition'
+import {
+  blockCapabilitiesOf as blockCapabilitiesOfResult,
+  resolveBlock as resolveBlockResult,
+} from '../src/domain/block/block-definition'
 import {
   BLOCK_OPACITIES,
   BLOCK_PROPERTY_DEFAULTS,
@@ -21,9 +24,9 @@ import {
   BLOCK_ID_MAX,
   BLOCK_REGISTRY,
   BlockId,
-  blockIdOf,
-  blockIdsWithCapability,
-  blockIdsWithOpacity,
+  blockIdOf as blockIdOfOption,
+  blockIdsWithCapability as blockIdsWithCapabilityOption,
+  blockIdsWithOpacity as blockIdsWithOpacityOption,
   blockTypeOfId,
   capabilitiesOfBlockId,
   capabilityOfBlockId,
@@ -34,7 +37,17 @@ import {
   resolvedBlockOfId,
   transmitsLight,
 } from '../src/domain/block/block-registry'
+import { optionValue, resultValue } from './block-result-helpers'
 const number = Number
+
+const blockIdOf = (type: Parameters<typeof blockIdOfOption>[0]) => optionValue(blockIdOfOption(type))
+const blockIdsWithCapability = (flag: Parameters<typeof blockIdsWithCapabilityOption>[0]) =>
+  optionValue(blockIdsWithCapabilityOption(flag))
+const blockIdsWithOpacity = (opacity: Parameters<typeof blockIdsWithOpacityOption>[0]) =>
+  optionValue(blockIdsWithOpacityOption(opacity))
+const blockCapabilitiesOf = (definition: Parameters<typeof blockCapabilitiesOfResult>[0]) =>
+  resultValue(blockCapabilitiesOfResult(definition))
+const resolveBlock = (definition: Parameters<typeof resolveBlockResult>[0]) => resultValue(resolveBlockResult(definition))
 
 /**
  * `BLOCK_ID_TABLE_LENGTH` itself is not exported — this is the same
@@ -547,13 +560,11 @@ describe('unknown ids', () => {
     })),
   )
 
-  it('narrow numbers to BlockId when known', () =>
+  it('accepts branded ids and identifies registered ids', () =>
     Effect.runPromise(Effect.sync(() => {
       const id: BlockId = BlockId(2)
-      if (!isKnownBlockId(id)) {
-        throw new Error('expected known block id in type-narrowing test')
-      }
-      expectTypeOf(id).toEqualTypeOf<BlockId>()
+      expect(isKnownBlockId(id)).toBe(true)
+      expectTypeOf(isKnownBlockId).parameter(0).toEqualTypeOf<BlockId>()
     })),
   )
 
