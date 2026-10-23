@@ -416,6 +416,7 @@ import {
   resolveDrop,
   snapshotAgeSecs,
   MonotonicTimeSecs,
+  PositionAxis,
   itemStack,
   maxStackCountForItem,
   shapedRecipe,
@@ -461,7 +462,7 @@ const brewing: BrewingState = {
   brewProgressSecs: 0,
 }
 const cameraSnapshot: CameraPoseSnapshot = {
-  position: { x: 0, y: 0, z: 0 },
+  position: { x: PositionAxis(0), y: PositionAxis(0), z: PositionAxis(0) },
   yawRadians: 0,
   pitchRadians: 0,
   capturedAtSecs: MonotonicTimeSecs(1),
