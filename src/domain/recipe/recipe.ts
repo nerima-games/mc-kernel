@@ -37,19 +37,4 @@ export type {
   ShapedRecipe,
   ShapelessRecipe,
 } from "./recipe-data.js";
-export {
-  conflictsIn,
-  matchRecipe,
-  matchRecipeWithAssignments,
-  matchesRecipe,
-  matchesShaped,
-  matchesShapeless,
-} from "./recipe-matching.js";
-export type {
-  RecipeConflict,
-  RecipeConflictReason,
-  RecipeIngredientAssignment,
-  RecipeMatch,
-  RecipeMatchWithAssignments,
-} from "./recipe-matching.js";
 export { VANILLA_CRAFTING_RECIPES } from "./recipe-vanilla-data.js";

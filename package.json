@@ -380,20 +380,10 @@
       "import": "./dist/domain/recipe-registry.js",
       "default": "./dist/domain/recipe-registry.js"
     },
-    "./domain/crafting": {
-      "types": "./dist/domain/crafting.d.ts",
-      "import": "./dist/domain/crafting.js",
-      "default": "./dist/domain/crafting.js"
-    },
     "./domain/crafting-special-data": {
       "types": "./dist/domain/crafting-special-data.d.ts",
       "import": "./dist/domain/crafting-special-data.js",
       "default": "./dist/domain/crafting-special-data.js"
-    },
-    "./domain/crafting-special": {
-      "types": "./dist/domain/crafting-special.d.ts",
-      "import": "./dist/domain/crafting-special.js",
-      "default": "./dist/domain/crafting-special.js"
     },
     "./domain/projectile": {
       "types": "./dist/domain/projectile.d.ts",

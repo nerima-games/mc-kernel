@@ -57,7 +57,6 @@ import * as quantitiesModule from "../src/domain/time/quantities";
 import * as recipeModule from "../src/domain/recipe/recipe";
 import * as recipeJsonModule from "../src/domain/recipe/recipe-json";
 import * as recipeRegistryModule from "../src/domain/recipe/recipe-registry";
-import * as craftingModule from "../src/domain/recipe/crafting";
 import * as explosionModule from "../src/domain/entity/explosion";
 import * as primedTntModule from "../src/domain/entity/primed-tnt";
 import * as projectileModule from "../src/domain/entity/projectile";
@@ -534,14 +533,7 @@ describe("public API surface", () => {
           "craftGrid",
           "cellAt",
           "ingredientMatches",
-          "matchesShaped",
-          "matchesShapeless",
-          "matchesRecipe",
-          "matchRecipe",
-          "matchRecipeWithAssignments",
-          "conflictsIn",
           "VANILLA_CRAFTING_RECIPES",
-          "craftFromGrid",
           // Pure cooking data and logic
           "COOKING_STATIONS",
           "VANILLA_FUEL_RULES",
@@ -1780,10 +1772,6 @@ describe("public API surface", () => {
         expect(kernel.matchWitherSummon).toBe(witherModule.matchWitherSummon);
         expect(kernel.serializeWither).toBe(witherModule.serializeWither);
         expect(kernel.restoreWither).toBe(witherModule.restoreWither);
-        expect(kernel.matchRecipe).toBe(recipeModule.matchRecipe);
-        expect(kernel.matchRecipeWithAssignments).toBe(
-          recipeModule.matchRecipeWithAssignments,
-        );
         expect(kernel.craftingRecipeFromUnknown).toBe(
           recipeJsonModule.craftingRecipeFromUnknown,
         );
@@ -1828,7 +1816,6 @@ describe("public API surface", () => {
         expect(kernel.VANILLA_CRAFTING_RECIPES).toBe(
           recipeModule.VANILLA_CRAFTING_RECIPES,
         );
-        expect(kernel.craftFromGrid).toBe(craftingModule.craftFromGrid);
         expect(kernel.advanceFurnace).toBe(smeltingModule.advanceFurnace);
         expect(kernel.VANILLA_SMELTING_RECIPES).toBe(
           smeltingModule.VANILLA_SMELTING_RECIPES,
@@ -2419,7 +2406,6 @@ describe("public API surface", () => {
         const hotbarPath = "@nerima-games/mc-kernel/domain/hotbar";
         const quantitiesPath = "@nerima-games/mc-kernel/domain/quantities";
         const recipePath = "@nerima-games/mc-kernel/domain/recipe";
-        const craftingPath = "@nerima-games/mc-kernel/domain/crafting";
         const brewingPath = "@nerima-games/mc-kernel/domain/brewing";
         const cookingPath = "@nerima-games/mc-kernel/domain/cooking";
         const cameraPosePath = "@nerima-games/mc-kernel/domain/camera-pose";
@@ -2494,7 +2480,6 @@ describe("public API surface", () => {
           hotbarSubpath,
           quantitiesSubpath,
           recipeSubpath,
-          craftingSubpath,
           brewingSubpath,
           cookingSubpath,
           cameraPoseSubpath,
@@ -2565,7 +2550,6 @@ describe("public API surface", () => {
           import(hotbarPath),
           import(quantitiesPath),
           import(recipePath),
-          import(craftingPath),
           import(brewingPath),
           import(cookingPath),
           import(cameraPosePath),
@@ -3171,14 +3155,9 @@ describe("public API surface", () => {
         expect(quantitiesSubpath.ConsumeSeconds).toBe(
           packageRoot.ConsumeSeconds,
         );
-        expect(recipeSubpath.matchRecipe).toBe(packageRoot.matchRecipe);
-        expect(recipeSubpath.matchRecipeWithAssignments).toBe(
-          packageRoot.matchRecipeWithAssignments,
-        );
         expect(recipeSubpath.VANILLA_CRAFTING_RECIPES).toBe(
           packageRoot.VANILLA_CRAFTING_RECIPES,
         );
-        expect(craftingSubpath.craftFromGrid).toBe(packageRoot.craftFromGrid);
         expect(brewingSubpath.advanceBrewing).toBe(packageRoot.advanceBrewing);
         expect(brewingSubpath.VANILLA_BREWING_RECIPES).toBe(
           packageRoot.VANILLA_BREWING_RECIPES,

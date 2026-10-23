@@ -18,9 +18,7 @@ export type {
 export * from "./_recipe.js";
 export * from "./_recipe-json.js";
 export * from "./_recipe-registry.js";
-export * from "./_crafting.js";
 export * from "./_crafting-special-data.js";
-export * from "./_crafting-special.js";
 export * from "./_smelting.js";
 export * from "./_smithing.js";
 export * from "./_stonecutting.js";
