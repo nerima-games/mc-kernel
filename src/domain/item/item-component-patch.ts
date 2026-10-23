@@ -1,5 +1,5 @@
 import { Brand } from "effect";
-import { Either } from "effect";
+import { Result } from "effect";
 import { TaggedError } from "effect/Data";
 import { NamespacedResourceLocation } from "../text/identifiers.js";
 import {
@@ -23,16 +23,13 @@ export type ItemComponentPatchDecodeError = Error | Readonly<{
 export type ItemComponentPatchKey = string &
   Brand.Brand<"ItemComponentPatchKey">;
 
-export const ItemComponentPatchKey: Brand.Brand.Constructor<ItemComponentPatchKey> =
-  Brand.refined<ItemComponentPatchKey>(
-    (value) =>
-      NamespacedResourceLocation.is(
-        value.startsWith("!") ? value.slice(1) : value,
-      ),
-    (value) =>
-      Brand.error(
-        `ItemComponentPatchKey must be a namespaced component with an optional ! prefix, received ${JSON.stringify(value)}`,
-      ),
+export const ItemComponentPatchKey: Brand.Constructor<ItemComponentPatchKey> =
+  Brand.make<ItemComponentPatchKey>((value) =>
+    NamespacedResourceLocation.is(
+      value.startsWith("!") ? value.slice(1) : value,
+    )
+      ? true
+      : `ItemComponentPatchKey must be a namespaced component with an optional ! prefix, received ${JSON.stringify(value)}`,
   );
 
 export type ItemComponentPatch = Readonly<
@@ -94,8 +91,8 @@ export const itemComponentPatchFromUnknown = (
 
 export const itemComponentPatchFromUnknownEither = (
   value: unknown,
-): Either.Either<ItemComponentPatch, ItemComponentPatchDecodeError> =>
-  Either.try({
+): Result.Result<ItemComponentPatch, ItemComponentPatchDecodeError> =>
+  Result.try({
     try: () => itemComponentPatchFromUnknown(value),
     catch: (error) => (error instanceof Error ? error : new Error("Invalid item component patch")),
   });
@@ -157,8 +154,8 @@ export function mergeItemComponentPatches(
 export const mergeItemComponentPatchesEither = (
   left: ItemComponentPatch | undefined,
   right: ItemComponentPatch | undefined,
-): Either.Either<ItemComponentPatch | undefined, ItemComponentPatchDecodeError> =>
-  Either.try({
+): Result.Result<ItemComponentPatch | undefined, ItemComponentPatchDecodeError> =>
+  Result.try({
     try: () => mergeItemComponentPatches(left, right),
     catch: (error) => (error instanceof Error ? error : new Error("Invalid item component patch")),
   });

@@ -18,8 +18,8 @@ import { AnvilMaterialCost, type AnvilMaterialCost as AnvilMaterialCostValue } f
 import { describe, expect, it } from 'vitest'
 import { expectTypeOf } from 'vitest'
 
-it('formats hostile material-cost input without throwing from either', () => {
-  expect(AnvilMaterialCost.either(Number.NaN)).toBeDefined()
+it('returns a defined validation result for hostile material-cost input', () => {
+  expect(AnvilMaterialCost.result(Number.NaN)).toBeDefined()
 })
 
 const RULES = {

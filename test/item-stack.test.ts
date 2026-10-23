@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as fc from "effect/FastCheck";
+import * as fc from "fast-check";
 import { itemComponents } from "../src/domain/item/item-components";
 import { itemComponentPatch, itemComponentPatchFromUnknownEither } from "../src/domain/item/item-component-patch";
 import { TransferQuantity } from "../src/domain/time/quantities";
@@ -152,7 +152,7 @@ describe("canonical item stacks", () => {
     const left = itemComponentPatch({ "minecraft:damage": 1 });
     const right = itemComponentPatch({ "minecraft:damage": 2 });
     expect(() => itemStack("diamond_sword", 1, { componentPatch: left })).not.toThrow();
-    expect(itemComponentPatchFromUnknownEither({ "minecraft:damage": 1, "!minecraft:damage": null })._tag).toBe("Left");
+    expect(itemComponentPatchFromUnknownEither({ "minecraft:damage": 1, "!minecraft:damage": null })._tag).toBe("Failure");
     expect(left).not.toBe(right);
     expect(() => itemStackFromUnknown("stone", 1, { components: {} })).toThrow(TypeError);
     expect(() => itemStackFromUnknown("stone", 1, { componentPatch: { invalid: true } })).toThrow(TypeError);
