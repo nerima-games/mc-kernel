@@ -129,7 +129,7 @@ const isBlockType = (value: string): value is BlockType
 
 ```typescript
 type BlockId = number & Brand.Brand<"BlockId">;
-const BLOCK_ID_MAX = 0xffff; // BlockState の 2 バイト要素が表現できる上限
+const BLOCK_ID_MAX = 0xffff; // レジストリが割り当てる ID の上限。BlockState は 2 バイト要素で最大 0xffff まで保存できる
 const AIR_BLOCK_ID: BlockId = 0;
 const isEmpty: (id: number) => boolean;
 ```
@@ -280,7 +280,7 @@ const ItemIdBytes(bytes: Uint8Array | ItemIdBytes): ItemIdBytes // 長さと既�
 
 **id は `ITEM_TYPES` の配列添字であり、密かつ追加専用（append-only）。** 新しいアイテムは必ず
 `ITEM_TYPES` の末尾に足す。途中挿入や並べ替えは既存の全 id を付け替える破壊的変更になる。
-`BlockId` が `Uint8Array` の 1 バイトに収まる 256 通りに縛られるのに対し、`ItemId` は
+`BlockId` の許容範囲は `BLOCK_ID_MAX` が定める 0..65535 であり、chunk では各要素を 2 バイトで保存する。`ItemId` は
 `unsigned 16-bit`（0..65535）を確保してあり、205 種の現行語彙に対して十分な余裕を持つ。
 
 `maxStackCountOfItem` の答えは 3 段階（64 / 16 / 1）で、道具・防具・薬品・ボート等
