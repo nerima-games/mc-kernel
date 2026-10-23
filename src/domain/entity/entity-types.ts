@@ -3,18 +3,22 @@ import { position, type Position } from '../coordinates/coordinate-primitives.js
 
 export type EntityId = string & Brand.Brand<'EntityId'>
 
-const entityId: Brand.Brand.Constructor<EntityId> = Brand.refined<EntityId>(
-  (value): value is EntityId => typeof value === 'string' && value.trim().length > 0,
-  (value) => Brand.error(`EntityId must be a non-blank string, received ${JSON.stringify(value)}`),
+const entityId: Brand.Constructor<EntityId> = Brand.make<EntityId>(
+  (value) =>
+    typeof value === 'string' && value.trim().length > 0
+      ? true
+      : `EntityId must be a non-blank string, received ${JSON.stringify(value)}`,
 )
 
 export { entityId as EntityId }
 
 export type EntityKind = string & Brand.Brand<'EntityKind'>
 
-const entityKind: Brand.Brand.Constructor<EntityKind> = Brand.refined<EntityKind>(
-  (value): value is EntityKind => typeof value === 'string' && value.trim().length > 0,
-  (value) => Brand.error(`EntityKind must be a non-blank string, received ${JSON.stringify(value)}`),
+const entityKind: Brand.Constructor<EntityKind> = Brand.make<EntityKind>(
+  (value) =>
+    typeof value === 'string' && value.trim().length > 0
+      ? true
+      : `EntityKind must be a non-blank string, received ${JSON.stringify(value)}`,
 )
 
 export { entityKind as EntityKind }

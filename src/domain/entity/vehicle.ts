@@ -11,16 +11,20 @@ export const isVehicleType = (value: unknown): value is VehicleType =>
   typeof value === 'string' && VEHICLE_TYPE_LOOKUP.has(value)
 
 export type VehicleId = string & Brand.Brand<'VehicleId'>
-const vehicleId: Brand.Brand.Constructor<VehicleId> = Brand.refined<VehicleId>(
-  (value) => typeof value === 'string' && value.trim().length > 0,
-  () => Brand.error('VehicleId must be a non-blank string'),
+const vehicleId: Brand.Constructor<VehicleId> = Brand.make<VehicleId>(
+  (value) =>
+    typeof value === 'string' && value.trim().length > 0
+      ? true
+      : 'VehicleId must be a non-blank string',
 )
 export { vehicleId as VehicleId }
 
 export type OccupantId = string & Brand.Brand<'VehicleOccupantId'>
-const occupantId: Brand.Brand.Constructor<OccupantId> = Brand.refined<OccupantId>(
-  (value) => typeof value === 'string' && value.trim().length > 0,
-  () => Brand.error('OccupantId must be a non-blank string'),
+const occupantId: Brand.Constructor<OccupantId> = Brand.make<OccupantId>(
+  (value) =>
+    typeof value === 'string' && value.trim().length > 0
+      ? true
+      : 'OccupantId must be a non-blank string',
 )
 export { occupantId as OccupantId }
 
