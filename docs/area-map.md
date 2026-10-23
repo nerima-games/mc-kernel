@@ -38,7 +38,7 @@ re-exports that barrel.
 `block-registry-entries-foundation.ts`, `block-registry-entries-ores-and-blocks.ts`,
 `block-registry-entries-passable.ts`, `block-registry-entries-structures-and-nether.ts`,
 `block-registry-entries-terrain.ts`, `block-registry-entries.ts`,
-`block-registry-indexes.ts`, `block-registry-rules.ts`, `block-registry-types.ts`,
+`block-registry-entry-input.ts`, `block-registry-indexes.ts`, `block-registry-rules.ts`, `block-registry-types.ts`,
 `block-registry.ts`, `block-state.ts`, `block-support-data.ts`, `block-support.ts`,
 `block-type-data.ts`, `block-type.ts`, `crop-data.ts`, `crop.ts`, `fluid-data.ts`,
 `fluid.ts`, `light-data.ts`, `light.ts`, `redstone-data.ts`
@@ -56,6 +56,7 @@ re-exports that barrel.
 `item-components-data.ts`, `item-components-validation.ts`, `item-components.ts`,
 `item-defense-data.ts`, `item-defense-validation.ts`, `item-defense.ts`,
 `item-enchantments-data.ts`, `item-enchantments-validation.ts`, `item-enchantments.ts`,
+`item-primitives.ts`,
 `item-registry.ts`, `item-stack.ts`, `item-tool-data.ts`, `item-tool.ts`,
 `item-type-data.ts`, `item-type.ts`, `tool-component.ts`, `use-cooldown-data.ts`,
 `use-cooldown-validation.ts`, `use-cooldown.ts`, `weapon-data.ts`,

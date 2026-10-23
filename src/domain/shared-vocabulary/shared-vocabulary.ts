@@ -1,17 +1,19 @@
 import type { BlockPosition as ExistingBlockPosition } from '../coordinates/coordinate-primitives.js'
+import type { PositionAxis as ExistingPositionAxis } from '../coordinates/coordinate-primitives.js'
 import type { EntityId as ExistingEntityId } from '../entity/entity-types.js'
 import type { ItemId as ExistingItemId } from '../item/item-registry.js'
 import type { WorldId as ExistingWorldId } from '../text/identifiers.js'
 import type { SimulationTick as ExistingSimulationTick } from '../time/quantities.js'
 import type { BlockId as ExistingBlockId } from '../block/block-registry-types.js'
-import { type Brand, Schema } from 'effect'
+import { Brand, Schema } from 'effect'
 
 type DimensionIdValue = Brand.Branded<'overworld' | 'nether' | 'end', 'DimensionId'>
+type AngleRadiansValue = Brand.Branded<number, 'AngleRadians'>
 type WorldPositionValue = Brand.Branded<Readonly<{
   dimension: DimensionIdValue
-  x: number
-  y: number
-  z: number
+  x: ExistingPositionAxis
+  y: ExistingPositionAxis
+  z: ExistingPositionAxis
 }>, 'WorldPosition'>
 type WorldRevisionValue = Brand.Branded<number, 'WorldRevision'>
 type DimensionRevisionValue = Brand.Branded<number, 'DimensionRevision'>
@@ -24,6 +26,11 @@ export type EntityId = ExistingEntityId
 export const DimensionIdSchema: Schema.Codec<DimensionIdValue, 'overworld' | 'nether' | 'end'> =
   Schema.Literals(['overworld', 'nether', 'end']).pipe(Schema.brand('DimensionId'))
 export type DimensionId = Schema.Schema.Type<typeof DimensionIdSchema>
+
+export type AngleRadians = AngleRadiansValue
+export const AngleRadians: Brand.Constructor<AngleRadians> = Brand.make<AngleRadians>(
+  (value) => Number.isFinite(value) || 'AngleRadians must be finite',
+)
 
 export const WorldIdSchema: Schema.Codec<ExistingWorldId, string> = Schema.NonEmptyString.pipe(
   Schema.brand('WorldId'),
@@ -69,9 +76,9 @@ type WorldPositionEncoded = Readonly<{
 export const WorldPositionSchema: Schema.Codec<WorldPositionValue, WorldPositionEncoded> =
   Schema.Struct({
     dimension: DimensionIdSchema,
-    x: Schema.Finite,
-    y: Schema.Finite,
-    z: Schema.Finite,
+  x: Schema.Finite.pipe(Schema.brand('PositionAxis')),
+  y: Schema.Finite.pipe(Schema.brand('PositionAxis')),
+  z: Schema.Finite.pipe(Schema.brand('PositionAxis')),
   }).pipe(Schema.brand('WorldPosition'))
 export type WorldPosition = Schema.Schema.Type<typeof WorldPositionSchema>
 

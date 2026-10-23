@@ -13,6 +13,35 @@
 TypeScript のコードブロックは公開宣言の要約である。`...` や `/` でまとめた記述は省略を示し、全ブロックがそのままコンパイルできる宣言とは限らない。
 `package.json` の `types` 条件は root entrypoint を `dist/index.d.ts`、各 `./domain/<name>` subpath を `dist/domain/<name>.d.ts` に対応づける。各公開 import entrypoint の完全な型宣言は package に含まれるそのファイルから確認できる。
 
+## 公開シグネチャのブランド化（K-brand）
+
+公開関数の引数・戻り値と公開データ型の数値・文字列・bigint フィールドは、意味に対応するブランド型を使う。外部入力の decoder は `unknown` を受け取り、検証後にブランド値を返す。次の表はブランド型を使う主な公開 API 群を示す。
+
+| 領域 | 主な公開契約 |
+| --- | --- |
+| 座標・カメラ | `Position` と `WorldPosition` の x/y/z は有限な `PositionAxis`。`position` は 3 軸を受け取る。`CameraPoseSnapshot` の yaw/pitch は有限な `AngleRadians`。`snapshotAgeSecs` は `SnapshotAgeSecs` を返す。 |
+| フレーム時間 | `clampFrameDelta` と `frameDeltaLossSecs` は `DeltaTimeSecs`、時刻差分関数は `MonotonicTimeSecs` を受け取り、`DeltaTimeSecs` を返す。 |
+| ブロック・chunk | block property 値は固有の数値ブランドを使う。`BlockState` の index、length、byte offset は `BlockStateIndex`、`BlockStateLength`、`BlockStateByteOffset`。light channel は対応する `LightChannel*` ブランドを使う。chunk height、Y、要素数は `ChunkHeight`、`ChunkLocalY`、`ChunkBlockCount`。 |
+| world | heightmap 列は `HeightmapColumnIndex`、read view section index/length は `SectionIndex` / `SectionLength`。biome の気温・降水量・tint は `BiomeTemperature` / `BiomeDownfall` / `BiomeTint`。random source は `RandomSeed`、`RandomIntBound`、`RandomInt`、`RandomFraction`。data pack layer は `DataPackFormat`、`DataPackPriority`、`DataPackResourcePath` と namespaced resource location を使う。 |
+| item | stack 数には既存の `StackCount` を使う。component の数値・文字列・bigint 値、effect、food、map、profile、book、trim、firework、kinetic、tool の公開フィールドは下表の意味ブランドを使う。 |
+| recipe | ingredient count、priority、grid 寸法/index、pattern row/symbol、free-form group、experience、completion count、brewing fuel、transmute material slot 数は専用ブランドを使う。recipe ID/tag は既存の resource-location ブランドを使う。 |
+| text | vanilla path は `VanillaResourcePath`。Settings の距離、視野角、音量、感度、action、key code と difficulty multiplier は専用ブランドを使う。 |
+| entity | serial、health、roster repair count、explosion の半径/count/exposure、portal の幅/高さ、vehicle velocity/診断文字列、Sulfur Cube の数値値は専用ブランドを使う。yaw は `AngleRadians`。 |
+
+ブランド型と validator の受理域は次のとおり。各 `Brand.Constructor` は値の型と同名で公開される。
+
+| 領域 | ブランドと受理域 |
+| --- | --- |
+| coordinates / shared vocabulary | `PositionAxis`: 有限値。`AngleRadians`: 有限値。`SnapshotAgeSecs`: 有限値で、clock skew を表す負値も受理する。 |
+| block | `LightLevelCandidate`: NaN 以外。`BlockHardness`: 有限値で 0 以上、または -1。`BlockFriction`: [0, 1]。`BlockBlastResistance`: 非負値または正の Infinity。`BlockContactDamage` / `BlockMovementDrag` / `BlockExperiencePoints`: 有限非負値。`ContainerSlotCount`、`LightChannelLength`、`LightChannelIndex`、`LightChannelByteOffset`、`BlockStateLength`、`BlockStateIndex`、`BlockStateByteOffset`: 非負 safe integer。`LightVolumeHeight`: 整数 [1, `MAX_CHUNK_HEIGHT`]。 |
+| world | `ChunkLocalY`: 整数 [0, `MAX_CHUNK_HEIGHT` - 1]。`ChunkBlockCount`: 256 の倍数 [256, 256 × `MAX_CHUNK_HEIGHT`]。`SectionIndex` / `SectionLength` / `HeightmapColumnIndex`: 非負 safe integer、heightmap index は 0..255。`BiomeTemperature`: 有限 [-0.7, 2]。`BiomeDownfall`: [0, 1]。`BiomeTint`: packed RGB 整数 [0, 0xFFFFFF]。`RandomSeed`: safe integer。`RandomIntBound`: 正の safe integer。`RandomInt`: 非負 safe integer。`RandomFraction`: [0, 1)。`DataPackFormat`: 有限非負値。`DataPackPriority`: 非負 safe integer。`DataPackResourcePath`: `data/` 下の安全な相対 `.json` path。 |
+| text | `VanillaResourcePath`: 小文字英数字と `/._-` の vanilla path。`RenderDistanceChunks`: 整数 [2, 16]。`FieldOfViewDegrees`: 有限 [30, 110]。`VolumeLevel`: [0, 1]。`MouseSensitivity`: [0.1, 3]。`InputAction` / `KeyCode`: 空白だけではない文字列。`DifficultyDamageMultiplier`: [0, 1.5]。`DifficultyHungerMultiplier`: [0, 1]。 |
+| entity | `EntitySerial` / `EntityRosterRepairCount` / `ExplosionBlockCount` / `ExplosionRayStepCount` / `ExplosionEntityCount`: 非負 safe integer。`EntityHealthPoints` / `ExplosionRadius` / `SulfurCubeContactDamageAmount`: 有限非負値。`ExplosionExposure`: [0, 1]。`PortalWidth`: 整数 [2, 21]。`PortalHeight`: 整数 [3, 21]。`VehicleVelocityComponent` と Sulfur Cube の knockback/sound 値: 有限値。`VehicleValidationPath` / `VehicleValidationReason`: 文字列。`SulfurCubeExplosionPower`: 非負 safe integer。 |
+| item, numeric | `EffectAmplifier`: 整数 [0, 255]。`EffectDurationSecs`: 有限正値。`FoodNutrition`: 非負 safe integer。`FoodSaturation`: 有限非負値。`FoodEffectProbability`: [0, 1]。`RandomTeleportDiameter`: 有限正値。`BeeHiveTicks` / `PotionEffectDurationTicks`: 非負 safe integer。`ContainerSlotIndex`: 整数 [0, 255]。`RgbColor`: 整数 [0, 0xFFFFFF]。`DyeColorChannel`: [0, 1]。`MapDecorationCoordinate`: 整数 [-128, 127]。`MapDecorationRotation`: 整数 [0, 15]。`BookGeneration`: 整数 [0, 3]。`TrimItemModelIndex`: 有限非負値。`Enchantability` / `EnchantmentWeight`: 正の safe integer。`ItemEnchantability` / `EnchantmentTableLevelCost`: 非負 safe integer。`OminousBottleAmplifier`: 整数 [0, 4]。`FireworksFlightDuration`: 整数 [0, 255]。`CustomModelDataFloat`: 有限値。`KineticDurationTicks`: 非負 safe integer。`KineticSpeed` / `KineticDamageMultiplier` / `ToolMiningSpeed`: 有限非負値。`KineticMovement`: 有限値。`ToolDurabilityDamage` / `ToolRuleOrder`: 非負 safe integer。`ItemComponentNbtNumber`: 有限値。 |
+| item, bigint | `ItemComponentNbtLong` / `LootTableSeed`: signed 64-bit 整数。 |
+| item, string | `ItemComponentNbtString` / `ItemComponentNbtKey` / `TrimArmorMaterialKey` / `ProfilePropertyName` / `ProfilePropertyValue` / `ProfilePropertySignature` / `BookPageText` / `BookAuthor` / `BlockStatePropertyValue` / `ItemLock` / `CustomModelDataString`: 文字列。`ProfileName`: ASCII 英数字と `_` の 1..16 文字。`TrimAssetName`: 空でない文字列。 |
+| recipe | `RecipeIngredientCount`: 整数 [1, 64]。`RecipePriority`: 非負 safe integer。`RecipeGridDimension`: 整数 [0, 3]。`RecipeGridIndex`: 整数 [0, 2]。`RecipePatternRow`: 長さ 0..3。`RecipePatternSymbol`: 空白でない 1 文字。`RecipeGroup`: 任意の文字列。`RecipeExperience`: 有限非負値。`RecipeCompletionCount`: 非負 safe integer。`TransmuteMaterialSlotCount`: 整数 [1, 8]。`BrewingFuelCharges`: 整数 [0, 20]。 |
+
 ## 1. ブランデッド型（identifiers / quantities）
 
 ```typescript
@@ -20,6 +49,7 @@ type WorldId = string & Brand.Brand<"WorldId">;
 type StageId = string & Brand.Brand<"StageId">;
 type ResourceLocation = string & Brand.Brand<"ResourceLocation">;
 type TagLocation = string & Brand.Brand<"TagLocation">;
+type VanillaResourcePath = string & Brand.Brand<"VanillaResourcePath">;
 type StackCount = number & Brand.Brand<"StackCount">; // 1..MAX_STACK_COUNT (99)
 type DeltaTimeSecs = number & Brand.Brand<"DeltaTimeSecs">;
 type MonotonicTimeSecs = number & Brand.Brand<"MonotonicTimeSecs">;
@@ -33,10 +63,13 @@ type CooldownSeconds = number & Brand.Brand<"CooldownSeconds">; // finite, > 0
 type ConsumeSeconds = number & Brand.Brand<"ConsumeSeconds">; // finite, >= 0
 type EpochMillis = number & Brand.Brand<"EpochMillis">;
 
+const VanillaResourcePath(value: string): VanillaResourcePath;
+const vanillaId: (name: VanillaResourcePath) => ResourceLocation;
+
 const MAX_STACK_COUNT = 99;
 ```
 
-いずれも `Brand.make` によるコンストラクタを同名で公開する（値と型の両方）。`ResourceLocation` は namespace を省略でき、検証後も入力文字列をそのまま保持する（`minecraft:entity.generic.eat`、`entity.generic.eat`、`sulfur_cube_archetype/regular` など）。`vanillaId` は vanilla ID に `minecraft:` を付けて構築する。
+いずれも `Brand.make` によるコンストラクタを同名で公開する（値と型の両方）。`ResourceLocation` は namespace を省略でき、検証後も入力文字列をそのまま保持する（`minecraft:entity.generic.eat`、`entity.generic.eat`、`sulfur_cube_archetype/regular` など）。`VanillaResourcePath` は namespace と `minecraft:` を含まない vanilla path を検証し、`vanillaId` は検証済み path に `minecraft:` を付ける。
 `TagLocation` は同じ resource location の前に必須の `#` を付けた形式（`#minecraft:mineable/pickaxe`、
 `#sulfur_cube_archetype/regular` など）を受け付ける。
 
@@ -62,7 +95,7 @@ const BlockAxis: Brand.Constructor<BlockAxis>
 const ChunkAxis: Brand.Constructor<ChunkAxis>
 const LocalAxis: Brand.Constructor<LocalAxis>
 
-type Position      = { readonly x: PositionAxis; readonly y: PositionAxis; readonly z: PositionAxis }
+type Position      = { readonly x: PositionAxis; readonly y: PositionAxis; readonly z: PositionAxis } // 連続座標
 type BlockPosition = { readonly x: BlockAxis; readonly y: BlockAxis; readonly z: BlockAxis }
 type BlockFace = 'down' | 'up' | 'north' | 'south' | 'west' | 'east'
 type ChunkCoord    = { readonly cx: ChunkAxis; readonly cz: ChunkAxis }
@@ -119,16 +152,16 @@ type BlockPositionKey = string & Brand.Brand<'BlockPositionKey'>   // 正準形�
 type ChunkKey         = string & Brand.Brand<'ChunkKey'>           // 正準形式 "cx,cz"
 
 const blockPositionKeyOf(value: BlockPosition): BlockPositionKey
-const BlockPositionKey(value: string): BlockPositionKey            // 検証して throw する constructor
-const isBlockPositionKey(value: string): value is BlockPositionKey
+const BlockPositionKey(value: unknown): BlockPositionKey           // 検証して throw する constructor
+const isBlockPositionKey(value: unknown): value is BlockPositionKey
 const blockPositionOfKey(value: BlockPositionKey): BlockPosition   // 検証済み値専用、不正なら throw
-const decodeBlockPositionKey(value: string): BlockPosition | undefined  // 未検証の外部入力専用
+const decodeBlockPositionKey(value: unknown): BlockPosition | undefined // 未検証の外部入力専用
 
 const chunkKeyOf(value: ChunkCoord): ChunkKey
-const ChunkKey(value: string): ChunkKey
-const isChunkKey(value: string): value is ChunkKey
+const ChunkKey(value: unknown): ChunkKey
+const isChunkKey(value: unknown): value is ChunkKey
 const chunkCoordOfKey(value: ChunkKey): ChunkCoord
-const decodeChunkKey(value: string): ChunkCoord | undefined
+const decodeChunkKey(value: unknown): ChunkCoord | undefined
 ```
 
 **正準形は 1 つだけ。** `"1,2,3"` は valid だが `"01,2,3"` や `" 1,2,3"` は invalid である。
@@ -139,8 +172,8 @@ const decodeChunkKey(value: string): ChunkCoord | undefined
 **「検証して例外」と「未検証入力を安全に読む」を関数を分けて表現している。**
 `blockPositionOfKey` / `chunkCoordOfKey` はすでに `BlockPositionKey` / `ChunkKey` 型を持つ
 （＝どこかで検証済みの）値を受け取る前提の全域関数に近い形をしており、
-`decodeBlockPositionKey` / `decodeChunkKey` は生の `string`（ネットワークやセーブファイルからの
-未検証入力）を受け取り、失敗を `undefined` で表す部分関数である。呼び出し側が
+`decodeBlockPositionKey` / `decodeChunkKey` は未検証の `unknown` 値（ネットワークやセーブファイルからの
+外部入力）を受け取り、失敗を `undefined` で表す部分関数である。呼び出し側が
 どちらの信頼境界にいるかを型シグネチャで区別できる。
 
 ## 3. ブロック語彙（block-type）
@@ -163,7 +196,7 @@ const isBlockType = (value: unknown): value is BlockType
 type BlockId = number & Brand.Brand<"BlockId">;
 const BLOCK_ID_MAX = 0xffff; // レジストリが割り当てる ID の上限。BlockState は 2 バイト要素で最大 0xffff まで保存できる
 const AIR_BLOCK_ID: BlockId = 0;
-const isEmpty: (id: number) => boolean;
+const isEmpty: (id: BlockId) => boolean;
 ```
 
 `BlockId` はレジストリ行に割り当てる安定した数値 ID である。`BLOCK_ID_MAX` は
@@ -305,6 +338,8 @@ const ItemIdBytes(bytes: Uint8Array | ItemIdBytes): ItemIdBytes // 長さと既�
 
 `ToolComponent`はJava Editionのtool componentを値として表す。kernelはruleを検証・コンパイルし、ブロックとtag membershipに対する道具の採掘プロパティを解決する。採掘時間の計算やプレイヤー操作の進行は含まない。
 
+採掘速度と耐久消費には意味ごとのブランド型を使う。
+
 契約の一次資料は[Java 24w12aの`minecraft:tool`](https://www.minecraft.net/en-us/article/minecraft-snapshot-24w12a)と、`can_destroy_blocks_in_creative`を追加した[Java 25w02a](https://www.minecraft.net/en-us/article/minecraft-snapshot-25w02a)である。
 
 ```typescript
@@ -329,33 +364,34 @@ type ToolResolutionContextInput = {
 };
 type ToolRule = {
   readonly blocks: ToolBlockMatcher | ReadonlyArray<ToolBlockMatcher>;
-  readonly speed?: number;
+  readonly speed?: ToolMiningSpeed;
   readonly correctForDrops?: boolean;
 };
 type ToolComponent = {
   readonly rules: ReadonlyArray<ToolRule>;
-  readonly defaultMiningSpeed?: number;
-  readonly damagePerBlock: number;
+  readonly defaultMiningSpeed?: ToolMiningSpeed;
+  readonly damagePerBlock: ToolDurabilityDamage;
   readonly canDestroyBlocksInCreative?: boolean;
 };
 type CompiledToolComponent = {
   readonly rules: ReadonlyArray<{
     readonly blockTypes: ReadonlyArray<BlockType>;
     readonly blockTags: ReadonlyArray<ToolBlockTag>;
-    readonly speed?: number;
+    readonly speed?: ToolMiningSpeed;
     readonly correctForDrops?: boolean;
   }>;
-  readonly defaultMiningSpeed: number;
-  readonly damagePerBlock: number;
+  readonly defaultMiningSpeed: ToolMiningSpeed;
+  readonly damagePerBlock: ToolDurabilityDamage;
   readonly canDestroyBlocksInCreative: boolean;
   readonly hasTagRule: boolean;
 };
 type ResolvedToolMiningProperties = {
-  readonly miningSpeed: number;
+  readonly miningSpeed: ToolMiningSpeed;
   readonly correctForDrops: boolean;
-  readonly damagePerBlock: number;
+  readonly damagePerBlock: ToolDurabilityDamage;
   readonly canDestroyBlocksInCreative: boolean;
 };
+const isToolComponent: (value: unknown) => value is ToolComponent;
 const compileToolComponent: (component: ToolComponent) => CompiledToolComponent;
 const resolveToolMiningProperties: (
   component: ToolComponent | CompiledToolComponent,
@@ -378,7 +414,22 @@ type EntityType = (typeof ENTITY_TYPES)[number];
 const isEntityType: (value: unknown) => value is EntityType;
 ```
 
-**既存の `entity-types.ts`（複数形）が持つ `EntityKind` は、この語彙とは別物として残る。** `EntityKind` は網羅性チェックの効かない開いた branded string で、modding が持ち込む未知の entity 名を表すために使う。`EntityType` は kernel が用意する閉じた語彙であり、`isEntityType` はセーブファイル・ネットワークフレーム・開発者コンソールからの値を検証する。`isBlockType` / `isItemType` と同じ shape に意図的に揃えてある。エンティティ名を保存する経路がブロック名・アイテム名を保存する経路と同じだからである。
+Entity identity and state use `EntitySerial`, `EntityHealthPoints`, and `EntityRosterRepairCount`. `mintEntityId` accepts a branded serial, while `serialOfEntityId` returns a branded serial when the ID has a valid `e:<serial>` form.
+
+```typescript
+type EntitySerial = number & Brand.Brand<'EntitySerial'>;
+type EntityHealthPoints = number & Brand.Brand<'EntityHealthPoints'>;
+type EntityRosterRepairCount = number & Brand.Brand<'EntityRosterRepairCount'>;
+const mintEntityId: (serial: EntitySerial) => EntityId;
+const serialOfEntityId: (id: EntityId) => EntitySerial | undefined;
+type EntityState<S> = Readonly<{
+  feetPosition: Position;
+  healthPoints: EntityHealthPoints;
+  behaviour: S;
+}>;
+```
+
+**既存の `entity-types.ts`（複数形）が持つ `EntityKind` は、この語彙とは別物として残る。** `EntityKind` は網羅性チェックの効かない開いた branded string で、modding が持ち込む未知の entity 名の入口として使う。`EntityType` はその上に載る閉じた語彙であり、`isEntityType` はセーブファイル・ネットワークフレーム・開発者コンソールからの値を検証する。`isBlockType` / `isItemType` と同じ shape で意図的に揃えてある——エンティティ名を保存する経路はブロック・アイテム名を保存する経路と同じだからである。
 
 ### 3-ter. ItemStack とレシピ
 
@@ -398,18 +449,21 @@ type ItemStackOptions = Readonly<{
   readonly components?: ItemComponents;
   readonly componentPatch?: ItemComponentPatch;
 }>;
-const itemStack: (item: ItemType, count: number, options?: ItemStackOptions) => ItemStack;
+const itemStack: (item: ItemType, count: StackCount, options?: ItemStackOptions) => ItemStack;
 const itemStackFromUnknown: (item: unknown, count: unknown, options?: unknown) => ItemStack;
 const isItemStack: (value: unknown) => value is ItemStack;
 const maxStackCountForItem: (item: ItemType) => ItemStackLimit;
 const itemStackEqualsIgnoringCount: (left: ItemStack, right: ItemStack) => boolean;
 const itemStacksCanMerge: (left: ItemStack, right: ItemStack) => boolean;
-const itemStackWithCount: (stack: ItemStack, count: number) => ItemStack;
-const transmuteItemStack: (source: ItemStack, result: ItemStack, count?: number) => ItemStack;
+const itemStackWithCount: (stack: ItemStack, count: StackCount) => ItemStack;
+const transmuteItemStack: (source: ItemStack, result: ItemStack, count?: StackCount) => ItemStack;
 const splitItemStack: (stack: ItemStack, amount: TransferQuantity) => { readonly taken: ItemStack; readonly remainder: ItemSlot };
 const mergeItemStacks: (left: ItemStack, right: ItemStack) => { readonly merged: ItemStack; readonly remainder: ItemSlot };
 const TransferQuantity: Brand.Constructor<TransferQuantity>; // split/merge の移送量 1..99
-const ItemComponentPatchConflictError: new (args: { readonly componentKey: string }) => Error;
+const ItemComponentPatchConflictError: new (args: { readonly componentKey: NamespacedResourceLocation }) => {
+  readonly _tag: "ItemComponentPatchConflictError";
+  readonly componentKey: NamespacedResourceLocation;
+};
 ```
 
 `itemStack` は型付きコード用の厳格なコンストラクタであり、保存データや外部入力の境界では
@@ -443,10 +497,32 @@ const itemDurabilityDefinitionFor: (
 
 ```typescript
 const VANILLA_CRAFTING_RECIPES: ReadonlyArray<Recipe>;
+const matchRecipe: (
+  table: RecipeTable,
+  input: CraftGrid,
+  context?: RecipeMatchContext,
+) => RecipeMatch;
+const ingredientMatches: (
+  ingredient: CraftingIngredient,
+  item: ItemType,
+  itemTags?: ItemTagMemberships,
+) => boolean;
+
+type RecipePatternKeyMap = Readonly<Record<RecipePatternSymbol, CraftingIngredientInput>>;
+type RecipeOptions = {
+  readonly assumeSymmetry?: boolean;
+  readonly category?: RecipeCategory;
+  readonly group?: RecipeGroup;
+  readonly priority?: RecipePriority;
+  readonly showNotification?: boolean;
+  readonly tags?: ReadonlyArray<RecipeStationTag>;
+};
+const exactly: (item: ItemType, count?: RecipeIngredientCount) => ExactIngredient;
+const tagged: (tag: RecipeItemTag, count?: RecipeIngredientCount) => ItemTagIngredient;
 const shapedRecipe: (
   id: RecipeId,
-  rows: ReadonlyArray<string>,
-  key: Readonly<Record<string, CraftingIngredientInput>>,
+  rows: ReadonlyArray<RecipePatternRow>,
+  key: RecipePatternKeyMap,
   output: ItemStack,
   options?: RecipeOptions,
 ) => ShapedRecipe;
@@ -456,11 +532,12 @@ const shapelessRecipe: (
   output: ItemStack,
   options?: RecipeOptions,
 ) => ShapelessRecipe;
-const ingredientMatches: (
-  ingredient: CraftingIngredient,
-  item: ItemType,
-  itemTags?: ItemTagMemberships,
-) => boolean;
+const craftGrid: (
+  width: RecipeGridDimension,
+  height: RecipeGridDimension,
+  items: ReadonlyArray<CraftGridInput>,
+) => CraftGrid;
+const cellAt: (grid: CraftGrid, x: RecipeGridIndex, y: RecipeGridIndex) => Slot;
 ```
 
 `VANILLA_CRAFTING_RECIPES` は Minecraft Java Edition 26.3 向けの検証済みデータである。
@@ -485,7 +562,7 @@ type ItemComponentPatchKey = string & Brand.Brand<"ItemComponentPatchKey">;
 type ItemComponentPatch = Readonly<Record<ItemComponentPatchKey, JsonValue>>;
 type ItemComponentPatchDecodeError = Error | Readonly<{
   readonly _tag: "ItemComponentPatchConflictError";
-  readonly componentKey: string;
+  readonly componentKey: NamespacedResourceLocation;
 }>;
 const itemComponentPatchFromUnknownEither: (
   value: unknown,
@@ -522,21 +599,21 @@ result の `components` は `ItemComponentPatch` になる。`recipeDataPath(id)
 全 recipe type・全 edition/version の完全な registry、JSON ファイルの読み出し、pack の適用順序は data-pack layer と上位層が所有する。
 
 ```typescript
-const craftingRecipeFromUnknown: (id: string, value: unknown) => Recipe;
-const cookingRecipeFromUnknown: (id: string, value: unknown) => CookingRecipe;
+const craftingRecipeFromUnknown: (id: NamespacedResourceLocation, value: unknown) => Recipe;
+const cookingRecipeFromUnknown: (id: NamespacedResourceLocation, value: unknown) => CookingRecipe;
 const stonecuttingRecipeFromUnknown: (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ) => StonecuttingRecipe;
-const smithingRecipeFromUnknown: (id: string, value: unknown) => SmithingRecipe;
+const smithingRecipeFromUnknown: (id: NamespacedResourceLocation, value: unknown) => SmithingRecipe;
 const transmuteRecipeFromUnknown: (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
 ) => TransmuteRecipe;
-const portableRecipeFromUnknown: (id: string, value: unknown) => PortableRecipe;
+const portableRecipeFromUnknown: (id: NamespacedResourceLocation, value: unknown) => PortableRecipe;
 const recipeFromUnknown: typeof portableRecipeFromUnknown;
-const recipeDataPath: (id: string) => string;
-const craftingRecipeDataPath: (id: string) => string;
+const recipeDataPath: (id: NamespacedResourceLocation) => DataPackResourcePath;
+const craftingRecipeDataPath: (id: NamespacedResourceLocation) => DataPackResourcePath;
 const recipeDataPackLayer: (
   options: RecipeDataPackLayerOptions,
 ) => RecipeDataPackLayer;
@@ -590,12 +667,13 @@ root と `@nerima-games/mc-kernel/domain/recipe`、`@nerima-games/mc-kernel/doma
 
 ```typescript
 type VanillaItemTagMembershipEntry = {
-  readonly tag: string;
+  readonly tag: NamespacedResourceLocation;
   readonly members: ReadonlyArray<ItemType>;
 };
 const VANILLA_ITEM_TAG_MEMBERSHIP_ENTRIES: ReadonlyArray<VanillaItemTagMembershipEntry>;
 const VANILLA_ITEM_TAG_MEMBERSHIPS: ItemTagMemberships;
 
+type RecipeItemTag = TagLocation;
 type ItemTagMembershipLayer = DataPackLayer<ReadonlySet<ItemType>>;
 const itemTagMembershipLayer: (
   options: ItemTagMembershipLayerOptions,
@@ -630,12 +708,12 @@ type BrewingState = {
   readonly bottles: BrewingBottles;
   readonly ingredient: Slot;
   readonly fuel: Slot;
-  readonly fuelCharges: number;
-  readonly brewProgressSecs: number;
+  readonly fuelCharges: BrewingFuelCharges;
+  readonly brewProgressSecs: FixedDurationSecs;
 };
 type BrewingRecipe = {
   readonly _tag: "Brewing";
-  readonly id: string;
+  readonly id: RecipeId;
   readonly input: ItemType;
   readonly ingredient: ItemType;
   readonly output: ItemType;
@@ -655,25 +733,38 @@ type FurnaceState = {
   readonly input: Slot;
   readonly fuel: Slot;
   readonly output: Slot;
-  readonly fuelTimeRemainingSecs: number;
-  readonly fuelTimeTotalSecs: number;
-  readonly cookProgressSecs: number;
+  readonly fuelTimeRemainingSecs: FixedDurationSecs;
+  readonly fuelTimeTotalSecs: FixedDurationSecs;
+  readonly cookProgressSecs: FixedDurationSecs;
 };
 type SmeltingRecipe = {
   readonly _tag: "Smelting";
-  readonly id: string;
+  readonly id: RecipeId;
   readonly input: ItemType;
   readonly output: ItemStack;
-  readonly cookTimeSecs: number;
-  readonly experience: number;
+  readonly cookTimeSecs: FixedDurationSecs;
+  readonly experience: RecipeExperience;
   readonly stations: ReadonlyArray<CookingStation>;
 };
 type FuelRule = {
   readonly fuel: ItemType;
-  readonly burnTimeSecs: number;
+  readonly burnTimeSecs: FixedDurationSecs;
 };
 const VANILLA_SMELTING_RECIPES: ReadonlyArray<SmeltingRecipe>;
 const VANILLA_FUEL_RULES: ReadonlyArray<FuelRule>;
+const furnaceState: (input: FurnaceInput) => FurnaceState;
+const advanceFurnace: (
+  state: FurnaceState,
+  elapsedSecs: FixedDurationSecs,
+) => FurnaceAdvanceResult;
+
+const VANILLA_BREWING_RECIPES: ReadonlyArray<BrewingRecipe>;
+const brewingState: (input: BrewingInput) => BrewingState;
+const addBrewingFuel: (state: BrewingState, charges: BrewingFuelCharges) => BrewingState;
+const advanceBrewing: (
+  state: BrewingState,
+  elapsedSecs: FixedDurationSecs,
+) => BrewingAdvanceResult;
 ```
 
 `BrewingState`と`FurnaceState`はblock entityの共有データ型でもある。静的データはrootまたは実在する`@nerima-games/mc-kernel/domain/recipe` subpathからimportできる。brew/smeltの進行処理と結果の計算はkernelの公開APIに含まれない。
@@ -700,8 +791,8 @@ recipe JSON decoder は §3-ter-3 を参照する。
 ```typescript
 type FoodDefinition = Readonly<{
   readonly item: ItemType;
-  readonly nutrition: number;
-  readonly saturation: number;
+  readonly nutrition: FoodNutrition;
+  readonly saturation: FoodSaturation;
   readonly canAlwaysEat: boolean;
   readonly useRemainder: ItemType | undefined;
   readonly effects: ReadonlyArray<FoodEffect>;
@@ -783,7 +874,7 @@ const itemComponents: (
   options?: ItemComponentOptions,
 ) => ItemComponents;
 const isItemComponents: (value: unknown) => value is ItemComponents;
-const sulfurCubeContentComponent: (value: string) => SulfurCubeContentComponent;
+const sulfurCubeContentComponent: (value: SulfurCubeContentOptions) => SulfurCubeContentComponent;
 const isSulfurCubeContentOptions: (
   value: unknown,
 ) => value is SulfurCubeContentOptions;
@@ -851,8 +942,8 @@ type StatusEffectName = (typeof STATUS_EFFECT_NAMES)[number];
 type StatusEffectDefinition = Readonly<{
   readonly name: StatusEffectName;
   readonly beneficial: boolean;
-  readonly particleColor: number;
-  readonly maxAmplifier: number;
+  readonly particleColor: RgbColor;
+  readonly maxAmplifier: EffectAmplifier;
 }>;
 const STATUS_EFFECT_DEFINITIONS: Readonly<Record<StatusEffectName, StatusEffectDefinition>>;
 const statusEffectId: (name: StatusEffectName) => ResourceLocation;
@@ -933,10 +1024,12 @@ const selectSulfurCubeArchetypes: (
 ) => ReadonlyMap<NamespacedResourceLocation, SulfurCubeArchetype>;
 const sulfurCubeArchetypeDataPath: (
   entry: NamespacedResourceLocation,
-) => string;
+) => DataPackResourcePath;
 ```
 
 公式 26.2 が列挙する archetype の挙動名、block/item/entity tag、`minecraft:bounce` game event、`minecraft:sulfur_cube_content` component、`minecraft:sulfur_cube_hot` damage type、Sulfur Cube particle の識別子を branded な portable data として公開する。`#` 付きの block/item/entity tag は `TagLocation`、registry・component・game event・damage type・particle は `ResourceLocation` で区別する。`sulfurCubeArchetypeDataPackLayer` は JSON の外部値を decoder 境界で検証し、`selectSulfurCubeArchetypes` は対象 format の layer を priority 順に重ねて registry を解決する。公式ページが個別 archetype JSON の数値を掲載していないため、kernel は vanilla の数値を推測して固定しない。JSON・pack filesystem の読み出しと、Sulfur Cube の物理・爆発・接触イベントの実行は上位層の責務である。仕様は [Minecraft Java Edition 26.2](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-2) を参照する。
+
+`SulfurCubeArchetype` と options は `PositiveTickCount`、`AttributeModifierAmount`、resource location、tag location の既存ブランドに加え、`SulfurCubeExplosionPower`（非負 safe integer）、`SulfurCubeContactDamageAmount`（有限非負値）、`SulfurCubeKnockbackPower`、`SulfurCubePushSoundImpulseThreshold`、`SulfurCubePushSoundCooldown`（有限値）を使う。
 
 ### 3-quinquies. 金床用の静的エンチャントルール
 
@@ -965,9 +1058,23 @@ const MIN_VOLUME: number;
 const MAX_VOLUME: number;
 const DEFAULT_SETTINGS: Settings;
 const normaliseSettings: (input: unknown) => Settings;
-const normaliseKeyBindings: (input: unknown) => Readonly<Record<string, string>>;
-const rebindKey: (settings: Settings, action: string, code: string) => Settings;
-const unbindKey: (settings: Settings, action: string) => Settings;
+const applySettings: (settings: Settings, patch: Partial<Settings>) => Settings;
+type Settings = Readonly<{
+  renderDistance: RenderDistanceChunks;
+  fovDegrees: FieldOfViewDegrees;
+  graphicsQuality: GraphicsQuality;
+  audioEnabled: boolean;
+  masterVolume: VolumeLevel;
+  musicVolume: VolumeLevel;
+  sfxVolume: VolumeLevel;
+  mouseSensitivity: MouseSensitivity;
+  captionsEnabled: boolean;
+  keyBindings: Readonly<Record<InputAction, KeyCode>>;
+}>;
+const normaliseKeyBindings: (bindings: unknown) => Readonly<Record<InputAction, KeyCode>>;
+const rebindKey: (settings: Settings, action: InputAction, code: KeyCode) => Settings;
+const unbindKey: (settings: Settings, action: InputAction) => Settings;
+
 ```
 
 これらの Settings API は root と `domain/settings` から利用できる。画面・renderer preset・入力デバイスへの適用、統計の記録と achievement registry、player state の所有、永続化は下流の責務である。
@@ -983,51 +1090,59 @@ kernelは飛翔体のruntime APIを公開しない。移設先は[責務と移�
 ```typescript
 type ExplosionBlockPosition = Position;
 type ExplosionBlock = Readonly<{
-  readonly resistance: number;
+  readonly resistance: BlockBlastResistance;
   readonly destructible: boolean;
 }>;
 type ExplosionBlockReader = (position: ExplosionBlockPosition) => ExplosionBlock | undefined;
 type ExplosionEntity = Readonly<{
-  readonly id: string;
+  readonly id: EntityId;
   readonly feetPosition: Position;
 }>;
 type ExplosionEntityEffect = Readonly<{
-  readonly id: string;
-  readonly damage: number;
+  readonly id: EntityId;
+  readonly damage: DamageAmount;
   readonly knockback: Position;
-  readonly exposure: number;
+  readonly exposure: ExplosionExposure;
 }>;
 type ExplosionLimits = Readonly<{
-  readonly maxVisitedBlocks: number;
-  readonly maxRaySteps: number;
-  readonly maxAffectedEntities: number;
+  readonly maxVisitedBlocks: ExplosionBlockCount;
+  readonly maxRaySteps: ExplosionRayStepCount;
+  readonly maxAffectedEntities: ExplosionEntityCount;
 }>;
 type ExplosionRequest = Readonly<{
   readonly center: Position;
-  readonly radius: number;
-  readonly seed: number;
+  readonly radius: ExplosionRadius;
+  readonly seed: RandomSeed;
   readonly blocks: ExplosionBlockReader;
   readonly entities: ReadonlyArray<ExplosionEntity>;
   readonly limits?: Partial<ExplosionLimits>;
 }>;
 type ExplosionPlan = Readonly<{
   readonly center: Position;
-  readonly radius: number;
-  readonly seed: number;
+  readonly radius: ExplosionRadius;
+  readonly seed: RandomSeed;
   readonly destroyedBlocks: ReadonlyArray<ExplosionBlockPosition>;
   readonly entityEffects: ReadonlyArray<ExplosionEntityEffect>;
-  readonly visitedBlocks: number;
+  readonly visitedBlocks: ExplosionBlockCount;
   readonly limits: ExplosionLimits;
   readonly truncated: boolean;
 }>;
 type ExplosionMutation = Pick<ExplosionPlan, "destroyedBlocks" | "entityEffects">;
 type ExplosionCommit = (mutation: ExplosionMutation) => void;
 
+type ExplosionRadius = number & Brand.Brand<"ExplosionRadius">;
+type ExplosionBlockCount = number & Brand.Brand<"ExplosionBlockCount">;
+type ExplosionRayStepCount = number & Brand.Brand<"ExplosionRayStepCount">;
+type ExplosionEntityCount = number & Brand.Brand<"ExplosionEntityCount">;
+type ExplosionExposure = number & Brand.Brand<"ExplosionExposure">;
+
 const DEFAULT_EXPLOSION_LIMITS: ExplosionLimits;
-const resistsExplosion: (id: number, power: number) => boolean;
+const resistsExplosion: (id: BlockId, power: BlockBlastResistance) => boolean;
 ```
 
 爆発計画と適用、および着火済みTNTのruntimeは`mc-sim`が所有する。移設先は[責務と移行先](./responsibility.md)を参照する。
+
+`ExplosionRequest.radius` は `ExplosionRadius`、`seed` は `RandomSeed` を使う。各制限は `ExplosionBlockCount`、`ExplosionRayStepCount`、`ExplosionEntityCount` で表し、entity effect の exposure は `ExplosionExposure` で表す。`resistsExplosion` は `BlockId` と `BlockBlastResistance` を受け取る。
 
 root と `@nerima-games/mc-kernel/domain/explosion` subpath から利用できる。
 
@@ -1081,7 +1196,7 @@ const capabilityOf(overrides, flag): boolean
 外部入力の検証と既定値解決は `domain/block-property-validation.ts` に分離している。
 
 ```typescript
-type BlockProperties = { readonly opacity: BlockOpacity; readonly lightEmission: number; ... }
+type BlockProperties = { readonly opacity: BlockOpacity; readonly lightEmission: LightLevel; ... }
 const BLOCK_PROPERTY_DEFAULTS: BlockProperties
 type BlockPropertyName = keyof BlockProperties
 type BlockPropertyOverrides = { readonly [K in BlockPropertyName]?: BlockProperties[K] }
@@ -1096,16 +1211,17 @@ const propertyOf<K>(overrides, name: K): BlockProperties[K]
 | プロパティ         | 型                                                      | 既定                                  | 根拠                                                                |
 | ------------------ | ------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------- |
 | `opacity`          | `'transparentSolid' \| 'fluid' \| 'opaque'`             | `'opaque'`                            | 監査 §4.4                                                           |
-| `lightEmission`    | `number` (0..15)                                        | `0`                                   | 監査 §4.4 `light.ts:24-46`                                          |
+| `lightEmission`    | `LightLevel` (0..15)                                    | `0`                                   | 監査 §4.4 `light.ts:24-46`                                          |
 | `fluid`            | `'none' \| 'water' \| 'lava'`                           | `'none'`                              | 監査 §4.2                                                           |
 | `collisionShape`   | `'full'\|'slab'\|'cactus'\|'pressurePlate'\|'none'`     | `'full'`                              | 監査 §4.1                                                           |
 | `renderKind`       | `'cube'\|'cross'\|'cactus'\|'rail'\|'lilyPad'\|'fluid'` | `'cube'`                              | 監査 §4.8                                                           |
 | `footstepMaterial` | `'default'\|'grass'\|'wood'\|'stone'`                   | `'default'`                           | 監査 §4.8。純粋な表面分類で、効果音 ID や再生は mc-audio が所有する |
-| `hardness`         | `number`                                                | `8`                                   | 監査 §4.5。`-1` は不破壊、`0` は即時破壊、それ以外の負値は不正      |
-| `friction`         | `number`                                                | `0.6`                                 | 監査 §4.5 `DEFAULT_BLOCK_FRICTION`                                  |
-| `contactDamage`    | `number`                                                | `0`                                   | 監査 §4.7（LAVA=4 / CACTUS=1）                                      |
-| `movementDrag`     | `number`                                                | `0`                                   | 監査 §4.1 `:203-208`                                                |
-| `xpOnBreak`        | `number`                                                | `0`                                   | 監査 §4.5 `blocks.config.ores.ts:8-45`                              |
+| `hardness`         | `BlockHardness`                                         | `8`                                   | 監査 §4.5。`-1` は不破壊、`0` は即時破壊、それ以外の負値は不正      |
+| `friction`         | `BlockFriction` (`[0, 1]`)                              | `0.6`                                 | 監査 §4.5 `DEFAULT_BLOCK_FRICTION`                                  |
+| `blastResistance`  | `BlockBlastResistance`                                  | `0`                                   | 爆発耐性。正の Infinity は破壊不能を表す                            |
+| `contactDamage`    | `BlockContactDamage`                                    | `0`                                   | 監査 §4.7（LAVA=4 / CACTUS=1）                                      |
+| `movementDrag`     | `BlockMovementDrag`                                     | `0`                                   | 監査 §4.1 `:203-208`                                                |
+| `xpOnBreak`        | `BlockExperiencePoints`                                 | `0`                                   | 監査 §4.5 `blocks.config.ores.ts:8-45`                              |
 | `railKind`         | `'none'\|'normal'\|'powered'`                           | `'none'`                              | 監査 §4.1 `:184-201`                                                |
 | `harvestTool`      | `HarvestToolRequirement`                                | `{category:'none', minTier:'none'}`   | 監査 §4.5                                                           |
 | `drops`            | `BlockDropRule \| undefined`                            | `{item:'self', count:1, ...}`         | 監査 §4.5。未ドロップは `undefined`                                 |
@@ -1157,7 +1273,7 @@ type BlockDropRule = { readonly item: ItemType | 'self'; readonly count: StackCo
                        readonly requiresSilkTouch: boolean; readonly affectedByFortune: boolean }
 
 type HarvestContext = { readonly heldTier?: HarvestTier; readonly silkTouch?: boolean }
-type BlockDrop      = { readonly item: ItemType; readonly count: number; readonly affectedByFortune: boolean }
+type BlockDrop      = { readonly item: ItemType; readonly count: StackCount; readonly affectedByFortune: boolean }
 
 const DEFAULT_HARVEST_TOOL / DEFAULT_BLOCK_DROP / BARE_HANDED
 const satisfiesHarvestTier(requirement, heldTier): boolean
@@ -1190,9 +1306,8 @@ const resolveDrop(requirement, rule, brokenBlock, context?): BlockDrop | undefin
 4. （拒否ではなく不在）`'self'` なのにそのブロックにアイテム形が無い
 
 **幸運は kernel で適用しない。** `BlockDrop.affectedByFortune` を**運び出す**だけで、倍率は掛けない。
-幸運は乱数関数であり、監査 §6-9 が乱数を伴うドロップ規則を `mx-gameplay` に置いている。
-kernel は純粋で決定的（`StageRegistration.run` のエラーチャネルは `never`、乱数源も持たない）なので、
-基準個数と「幸運が効く」という事実を返し、RNG を所有するルールに掛け算をさせる。
+幸運は乱数関数である。kernel は `RandomSource` の契約を持つが、`resolveDrop` は乱数源を受け取らない。
+この API は基準個数と「幸運が効く」という事実を決定的に返し、乱数を使う規則に倍率適用を委ねる。
 
 ### 4-3-bis. `dropOfBlockId`：採掘がインベントリに届く1本の線
 
@@ -1260,18 +1375,22 @@ const DOWNSTREAM_CAPABILITIES: ReadonlyArray<{ name, kind, owner, why }> // 下�
 ```typescript
 type CameraPoseSnapshot = {
   readonly position: Position
-  readonly yawRadians: number
-  readonly pitchRadians: number
+  readonly yawRadians: AngleRadians
+  readonly pitchRadians: AngleRadians
   readonly capturedAtSecs: MonotonicTimeSecs
 }
-const snapshotAgeSecs(snapshot, now: MonotonicTimeSecs): number
+type SnapshotAgeSecs = number & Brand.Brand<'SnapshotAgeSecs'>;
+const SnapshotAgeSecs(value: number): SnapshotAgeSecs;
+const snapshotAgeSecs: (snapshot: CameraPoseSnapshot, now: MonotonicTimeSecs) => SnapshotAgeSecs;
 ```
 
 `CameraPoseSnapshot` の値は `mc-sim` が管理し、`mc-render` の THREE カメラはその値を反映する。`mc-playground-kit` やリプレイ機構も同じ型を使うため、型を kernel に置いて consumer 間の依存を避ける。
 
-`capturedAtSecs` があるのは、ミラー側が「今見ているスナップショットが何フレーム前のものか」を判定できるようにするため。
+この型の `readonly` は TypeScript 上の書き込み制約であり、実行時にオブジェクトを freeze する契約ではない。
 
 プレイヤー姿勢からカメラポーズを計算するAPIはkernelで公開せず、runtimeは`mc-sim`が所有する。移設先は[責務と移行先](./responsibility.md)を参照する。
+
+`capturedAtSecs` があるのは、ミラー側が `snapshotAgeSecs` で現在時刻からの経過秒数を調べられるようにするため。記録時刻が `now` より未来なら、結果は負になる。
 
 ## 5-bis. フレーム時間（frame-timing）
 
@@ -1382,9 +1501,13 @@ const loadedBlock: (blockId: BlockId) => BlockRead;
 const unloadedChunk: (chunk: ChunkKey) => BlockRead;
 const outOfWorld: (position: BlockPosition) => BlockRead;
 
-type ReadonlyUint16Array = {
-  readonly length: number;
-  readonly get: (index: number) => number;
+type SectionIndex = number & Brand.Brand<'SectionIndex'>; // 0 起点の要素 index、安全整数
+type SectionLength = number & Brand.Brand<'SectionLength'>; // 要素数、非負 safe integer
+const SectionIndex(value: number): SectionIndex;
+const SectionLength(value: number): SectionLength;
+type ReadonlyUint16Array<Value extends number = BlockId | LightLevel> = {
+  readonly length: SectionLength;
+  readonly get: (index: SectionIndex) => Value;
   readonly snapshot: () => Uint16Array;
 };
 
@@ -1402,11 +1525,11 @@ type ReadView = {
   readonly chunk: ChunkKey;
   readonly blockRevision: ChunkRevision;
   readonly lightRevision: LightRevision;
-  readonly length: number;
-  readonly getBlock: (index: number) => BlockId;
-  readonly getLight: (index: number) => number;
-  readonly blocks: ReadonlyUint16Array;
-  readonly light: ReadonlyUint16Array;
+  readonly length: SectionLength;
+  readonly getBlock: (index: SectionIndex) => BlockId;
+  readonly getLight: (index: SectionIndex) => LightLevel;
+  readonly blocks: ReadonlyUint16Array<BlockId>;
+  readonly light: ReadonlyUint16Array<LightLevel>;
 };
 const readView: (input: ReadViewInput) => ReadView;
 const ReadView: (input: ReadViewInput) => ReadView;
@@ -1470,12 +1593,12 @@ Fluid data は root と `domain/fluid`、redstone data は root から利用で�
 Portal の寸法定数、軸、枠と layout の型は kernel に残る。検出と layout 生成は `mc-worldgen` が所有する（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
-type BlockAt = (x: number, y: number, z: number) => number; // unbranded numeric block ID
+type BlockAt = (x: BlockAxis, y: BlockAxis, z: BlockAxis) => BlockId;
 type PortalAxis = "x" | "z";
 type PortalFrame = Readonly<{
   axis: PortalAxis;
-  width: number;
-  height: number;
+  width: PortalWidth;
+  height: PortalHeight;
   interior: ReadonlyArray<BlockPosition>;
 }>;
 type PortalLayout = Readonly<{
@@ -1488,7 +1611,23 @@ const MAX_PORTAL_WIDTH: number; // 21
 const MIN_PORTAL_HEIGHT: number; // 3
 const MAX_PORTAL_HEIGHT: number; // 21
 
+const detectNetherPortal: (
+  blockAt: BlockAt,
+  ignition: BlockPosition,
+) => PortalFrame | undefined;
+const generatePortalLayout: (
+  origin: BlockPosition,
+  axis: PortalAxis,
+  width: PortalWidth,
+  height: PortalHeight,
+) => PortalLayout;
 ```
+
+`BlockAt` は軸に `BlockAxis`、戻り値に `BlockId` を使う。寸法は vanilla の検証済み範囲を持つ `PortalWidth` と `PortalHeight` で渡す。
+
+vanilla の寸法上限の外、黒曜石の欠落、内部が塞がっている枠、既に埋まっている着火位置は
+いずれも枠として成立しない。ワールドへの書き込み、ポータル間の紐付け、移動、
+チャンク読み込みは上位層の責務である。
 
 ### 5-sexies-ter. data pack layer の共通機構（data-pack-registry）
 
@@ -1499,6 +1638,21 @@ recipe registry と Sulfur Cube archetype registry が同じ形の「複数 pack
 ```typescript
 type DataPackFormat = number & Brand.Brand<"DataPackFormat">;
 type DataPackPriority = number & Brand.Brand<"DataPackPriority">;
+type DataPackResourcePath = string & Brand.Brand<"DataPackResourcePath">; // safe relative JSON path below data/
+const DataPackFormat(value: number): DataPackFormat;
+const DataPackPriority(value: number): DataPackPriority;
+const DataPackResourcePath(value: string): DataPackResourcePath;
+
+type DataPackRegistryEntry<T> = Readonly<{
+  readonly id: NamespacedResourceLocation;
+  readonly value: T;
+}>;
+type DataPackLayer<T> = Readonly<{
+  readonly pack: NamespacedResourceLocation;
+  readonly format: DataPackFormat;
+  readonly priority: DataPackPriority;
+  readonly entries: ReadonlyArray<DataPackRegistryEntry<T>>;
+}>;
 
 const dataPackLayer: <T>(options: DataPackLayerOptions<T>) => DataPackLayer<T>;
 const dataPackLayerFromUnknown: <T>(
@@ -1507,7 +1661,7 @@ const dataPackLayerFromUnknown: <T>(
 ) => DataPackLayer<T>;
 const dataPackLayerFromUnknownWithId: <T>(
   value: unknown,
-  decodeValue: (id: string, value: unknown) => T,
+  decodeValue: (id: NamespacedResourceLocation, value: unknown) => T,
 ) => DataPackLayer<T>;
 const mapDataPackLayer: <Input, Output>(
   layer: DataPackLayer<Input>,
@@ -1520,12 +1674,12 @@ const selectDataPackRegistry: <T>(
 const dataPackResourcePath: (
   registry: NamespacedResourceLocation,
   id: NamespacedResourceLocation,
-) => string;
+) => DataPackResourcePath;
 ```
 
 format が完全一致しない layer は選択から落ち、同じ id は priority の高い layer が勝つ。
 priority が同値のときは呼び出し側が渡した layer 順を保つ。同じ layer 内の id 重複は構築時に拒否する。
-pack の探索、JSON ファイルの読み出し、pack のインストール順は上位層の責務である。
+`DataPackFormat` は有限の非負値、`DataPackPriority` は非負 safe integer である。resource path は `data/` 下の相対 `.json` path で、各 segment は小文字英数字、`.`、`_`、`-` のみを許し、空 segment と `.` / `..` segment は拒否する。pack の探索、JSON ファイルの読み出し、pack のインストール順は上位層の責務である。
 
 ## 5-septies. Biome（biome）
 
@@ -1536,26 +1690,32 @@ const BIOME_TYPES: ReadonlyArray<BiomeType>;
 type BiomeType = (typeof BIOME_TYPES)[number];
 const PRECIPITATION_KINDS: readonly ['none', 'rain', 'snow'];
 type PrecipitationKind = (typeof PRECIPITATION_KINDS)[number];
+type BiomeTemperature = number & Brand.Brand<"BiomeTemperature">; // 有限値 [-0.7, 2]
+type BiomeDownfall = number & Brand.Brand<"BiomeDownfall">; // 有限値 [0, 1]
+type BiomeTint = number & Brand.Brand<"BiomeTint">; // packed RGB 整数 [0, 0xFFFFFF]
+const BiomeTemperature(value: number): BiomeTemperature;
+const BiomeDownfall(value: number): BiomeDownfall;
+const BiomeTint(value: number): BiomeTint;
 const SNOW_TEMPERATURE_THRESHOLD = 0.15;
-const derivePrecipitationKind: (temperature: number) => 'rain' | 'snow';
+const derivePrecipitationKind: (temperature: BiomeTemperature) => 'rain' | 'snow';
 
 type BiomeProperties = {
-  readonly temperature: number;
-  readonly downfall: number;
+  readonly temperature: BiomeTemperature;
+  readonly downfall: BiomeDownfall;
   readonly precipitation: PrecipitationKind;
-  readonly grassTint: number;
-  readonly foliageTint: number;
-  readonly waterTint: number;
+  readonly grassTint: BiomeTint;
+  readonly foliageTint: BiomeTint;
+  readonly waterTint: BiomeTint;
   readonly dimension: Dimension;
 };
 const BIOME_PROPERTY_DEFAULTS: BiomeProperties;
 type BiomePropertyOverrides = {
-  readonly temperature?: number;
-  readonly downfall?: number;
+  readonly temperature?: BiomeTemperature;
+  readonly downfall?: BiomeDownfall;
   readonly precipitation?: 'none';
-  readonly grassTint?: number;
-  readonly foliageTint?: number;
-  readonly waterTint?: number;
+  readonly grassTint?: BiomeTint;
+  readonly foliageTint?: BiomeTint;
+  readonly waterTint?: BiomeTint;
   readonly dimension?: Dimension;
 };
 
@@ -1565,27 +1725,35 @@ const propertiesOfBiome: (biome: unknown) => BiomeProperties;
 ```
 
 各行は `BIOME_PROPERTY_DEFAULTS`（温帯の平地気候）からの差分だけを書く。これは `BLOCK_REGISTRY` と同じ「差分のみ記述」の規約である。`precipitation` は `'none'` にしか override できない型になっており、雨と雪の切り替えは常に `temperature` から `derivePrecipitationKind` で導出するため、矛盾する override はコンパイルできない。
+気温と降水量のブランド値域は同梱 roster の境界に合わせ、tint は packed RGB の整数に限る。
 
 **なぜ kernel か**: biome の気候値と tint は `mc-worldgen`（地形生成）と `mc-render`（tint 描画）の両方が同じ値を必要とし、どちらか一方に置くと依存の向きが壊れる。生成アルゴリズムそのもの、noise パラメータ、biome の空間分布は含まない。
 
 ## 5-octies. 光量データ（light）
 
 kernel は block light と sky light の2チャンネルからなる1チャンク分の light volume と、その versioned codec を公開する。light propagation と更新は `mc-worldgen` が所有する（[実行時処理の所有元](./responsibility.md)）。
+高さとセル位置、配列長、コピー先の byte offset は `LightVolumeHeight`、`LightChannelIndex`、`LightChannelLength`、`LightChannelByteOffset` で表す。
 
 ```typescript
 const LIGHT_VOLUME_CODEC_VERSION = 1;
 const LIGHT_VOLUME_HEADER_BYTES = 16;
 
-type LightVolumeHeight = number & Brand.Brand<'LightVolumeHeight'>; // 整数、Chunk の height と同じ上限
-const LightVolumeHeight: (value: number) => LightVolumeHeight;
-const lightVolumeCellCount: (height: LightVolumeHeight) => number;
-const lightVolumeIndexOf: (height: LightVolumeHeight, local: LocalBlockCoord) => number;
+type LightVolumeHeight = number & Brand.Brand<'LightVolumeHeight'>; // 整数 [1, MAX_CHUNK_HEIGHT]
+type LightChannelLength = number & Brand.Brand<'LightChannelLength'>;
+type LightChannelIndex = number & Brand.Brand<'LightChannelIndex'>;
+type LightChannelByteOffset = number & Brand.Brand<'LightChannelByteOffset'>;
+const LightVolumeHeight: Brand.Constructor<LightVolumeHeight>;
+const LightChannelLength: Brand.Constructor<LightChannelLength>;
+const LightChannelIndex: Brand.Constructor<LightChannelIndex>;
+const LightChannelByteOffset: Brand.Constructor<LightChannelByteOffset>;
+const lightVolumeCellCount: (height: LightVolumeHeight) => LightChannelLength;
+const lightVolumeIndexOf: (height: LightVolumeHeight, local: LocalBlockCoord) => LightChannelIndex;
 
 class LightChannel {
-  get length(): number;
-  at(index: number): LightLevel;
+  get length(): LightChannelLength;
+  at(index: LightChannelIndex): LightLevel;
   toBytes(): Uint8Array;
-  copyTo(target: Uint8Array, offset?: number): void;
+  copyTo(target: Uint8Array, offset?: LightChannelByteOffset): void;
 }
 const lightChannel: (bytes: Uint8Array) => LightChannel;
 
@@ -1594,24 +1762,25 @@ type LightVolume = {
   readonly blockLight: LightChannel;
   readonly skyLight: LightChannel;
 };
-const lightVolume: (height: number, blockLight: Uint8Array, skyLight: Uint8Array) => LightVolume;
+const lightVolume: (height: LightVolumeHeight, blockLight: Uint8Array, skyLight: Uint8Array) => LightVolume;
 const blockLightAt: (volume: LightVolume, local: LocalBlockCoord) => LightLevel;
 const skyLightAt: (volume: LightVolume, local: LocalBlockCoord) => LightLevel;
 const encodeLightVolume: (volume: LightVolume) => Uint8Array;
 const decodeLightVolume: (encoded: Uint8Array) => LightVolume;
-
 ```
 
-**light volume は `Chunk` バイナリ形式（本ドキュメント「Chunk バイナリ形式」節）の codec とは別の codec・別の magic (`MCLT`) を持ち、`chunk.ts` の codec には含めない。** `LightChannel.at(index)` は範囲外の read index に `RangeError` を投げる。構築時の `lightChannel(bytes)` は各 light level を検証し、`copyTo(target, offset)` は出力範囲が target に収まらない場合に `RangeError` を投げる。
+**light volume は `Chunk` バイナリ形式（本ドキュメント「Chunk バイナリ形式」節）の codec とは別の codec と magic (`MCLT`) を持ち、`chunk.ts` の codec には含めない。** `LightChannel.at(index)` は `LightChannelIndex` を受け取り、channel 範囲も検査する。構築時の `lightChannel(bytes)` は各 light level を検証し、`copyTo(target, offset)` の `offset` は `LightChannelByteOffset` で指定する。出力範囲が target に収まらない場合は `RangeError` を投げる。
 
 ## 5-nonies. Heightmap（heightmap）
 
 heightmap は `Chunk` の block データから導出する、列ごとの不透明面（sky-light の遮蔽用）と移動阻害面（設置・spawn 判定用）の 2 種類を公開する。キャッシュ・無効化・再計算スケジューリングは持たない。呼び出し側が Chunk のブロックが変わるたびに再計算する。
 
 ```typescript
-type ColumnHeight = number | undefined;
+type HeightmapColumnIndex = number & Brand.Brand<'HeightmapColumnIndex'>; // flat index、[0, CHUNK_SIZE_XZ² - 1]
+const HeightmapColumnIndex(value: number): HeightmapColumnIndex;
+type ColumnHeight = ChunkLocalY | undefined;
 type Heightmap = ReadonlyArray<ColumnHeight>;
-const heightmapColumnIndex: (lx: number, lz: number) => number;
+const heightmapColumnIndex: (lx: LocalAxis, lz: LocalAxis) => HeightmapColumnIndex;
 const opaqueHeightmapOf: (chunk: Chunk) => Heightmap;
 const motionBlockingHeightmapOf: (chunk: Chunk) => Heightmap;
 ```
@@ -1623,19 +1792,21 @@ const motionBlockingHeightmapOf: (chunk: Chunk) => Heightmap;
 block entityは位置に紐づく付帯データを判別可能unionとして表す。kernelは容量定数、データ型、外部値を検査するtype guardを公開する。位置key付きcollectionの生成・参照・更新は実行時処理の所有元に属する。
 
 ```typescript
-const CHEST_SLOT_COUNT = 27;
-const LARGE_CHEST_SLOT_COUNT = 54;
-const HOPPER_SLOT_COUNT = 5;
-const DISPENSER_SLOT_COUNT = 9;
-const DROPPER_SLOT_COUNT = 9;
-const SHULKER_BOX_SLOT_COUNT = 27;
-const BARREL_SLOT_COUNT = 27;
+type ContainerSlotCount = number & Brand.Brand<'ContainerSlotCount'>;
+const ContainerSlotCount: Brand.Constructor<ContainerSlotCount>; // positive safe integer
+const CHEST_SLOT_COUNT: ContainerSlotCount;
+const LARGE_CHEST_SLOT_COUNT: ContainerSlotCount;
+const HOPPER_SLOT_COUNT: ContainerSlotCount;
+const DISPENSER_SLOT_COUNT: ContainerSlotCount;
+const DROPPER_SLOT_COUNT: ContainerSlotCount;
+const SHULKER_BOX_SLOT_COUNT: ContainerSlotCount;
+const BARREL_SLOT_COUNT: ContainerSlotCount;
 const STORAGE_CONTAINER_KINDS: ReadonlyArray<StorageContainerKind>;
 type StorageContainerKind = (typeof STORAGE_CONTAINER_KINDS)[number];
-const STORAGE_CONTAINER_CAPACITIES: Readonly<Record<StorageContainerKind, number>>;
+const STORAGE_CONTAINER_CAPACITIES: Readonly<Record<StorageContainerKind, ContainerSlotCount>>;
 type StorageContainer = Readonly<{
   kind: StorageContainerKind;
-  capacity: number;
+  capacity: ContainerSlotCount;
   slots: ReadonlyArray<Slot>;
 }>;
 type BlockEntity =
@@ -1672,11 +1843,15 @@ const GAME_MODE_PROPERTIES: Readonly<Record<GameMode, GameModeProperties>>;
 
 const DIFFICULTIES: readonly ['peaceful', 'easy', 'normal', 'hard'];
 type Difficulty = (typeof DIFFICULTIES)[number];
+type DifficultyDamageMultiplier = number & Brand.Brand<'DifficultyDamageMultiplier'>;
+type DifficultyHungerMultiplier = number & Brand.Brand<'DifficultyHungerMultiplier'>;
+const DifficultyDamageMultiplier: Brand.Constructor<DifficultyDamageMultiplier>;
+const DifficultyHungerMultiplier: Brand.Constructor<DifficultyHungerMultiplier>;
 type DifficultyProperties = Readonly<{
   readonly difficulty: Difficulty;
   readonly hostileMobsMaySpawn: boolean;
-  readonly damageMultiplier: number;
-  readonly hungerMultiplier: number;
+  readonly damageMultiplier: DifficultyDamageMultiplier;
+  readonly hungerMultiplier: DifficultyHungerMultiplier;
 }>;
 const DIFFICULTY_PROPERTIES: Readonly<Record<Difficulty, DifficultyProperties>>;
 
@@ -1756,14 +1931,22 @@ random-source は `RandomSource` の契約、seed から決定的に導出する
 
 ```typescript
 type RandomSource = Readonly<{
-  readonly nextInt: (bound: number) => number;
-  readonly nextFloat: () => number;
+  readonly nextInt: (bound: RandomIntBound) => RandomInt;
+  readonly nextFloat: () => RandomFraction;
 }>;
-const seededRandomSource: (seed: number) => RandomSource;
+type RandomSeed = number & Brand.Brand<'RandomSeed'>; // safe integer
+type RandomIntBound = number & Brand.Brand<'RandomIntBound'>; // positive safe integer
+type RandomInt = number & Brand.Brand<'RandomInt'>; // non-negative safe integer
+type RandomFraction = number & Brand.Brand<'RandomFraction'>; // [0, 1)
+const RandomSeed(value: number): RandomSeed;
+const RandomIntBound(value: number): RandomIntBound;
+const RandomInt(value: number): RandomInt;
+const RandomFraction(value: number): RandomFraction;
+const seededRandomSource: (seed: RandomSeed) => RandomSource;
 
 type RandomSourceScript = Readonly<{
-  readonly nextInts?: ReadonlyArray<number>;
-  readonly nextFloats?: ReadonlyArray<number>;
+  readonly nextInts?: ReadonlyArray<RandomInt>;
+  readonly nextFloats?: ReadonlyArray<RandomFraction>;
 }>;
 const fixedRandomSource: (script: RandomSourceScript) => RandomSource;
 ```
@@ -1774,7 +1957,7 @@ const fixedRandomSource: (script: RandomSourceScript) => RandomSource;
 
 `domain/shared-vocabulary` は branded ID、座標、tick、revision の Schema と型を公開する。`EntityIdSchema` と `WorldIdSchema` は非空文字列、`DimensionIdSchema` は `overworld` / `nether` / `end`、`ItemIdSchema` と `BlockIdSchema` は 0..65535 の整数を受け付ける。`BlockPositionSchema` は整数の `BlockAxis` 3 軸、`BlockAddressSchema` は dimension と block position、`WorldPositionSchema` は dimension と有限座標を検証する。tick と world/dimension revision は非負整数である。
 
-`BlockId` は 0..65535 の数値ブランド、`BlockPosition` は `BlockAxis` 3 軸を持つ object 型である。両 Schema はこれらの型を検証する。
+`BlockId` は 0..65535 の数値ブランド、`BlockPosition` は `BlockAxis` 3 軸を持つ object 型である。`WorldPosition` の x/y/z は有限な `PositionAxis` で、dimension とともに検証される。`AngleRadians` は有限なラジアン値で、camera pose と vehicle heading が共有する。
 
 ## 7. `GameModule` / `StageRegistration`（frame）
 
@@ -1905,11 +2088,17 @@ const CHUNK_HEADER_BYTES = 24
 const MAX_CHUNK_HEIGHT = 0xffff
 
 type ChunkHeight = number & Brand.Brand<'ChunkHeight'>   // 整数、1..MAX_CHUNK_HEIGHT
+type ChunkLocalY = number & Brand.Brand<'ChunkLocalY'> // chunk 内の整数 Y、0..MAX_CHUNK_HEIGHT-1
+type ChunkBlockCount = number & Brand.Brand<'ChunkBlockCount'> // 256 の倍数、256..256*MAX_CHUNK_HEIGHT
 type EncodedChunk = ReadonlyByteArray & Brand.Brand<'EncodedChunk'>
 
-const ChunkHeight(value: number): ChunkHeight             // 範囲外なら RangeError
+const ChunkHeight(value: number): ChunkHeight             // 整数 1..MAX_CHUNK_HEIGHT を検証
+const ChunkLocalY(value: number): ChunkLocalY
+const ChunkBlockCount(value: number): ChunkBlockCount
 const EncodedChunk(encoded: Uint8Array | EncodedChunk): EncodedChunk // ヘッダー・寸法・長さを検証し、入力を所有する constructor
-const chunkBlockCount(height: ChunkHeight): number          // CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * height
+const chunkBlockCount(height: ChunkHeight): ChunkBlockCount // CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * height
+const ChunkBlocks(height: ChunkHeight, blocks: Uint8Array): ChunkBlocks
+const chunk: (coord: ChunkCoord, height: ChunkHeight, blocks: Uint8Array) => Chunk
 ```
 
 `chunk(coord, height, blocks)` は 16×16 の縦列 Chunk を構築する。`blocks` 引数は
@@ -1923,11 +2112,11 @@ const chunkBlockCount(height: ChunkHeight): number          // CHUNK_SIZE_XZ * C
 type ChunkBlocks = BlockState & Brand.Brand<'ChunkBlocks'>
 
 class BlockState {
-  get length(): number
-  get(index: number): BlockId
-  set(index: number, blockId: BlockId): void
+  get length(): BlockStateLength
+  get(index: BlockStateIndex): BlockId
+  set(index: BlockStateIndex, blockId: BlockId): void
   toBytes(): Uint8Array
-  copyTo(target: Uint8Array, offset?: number): void
+  copyTo(target: Uint8Array, offset?: BlockStateByteOffset): void
 }
 const blockState(bytes: Uint8Array): BlockState   // BlockState.fromBytes のラッパー。全バイトを登録済み BlockId として検証する
 ```

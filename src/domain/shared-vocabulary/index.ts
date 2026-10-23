@@ -1,3 +1,4 @@
+export { AngleRadians } from "./shared-vocabulary.js";
 export {
   EntityIdSchema,
   DimensionIdSchema,

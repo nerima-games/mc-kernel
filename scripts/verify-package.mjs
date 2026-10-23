@@ -406,12 +406,23 @@ try {
 ${typeConsumerSubpathImports}
 
 import {
+  AngleRadians,
   blockIdOf,
+  BlockBlastResistance,
+  BrewingFuelCharges,
   DEFAULT_EXPLOSION_LIMITS,
   DEFAULT_BLOCK_DROP,
   DEFAULT_HARVEST_TOOL,
+  FixedDurationSecs,
+  InputAction,
+  KeyCode,
   MAX_RENDER_DISTANCE,
   normaliseSettings,
+  PositionAxis,
+  RecipeId,
+  RecipePatternRow,
+  RecipePatternSymbol,
+  RecipeStationTag,
   resistsExplosion,
   resolveDrop,
   snapshotAgeSecs,
@@ -419,6 +430,7 @@ import {
   PositionAxis,
   itemStack,
   maxStackCountForItem,
+  StackCount,
   shapedRecipe,
   type BlockType,
   type BrewingState,
@@ -437,34 +449,34 @@ if (declaredPackageExports.length !== ${importSpecifiers.length}) {
 }
 
 const block: BlockType = 'stone'
-const stack: ItemStack = itemStack('stone', 2)
+const stack: ItemStack = itemStack('stone', StackCount(2))
 const recipe: Recipe = shapedRecipe(
-  'minecraft:declaration-probe',
-  ['S'],
-  { S: 'stone' },
-  itemStack('stick', 1),
-  { tags: ['crafting_table'] },
+  RecipeId('minecraft:declaration-probe'),
+  [RecipePatternRow('S')],
+  { [RecipePatternSymbol('S')]: 'stone' },
+  itemStack('stick', StackCount(1)),
+  { tags: [RecipeStationTag('crafting_table')] },
 )
 const furnace: FurnaceState = {
   station: 'furnace',
-  input: itemStack('sand', 1),
-  fuel: itemStack('coal', 1),
+  input: itemStack('sand', StackCount(1)),
+  fuel: itemStack('coal', StackCount(1)),
   output: undefined,
-  fuelTimeRemainingSecs: 0,
-  fuelTimeTotalSecs: 0,
-  cookProgressSecs: 0,
+  fuelTimeRemainingSecs: FixedDurationSecs(0),
+  fuelTimeTotalSecs: FixedDurationSecs(0),
+  cookProgressSecs: FixedDurationSecs(0),
 }
 const brewing: BrewingState = {
-  bottles: [itemStack('water_bottle', 1), undefined, undefined],
-  ingredient: itemStack('nether_wart', 1),
+  bottles: [itemStack('water_bottle', StackCount(1)), undefined, undefined],
+  ingredient: itemStack('nether_wart', StackCount(1)),
   fuel: undefined,
-  fuelCharges: 1,
-  brewProgressSecs: 0,
+  fuelCharges: BrewingFuelCharges(1),
+  brewProgressSecs: FixedDurationSecs(0),
 }
 const cameraSnapshot: CameraPoseSnapshot = {
   position: { x: PositionAxis(0), y: PositionAxis(0), z: PositionAxis(0) },
-  yawRadians: 0,
-  pitchRadians: 0,
+  yawRadians: AngleRadians(0),
+  pitchRadians: AngleRadians(0),
   capturedAtSecs: MonotonicTimeSecs(1),
 }
 const snapshotAge = snapshotAgeSecs(cameraSnapshot, MonotonicTimeSecs(3))
@@ -474,8 +486,11 @@ const settings: Settings = normaliseSettings({
 })
 const drop = resolveDrop(DEFAULT_HARVEST_TOOL, DEFAULT_BLOCK_DROP, block)
 const maxExplosionRaySteps = DEFAULT_EXPLOSION_LIMITS.maxRaySteps
-const resistsZeroPower = resistsExplosion(blockIdOf(block), 0)
-const resistsExtremePower = resistsExplosion(blockIdOf(block), Number.MAX_SAFE_INTEGER)
+const resistsZeroPower = resistsExplosion(blockIdOf(block), BlockBlastResistance(0))
+const resistsExtremePower = resistsExplosion(
+  blockIdOf(block),
+  BlockBlastResistance(Number.MAX_SAFE_INTEGER),
+)
 if (stack.count !== 2 || maxStackCountForItem(stack.item) !== 64 || recipe._tag !== 'Shaped') {
   throw new Error('Recipe declaration consumer returned an invalid result')
 }
@@ -487,7 +502,7 @@ if (snapshotAge !== 2) {
 }
 if (
   settings.renderDistance !== MAX_RENDER_DISTANCE ||
-  settings.keyBindings.jump !== 'Space'
+  settings.keyBindings[InputAction('jump')] !== KeyCode('Space')
 ) {
   throw new Error('Settings declaration consumer returned an invalid result')
 }

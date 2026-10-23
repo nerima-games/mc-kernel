@@ -1,6 +1,7 @@
-import { type CameraPoseSnapshot, snapshotAgeSecs } from '../src/domain/presentation/camera'
+import { type CameraPoseSnapshot, SnapshotAgeSecs, snapshotAgeSecs } from '../src/domain/presentation/camera'
 import { ClockPort, FixedClockLayer, monotonicSecs, wallClockEpochMillis } from '../src/domain/time/clock'
-import { Context, Effect, Layer, Ref } from 'effect'
+import { Context, Effect, Layer, Ref, Result } from 'effect'
+import { AngleRadians } from '../src/domain/shared-vocabulary/shared-vocabulary'
 import { DeltaTimeSecs, EpochMillis, MonotonicTimeSecs } from '../src/domain/time/quantities'
 import type { FrameServices, GameModule, StageRegistration } from '../src/domain/time/frame'
 import { describe, expect, it } from 'vitest'
@@ -84,13 +85,13 @@ describe('ClockPort', () => {
 describe('CameraPoseSnapshot', () => {
   const snapshot: CameraPoseSnapshot = {
     capturedAtSecs: monotonicTimeSecs(CAPTURED_AT_SECS),
-    pitchRadians: ZERO,
+    pitchRadians: AngleRadians(ZERO),
     position: position(
       PositionAxis(SNAPSHOT_POSITION_X),
       PositionAxis(SNAPSHOT_POSITION_Y),
       PositionAxis(SNAPSHOT_POSITION_Z),
     ),
-    yawRadians: ZERO,
+    yawRadians: AngleRadians(ZERO),
   }
 
   it('snapshotAgeSecs tells the renderer how stale the pose it is mirroring has become', () =>
@@ -110,6 +111,15 @@ describe('CameraPoseSnapshot', () => {
       expect(snapshotAgeSecs(snapshot, monotonicTimeSecs(CLOCK_SKEW_SECS))).toBeCloseTo(EXPECTED_CLOCK_SKEW_AGE_SECS, TEN)
     })),
   )
+
+  it('angle and snapshot-age brands reject non-finite numbers', () => {
+    expect(Result.isSuccess(AngleRadians.result(-Math.PI))).toBe(true)
+    expect(Result.isSuccess(AngleRadians.result(Math.PI))).toBe(true)
+    expect(Result.isFailure(AngleRadians.result(Number.NaN))).toBe(true)
+    expect(Result.isFailure(AngleRadians.result(Number.POSITIVE_INFINITY))).toBe(true)
+    expect(Result.isFailure(SnapshotAgeSecs.result(Number.NaN))).toBe(true)
+    expect(Result.isFailure(SnapshotAgeSecs.result(Number.NEGATIVE_INFINITY))).toBe(true)
+  })
 })
 
 describe('GameModule / StageRegistration contract', () => {

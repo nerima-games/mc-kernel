@@ -138,6 +138,131 @@ describe("public API surface", () => {
     Effect.runPromise(
       Effect.sync(() => {
         const expected = [
+          // Brand constructors introduced or newly exposed by K-brand.
+          "AngleRadians",
+          "SnapshotAgeSecs",
+          "PositionAxis",
+          "ChunkLocalY",
+          "ChunkBlockCount",
+          "SectionIndex",
+          "SectionLength",
+          "HeightmapColumnIndex",
+          "BiomeTemperature",
+          "BiomeDownfall",
+          "BiomeTint",
+          "RandomSeed",
+          "RandomIntBound",
+          "RandomInt",
+          "RandomFraction",
+          "DataPackResourcePath",
+          "LightLevelCandidate",
+          "BlockHardness",
+          "BlockFriction",
+          "BlockBlastResistance",
+          "BlockContactDamage",
+          "BlockMovementDrag",
+          "BlockExperiencePoints",
+          "ContainerSlotCount",
+          "LightChannelLength",
+          "LightChannelIndex",
+          "LightChannelByteOffset",
+          "LightVolumeHeight",
+          "BlockStateLength",
+          "BlockStateIndex",
+          "BlockStateByteOffset",
+          "EntitySerial",
+          "EntityHealthPoints",
+          "EntityRosterRepairCount",
+          "ExplosionRadius",
+          "ExplosionBlockCount",
+          "ExplosionRayStepCount",
+          "ExplosionEntityCount",
+          "ExplosionExposure",
+          "PortalWidth",
+          "PortalHeight",
+          "VehicleVelocityComponent",
+          "VehicleValidationPath",
+          "VehicleValidationReason",
+          "SulfurCubeExplosionPower",
+          "SulfurCubeContactDamageAmount",
+          "SulfurCubeKnockbackPower",
+          "SulfurCubePushSoundImpulseThreshold",
+          "SulfurCubePushSoundCooldown",
+          "EffectAmplifier",
+          "EffectDurationSecs",
+          "FoodNutrition",
+          "FoodSaturation",
+          "FoodEffectProbability",
+          "RandomTeleportDiameter",
+          "BeeHiveTicks",
+          "PotionEffectDurationTicks",
+          "ContainerSlotIndex",
+          "RgbColor",
+          "DyeColorChannel",
+          "MapDecorationCoordinate",
+          "MapDecorationRotation",
+          "BookGeneration",
+          "TrimItemModelIndex",
+          "Enchantability",
+          "EnchantmentWeight",
+          "ItemEnchantability",
+          "EnchantmentTableLevelCost",
+          "OminousBottleAmplifier",
+          "FireworksFlightDuration",
+          "ItemComponentNbtLong",
+          "LootTableSeed",
+          "ItemComponentNbtString",
+          "ItemComponentNbtNumber",
+          "ItemComponentNbtKey",
+          "TrimArmorMaterialKey",
+          "ProfileName",
+          "ProfilePropertyName",
+          "ProfilePropertyValue",
+          "ProfilePropertySignature",
+          "BookPageText",
+          "BookAuthor",
+          "TrimAssetName",
+          "BlockStatePropertyValue",
+          "ItemLock",
+          "CustomModelDataFloat",
+          "CustomModelDataString",
+          "KineticDurationTicks",
+          "KineticSpeed",
+          "KineticDamageMultiplier",
+          "KineticMovement",
+          "ToolDurabilityDamage",
+          "ToolRuleOrder",
+          "ToolMiningSpeed",
+          "RecipeIngredientCount",
+          "RecipePriority",
+          "RecipeGridDimension",
+          "RecipeGridIndex",
+          "RecipePatternRow",
+          "RecipePatternSymbol",
+          "RecipeGroup",
+          "RecipeExperience",
+          "RecipeCompletionCount",
+          "TransmuteMaterialSlotCount",
+          "BrewingFuelCharges",
+          "AttackCharge",
+          "AttackHitboxMargin",
+          "AttackRangeDistance",
+          "ChunkLocalIndex",
+          "ChunkRevision",
+          "LightRevision",
+          "MobAttackRangeFactor",
+          "SwingAnimationDuration",
+          "UseSpeedMultiplier",
+          "WorldEpoch",
+          "VanillaResourcePath",
+          "RenderDistanceChunks",
+          "FieldOfViewDegrees",
+          "VolumeLevel",
+          "MouseSensitivity",
+          "InputAction",
+          "KeyCode",
+          "DifficultyDamageMultiplier",
+          "DifficultyHungerMultiplier",
           // Identifiers
           "WorldId",
           "StageId",
@@ -1542,6 +1667,9 @@ describe("public API surface", () => {
     expectTypeOf<kernel.DomainEventAchievementId>().toEqualTypeOf<
       import("../src/domain/event/domain-event.js").AchievementId
     >();
+    expectTypeOf<kernel.AngleRadians>().toEqualTypeOf<
+      import("../src/domain/shared-vocabulary/shared-vocabulary.js").AngleRadians
+    >();
     expectTypeOf<kernel.WorldPosition>().toEqualTypeOf<
       import("../src/domain/shared-vocabulary/shared-vocabulary.js").WorldPosition
     >();
@@ -1623,7 +1751,7 @@ describe("public API surface", () => {
   it("documents unknown block-id defaults on the stable block-registry import path", () =>
     Effect.runPromise(
       Effect.sync(() => {
-        const unknownId = blockRegistry.BLOCK_ID_MAX + 1;
+        const unknownId = blockRegistry.BlockId(blockRegistry.BLOCK_ID_MAX);
 
         expect(blockRegistry.isKnownBlockId(unknownId)).toBe(false);
         expect(blockRegistry.dropOfBlockId(unknownId)).toBeUndefined();
@@ -1673,7 +1801,9 @@ describe("public API surface", () => {
   it("re-exports the LightLevel type", () =>
     Effect.runPromise(
       Effect.sync(() => {
-        const level: kernel.LightLevel = kernel.clampLightLevel(ORIGIN_AXIS);
+        const level: kernel.LightLevel = kernel.clampLightLevel(
+          kernel.LightLevelCandidate(ORIGIN_AXIS),
+        );
         expect(level).toBe(0);
       }),
     ));
@@ -2702,12 +2832,17 @@ describe("public API surface", () => {
   it("keeps the canonical ItemStack payload and slot boundary", () =>
     Effect.runPromise(
       Effect.sync(() => {
-        const stack = kernel.itemStack("stone", 2);
+        const stack = kernel.itemStack("stone", kernel.StackCount(2));
         expect(Object.keys(stack).sort()).toEqual(["components", "count", "item"]);
         expect(stack.count).toBe(2);
         expect(kernel.splitItemStack(stack, kernel.TransferQuantity(2)).remainder).toBeUndefined();
-        expect(kernel.mergeItemStacks(kernel.itemStack("stone", 1), kernel.itemStack("stone", 1)).remainder).toBeUndefined();
-        expect(() => kernel.itemStack("stone", 0)).toThrow(RangeError);
+        expect(
+          kernel.mergeItemStacks(
+            kernel.itemStack("stone", kernel.StackCount(1)),
+            kernel.itemStack("stone", kernel.StackCount(1)),
+          ).remainder,
+        ).toBeUndefined();
+        expect(() => Reflect.apply(kernel.itemStack, undefined, ["stone", 0])).toThrow(RangeError);
         const conflict = kernel.itemComponentPatchFromUnknownEither({
             "minecraft:max_stack_size": 1,
             "!minecraft:max_stack_size": 1,
