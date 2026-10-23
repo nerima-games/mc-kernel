@@ -1,32 +1,26 @@
 # Domain area map
 
-This is the current map for the internal `src/domain` reorganization after the
-recipe API removals. The package remains a single package.
+This is the current map for the internal `src/domain` reorganization after
+removing eight recipe logic subpaths: brewing, cooking, crafting,
+crafting-special, smelting, smithing, stonecutting, and transmute. The package
+remains a single package.
 
 ## Scope and invariant
 
-The inventory lists 210 files under `src/domain` whose names do not begin with
-`_` and are not `index.ts`. The completeness test checks that each appears
-exactly once. The subpath table maps the 84 underscore-prefixed leaf barrels;
-each area's `index.ts` is noted below.
-
-The public set contains 84 package subpaths.
+The inventory lists 210 implementation and data files under `src/domain`,
+excluding leaf barrels and area index barrels. The completeness test checks
+that each appears exactly once. The public map below covers the 84 remaining
+package subpaths and their leaf barrels.
 
 ## Areas
 
 The implemented layout has nine area directories. A public entry point has
 one leaf barrel inside its area (`<area>/_<subpath>.ts`); internal data,
-validation, and implementation files stay beside that leaf barrel. Thus there
-are 84 public leaf barrels for 84 public subpaths. Each area has an index
+validation, and implementation files stay beside that leaf barrel. Thus each
+public subpath has one leaf barrel. Each area has an index
 barrel at `src/domain/<area>/index.ts`, and `src/index.ts` re-exports through
 those nine barrels. The area directory itself is not an additional public
 export.
-
-The initial prefix-based inventory produced eleven candidate buckets. The
-implemented map uses nine areas because the remaining candidates were
-implementation prefixes or cross-cutting data groups, not stable public
-responsibility boundaries. Keeping them inside the nine domain areas avoids
-artificial public boundaries.
 
 <!-- area-inventory:begin -->
 
@@ -128,12 +122,9 @@ artificial public boundaries.
 
 <!-- area-inventory:end -->
 
-The area counts sum to 210. `world` has 13 files; its heading includes `chunk`,
-`heightmap`, and the generated vanilla table.
-
 ## Public subpath to barrel map
 
-The following is the complete 84-entry mapping. Every right-hand path is an
+The following is the complete mapping. Every right-hand path is an
 implemented leaf barrel in the corresponding area.
 
 | subpath | implemented barrel |
@@ -227,30 +218,25 @@ implemented leaf barrel in the corresponding area.
 
 The intended layer order from foundations to consumers is `coordinates`,
 `time/text`, `item`, `recipe`, `block`, `entity`, then `world`; `presentation`
-consumes foundational contracts. This order is not an import direction. In the
-notation below, `A <- B` means B imports A. These are TypeScript module edges,
-not runtime package dependencies.
+consumes foundational contracts. This order is not an import direction. In
+edge lists, `A <- B` means B imports A; `A -> B` means A imports B. These are
+TypeScript module edges, not runtime package dependencies. The `time/text`
+label groups target areas; a listed importer may depend on either or both.
 
 The observed cross-area edges that are compatible with the direction are:
 
 - `coordinates <- block, entity, presentation, world`
-- `time/text <- item, recipe, block, entity, presentation, time`
+- `time/text <- item, recipe, block, entity, presentation`
 - `item <- recipe, block, entity, world`
 - `recipe <- block, world`
 - `block <- entity, world`
 
-The following current imports are reverse or lateral edges and are explicitly
-out of scope for the move. They must not be hidden by a barrel:
+The following current imports are reverse or lateral edges and remain outside
+this map's scope:
 
-- `block -> item`: block break/harvest/interaction and crop bridges use item types and stacks.
 - `block -> world`: crop rules use dimension data; light uses chunk data.
 - `entity -> world`: damage/status tables use generated vanilla data; vehicles use dimensions; sulfur-cube registry uses data-pack registry.
 - `item -> entity`: food, item components, and combat validation use status/damage/vitals vocabulary.
 - `item -> world`: enchantment data uses generated vanilla tables; enchantment-table uses random source.
 - `recipe -> world`: the recipe registry uses the data-pack registry.
-- `world -> recipe` and `world -> item`: tag membership uses item and recipe tag vocabulary.
 - `time -> text`: clock/frame contracts consume quantities and identifiers.
-
-The move preserved these imports. Dependency cleanup, including whether
-`quantities`, tags, and generated tables should be promoted to a foundational
-`vocabulary` area, is a separate deliverable.
