@@ -1,5 +1,5 @@
-import { Effect, Either } from 'effect'
-import * as fc from 'effect/FastCheck'
+import { Effect, Result } from 'effect'
+import * as fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import {
   FIRST_FRAME_DELTA_SECS,
@@ -149,13 +149,13 @@ describe('fixed simulation timing', () => {
   it('matches the K05 tick arithmetic oracle', () =>
     assertWithEffect(() => {
       const firstTick = addTick(SimulationTick(0), NonNegativeTickCount(1))
-      expect(firstTick).toStrictEqual(Either.right(1))
-      expect(secondsForTicks(NonNegativeTickCount(1))).toStrictEqual(Either.right(0.05))
-      expect(secondsForTicks(NonNegativeTickCount(2))).toStrictEqual(Either.right(0.1))
+      expect(firstTick).toStrictEqual(Result.succeed(1))
+      expect(secondsForTicks(NonNegativeTickCount(1))).toStrictEqual(Result.succeed(0.05))
+      expect(secondsForTicks(NonNegativeTickCount(2))).toStrictEqual(Result.succeed(0.1))
       // @ts-expect-error Runtime overflow is rejected even when an invalid value crosses the typed boundary.
-      expect(secondsForTicks(Number.POSITIVE_INFINITY)).toStrictEqual(Either.left({ _tag: 'TimeOverflow' }))
+      expect(secondsForTicks(Number.POSITIVE_INFINITY)).toStrictEqual(Result.fail({ _tag: 'TimeOverflow' }))
       expect(addTick(SimulationTick(Number.MAX_SAFE_INTEGER), NonNegativeTickCount(1))).toStrictEqual(
-        Either.left({ _tag: 'TimeOverflow' }),
+        Result.fail({ _tag: 'TimeOverflow' }),
       )
     }),
   )
@@ -169,10 +169,10 @@ describe('fixed simulation timing', () => {
           const result = addTick(SimulationTick(tickValue), NonNegativeTickCount(countValue))
           const expected = tickValue + countValue
           if (Number.isSafeInteger(expected)) {
-            expect(Either.isRight(result)).toBe(true)
-            if (Either.isRight(result)) expect(result.right).toBe(expected)
+            expect(Result.isSuccess(result)).toBe(true)
+            if (Result.isSuccess(result)) expect(result.success).toBe(expected)
           } else {
-            expect(result).toStrictEqual(Either.left({ _tag: 'TimeOverflow' }))
+            expect(result).toStrictEqual(Result.fail({ _tag: 'TimeOverflow' }))
           }
         },
       ),

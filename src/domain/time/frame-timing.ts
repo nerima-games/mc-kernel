@@ -1,4 +1,4 @@
-import { Either } from 'effect'
+import { Result } from 'effect'
 import {
   DeltaTimeSecs,
   FixedDurationSecs,
@@ -38,16 +38,16 @@ const timeOverflow: TimeOverflow = { _tag: 'TimeOverflow' }
 export const addTick = (
   tick: SimulationTickValue,
   count: NonNegativeTickCountValue,
-): Either.Either<SimulationTickValue, TimeOverflow> => {
+): Result.Result<SimulationTickValue, TimeOverflow> => {
   const nextTick = tick + count
-  return Number.isSafeInteger(nextTick) ? Either.right(SimulationTick(nextTick)) : Either.left(timeOverflow)
+  return Number.isSafeInteger(nextTick) ? Result.succeed(SimulationTick(nextTick)) : Result.fail(timeOverflow)
 }
 
 export const secondsForTicks = (
   ticks: NonNegativeTickCountValue,
-): Either.Either<FixedDurationSecsValue, TimeOverflow> => {
+): Result.Result<FixedDurationSecsValue, TimeOverflow> => {
   const seconds = ticks * tickDuration
-  return Either.try({ try: () => FixedDurationSecs(seconds), catch: () => timeOverflow })
+  return Result.mapError(FixedDurationSecs.result(seconds), () => timeOverflow)
 }
 
 export const interpolationFraction = (accumulator: FixedDurationSecsValue): InterpolationFractionValue =>

@@ -27,7 +27,6 @@ const EXPECTED_STAGE_READING = 1_235
 const EXPECTED_POSE_READING = 2_469
 const epochMillis = EpochMillis
 const deltaTimeSecs = DeltaTimeSecs
-const contextTag = Context.Tag
 const fixedClockLayer = FixedClockLayer
 const monotonicTimeSecs = MonotonicTimeSecs
 const stageId = StageId
@@ -170,10 +169,10 @@ describe('GameModule / StageRegistration contract', () => {
          * frame. Note the shape of `cameraPose`: the ClockPort requirement is on
          * the method, which is precisely why FrameServices collapses to ClockPort.
          */
-        class PoseSource extends contextTag('test/PoseSource')<
-        PoseSource,
-        { readonly cameraPose: Effect.Effect<number, never, ClockPort> }
-      >() {}
+        class PoseSource extends Context.Service<
+          PoseSource,
+          { readonly cameraPose: Effect.Effect<number, never, ClockPort> }
+        >()('test/PoseSource') {}
       const poseSource = PoseSource
 
       const seen = yield* Ref.make<ReadonlyArray<number>>([])
