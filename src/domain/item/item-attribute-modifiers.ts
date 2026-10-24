@@ -1,6 +1,6 @@
 /** Constructors and guards for current Java item attribute modifiers. */
 import { Effect, Result } from 'effect'
-import { ResourceLocation } from '../text/identifiers.js'
+import { ResourceLocation, type ResourceLocation as ResourceLocationType } from '../text/identifiers.js'
 import {
   ATTRIBUTE_MODIFIER_OPERATIONS,
   ATTRIBUTE_MODIFIER_SLOTS,
@@ -30,25 +30,24 @@ export type AttributeModifierOptions = Readonly<{
 
 type AttributeModifierResult<A> = Result.Result<A, ItemValidationFailure | TextComponentFailure>
 
+const ATTRIBUTE_MODIFIER_OPERATION_SET: ReadonlySet<string> = new Set(ATTRIBUTE_MODIFIER_OPERATIONS)
+const ATTRIBUTE_MODIFIER_SLOT_SET: ReadonlySet<string> = new Set(ATTRIBUTE_MODIFIER_SLOTS)
+
 const failure = (
   field: string,
   message: string,
   value?: unknown,
   reason: ItemValidationFailure['reason'] = 'invalid-value',
-  kind: ItemValidationFailure['kind'] = reason === 'out-of-range' ? 'RangeError' : 'TypeError',
+  kind: ItemValidationFailure['kind'] = 'TypeError',
 ): ItemValidationFailure => itemValidationFailure(field, message, reason, value, kind)
 
-const brandValue = <A, E extends Readonly<{ readonly message: string }>>(
-  result: Result.Result<A, E>,
-  field: string,
-  value: unknown,
-  reason: ItemValidationFailure['reason'] = 'invalid-value',
-): AttributeModifierResult<A> => Result.mapError(result, (error) => failure(field, error.message, value, reason))
-
-const validResourceLocation = (value: unknown, name: string): AttributeModifierResult<string> =>
-  typeof value === 'string' && ResourceLocation.is(value)
-    ? Result.succeed(value)
-    : Result.fail(failure(name, `${name} must be a valid resource location`, value, 'invalid-value', 'TypeError'))
+const resourceLocationOf = (value: unknown, name: string): AttributeModifierResult<ResourceLocationType> => {
+  if (typeof value !== 'string') {
+    return Result.fail(failure(name, `${name} must be a valid resource location`, value, 'invalid-value', 'TypeError'))
+  }
+  return Result.mapError(ResourceLocation.result(value), () =>
+    failure(name, `${name} must be a valid resource location`, value, 'invalid-value', 'TypeError'))
+}
 
 const snapshotOptions = (
   value: unknown,
@@ -91,13 +90,10 @@ export const attributeModifier = (
   const parsed = snapshotOptions(options)
   if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   const input = parsed.success
-  const type = validResourceLocation(input.type, 'type')
+  const type = resourceLocationOf(input.type, 'type')
   if (Result.isFailure(type)) return Result.fail(type.failure)
-  const id = validResourceLocation(input.id, 'id')
+  const id = resourceLocationOf(input.id, 'id')
   if (Result.isFailure(id)) return Result.fail(id.failure)
-  if (typeof input.amount !== 'number' || !Number.isFinite(input.amount)) {
-    return Result.fail(failure('amount', 'amount must be a finite number', input.amount, 'invalid-type'))
-  }
   if (!ATTRIBUTE_MODIFIER_OPERATION_SET.has(input.operation)) {
     return Result.fail(failure('operation', `Unknown attribute modifier operation: ${String(input.operation)}`, input.operation))
   }
@@ -110,9 +106,10 @@ export const attributeModifier = (
   const display = input.display === undefined ? Result.succeed(undefined) : attributeModifierDisplay(input.display)
   return Result.gen(function* () {
     const displayValue = yield* display
-    const resourceType = yield* brandValue(ResourceLocation.result(type.success), 'type', type.success)
-    const resourceId = yield* brandValue(ResourceLocation.result(id.success), 'id', id.success)
-    const amount = yield* brandValue(AttributeModifierAmount.result(input.amount), 'amount', input.amount, 'out-of-range')
+    const resourceType = yield* type
+    const resourceId = yield* id
+    const amount = yield* Result.mapError(AttributeModifierAmount.result(input.amount), () =>
+      failure('amount', 'amount must be a finite number', input.amount, 'invalid-type'))
     const modifier = {
       type: resourceType,
       id: resourceId,
@@ -136,9 +133,6 @@ export const attributeModifiersComponent = (
     return Object.freeze(modifiers)
   })
 }
-
-const ATTRIBUTE_MODIFIER_OPERATION_SET: ReadonlySet<string> = new Set(ATTRIBUTE_MODIFIER_OPERATIONS)
-const ATTRIBUTE_MODIFIER_SLOT_SET: ReadonlySet<string> = new Set(ATTRIBUTE_MODIFIER_SLOTS)
 
 export {
   ATTRIBUTE_MODIFIER_OPERATIONS,

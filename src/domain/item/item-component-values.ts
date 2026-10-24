@@ -133,7 +133,6 @@ import {
   isDeathProtectionOptions,
   isDyeComponent,
   isDyedColorComponent,
-  isDebugStickStateComponent,
   isEntityDataOptions,
   isEnchantableValue,
   isEquippableOptions,
@@ -205,7 +204,7 @@ const componentFailure = (
   message: string,
   value?: unknown,
   reason: ItemValidationFailure['reason'] = 'invalid-value',
-  kind: ItemValidationFailure['kind'] = reason === 'out-of-range' ? 'RangeError' : 'TypeError',
+  kind: ItemValidationFailure['kind'] = 'TypeError',
 ): ItemValidationFailure => itemValidationFailure(field, message, reason, value, kind)
 
 const reflectionResult = <A>(
@@ -258,7 +257,7 @@ const snapshotInputValue = (
     ancestors.delete(value)
     return Result.fail(prototype.failure)
   }
-  if (prototype !== Object.prototype && prototype !== null) {
+  if (prototype.success !== Object.prototype && prototype.success !== null) {
     ancestors.delete(value)
     return Result.succeed(value)
   }
@@ -267,7 +266,7 @@ const snapshotInputValue = (
     ancestors.delete(value)
     return Result.fail(keys.failure)
   }
-  const copied: Record<string, unknown> = prototype === null ? Object.create(null) : {}
+  const copied: Record<string, unknown> = prototype.success === null ? Object.create(null) : {}
   for (const key of keys.success) {
     const entry = reflectionResult(`${field}.${key}`, value, () => Reflect.get(value, key))
     if (Result.isFailure(entry)) {
@@ -297,7 +296,6 @@ const validatedInput = <A>(
   field: string,
   message: string,
   isValid: (value: unknown) => value is A,
-  kind: ItemValidationFailure['kind'] = 'TypeError',
 ): ItemComponentResult<A> => {
   const snapshot = snapshotInputValue(value, field)
   if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
@@ -307,7 +305,7 @@ const validatedInput = <A>(
   })
   if (Result.isFailure(checked)) return Result.fail(checked.failure)
   if (checked.success.valid) return Result.succeed(checked.success.value)
-  return Result.fail(componentFailure(field, message, value, kind === 'RangeError' ? 'out-of-range' : 'invalid-value', kind))
+  return Result.fail(componentFailure(field, message, value))
 }
 
 const brandResult = <A, E extends Readonly<{ readonly message: string }>>(
@@ -648,9 +646,10 @@ const frozenBrandedStringRecord = <Key extends string, Value extends string>(
   valueOf: (value: string) => Result.Result<Value, Readonly<{ readonly message: string }>>,
   field: string,
 ): ItemComponentResult<Readonly<Record<Key, Value>>> => Result.gen(function* () {
-  const copy: Record<Key, Value> = {}
-  for (const [key, item] of Object.entries(value)) {
+  const copy: Record<string, Value> = {}
+  for (const key of Object.keys(value)) {
     const brandedKey = yield* brandResult(keyOf(key), field, key)
+    const item = value[brandedKey]
     const entry = yield* brandResult(valueOf(item), field, item)
     Object.defineProperty(copy, brandedKey, {
       configurable: false,
@@ -918,7 +917,7 @@ export const writableBookContentComponent = (
   value: WritableBookContentOptions = {},
 ): ItemComponentResult<WritableBookContentComponent> => {
   const parsed = validatedInput(value, 'writable_book_content', 'Invalid writable_book_content component options', isWritableBookContentOptions)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const pages: WritableBookPageComponent[] = []
     for (const page of parsed.success.pages ?? []) pages.push(yield* writableBookPageComponentOf(page))
@@ -981,19 +980,19 @@ const trimMaterialComponentOf = (
   }
   return Result.gen(function* () {
     const assetName = yield* brandResult(TrimAssetName.result(value.assetName), 'trim.material.assetName', value.assetName)
-    const ingredient = yield* brandResult(ResourceLocation.result(value.ingredient), 'trim.material.ingredient', value.ingredient)
+    const ingredient = value.ingredient
     const itemModelIndex = yield* brandResult(TrimItemModelIndex.result(value.itemModelIndex), 'trim.material.itemModelIndex', value.itemModelIndex, 'RangeError', 'out-of-range')
-    const overrideArmorMaterials = value.overrideArmorMaterials === undefined
+    const overrideArmorMaterialsInput = value.overrideArmorMaterials
+    const overrideArmorMaterials = overrideArmorMaterialsInput === undefined
       ? undefined
       : yield* Result.gen(function* () {
         const normalized: Record<string, ResourceLocation> = {}
-        for (const [key, location] of Object.entries(value.overrideArmorMaterials)) {
+        for (const [key, location] of Object.entries(overrideArmorMaterialsInput)) {
           const brandedKey = yield* brandResult(TrimArmorMaterialKey.result(key), 'trim.material.overrideArmorMaterials.key', key)
-          const brandedLocation = yield* brandResult(ResourceLocation.result(location), 'trim.material.overrideArmorMaterials.value', location)
           Object.defineProperty(normalized, brandedKey, {
             configurable: false,
             enumerable: true,
-            value: brandedLocation,
+            value: location,
             writable: false,
           })
         }
@@ -1126,11 +1125,11 @@ export const mapIdComponent = (value: number): ItemComponentResult<MapIdComponen
 
 export const blockStateComponent = (value: Readonly<Record<string, string>>): ItemComponentResult<BlockStateComponent> => {
   const parsed = validatedInput(value, 'block_state', 'Invalid block_state component value', isBlockStateComponent)
-  if (Result.isFailure(parsed)) return parsed
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const normalized: Record<string, BlockStateComponent[string]> = {}
-    for (const [property, value] of Object.entries(parsed.success)) {
-      const brandedValue = yield* brandResult(BlockStatePropertyValue.result(value), `block_state.${property}`, value)
+    for (const [property, propertyValue] of Object.entries(parsed.success)) {
+      const brandedValue = yield* brandResult(BlockStatePropertyValue.result(propertyValue), `block_state.${property}`, propertyValue)
       Object.defineProperty(normalized, property, {
         configurable: false,
         enumerable: true,
@@ -1422,10 +1421,17 @@ export const containerLootComponent = (options: ContainerLootOptions): ItemCompo
   }))
 }
 
+const isDebugStickStateShape = (value: unknown): value is DebugStickStateComponent => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const prototype = Object.getPrototypeOf(value)
+  return (prototype === Object.prototype || prototype === null) &&
+    Object.values(value).every((property) => typeof property === 'string')
+}
+
 export const debugStickStateComponent = (
   value: Readonly<Record<string, string>> = {},
 ): ItemComponentResult<DebugStickStateComponent> => {
-  const parsed = validatedInput(value, 'debug_stick_state', 'Invalid debug_stick_state component value', isDebugStickStateComponent)
+  const parsed = validatedInput(value, 'debug_stick_state', 'Invalid debug_stick_state component value', isDebugStickStateShape)
   if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
   return Result.gen(function* () {
     const normalized: Record<string, DebugStickStateComponent[string]> = {}

@@ -19,7 +19,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { ok } from 'node:assert/strict'
-import { Effect, Option } from 'effect'
+import { Effect, Option, Result } from 'effect'
 import { expectTypeOf } from 'vitest'
 import { blockPropertiesOf as blockPropertiesOfResult, type BlockDefinition } from '../src/domain/block/block-definition'
 import {
@@ -110,7 +110,8 @@ const UNKNOWN_HIGH_BLOCK_ID = 200
 const UNKNOWN_HIGHER_BLOCK_ID = 250
 const UNKNOWN_NEGATIVE_BLOCK_ID = -1
 const UNKNOWN_FRACTIONAL_BLOCK_ID = 1.5
-const UNKNOWN_BLOCK_IDS = [UNKNOWN_HIGH_BLOCK_ID, UNKNOWN_HIGHER_BLOCK_ID, UNKNOWN_NEGATIVE_BLOCK_ID, UNKNOWN_FRACTIONAL_BLOCK_ID, Number.NaN]
+const UNREGISTERED_BLOCK_IDS = [UNKNOWN_HIGH_BLOCK_ID, UNKNOWN_HIGHER_BLOCK_ID]
+const INVALID_BLOCK_IDS = [UNKNOWN_NEGATIVE_BLOCK_ID, UNKNOWN_FRACTIONAL_BLOCK_ID, Number.NaN]
 const NO_DROP: undefined = globalThis.undefined
 
 const dropContextFor = (type: BlockType): HarvestContext => {
@@ -336,8 +337,17 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
       // Ordinary-cube defaults here: doing so would print items into an
       // Inventory from a corrupt chunk.
       expect(Option.isNone(Reflect.apply(blockIdOf, undefined, ['unobtainium']))).toBe(true)
-      for (const unknown of UNKNOWN_BLOCK_IDS) {
-        expect(dropOfBlockId(unknown, FULLY_EQUIPPED)).toBeUndefined()
+      for (const unknown of UNREGISTERED_BLOCK_IDS) {
+        const result = Reflect.apply(dropOfBlockIdResult, undefined, [unknown, FULLY_EQUIPPED])
+        expect(Result.isSuccess(result)).toBe(true)
+        if (Result.isSuccess(result)) expect(result.success).toBeUndefined()
+      }
+      for (const invalid of INVALID_BLOCK_IDS) {
+        const result = Reflect.apply(dropOfBlockIdResult, undefined, [invalid, FULLY_EQUIPPED])
+        expect(Result.isFailure(result)).toBe(true)
+        if (Result.isFailure(result)) {
+          expect(result.failure).toMatchObject({ _tag: 'BrandError', name: 'BrandError' })
+        }
       }
     })),
   )

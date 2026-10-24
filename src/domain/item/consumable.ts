@@ -163,7 +163,7 @@ const removeEffectsOf = (effect: Extract<FoodEffect, { readonly kind: 'remove' }
 
 const teleportRandomlyOf = (
   _effect: Extract<FoodEffect, { readonly kind: 'teleport' }>,
-): ConsumableTeleportRandomly => Object.freeze({ type: 'minecraft:teleport_randomly', diameter: 16 })
+): ConsumableTeleportRandomly => Object.freeze({ type: 'minecraft:teleport_randomly', diameter: RandomTeleportDiameter(16) })
 
 const consumableEffectOf = (effect: FoodEffect): ConsumableEffect =>
   effect.kind === 'status'

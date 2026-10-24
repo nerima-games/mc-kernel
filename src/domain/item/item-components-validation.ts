@@ -641,16 +641,22 @@ export const isItemComponents = (value: unknown): value is ItemComponents => {
   return Result.isSuccess(checked) && checked.success
 }
 
-function freezeSnapshot(value: ItemComponents): ItemComponents
-function freezeSnapshot(value: unknown): unknown
-function freezeSnapshot(value: unknown): unknown {
+function freezeSnapshot(value: unknown, snapshots = new WeakMap<object, unknown>()): unknown {
   if (Array.isArray(value)) {
-    return Object.freeze(value.map(freezeSnapshot))
+    const existing = snapshots.get(value)
+    if (existing !== undefined) return existing
+    const copy: unknown[] = []
+    snapshots.set(value, copy)
+    for (const child of value) copy.push(freezeSnapshot(child, snapshots))
+    return Object.freeze(copy)
   }
   if (isRecord(value)) {
+    const existing = snapshots.get(value)
+    if (existing !== undefined) return existing
     const copy: Record<string, unknown> = {}
+    snapshots.set(value, copy)
     for (const [key, child] of Object.entries(value)) {
-      copy[key] = freezeSnapshot(child)
+      copy[key] = freezeSnapshot(child, snapshots)
     }
     return Object.freeze(copy)
   }
@@ -660,15 +666,15 @@ function freezeSnapshot(value: unknown): unknown {
 export const itemComponentsSnapshot = (
   value: unknown,
 ): Result.Result<ItemComponents, ItemValidationFailure> => {
-  if (!isItemComponents(value)) {
-    return Result.fail(itemValidationFailure('components', 'Item components must be a resolved component object', 'invalid-type', value))
-  }
   const frozen = Effect.runSync(Effect.result(Effect.try({
     try: () => freezeSnapshot(value),
     catch: () => itemValidationFailure('components', 'Unable to snapshot item components', 'hostile-input', value),
   })))
-  if (Result.isFailure(frozen)) return frozen
-  return isItemComponents(frozen.success)
+  if (Result.isFailure(frozen)) return Result.fail(frozen.failure)
+  if (!isItemComponents(frozen.success)) {
+    return Result.fail(itemValidationFailure('components', 'Item components must be a resolved component object', 'invalid-type', value))
+  }
+  return isItemComponents(value)
     ? Result.succeed(frozen.success)
     : Result.fail(itemValidationFailure('components', 'Item components changed while snapshotting', 'hostile-input', value))
 }

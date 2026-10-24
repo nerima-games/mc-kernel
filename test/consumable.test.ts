@@ -255,9 +255,9 @@ describe('consumable item components', () => {
         'diameter', 'diameter must be positive', diameter,
       ))
     }
-    expect(consumableComponent({ consumeSeconds: 0 }).consumeSeconds).toBe(0)
+    expect(consumableComponent({ consumeSeconds: ConsumeSeconds(0) }).consumeSeconds).toBe(0)
     for (const consumeSeconds of [Number.NaN, Number.POSITIVE_INFINITY]) {
-      expectItemFailure(consumableResult.consumableComponent({ consumeSeconds }), validation(
+      expectItemFailure(Reflect.apply(consumableResult.consumableComponent, undefined, [{ consumeSeconds }]), validation(
         'consumeSeconds', 'consumeSeconds must be finite and non-negative', consumeSeconds,
       ))
     }

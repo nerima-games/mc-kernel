@@ -56,6 +56,9 @@ const failure = (
   value?: unknown,
 ): ItemComponentPatchDecodeError => itemValidationFailure(field, message, reason, value);
 
+const isJsonPrimitive = (value: unknown): value is null | boolean | string =>
+  value === null || typeof value === "boolean" || typeof value === "string"
+
 const captureReflection = <A>(
   field: string,
   value: unknown,
@@ -66,12 +69,12 @@ const captureReflection = <A>(
     catch: () => failure(field, "Unable to inspect item component patch input", "hostile-input", value),
   })));
 
-const cloneJsonValue = (
+function cloneJsonValue(
   value: unknown,
   ancestors: WeakSet<object>,
   field: string,
-): Result.Result<JsonValue, ItemComponentPatchDecodeError> => {
-  if (value === null || typeof value === "boolean" || typeof value === "string") {
+): Result.Result<JsonValue, ItemComponentPatchDecodeError> {
+  if (isJsonPrimitive(value)) {
     return Result.succeed(value);
   }
   if (typeof value === "number") {
@@ -92,58 +95,48 @@ const cloneJsonValue = (
   if (Result.isFailure(array)) return Result.fail(array.failure);
 
   ancestors.add(value);
-  const result = array.success !== undefined
-    ? cloneJsonArray(array.success, ancestors, field)
-    : cloneJsonObject(value, ancestors, field);
+  const clone = (): Result.Result<JsonValue, ItemComponentPatchDecodeError> => {
+    const arrayValue = array.success
+    if (arrayValue !== undefined) {
+      const length = captureReflection(field, arrayValue, () => arrayValue.length);
+      if (Result.isFailure(length)) return Result.fail(length.failure);
+      const copied: JsonValue[] = [];
+      for (let index = 0; index < length.success; index += 1) {
+        const entry = captureReflection(`${field}[${index}]`, arrayValue, () => arrayValue[index]);
+        if (Result.isFailure(entry)) return Result.fail(entry.failure);
+        const child = cloneJsonValue(entry.success, ancestors, `${field}[${index}]`);
+        if (Result.isFailure(child)) return Result.fail(child.failure);
+        copied.push(child.success);
+      }
+      return Result.succeed(Object.freeze(copied));
+    }
+
+    const prototype = captureReflection(field, value, () => Object.getPrototypeOf(value));
+    if (Result.isFailure(prototype)) return Result.fail(prototype.failure);
+    if (prototype.success !== Object.prototype && prototype.success !== null) {
+      return Result.fail(failure(field, `Item component value must be JSON: ${field}`, "invalid-type", value));
+    }
+    const keys = captureReflection(field, value, () => Object.keys(value));
+    if (Result.isFailure(keys)) return Result.fail(keys.failure);
+    const copied: Record<string, JsonValue> = {};
+    for (const key of keys.success) {
+      const entry = captureReflection(`${field}.${key}`, value, () => Reflect.get(value, key));
+      if (Result.isFailure(entry)) return Result.fail(entry.failure);
+      const child = cloneJsonValue(entry.success, ancestors, `${field}.${key}`);
+      if (Result.isFailure(child)) return Result.fail(child.failure);
+      Object.defineProperty(copied, key, {
+        configurable: false,
+        enumerable: true,
+        value: child.success,
+        writable: false,
+      });
+    }
+    return Result.succeed(Object.freeze(copied));
+  };
+  const result = clone();
   ancestors.delete(value);
   return result;
-};
-
-const cloneJsonArray = (
-  value: ReadonlyArray<unknown>,
-  ancestors: WeakSet<object>,
-  field: string,
-): Result.Result<JsonValue, ItemComponentPatchDecodeError> => {
-  const length = captureReflection(field, value, () => value.length);
-  if (Result.isFailure(length)) return Result.fail(length.failure);
-  const copied: JsonValue[] = [];
-  for (let index = 0; index < length.success; index += 1) {
-    const entry = captureReflection(`${field}[${index}]`, value, () => value[index]);
-    if (Result.isFailure(entry)) return Result.fail(entry.failure);
-    const child = cloneJsonValue(entry.success, ancestors, `${field}[${index}]`);
-    if (Result.isFailure(child)) return Result.fail(child.failure);
-    copied.push(child.success);
-  }
-  return Result.succeed(Object.freeze(copied));
-};
-
-const cloneJsonObject = (
-  value: object,
-  ancestors: WeakSet<object>,
-  field: string,
-): Result.Result<JsonValue, ItemComponentPatchDecodeError> => {
-  const prototype = captureReflection(field, value, () => Object.getPrototypeOf(value));
-  if (Result.isFailure(prototype)) return Result.fail(prototype.failure);
-  if (prototype !== Object.prototype && prototype !== null) {
-    return Result.fail(failure(field, `Item component value must be JSON: ${field}`, "invalid-type", value));
-  }
-  const keys = captureReflection(field, value, () => Object.keys(value));
-  if (Result.isFailure(keys)) return Result.fail(keys.failure);
-  const copied: Record<string, JsonValue> = {};
-  for (const key of keys.success) {
-    const entry = captureReflection(`${field}.${key}`, value, () => Reflect.get(value, key));
-    if (Result.isFailure(entry)) return Result.fail(entry.failure);
-    const child = cloneJsonValue(entry.success, ancestors, `${field}.${key}`);
-    if (Result.isFailure(child)) return Result.fail(child.failure);
-    Object.defineProperty(copied, key, {
-      configurable: false,
-      enumerable: true,
-      value: child.success,
-      writable: false,
-    });
-  }
-  return Result.succeed(Object.freeze(copied));
-};
+}
 
 export const decodeItemComponentPatch = (
   value: unknown,
@@ -158,7 +151,7 @@ export const decodeItemComponentPatch = (
   }
   const prototype = captureReflection("patch", value, () => Object.getPrototypeOf(value));
   if (Result.isFailure(prototype)) return Result.fail(prototype.failure);
-  if (prototype !== Object.prototype && prototype !== null) {
+  if (prototype.success !== Object.prototype && prototype.success !== null) {
     return Result.fail(failure("patch", "Item component patch must be a plain object", "invalid-type", value));
   }
   const keys = captureReflection("patch", value, () => Object.keys(value));
@@ -196,35 +189,25 @@ export const itemComponentPatch = (
 ): Result.Result<ItemComponentPatch, ItemComponentPatchDecodeError> => decodeItemComponentPatch(options);
 
 const mergeDecodedPatches = (
-  left: ItemComponentPatch | undefined,
-  right: ItemComponentPatch | undefined,
-): Result.Result<ItemComponentPatch | undefined, ItemComponentPatchDecodeError> => {
-  if (left === undefined) return Result.succeed(right);
-  if (right === undefined) return Result.succeed(left);
-  const merged: Record<ItemComponentPatchKey, JsonValue> = {};
+  left: ItemComponentPatch,
+  right: ItemComponentPatch,
+): Result.Result<ItemComponentPatch, ItemComponentPatchDecodeError> => {
+  const merged: Record<string, unknown> = {};
   for (const patch of [left, right]) {
-    for (const key of Object.keys(patch)) {
-      const brandedKey = ItemComponentPatchKey.result(key);
-      if (Result.isFailure(brandedKey)) {
-        return Result.fail(failure(key, brandedKey.failure.message, "invalid-value", key));
-      }
-      const value = patch[brandedKey.success];
-      if (value === undefined) {
-        return Result.fail(failure(key, `Item component patch has an invalid value: ${key}`, "invalid-value"));
-      }
+    for (const [key, value] of Object.entries(patch)) {
       const removal = key.startsWith("!");
       const canonicalKey = removal ? key.slice(1) : key;
       const oppositeKey = removal ? canonicalKey : `!${canonicalKey}`;
-      if (Object.hasOwn(merged, brandedKey.success) || Object.hasOwn(merged, oppositeKey)) {
+      if (Object.hasOwn(merged, key) || Object.hasOwn(merged, oppositeKey)) {
         return Result.flatMap(
           ItemComponentPatchConflictError({ componentKey: canonicalKey }),
           (conflict) => Result.fail(conflict),
         );
       }
-      merged[brandedKey.success] = value;
+      merged[key] = value;
     }
   }
-  return Result.succeed(Object.freeze(merged));
+  return decodeItemComponentPatch(merged);
 };
 
 export const mergeItemComponentPatches = (
@@ -234,13 +217,10 @@ export const mergeItemComponentPatches = (
   Result.gen(function* () {
     if (left !== undefined) yield* decodeItemComponentPatch(left);
     const decodedRight = right === undefined ? undefined : yield* decodeItemComponentPatch(right);
-    if (left !== undefined) {
-      const currentLeft = yield* decodeItemComponentPatch(left);
-      const mergedLeft = mergeDecodedPatches(currentLeft, decodedRight);
-      if (Result.isFailure(mergedLeft)) return yield* mergedLeft;
-      return mergedLeft.success;
-    }
-    return yield* mergeDecodedPatches(undefined, decodedRight);
+    if (left === undefined) return decodedRight;
+    const currentLeft = yield* decodeItemComponentPatch(left);
+    if (decodedRight === undefined) return currentLeft;
+    return yield* mergeDecodedPatches(currentLeft, decodedRight);
   });
 
 const COMPONENT_NAMES: Readonly<Record<string, keyof ItemComponents>> = {
@@ -337,11 +317,7 @@ export const applyItemComponentPatch = (
     const snapshot = yield* itemComponentsSnapshot(base);
     const decoded = yield* decodeItemComponentPatch(patch);
     let next: Record<string, unknown> = { ...snapshot };
-    for (const key of Object.keys(decoded)) {
-      if (!ItemComponentPatchKey.is(key)) {
-        return yield* Result.fail(failure(key, `Item component key must be namespaced: ${key}`, "invalid-value", key));
-      }
-      const patchValue = decoded[key];
+    for (const [key, patchValue] of Object.entries(decoded)) {
       const componentKey = key.startsWith("!") ? key.slice(1) : key;
       const field = COMPONENT_NAMES[componentKey.slice(componentKey.indexOf(":") + 1)];
       if (field === undefined) {

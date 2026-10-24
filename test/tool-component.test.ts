@@ -40,6 +40,20 @@ describe('minecraft:tool component', () => {
     expect(isToolComponent(undefined)).toBe(false)
   })
 
+  it('reports non-numeric mining speeds and missing durability input', () => {
+    expectToolFailure(Reflect.apply(toolComponentResult.compileToolComponent, undefined, [{
+      rules: [{ blocks: 'stone', speed: 'fast' }],
+      damagePerBlock: 1,
+    }]), 'RangeError', 'out-of-range', 'tool rule 0 speed', 'tool rule 0 speed must be a finite number greater than or equal to zero', 'fast')
+    expectToolFailure(Reflect.apply(toolComponentResult.compileToolComponent, undefined, [{
+      rules: [],
+      defaultMiningSpeed: 'fast',
+      damagePerBlock: 1,
+    }]), 'RangeError', 'out-of-range', 'defaultMiningSpeed', 'tool component defaultMiningSpeed must be a finite number greater than or equal to zero', 'fast')
+    expectToolFailure(Reflect.apply(toolComponentResult.compileToolComponent, undefined, [{ rules: [] }]), 'RangeError', 'out-of-range',
+      'damagePerBlock', 'tool component damagePerBlock must be a non-negative integer', undefined)
+  })
+
   it('resolves a single block, a block list, and a block tag', () =>
     Effect.runPromise(Effect.sync(() => {
       const component: ToolComponent = {
@@ -364,6 +378,53 @@ describe('minecraft:tool component', () => {
         'blockTags.#mineable', 'tool resolution blockTags #mineable contains an unknown block type', 'unobtainium')
       expectToolFailure(resolve({ futureField: true, blockTags: new Map() }), 'TypeError', 'invalid-value',
         'tool resolution context', 'unknown tool resolution context futureField', 'futureField')
+    })),
+  )
+
+  it('accepts null-prototype records and captures hostile reflection', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const component = Object.assign(Object.create(null), {
+        rules: [Object.assign(Object.create(null), { blocks: 'stone', speed: 4 })],
+        damagePerBlock: 1,
+      })
+      expect(resolveToolMiningProperties(component, 'stone').miningSpeed).toBe(4)
+
+      const hostile = new Proxy({}, { getPrototypeOf: () => { throw new Error('hostile') } })
+      expectItemFailure(Reflect.apply(toolComponentResult.resolveToolMiningProperties, undefined, [hostile, 'stone']), {
+        _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input',
+        field: 'tool component', message: 'Unable to inspect tool component',
+      })
+
+      const nonPlain = new Date(0)
+      expectItemFailure(Reflect.apply(toolComponentResult.compileToolComponent, undefined, [nonPlain]), {
+        _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-type',
+        field: 'tool component', message: 'tool component must be an object', value: nonPlain,
+      })
+    })),
+  )
+
+  it('rejects malformed Map-like entries and iterables at the tag boundary', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const component: ToolComponent = { rules: [{ blocks: 'stone' }], damagePerBlock: ToolDurabilityDamage(1) }
+      const resolve = (context: unknown) =>
+        Reflect.apply(toolComponentResult.resolveToolMiningProperties, undefined, [component, 'stone', context])
+      const malformedEntries = {
+        get: () => undefined,
+        *[Symbol.iterator]() {
+          yield null
+        },
+      }
+      expectToolFailure(resolve({ blockTags: malformedEntries }), 'TypeError', 'invalid-type', 'blockTags',
+        'tool resolution blockTags entries must be key/value pairs', null)
+
+      const falseIterable = new Proxy({}, {
+        get: (_target, key) => key === Symbol.iterator
+          ? function* () { yield 'stone' }
+          : key === 'has' ? () => true : undefined,
+        has: (_target, key) => key !== Symbol.iterator,
+      })
+      expectToolFailure(resolve({ blockTags: new Map([['#mineable', falseIterable]]) }), 'TypeError', 'invalid-type',
+        'blockTags.#mineable', 'tool resolution blockTags #mineable must contain a Set or Set-like iterable', falseIterable)
     })),
   )
 })

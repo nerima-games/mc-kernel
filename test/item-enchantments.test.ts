@@ -88,6 +88,11 @@ describe('item enchantments', () => {
     expectItemFailure(Reflect.apply(itemEnchantmentsResult.storedEnchantmentsComponent, undefined, [{ 'not valid': 1 }]), validation(
       'TypeError', 'invalid-value', 'not valid', 'stored_enchantments keys must be valid resource locations: not valid', 'not valid',
     ))
+
+    const hostileOptions = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
+    expectItemFailure(Reflect.apply(itemEnchantmentsResult.enchantmentsComponent, undefined, [hostileOptions]), validation(
+      'TypeError', 'hostile-input', 'options', 'enchantments options could not be inspected', hostileOptions,
+    ))
     expect(storedEnchantmentsComponent({ 'minecraft:protection': 4 })).toEqual({
       'minecraft:protection': 4,
     })

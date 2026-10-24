@@ -520,6 +520,7 @@ describe('item registry', () => {
       expect(itemIdOf('lily_pad')).toBe(126)
       expect(Reflect.apply(itemTypeOfId, undefined, [126])).toBe('lily_pad')
       expect(itemTypeOfId(ItemId(126))).toBe('lily_pad')
+      expect(itemDefinitionOf(1)).toBeUndefined()
     })),
   )
 
@@ -649,10 +650,12 @@ describe('item registry', () => {
         [new Uint8Array([1, 24]), 280],
         [new Uint8Array([0xff, 0xff]), 0xffff],
       ] as const) {
-        expectItemFailure(ItemIdBytes(input), {
+        const expected = {
           _tag: 'ItemValidationFailure', kind: 'RangeError', reason: 'out-of-range', field: 'id',
           message: `ItemIdBytes must encode a registered item id, received ${id}`, value: id,
-        })
+        }
+        expectItemFailure(ItemIdBytes(input), expected)
+        expectItemFailure(Reflect.apply(decodeItemId, undefined, [input]), expected)
       }
     })),
   )
@@ -667,6 +670,34 @@ describe('item registry', () => {
       expect(itemResultValue(decodeItemId(bytes))).toBe('stone')
     })),
   )
+
+  it('returns failures for byte inputs that change or throw while being read', () => {
+    const revoked = Proxy.revocable(new Uint8Array([0, 0]), {})
+    revoked.revoke()
+    expectItemFailure(Reflect.apply(ItemIdBytes, undefined, [revoked.proxy]), {
+      _tag: 'ItemValidationFailure', field: 'bytes', reason: 'hostile-input',
+      message: 'Unable to read ItemIdBytes input',
+    })
+
+    let reads = 0
+    const changesAfterValidation = {
+      slice: () => {
+        reads += 1
+        if (reads === 1) return new Uint8Array([0, itemIdOf('stone')])
+        throw new Error('hostile')
+      },
+    }
+    expectItemFailure(Reflect.apply(ItemIdBytes, undefined, [changesAfterValidation]), {
+      _tag: 'ItemValidationFailure', field: 'bytes', reason: 'hostile-input',
+      message: 'Unable to read ItemIdBytes input',
+    })
+
+    const missingByte = { slice: () => ({ length: 2 }) }
+    expectItemFailure(Reflect.apply(ItemIdBytes, undefined, [missingByte]), {
+      _tag: 'ItemValidationFailure', field: 'bytes', reason: 'out-of-range',
+      message: 'ItemIdBytes must contain exactly two bytes', value: 2,
+    })
+  })
 
   it('recognises known and unknown uint16 item ids', () =>
     Effect.runPromise(Effect.sync(() => {

@@ -99,6 +99,42 @@ describe('weapon component', () => {
     })
   })
 
+  it('returns tagged failures when option values change after validation', () => {
+    let damageReads = 0
+    const changingDamage = new Proxy({}, {
+      get: (_target, key) => {
+        if (key !== 'itemDamagePerAttack') return undefined
+        damageReads += 1
+        return damageReads <= 3 ? 1 : -1
+      },
+    })
+    expectItemFailure(Reflect.apply(weaponResult.weaponComponent, undefined, [changingDamage]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'RangeError',
+      reason: 'out-of-range',
+      field: 'itemDamagePerAttack',
+      message: 'itemDamagePerAttack must be a non-negative safe integer',
+      value: -1,
+    })
+
+    let durationReads = 0
+    const changingDuration = new Proxy({}, {
+      get: (_target, key) => {
+        if (key !== 'disableBlockingForSeconds') return undefined
+        durationReads += 1
+        return durationReads <= 3 ? 0 : -1
+      },
+    })
+    expectItemFailure(Reflect.apply(weaponResult.weaponComponent, undefined, [changingDuration]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'RangeError',
+      reason: 'out-of-range',
+      field: 'disableBlockingForSeconds',
+      message: 'disableBlockingForSeconds must be a finite, non-negative number',
+      value: -1,
+    })
+  })
+
   it('guards the exact resolved shape at runtime', () => {
     const valid = weaponComponent()
 

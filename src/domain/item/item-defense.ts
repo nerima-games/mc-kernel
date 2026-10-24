@@ -53,7 +53,7 @@ const failure = (
   message: string,
   value?: unknown,
   reason: ItemValidationFailure['reason'] = 'invalid-value',
-  kind: ItemValidationFailure['kind'] = reason === 'out-of-range' ? 'RangeError' : 'TypeError',
+  kind: ItemValidationFailure['kind'] = 'TypeError',
 ): ItemValidationFailure => itemValidationFailure(field, message, reason, value, kind)
 
 const brandValue = <A, E extends Readonly<{ readonly message: string }>>(
@@ -116,12 +116,18 @@ const resourceLocationProviderOf = (
   })
 }
 
+const resourceLocationOf = (
+  value: unknown,
+  field: string,
+): DefenseResult<ResourceLocation> => typeof value === 'string'
+  ? brandValue(ResourceLocation.result(value), field, value)
+  : Result.fail(failure(field, `ResourceLocation has invalid syntax, received ${JSON.stringify(value)}`, value))
+
 const damageReductionRuleOf = (
   options: DamageReductionOptions,
   index: number,
 ): DefenseResult<DamageReductionRule> => Result.gen(function* () {
-  const object = yield* validateObject(options, `damageReductions[${index}]`)
-  void object
+  yield* validateObject(options, `damageReductions[${index}]`)
   const baseValue = yield* finiteNumber(options.base, `damageReductions[${index}].base`)
   const factorValue = yield* finiteNumber(options.factor, `damageReductions[${index}].factor`)
   const angleValue = options.horizontalBlockingAngle === undefined
@@ -135,6 +141,18 @@ const damageReductionRuleOf = (
   const horizontalBlockingAngle = yield* brandValue(HorizontalBlockingAngle.result(angleValue), `damageReductions[${index}].horizontalBlockingAngle`, angleValue, 'out-of-range')
   return Object.freeze({ type, base, factor, horizontalBlockingAngle })
 })
+
+const damageReductionRulesOf = (
+  options: ReadonlyArray<DamageReductionOptions>,
+): DefenseResult<ReadonlyArray<DamageReductionRule>> => {
+  const rules: DamageReductionRule[] = []
+  for (const [index, option] of options.entries()) {
+    const rule = damageReductionRuleOf(option, index)
+    if (Result.isFailure(rule)) return Result.fail(rule.failure)
+    rules.push(rule.success)
+  }
+  return Result.succeed(rules)
+}
 
 const itemDamageRuleOf = (options: ItemDamageRuleOptions): DefenseResult<ItemDamageRule> => Result.gen(function* () {
   yield* validateObject(options, 'itemDamage')
@@ -152,45 +170,62 @@ export const damageResistantComponent = (
 ): DefenseResult<DamageResistantComponent> =>
   Result.map(resourceLocationProviderOf(types, 'damage_resistant.types'), (value) => Object.freeze({ types: value }))
 
+const blocksAttacksComponentAfterCooldown = (
+  options: BlocksAttacksOptions,
+  blockDelayValue: number,
+  cooldownScaleValue: number,
+): DefenseResult<BlocksAttacksComponent> => {
+  const input = options.damageReductions
+  const damageReductionOptions: DefenseResult<ReadonlyArray<DamageReductionOptions>> = input === undefined
+    ? Result.succeed<ReadonlyArray<DamageReductionOptions>>([])
+    : Array.isArray(input)
+      ? Result.succeed<ReadonlyArray<DamageReductionOptions>>(input)
+      : Result.fail(failure('damageReductions', 'damageReductions must be an array', input, 'invalid-type'))
+
+  return Result.flatMap(damageReductionOptions, (rules) => Result.flatMap(
+    damageReductionRulesOf(rules),
+    (damageReductions) => Result.gen(function* () {
+      const itemDamage = options.itemDamage === undefined ? undefined : yield* itemDamageRuleOf(options.itemDamage)
+      const blockSound = options.blockSound === undefined
+        ? undefined
+        : yield* resourceLocationOf(options.blockSound, 'blockSound')
+      const disabledSound = options.disabledSound === undefined
+        ? undefined
+        : yield* resourceLocationOf(options.disabledSound, 'disabledSound')
+      const bypassedBy = options.bypassedBy === undefined
+        ? undefined
+        : yield* resourceLocationProviderOf(options.bypassedBy, 'bypassedBy')
+      const blockDelaySeconds = yield* brandValue(BlockingDelaySeconds.result(blockDelayValue), 'blockDelaySeconds', blockDelayValue, 'out-of-range')
+      const disableCooldownScale = yield* brandValue(DisableCooldownScale.result(cooldownScaleValue), 'disableCooldownScale', cooldownScaleValue, 'out-of-range')
+      return Object.freeze({
+        blockDelaySeconds,
+        disableCooldownScale,
+        damageReductions: Object.freeze(damageReductions),
+        itemDamage,
+        blockSound,
+        disabledSound,
+        bypassedBy,
+      })
+    }),
+  ))
+}
+
 export const blocksAttacksComponent = (
   options: BlocksAttacksOptions = {},
-): DefenseResult<BlocksAttacksComponent> => Result.gen(function* () {
-  yield* validateObject(options, 'blocksAttacks options')
-  const blockDelayValue = options.blockDelaySeconds === undefined
-    ? 0
-    : yield* nonNegativeFiniteNumber(options.blockDelaySeconds, 'blockDelaySeconds')
-  const cooldownScaleValue = options.disableCooldownScale === undefined
-    ? 1
-    : yield* nonNegativeFiniteNumber(options.disableCooldownScale, 'disableCooldownScale')
-  if (options.damageReductions !== undefined && !Array.isArray(options.damageReductions)) {
-    return yield* Result.fail(failure('damageReductions', 'damageReductions must be an array', options.damageReductions, 'invalid-type'))
-  }
-  const damageReductions: DamageReductionRule[] = []
-  for (const [index, rule] of (options.damageReductions ?? []).entries()) {
-    damageReductions.push(yield* damageReductionRuleOf(rule, index))
-  }
-  const itemDamage = options.itemDamage === undefined ? undefined : yield* itemDamageRuleOf(options.itemDamage)
-  const blockSound = options.blockSound === undefined
-    ? undefined
-    : yield* brandValue(ResourceLocation.result(options.blockSound), 'blockSound', options.blockSound)
-  const disabledSound = options.disabledSound === undefined
-    ? undefined
-    : yield* brandValue(ResourceLocation.result(options.disabledSound), 'disabledSound', options.disabledSound)
-  const bypassedBy = options.bypassedBy === undefined
-    ? undefined
-    : yield* resourceLocationProviderOf(options.bypassedBy, 'bypassedBy')
-  const blockDelaySeconds = yield* brandValue(BlockingDelaySeconds.result(blockDelayValue), 'blockDelaySeconds', blockDelayValue, 'out-of-range')
-  const disableCooldownScale = yield* brandValue(DisableCooldownScale.result(cooldownScaleValue), 'disableCooldownScale', cooldownScaleValue, 'out-of-range')
-  return Object.freeze({
-    blockDelaySeconds,
-    disableCooldownScale,
-    damageReductions: Object.freeze(damageReductions),
-    itemDamage,
-    blockSound,
-    disabledSound,
-    bypassedBy,
-  })
-})
+): DefenseResult<BlocksAttacksComponent> => Result.flatMap(
+  validateObject(options, 'blocksAttacks options'),
+  () => Result.flatMap(
+    options.blockDelaySeconds === undefined
+      ? Result.succeed(0)
+      : nonNegativeFiniteNumber(options.blockDelaySeconds, 'blockDelaySeconds'),
+    (blockDelayValue) => Result.flatMap(
+      options.disableCooldownScale === undefined
+        ? Result.succeed(1)
+        : nonNegativeFiniteNumber(options.disableCooldownScale, 'disableCooldownScale'),
+      (cooldownScaleValue) => blocksAttacksComponentAfterCooldown(options, blockDelayValue, cooldownScaleValue),
+    ),
+  ),
+)
 
 export type {
   BlocksAttacksComponent,

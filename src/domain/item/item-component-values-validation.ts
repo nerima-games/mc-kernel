@@ -426,10 +426,7 @@ export const isMapDecorationsComponent = (
   value: unknown,
 ): value is MapDecorationsComponent => isMapDecorationsOptions(value)
 
-const isJsonTextComponentString = (value: unknown): value is string => {
-  if (typeof value !== 'string') {
-    return false
-  }
+const isJsonTextComponentString = (value: string): value is string => {
   const parsed = Schema.decodeUnknownResult(Schema.fromJsonString(Schema.Unknown))(value)
   return parsed._tag === 'Success' && isTextComponent(parsed.success)
 }

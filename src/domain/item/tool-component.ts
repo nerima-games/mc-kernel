@@ -140,32 +140,26 @@ const readRecord = (
   return Result.succeed(record.success)
 }
 
-const readToolComponent = (value: unknown): ToolResult<ToolComponent> => Result.gen(function* () {
-  const component = yield* readRecord(value, 'tool component', ['rules', 'defaultMiningSpeed', 'damagePerBlock', 'canDestroyBlocksInCreative'])
-  const rulesValue = component['rules']
-  const ruleEntries = yield* readArray('tool component rules', rulesValue)
-  if (ruleEntries === undefined) return yield* Result.fail(failure('rules', 'tool component rules must be an array', rulesValue, 'invalid-type'))
-  const rulesLength = yield* capture('tool component rules', rulesValue, () => ruleEntries.length)
-  const rules: ToolRule[] = []
-  for (let index = 0; index < rulesLength; index += 1) {
-    const sourceRule = yield* capture(`tool rule ${index}`, rulesValue, () => ruleEntries[index])
-    const rule = yield* readRecord(sourceRule, `tool rule ${index}`, ['blocks', 'speed', 'correctForDrops'])
+const readToolRule = (value: unknown, index: number): ToolResult<ToolRule> =>
+  Result.gen(function* () {
+    const field = `tool rule ${index}`
+    const rule = yield* readRecord(value, field, ['blocks', 'speed', 'correctForDrops'])
     const blocks = rule['blocks']
-    if (blocks === undefined) return yield* Result.fail(failure(`tool rule ${index}`, `tool rule ${index} must contain at least one block`, blocks, 'out-of-range'))
-    const blockEntries = yield* readArray(`tool rule ${index} blocks`, blocks)
+    if (blocks === undefined) return yield* Result.fail(failure(field, `${field} must contain at least one block`, blocks, 'out-of-range'))
+    const blockEntries = yield* readArray(`${field} blocks`, blocks)
     let normalizedBlocks: ToolRule['blocks']
     if (blockEntries !== undefined) {
-      const length = yield* capture(`tool rule ${index} blocks`, blocks, () => blockEntries.length)
-      if (length === 0) return yield* Result.fail(failure(`tool rule ${index}`, `tool rule ${index} must contain at least one block`, blocks, 'out-of-range'))
+      const length = yield* capture(`${field} blocks`, blocks, () => blockEntries.length)
+      if (length === 0) return yield* Result.fail(failure(field, `${field} must contain at least one block`, blocks, 'out-of-range'))
       const entries: ToolBlockMatcher[] = []
       for (let blockIndex = 0; blockIndex < length; blockIndex += 1) {
-        const block = yield* capture(`tool rule ${index} blocks[${blockIndex}]`, blocks, () => blockEntries[blockIndex])
-        if (!isToolBlockMatcher(block)) return yield* Result.fail(failure(`tool rule ${index}`, `tool rule ${index} contains an unknown block or block tag`, block, 'out-of-range'))
+        const block = yield* capture(`${field} blocks[${blockIndex}]`, blocks, () => blockEntries[blockIndex])
+        if (!isToolBlockMatcher(block)) return yield* Result.fail(failure(field, `${field} contains an unknown block or block tag`, block, 'out-of-range'))
         entries.push(block)
       }
       normalizedBlocks = Object.freeze(entries)
     } else {
-      if (!isToolBlockMatcher(blocks)) return yield* Result.fail(failure(`tool rule ${index}`, `tool rule ${index} must contain a block or block tag`, blocks, 'out-of-range'))
+      if (!isToolBlockMatcher(blocks)) return yield* Result.fail(failure(field, `${field} must contain a block or block tag`, blocks, 'out-of-range'))
       normalizedBlocks = blocks
     }
     const speed = rule['speed']
@@ -182,47 +176,65 @@ const readToolComponent = (value: unknown): ToolResult<ToolComponent> => Result.
       )
     const correctForDrops = rule['correctForDrops']
     if (correctForDrops !== undefined && typeof correctForDrops !== 'boolean') {
-      return yield* Result.fail(failure(`tool rule ${index}`, `tool rule ${index} correctForDrops must be a boolean`, correctForDrops, 'invalid-type'))
+      return yield* Result.fail(failure(field, `${field} correctForDrops must be a boolean`, correctForDrops, 'invalid-type'))
     }
-    rules.push(Object.freeze({
+    return Object.freeze({
       blocks: normalizedBlocks,
       ...(checkedSpeed === undefined ? {} : { speed: checkedSpeed }),
       ...(correctForDrops === undefined ? {} : { correctForDrops }),
-    }))
-  }
-  const defaultMiningSpeed = component['defaultMiningSpeed']
-  if (defaultMiningSpeed !== undefined && typeof defaultMiningSpeed !== 'number') {
-    return yield* Result.fail(failure('defaultMiningSpeed', 'tool component defaultMiningSpeed must be a finite number greater than or equal to zero', defaultMiningSpeed, 'out-of-range'))
-  }
-  const checkedDefaultMiningSpeed = defaultMiningSpeed === undefined
-    ? undefined
-    : yield* brandValue(
-      ToolMiningSpeed.result(defaultMiningSpeed),
-      'defaultMiningSpeed',
-      'tool component defaultMiningSpeed must be a finite number greater than or equal to zero',
-      defaultMiningSpeed,
-    )
-  const damagePerBlock = component['damagePerBlock']
-  if (typeof damagePerBlock !== 'number') {
-    return yield* Result.fail(failure('damagePerBlock', 'tool component damagePerBlock must be a non-negative integer', damagePerBlock, 'out-of-range'))
-  }
-  const checkedDamagePerBlock = yield* brandValue(
-    ToolDurabilityDamage.result(damagePerBlock),
-    'damagePerBlock',
-    'tool component damagePerBlock must be a non-negative integer',
-    damagePerBlock,
-  )
-  const canDestroyBlocksInCreative = component['canDestroyBlocksInCreative']
-  if (canDestroyBlocksInCreative !== undefined && typeof canDestroyBlocksInCreative !== 'boolean') {
-    return yield* Result.fail(failure('canDestroyBlocksInCreative', 'tool component canDestroyBlocksInCreative must be a boolean', canDestroyBlocksInCreative, 'invalid-type'))
-  }
-  return Object.freeze({
-    rules: Object.freeze(rules),
-    ...(checkedDefaultMiningSpeed === undefined ? {} : { defaultMiningSpeed: checkedDefaultMiningSpeed }),
-    damagePerBlock: checkedDamagePerBlock,
-    ...(canDestroyBlocksInCreative === undefined ? {} : { canDestroyBlocksInCreative }),
+    })
   })
-})
+
+const readToolRules = (value: unknown): ToolResult<ReadonlyArray<ToolRule>> =>
+  Result.gen(function* () {
+    const entries = yield* readArray('tool component rules', value)
+    if (entries === undefined) return yield* Result.fail(failure('rules', 'tool component rules must be an array', value, 'invalid-type'))
+    const length = yield* capture('tool component rules', value, () => entries.length)
+    const rules: ToolRule[] = []
+    for (let index = 0; index < length; index += 1) {
+      const entry = yield* capture(`tool rule ${index}`, value, () => entries[index])
+      rules.push(yield* readToolRule(entry, index))
+    }
+    return Object.freeze(rules)
+  })
+
+const readToolComponent = (value: unknown): ToolResult<ToolComponent> =>
+  Result.gen(function* () {
+    const component = yield* readRecord(value, 'tool component', ['rules', 'defaultMiningSpeed', 'damagePerBlock', 'canDestroyBlocksInCreative'])
+    const rules = yield* readToolRules(component['rules'])
+    const defaultMiningSpeed = component['defaultMiningSpeed']
+    if (defaultMiningSpeed !== undefined && typeof defaultMiningSpeed !== 'number') {
+      return yield* Result.fail(failure('defaultMiningSpeed', 'tool component defaultMiningSpeed must be a finite number greater than or equal to zero', defaultMiningSpeed, 'out-of-range'))
+    }
+    const checkedDefaultMiningSpeed = defaultMiningSpeed === undefined
+      ? undefined
+      : yield* brandValue(
+        ToolMiningSpeed.result(defaultMiningSpeed),
+        'defaultMiningSpeed',
+        'tool component defaultMiningSpeed must be a finite number greater than or equal to zero',
+        defaultMiningSpeed,
+      )
+    const damagePerBlock = component['damagePerBlock']
+    if (typeof damagePerBlock !== 'number') {
+      return yield* Result.fail(failure('damagePerBlock', 'tool component damagePerBlock must be a non-negative integer', damagePerBlock, 'out-of-range'))
+    }
+    const checkedDamagePerBlock = yield* brandValue(
+      ToolDurabilityDamage.result(damagePerBlock),
+      'damagePerBlock',
+      'tool component damagePerBlock must be a non-negative integer',
+      damagePerBlock,
+    )
+    const canDestroyBlocksInCreative = component['canDestroyBlocksInCreative']
+    if (canDestroyBlocksInCreative !== undefined && typeof canDestroyBlocksInCreative !== 'boolean') {
+      return yield* Result.fail(failure('canDestroyBlocksInCreative', 'tool component canDestroyBlocksInCreative must be a boolean', canDestroyBlocksInCreative, 'invalid-type'))
+    }
+    return Object.freeze({
+      rules,
+      ...(checkedDefaultMiningSpeed === undefined ? {} : { defaultMiningSpeed: checkedDefaultMiningSpeed }),
+      damagePerBlock: checkedDamagePerBlock,
+      ...(canDestroyBlocksInCreative === undefined ? {} : { canDestroyBlocksInCreative }),
+    })
+  })
 
 export const isToolComponent = (value: unknown): value is ToolComponent =>
   Result.isSuccess(readToolComponent(value))

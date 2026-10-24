@@ -3,6 +3,7 @@ import { Result } from "effect";
 import { ok } from "node:assert/strict";
 
 import {
+  ItemComponentPatchConflictError,
   ItemComponentPatchKey,
   applyItemComponentPatch,
   decodeItemComponentPatch,
@@ -45,6 +46,63 @@ describe("item component patches", () => {
       _tag: "ItemValidationFailure", field: "minecraft:damage", reason: "hostile-input", value: shifting,
     });
   });
+
+  it("captures hostile reflection while cloning nested patch values", () => {
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    expectItemFailure(decodeItemComponentPatch(revoked.proxy), {
+      _tag: "ItemValidationFailure", field: "patch", reason: "hostile-input",
+    });
+
+    const hostilePrototype = new Proxy({}, { getPrototypeOf: () => { throw new Error("hostile"); } });
+    expectItemFailure(decodeItemComponentPatch(hostilePrototype), {
+      _tag: "ItemValidationFailure", field: "patch", reason: "hostile-input",
+    });
+
+    const nestedRevoked = Proxy.revocable({}, {});
+    nestedRevoked.revoke();
+    expectItemFailure(decodeItemComponentPatch({ "minecraft:custom_data": nestedRevoked.proxy }), {
+      _tag: "ItemValidationFailure", field: "minecraft:custom_data", reason: "hostile-input",
+    });
+
+    const nestedHostilePrototype = new Proxy({}, { getPrototypeOf: () => { throw new Error("hostile"); } });
+    expectItemFailure(decodeItemComponentPatch({ "minecraft:custom_data": nestedHostilePrototype }), {
+      _tag: "ItemValidationFailure", field: "minecraft:custom_data", reason: "hostile-input",
+    });
+
+    const hostileLength = new Proxy([], {
+      get: (target, key, receiver) => key === "length" ? (() => { throw new Error("hostile"); })() : Reflect.get(target, key, receiver),
+    });
+    expectItemFailure(decodeItemComponentPatch({ "minecraft:custom_data": hostileLength }), {
+      _tag: "ItemValidationFailure", field: "minecraft:custom_data", reason: "hostile-input",
+    });
+
+    const hostileEntry = new Proxy(["value"], {
+      get: (target, key, receiver) => key === "0" ? (() => { throw new Error("hostile"); })() : Reflect.get(target, key, receiver),
+    });
+    expectItemFailure(decodeItemComponentPatch({ "minecraft:custom_data": hostileEntry }), {
+      _tag: "ItemValidationFailure", field: "minecraft:custom_data[0]", reason: "hostile-input",
+    });
+
+    const hostileKeys = new Proxy({}, { ownKeys: () => { throw new Error("hostile"); } });
+    expectItemFailure(decodeItemComponentPatch({ "minecraft:custom_data": hostileKeys }), {
+      _tag: "ItemValidationFailure", field: "minecraft:custom_data", reason: "hostile-input",
+    });
+
+    const hostileValue = new Proxy({ leaf: 1 }, {
+      get: (target, key, receiver) => key === "leaf" ? (() => { throw new Error("hostile"); })() : Reflect.get(target, key, receiver),
+    });
+    expectItemFailure(decodeItemComponentPatch({ "minecraft:custom_data": hostileValue }), {
+      _tag: "ItemValidationFailure", field: "minecraft:custom_data.leaf", reason: "hostile-input",
+    });
+
+    const cyclicArray: unknown[] = [];
+    cyclicArray.push(cyclicArray);
+    expectItemFailure(decodeItemComponentPatch({ "minecraft:custom_data": cyclicArray }), {
+      _tag: "ItemValidationFailure", field: "minecraft:custom_data[0]", reason: "invalid-value",
+    });
+  });
+
   it("accepts namespaced component keys and removal keys", () => {
     expect(ItemComponentPatchKey.is("minecraft:custom_name")).toBe(true);
     expect(ItemComponentPatchKey.is("!minecraft:damage")).toBe(true);
@@ -64,6 +122,14 @@ describe("item component patches", () => {
     expect(Object.isFrozen(patch)).toBe(true);
     expect(isItemComponentPatch(patch)).toBe(true);
     expect(isItemComponentPatch(Object.create(null))).toBe(true);
+    expectItemFailure(ItemComponentPatchConflictError({ componentKey: "custom_name" }), {
+      _tag: "ItemValidationFailure",
+      field: "custom_name",
+      kind: "TypeError",
+      reason: "invalid-value",
+      message: 'NamespacedResourceLocation must include a namespace, received "custom_name"',
+      value: "custom_name",
+    });
   });
 
   it("decodes and freezes arbitrary JSON component values", () => {
@@ -97,6 +163,15 @@ describe("item component patches", () => {
     });
     expectItemFailure(decodeItemComponentPatch(new Date()), {
       _tag: "ItemValidationFailure", field: "patch", reason: "invalid-type", value: expect.any(Date),
+    });
+
+    expectItemFailure(decodeItemComponentPatch({ "minecraft:custom_data": new Date(0) }), {
+      _tag: "ItemValidationFailure", field: "minecraft:custom_data", reason: "invalid-type",
+    });
+    const nullPrototype: Record<string, unknown> = Object.create(null);
+    nullPrototype["nested"] = true;
+    expect(decodeItemComponentPatch({ "minecraft:custom_data": nullPrototype })).toMatchObject({
+      _tag: "Success", success: { "minecraft:custom_data": { nested: true } },
     });
 
     const cycle: Record<string, unknown> = {};

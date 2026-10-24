@@ -58,5 +58,17 @@ describe('use_cooldown component', () => {
     expect(isCooldownActive(MonotonicTimeSecs(10), startedAt, component)).toBe(true)
     expect(isCooldownActive(MonotonicTimeSecs(11.999), startedAt, component)).toBe(true)
     expect(isCooldownActive(MonotonicTimeSecs(12), startedAt, component)).toBe(false)
+
+    expectItemFailure(useCooldownResult.cooldownExpiresAt(
+      MonotonicTimeSecs(Number.MAX_VALUE),
+      useCooldownComponent(CooldownSeconds(1e308)),
+    ), {
+      _tag: 'ItemValidationFailure',
+      kind: 'RangeError',
+      reason: 'out-of-range',
+      field: 'expiresAt',
+      message: 'MonotonicTimeSecs must be a finite, non-negative number of seconds, received Infinity',
+      value: Infinity,
+    })
   })
 })

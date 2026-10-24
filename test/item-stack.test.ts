@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as fc from "fast-check";
 import * as itemComponentsResult from "../src/domain/item/item-components";
 import * as itemComponentPatchResult from "../src/domain/item/item-component-patch";
-import { MaxStackSize, StackCount, TransferQuantity } from "../src/domain/time/quantities";
+import { ItemDamage, MaxStackSize, StackCount, TransferQuantity } from "../src/domain/time/quantities";
 import * as itemStackResult from "../src/domain/item/item-stack";
 import { expectItemFailure, itemResultValue } from "./item-result-assertions";
 
@@ -174,6 +174,26 @@ describe("canonical item stacks", () => {
     });
   });
 
+  it("captures malformed and hostile stack options", () => {
+    expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 1, []), {
+      _tag: "ItemValidationFailure", field: "options", reason: "invalid-type",
+      message: "Item stack options must be a non-null object", value: [],
+    });
+
+    const hostileOptions = new Proxy({}, { get: () => { throw new Error("hostile"); } });
+    expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 1, hostileOptions), {
+      _tag: "ItemValidationFailure", field: "components", reason: "hostile-input",
+      message: "Unable to inspect item stack components",
+    });
+
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 1, revoked.proxy), {
+      _tag: "ItemValidationFailure", field: "options", reason: "hostile-input",
+      message: "Unable to inspect item stack options",
+    });
+  });
+
   it("resolves patches at construction and removes fields canonically", () => {
     const patch = itemComponentPatch({ "minecraft:custom_name": { text: "Stone" } });
     const stack = itemStack("stone", StackCount(1), { componentPatch: patch });
@@ -189,7 +209,7 @@ describe("canonical item stacks", () => {
     const left = itemComponentPatch({ "minecraft:damage": 1 });
     const right = itemComponentPatch({ "minecraft:damage": 2 });
     expect(itemStack("diamond_sword", StackCount(1), { componentPatch: left })).toEqual({
-      item: "diamond_sword", count: 1, components: itemComponents("diamond_sword"),
+      item: "diamond_sword", count: 1, components: itemComponents("diamond_sword", { damage: ItemDamage(1) }),
     });
     expectItemFailure(itemComponentPatchResult.decodeItemComponentPatch({ "minecraft:damage": 1, "!minecraft:damage": null }), {
       _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:damage",
@@ -202,7 +222,7 @@ describe("canonical item stacks", () => {
     const invalidPatch = { invalid: true };
     expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 1, { componentPatch: invalidPatch }), {
       _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-value", field: "invalid",
-      message: "Item component key must be namespaced: invalid", value: "invalid",
+      message: 'ItemComponentPatchKey must be a namespaced component with an optional ! prefix, received "invalid"', value: "invalid",
     });
   });
 
@@ -312,6 +332,10 @@ describe("canonical item stacks", () => {
         message: "Split amount must be an integer in [1, 99]", value: amount,
       });
     }
+    expectItemFailure(Reflect.apply(itemStackResult.splitItemStack, undefined, [oneStack, 2]), {
+      _tag: "ItemValidationFailure", kind: "RangeError", reason: "out-of-range", field: "amount",
+      message: "Split amount must be an integer in [1, 1]", value: 2,
+    });
   });
 
   it("rejects malformed operation inputs and reports merge overflow", () => {

@@ -5,12 +5,13 @@ import type { BeeEntryOptions, ItemComponentNbtValue, TrimMaterialInlineOptions 
 import { customDataComponent } from '../src/domain/item/item-component-values'
 import { ItemComponentNbtKey, ItemComponentNbtLong, ItemComponentNbtString, TrimArmorMaterialKey, TrimAssetName, TrimItemModelIndex, BeeHiveTicks } from '../src/domain/item/item-primitives'
 import { itemStack, itemStackWithCount, type ItemStack } from '../src/domain/item/item-stack'
+import { itemResultValue } from './item-result-assertions'
 
-const stack = itemStack('stone', StackCount(2))
+const stack = itemResultValue(itemStack('stone', StackCount(2)))
 const stackCount: StackCount = stack.count
-const changedStack = itemStackWithCount(stack, StackCount(1))
+const changedStack = itemResultValue(itemStackWithCount(stack, StackCount(1)))
 const nbtLong: ItemComponentNbtValue = ItemComponentNbtLong(1n)
-const customData = customDataComponent({ value: ItemComponentNbtString('valid') })
+const customData = itemResultValue(customDataComponent({ value: ItemComponentNbtString('valid') }))
 const bee: BeeEntryOptions = {
   entityData: {
     [ItemComponentNbtKey('id')]: ItemComponentNbtString('minecraft:bee'),
@@ -25,7 +26,7 @@ const trim: TrimMaterialInlineOptions = {
   overrideArmorMaterials: {
     [TrimArmorMaterialKey('diamond')]: ResourceLocation('minecraft:diamond'),
   },
-  description: textComponent('Iron'),
+  description: itemResultValue(textComponent('Iron')),
 }
 
 // @ts-expect-error Item stack counts require the StackCount brand.

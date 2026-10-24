@@ -9,7 +9,7 @@ import {
   itemComponentStackLimitOf,
   itemToolComponentOf,
 } from '../src/domain/item/item-components'
-import { itemComponentsEqual } from '../src/domain/item/item-components-validation'
+import { itemComponentsEqual, itemComponentsSnapshot } from '../src/domain/item/item-components-validation'
 import * as itemComponentValuesResult from '../src/domain/item/item-component-values'
 import { isChargedProjectilesOptions } from '../src/domain/item/item-component-values'
 import {
@@ -115,7 +115,7 @@ const expectOptionsFailure = (
     readonly reason: string
     readonly field: string
     readonly message: string
-    readonly value: unknown
+    readonly value?: unknown
   }>,
 ) => expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [item, options]), {
   _tag: 'ItemValidationFailure',
@@ -134,6 +134,56 @@ const expectMalformedOption = (options: unknown, field: string, message: string)
 }
 
 describe('item components', () => {
+  it('snapshots nested values while preserving shared references', () => {
+    const shared = { value: 1 }
+    const sharedValues = [1, 2]
+    const source = {
+      ...itemComponents('stone'),
+      customData: { left: shared, right: shared, values: [1, 2], sharedValues, sharedValuesAgain: sharedValues },
+    }
+    const snapshot = itemResultValue(itemComponentsSnapshot(source))
+    const customData = snapshot.customData
+
+    expect(snapshot).not.toBe(source)
+    expect(customData).not.toBe(source.customData)
+    expect(customData?.['left']).toBe(customData?.['right'])
+    expect(customData?.['sharedValues']).toBe(customData?.['sharedValuesAgain'])
+    expect(customData?.['values']).not.toBe(source.customData.values)
+    expect(Object.isFrozen(customData)).toBe(true)
+    expect(Object.isFrozen(customData?.['left'])).toBe(true)
+    expect(Object.isFrozen(customData?.['values'])).toBe(true)
+  })
+
+  it('returns a tagged failure when component snapshots encounter hostile records', () => {
+    const hostile = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
+
+    expectItemFailure(itemComponentsSnapshot(hostile), {
+      _tag: 'ItemValidationFailure',
+      field: 'components',
+      reason: 'hostile-input',
+      message: 'Unable to snapshot item components',
+      value: hostile,
+    })
+  })
+
+  it('returns tagged failures when component options cannot be inspected', () => {
+    const hostileOptions = new Proxy({}, { get: () => { throw new Error('hostile') } })
+    expectOptionsFailure('stone', hostileOptions, {
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'options',
+      message: 'Unable to inspect item component options',
+    })
+
+    const hostileCustomData = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
+    expectOptionsFailure('stone', { customData: hostileCustomData }, {
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'customData',
+      message: 'Unable to inspect item component option customData',
+    })
+  })
+
   it('rejects hostile component records without throwing', () => {
     const hostile = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
     expect(isItemComponents(hostile)).toBe(false)
@@ -803,6 +853,10 @@ describe('item components', () => {
     expectOptionsFailure('stone', { repairCost: -1 }, {
       kind: 'RangeError', reason: 'out-of-range', field: 'repairCost',
       message: 'RepairCost must be a non-negative safe integer, received -1', value: -1,
+    })
+    expectOptionsFailure('stone', { maxStackSize: 0 }, {
+      kind: 'RangeError', reason: 'out-of-range', field: 'maxStackSize',
+      message: 'MaxStackSize must be a safe integer in [1, 99], received 0', value: 0,
     })
     expectOptionsFailure('diamond_sword', { maxStackSize: 2 }, {
       kind: 'RangeError', reason: 'out-of-range', field: 'maxDamage',

@@ -23,14 +23,14 @@ const validateOptionsObject = (value: unknown, name: string): Result.Result<void
   return Result.succeed(undefined)
 }
 
-const validateLevel = (value: unknown, name: string): Result.Result<number, ItemValidationFailure> => {
+const validateLevel = (value: unknown, name: string): Result.Result<EnchantmentLevel, ItemValidationFailure> => {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return Result.fail(itemValidationFailure(name, `${name} must be a finite number`, 'invalid-type', value))
   }
-  if (!EnchantmentLevel.is(value)) {
-    return Result.fail(itemValidationFailure(name, `${name} must be a safe integer in [0, 255]`, 'out-of-range', value))
-  }
-  return Result.succeed(value)
+  return Result.mapError(
+    EnchantmentLevel.result(value),
+    () => itemValidationFailure(name, `${name} must be a safe integer in [0, 255]`, 'out-of-range', value),
+  )
 }
 
 const enchantmentLevelMapOf = (
@@ -51,12 +51,7 @@ const enchantmentLevelMapOf = (
     }
     const checkedLevel = validateLevel(level, `${name}[${id}]`)
     if (Result.isFailure(checkedLevel)) return Result.fail(checkedLevel.failure)
-    const brandedLevel = Result.mapError(
-      EnchantmentLevel.result(checkedLevel.success),
-      () => itemValidationFailure(`${name}[${id}]`, `${name}[${id}] must be a safe integer in [0, 255]`, 'out-of-range', level),
-    )
-    if (Result.isFailure(brandedLevel)) return Result.fail(brandedLevel.failure)
-    normalized[id] = brandedLevel.success
+    normalized[id] = checkedLevel.success
   }
   return Result.succeed(Object.freeze(normalized))
 }

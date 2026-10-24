@@ -726,7 +726,7 @@ const optionsFailure = (
   message: string,
   value?: unknown,
   reason: ItemValidationFailure['reason'] = 'invalid-value',
-  kind: ItemValidationFailure['kind'] = reason === 'out-of-range' ? 'RangeError' : 'TypeError',
+  kind: ItemValidationFailure['kind'] = 'TypeError',
 ): ItemValidationFailure => itemValidationFailure(field, message, reason, value, kind)
 
 const snapshotOptions = (value: ItemComponentOptions): Result.Result<ItemComponentOptions, ItemValidationFailure> => {
@@ -786,10 +786,9 @@ const brandValue = <A, E extends Readonly<{ readonly message: string }>>(
   result: Result.Result<A, E>,
   field: string,
   value: unknown,
-  reason: ItemValidationFailure['reason'] = 'invalid-value',
 ): Result.Result<A, ItemValidationFailure> => Result.mapError(
   result,
-  (error) => optionsFailure(field, error.message, value, reason, reason === 'out-of-range' ? 'RangeError' : 'TypeError'),
+  (error) => optionsFailure(field, error.message, value, 'out-of-range', 'RangeError'),
 )
 
 const itemDamageOf = (
@@ -798,7 +797,7 @@ const itemDamageOf = (
 ): Result.Result<ReturnType<typeof ItemDamage> | undefined, ItemValidationFailure> => {
   if (maxDamage === undefined && damage === undefined) return Result.succeed(undefined)
   const value = damage ?? 0
-  return Result.map(brandValue(ItemDamage.result(value), 'damage', value, 'out-of-range'), (itemDamage) => itemDamage)
+  return Result.map(brandValue(ItemDamage.result(value), 'damage', value), (itemDamage) => itemDamage)
 }
 
 const optionalComponentOf = <T, U>(
@@ -819,29 +818,22 @@ const valueOr = <T>(value: T | undefined, fallback: T): T =>
 const valueOrUndefined = <T>(value: T | undefined, fallback: T | undefined): T | undefined =>
   value === undefined ? fallback : value
 
-export const itemComponents = (item: ItemType, options: ItemComponentOptions = {}): Result.Result<ItemComponents, ItemComponentFailure> => {
-  if (!isItemType(item)) {
-    return Result.fail(optionsFailure('item', `Unknown item type: ${String(item)}`, item, 'invalid-value'))
-  }
-  const snapshotted = snapshotOptions(options)
-  return Result.flatMap(snapshotted, (safeOptions) => {
-    const checked = validateOptions(safeOptions)
-    return Result.flatMap(checked, (input) => buildItemComponents(item, input))
-  })
-}
-
-const buildItemComponents = (
+function buildItemComponents(
   item: ItemType,
   options: ItemComponentOptions,
-): Result.Result<ItemComponents, ItemComponentFailure> => {
+): Result.Result<ItemComponents, ItemComponentFailure> {
   const defaultMaxDamage = itemDurabilityDefinitionFor(item)?.maxDurability
   const useComponents = itemUseComponentsOf(item)
   return Result.gen(function* () {
-  const maxStackSize = yield* brandValue(MaxStackSize.result(valueOr(options.maxStackSize, itemComponentStackLimitOf(item))), 'maxStackSize', options.maxStackSize ?? itemComponentStackLimitOf(item), 'out-of-range')
+  const maxStackSize = options.maxStackSize === undefined
+    ? yield* brandValue(MaxStackSize.result(Number(itemComponentStackLimitOf(item))), 'maxStackSize', itemComponentStackLimitOf(item))
+    : yield* brandValue(MaxStackSize.result(options.maxStackSize), 'maxStackSize', options.maxStackSize)
   const maxDamageValue = valueOrUndefined(options.maxDamage, defaultMaxDamage)
-  const maxDamage = yield* optionalComponentOf(maxDamageValue, (value) => brandValue(MaxDamage.result(value), 'maxDamage', value, 'out-of-range'))
+  const maxDamage = yield* optionalComponentOf(maxDamageValue, (value) => brandValue(MaxDamage.result(value), 'maxDamage', value))
   const damage = yield* itemDamageOf(maxDamage, options.damage)
-  const repairCost = yield* brandValue(RepairCost.result(valueOr(options.repairCost, 0)), 'repairCost', options.repairCost ?? 0, 'out-of-range')
+  const repairCost = options.repairCost === undefined
+    ? yield* brandValue(RepairCost.result(0), 'repairCost', 0)
+    : yield* brandValue(RepairCost.result(options.repairCost), 'repairCost', options.repairCost)
   yield* validateItemComponentRelations(maxStackSize, maxDamage, damage)
 
   const customName = options.customName === undefined ? undefined : yield* textComponent(options.customName)
@@ -849,7 +841,7 @@ const buildItemComponents = (
   const loreValues: TextComponent[] = []
   for (const entry of options.lore ?? []) loreValues.push(yield* textComponent(entry))
   const lore = options.lore === undefined ? undefined : Object.freeze(loreValues)
-  const itemModel = yield* optionalComponentOf(options.itemModel, (value) => brandValue(ResourceLocation.result(value), 'itemModel', value))
+  const itemModel = options.itemModel
   const customData = yield* optionalComponentOf(options.customData, customDataComponent)
   const entityData = yield* optionalComponentOf(options.entityData, entityDataComponent)
   const bucketEntityData = yield* optionalComponentOf(options.bucketEntityData, bucketEntityDataComponent)
@@ -981,5 +973,16 @@ const buildItemComponents = (
     additionalTradeCost: options.additionalTradeCost,
     sulfurCubeContent,
   })
+  })
+}
+
+export const itemComponents = (item: ItemType, options: ItemComponentOptions = {}): Result.Result<ItemComponents, ItemComponentFailure> => {
+  if (!isItemType(item)) {
+    return Result.fail(optionsFailure('item', `Unknown item type: ${String(item)}`, item, 'invalid-value'))
+  }
+  const snapshotted = snapshotOptions(options)
+  return Result.flatMap(snapshotted, (safeOptions) => {
+    const checked = validateOptions(safeOptions)
+    return Result.flatMap(checked, (input) => buildItemComponents(item, input))
   })
 }

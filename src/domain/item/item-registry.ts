@@ -113,8 +113,7 @@ const itemIdOfBytes = (bytes: ItemIdBytesInput): Result.Result<ItemId, ItemRegis
       'RangeError',
     ))
   }
-  return Result.mapError(ItemId.result(id), (error) =>
-    itemValidationFailure('id', error.message, 'out-of-range', id, 'RangeError'))
+  return Result.succeed(id)
 }
 
 export const ItemIdBytes = (bytes: ItemIdBytesInput): Result.Result<ItemIdBytes, ItemRegistryFailure> => {
@@ -137,9 +136,4 @@ export const encodeItemId = (type: ItemType): ItemIdBytes => {
 
 /** Decode a validated item-id field from its two-byte wire representation. */
 export const decodeItemId = (bytes: ItemIdBytes): Result.Result<ItemType, ItemRegistryFailure> =>
-  Result.flatMap(itemIdOfBytes(bytes), (id) => {
-    const item = ITEM_REGISTRY[Number(id)]?.type
-    return item === undefined
-      ? Result.fail(itemValidationFailure('id', `ItemIdBytes must encode a registered item id, received ${Number(id)}`, 'out-of-range', Number(id), 'RangeError'))
-      : Result.succeed(item)
-  })
+  Result.map(itemIdOfBytes(bytes), (id) => itemTypeOfId(id))

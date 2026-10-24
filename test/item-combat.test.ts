@@ -29,6 +29,9 @@ const swingAnimationComponent = (...args: Parameters<typeof itemCombatResult.swi
   itemResultValue(itemCombatResult.swingAnimationComponent(...args))
 const useEffectsComponent = (...args: Parameters<typeof itemCombatResult.useEffectsComponent>) =>
   itemResultValue(itemCombatResult.useEffectsComponent(...args))
+const validation = (field: string, message: string, value: unknown, reason: string, kind: string) => ({
+  _tag: 'ItemValidationFailure', kind, reason, field, message, value,
+})
 
 describe('item combat components', () => {
   it('constructs immutable components with official defaults', () => {
@@ -89,9 +92,6 @@ describe('item combat components', () => {
   })
 
   it('rejects malformed constructor input at the runtime boundary', () => {
-    const validation = (field: string, message: string, value: unknown, reason: string, kind: string) => ({
-      _tag: 'ItemValidationFailure', kind, reason, field, message, value,
-    })
     for (const options of [null, [], 1]) {
       expectItemFailure(Reflect.apply(itemCombatResult.useEffectsComponent, undefined, [options]), validation(
         'options', 'Use effects options must be a non-null object', options, 'invalid-type', 'TypeError',
@@ -100,7 +100,7 @@ describe('item combat components', () => {
     expectItemFailure(Reflect.apply(itemCombatResult.useEffectsComponent, undefined, [{ canSprint: 'yes' }]), validation(
       'canSprint', 'canSprint must be a boolean', 'yes', 'invalid-type', 'TypeError',
     ))
-    expectItemFailure(itemCombatResult.useEffectsComponent({ speedMultiplier: 1.1 }), validation(
+    expectItemFailure(Reflect.apply(itemCombatResult.useEffectsComponent, undefined, [{ speedMultiplier: 1.1 }]), validation(
       'speedMultiplier', 'speedMultiplier must be a finite number in [0, 1]', 1.1, 'out-of-range', 'RangeError',
     ))
 
@@ -125,7 +125,7 @@ describe('item combat components', () => {
       'type', 'Unknown swing animation type: slash', 'slash', 'invalid-value', 'TypeError',
     ))
     for (const duration of [1.5, -1]) {
-      expectItemFailure(itemCombatResult.swingAnimationComponent({ duration }), validation(
+      expectItemFailure(Reflect.apply(itemCombatResult.swingAnimationComponent, undefined, [{ duration }]), validation(
         'duration', 'duration must be a non-negative safe integer', duration, 'out-of-range', 'RangeError',
       ))
     }
@@ -146,6 +146,44 @@ describe('item combat components', () => {
       expectItemFailure(itemCombatResult.attackRangeComponent({ [field]: value }), validation(
         field, message, value, 'out-of-range', 'RangeError',
       ))
+    }
+  })
+
+  it('maps brand failures if an option changes after validation', () => {
+    const changingNumber = (field: string, valid: number, invalid: number) => {
+      let reads = 0
+      return new Proxy({}, {
+        get: (_target, key) => {
+          if (key !== field) return undefined
+          reads += 1
+          return reads <= 2 ? valid : invalid
+        },
+      })
+    }
+
+    expectItemFailure(Reflect.apply(itemCombatResult.useEffectsComponent, undefined, [
+      changingNumber('speedMultiplier', 0.5, 2),
+    ]), validation(
+      'speedMultiplier', 'speedMultiplier must be a finite number in [0, 1]', 2, 'out-of-range', 'RangeError',
+    ))
+    expectItemFailure(Reflect.apply(itemCombatResult.swingAnimationComponent, undefined, [
+      changingNumber('duration', 1, -1),
+    ]), validation(
+      'duration', 'duration must be a non-negative safe integer', -1, 'out-of-range', 'RangeError',
+    ))
+
+    const cases: ReadonlyArray<Readonly<{ field: string; valid: number; invalid: number; message: string }>> = [
+      { field: 'minReach', valid: 1, invalid: -1, message: 'minReach must be a finite number in [0, 64]' },
+      { field: 'maxReach', valid: 2, invalid: 65, message: 'maxReach must be a finite number in [0, 64]' },
+      { field: 'minCreativeReach', valid: 1, invalid: -1, message: 'minCreativeReach must be a finite number in [0, 64]' },
+      { field: 'maxCreativeReach', valid: 3, invalid: 65, message: 'maxCreativeReach must be a finite number in [0, 64]' },
+      { field: 'hitboxMargin', valid: 0.3, invalid: 1.1, message: 'hitboxMargin must be a finite number in [0, 1]' },
+      { field: 'mobFactor', valid: 1, invalid: -1, message: 'mobFactor must be a finite number in [0, 2]' },
+    ]
+    for (const { field, valid, invalid, message } of cases) {
+      expectItemFailure(Reflect.apply(itemCombatResult.attackRangeComponent, undefined, [
+        changingNumber(field, valid, invalid),
+      ]), validation(field, message, invalid, 'out-of-range', 'RangeError'))
     }
   })
 

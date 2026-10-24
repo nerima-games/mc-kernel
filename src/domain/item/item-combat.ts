@@ -82,20 +82,6 @@ const validateUseEffectsOptions = (options: UseEffectsOptions): Result.Result<vo
   return Result.succeed(undefined)
 }
 
-const validateMinimumAttackCharge = (value: number): Result.Result<void, ItemValidationFailure> => {
-  if (!AttackCharge.is(value)) {
-    return Result.fail(failure('minimumAttackCharge', 'minimumAttackCharge must be a finite number in [0, 1]', 'out-of-range', value))
-  }
-  return Result.succeed(undefined)
-}
-
-const validateDamageType = (value: string): Result.Result<void, ItemValidationFailure> => {
-  if (typeof value !== 'string' || !ResourceLocation.is(value)) {
-    return Result.fail(failure('damageType', `damageType must be a valid resource location: ${value}`, 'invalid-value', value))
-  }
-  return Result.succeed(undefined)
-}
-
 const validateSwingAnimationOptions = (options: SwingAnimationOptions): Result.Result<void, ItemValidationFailure> => {
   const validObject = validateOptionsObject(options, 'Swing animation options')
   if (Result.isFailure(validObject)) return validObject
@@ -144,16 +130,18 @@ export const useEffectsComponent = (
 export const minimumAttackChargeComponent = (
   value: number,
 ): Result.Result<MinimumAttackChargeComponent, ItemValidationFailure> =>
-  Result.flatMap(validateMinimumAttackCharge(value), () => Result.mapError(
+  Result.mapError(
     AttackCharge.result(value),
     () => failure('minimumAttackCharge', 'minimumAttackCharge must be a finite number in [0, 1]', 'out-of-range', value),
-  ))
+  )
 
 export const damageTypeComponent = (value: string): Result.Result<DamageTypeComponent, ItemValidationFailure> =>
-  Result.flatMap(validateDamageType(value), () => Result.mapError(
-    ResourceLocation.result(value),
-    () => failure('damageType', `damageType must be a valid resource location: ${value}`, 'invalid-value', value),
-  ))
+  typeof value !== 'string'
+    ? Result.fail(failure('damageType', `damageType must be a valid resource location: ${value}`, 'invalid-value', value))
+    : Result.mapError(
+      ResourceLocation.result(value),
+      () => failure('damageType', `damageType must be a valid resource location: ${value}`, 'invalid-value', value),
+    )
 
 export const swingAnimationComponent = (
   options: SwingAnimationOptions = {},

@@ -212,7 +212,7 @@ export const splitItemStack = (
     TransferQuantity.result(Number(amount)),
     () => failure('amount', `Split amount must be an integer in [1, ${stack.count}]`, 'out-of-range', amount),
   )
-  if (Result.isFailure(checkedAmount)) return checkedAmount
+  if (Result.isFailure(checkedAmount)) return Result.fail(checkedAmount.failure)
   if (Number(checkedAmount.success) > Number(stack.count)) {
     return Result.fail(failure('amount', `Split amount must be an integer in [1, ${stack.count}]`, 'out-of-range', amount))
   }

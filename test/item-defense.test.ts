@@ -83,6 +83,41 @@ describe('item defense components', () => {
     expect(Object.isFrozen(custom.bypassedBy)).toBe(true)
   })
 
+  it('normalizes each rule in a non-empty damage reduction array', () => {
+    expect(blocksAttacksComponent({
+      damageReductions: [
+        {
+          type: ResourceLocation('minecraft:player_attack'),
+          base: Quantities.DamageReductionBase(2),
+          factor: Quantities.DamageReductionFactor(0.5),
+          horizontalBlockingAngle: Quantities.HorizontalBlockingAngle(64),
+        },
+        { base: Quantities.DamageReductionBase(1), factor: Quantities.DamageReductionFactor(0.25) },
+      ],
+    })).toStrictEqual({
+      blockDelaySeconds: 0,
+      disableCooldownScale: 1,
+      damageReductions: [
+        {
+          type: 'minecraft:player_attack',
+          base: 2,
+          factor: 0.5,
+          horizontalBlockingAngle: 64,
+        },
+        {
+          type: undefined,
+          base: 1,
+          factor: 0.25,
+          horizontalBlockingAngle: 90,
+        },
+      ],
+      itemDamage: undefined,
+      blockSound: undefined,
+      disabledSound: undefined,
+      bypassedBy: undefined,
+    })
+  })
+
   it('constructs every accepted resource provider shape', () => {
     expect(damageResistantComponent(ResourceLocation('minecraft:fire')).types).toBe('minecraft:fire')
     expect(damageResistantComponent(TagLocation('#minecraft:is_fire')).types).toBe('#minecraft:is_fire')
@@ -144,12 +179,29 @@ describe('item defense components', () => {
     expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ damageReductions: {} }]), validation(
       'TypeError', 'invalid-type', 'damageReductions', 'damageReductions must be an array', {},
     ))
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ damageReductions: 'invalid' }]), validation(
+      'TypeError', 'invalid-type', 'damageReductions', 'damageReductions must be an array', 'invalid',
+    ))
     expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ damageReductions: [null] }]), validation(
       'TypeError', 'invalid-type', 'damageReductions[0]', 'damageReductions[0] must be a non-null object', null,
     ))
     expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ damageReductions: [{ base: '1', factor: 0 }] }]), validation(
       'TypeError', 'invalid-type', 'damageReductions[0].base', 'damageReductions[0].base must be a finite number', '1',
     ))
+    let laterDamageReductionReads = 0
+    const laterDamageReduction = {
+      get base() {
+        laterDamageReductionReads += 1
+        return 1
+      },
+      factor: 0,
+    }
+    expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{
+      damageReductions: [{ base: '1', factor: 0 }, laterDamageReduction],
+    }]), validation(
+      'TypeError', 'invalid-type', 'damageReductions[0].base', 'damageReductions[0].base must be a finite number', '1',
+    ))
+    expect(laterDamageReductionReads).toBe(0)
     expectItemFailure(invokeBlocksAttacks({ damageReductions: [{ base: 0, factor: Infinity }] }), validation(
       'TypeError', 'invalid-type', 'damageReductions[0].factor', 'damageReductions[0].factor must be a finite number', Infinity,
     ))
@@ -204,6 +256,16 @@ describe('item defense components', () => {
     ))
     expectItemFailure(invokeBlocksAttacks({ bypassedBy: ['#minecraft:is_fire'] }), validation(
       'TypeError', 'invalid-type', 'bypassedBy', 'bypassedBy lists must contain resource locations', '#minecraft:is_fire',
+    ))
+
+    const hostileTypes = new Proxy(['minecraft:fire'], {
+      get: (target, key, receiver) => key === Symbol.iterator
+        ? (() => { throw new Error('hostile') })()
+        : Reflect.get(target, key, receiver),
+    })
+    expectItemFailure(Reflect.apply(itemDefenseResult.damageResistantComponent, undefined, [hostileTypes]), validation(
+      'TypeError', 'hostile-input', 'damage_resistant.types',
+      'Unable to inspect damage_resistant.types', hostileTypes,
     ))
   })
 

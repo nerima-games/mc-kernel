@@ -190,14 +190,20 @@ describe('item attribute modifiers', () => {
       _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-value', field: 'type',
       message: 'type must be a valid resource location', value: undefined,
     })
-    expectItemFailure(itemAttributeModifiersResult.attributeModifier({ ...baseModifier, type: 'INVALID!' }), failure(
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, type: 'INVALID!' }]), failure(
       'type', 'type must be a valid resource location', 'INVALID!',
     ))
-    expectItemFailure(itemAttributeModifiersResult.attributeModifier({ ...baseModifier, id: 'INVALID!' }), failure(
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, id: 'INVALID!' }]), failure(
       'id', 'id must be a valid resource location', 'INVALID!',
     ))
-    expectItemFailure(itemAttributeModifiersResult.attributeModifier({ ...baseModifier, amount: Number.NaN }), failure(
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, amount: Number.NaN }]), failure(
       'amount', 'amount must be a finite number', Number.NaN, 'invalid-type',
+    ))
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, amount: Infinity }]), failure(
+      'amount', 'amount must be a finite number', Infinity, 'invalid-type',
+    ))
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, amount: '1' }]), failure(
+      'amount', 'amount must be a finite number', '1', 'invalid-type',
     ))
     expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, operation: 'multiply' }]), failure(
       'operation', 'Unknown attribute modifier operation: multiply', 'multiply',
@@ -213,9 +219,17 @@ describe('item attribute modifiers', () => {
     expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifiersComponent, undefined, [null]), failure(
       'options', 'Attribute modifiers must be an array', null, 'invalid-type',
     ))
-    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifiersComponent, undefined, [{}]), {
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifiersComponent, undefined, [[{}]]), {
       _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-value', field: 'type',
       message: 'type must be a valid resource location', value: undefined,
+    })
+
+    const hostileOptions = new Proxy(baseModifier, {
+      get: () => { throw new Error('hostile') },
+    })
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [hostileOptions]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input', field: 'options',
+      message: 'Unable to inspect attribute modifier options',
     })
   })
 })
