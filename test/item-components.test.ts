@@ -166,6 +166,17 @@ describe('item components', () => {
     })
   })
 
+  it('rejects component snapshots above the input size limit', () => {
+    const oversized = new Array(65_537)
+
+    expectItemFailure(itemComponentsSnapshot(oversized), {
+      _tag: 'ItemValidationFailure',
+      field: 'components',
+      reason: 'out-of-range',
+      message: 'Unable to snapshot item components',
+    })
+  })
+
   it('snapshots kinetic weapon options before validation and construction', () => {
     let cooldownReads = 0
     const changingKineticWeapon = new Proxy({ contactCooldownTicks: 10 }, {

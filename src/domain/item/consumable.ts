@@ -199,9 +199,11 @@ export const consumableComponent = (
     const effectsSnapshot = snapshotInputValue(effectsValue, MAX_GENERIC_INPUT_ARRAY_LENGTH, 'onConsumeEffects')
     if (Result.isFailure(effectsSnapshot)) {
       const reason = effectsSnapshot.failure.reason === 'too-large' ? 'out-of-range' : 'hostile-input'
+      // This snapshot call always supplies the root path prefix above.
+      const errorPath = effectsSnapshot.failure.path
       return yield* Result.fail(itemValidationFailure(
-        effectsSnapshot.failure.path ?? 'onConsumeEffects',
-        `Unable to inspect ${effectsSnapshot.failure.path ?? 'onConsumeEffects'}`,
+        errorPath,
+        `Unable to inspect ${errorPath}`,
         reason,
         effectsSnapshot.failure.value,
       ))

@@ -42,7 +42,6 @@ function validateOverrideKeys(
   for (const flag of BLOCK_CAPABILITY_FLAGS) {
     if (!Object.hasOwn(snapshot.success, flag)) continue
     const value = snapshot.success[flag]
-    if (value === undefined) continue
     if (typeof value !== 'boolean') {
       return failure('not-boolean', `block capability ${flag} must be a boolean`)
     }

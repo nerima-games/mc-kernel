@@ -56,7 +56,7 @@ const jsonValueWithPlainRecords = (value: JsonValue): JsonValue => {
     for (let index = 0; index < value.length; index += 1) {
       if (Object.hasOwn(value, index)) {
         const child = value[index]
-        if (child !== undefined) copy[index] = jsonValueWithPlainRecords(child)
+        copy[index] = jsonValueWithPlainRecords(child)
       }
     }
     return Object.freeze(copy)

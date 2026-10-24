@@ -381,6 +381,19 @@ describe("data-pack registry", () => {
       entries: [null],
     }]);
     expect(Result.isFailure(typedInvalidEntry)).toBe(true);
+
+    const sparseTypedEntries: unknown[] = [];
+    sparseTypedEntries.length = 1;
+    const typedSparseEntry = Reflect.apply(dataPackLayer, undefined, [{
+      pack: NamespacedResourceLocation('example:typed'),
+      format: resultValue(DataPackFormat(1)),
+      priority: resultValue(DataPackPriority(0)),
+      entries: sparseTypedEntries,
+    }]);
+    expect(resultFailure(typedSparseEntry)).toMatchObject({
+      _tag: 'DataPackRegistryFailure',
+      reason: 'invalid-entry',
+    });
   });
 
   it("selects exact formats and applies priority with stable equal-priority ordering", () => {

@@ -2,13 +2,21 @@ import { Result } from 'effect'
 import { describe, expect, it } from 'vitest'
 
 import {
+  MAX_GENERIC_INPUT_ENTRIES,
   snapshotInputArray,
   snapshotInputArrayOf,
   snapshotDenseInputArray,
   snapshotInputRecord,
   snapshotInputRecordWith,
+  snapshotInputEntries,
   snapshotInputValue,
+  type InputSnapshotFailure,
 } from '../src/input-snapshot'
+
+const failureReason = <Value>(
+  result: Result.Result<Value, InputSnapshotFailure>,
+): InputSnapshotFailure['reason'] | undefined =>
+  Result.isFailure(result) ? result.failure.reason : undefined
 
 describe('input snapshots', () => {
   it('accepts only plain records and reads their prototype and requested getters once', () => {
@@ -77,6 +85,35 @@ describe('input snapshots', () => {
     expect(elementReads).toBe(0)
   })
 
+  it('returns failures for invalid array limits and hostile array reads', () => {
+    const throwingElement = new Proxy([1], {
+      get(target, key, receiver) {
+        if (key === '0') throw new Error('array element is unavailable')
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    const numericArray: number[] = []
+    const revoked = Proxy.revocable(numericArray, {})
+    revoked.revoke()
+
+    expect(failureReason(snapshotInputArray([1], -1))).toBe('invalid-limit')
+    expect(failureReason(snapshotInputArray({}, 1))).toBe('invalid-container')
+    expect(failureReason(snapshotInputArray(throwingElement, 1))).toBe('hostile-input')
+    expect(failureReason(snapshotInputArray(revoked.proxy, 1))).toBe('hostile-input')
+
+    expect(failureReason(snapshotInputArrayOf([1], Number.NaN))).toBe('invalid-limit')
+    expect(failureReason(Reflect.apply(snapshotInputArrayOf, undefined, [{}, 1]))).toBe('invalid-container')
+    expect(failureReason(snapshotInputArrayOf(throwingElement, 1))).toBe('hostile-input')
+    expect(failureReason(snapshotInputArrayOf(revoked.proxy, 1))).toBe('hostile-input')
+
+    const invalidLength = new Proxy([1], {
+      get(target, key, receiver) {
+        return key === 'length' ? Number.NaN : Reflect.get(target, key, receiver)
+      },
+    })
+    expect(failureReason(snapshotInputArrayOf(invalidLength, 1))).toBe('hostile-input')
+  })
+
   it('does not read inherited array elements', () => {
     let inheritedReads = 0
     const prototype = Object.create(Array.prototype, {
@@ -121,6 +158,30 @@ describe('input snapshots', () => {
     expect(Result.isFailure(throwing)).toBe(true)
     expect(Result.isFailure(snapshotInputValue(cyclic, 16))).toBe(true)
     expect(Result.isFailure(snapshotInputValue(deep, 16))).toBe(true)
+  })
+
+  it('rejects unexpected record fields and records that exceed the entry cap', () => {
+    const unexpected = snapshotInputRecord(
+      { id: 'minecraft:test', extra: true },
+      ['id'],
+      ['id'],
+      'entry',
+    )
+    const oversized: Record<string, number> = Object.create(null)
+    for (let index = 0; index <= MAX_GENERIC_INPUT_ENTRIES; index += 1) {
+      oversized[`field${index}`] = index
+    }
+
+    expect(Result.isFailure(unexpected)).toBe(true)
+    if (Result.isFailure(unexpected)) {
+      expect(unexpected.failure).toMatchObject({
+        reason: 'unexpected-field',
+        field: 'extra',
+        path: 'entry.extra',
+      })
+    }
+    expect(failureReason(snapshotInputRecord(oversized))).toBe('too-large')
+    expect(failureReason(snapshotInputRecord(oversized, [], []))).toBe('too-large')
   })
 
   it('reads shared object properties once and reuses the frozen snapshot', () => {
@@ -168,6 +229,9 @@ describe('input snapshots', () => {
       get: () => { throw new Error('untrusted getter') },
     }), (record) => ({ id: record.id }))))
       .toBe(true)
+    expect(failureReason(snapshotInputRecordWith(new Date(), (record) => record))).toBe('unsupported-prototype')
+    const nullPrototype: object = Object.create(null)
+    expect(Result.isSuccess(snapshotInputRecordWith(nullPrototype, () => 'null-prototype'))).toBe(true)
   })
 
   it('bounds typed arrays before element reads', () => {
@@ -188,5 +252,27 @@ describe('input snapshots', () => {
     expect(Result.isFailure(snapshotInputArrayOf(input, 9))).toBe(true)
     expect(lengthReads).toBe(1)
     expect(elementReads).toBe(0)
+  })
+
+  it('bounds entry snapshots and returns failures for hostile records', () => {
+    const throwingGetter = Object.defineProperty({}, 'id', {
+      enumerable: true,
+      get() {
+        throw new Error('entry value is unavailable')
+      },
+    })
+    const throwingKeys = new Proxy({}, {
+      ownKeys() {
+        throw new Error('entry keys are unavailable')
+      },
+    })
+
+    expect(failureReason(snapshotInputEntries({}, -1))).toBe('invalid-limit')
+    expect(failureReason(snapshotInputEntries(null, 1))).toBe('invalid-container')
+    expect(failureReason(snapshotInputEntries(new Date(), 1))).toBe('unsupported-prototype')
+    expect(failureReason(snapshotInputEntries({ id: 'minecraft:test' }, 0))).toBe('too-large')
+    expect(failureReason(snapshotInputEntries(throwingGetter, 1, 'entries'))).toBe('hostile-input')
+    expect(failureReason(snapshotInputEntries(throwingKeys, 1))).toBe('hostile-input')
+    expect(failureReason(snapshotInputValue({}, Number.NaN))).toBe('invalid-limit')
   })
 })

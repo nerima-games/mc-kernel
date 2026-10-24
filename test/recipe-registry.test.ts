@@ -107,6 +107,75 @@ describe("recipe registry", () => {
     });
   });
 
+  it("returns registry failures for unreadable or invalid recipe layer inputs", () => {
+    const validLayer = {
+      pack: "example:json",
+      format: 107.1,
+      priority: 0,
+      entries: [{ id: "example:json", value: craftingDocument }],
+    };
+    const decode = (input: unknown) => Reflect.apply(recipeDataPackLayer, undefined, [input]);
+    const unreadable = new Proxy({ ...validLayer }, {
+      get(target, key, receiver) {
+        if (key === 'pack') throw new Error('recipe layer pack is unavailable')
+        return Reflect.get(target, key, receiver)
+      },
+    });
+
+    expect(resultFailure(decode(unreadable))).toMatchObject({
+      _tag: "DataPackRegistryFailure",
+      reason: "invalid-layer",
+    });
+    expect(resultFailure(decode({ ...validLayer, entries: null }))).toMatchObject({
+      _tag: "DataPackRegistryFailure",
+      reason: "invalid-layer",
+    });
+    expect(resultFailure(decode({ ...validLayer, pack: 1 }))).toMatchObject({
+      _tag: "DataPackRegistryFailure",
+      reason: "invalid-layer",
+    });
+    expect(resultFailure(decode({ ...validLayer, pack: "recipe" }))).toMatchObject({
+      _tag: "DataPackRegistryFailure",
+      reason: "invalid-resource-location",
+    });
+    expect(resultFailure(decode({ ...validLayer, format: "107.1" }))).toMatchObject({
+      _tag: "DataPackRegistryFailure",
+      reason: "invalid-layer",
+    });
+    expect(resultFailure(decode({ ...validLayer, format: -1 }))).toMatchObject({
+      _tag: "DataPackRegistryFailure",
+      reason: "invalid-format",
+    });
+    expect(resultFailure(decode({ ...validLayer, priority: "0" }))).toMatchObject({
+      _tag: "DataPackRegistryFailure",
+      reason: "invalid-layer",
+    });
+    expect(resultFailure(decode({ ...validLayer, priority: 1.5 }))).toMatchObject({
+      _tag: "DataPackRegistryFailure",
+      reason: "invalid-priority",
+    });
+
+    for (const entry of [
+      null,
+      { id: "example:json" },
+      { value: craftingDocument },
+      { id: 1, value: craftingDocument },
+      { id: "example:json", value: craftingDocument, extra: true },
+    ]) {
+      expect(resultFailure(decode({ ...validLayer, entries: [entry] }))).toMatchObject({
+        _tag: "DataPackRegistryFailure",
+        reason: "invalid-entry",
+      });
+    }
+    expect(resultFailure(decode({
+      ...validLayer,
+      entries: [{ id: "invalid", value: craftingDocument }],
+    }))).toMatchObject({
+      _tag: "DataPackRegistryFailure",
+      reason: "invalid-resource-location",
+    });
+  });
+
   it("keeps the generic data-pack layer compatible with recipe layer values", () => {
     const layer = resultValue(genericLayerFromRaw({
       pack: "example:generic",

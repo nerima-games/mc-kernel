@@ -389,6 +389,11 @@ describe('light level branding', () => {
         'block property supportRule blocks must contain at least one block',
       )
       expectPropertyFailure(resolveBlockPropertiesResult({ supportRule: { kind: 'oneOf', blocks: [] } }), 'range', 'block property supportRule blocks must contain at least one block')
+      expectPropertyFailure(
+        normalizeBlockPropertyOverrides({ supportRule: { kind: 'oneOf', blocks: new Array(65_537) } }),
+        'range',
+        'block property overrides exceed input limits',
+      )
 
       expectPropertyFailure(Reflect.apply(propertyOfResult, undefined, [{}, 'future']), 'type', 'unknown block property future')
     })),
@@ -405,6 +410,36 @@ describe('light level branding', () => {
       normalizeBlockPropertyOverrides(unreadableOverrides),
       'type',
       'block property overrides must be readable',
+    )
+  })
+
+  it('returns a type failure for cyclic property overrides', () => {
+    const cyclic: Record<string, unknown> = {}
+    cyclic['supportRule'] = cyclic
+
+    expectPropertyFailure(
+      normalizeBlockPropertyOverrides(cyclic),
+      'type',
+      'block property overrides must be an object',
+    )
+  })
+
+  it('returns failures when formatting nested untrusted values throws', () => {
+    const valueWithThrowingStringConversion = {
+      toString() {
+        throw new Error('untrusted string conversion')
+      },
+    }
+
+    expectPropertyFailure(
+      normalizeBlockPropertyOverrides({ opacity: valueWithThrowingStringConversion }),
+      'type',
+      'block property overrides must be readable',
+    )
+    expectPropertyFailure(
+      normalizeBlockPropertyOverrides({ supportRule: { kind: valueWithThrowingStringConversion } }),
+      'type',
+      'block property supportRule must be readable',
     )
   })
 

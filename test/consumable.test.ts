@@ -27,6 +27,7 @@ import {
   RandomTeleportDiameter,
 } from '../src/domain/item/item-primitives'
 import { expectItemFailure, itemResultValue } from './item-result-assertions'
+import { MAX_GENERIC_INPUT_ARRAY_LENGTH } from '../src/input-snapshot'
 
 const consumableApplyEffects = (...args: Parameters<typeof consumableResult.consumableApplyEffects>) =>
   itemResultValue(consumableResult.consumableApplyEffects(...args))
@@ -309,6 +310,39 @@ describe('consumable item components', () => {
       reason: 'hostile-input',
       field: 'options',
       message: 'Unable to inspect consumable component options',
+    })
+  })
+
+  it('rejects invalid option values and malformed consume-effect snapshots', () => {
+    const reject = (options: unknown, expected: Parameters<typeof expectItemFailure>[1]) =>
+      expectItemFailure(Reflect.apply(consumableResult.consumableComponent, undefined, [options]), expected)
+
+    reject({ consumeSeconds: '1' }, { field: 'consumeSeconds', reason: 'out-of-range' })
+    reject({ animation: 'sit' }, { field: 'animation', reason: 'invalid-value', value: 'sit' })
+    reject({ sound: 1 }, { field: 'sound', reason: 'invalid-value', value: 1 })
+    reject({ sound: 'not a resource location' }, { field: 'sound', reason: 'invalid-value' })
+    reject({ hasConsumeParticles: 1 }, { field: 'hasConsumeParticles', reason: 'invalid-type', value: 1 })
+    reject({ onConsumeEffects: {} }, { field: 'onConsumeEffects', reason: 'invalid-type' })
+    reject({ onConsumeEffects: [null] }, { field: 'onConsumeEffects', reason: 'invalid-value', value: null })
+
+    const oversizedEffects = new Array(MAX_GENERIC_INPUT_ARRAY_LENGTH + 1)
+    reject({ onConsumeEffects: oversizedEffects }, {
+      field: 'onConsumeEffects',
+      reason: 'out-of-range',
+      message: 'Unable to inspect onConsumeEffects',
+      value: oversizedEffects,
+    })
+
+    const hostileEffects = new Proxy([consumableClearAllEffects()], {
+      get: (target, key, receiver) => key === '0'
+        ? (() => { throw new Error('hostile') })()
+        : Reflect.get(target, key, receiver),
+    })
+    reject({ onConsumeEffects: hostileEffects }, {
+      field: 'onConsumeEffects[0]',
+      reason: 'hostile-input',
+      message: 'Unable to inspect onConsumeEffects[0]',
+      value: hostileEffects,
     })
   })
 

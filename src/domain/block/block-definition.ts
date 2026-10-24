@@ -125,23 +125,15 @@ function validateBlockDefinition(
 const resolveCapabilities = (
   overrides: BlockCapabilityOverrides,
 ): Result.Result<BlockCapabilities, BlockCapabilityFailure> => {
-  try {
-    const result = resolveBlockCapabilities(overrides)
-    if (Result.isFailure(result) && result.failure.reason === 'hostile-input') {
-      return Result.fail({
-        _tag: 'BlockCapabilityFailure',
-        reason: 'not-boolean',
-        message: 'block capability fields must be readable as booleans',
-      })
-    }
-    return result
-  } catch {
+  const result = resolveBlockCapabilities(overrides)
+  if (Result.isFailure(result) && result.failure.reason === 'hostile-input') {
     return Result.fail({
       _tag: 'BlockCapabilityFailure',
       reason: 'not-boolean',
       message: 'block capability fields must be readable as booleans',
     })
   }
+  return result
 }
 
 /** Resolve a definition's capability flags, defaulting an absent field to the defaults. */

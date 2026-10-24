@@ -203,6 +203,65 @@ describe('world read/write vocabulary', () => {
     })
   })
 
+  it('returns read-view failures for unreadable and malformed input fields', () => {
+    const baseInput = {
+      epoch: resultValue(WorldEpoch(0)),
+      chunk,
+      blockRevision: resultValue(ChunkRevision(0)),
+      lightRevision: resultValue(LightRevision(0)),
+      blocks: new Uint16Array(1),
+      light: new Uint16Array(1),
+    }
+    const failureFor = (input: unknown) => resultFailure(Reflect.apply(readView, undefined, [input]))
+
+    const unreadable = new Proxy(baseInput, {
+      get(target, key, receiver) {
+        if (key === 'epoch') throw new Error('hostile read-view getter')
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    expect(failureFor(unreadable)).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView input fields must be readable',
+    })
+
+    expect(failureFor({ ...baseInput, blocks: [] })).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView sections must be Uint16Array values',
+    })
+
+    const proxiedBlocks = new Proxy(new Uint16Array(1), {})
+    expect(proxiedBlocks instanceof Uint16Array).toBe(true)
+    expect(failureFor({ ...baseInput, blocks: proxiedBlocks })).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView sections could not be copied',
+    })
+
+    expect(failureFor({ ...baseInput, epoch: '0' })).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView epoch must be a valid world epoch',
+    })
+    expect(failureFor({ ...baseInput, chunk: 'invalid-chunk-key' })).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView chunk must be a valid chunk key',
+    })
+    expect(failureFor({ ...baseInput, blockRevision: '0' })).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView revisions must be non-negative safe integers',
+    })
+    expect(failureFor({ ...baseInput, lightRevision: null })).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView revisions must be non-negative safe integers',
+    })
+  })
+
   it('rejectsInvalidRevisionAndIndexBrands', () => {
     const invalidEpoch = resultFailure(WorldEpoch(-1))
     expect(worldFailureReason(invalidEpoch)).toBe('invalid-epoch')

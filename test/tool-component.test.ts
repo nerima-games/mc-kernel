@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
 import { ToolDurabilityDamage, ToolMiningSpeed } from '../src/domain/item/item-primitives'
 import { expectItemFailure, itemResultValue } from './item-result-assertions'
+import { MAX_GENERIC_INPUT_ARRAY_LENGTH } from '../src/input-snapshot'
 
 const compileToolComponent = (...args: Parameters<typeof toolComponentResult.compileToolComponent>) =>
   itemResultValue(toolComponentResult.compileToolComponent(...args))
@@ -316,6 +317,22 @@ describe('minecraft:tool component', () => {
         expectToolFailure(resolve({ rules: [], defaultMiningSpeed: speed, damagePerBlock: 1 }), 'RangeError', 'out-of-range',
           'defaultMiningSpeed', 'tool component defaultMiningSpeed must be a finite number greater than or equal to zero', speed)
       }
+
+      const oversizedRules = new Array(MAX_GENERIC_INPUT_ARRAY_LENGTH + 1)
+      expectToolFailure(Reflect.apply(toolComponentResult.compileToolComponent, undefined, [{
+        rules: oversizedRules,
+        damagePerBlock: 1,
+      }]), 'RangeError', 'out-of-range', 'tool component rules', 'tool component rules exceeds the maximum length', oversizedRules)
+
+      const hostileRules = new Proxy([], {
+        get: (target, key, receiver) => key === 'length'
+          ? (() => { throw new Error('hostile') })()
+          : Reflect.get(target, key, receiver),
+      })
+      expectToolFailure(Reflect.apply(toolComponentResult.compileToolComponent, undefined, [{
+        rules: hostileRules,
+        damagePerBlock: 1,
+      }]), 'TypeError', 'hostile-input', 'tool component rules', 'Unable to inspect tool component rules', hostileRules)
       for (const damagePerBlock of [-1, 0.5, Number.NaN]) {
         expectToolFailure(resolve({ rules: [], damagePerBlock }), 'RangeError', 'out-of-range', 'damagePerBlock',
           'tool component damagePerBlock must be a non-negative integer', damagePerBlock)
@@ -425,6 +442,14 @@ describe('minecraft:tool component', () => {
       })
       expectToolFailure(resolve({ blockTags: new Map([['#mineable', falseIterable]]) }), 'TypeError', 'invalid-type',
         'blockTags.#mineable', 'tool resolution blockTags #mineable must contain a Set or Set-like iterable', falseIterable)
+
+      const hostileMap = new Proxy({ [Symbol.iterator]: function* () { yield undefined } }, {
+        get: (target, key, receiver) => key === 'get'
+          ? (() => { throw new Error('hostile') })()
+          : Reflect.get(target, key, receiver),
+      })
+      expectToolFailure(resolve({ blockTags: hostileMap }), 'TypeError', 'hostile-input',
+        'tool resolution blockTags', 'Unable to inspect tool resolution blockTags', hostileMap)
     })),
   )
 })

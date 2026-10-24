@@ -265,6 +265,14 @@ describe('item component values', () => {
       reason: 'invalid-value',
       message: 'Cyclic custom_data[0] input is invalid',
     })
+
+    let deeplyNested: unknown = 'leaf'
+    for (let depth = 0; depth < 200; depth += 1) deeplyNested = { nested: deeplyNested }
+    const deepFailure = expectItemFailure(Reflect.apply(itemComponentValuesResult.customDataComponent, undefined, [deeplyNested]), {
+      _tag: 'ItemValidationFailure',
+      reason: 'hostile-input',
+    })
+    expect(Reflect.get(deepFailure, 'field')).toMatch(/^custom_data(?:\.nested)+$/)
   })
 
   it('distinguishes vanilla potion effect ids from data pack ids', () => {
@@ -282,6 +290,20 @@ describe('item component values', () => {
       reason: 'hostile-input',
       message: 'Unable to inspect tooltipDisplay',
     })
+  })
+
+  it('returns a tagged failure when a validator encounters a revoked function proxy', () => {
+    const revoked = Proxy.revocable(() => undefined, {})
+    revoked.revoke()
+
+    const failure = expectItemFailure(Reflect.apply(itemComponentValuesResult.repairableComponent, undefined, [revoked.proxy]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      field: 'repairable',
+      reason: 'hostile-input',
+      message: 'Unable to inspect repairable',
+    })
+    expect(Reflect.get(failure, 'value')).toBe(revoked.proxy)
   })
 
   it('constructs immutable simple component values', () => {
@@ -754,6 +776,12 @@ describe('item component values', () => {
     expect(containerComponent([{ slot: ItemPrimitive.ContainerSlotIndex(2), item: arrowStack }])).toEqual([
       { slot: 2, item: arrowStack },
     ])
+    expectItemFailure(Reflect.apply(itemComponentValuesResult.chargedProjectilesComponent, undefined, [[null]]), {
+      _tag: 'ItemValidationFailure',
+      field: 'charged_projectiles',
+      reason: 'invalid-value',
+      value: [null],
+    })
 
     const writableBookContent = writableBookContentComponent({
       pages: [
@@ -782,6 +810,7 @@ describe('item component values', () => {
           raw: ItemPrimitive.BookPageText('"A second page"'),
           filtered: ItemPrimitive.BookPageText('"Filtered page"'),
         },
+        { raw: ItemPrimitive.BookPageText('"A third page without a filter"') },
       ],
       title: {
         raw: ItemPrimitive.BookPageText('"A delightful read"'),
@@ -792,7 +821,11 @@ describe('item component values', () => {
       resolved: false,
     })
     expect(writtenBookContent).toEqual({
-      pages: ['"Hello world!"', { raw: '"A second page"', filtered: '"Filtered page"' }],
+      pages: [
+        '"Hello world!"',
+        { raw: '"A second page"', filtered: '"Filtered page"' },
+        { raw: '"A third page without a filter"' },
+      ],
       title: { raw: '"A delightful read"', filtered: '"Filtered title"' },
       author: 'Alex',
       generation: 0,
@@ -838,6 +871,14 @@ describe('item component values', () => {
     if (typeof trim.material !== 'string' && trim.material.overrideArmorMaterials !== undefined) {
       expect(Object.isFrozen(trim.material.overrideArmorMaterials)).toBe(true)
     }
+
+    expect(trimComponent({
+      pattern: ResourceLocation('minecraft:sentry'),
+      material: ResourceLocation('minecraft:iron'),
+    })).toEqual({
+      pattern: 'minecraft:sentry',
+      material: 'minecraft:iron',
+    })
 
     const suspiciousStew = suspiciousStewComponent([
       { id: ResourceLocation('minecraft:night_vision') },

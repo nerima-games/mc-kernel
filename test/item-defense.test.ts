@@ -10,6 +10,7 @@ import { ResourceLocation, TagLocation } from '../src/domain/text/identifiers'
 import * as Quantities from '../src/domain/time/quantities'
 import { expectItemFailure, itemResultValue } from './item-result-assertions'
 import { describe, expect, it } from 'vitest'
+import { MAX_GENERIC_INPUT_ARRAY_LENGTH } from '../src/input-snapshot'
 
 const blocksAttacksComponent = (...args: Parameters<typeof itemDefenseResult.blocksAttacksComponent>) =>
   itemResultValue(itemDefenseResult.blocksAttacksComponent(...args))
@@ -406,6 +407,15 @@ describe('item defense components', () => {
   })
 
   it('reports invalid and hostile damage reduction arrays without throwing', () => {
+    expectItemFailure(invokeBlocksAttacks({ damageReductions: 'not an array' }), validation(
+      'TypeError', 'invalid-type', 'damageReductions', 'damageReductions must be an array', 'not an array',
+    ))
+
+    const oversizedReductions = new Array(MAX_GENERIC_INPUT_ARRAY_LENGTH + 1)
+    expectItemFailure(invokeBlocksAttacks({ damageReductions: oversizedReductions }), validation(
+      'TypeError', 'out-of-range', 'damageReductions', 'damageReductions exceeds the maximum length', oversizedReductions,
+    ))
+
     const invalidLength = new Proxy([], {
       get: (target, key, receiver) => key === 'length' ? Number.NaN : Reflect.get(target, key, receiver),
     })

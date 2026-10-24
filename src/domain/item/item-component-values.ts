@@ -230,12 +230,9 @@ const snapshotComponentInput = (
   if (snapshot.failure.reason === 'unsupported-prototype') {
     return Result.fail(componentFailure(field, invalidPrototypeMessage, value, 'invalid-value'))
   }
-  const reason = snapshot.failure.reason === 'invalid-container'
-      ? 'invalid-type'
-      : snapshot.failure.reason === 'cyclic'
-        ? 'invalid-value'
-        : 'hostile-input'
-  const errorField = snapshot.failure.path ?? field
+  // snapshotInputValue cannot return invalid-container, and the field is its path prefix.
+  const reason = snapshot.failure.reason === 'cyclic' ? 'invalid-value' : 'hostile-input'
+  const errorField = snapshot.failure.path
   const message = snapshot.failure.reason === 'cyclic'
     ? `Cyclic ${errorField} input is invalid`
     : `Unable to inspect ${errorField}`

@@ -759,19 +759,17 @@ const snapshotOptions = (value: ItemComponentOptions): Result.Result<ItemCompone
     if (entry === undefined) continue
     const snapshot = snapshotInputValue(entry, MAX_GENERIC_INPUT_ARRAY_LENGTH, String(key))
     if (Result.isFailure(snapshot)) {
-      const field = snapshot.failure.path ?? String(key)
+      // This snapshot call always supplies the option key as its path prefix.
+      const field = snapshot.failure.path
       const message = snapshot.failure.reason === 'hostile-input'
         ? `Unable to inspect item component option ${field}`
         : snapshot.failure.reason === 'cyclic'
           ? `Cyclic item component option ${field} is invalid`
           : `Unable to snapshot item component option ${field}`
-      const reason = snapshot.failure.reason === 'unsupported-prototype'
+      // snapshotInputValue cannot return invalid-container.
+      const reason = snapshot.failure.reason === 'unsupported-prototype' || snapshot.failure.reason === 'cyclic'
         ? 'invalid-value'
-        : snapshot.failure.reason === 'invalid-container'
-          ? 'invalid-type'
-          : snapshot.failure.reason === 'cyclic'
-            ? 'invalid-value'
-            : 'hostile-input'
+        : 'hostile-input'
       return Result.fail(optionsFailure(field, message, snapshot.failure.value, reason))
     }
     Object.defineProperty(copy, key, { enumerable: true, value: snapshot.success })

@@ -21,6 +21,8 @@ export type InputSnapshotFailure = Readonly<{
   readonly value: unknown
 }>
 
+export type InputSnapshotFailureWithPath = InputSnapshotFailure & Readonly<{ readonly path: string }>
+
 const failure = (
   reason: InputSnapshotFailure['reason'],
   value: unknown,
@@ -43,7 +45,7 @@ const indexPath = (parent: string | undefined, index: number): string =>
 const validLimit = (limit: number): boolean =>
   Number.isSafeInteger(limit) && limit >= 0
 
-export const snapshotInputArray = (
+const snapshotInputArrayImpl = (
   value: unknown,
   maxLength: number,
   pathPrefix?: string,
@@ -71,6 +73,24 @@ export const snapshotInputArray = (
   } catch {
     return Result.fail(failure('hostile-input', value, undefined, pathPrefix))
   }
+}
+
+export function snapshotInputArray(
+  value: unknown,
+  maxLength: number,
+  pathPrefix: string,
+): Result.Result<ReadonlyArray<unknown>, InputSnapshotFailureWithPath>
+export function snapshotInputArray(
+  value: unknown,
+  maxLength: number,
+  pathPrefix?: string,
+): Result.Result<ReadonlyArray<unknown>, InputSnapshotFailure>
+export function snapshotInputArray(
+  value: unknown,
+  maxLength: number,
+  pathPrefix?: string,
+): Result.Result<ReadonlyArray<unknown>, InputSnapshotFailure> {
+  return snapshotInputArrayImpl(value, maxLength, pathPrefix)
 }
 
 export const snapshotDenseInputArray = (
@@ -119,7 +139,7 @@ export const snapshotInputArrayOf = <Value>(
   }
 }
 
-export const snapshotInputRecord = (
+const snapshotInputRecordImpl = (
   value: unknown,
   fields?: ReadonlyArray<string>,
   allowedFields?: ReadonlyArray<string>,
@@ -185,6 +205,27 @@ export const snapshotInputRecord = (
   }
 }
 
+export function snapshotInputRecord(
+  value: unknown,
+  fields: ReadonlyArray<string> | undefined,
+  allowedFields: ReadonlyArray<string> | undefined,
+  pathPrefix: string,
+): Result.Result<Readonly<Record<string, unknown>>, InputSnapshotFailureWithPath>
+export function snapshotInputRecord(
+  value: unknown,
+  fields?: ReadonlyArray<string>,
+  allowedFields?: ReadonlyArray<string>,
+  pathPrefix?: string,
+): Result.Result<Readonly<Record<string, unknown>>, InputSnapshotFailure>
+export function snapshotInputRecord(
+  value: unknown,
+  fields?: ReadonlyArray<string>,
+  allowedFields?: ReadonlyArray<string>,
+  pathPrefix?: string,
+): Result.Result<Readonly<Record<string, unknown>>, InputSnapshotFailure> {
+  return snapshotInputRecordImpl(value, fields, allowedFields, pathPrefix)
+}
+
 /** Copies selected fields from a typed constructor input; each reader must access each field once. */
 export const snapshotInputRecordWith = <Input extends object, Snapshot>(
   value: Input,
@@ -235,7 +276,7 @@ export const snapshotInputEntries = (
   }
 }
 
-export const snapshotInputValue = (
+const snapshotInputValueImpl = (
   value: unknown,
   maxArrayLength: number,
   pathPrefix?: string,
@@ -296,4 +337,22 @@ export const snapshotInputValue = (
   return validLimit(maxArrayLength)
     ? snapshot(value, 0, pathPrefix)
     : Result.fail(failure('invalid-limit', value, undefined, pathPrefix))
+}
+
+export function snapshotInputValue(
+  value: unknown,
+  maxArrayLength: number,
+  pathPrefix: string,
+): Result.Result<unknown, InputSnapshotFailureWithPath>
+export function snapshotInputValue(
+  value: unknown,
+  maxArrayLength: number,
+  pathPrefix?: string,
+): Result.Result<unknown, InputSnapshotFailure>
+export function snapshotInputValue(
+  value: unknown,
+  maxArrayLength: number,
+  pathPrefix?: string,
+): Result.Result<unknown, InputSnapshotFailure> {
+  return snapshotInputValueImpl(value, maxArrayLength, pathPrefix)
 }

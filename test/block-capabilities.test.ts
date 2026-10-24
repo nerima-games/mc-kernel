@@ -70,6 +70,13 @@ describe('block capability flags — the additive-safety guarantee', () => {
     })),
   )
 
+  it('treats an explicitly undefined override as omitted', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const resolved = resultValue(Reflect.apply(resolveBlockCapabilitiesResult, undefined, [{ passable: undefined }]))
+      expect(resolved).toStrictEqual({ ...BLOCK_CAPABILITY_DEFAULTS })
+    })),
+  )
+
   it('every declared flag has a default, so no flag can be introduced without one', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(BLOCK_CAPABILITY_FLAGS.length).toBeGreaterThan(EMPTY_COLLECTION_LENGTH)

@@ -97,7 +97,8 @@ const arrayFromInput = (
   if (Result.isSuccess(snapshot)) return Result.succeed(snapshot.success)
   const invalidArray = snapshot.failure.reason === 'invalid-container'
   const tooLarge = snapshot.failure.reason === 'too-large'
-  const errorField = snapshot.failure.path ?? field
+  // This snapshot call always receives the field as its path prefix.
+  const errorField = snapshot.failure.path
   return Result.fail(failure(
     errorField,
     invalidArray ? `${field} must be an array` : tooLarge ? `${field} exceeds the maximum length` : `Unable to inspect ${errorField}`,
@@ -135,7 +136,8 @@ const resourceLocationProviderOf = (
     return Result.fail(failure(field, `${field} must be a string or an array of resource locations`, value, 'invalid-type'))
   }
   if (Result.isFailure(copiedEntries)) {
-    const errorField = copiedEntries.failure.path ?? field
+    // This snapshot call always receives the field as its path prefix.
+    const errorField = copiedEntries.failure.path
     return Result.fail(failure(errorField, `Unable to inspect ${errorField}`, value, 'hostile-input'))
   }
   const entries = copiedEntries.success

@@ -6,6 +6,7 @@ import {
 } from '../src/domain/item/item-enchantments'
 import { expectItemFailure, itemResultValue } from './item-result-assertions'
 import { describe, expect, it } from 'vitest'
+import { MAX_GENERIC_INPUT_ENTRIES } from '../src/input-snapshot'
 
 const enchantmentsComponent = (...args: Parameters<typeof itemEnchantmentsResult.enchantmentsComponent>) =>
   itemResultValue(itemEnchantmentsResult.enchantmentsComponent(...args))
@@ -93,6 +94,15 @@ describe('item enchantments', () => {
     expectItemFailure(Reflect.apply(itemEnchantmentsResult.enchantmentsComponent, undefined, [hostileOptions]), validation(
       'TypeError', 'hostile-input', 'options', 'enchantments options could not be inspected', hostileOptions,
     ))
+
+    const oversizedOptions: Record<string, number> = {}
+    for (let index = 0; index <= MAX_GENERIC_INPUT_ENTRIES; index += 1) {
+      oversizedOptions[`minecraft:entry_${index}`] = 1
+    }
+    expectItemFailure(itemEnchantmentsResult.enchantmentsComponent(oversizedOptions), validation(
+      'RangeError', 'out-of-range', 'options', 'enchantments options exceed the maximum size', oversizedOptions,
+    ))
+
     expect(storedEnchantmentsComponent({ 'minecraft:protection': 4 })).toEqual({
       'minecraft:protection': 4,
     })

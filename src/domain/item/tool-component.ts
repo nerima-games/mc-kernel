@@ -98,7 +98,8 @@ const readArray = (
   if (Result.isSuccess(snapshot)) return Result.succeed(snapshot.success)
   if (snapshot.failure.reason === 'invalid-container') return Result.succeed(undefined)
   const tooLarge = snapshot.failure.reason === 'too-large'
-  const errorField = snapshot.failure.path ?? field
+  // This snapshot call always receives the field as its path prefix.
+  const errorField = snapshot.failure.path
   const reason = tooLarge ? 'out-of-range' : 'hostile-input'
   return Result.fail(failure(errorField, tooLarge ? `${field} exceeds the maximum length` : `Unable to inspect ${errorField}`, value, reason))
 }
@@ -133,9 +134,10 @@ const readRecord = (
       return Result.fail(failure(field, `unknown ${field} ${String(key)}`, key, 'invalid-value'))
     }
     const invalidType = record.failure.reason === 'invalid-container' || record.failure.reason === 'unsupported-prototype'
+    // This snapshot call always receives the field as its path prefix.
     return Result.fail(failure(
       field,
-      invalidType ? `${field} must be an object` : `Unable to inspect ${record.failure.path ?? field}`,
+      invalidType ? `${field} must be an object` : `Unable to inspect ${record.failure.path}`,
       value,
       invalidType ? 'invalid-type' : 'hostile-input',
     ))

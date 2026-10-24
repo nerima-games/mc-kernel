@@ -655,7 +655,8 @@ export const itemComponentsSnapshot = (
         : frozen.failure.reason === 'cyclic'
           ? 'invalid-value'
           : 'hostile-input'
-    const field = frozen.failure.path ?? 'components'
+    // This snapshot call always supplies the components path prefix above.
+    const field = frozen.failure.path
     const message = frozen.failure.reason === 'cyclic'
       ? `Cyclic ${context} ${field} is invalid`
       : frozen.failure.reason === 'hostile-input' && context === 'item stack'

@@ -14,6 +14,7 @@ import {
 } from "../src/domain/item/item-component-patch";
 import { itemComponents as itemComponentsResult } from "../src/domain/item/item-components";
 import { itemComponentsSnapshot } from "../src/domain/item/item-components-validation";
+import { MAX_GENERIC_INPUT_ARRAY_LENGTH } from "../src/input-snapshot";
 import { expectItemFailure, itemResultValue } from "./item-result-assertions";
 
 const itemComponentPatch = (options: Parameters<typeof itemComponentPatchResult>[0]) =>
@@ -100,6 +101,15 @@ describe("item component patches", () => {
     cyclicArray.push(cyclicArray);
     expectItemFailure(decodeItemComponentPatch({ "minecraft:custom_data": cyclicArray }), {
       _tag: "ItemValidationFailure", field: "minecraft:custom_data[0]", reason: "invalid-value",
+    });
+
+    const oversizedArray = new Array(MAX_GENERIC_INPUT_ARRAY_LENGTH + 1);
+    expectItemFailure(decodeItemComponentPatch({ "minecraft:custom_data": oversizedArray }), {
+      _tag: "ItemValidationFailure",
+      field: "minecraft:custom_data",
+      reason: "out-of-range",
+      message: "Item component patch must be a plain JSON object",
+      value: oversizedArray,
     });
   });
 
@@ -256,6 +266,10 @@ describe("item component patches", () => {
       itemComponentPatch({ "minecraft:damage": 1 }),
       itemComponentPatch({ "!minecraft:damage": null }),
     ), { _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:damage" });
+    expectItemFailure(decodeItemComponentPatch({
+      "minecraft:damage": 1,
+      "!minecraft:damage": null,
+    }), { _tag: "ItemComponentPatchConflictError", componentKey: "minecraft:damage" });
     expectItemFailure(Reflect.apply(mergeItemComponentPatches, undefined, [
         { invalid: true },
         right,

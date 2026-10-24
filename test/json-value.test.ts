@@ -114,6 +114,20 @@ describe("JSON values", () => {
     if (Result.isSuccess(result)) expect(result.success).toEqual({ value: 1 })
   });
 
+  it("preserves sparse array positions in the frozen decoder snapshot", () => {
+    const input = new Array(2);
+    input[1] = "present";
+    const result = jsonValueFromUnknown(input);
+
+    expect(Result.isSuccess(result)).toBe(true);
+    if (Result.isSuccess(result) && Array.isArray(result.success)) {
+      expect(result.success).toHaveLength(2);
+      expect(Object.hasOwn(result.success, 0)).toBe(false);
+      expect(result.success[1]).toBe("present");
+      expect(Object.isFrozen(result.success)).toBe(true);
+    }
+  });
+
   it("compares JSON values structurally", () => {
     expect(jsonValuesEqual(null, null)).toBe(true);
     expect(jsonValuesEqual(true, true)).toBe(true);
