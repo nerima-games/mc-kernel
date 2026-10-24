@@ -342,24 +342,42 @@ try {
     }
     if (
       typeof rootModule.resistsExplosion !== 'function' ||
-      rootModule.DEFAULT_EXPLOSION_LIMITS?.maxRaySteps !== 128 ||
-      !rootModule.resistsExplosion(rootModule.blockIdOf('stone'), 0) ||
-      rootModule.resistsExplosion(rootModule.blockIdOf('stone'), Number.MAX_SAFE_INTEGER)
+      rootModule.DEFAULT_EXPLOSION_LIMITS?.maxRaySteps !== 128
     ) {
       throw new Error('The root export returned an invalid explosion-resistance result');
     }
-    const stack = rootModule.itemStack('stone', 2);
-    if (stack.item !== 'stone' || stack.count !== 2 || rootModule.maxStackCountForItem('stone') !== 64) {
+    const stoneId = rootModule.blockIdOf('stone');
+    const zeroPower = rootModule.BlockBlastResistance.result(0);
+    const extremePower = rootModule.BlockBlastResistance.result(Number.MAX_SAFE_INTEGER);
+    const resistsZeroPower = stoneId?._tag === 'Some' && zeroPower._tag === 'Success'
+      ? rootModule.resistsExplosion(stoneId.value, zeroPower.success)
+      : undefined;
+    const resistsExtremePower = stoneId?._tag === 'Some' && extremePower._tag === 'Success'
+      ? rootModule.resistsExplosion(stoneId.value, extremePower.success)
+      : undefined;
+    if (
+      resistsZeroPower?._tag !== 'Success' ||
+      resistsZeroPower.success !== true ||
+      resistsExtremePower?._tag !== 'Success' ||
+      resistsExtremePower.success !== false
+    ) {
+      throw new Error('The root export returned an invalid explosion-resistance result');
+    }
+    const stackResult = rootModule.itemStack('stone', 2);
+    const stack = stackResult?._tag === 'Success' ? stackResult.success : undefined;
+    if (stack?.item !== 'stone' || stack.count !== 2 || rootModule.maxStackCountForItem('stone') !== 64) {
       throw new Error('The root export returned an invalid item-stack result');
     }
-    const recipe = rootModule.shapedRecipe(
+    const stickResult = rootModule.itemStack('stick', 1);
+    const stick = stickResult?._tag === 'Success' ? stickResult.success : undefined;
+    const recipeResult = rootModule.shapedRecipe(
       'minecraft:package-probe',
       ['S'],
       { S: 'stone' },
-      rootModule.itemStack('stick', 1),
+      stick,
       { tags: ['crafting_table'] },
     );
-    if (recipe._tag !== 'Shaped' || recipe.output.item !== 'stick') {
+    if (recipeResult?._tag !== 'Success' || recipeResult.success._tag !== 'Shaped' || recipeResult.success.output.item !== 'stick') {
       throw new Error('The root export returned an invalid shaped recipe');
     }
     if (!Array.isArray(rootModule.VANILLA_CRAFTING_RECIPES) || rootModule.VANILLA_CRAFTING_RECIPES.length === 0) {
@@ -447,27 +465,47 @@ if (declaredPackageExports.length !== ${importSpecifiers.length}) {
   throw new Error('The TypeScript consumer did not load every declared package export')
 }
 
+const itemStackValue = (
+  item: Parameters<typeof itemStack>[0],
+  count: Parameters<typeof itemStack>[1],
+): ItemStack => {
+  const result = itemStack(item, count)
+  if (result._tag !== 'Success') throw new Error('Package consumer could not construct an item stack')
+  return result.success
+}
+const shapedRecipeValue = (
+  id: Parameters<typeof shapedRecipe>[0],
+  rows: Parameters<typeof shapedRecipe>[1],
+  key: Parameters<typeof shapedRecipe>[2],
+  output: ItemStack,
+  options?: Parameters<typeof shapedRecipe>[4],
+): Recipe => {
+  const result = shapedRecipe(id, rows, key, output, options)
+  if (result._tag !== 'Success') throw new Error('Package consumer could not construct a shaped recipe')
+  return result.success
+}
+
 const block: BlockType = 'stone'
-const stack: ItemStack = itemStack('stone', StackCount(2))
-const recipe: Recipe = shapedRecipe(
+const stack: ItemStack = itemStackValue('stone', StackCount(2))
+const recipe: Recipe = shapedRecipeValue(
   RecipeId('minecraft:declaration-probe'),
   [RecipePatternRow('S')],
   { [RecipePatternSymbol('S')]: 'stone' },
-  itemStack('stick', StackCount(1)),
+  itemStackValue('stick', StackCount(1)),
   { tags: [RecipeStationTag('crafting_table')] },
 )
 const furnace: FurnaceState = {
   station: 'furnace',
-  input: itemStack('sand', StackCount(1)),
-  fuel: itemStack('coal', StackCount(1)),
+  input: itemStackValue('sand', StackCount(1)),
+  fuel: itemStackValue('coal', StackCount(1)),
   output: undefined,
   fuelTimeRemainingSecs: FixedDurationSecs(0),
   fuelTimeTotalSecs: FixedDurationSecs(0),
   cookProgressSecs: FixedDurationSecs(0),
 }
 const brewing: BrewingState = {
-  bottles: [itemStack('water_bottle', StackCount(1)), undefined, undefined],
-  ingredient: itemStack('nether_wart', StackCount(1)),
+  bottles: [itemStackValue('water_bottle', StackCount(1)), undefined, undefined],
+  ingredient: itemStackValue('nether_wart', StackCount(1)),
   fuel: undefined,
   fuelCharges: BrewingFuelCharges(1),
   brewProgressSecs: FixedDurationSecs(0),
@@ -485,11 +523,14 @@ const settings: Settings = normaliseSettings({
 })
 const drop = resolveDrop(DEFAULT_HARVEST_TOOL, DEFAULT_BLOCK_DROP, block)
 const maxExplosionRaySteps = DEFAULT_EXPLOSION_LIMITS.maxRaySteps
-const resistsZeroPower = resistsExplosion(blockIdOf(block), BlockBlastResistance(0))
-const resistsExtremePower = resistsExplosion(
-  blockIdOf(block),
-  BlockBlastResistance(Number.MAX_SAFE_INTEGER),
-)
+const blockId = blockIdOf(block)
+const zeroPower = BlockBlastResistance.result(0)
+const extremePower = BlockBlastResistance.result(Number.MAX_SAFE_INTEGER)
+if (blockId._tag !== 'Some' || zeroPower._tag !== 'Success' || extremePower._tag !== 'Success') {
+  throw new Error('The block registry declaration consumer could not resolve stone')
+}
+const resistsZeroPower = resistsExplosion(blockId.value, zeroPower.success)
+const resistsExtremePower = resistsExplosion(blockId.value, extremePower.success)
 if (stack.count !== 2 || maxStackCountForItem(stack.item) !== 64 || recipe._tag !== 'Shaped') {
   throw new Error('Recipe declaration consumer returned an invalid result')
 }
@@ -511,7 +552,12 @@ if (drop?.item !== 'stone' || drop.count !== 1) {
 if (maxExplosionRaySteps !== 128) {
   throw new Error('Explosion data declaration consumer returned an invalid result')
 }
-if (!resistsZeroPower || resistsExtremePower) {
+if (
+  resistsZeroPower._tag !== 'Success' ||
+  !resistsZeroPower.success ||
+  resistsExtremePower._tag !== 'Success' ||
+  resistsExtremePower.success
+) {
   throw new Error('Explosion-resistance declaration consumer returned an invalid result')
 }
 `;
