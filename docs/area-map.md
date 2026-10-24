@@ -45,8 +45,8 @@ re-exports that barrel.
 
 ### item
 
-`anvil-constants.ts`, `anvil-primitives.ts`, `consumable-data.ts`,
-`consumable-validation.ts`, `consumable.ts`, `enchantment-data.ts`,
+`anvil-constants.ts`, `consumable-data.ts`, `consumable-validation.ts`,
+`consumable.ts`, `enchantment-data.ts`,
 `enchantment-table-data.ts`, `enchantment.ts`, `equipment-data.ts`, `food-data.ts`,
 `grindstone-data.ts`, `hotbar-data.ts`, `inventory-data.ts`,
 `item-attribute-modifiers-data.ts`, `item-attribute-modifiers-validation.ts`,
