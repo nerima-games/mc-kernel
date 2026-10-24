@@ -5,7 +5,9 @@ import {
   type FoodEffect,
 } from './food-data.js'
 import {
+  CONSUMABLE_ANIMATIONS,
   DEFAULT_CONSUMABLE_COMPONENT,
+  type ConsumableAnimation,
   type ConsumableApplyEffects,
   type ConsumableClearAllEffects,
   type ConsumableComponent,
@@ -19,12 +21,14 @@ import {
   type ItemUseComponents,
   type UseRemainderComponent,
 } from './consumable-data.js'
-import type { ResourceLocation } from '../text/identifiers.js'
+import { isConsumableEffect } from './consumable-validation.js'
+import { ResourceLocation, type ResourceLocation as ResourceLocationType } from '../text/identifiers.js'
 import type { FoodStatusEffectName } from './food-data.js'
 import type { ItemType } from './item-type.js'
 import { ConsumeSeconds } from '../time/quantities.js'
 import { statusEffectId } from '../entity/status-effect-data.js'
 import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
+import { MAX_GENERIC_INPUT_ARRAY_LENGTH, snapshotInputRecord, snapshotInputValue } from '../../input-snapshot.js'
 import {
   EffectAmplifier,
   EffectDurationSecs,
@@ -128,24 +132,22 @@ export const consumablePlaySound = (sound: ResourceLocation): ConsumablePlaySoun
   sound,
 })
 
-const snapshotConsumableOptions = (value: unknown): Result.Result<ConsumableComponentOptions, ItemValidationFailure> => {
-  if (typeof value !== 'object' || value === null) {
-    return Result.fail(itemValidationFailure('options', 'Consumable component options must be a non-null object', 'invalid-type', value))
+const snapshotConsumableOptions = (value: unknown): Result.Result<Readonly<Record<string, unknown>>, ItemValidationFailure> => {
+  const snapshot = snapshotInputRecord(value, ['consumeSeconds', 'animation', 'sound', 'hasConsumeParticles', 'onConsumeEffects'])
+  if (Result.isFailure(snapshot)) {
+    const invalidType = snapshot.failure.reason === 'invalid-container' || snapshot.failure.reason === 'unsupported-prototype'
+    return Result.fail(itemValidationFailure(
+      'options',
+      invalidType ? 'Consumable component options must be a non-null object' : 'Unable to inspect consumable component options',
+      invalidType ? 'invalid-type' : 'hostile-input',
+      value,
+    ))
   }
-  try {
-    if (Array.isArray(value)) {
-      return Result.fail(itemValidationFailure('options', 'Consumable component options must be a non-null object', 'invalid-type', value))
-    }
-    const snapshot: ConsumableComponentOptions = {}
-    for (const field of ['consumeSeconds', 'animation', 'sound', 'hasConsumeParticles', 'onConsumeEffects'] as const) {
-      const entry = Reflect.get(value, field)
-      if (entry !== undefined) Object.defineProperty(snapshot, field, { enumerable: true, value: entry })
-    }
-    return Result.succeed(Object.freeze(snapshot))
-  } catch {
-    return Result.fail(itemValidationFailure('options', 'Unable to inspect consumable component options', 'hostile-input', value))
-  }
+  return Result.succeed(snapshot.success)
 }
+
+const isConsumableAnimation = (value: unknown): value is ConsumableAnimation =>
+  typeof value === 'string' && CONSUMABLE_ANIMATIONS.some((animation) => animation === value)
 
 export const consumableComponent = (
   options: ConsumableComponentOptions = {},
@@ -153,19 +155,75 @@ export const consumableComponent = (
   const snapshot = snapshotConsumableOptions(options)
   if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
   const input = snapshot.success
-  const consumeSeconds = input.consumeSeconds === undefined
-    ? Result.succeed(DEFAULT_CONSUMABLE_COMPONENT.consumeSeconds)
-    : Result.mapError(
-      ConsumeSeconds.result(input.consumeSeconds),
-      () => itemValidationFailure('consumeSeconds', 'consumeSeconds must be finite and non-negative', 'out-of-range', input.consumeSeconds),
+  return Result.gen(function* () {
+    const consumeSecondsValue = input['consumeSeconds'] === undefined
+      ? DEFAULT_CONSUMABLE_COMPONENT.consumeSeconds
+      : input['consumeSeconds']
+    if (typeof consumeSecondsValue !== 'number') {
+      return yield* Result.fail(itemValidationFailure(
+        'consumeSeconds',
+        'consumeSeconds must be finite and non-negative',
+        'out-of-range',
+        consumeSecondsValue,
+      ))
+    }
+    const consumeSeconds = yield* Result.mapError(
+      ConsumeSeconds.result(consumeSecondsValue),
+      () => itemValidationFailure('consumeSeconds', 'consumeSeconds must be finite and non-negative', 'out-of-range', consumeSecondsValue),
     )
-  return Result.map(consumeSeconds, (checkedConsumeSeconds) => ({
-    consumeSeconds: checkedConsumeSeconds,
-    animation: input.animation ?? DEFAULT_CONSUMABLE_COMPONENT.animation,
-    sound: input.sound ?? DEFAULT_CONSUMABLE_COMPONENT.sound,
-    hasConsumeParticles: input.hasConsumeParticles ?? DEFAULT_CONSUMABLE_COMPONENT.hasConsumeParticles,
-    onConsumeEffects: input.onConsumeEffects ?? DEFAULT_CONSUMABLE_COMPONENT.onConsumeEffects,
-  }))
+
+    const animationValue = input['animation'] === undefined
+      ? DEFAULT_CONSUMABLE_COMPONENT.animation
+      : input['animation']
+    if (!isConsumableAnimation(animationValue)) {
+      return yield* Result.fail(itemValidationFailure('animation', 'animation must be a valid consumable animation', 'invalid-value', animationValue))
+    }
+    const animation = animationValue
+
+    const soundValue = input['sound'] === undefined ? DEFAULT_CONSUMABLE_COMPONENT.sound : input['sound']
+    if (typeof soundValue !== 'string' || !ResourceLocation.is(soundValue)) {
+      return yield* Result.fail(itemValidationFailure('sound', 'sound must be a valid resource location', 'invalid-value', soundValue))
+    }
+    const sound: ResourceLocationType = soundValue
+
+    const hasConsumeParticlesValue = input['hasConsumeParticles'] === undefined
+      ? DEFAULT_CONSUMABLE_COMPONENT.hasConsumeParticles
+      : input['hasConsumeParticles']
+    if (typeof hasConsumeParticlesValue !== 'boolean') {
+      return yield* Result.fail(itemValidationFailure('hasConsumeParticles', 'hasConsumeParticles must be a boolean', 'invalid-type', hasConsumeParticlesValue))
+    }
+
+    const effectsValue = input['onConsumeEffects'] === undefined
+      ? DEFAULT_CONSUMABLE_COMPONENT.onConsumeEffects
+      : input['onConsumeEffects']
+    const effectsSnapshot = snapshotInputValue(effectsValue, MAX_GENERIC_INPUT_ARRAY_LENGTH, 'onConsumeEffects')
+    if (Result.isFailure(effectsSnapshot)) {
+      const reason = effectsSnapshot.failure.reason === 'too-large' ? 'out-of-range' : 'hostile-input'
+      return yield* Result.fail(itemValidationFailure(
+        effectsSnapshot.failure.path ?? 'onConsumeEffects',
+        `Unable to inspect ${effectsSnapshot.failure.path ?? 'onConsumeEffects'}`,
+        reason,
+        effectsSnapshot.failure.value,
+      ))
+    }
+    if (!Array.isArray(effectsSnapshot.success)) {
+      return yield* Result.fail(itemValidationFailure('onConsumeEffects', 'onConsumeEffects must be an array of valid consumable effects', 'invalid-type', effectsSnapshot.success))
+    }
+    const onConsumeEffects: ConsumableEffect[] = []
+    for (const effect of effectsSnapshot.success) {
+      if (!isConsumableEffect(effect)) {
+        return yield* Result.fail(itemValidationFailure('onConsumeEffects', 'onConsumeEffects must be an array of valid consumable effects', 'invalid-value', effect))
+      }
+      onConsumeEffects.push(effect)
+    }
+    return Object.freeze({
+      consumeSeconds,
+      animation,
+      sound,
+      hasConsumeParticles: hasConsumeParticlesValue,
+      onConsumeEffects: Object.freeze(onConsumeEffects),
+    })
+  })
 }
 
 const statusEffectOf = (effect: Extract<FoodEffect, { readonly kind: 'status' }>): ConsumableStatusEffect => Object.freeze({

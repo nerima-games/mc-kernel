@@ -27,6 +27,7 @@ import {
   recipeTypeFailure,
   type RecipeFailure,
 } from "./recipe-error.js";
+import { snapshotInputRecord } from "../../input-snapshot.js";
 
 const recipeTypeFailureValue = (message: string): RecipeFailure => ({
   _tag: "RecipeTypeFailure",
@@ -98,31 +99,12 @@ type RecordValue = {
   readonly showNotification?: unknown;
 };
 
-const isRecord = (value: unknown): value is RecordValue =>
-  (() => {
-    try {
-      return typeof value === "object" && value !== null && !Array.isArray(value);
-    } catch {
-      return false;
-    }
-  })();
-
-const snapshotRecord = (
+const recordFromInput = (
   value: unknown,
   fields: ReadonlyArray<keyof RecordValue>,
 ): RecordValue | undefined => {
-  try {
-    if (!isRecord(value)) {
-      return undefined;
-    }
-    const snapshot: Record<string, unknown> = {};
-    for (const field of fields) {
-      snapshot[field] = Reflect.get(value, field);
-    }
-    return snapshot;
-  } catch {
-    return undefined;
-  }
+  const snapshot = snapshotInputRecord(value, fields);
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined;
 };
 
 const isRecipeCategory = (value: unknown): value is RecipeCategory =>
@@ -144,7 +126,7 @@ const assertRecipeId = (
 export const isTransmuteMaterialCount = (
   value: unknown,
 ): value is TransmuteMaterialCount => {
-  const snapshot = snapshotRecord(value, ["min", "max"]);
+  const snapshot = recordFromInput(value, ["min", "max"]);
   if (snapshot === undefined) {
     return false;
   }
@@ -166,7 +148,7 @@ export const isTransmuteMaterialCount = (
 const assertMaterialCount = (
   value: unknown,
 ): Result.Result<TransmuteMaterialCount, RecipeFailure> => {
-  const snapshot = snapshotRecord(value, ["min", "max"]);
+  const snapshot = recordFromInput(value, ["min", "max"]);
   const min = snapshot?.min;
   const max = snapshot?.max;
   if (typeof min !== "number" || typeof max !== "number") {
@@ -283,7 +265,7 @@ const normalizeOptions = (
     const record =
       options === undefined
         ? undefined
-        : snapshotRecord(options, [
+        : recordFromInput(options, [
             "category",
             "group",
             "priority",
@@ -344,7 +326,7 @@ export const transmuteRecipe = (
   });
 
 export const isTransmuteRecipe = (value: unknown): value is TransmuteRecipe => {
-  const recipe = snapshotRecord(value, [
+  const recipe = recordFromInput(value, [
     "_tag",
     "id",
     "source",

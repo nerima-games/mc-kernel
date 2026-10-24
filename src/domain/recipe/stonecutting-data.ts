@@ -19,6 +19,7 @@ import {
   recipeTypeFailure,
   type RecipeFailure,
 } from "./recipe-error.js";
+import { snapshotInputRecord } from "../../input-snapshot.js";
 
 const recipeTypeFailureValue = (message: string): RecipeFailure => ({
   _tag: "RecipeTypeFailure",
@@ -61,31 +62,12 @@ type RecordValue = {
   readonly showNotification?: unknown;
 };
 
-const isRecord = (value: unknown): value is RecordValue =>
-  (() => {
-    try {
-      return typeof value === "object" && value !== null && !Array.isArray(value);
-    } catch {
-      return false;
-    }
-  })();
-
-const snapshotRecord = (
+const recordFromInput = (
   value: unknown,
   fields: ReadonlyArray<keyof RecordValue>,
 ): RecordValue | undefined => {
-  try {
-    if (!isRecord(value)) {
-      return undefined;
-    }
-    const snapshot: Record<string, unknown> = {};
-    for (const field of fields) {
-      snapshot[field] = Reflect.get(value, field);
-    }
-    return snapshot;
-  } catch {
-    return undefined;
-  }
+  const snapshot = snapshotInputRecord(value, fields);
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined;
 };
 
 const assertRecipeId = (
@@ -132,7 +114,7 @@ const normalizeOptions = (
     if (options === undefined) {
       return { priority: RecipePriority(0) };
     }
-    const record = snapshotRecord(options, ["priority", "showNotification"]);
+    const record = recordFromInput(options, ["priority", "showNotification"]);
     if (record === undefined) {
       return yield* recipeTypeFailure("Stonecutting recipe options must be an object");
     }

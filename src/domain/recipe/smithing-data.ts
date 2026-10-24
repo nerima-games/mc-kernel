@@ -6,6 +6,7 @@ import type { ItemType } from "../item/item-type.js";
 import { StackCount } from "../time/quantities.js";
 import { TagLocation } from "../text/identifiers.js";
 import {
+  MAX_RECIPE_SIDE,
   craftingIngredient,
   RecipeId,
   RecipeIngredientCount,
@@ -16,6 +17,10 @@ import {
   type RecipeItemTag,
   type RecipePriority as RecipePriorityValue,
 } from "./recipe-data.js";
+import {
+  snapshotDenseInputArray,
+  snapshotInputRecord,
+} from "../../input-snapshot.js";
 import {
   recipeRangeFailure,
   recipeTypeFailure,
@@ -83,44 +88,17 @@ export type SmithingInput = {
 
 export type SmithingInputInput = Partial<SmithingInput>;
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  (() => {
-    try {
-      return typeof value === "object" && value !== null && !Array.isArray(value);
-    } catch {
-      return false;
-    }
-  })();
-
-const snapshotRecord = (
+const recordFromInput = (
   value: unknown,
   fields: ReadonlyArray<string>,
 ): Record<string, unknown> | undefined => {
-  try {
-    if (!isRecord(value)) {
-      return undefined;
-    }
-    const snapshot: Record<string, unknown> = {};
-    for (const field of fields) {
-      snapshot[field] = Reflect.get(value, field);
-    }
-    return snapshot;
-  } catch {
-    return undefined;
-  }
+  const snapshot = snapshotInputRecord(value, fields);
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined;
 };
 
-const snapshotArray = (value: unknown): ReadonlyArray<unknown> | undefined => {
-  try {
-    if (!Array.isArray(value)) return undefined;
-    const length = value.length;
-    if (!Number.isSafeInteger(length) || length < 0) return undefined;
-    const snapshot: unknown[] = [];
-    for (let index = 0; index < length; index += 1) snapshot.push(value[index]);
-    return Object.freeze(snapshot);
-  } catch {
-    return undefined;
-  }
+const arrayFromInput = (value: unknown): ReadonlyArray<unknown> | undefined => {
+  const snapshot = snapshotDenseInputArray(value, MAX_RECIPE_SIDE * MAX_RECIPE_SIDE);
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined;
 };
 
 const assertStationTag = (
@@ -143,7 +121,7 @@ const normalizeOptions = (
     const record =
       options === undefined
         ? undefined
-        : snapshotRecord(options, ["priority", "showNotification", "tags"]);
+        : recordFromInput(options, ["priority", "showNotification", "tags"]);
     if (options !== undefined && record === undefined) {
       return yield* recipeTypeFailure("Smithing recipe options must be an object");
     }
@@ -155,7 +133,7 @@ const normalizeOptions = (
     }
     const priorityMessage =
       `Smithing recipe priority must be a non-negative safe integer, received ${priority}`;
-    const tags = snapshotArray(record?.["tags"] ?? []);
+    const tags = arrayFromInput(record?.["tags"] ?? []);
     if (tags === undefined) {
       return yield* recipeTypeFailure("Smithing recipe station tags must be an array");
     }

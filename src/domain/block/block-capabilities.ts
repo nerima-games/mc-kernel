@@ -1,4 +1,5 @@
 import { Result } from 'effect'
+import { snapshotInputRecord } from '../../input-snapshot.js'
 import {
   BLOCK_CAPABILITY_DEFAULTS,
   BLOCK_CAPABILITY_FLAGS,
@@ -13,7 +14,7 @@ export * from './block-capability-data.js'
 
 export type BlockCapabilityFailure = {
   readonly _tag: 'BlockCapabilityFailure'
-  readonly reason: 'not-object' | 'unknown-key' | 'not-boolean'
+  readonly reason: 'not-object' | 'unknown-key' | 'not-boolean' | 'hostile-input'
   readonly message: string
 }
 
@@ -23,23 +24,24 @@ const failure = (
 ): Result.Result<never, BlockCapabilityFailure> =>
   Result.fail({ _tag: 'BlockCapabilityFailure', reason, message })
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 function validateOverrideKeys(
   overrides: unknown,
 ): Result.Result<BlockCapabilityOverrides, BlockCapabilityFailure> {
-  if (!isRecord(overrides)) {
+  const snapshot = snapshotInputRecord(overrides, BLOCK_CAPABILITY_FLAGS, BLOCK_CAPABILITY_FLAGS)
+  if (Result.isFailure(snapshot)) {
+    if (snapshot.failure.reason === 'unexpected-field') {
+      return failure('unknown-key', `unknown block capability ${snapshot.failure.field}`)
+    }
+    if (snapshot.failure.reason === 'hostile-input') {
+      return failure('hostile-input', 'block capability overrides must be readable')
+    }
     return failure('not-object', 'block capability overrides must be an object')
   }
 
   const validated: Partial<Record<BlockCapabilityFlag, boolean>> = {}
-  for (const key of Object.keys(overrides)) {
-    const flag = BLOCK_CAPABILITY_FLAGS.find((candidate) => candidate === key)
-    if (flag === undefined) {
-      return failure('unknown-key', `unknown block capability ${key}`)
-    }
-    const value = overrides[key]
+  for (const flag of BLOCK_CAPABILITY_FLAGS) {
+    if (!Object.hasOwn(snapshot.success, flag)) continue
+    const value = snapshot.success[flag]
     if (value === undefined) continue
     if (typeof value !== 'boolean') {
       return failure('not-boolean', `block capability ${flag} must be a boolean`)

@@ -1,5 +1,9 @@
 /** Constructors and guards for simple Java item-component values. */
 import { Effect, Result } from 'effect'
+import {
+  MAX_GENERIC_INPUT_ARRAY_LENGTH,
+  snapshotInputValue as snapshotUnknownInputValue,
+} from '../../input-snapshot.js'
 import { ResourceLocation, TagLocation, UUID } from '../text/identifiers.js'
 import { BlockAxis } from '../coordinates/coordinate-primitives.js'
 import {
@@ -216,77 +220,26 @@ const reflectionResult = <A>(
   catch: () => componentFailure(field, `Unable to inspect ${field}`, input, 'hostile-input'),
 })))
 
-const snapshotInputValue = (
+const snapshotComponentInput = (
   value: unknown,
   field: string,
-  ancestors: WeakSet<object> = new WeakSet<object>(),
+  invalidPrototypeMessage = `Unable to inspect ${field}`,
 ): ItemComponentResult<unknown> => {
-  if (value === null || typeof value !== 'object') return Result.succeed(value)
-  const array = reflectionResult(field, value, () => Array.isArray(value))
-  if (Result.isFailure(array)) return Result.fail(array.failure)
-  if (ancestors.has(value)) {
-    return Result.fail(componentFailure(field, `Cyclic ${field} input is invalid`, value, 'invalid-value'))
+  const snapshot = snapshotUnknownInputValue(value, MAX_GENERIC_INPUT_ARRAY_LENGTH, field)
+  if (Result.isSuccess(snapshot)) return Result.succeed(snapshot.success)
+  if (snapshot.failure.reason === 'unsupported-prototype') {
+    return Result.fail(componentFailure(field, invalidPrototypeMessage, value, 'invalid-value'))
   }
-  ancestors.add(value)
-  if (array.success) {
-    const length = reflectionResult(field, value, () => Reflect.get(value, 'length'))
-    if (Result.isFailure(length)) {
-      ancestors.delete(value)
-      return Result.fail(length.failure)
-    }
-    const copied: unknown[] = []
-    for (let index = 0; index < length.success; index += 1) {
-      const entry = reflectionResult(`${field}[${index}]`, value, () => Reflect.get(value, String(index)))
-      if (Result.isFailure(entry)) {
-        ancestors.delete(value)
-        return Result.fail(entry.failure)
-      }
-      const child = snapshotInputValue(entry.success, `${field}[${index}]`, ancestors)
-      if (Result.isFailure(child)) {
-        ancestors.delete(value)
-        return Result.fail(child.failure)
-      }
-      copied.push(child.success)
-    }
-    ancestors.delete(value)
-    return Result.succeed(copied)
-  }
-
-  const prototype = reflectionResult(field, value, () => Object.getPrototypeOf(value))
-  if (Result.isFailure(prototype)) {
-    ancestors.delete(value)
-    return Result.fail(prototype.failure)
-  }
-  if (prototype.success !== Object.prototype && prototype.success !== null) {
-    ancestors.delete(value)
-    return Result.succeed(value)
-  }
-  const keys = reflectionResult(field, value, () => Object.keys(value))
-  if (Result.isFailure(keys)) {
-    ancestors.delete(value)
-    return Result.fail(keys.failure)
-  }
-  const copied: Record<string, unknown> = prototype.success === null ? Object.create(null) : {}
-  for (const key of keys.success) {
-    const entry = reflectionResult(`${field}.${key}`, value, () => Reflect.get(value, key))
-    if (Result.isFailure(entry)) {
-      ancestors.delete(value)
-      return Result.fail(entry.failure)
-    }
-    const child = snapshotInputValue(entry.success, `${field}.${key}`, ancestors)
-    if (Result.isFailure(child)) {
-      ancestors.delete(value)
-      return Result.fail(child.failure)
-    }
-    Object.defineProperty(copied, key, {
-      configurable: true,
-      enumerable: true,
-      value: child.success,
-      writable: true,
-    })
-  }
-  ancestors.delete(value)
-  return Result.succeed(copied)
+  const reason = snapshot.failure.reason === 'invalid-container'
+      ? 'invalid-type'
+      : snapshot.failure.reason === 'cyclic'
+        ? 'invalid-value'
+        : 'hostile-input'
+  const errorField = snapshot.failure.path ?? field
+  const message = snapshot.failure.reason === 'cyclic'
+    ? `Cyclic ${errorField} input is invalid`
+    : `Unable to inspect ${errorField}`
+  return Result.fail(componentFailure(errorField, message, snapshot.failure.value, reason))
 }
 
 type InputValidation<A> = Readonly<{ readonly valid: true; readonly value: A }> | Readonly<{ readonly valid: false }>
@@ -297,7 +250,7 @@ const validatedInput = <A>(
   message: string,
   isValid: (value: unknown) => value is A,
 ): ItemComponentResult<A> => {
-  const snapshot = snapshotInputValue(value, field)
+  const snapshot = snapshotComponentInput(value, field, message)
   if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
   const checked = reflectionResult(field, snapshot.success, (): InputValidation<A> => {
     if (isValid(snapshot.success)) return { valid: true, value: snapshot.success }
@@ -609,7 +562,7 @@ export const customDataComponent = (value: CustomDataComponent): ItemComponentRe
 }
 
 export const dyedColorComponent = (value: DyedColorComponent): ItemComponentResult<DyedColorComponent> => {
-  const snapshot = snapshotInputValue(value, 'dyed_color')
+  const snapshot = snapshotComponentInput(value, 'dyed_color')
   if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
   const input = snapshot.success
   if (!isDyedColorComponent(input)) {

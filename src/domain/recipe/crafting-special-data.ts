@@ -1,5 +1,12 @@
 import { Result } from "effect";
 import {
+  MAX_GENERIC_INPUT_ARRAY_LENGTH,
+  snapshotInputArray,
+  snapshotDenseInputArray,
+  snapshotInputEntries,
+  snapshotInputRecord,
+} from "../../input-snapshot.js";
+import {
   FIREWORK_EXPLOSION_SHAPES,
   type FireworkExplosionShape,
 } from "../item/item-component-values-data.js";
@@ -207,22 +214,16 @@ const assertAllowedGenerations = (
   value: unknown,
 ): Result.Result<readonly [BookGeneration, BookGeneration], RecipeFailure> => {
   const generations = value ?? [0, 1];
-  let snapshot: readonly [unknown, unknown] | undefined;
-  try {
-    if (Array.isArray(generations) && generations.length === 2) {
-      snapshot = [generations[0], generations[1]];
-    }
-  } catch {
-    return recipeTypeFailure(
-      "Allowed book generations could not be read",
-    );
+  const snapshot = snapshotInputArray(generations, 2);
+  if (Result.isFailure(snapshot) && snapshot.failure.reason === 'hostile-input') {
+    return recipeTypeFailure("Allowed book generations could not be read");
   }
-  if (snapshot === undefined) {
+  if (Result.isFailure(snapshot) || snapshot.success.length !== 2) {
     return recipeRangeFailure(
       "Allowed book generations must be an ordered range from 0 to 2",
     );
   }
-  const [minimum, maximum] = snapshot;
+  const [minimum, maximum] = snapshot.success;
   if (typeof minimum !== "number" || typeof maximum !== "number") {
     return recipeRangeFailure(
       "Allowed book generations must be an ordered range from 0 to 2",
@@ -257,12 +258,13 @@ const assertShapeIngredients = (
   Readonly<Partial<Record<FireworkExplosionShape, CraftingIngredient>>>,
   RecipeFailure
 > => {
-  if (!isRecord(value)) {
+  const entries = snapshotInputEntries(value, FIREWORK_EXPLOSION_SHAPES.length);
+  if (Result.isFailure(entries)) {
     return recipeTypeFailure("Firework star shapes must be an object");
   }
   const shapes: Partial<Record<FireworkExplosionShape, CraftingIngredient>> =
     {};
-  for (const [shape, ingredient] of Object.entries(value)) {
+  for (const [shape, ingredient] of entries.success) {
     if (!isFireworkExplosionShape(shape)) {
       return recipeTypeFailure(`Unsupported firework shape ingredient: ${shape}`);
     }
@@ -275,26 +277,13 @@ const assertShapeIngredients = (
   return Result.succeed(shapes);
 };
 
-const snapshotTags = (
+const tagsFromInput = (
   value: unknown,
 ): Result.Result<readonly unknown[], RecipeFailure> => {
-  try {
-    if (!Array.isArray(value)) {
-      return recipeTypeFailure(
-        "Crafting special recipe tags must be resource locations",
-      );
-    }
-    const length = value.length;
-    const tags: unknown[] = [];
-    for (let index = 0; index < length; index += 1) {
-      tags.push(value[index]);
-    }
-    return Result.succeed(tags);
-  } catch {
-    return recipeTypeFailure(
-      "Crafting special recipe tags could not be read",
-    );
-  }
+  const snapshot = snapshotDenseInputArray(value, MAX_GENERIC_INPUT_ARRAY_LENGTH);
+  return Result.isFailure(snapshot)
+    ? recipeTypeFailure("Crafting special recipe tags could not be read")
+    : Result.succeed(snapshot.success);
 };
 
 const isTags = (value: unknown): value is readonly RecipeStationTag[] =>
@@ -369,7 +358,7 @@ const assertRecipeTags = (
   value: unknown,
 ): Result.Result<readonly RecipeStationTag[], RecipeFailure> => {
   const tags = value === undefined ? [CRAFTING_SPECIAL_STATION_TAG] : value;
-  const snapshot = snapshotTags(tags);
+  const snapshot = tagsFromInput(tags);
   if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure);
   if (!isStringTags(snapshot.success)) {
     return recipeTypeFailure(
@@ -390,21 +379,23 @@ const assertRecipeTags = (
 };
 
 const normalizeOptions = (
-  options: RecipeOptionsInput,
+  options: unknown,
 ): Result.Result<CraftingSpecialRecipeFields, RecipeFailure> =>
   Result.gen(function* () {
-    const category = yield* assertCategory(options.category);
-    const group = yield* assertGroup(options.group);
-    const showNotification = yield* assertShowNotification(
-      options.showNotification,
+    const input = yield* Result.mapError(
+      snapshotInputRecord(options, ['id', 'category', 'group', 'priority', 'showNotification', 'tags']),
+      () => recipeTypeFailureValue('Crafting special recipe options must be an object when provided'),
     );
+    const category = yield* assertCategory(input['category']);
+    const group = yield* assertGroup(input['group']);
+    const showNotification = yield* assertShowNotification(input['showNotification']);
     return {
-      id: yield* assertRecipeId(options.id),
+      id: yield* assertRecipeId(input['id']),
       ...(category === undefined ? {} : { category }),
       ...(group === undefined ? {} : { group }),
-      priority: yield* assertPriority(options.priority),
+      priority: yield* assertPriority(input['priority']),
       ...(showNotification === undefined ? {} : { showNotification }),
-      tags: yield* assertRecipeTags(options.tags),
+      tags: yield* assertRecipeTags(input['tags']),
     };
   });
 
@@ -418,26 +409,22 @@ const withRecipeId = (
   options: Omit<CraftingSpecialRecipeOptions, "id"> | undefined,
   id: RecipeId,
 ): Result.Result<RecipeOptionsInput, RecipeFailure> => {
-  if (options !== undefined && !isRecord(options)) {
-    return recipeTypeFailure(
-      "Crafting special recipe options must be an object when provided",
-    );
+  if (options === undefined) return Result.succeed({ id });
+  const snapshot = snapshotInputRecord(options, ['category', 'group', 'priority', 'showNotification', 'tags']);
+  if (Result.isFailure(snapshot)) {
+    return recipeTypeFailure("Crafting special recipe options must be an object when provided");
   }
-  return Result.succeed({ ...options, id });
+  return Result.succeed({ ...snapshot.success, id });
 };
 
 const normalizeRecipeOptions = (
   idOrOptions: RecipeId | RecipeOptionsWithId,
   options: Omit<CraftingSpecialRecipeOptions, "id"> | undefined,
 ): Result.Result<CraftingSpecialRecipeFields, RecipeFailure> => {
-  const recipeOptions: Result.Result<RecipeOptionsInput, RecipeFailure> =
+  const recipeOptions: Result.Result<unknown, RecipeFailure> =
     typeof idOrOptions === "string"
       ? withRecipeId(options, idOrOptions)
-      : isRecord(idOrOptions)
-        ? Result.succeed(idOrOptions)
-        : recipeTypeFailure(
-            "Crafting special recipe options must be an object when provided",
-          );
+      : Result.succeed(idOrOptions)
   return Result.flatMap(recipeOptions, normalizeOptions);
 };
 

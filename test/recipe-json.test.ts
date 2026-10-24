@@ -1084,6 +1084,38 @@ describe("current Java special recipe JSON", () => {
       /Shaped recipe pattern must be an array/,
     );
 
+    let oversizedLengthReads = 0
+    let oversizedElementReads = 0
+    let oversizedPrototypeReads = 0
+    const oversizedPattern = new Proxy([], {
+      get(target, property, receiver) {
+        if (property === "length") {
+          oversizedLengthReads += 1
+          return 1_000_000_000
+        }
+        if (typeof property === "string" && /^\d+$/u.test(property)) oversizedElementReads += 1
+        return Reflect.get(target, property, receiver)
+      },
+      getPrototypeOf() {
+        oversizedPrototypeReads += 1
+        throw new Error("array prototype must not be inspected")
+      },
+    })
+    recipeFailure(
+      craftingRecipeFromUnknown("minecraft:oversized_pattern", {
+        type: "minecraft:crafting_shaped",
+        pattern: oversizedPattern,
+        key: { "#": "minecraft:stone" },
+        result: "minecraft:stone",
+      }),
+      "RecipeTypeFailure",
+      undefined,
+      /Shaped recipe pattern must be an array/,
+    )
+    expect(oversizedLengthReads).toBe(1)
+    expect(oversizedElementReads).toBe(0)
+    expect(oversizedPrototypeReads).toBe(0)
+
     const unreadableKey = new Proxy({ "#": "minecraft:stone" }, {
       ownKeys() {
         throw new Error("hostile ownKeys trap");

@@ -1,4 +1,5 @@
 import { Effect, Result } from 'effect'
+import { MAX_GENERIC_INPUT_ARRAY_LENGTH, snapshotInputValue } from '../../input-snapshot.js'
 
 export type JsonPrimitive = null | boolean | number | string;
 
@@ -49,61 +50,30 @@ export const isJsonValue = (value: unknown): value is JsonValue => {
   return Result.isSuccess(checked) && checked.success
 }
 
-type JsonSnapshot = Readonly<{ readonly valid: true; readonly value: JsonValue }> | Readonly<{ readonly valid: false }>;
-
-const snapshotJsonValueIn = (
-  value: unknown,
-  active: WeakSet<object>,
-): JsonSnapshot => {
-  if (value === null || typeof value === 'boolean' || typeof value === 'string') {
-    return { valid: true, value }
-  }
-  if (typeof value === 'number') {
-    return Number.isFinite(value)
-      ? { valid: true, value }
-      : { valid: false }
-  }
-  if (typeof value !== 'object' || active.has(value)) {
-    return { valid: false }
-  }
-
-  active.add(value)
+const jsonValueWithPlainRecords = (value: JsonValue): JsonValue => {
   if (Array.isArray(value)) {
-    const length = value.length
-    const snapshot: JsonValue[] = new Array(length)
-    for (let index = 0; index < length; index += 1) {
-      if (!Object.hasOwn(value, index)) continue
-      const child = snapshotJsonValueIn(value[index], active)
-      if (!child.valid) {
-        active.delete(value)
-        return { valid: false }
+    const copy: JsonValue[] = new Array(value.length)
+    for (let index = 0; index < value.length; index += 1) {
+      if (Object.hasOwn(value, index)) {
+        const child = value[index]
+        if (child !== undefined) copy[index] = jsonValueWithPlainRecords(child)
       }
-      snapshot[index] = child.value
     }
-    active.delete(value)
-    return { valid: true, value: Object.freeze(snapshot) }
+    return Object.freeze(copy)
   }
-  if (!isPlainRecord(value)) {
-    active.delete(value)
-    return { valid: false }
-  }
-
-  const snapshot: Record<string, JsonValue> = {}
-  for (const [key, childValue] of Object.entries(value)) {
-    const child = snapshotJsonValueIn(childValue, active)
-    if (!child.valid) {
-      active.delete(value)
-      return { valid: false }
+  if (value !== null && typeof value === 'object') {
+    const copy: Record<string, JsonValue> = {}
+    for (const [key, child] of Object.entries(value)) {
+      Object.defineProperty(copy, key, {
+        configurable: false,
+        enumerable: true,
+        value: jsonValueWithPlainRecords(child),
+        writable: false,
+      })
     }
-    Object.defineProperty(snapshot, key, {
-      value: child.value,
-      enumerable: true,
-      configurable: true,
-      writable: true,
-    })
+    return Object.freeze(copy)
   }
-  active.delete(value)
-  return { valid: true, value: Object.freeze(snapshot) }
+  return value
 }
 
 export type JsonValueFailure = Readonly<{
@@ -129,14 +99,13 @@ const jsonValueFailure = (
 export const jsonValueFromUnknown = (
   value: unknown,
 ): Result.Result<JsonValue, JsonValueFailure> => {
-  const normalized = Effect.runSync(Effect.result(Effect.try({
-    try: () => snapshotJsonValueIn(value, new WeakSet<object>()),
-    catch: () => jsonValueFailure('hostile-input', 'Unable to inspect JSON value', value),
-  })))
-  if (Result.isFailure(normalized)) return Result.fail(normalized.failure)
-  return normalized.success.valid
-    ? Result.succeed(normalized.success.value)
-    : Result.fail(jsonValueFailure('invalid-value', 'Value must be a finite, acyclic JSON value', value))
+  const normalized = snapshotInputValue(value, MAX_GENERIC_INPUT_ARRAY_LENGTH)
+  if (Result.isFailure(normalized)) {
+    const reason = normalized.failure.reason === 'hostile-input' ? 'hostile-input' : 'invalid-value'
+    return Result.fail(jsonValueFailure(reason, 'Unable to inspect JSON value', value))
+  }
+  if (isJsonValue(normalized.success)) return Result.succeed(jsonValueWithPlainRecords(normalized.success))
+  return Result.fail(jsonValueFailure('invalid-value', 'Value must be a finite, acyclic JSON value', value))
 }
 
 const isJsonObject = (value: JsonValue): value is JsonObject =>

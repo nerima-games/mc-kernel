@@ -501,6 +501,28 @@ describe("Sulfur Cube archetype registry", () => {
     }))).toBe(true)
   })
 
+  it("rejects a proxy whose prototype changes before reading option values", () => {
+    let prototypeReads = 0
+    let buoyantReads = 0
+    const input = new Proxy({ ...validOptions }, {
+      getPrototypeOf() {
+        prototypeReads += 1
+        return prototypeReads === 1 ? { custom: true } : Object.prototype
+      },
+      get(target, key, receiver) {
+        if (key === 'buoyant') {
+          buoyantReads += 1
+          return buoyantReads === 1 ? true : 1
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+
+    expect(Result.isFailure(sulfurCubeArchetypeFromUnknown(input))).toBe(true)
+    expect(prototypeReads).toBe(1)
+    expect(buoyantReads).toBe(0)
+  })
+
   it("rejects malformed normalized values without widening the runtime boundary", () => {
     const archetype = sulfurCubeArchetype(validOptions);
 

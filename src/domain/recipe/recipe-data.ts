@@ -13,6 +13,12 @@ import {
 } from "../text/identifiers.js";
 import { VANILLA_ITEM_TAG_MEMBERSHIPS } from "../world/tag-membership.js";
 import {
+  MAX_GENERIC_INPUT_ARRAY_LENGTH,
+  snapshotDenseInputArray,
+  snapshotInputEntries,
+  snapshotInputRecord,
+} from "../../input-snapshot.js";
+import {
   recipeRangeFailure,
   recipeItemFailure,
   recipeTypeFailure,
@@ -230,59 +236,28 @@ type RecordValue = {
   readonly options?: unknown;
 };
 
-const isRecord = (value: unknown): value is RecordValue =>
-  (() => {
-    try {
-      return typeof value === "object" && value !== null && !Array.isArray(value);
-    } catch {
-      return false;
-    }
-  })();
-
-const snapshotRecord = (
+const recordFromInput = (
   value: unknown,
   fields: ReadonlyArray<keyof RecordValue>,
 ): RecordValue | undefined => {
-  try {
-    if (!isRecord(value)) {
-      return undefined;
-    }
-    const snapshot: Record<string, unknown> = {};
-    for (const field of fields) {
-      snapshot[field] = Reflect.get(value, field);
-    }
-    return snapshot;
-  } catch {
-    return undefined;
-  }
+  const snapshot = snapshotInputRecord(value, fields);
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined;
 };
 
-const snapshotArray = (value: unknown): ReadonlyArray<unknown> | undefined => {
-  try {
-    if (!Array.isArray(value)) {
-      return undefined;
-    }
-    const length = value.length;
-    if (!Number.isSafeInteger(length) || length < 0) return undefined;
-    const snapshot: unknown[] = [];
-    for (let index = 0; index < length; index += 1) snapshot.push(value[index]);
-    return Object.freeze(snapshot);
-  } catch {
-    return undefined;
-  }
-};
-
-const snapshotEntries = (
+const arrayFromInput = (
   value: unknown,
+  maxLength: number,
+): ReadonlyArray<unknown> | undefined => {
+  const snapshot = snapshotDenseInputArray(value, maxLength);
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined;
+};
+
+const entriesFromInput = (
+  value: unknown,
+  maxEntries: number,
 ): ReadonlyArray<readonly [string, unknown]> | undefined => {
-  try {
-    if (!isRecord(value)) {
-      return undefined;
-    }
-    return Object.entries(value);
-  } catch {
-    return undefined;
-  }
+  const snapshot = snapshotInputEntries(value, maxEntries);
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined;
 };
 
 const isIngredientCount = (
@@ -342,7 +317,7 @@ const isIngredientSnapshot = (value: RecordValue): value is RecordValue & Ingred
 };
 
 export const isIngredient = (value: unknown): value is Ingredient => {
-  const snapshot = snapshotRecord(value, ["_tag", "item", "tag", "count"]);
+  const snapshot = recordFromInput(value, ["_tag", "item", "tag", "count"]);
   return snapshot !== undefined && isIngredientSnapshot(snapshot);
 };
 
@@ -352,7 +327,7 @@ export const isIngredientInput = (value: unknown): value is IngredientInput =>
     : isIngredient(value);
 
 const isAnyOfIngredientSnapshot = (value: RecordValue): boolean => {
-  const options = snapshotArray(value.options);
+  const options = arrayFromInput(value.options, MAX_GENERIC_INPUT_ARRAY_LENGTH);
   return (
     value._tag === "AnyOf" &&
     isIngredientCount(value.count) &&
@@ -363,44 +338,44 @@ const isAnyOfIngredientSnapshot = (value: RecordValue): boolean => {
 };
 
 export const isAnyOfIngredient = (value: unknown): value is AnyOfIngredient => {
-  const snapshot = snapshotRecord(value, ["_tag", "count", "options"]);
+  const snapshot = recordFromInput(value, ["_tag", "count", "options"]);
   return snapshot !== undefined && isAnyOfIngredientSnapshot(snapshot);
 };
 
 export const isCraftingIngredient = (
   value: unknown,
 ): value is CraftingIngredient => {
-  const tag = snapshotRecord(value, ["_tag"]);
+  const tag = recordFromInput(value, ["_tag"]);
   if (tag === undefined) {
     return false;
   }
   if (tag._tag === "AnyOf") {
-    const snapshot = snapshotRecord(value, ["_tag", "count", "options"]);
+    const snapshot = recordFromInput(value, ["_tag", "count", "options"]);
     return snapshot !== undefined && isAnyOfIngredientSnapshot(snapshot);
   }
-  const snapshot = snapshotRecord(value, ["_tag", "item", "tag", "count"]);
+  const snapshot = recordFromInput(value, ["_tag", "item", "tag", "count"]);
   return snapshot !== undefined && isIngredientSnapshot(snapshot);
 };
 
 export const isCraftingIngredientInput = (
   value: unknown,
 ): value is CraftingIngredientInput => {
-  const options = snapshotArray(value);
+  const options = arrayFromInput(value, MAX_GENERIC_INPUT_ARRAY_LENGTH);
   if (options !== undefined) {
     return options.length > 0 && options.every(isIngredientInput);
   }
   if (typeof value === "string") {
     return isIngredientInput(value);
   }
-  const tag = snapshotRecord(value, ["_tag"]);
+  const tag = recordFromInput(value, ["_tag"]);
   if (tag === undefined) {
     return false;
   }
   if (tag._tag === "AnyOf") {
-    const snapshot = snapshotRecord(value, ["_tag", "count", "options"]);
+    const snapshot = recordFromInput(value, ["_tag", "count", "options"]);
     return snapshot !== undefined && isAnyOfIngredientSnapshot(snapshot);
   }
-  const snapshot = snapshotRecord(value, ["_tag", "item", "tag", "count"]);
+  const snapshot = recordFromInput(value, ["_tag", "item", "tag", "count"]);
   return snapshot !== undefined && isIngredientSnapshot(snapshot);
 };
 
@@ -516,13 +491,13 @@ const normalizeIngredient = (
       ? exactlyFromUnknown(value)
       : taggedFromUnknown(value);
   }
-  const tag = snapshotRecord(value, ["_tag"]);
+  const tag = recordFromInput(value, ["_tag"]);
   if (tag === undefined) {
     return recipeTypeFailure(
       "Recipe ingredient must be an item type, item tag, or ingredient object",
     );
   }
-  const candidate = snapshotRecord(value, ["item", "tag", "count"]);
+  const candidate = recordFromInput(value, ["item", "tag", "count"]);
   return candidate === undefined
     ? recipeTypeFailure(
         "Recipe ingredient must be an item type, item tag, or ingredient object",
@@ -534,7 +509,7 @@ const anyOfFromUnknown = (
   options: unknown,
   count: unknown = 1,
 ): Result.Result<AnyOfIngredient, RecipeFailure> => {
-  const optionValues = snapshotArray(options);
+  const optionValues = arrayFromInput(options, MAX_GENERIC_INPUT_ARRAY_LENGTH);
   if (optionValues === undefined || optionValues.length === 0) {
     return recipeRangeFailure(
       "Alternative ingredient lists must contain at least one ingredient",
@@ -563,27 +538,27 @@ export function anyOf(
 const normalizeCraftingIngredient = (
   value: unknown,
 ): Result.Result<CraftingIngredient, RecipeFailure> => {
-  const options = snapshotArray(value);
+  const options = arrayFromInput(value, MAX_GENERIC_INPUT_ARRAY_LENGTH);
   if (options !== undefined) {
     return anyOfFromUnknown(options);
   }
   if (typeof value === "string") {
     return normalizeIngredient(value);
   }
-  const tag = snapshotRecord(value, ["_tag"]);
+  const tag = recordFromInput(value, ["_tag"]);
   if (tag === undefined) {
     return recipeTypeFailure(
       "Recipe ingredient must be an item type, item tag, or ingredient object",
     );
   }
   if (tag._tag === "AnyOf") {
-    const candidate = snapshotRecord(value, ["options", "count"]);
+    const candidate = recordFromInput(value, ["options", "count"]);
     if (candidate === undefined) {
       return recipeTypeFailure("Recipe ingredient object has an invalid shape");
     }
     return anyOfFromUnknown(candidate.options, candidate.count);
   }
-  const candidate = snapshotRecord(value, ["item", "tag", "count"]);
+  const candidate = recordFromInput(value, ["item", "tag", "count"]);
   return candidate === undefined
     ? recipeTypeFailure(
         "Recipe ingredient must be an item type, item tag, or ingredient object",
@@ -603,7 +578,7 @@ const normalizeOptionsRecord = (
   if (options === undefined) {
     return Result.succeed(undefined);
   }
-  const snapshot = snapshotRecord(options, [
+  const snapshot = recordFromInput(options, [
     "assumeSymmetry",
     "category",
     "group",
@@ -694,7 +669,7 @@ const normalizeOptions = (
       () => recipeRangeFailureValue(priorityMessage),
     );
     const rawTags = record?.tags ?? [];
-    const tagValues = snapshotArray(rawTags);
+    const tagValues = arrayFromInput(rawTags, MAX_GENERIC_INPUT_ARRAY_LENGTH);
     if (tagValues === undefined) {
       return yield* recipeTypeFailure("Recipe station tags must be an array");
     }
@@ -719,7 +694,7 @@ const normalizePatternRows = (
   key: unknown,
 ): Result.Result<RecipePattern, RecipeFailure> =>
   Result.gen(function* () {
-    const rowValues = snapshotArray(rows);
+    const rowValues = arrayFromInput(rows, MAX_RECIPE_SIDE);
     if (
       rowValues === undefined ||
       rowValues.length < 1 ||
@@ -729,7 +704,7 @@ const normalizePatternRows = (
         `Shaped recipe rows must contain 1 to ${MAX_RECIPE_SIDE} rows`,
       );
     }
-    const keyEntries = snapshotEntries(key);
+    const keyEntries = entriesFromInput(key, MAX_RECIPE_SIDE * MAX_RECIPE_SIDE);
     if (keyEntries === undefined) {
       return yield* recipeTypeFailure("Shaped recipe key must be an object");
     }
@@ -882,7 +857,7 @@ export function shapelessRecipe(
 ): Result.Result<ShapelessRecipe, RecipeFailure> {
   return Result.gen(function* () {
     const recipeId = yield* assertRecipeId(id);
-    const ingredientValues = snapshotArray(ingredients);
+    const ingredientValues = arrayFromInput(ingredients, MAX_RECIPE_SIDE * MAX_RECIPE_SIDE);
     if (ingredientValues === undefined || ingredientValues.length === 0) {
       return yield* recipeRangeFailure(
         "Shapeless recipes must contain at least one ingredient",
@@ -930,12 +905,6 @@ export const craftGrid = (
   items: ReadonlyArray<CraftGridInput>,
 ): Result.Result<CraftGrid, RecipeFailure> =>
   Result.gen(function* () {
-    const itemValues = snapshotArray(items);
-    if (itemValues === undefined) {
-      return yield* recipeRangeFailure(
-        "Craft grid contains more cells than its dimensions allow",
-      );
-    }
     const validatedWidth = yield* Result.mapError(
       RecipeGridDimension.result(width),
       () =>
@@ -950,7 +919,11 @@ export const craftGrid = (
           `Craft grid dimensions must be safe integers in [0, ${MAX_RECIPE_SIDE}]`,
         ),
     );
-    if (itemValues.length > validatedWidth * validatedHeight) {
+    const itemValues = arrayFromInput(
+      items,
+      validatedWidth * validatedHeight,
+    );
+    if (itemValues === undefined) {
       return yield* recipeRangeFailure(
         "Craft grid contains more cells than its dimensions allow",
       );

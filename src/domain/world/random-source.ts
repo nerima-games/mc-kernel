@@ -11,6 +11,11 @@
  * real entropy source; that belongs to the consuming platform.
  */
 import { Brand, Result } from 'effect'
+import {
+  MAX_GENERIC_INPUT_ARRAY_LENGTH,
+  snapshotInputArray,
+  snapshotInputRecord,
+} from '../../input-snapshot.js'
 
 const RANDOM_INT_MIN = 0
 const RANDOM_INT_BOUND_MIN = 1
@@ -131,26 +136,18 @@ export type RandomSourceScript = Readonly<{
   readonly nextFloats?: ReadonlyArray<RandomFraction>
 }>
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
 const snapshotSequence = (
   value: unknown,
 ): Result.Result<ReadonlyArray<unknown>, RandomSourceFailure> => {
   if (value === undefined) return Result.succeed([])
-  if (!Array.isArray(value)) {
-    return failure('invalid-script', 'RandomSource script must contain optional int and float arrays')
+  const snapshot = snapshotInputArray(value, MAX_GENERIC_INPUT_ARRAY_LENGTH)
+  if (Result.isFailure(snapshot)) {
+    const message = snapshot.failure.reason === 'hostile-input'
+      ? 'RandomSource script contains an unreadable sequence'
+      : 'RandomSource script must contain optional int and float arrays'
+    return failure('invalid-script', message)
   }
-
-  const length = value.length
-  if (!Number.isSafeInteger(length)) {
-    return failure('invalid-script', 'RandomSource script contains an unreadable sequence')
-  }
-  const snapshot: Array<unknown> = []
-  for (let index = 0; index < length; index += 1) {
-    snapshot.push(value[index])
-  }
-  return Result.succeed(snapshot)
+  return Result.succeed(snapshot.success)
 }
 
 /**
@@ -166,21 +163,16 @@ export const fixedRandomSource = (
 ): Result.Result<RandomSource, RandomSourceFailure> => {
   let intValues: ReadonlyArray<unknown>
   let floatValues: ReadonlyArray<unknown>
-  try {
-    if (!isRecord(script)) {
-      return failure('invalid-script', 'RandomSource script must contain optional int and float arrays')
-    }
-    const nextInts = script['nextInts']
-    const nextFloats = script['nextFloats']
-    const intSnapshot = snapshotSequence(nextInts)
-    if (Result.isFailure(intSnapshot)) return Result.fail(intSnapshot.failure)
-    const floatSnapshot = snapshotSequence(nextFloats)
-    if (Result.isFailure(floatSnapshot)) return Result.fail(floatSnapshot.failure)
-    intValues = intSnapshot.success
-    floatValues = floatSnapshot.success
-  } catch {
-    return failure('invalid-script', 'RandomSource script must be readable')
+  const scriptSnapshot = snapshotInputRecord(script, ['nextInts', 'nextFloats'])
+  if (Result.isFailure(scriptSnapshot)) {
+    return failure('invalid-script', 'RandomSource script must contain optional int and float arrays')
   }
+  const intSnapshot = snapshotSequence(scriptSnapshot.success['nextInts'])
+  if (Result.isFailure(intSnapshot)) return Result.fail(intSnapshot.failure)
+  const floatSnapshot = snapshotSequence(scriptSnapshot.success['nextFloats'])
+  if (Result.isFailure(floatSnapshot)) return Result.fail(floatSnapshot.failure)
+  intValues = intSnapshot.success
+  floatValues = floatSnapshot.success
 
   const ints: Array<RandomInt> = []
   for (const value of intValues) {

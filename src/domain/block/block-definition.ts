@@ -40,6 +40,7 @@
  * OVERRIDES only, so a wrong row is one wrong line rather than a fork.
  */
 import { Result } from 'effect'
+import { snapshotInputRecord } from '../../input-snapshot.js'
 import {
   type BlockCapabilities,
   type BlockCapabilityOverrides,
@@ -88,54 +89,52 @@ const failure = (
 ): Result.Result<never, BlockDefinitionFailure> =>
   Result.fail({ _tag: 'BlockDefinitionFailure', reason, message })
 
-const validateKnownDefinitionKeys = (
-  definition: Record<string, unknown>,
-): Result.Result<void, BlockDefinitionFailure> => {
-  for (const key of Object.keys(definition)) {
-    if (!['type', 'capabilities', 'properties'].includes(key)) {
-      return failure('unknown-field', `unknown block definition field ${key}`)
-    }
-  }
-  return Result.succeed(undefined)
-}
-
 function validateBlockDefinition(
   definition: BlockDefinition,
 ): Result.Result<BlockDefinition, BlockDefinitionFailure> {
-  try {
-    if (!isRecord(definition)) {
-      return failure('invalid-shape', 'block definition must be an object')
-    }
-    const knownKeys = validateKnownDefinitionKeys(definition)
-    if (Result.isFailure(knownKeys)) return Result.fail(knownKeys.failure)
-
-    const type = definition['type']
-    const capabilities = definition['capabilities']
-    const properties = definition['properties']
-    if (!isBlockType(type)) {
-      return failure('invalid-shape', 'BlockDefinition.type must be a registered BlockType')
-    }
-    if (capabilities !== undefined && !isRecord(capabilities)) {
-      return failure('invalid-shape', 'BlockDefinition.capabilities must be an object')
-    }
-    if (properties !== undefined && !isRecord(properties)) {
-      return failure('invalid-shape', 'BlockDefinition.properties must be an object')
-    }
-    return Result.succeed({
-      type,
-      ...(capabilities === undefined ? {} : { capabilities }),
-      ...(properties === undefined ? {} : { properties }),
-    })
-  } catch {
-    return failure('invalid-shape', 'block definition fields must be readable')
+  const snapshot = snapshotInputRecord(
+    definition,
+    ['type', 'capabilities', 'properties'],
+    ['type', 'capabilities', 'properties'],
+  )
+  if (Result.isFailure(snapshot)) {
+    return snapshot.failure.reason === 'unexpected-field'
+      ? failure('unknown-field', `unknown block definition field ${snapshot.failure.field}`)
+      : failure('invalid-shape', 'block definition must be an object')
   }
+
+  const type = snapshot.success['type']
+  const capabilities = snapshot.success['capabilities']
+  const properties = snapshot.success['properties']
+  if (!isBlockType(type)) {
+    return failure('invalid-shape', 'BlockDefinition.type must be a registered BlockType')
+  }
+  if (capabilities !== undefined && !isRecord(capabilities)) {
+    return failure('invalid-shape', 'BlockDefinition.capabilities must be an object')
+  }
+  if (properties !== undefined && !isRecord(properties)) {
+    return failure('invalid-shape', 'BlockDefinition.properties must be an object')
+  }
+  return Result.succeed({
+    type,
+    ...(capabilities === undefined ? {} : { capabilities }),
+    ...(properties === undefined ? {} : { properties }),
+  })
 }
 
 const resolveCapabilities = (
   overrides: BlockCapabilityOverrides,
 ): Result.Result<BlockCapabilities, BlockCapabilityFailure> => {
   try {
-    return resolveBlockCapabilities(overrides)
+    const result = resolveBlockCapabilities(overrides)
+    if (Result.isFailure(result) && result.failure.reason === 'hostile-input') {
+      return Result.fail({
+        _tag: 'BlockCapabilityFailure',
+        reason: 'not-boolean',
+        message: 'block capability fields must be readable as booleans',
+      })
+    }
+    return result
   } catch {
     return Result.fail({
       _tag: 'BlockCapabilityFailure',

@@ -259,13 +259,13 @@ describe('item defense components', () => {
     ))
 
     const hostileTypes = new Proxy(['minecraft:fire'], {
-      get: (target, key, receiver) => key === Symbol.iterator
+      get: (target, key, receiver) => key === '0'
         ? (() => { throw new Error('hostile') })()
         : Reflect.get(target, key, receiver),
     })
     expectItemFailure(Reflect.apply(itemDefenseResult.damageResistantComponent, undefined, [hostileTypes]), validation(
-      'TypeError', 'hostile-input', 'damage_resistant.types',
-      'Unable to inspect damage_resistant.types', hostileTypes,
+      'TypeError', 'hostile-input', 'damage_resistant.types[0]',
+      'Unable to inspect damage_resistant.types[0]', hostileTypes,
     ))
   })
 

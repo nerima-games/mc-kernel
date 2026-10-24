@@ -1,4 +1,4 @@
-import { Brand, Effect, Result } from "effect";
+import { Brand, Result } from "effect";
 import { NamespacedResourceLocation, ResourceLocation, TagLocation } from "../text/identifiers.js";
 import { isSulfurCubeArchetypeOptions } from "./sulfur-cube-validation.js";
 import type {
@@ -11,6 +11,10 @@ import type {
   SulfurCubeSoundSettings,
 } from "./sulfur-cube-data.js";
 import { AttributeModifierAmount, PositiveTickCount } from "../time/quantities.js";
+import {
+  MAX_GENERIC_INPUT_ARRAY_LENGTH,
+  snapshotInputValue,
+} from "../../input-snapshot.js";
 import {
   SulfurCubeContactDamageAmount,
   SulfurCubeExplosionPower,
@@ -109,44 +113,6 @@ const invalidSulfurCubeArchetypeOptions = (value: unknown): SulfurCubeArchetypeF
   value,
 })
 
-const INVALID_SULFUR_CUBE_SNAPSHOT = Symbol('InvalidSulfurCubeSnapshot')
-
-const snapshotUnknownValue = (value: unknown, active: WeakSet<object>): unknown => {
-  if (value === null || typeof value !== 'object') return value
-  if (active.has(value)) return INVALID_SULFUR_CUBE_SNAPSHOT
-
-  active.add(value)
-  if (Array.isArray(value)) {
-    const length = value.length
-    const snapshot: unknown[] = new Array(length)
-    for (let index = 0; index < length; index += 1) {
-      if (Object.hasOwn(value, index)) {
-        snapshot[index] = snapshotUnknownValue(value[index], active)
-      }
-    }
-    active.delete(value)
-    return snapshot
-  }
-
-  const prototype = Object.getPrototypeOf(value)
-  if (prototype !== Object.prototype && prototype !== null) {
-    active.delete(value)
-    return value
-  }
-
-  const snapshot: Record<string, unknown> = Object.create(prototype)
-  for (const [key, child] of Object.entries(value)) {
-    Object.defineProperty(snapshot, key, {
-      value: snapshotUnknownValue(child, active),
-      enumerable: true,
-      configurable: true,
-      writable: true,
-    })
-  }
-  active.delete(value)
-  return snapshot
-}
-
 const explosionFromOptions = (
   options: SulfurCubeArchetypeOptions['explosion'],
 ): Result.Result<SulfurCubeExplosion | undefined, Brand.BrandError> => {
@@ -225,15 +191,8 @@ const sulfurCubeArchetypeFromValidatedOptions = (
 export const sulfurCubeArchetypeFromUnknown = (
   value: unknown,
 ): Result.Result<SulfurCubeArchetype, SulfurCubeArchetypeFailure> => {
-  const snapshot = Effect.runSync(Effect.result(Effect.try({
-    try: () => snapshotUnknownValue(value, new WeakSet<object>()),
-    catch: () => INVALID_SULFUR_CUBE_SNAPSHOT,
-  })))
-  if (
-    Result.isFailure(snapshot) ||
-    snapshot.success === INVALID_SULFUR_CUBE_SNAPSHOT ||
-    !isSulfurCubeArchetypeOptions(snapshot.success)
-  ) {
+  const snapshot = snapshotInputValue(value, MAX_GENERIC_INPUT_ARRAY_LENGTH)
+  if (Result.isFailure(snapshot) || !isSulfurCubeArchetypeOptions(snapshot.success)) {
     return Result.fail(invalidSulfurCubeArchetypeOptions(value))
   }
   return sulfurCubeArchetypeFromValidatedOptions(snapshot.success)

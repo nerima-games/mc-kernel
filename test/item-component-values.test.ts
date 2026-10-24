@@ -226,18 +226,17 @@ describe('item component values', () => {
     const changingPrototype = new Proxy({}, {
       getPrototypeOf: () => {
         prototypeReads += 1
-        if (prototypeReads === 1) return Date.prototype
-        throw new Error('hostile')
+        return prototypeReads === 1 ? { custom: true } : Object.prototype
       },
     })
     expectItemFailure(Reflect.apply(itemComponentValuesResult.customDataComponent, undefined, [changingPrototype]), {
       _tag: 'ItemValidationFailure',
       kind: 'TypeError',
       field: 'custom_data',
-      reason: 'hostile-input',
-      message: 'Unable to inspect custom_data',
+      reason: 'invalid-value',
+      message: 'custom_data must be a non-empty object containing NBT-compatible values',
     })
-    expect(prototypeReads).toBe(2)
+    expect(prototypeReads).toBe(1)
 
     const hostileKeys = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
     rejectHostile(hostileKeys, 'custom_data')

@@ -1,5 +1,5 @@
 /** Constructors and pure rules for current Java entity attributes. */
-import { Brand, Effect, Result } from 'effect'
+import { Brand, Result } from 'effect'
 import {
   ENTITY_ATTRIBUTE_DEFINITIONS,
   type EntityAttributeName,
@@ -9,6 +9,7 @@ import {
 } from './entity-attributes-data.js'
 import { isEntityAttributeOptions, isEntityAttributes } from './entity-attributes-validation.js'
 import { Bounciness, EntityPhysicsModifier, EntityVisibilityDistance, KnockbackResistance } from '../time/quantities.js'
+import { snapshotInputRecord } from '../../input-snapshot.js'
 
 const valueOrDefault = (value: number | undefined, defaultValue: number): number =>
   value === undefined ? defaultValue : value
@@ -68,15 +69,7 @@ export type EntityAttributesFailure = Readonly<{
 export const entityAttributes = (
   options: EntityAttributeOptions = {},
 ): Result.Result<EntityAttributes, EntityAttributesFailure> => {
-  const snapshot = Effect.runSync(Effect.result(Effect.try({
-    try: () => {
-      if (typeof options !== 'object' || options === null || Array.isArray(options)) return options
-      const prototype = Object.getPrototypeOf(options)
-      if (prototype !== Object.prototype && prototype !== null) return options
-      return Object.fromEntries(Object.entries(options))
-    },
-    catch: () => undefined,
-  })))
+  const snapshot = snapshotInputRecord(options)
   if (Result.isFailure(snapshot)) return Result.fail(entityAttributesFailure(options))
   const normalized: unknown = snapshot.success
   return isEntityAttributeOptions(normalized)

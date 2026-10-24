@@ -1,5 +1,6 @@
 /** Constructors and guards for current Java item enchantment components. */
-import { Effect, Result } from 'effect'
+import { Result } from 'effect'
+import { MAX_GENERIC_INPUT_ENTRIES, snapshotInputEntries } from '../../input-snapshot.js'
 import { ResourceLocation } from '../text/identifiers.js'
 import {
   isEnchantmentLevelMap,
@@ -16,13 +17,6 @@ import { itemValidationFailure, type ItemValidationFailure } from './item-failur
 
 export type EnchantmentLevelMapOptions = Readonly<Record<string, number>>
 
-const validateOptionsObject = (value: unknown, name: string): Result.Result<void, ItemValidationFailure> => {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return Result.fail(itemValidationFailure('options', `${name} must be a non-null object`, 'invalid-type', value))
-  }
-  return Result.succeed(undefined)
-}
-
 const validateLevel = (value: unknown, name: string): Result.Result<EnchantmentLevel, ItemValidationFailure> => {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return Result.fail(itemValidationFailure(name, `${name} must be a finite number`, 'invalid-type', value))
@@ -37,13 +31,17 @@ const enchantmentLevelMapOf = (
   options: EnchantmentLevelMapOptions,
   name: string,
 ): Result.Result<EnchantmentLevelMap, ItemValidationFailure> => {
-  const validObject = validateOptionsObject(options, `${name} options`)
-  if (Result.isFailure(validObject)) return Result.fail(validObject.failure)
-  const decodedEntries = Effect.runSync(Effect.result(Effect.try({
-    try: () => Object.entries(options),
-    catch: () => itemValidationFailure('options', `${name} options could not be inspected`, 'hostile-input', options),
-  })))
-  if (Result.isFailure(decodedEntries)) return Result.fail(decodedEntries.failure)
+  const decodedEntries = snapshotInputEntries(options, MAX_GENERIC_INPUT_ENTRIES)
+  if (Result.isFailure(decodedEntries)) {
+    const invalidType = decodedEntries.failure.reason === 'invalid-container' || decodedEntries.failure.reason === 'unsupported-prototype'
+    const tooLarge = decodedEntries.failure.reason === 'too-large'
+    return Result.fail(itemValidationFailure(
+      'options',
+      invalidType ? `${name} options must be a non-null object` : tooLarge ? `${name} options exceed the maximum size` : `${name} options could not be inspected`,
+      invalidType ? 'invalid-type' : tooLarge ? 'out-of-range' : 'hostile-input',
+      options,
+    ))
+  }
   const normalized: Record<string, EnchantmentLevel> = {}
   for (const [id, level] of decodedEntries.success) {
     if (!ResourceLocation.is(id)) {

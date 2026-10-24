@@ -316,8 +316,8 @@ describe("item component patches", () => {
         return Reflect.get(target, property, receiver);
       },
     });
-    expectItemFailure(Reflect.apply(itemComponentsSnapshot, undefined, [unstable]), {
-      _tag: "ItemValidationFailure", field: "components", reason: "hostile-input", value: unstable,
-    });
+    const snapshotted = itemResultValue(Reflect.apply(itemComponentsSnapshot, undefined, [unstable]));
+    expect(snapshotted.maxStackSize).toBe(64);
+    expect(maxStackSizeReads).toBe(1);
   });
 });

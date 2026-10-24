@@ -1,6 +1,13 @@
 import { Brand, Result } from "effect";
 
 import { NamespacedResourceLocation } from "../text/identifiers.js";
+import {
+  MAX_GENERIC_INPUT_ARRAY_LENGTH,
+  snapshotInputArray,
+  snapshotInputArrayOf,
+  snapshotInputRecord,
+  snapshotInputRecordWith,
+} from "../../input-snapshot.js";
 
 const DATA_PACK_FORMAT_MIN = 0;
 const DATA_PACK_PRIORITY_MIN = 0;
@@ -81,9 +88,6 @@ export type DataPackLayerOptions<T> = Readonly<{
 
 type UnknownRecord = Readonly<Record<string, unknown>>;
 
-const isRecord = (value: unknown): value is UnknownRecord =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const hasOnlyKeys = (
   value: UnknownRecord,
   keys: ReadonlyArray<string>,
@@ -100,46 +104,21 @@ const namespacedResourceLocation = (value: string): Result.Result<NamespacedReso
     (error) => ({ _tag: 'DataPackRegistryFailure', reason: 'invalid-resource-location', message: error.message }),
   )
 
-const snapshotRecord = (value: unknown): UnknownRecord | undefined => {
-  try {
-    if (!isRecord(value)) return undefined
-    const snapshot: Record<string, unknown> = {}
-    for (const key of Object.keys(value)) {
-      Object.defineProperty(snapshot, key, {
-        value: value[key],
-        enumerable: true,
-        configurable: true,
-        writable: true,
-      })
-    }
-    return snapshot
-  } catch {
-    return undefined
-  }
+const recordFromInput = (value: unknown): UnknownRecord | undefined => {
+  const snapshot = snapshotInputRecord(value)
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined
 }
 
-function snapshotArray<Value>(value: ReadonlyArray<Value>): ReadonlyArray<Value> | undefined
-function snapshotArray(value: unknown): ReadonlyArray<unknown> | undefined
-function snapshotArray(value: unknown): ReadonlyArray<unknown> | undefined {
-  try {
-    if (!Array.isArray(value)) return undefined
-    const length = value.length
-    const snapshot: unknown[] = []
-    for (let index = 0; index < length; index += 1) {
-      if (!Object.hasOwn(value, index)) return undefined
-      snapshot.push(value[index])
-    }
-    return snapshot
-  } catch {
-    return undefined
-  }
+const arrayFromInput = (value: unknown): ReadonlyArray<unknown> | undefined => {
+  const snapshot = snapshotInputArray(value, MAX_GENERIC_INPUT_ARRAY_LENGTH)
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined
 }
 
 const dataPackEntryFromUnknown = <T, E>(
   value: unknown,
   decodeValue: (id: NamespacedResourceLocation, value: unknown) => Result.Result<T, E>,
 ): Result.Result<DataPackRegistryEntryOptions<T>, DataPackRegistryFailure | E> => {
-  const entry = snapshotRecord(value)
+  const entry = recordFromInput(value)
   if (
     entry === undefined ||
     !hasOnlyKeys(entry, ["id", "value"]) ||
@@ -172,18 +151,22 @@ export const dataPackLayer = <T>(
   options: DataPackLayerOptions<T>,
 ): Result.Result<DataPackLayer<T>, DataPackRegistryFailure> =>
   Result.gen(function* () {
-    if (!isRecord(options)) {
+    const optionRecord = snapshotInputRecordWith(options, (input) => ({
+      pack: input.pack,
+      format: input.format,
+      priority: input.priority,
+      entries: input.entries,
+    }))
+    if (Result.isFailure(optionRecord)) {
       return yield* failure('invalid-layer', 'Data-pack layer must contain a pack, format, priority, and entries array')
     }
-    const packValue = options['pack']
-    const formatValue = options['format']
-    const priorityValue = options['priority']
-    const snapshotEntries = snapshotArray(options['entries'])
+    const { pack: packValue, format: formatValue, priority: priorityValue } = optionRecord.success
+    const copiedEntries = snapshotInputArrayOf(optionRecord.success.entries, MAX_GENERIC_INPUT_ARRAY_LENGTH)
     if (
       typeof packValue !== 'string' ||
       typeof formatValue !== 'number' ||
       typeof priorityValue !== 'number' ||
-      snapshotEntries === undefined
+      Result.isFailure(copiedEntries)
     ) {
       return yield* failure('invalid-layer', 'Data-pack layer must contain a pack, format, priority, and entries array')
     }
@@ -192,12 +175,15 @@ export const dataPackLayer = <T>(
     const priority = yield* DataPackPriority(priorityValue)
     const ids = new Set<NamespacedResourceLocation>()
     const entries: Array<DataPackRegistryEntry<T>> = []
-    for (const entry of snapshotEntries) {
-      if (!isRecord(entry)) {
+    for (const entry of copiedEntries.success) {
+      if (entry === undefined) {
         return yield* failure('invalid-entry', 'Data-pack registry entry id must be a string')
       }
-      const id = entry['id']
-      const value = entry['value']
+      const entryRecord = snapshotInputRecordWith(entry, (input) => ({ id: input.id, value: input.value }))
+      if (Result.isFailure(entryRecord)) {
+        return yield* failure('invalid-entry', 'Data-pack registry entry id must be a string')
+      }
+      const { id, value } = entryRecord.success
       if (typeof id !== 'string') {
         return yield* failure('invalid-entry', 'Data-pack registry entry id must be a string')
       }
@@ -222,11 +208,11 @@ const dataPackLayerFromUnknownWithDecoder = <T, E>(
   value: unknown,
   decodeValue: (id: NamespacedResourceLocation, value: unknown) => Result.Result<T, E>,
 ): Result.Result<DataPackLayer<T>, DataPackRegistryFailure | E> => {
-  const layer = snapshotRecord(value)
+  const layer = recordFromInput(value)
   if (layer === undefined) {
     return failure('invalid-layer', "Data-pack layer must contain exactly pack, format, priority, and entries")
   }
-  const rawEntries = snapshotArray(layer['entries'])
+  const rawEntries = arrayFromInput(layer['entries'])
   return Result.gen(function* () {
     if (
       !hasOnlyKeys(layer, ["pack", "format", "priority", "entries"]) ||
@@ -249,7 +235,14 @@ const dataPackLayerFromUnknownWithDecoder = <T, E>(
       return yield* failure('invalid-layer', "Data-pack layer entries must be an array")
     }
     const pack = yield* namespacedResourceLocation(layer['pack'])
-    const entries = yield* Result.all(rawEntries.map((entry) => dataPackEntryFromUnknown(entry, decodeValue)))
+    const decodedEntries: Array<Result.Result<DataPackRegistryEntryOptions<T>, DataPackRegistryFailure | E>> = []
+    for (let index = 0; index < rawEntries.length; index += 1) {
+      if (!Object.hasOwn(rawEntries, index)) {
+        return yield* failure('invalid-entry', 'Data-pack registry entries must not contain empty slots')
+      }
+      decodedEntries.push(dataPackEntryFromUnknown(rawEntries[index], decodeValue))
+    }
+    const entries = yield* Result.all(decodedEntries)
     return yield* dataPackLayer({
       pack,
       format,

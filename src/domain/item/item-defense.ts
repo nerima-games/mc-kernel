@@ -1,5 +1,5 @@
 /** Constructors and guards for Java item defense components. */
-import { Effect, Result } from 'effect'
+import { Result } from 'effect'
 import { ResourceLocation, TagLocation } from '../text/identifiers.js'
 import type {
   BlocksAttacksComponent,
@@ -22,6 +22,11 @@ import type {
   ResourceLocationProviderInput,
 } from './item-component-values-data.js'
 import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
+import {
+  MAX_GENERIC_INPUT_ARRAY_LENGTH,
+  snapshotInputArray,
+  snapshotInputRecord,
+} from '../../input-snapshot.js'
 
 export type DamageReductionOptions = Readonly<{
   readonly type?: ResourceLocationProviderInput
@@ -66,52 +71,39 @@ const brandValue = <A, E extends Readonly<{ readonly message: string }>>(
   (error) => failure(field, error.message, value, reason),
 )
 
-const snapshotRecord = (
+const recordFromInput = (
   value: unknown,
   fieldPrefix: string,
   fields: ReadonlyArray<string>,
 ): DefenseResult<Readonly<Record<string, unknown>>> => {
   const name = fieldPrefix || 'blocksAttacks options'
-  if (typeof value !== 'object' || value === null) {
-    return Result.fail(failure(name, `${name} must be a non-null object`, value, 'invalid-type'))
-  }
-  let field = name
-  try {
-    if (Array.isArray(value)) {
-      return Result.fail(failure(name, `${name} must be a non-null object`, value, 'invalid-type'))
-    }
-    const snapshot: Record<string, unknown> = {}
-    for (const key of fields) {
-      field = fieldPrefix === '' ? key : `${fieldPrefix}.${key}`
-      const entry = Reflect.get(value, key)
-      if (entry !== undefined) Object.defineProperty(snapshot, key, { enumerable: true, value: entry })
-    }
-    return Result.succeed(Object.freeze(snapshot))
-  } catch {
-    return Result.fail(failure(field, `Unable to inspect ${field}`, value, 'hostile-input'))
-  }
+  const snapshot = snapshotInputRecord(value, fields, undefined, fieldPrefix || undefined)
+  if (Result.isSuccess(snapshot)) return Result.succeed(snapshot.success)
+  const invalidType = snapshot.failure.reason === 'invalid-container' || snapshot.failure.reason === 'unsupported-prototype'
+  const field = snapshot.failure.path ?? name
+  return Result.fail(failure(
+    invalidType ? name : field,
+    invalidType ? `${name} must be a non-null object` : `Unable to inspect ${field}`,
+    value,
+    invalidType ? 'invalid-type' : 'hostile-input',
+  ))
 }
 
-const snapshotArray = (
+const arrayFromInput = (
   value: unknown,
   field: string,
 ): DefenseResult<ReadonlyArray<unknown>> => {
-  try {
-    if (!Array.isArray(value)) {
-      return Result.fail(failure(field, `${field} must be an array`, value, 'invalid-type'))
-    }
-    const length: unknown = Reflect.get(value, 'length')
-    if (typeof length !== 'number' || !Number.isSafeInteger(length) || length < 0) {
-      return Result.fail(failure(field, `Unable to inspect ${field}`, value, 'hostile-input'))
-    }
-    const snapshot: unknown[] = []
-    for (let index = 0; index < length; index += 1) {
-      snapshot.push(Reflect.get(value, String(index)))
-    }
-    return Result.succeed(Object.freeze(snapshot))
-  } catch {
-    return Result.fail(failure(field, `Unable to inspect ${field}`, value, 'hostile-input'))
-  }
+  const snapshot = snapshotInputArray(value, MAX_GENERIC_INPUT_ARRAY_LENGTH, field)
+  if (Result.isSuccess(snapshot)) return Result.succeed(snapshot.success)
+  const invalidArray = snapshot.failure.reason === 'invalid-container'
+  const tooLarge = snapshot.failure.reason === 'too-large'
+  const errorField = snapshot.failure.path ?? field
+  return Result.fail(failure(
+    errorField,
+    invalidArray ? `${field} must be an array` : tooLarge ? `${field} exceeds the maximum length` : `Unable to inspect ${errorField}`,
+    value,
+    invalidArray ? 'invalid-type' : tooLarge ? 'out-of-range' : 'hostile-input',
+  ))
 }
 
 const finiteNumber = (value: unknown, name: string): DefenseResult<number> =>
@@ -138,13 +130,13 @@ const resourceLocationProviderOf = (
       ? brandValue(TagLocation.result(value), field, value)
       : brandValue(ResourceLocation.result(value), field, value)
   }
-  const copiedEntries = Effect.runSync(Effect.result(Effect.try({
-    try: () => Array.isArray(value) ? Array.from(value) : undefined,
-    catch: () => failure(field, `Unable to inspect ${field}`, value, 'hostile-input'),
-  })))
-  if (Result.isFailure(copiedEntries)) return Result.fail(copiedEntries.failure)
-  if (copiedEntries.success === undefined) {
+  const copiedEntries = snapshotInputArray(value, MAX_GENERIC_INPUT_ARRAY_LENGTH, field)
+  if (Result.isFailure(copiedEntries) && copiedEntries.failure.reason === 'invalid-container') {
     return Result.fail(failure(field, `${field} must be a string or an array of resource locations`, value, 'invalid-type'))
+  }
+  if (Result.isFailure(copiedEntries)) {
+    const errorField = copiedEntries.failure.path ?? field
+    return Result.fail(failure(errorField, `Unable to inspect ${errorField}`, value, 'hostile-input'))
   }
   const entries = copiedEntries.success
   return Result.gen(function* () {
@@ -176,7 +168,7 @@ const damageReductionRuleOf = (
   options: unknown,
   index: number,
 ): DefenseResult<DamageReductionRule> => Result.flatMap(
-  snapshotRecord(options, `damageReductions[${index}]`, ['base', 'factor', 'horizontalBlockingAngle', 'type']),
+  recordFromInput(options, `damageReductions[${index}]`, ['base', 'factor', 'horizontalBlockingAngle', 'type']),
   (input) => Result.gen(function* () {
   const baseValue = yield* finiteNumber(input['base'], `damageReductions[${index}].base`)
   const factorValue = yield* finiteNumber(input['factor'], `damageReductions[${index}].factor`)
@@ -198,7 +190,7 @@ const damageReductionRuleOf = (
 const damageReductionRulesOf = (
   options: unknown,
 ): DefenseResult<ReadonlyArray<DamageReductionRule>> => Result.flatMap(
-  snapshotArray(options, 'damageReductions'),
+  arrayFromInput(options, 'damageReductions'),
   (values) => {
   const rules: DamageReductionRule[] = []
   for (const [index, option] of values.entries()) {
@@ -211,7 +203,7 @@ const damageReductionRulesOf = (
 )
 
 const itemDamageRuleOf = (options: unknown): DefenseResult<ItemDamageRule> => Result.flatMap(
-  snapshotRecord(options, 'itemDamage', ['threshold', 'base', 'factor']),
+  recordFromInput(options, 'itemDamage', ['threshold', 'base', 'factor']),
   (input) => Result.gen(function* () {
   const thresholdValue = yield* nonNegativeFiniteNumber(input['threshold'], 'itemDamage.threshold')
   const baseValue = yield* finiteNumber(input['base'], 'itemDamage.base')
@@ -272,7 +264,7 @@ const blocksAttacksComponentAfterCooldown = (
 export const blocksAttacksComponent = (
   options: BlocksAttacksOptions = {},
 ): DefenseResult<BlocksAttacksComponent> => Result.flatMap(
-  snapshotRecord(options, '', [
+  recordFromInput(options, '', [
     'blockDelaySeconds', 'disableCooldownScale', 'damageReductions', 'itemDamage',
     'blockSound', 'disabledSound', 'bypassedBy',
   ]),

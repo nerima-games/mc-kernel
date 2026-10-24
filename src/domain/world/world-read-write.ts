@@ -1,4 +1,5 @@
 import { Brand, Result } from 'effect'
+import { snapshotInputRecord } from '../../input-snapshot.js'
 import {
   isKnownBlockId,
   type BlockId as BlockIdType,
@@ -6,7 +7,7 @@ import {
 } from '../block/block-registry.js'
 import { LightLevel } from '../block/block-property-data.js'
 import { CHUNK_SIZE_XZ, ChunkAxis, chunkCoord, type BlockPosition } from '../coordinates/coordinate-primitives.js'
-import { type ChunkKey, chunkKeyOf } from '../coordinates/coordinate-keys.js'
+import { isChunkKey, type ChunkKey, chunkKeyOf } from '../coordinates/coordinate-keys.js'
 
 const MIN_INDEX = 0
 const sectionBlockId = Brand.nominal<BlockIdType>()
@@ -177,13 +178,48 @@ export type ReadViewInput = {
   readonly light: Uint16Array
 }
 
-export const readView = (input: ReadViewInput): Result.Result<ReadView, WorldReadWriteFailure> =>
-  Result.gen(function* () {
-    if (input.blocks.length !== input.light.length) {
+export const readView = (input: ReadViewInput): Result.Result<ReadView, WorldReadWriteFailure> => {
+  const inputSnapshot = snapshotInputRecord(input, [
+    'epoch', 'chunk', 'blockRevision', 'lightRevision', 'blocks', 'light',
+  ])
+  if (Result.isFailure(inputSnapshot)) {
+    return failure('invalid-read-view', 'ReadView input fields must be readable')
+  }
+  const blocks = inputSnapshot.success['blocks']
+  const light = inputSnapshot.success['light']
+  if (!(blocks instanceof Uint16Array) || !(light instanceof Uint16Array)) {
+    return failure('invalid-read-view', 'ReadView sections must be Uint16Array values')
+  }
+  let blockData: Uint16Array
+  let lightData: Uint16Array
+  try {
+    blockData = Uint16Array.prototype.slice.call(blocks)
+    lightData = Uint16Array.prototype.slice.call(light)
+  } catch {
+    return failure('invalid-read-view', 'ReadView sections could not be copied')
+  }
+
+  const epochValue = inputSnapshot.success['epoch']
+  const chunkValue = inputSnapshot.success['chunk']
+  const blockRevisionValue = inputSnapshot.success['blockRevision']
+  const lightRevisionValue = inputSnapshot.success['lightRevision']
+  return Result.gen(function* () {
+    if (typeof epochValue !== 'number') {
+      return yield* failure('invalid-read-view', 'ReadView epoch must be a valid world epoch')
+    }
+    const epoch = yield* WorldEpoch(epochValue)
+    if (!isChunkKey(chunkValue)) {
+      return yield* failure('invalid-read-view', 'ReadView chunk must be a valid chunk key')
+    }
+    const chunk = chunkValue
+    if (typeof blockRevisionValue !== 'number' || typeof lightRevisionValue !== 'number') {
+      return yield* failure('invalid-read-view', 'ReadView revisions must be non-negative safe integers')
+    }
+    const blockRevision = yield* ChunkRevision(blockRevisionValue)
+    const lightRevision = yield* LightRevision(lightRevisionValue)
+    if (blockData.length !== lightData.length) {
       return yield* failure('invalid-read-view', 'ReadView block and light sections must have equal lengths')
     }
-    const blockData = input.blocks.slice()
-    const lightData = input.light.slice()
     for (const blockId of blockData) {
       yield* blockIdOfValue(Number(blockId))
     }
@@ -192,10 +228,10 @@ export const readView = (input: ReadViewInput): Result.Result<ReadView, WorldRea
     }
     const length = yield* SectionLength(blockData.length)
     return Object.freeze({
-      epoch: input.epoch,
-      chunk: input.chunk,
-      blockRevision: input.blockRevision,
-      lightRevision: input.lightRevision,
+      epoch,
+      chunk,
+      blockRevision,
+      lightRevision,
       length,
       getBlock: (index: SectionIndex) =>
         Result.flatMap(checkedIndex(index, blockData.length), (checked) => blockIdOfValue(Number(blockData.at(checked)))),
@@ -205,6 +241,7 @@ export const readView = (input: ReadViewInput): Result.Result<ReadView, WorldRea
       light: readOnlySection(lightData, length, lightLevelOfValue),
     })
   })
+}
 export const ReadView: (input: ReadViewInput) => Result.Result<ReadView, WorldReadWriteFailure> = readView
 
 export type BlockEdit = {

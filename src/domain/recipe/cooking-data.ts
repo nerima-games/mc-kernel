@@ -28,6 +28,7 @@ import {
   recipeTypeFailure,
   type RecipeFailure,
 } from "./recipe-error.js";
+import { snapshotInputRecord } from "../../input-snapshot.js";
 
 export const COOKING_STATIONS = [
   "furnace",
@@ -75,31 +76,12 @@ type RecordValue = {
   readonly showNotification?: unknown;
 };
 
-const isRecord = (value: unknown): value is RecordValue =>
-  (() => {
-    try {
-      return typeof value === "object" && value !== null && !Array.isArray(value);
-    } catch {
-      return false;
-    }
-  })();
-
-const snapshotRecord = (
+const recordFromInput = (
   value: unknown,
   fields: ReadonlyArray<keyof RecordValue>,
 ): RecordValue | undefined => {
-  try {
-    if (!isRecord(value)) {
-      return undefined;
-    }
-    const snapshot: Record<string, unknown> = {};
-    for (const field of fields) {
-      snapshot[field] = Reflect.get(value, field);
-    }
-    return snapshot;
-  } catch {
-    return undefined;
-  }
+  const snapshot = snapshotInputRecord(value, fields);
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined;
 };
 
 const isCookingStation = (value: unknown): value is CookingStation =>
@@ -203,7 +185,7 @@ const normalizeOptions = (
     if (options === undefined) {
       return { priority: RecipePriority(0) };
     }
-    const record = snapshotRecord(options, [
+    const record = recordFromInput(options, [
       "category",
       "group",
       "priority",
@@ -306,7 +288,7 @@ const hasCookingMetadata = (value: RecordValue): boolean =>
 
 export const isCookingRecipe = (value: unknown): value is CookingRecipe =>
   (() => {
-    const snapshot = snapshotRecord(value, [
+    const snapshot = recordFromInput(value, [
       "_tag",
       "id",
       "station",

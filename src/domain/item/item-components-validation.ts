@@ -1,4 +1,5 @@
 import { Effect, Result } from 'effect'
+import { MAX_GENERIC_INPUT_ARRAY_LENGTH, snapshotInputValue } from '../../input-snapshot.js'
 import { ITEM_RARITIES, type ItemRarity } from './item-components-data.js'
 import {
   isConsumableComponent,
@@ -641,42 +642,31 @@ export const isItemComponents = (value: unknown): value is ItemComponents => {
   return Result.isSuccess(checked) && checked.success
 }
 
-function freezeSnapshot(value: unknown, snapshots = new WeakMap<object, unknown>()): unknown {
-  if (Array.isArray(value)) {
-    const existing = snapshots.get(value)
-    if (existing !== undefined) return existing
-    const copy: unknown[] = []
-    snapshots.set(value, copy)
-    for (const child of value) copy.push(freezeSnapshot(child, snapshots))
-    return Object.freeze(copy)
-  }
-  if (isRecord(value)) {
-    const existing = snapshots.get(value)
-    if (existing !== undefined) return existing
-    const copy: Record<string, unknown> = {}
-    snapshots.set(value, copy)
-    for (const [key, child] of Object.entries(value)) {
-      copy[key] = freezeSnapshot(child, snapshots)
-    }
-    return Object.freeze(copy)
-  }
-  return value
-}
-
 export const itemComponentsSnapshot = (
   value: unknown,
+  context = 'item components',
 ): Result.Result<ItemComponents, ItemValidationFailure> => {
-  const frozen = Effect.runSync(Effect.result(Effect.try({
-    try: () => freezeSnapshot(value),
-    catch: () => itemValidationFailure('components', 'Unable to snapshot item components', 'hostile-input', value),
-  })))
-  if (Result.isFailure(frozen)) return Result.fail(frozen.failure)
+  const frozen = snapshotInputValue(value, MAX_GENERIC_INPUT_ARRAY_LENGTH, 'components')
+  if (Result.isFailure(frozen)) {
+    const reason = frozen.failure.reason === 'unsupported-prototype' || frozen.failure.reason === 'invalid-container'
+      ? 'invalid-type'
+      : frozen.failure.reason === 'too-large'
+        ? 'out-of-range'
+        : frozen.failure.reason === 'cyclic'
+          ? 'invalid-value'
+          : 'hostile-input'
+    const field = frozen.failure.path ?? 'components'
+    const message = frozen.failure.reason === 'cyclic'
+      ? `Cyclic ${context} ${field} is invalid`
+      : frozen.failure.reason === 'hostile-input' && context === 'item stack'
+        ? `Unable to inspect ${context} ${field}`
+        : 'Unable to snapshot item components'
+    return Result.fail(itemValidationFailure(field, message, reason, frozen.failure.value))
+  }
   if (!isItemComponents(frozen.success)) {
     return Result.fail(itemValidationFailure('components', 'Item components must be a resolved component object', 'invalid-type', value))
   }
-  return isItemComponents(value)
-    ? Result.succeed(frozen.success)
-    : Result.fail(itemValidationFailure('components', 'Item components changed while snapshotting', 'hostile-input', value))
+  return Result.succeed(frozen.success)
 }
 
 const deepValueEqual = (left: unknown, right: unknown): boolean => {

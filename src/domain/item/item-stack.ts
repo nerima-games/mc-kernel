@@ -1,4 +1,5 @@
 import { Effect, Result } from 'effect'
+import { snapshotInputRecord } from '../../input-snapshot.js'
 import { itemComponentStackLimitOf, type ItemStackLimit } from './item-components-data.js'
 import { itemComponents } from './item-components.js'
 import { isItemComponents, itemComponentsEqual, itemComponentsSnapshot, type ItemComponents } from './item-components-validation.js'
@@ -58,143 +59,35 @@ const failure = (
   value?: unknown,
 ): ItemValidationFailure => itemValidationFailure(field, message, reason, value)
 
-const readRecordField = (
-  value: object,
-  field: string,
-): Result.Result<unknown, ItemValidationFailure> =>
-  Effect.runSync(Effect.result(Effect.try({
-    try: () => Reflect.get(value, field),
-    catch: () => failure(field, `Unable to inspect item stack ${field}`, 'hostile-input', value),
-  })))
-
-type ItemStackSnapshotState = Readonly<{
-  readonly ancestors: WeakSet<object>
-  readonly snapshots: WeakMap<object, unknown>
-}>
-
-const NON_PLAIN_STACK_VALUE_PROTOTYPE = Object.freeze(Object.create(null))
-
-const snapshotStackValue = (
-  value: unknown,
-  field: string,
-  state: ItemStackSnapshotState,
-): Result.Result<unknown, ItemValidationFailure> => {
-  if (value === null || typeof value !== 'object') return Result.succeed(value)
-  const inspected = Effect.runSync(Effect.result(Effect.try({
-    try: () => Array.isArray(value),
-    catch: () => failure(field, `Unable to inspect item stack ${field}`, 'hostile-input', value),
-  })))
-  if (Result.isFailure(inspected)) return Result.fail(inspected.failure)
-  if (state.ancestors.has(value)) {
-    return Result.fail(failure(field, `Cyclic item stack ${field} is invalid`, 'invalid-value', value))
-  }
-  const existing = state.snapshots.get(value)
-  if (existing !== undefined) return Result.succeed(existing)
-  state.ancestors.add(value)
-
-  if (inspected.success) {
-    const length = Effect.runSync(Effect.result(Effect.try({
-      try: () => Reflect.get(value, 'length'),
-      catch: () => failure(field, `Unable to inspect item stack ${field}`, 'hostile-input', value),
-    })))
-    if (Result.isFailure(length)) {
-      state.ancestors.delete(value)
-      return Result.fail(length.failure)
-    }
-    const snapshot: unknown[] = []
-    state.snapshots.set(value, snapshot)
-    for (let index = 0; index < length.success; index += 1) {
-      const currentField = `${field}[${index}]`
-      const entry = Effect.runSync(Effect.result(Effect.try({
-        try: () => Reflect.get(value, String(index)),
-        catch: () => failure(currentField, `Unable to inspect item stack ${currentField}`, 'hostile-input', value),
-      })))
-      if (Result.isFailure(entry)) {
-        state.ancestors.delete(value)
-        return Result.fail(entry.failure)
-      }
-      const nested = snapshotStackValue(entry.success, currentField, state)
-      if (Result.isFailure(nested)) {
-        state.ancestors.delete(value)
-        return Result.fail(nested.failure)
-      }
-      snapshot.push(nested.success)
-    }
-    state.ancestors.delete(value)
-    return Result.succeed(Object.freeze(snapshot))
-  }
-
-  const prototype = Effect.runSync(Effect.result(Effect.try({
-    try: () => Object.getPrototypeOf(value),
-    catch: () => failure(field, `Unable to inspect item stack ${field}`, 'hostile-input', value),
-  })))
-  if (Result.isFailure(prototype)) {
-    state.ancestors.delete(value)
-    return Result.fail(prototype.failure)
-  }
-  const keys = Effect.runSync(Effect.result(Effect.try({
-    try: () => Object.keys(value),
-    catch: () => failure(field, `Unable to inspect item stack ${field}`, 'hostile-input', value),
-  })))
-  if (Result.isFailure(keys)) {
-    state.ancestors.delete(value)
-    return Result.fail(keys.failure)
-  }
-  const snapshotPrototype = prototype.success === Object.prototype || prototype.success === null
-    ? prototype.success
-    : NON_PLAIN_STACK_VALUE_PROTOTYPE
-  const snapshot: Record<string, unknown> = Object.create(snapshotPrototype)
-  state.snapshots.set(value, snapshot)
-  for (const key of keys.success) {
-    const currentField = `${field}.${key}`
-    const entry = Effect.runSync(Effect.result(Effect.try({
-      try: () => Reflect.get(value, key),
-      catch: () => failure(currentField, `Unable to inspect item stack ${currentField}`, 'hostile-input', value),
-    })))
-    if (Result.isFailure(entry)) {
-      state.ancestors.delete(value)
-      return Result.fail(entry.failure)
-    }
-    const nested = snapshotStackValue(entry.success, currentField, state)
-    if (Result.isFailure(nested)) {
-      state.ancestors.delete(value)
-      return Result.fail(nested.failure)
-    }
-    Object.defineProperty(snapshot, key, { enumerable: true, value: nested.success })
-  }
-  state.ancestors.delete(value)
-  return Result.succeed(Object.freeze(snapshot))
-}
-
 const itemStackSnapshot = (
   value: unknown,
   invalidFailure: ItemValidationFailure,
 ): Result.Result<ItemStack, ItemStackFailure> => {
-  if (typeof value !== 'object' || value === null) return Result.fail(invalidFailure)
-  const shape = Effect.runSync(Effect.result(Effect.try({
-    try: () => {
-      if (Array.isArray(value)) return false
-      const keys = Object.keys(value)
-      return keys.every((key) => key === 'item' || key === 'count' || key === 'components') &&
-        Object.hasOwn(value, 'item') && Object.hasOwn(value, 'count') && Object.hasOwn(value, 'components')
-    },
-    catch: () => failure('stack', 'Unable to inspect item stack', 'hostile-input', value),
-  })))
-  if (Result.isFailure(shape)) return Result.fail(shape.failure)
-  if (!shape.success) return Result.fail(invalidFailure)
-  const stack = value
+  const record = snapshotInputRecord(value, ['item', 'count', 'components'], ['item', 'count', 'components'])
+  if (Result.isFailure(record)) {
+    if (record.failure.reason === 'hostile-input') {
+      const field = record.failure.path ?? 'stack'
+      const message = field === 'stack' ? 'Unable to inspect item stack' : `Unable to inspect item stack ${field}`
+      return Result.fail(failure(field, message, 'hostile-input', value))
+    }
+    return Result.fail(invalidFailure)
+  }
+  if (!Object.hasOwn(record.success, 'item') || !Object.hasOwn(record.success, 'count') || !Object.hasOwn(record.success, 'components')) {
+    return Result.fail(invalidFailure)
+  }
 
   return Result.gen(function* () {
-    const item = yield* readRecordField(stack, 'item')
-    const count = yield* readRecordField(stack, 'count')
-    const componentsValue = yield* readRecordField(stack, 'components')
-    const components = yield* snapshotStackValue(componentsValue, 'components', {
-      ancestors: new WeakSet<object>(),
-      snapshots: new WeakMap<object, unknown>(),
-    })
-    if (!isItemType(item) || !isItemComponents(components) || typeof count !== 'number') {
+    const item = record.success['item']
+    const count = record.success['count']
+    const componentsValue = record.success['components']
+    if (!isItemType(item) || typeof count !== 'number') {
       return yield* Result.fail(invalidFailure)
     }
+    const componentsSnapshot = itemComponentsSnapshot(componentsValue, 'item stack')
+    if (Result.isFailure(componentsSnapshot) && componentsSnapshot.failure.reason === 'invalid-type') {
+      return yield* Result.fail(invalidFailure)
+    }
+    const components = yield* componentsSnapshot
     const stackCount = yield* Result.mapError(StackCount.result(count), () => invalidFailure)
     if (stackCount > components.maxStackSize) return yield* Result.fail(invalidFailure)
     return Object.freeze({ item, count: stackCount, components })
@@ -204,23 +97,23 @@ const itemStackSnapshot = (
 const stackOptionsFromUnknown = (
   value: unknown,
 ): Result.Result<ItemStackOptions, ItemStackFailure> => {
-  if (typeof value !== 'object' || value === null) {
-    return Result.fail(failure('options', 'Item stack options must be a non-null object', 'invalid-type', value))
-  }
-  const array = Effect.runSync(Effect.result(Effect.try({
-    try: () => Array.isArray(value),
-    catch: () => failure('options', 'Unable to inspect item stack options', 'hostile-input', value),
-  })))
-  if (Result.isFailure(array)) return Result.fail(array.failure)
-  if (array.success) {
-    return Result.fail(failure('options', 'Item stack options must be a non-null object', 'invalid-type', value))
+  const record = snapshotInputRecord(value, ['components', 'componentPatch'])
+  if (Result.isFailure(record)) {
+    const invalidType = record.failure.reason === 'invalid-container' || record.failure.reason === 'unsupported-prototype'
+    const field = record.failure.path ?? 'options'
+    return Result.fail(failure(
+      invalidType ? 'options' : field,
+      invalidType ? 'Item stack options must be a non-null object' : `Unable to inspect item stack ${field}`,
+      invalidType ? 'invalid-type' : 'hostile-input',
+      record.failure.value,
+    ))
   }
   return Result.gen(function* () {
-    const componentsValue = yield* readRecordField(value, 'components')
+    const componentsValue = record.success['components']
     const components = componentsValue === undefined
       ? undefined
-      : yield* itemComponentsSnapshot(componentsValue)
-    const patchValue = yield* readRecordField(value, 'componentPatch')
+      : yield* itemComponentsSnapshot(componentsValue, 'item stack')
+    const patchValue = record.success['componentPatch']
     const componentPatch = patchValue === undefined
       ? undefined
       : yield* decodeItemComponentPatch(patchValue)

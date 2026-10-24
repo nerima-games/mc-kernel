@@ -254,8 +254,8 @@ describe('item attribute modifiers', () => {
       'options', 'Attribute modifier options must be a non-null object', null, 'invalid-type',
     ))
     expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [[]]), {
-      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-value', field: 'type',
-      message: 'type must be a valid resource location', value: undefined,
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-type', field: 'options',
+      message: 'Attribute modifier options must be a non-null object', value: [],
     })
     expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, type: 'INVALID!' }]), failure(
       'type', 'type must be a valid resource location', 'INVALID!',

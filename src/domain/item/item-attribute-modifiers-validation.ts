@@ -1,3 +1,4 @@
+import { MAX_GENERIC_INPUT_ARRAY_LENGTH, snapshotDenseInputArray } from '../../input-snapshot.js'
 import { ResourceLocation } from '../text/identifiers.js'
 import {
   ATTRIBUTE_MODIFIER_OPERATIONS,
@@ -66,5 +67,7 @@ export const isAttributeModifier = (value: unknown): value is AttributeModifier 
 
 export const isAttributeModifiersComponent = (
   value: unknown,
-): value is AttributeModifiersComponent =>
-  Array.isArray(value) && Array.from(value).every((modifier) => isAttributeModifier(modifier))
+): value is AttributeModifiersComponent => {
+  const snapshot = snapshotDenseInputArray(value, MAX_GENERIC_INPUT_ARRAY_LENGTH)
+  return snapshot._tag === 'Success' && snapshot.success.every((modifier) => isAttributeModifier(modifier))
+}

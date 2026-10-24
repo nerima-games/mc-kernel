@@ -1,5 +1,10 @@
 /** Strict Java item-component values and their item-aware defaults. */
-import { Effect, Result } from 'effect'
+import { Result } from 'effect'
+import {
+  MAX_GENERIC_INPUT_ARRAY_LENGTH,
+  snapshotInputRecord,
+  snapshotInputValue,
+} from '../../input-snapshot.js'
 import { itemUseComponentsOf } from './consumable.js'
 import type {
   ConsumableComponent,
@@ -729,109 +734,7 @@ const optionsFailure = (
   kind: ItemValidationFailure['kind'] = 'TypeError',
 ): ItemValidationFailure => itemValidationFailure(field, message, reason, value, kind)
 
-type ComponentOptionSnapshotState = Readonly<{
-  readonly ancestors: WeakSet<object>
-  readonly snapshots: WeakMap<object, unknown>
-}>
-
-const NON_PLAIN_OPTION_PROTOTYPE = Object.freeze(Object.create(null))
-
-const snapshotOptionValue = (
-  value: unknown,
-  field: string,
-  state: ComponentOptionSnapshotState,
-): Result.Result<unknown, ItemValidationFailure> => {
-  if (value === null || typeof value !== 'object') return Result.succeed(value)
-  const isArray = Effect.runSync(Effect.result(Effect.try({
-    try: () => Array.isArray(value),
-    catch: () => optionsFailure(field, `Unable to inspect item component option ${field}`, value, 'hostile-input'),
-  })))
-  if (Result.isFailure(isArray)) return Result.fail(isArray.failure)
-  if (state.ancestors.has(value)) {
-    return Result.fail(optionsFailure(field, `Cyclic item component option ${field} is invalid`, value))
-  }
-  const existing = state.snapshots.get(value)
-  if (existing !== undefined) return Result.succeed(existing)
-  state.ancestors.add(value)
-
-  if (isArray.success) {
-    const length = Effect.runSync(Effect.result(Effect.try({
-      try: () => Reflect.get(value, 'length'),
-      catch: () => optionsFailure(field, `Unable to inspect item component option ${field}`, value, 'hostile-input'),
-    })))
-    if (Result.isFailure(length)) {
-      state.ancestors.delete(value)
-      return Result.fail(length.failure)
-    }
-    const snapshot: unknown[] = []
-    state.snapshots.set(value, snapshot)
-    for (let index = 0; index < length.success; index += 1) {
-      const currentField = `${field}[${index}]`
-      const entry = Effect.runSync(Effect.result(Effect.try({
-        try: () => Reflect.get(value, String(index)),
-        catch: () => optionsFailure(currentField, `Unable to inspect item component option ${currentField}`, value, 'hostile-input'),
-      })))
-      if (Result.isFailure(entry)) {
-        state.ancestors.delete(value)
-        return Result.fail(entry.failure)
-      }
-      const nested = snapshotOptionValue(entry.success, currentField, state)
-      if (Result.isFailure(nested)) {
-        state.ancestors.delete(value)
-        return Result.fail(nested.failure)
-      }
-      snapshot.push(nested.success)
-    }
-    state.ancestors.delete(value)
-    return Result.succeed(Object.freeze(snapshot))
-  }
-
-  const prototype = Effect.runSync(Effect.result(Effect.try({
-    try: () => Object.getPrototypeOf(value),
-    catch: () => optionsFailure(field, `Unable to inspect item component option ${field}`, value, 'hostile-input'),
-  })))
-  if (Result.isFailure(prototype)) {
-    state.ancestors.delete(value)
-    return Result.fail(prototype.failure)
-  }
-  const keys = Effect.runSync(Effect.result(Effect.try({
-    try: () => Object.keys(value),
-    catch: () => optionsFailure(field, `Unable to inspect item component option ${field}`, value, 'hostile-input'),
-  })))
-  if (Result.isFailure(keys)) {
-    state.ancestors.delete(value)
-    return Result.fail(keys.failure)
-  }
-  const snapshotPrototype = prototype.success === null || prototype.success === Object.prototype
-    ? prototype.success
-    : NON_PLAIN_OPTION_PROTOTYPE
-  const snapshot: Record<string, unknown> = Object.create(snapshotPrototype)
-  state.snapshots.set(value, snapshot)
-  for (const key of keys.success) {
-    const currentField = `${field}.${key}`
-    const entry = Effect.runSync(Effect.result(Effect.try({
-      try: () => Reflect.get(value, key),
-      catch: () => optionsFailure(currentField, `Unable to inspect item component option ${currentField}`, value, 'hostile-input'),
-    })))
-    if (Result.isFailure(entry)) {
-      state.ancestors.delete(value)
-      return Result.fail(entry.failure)
-    }
-    const nested = snapshotOptionValue(entry.success, currentField, state)
-    if (Result.isFailure(nested)) {
-      state.ancestors.delete(value)
-      return Result.fail(nested.failure)
-    }
-    Object.defineProperty(snapshot, key, { enumerable: true, value: nested.success })
-  }
-  state.ancestors.delete(value)
-  return Result.succeed(Object.freeze(snapshot))
-}
-
 const snapshotOptions = (value: ItemComponentOptions): Result.Result<ItemComponentOptions, ItemValidationFailure> => {
-  if (typeof value !== 'object' || value === null) {
-    return Result.fail(optionsFailure('options', 'Item component options must be a non-null object', value, 'invalid-type'))
-  }
   const optionKeys: ReadonlyArray<keyof ItemComponentOptions> = [
     ...ITEM_COMPONENT_OPTION_VALIDATORS.map(({ key }) => key),
     'maxStackSize', 'maxDamage', 'damage', 'repairCost', 'tooltipDisplay', 'customName', 'itemName', 'lore',
@@ -840,31 +743,40 @@ const snapshotOptions = (value: ItemComponentOptions): Result.Result<ItemCompone
     'minimumAttackCharge', 'damageType', 'swingAnimation', 'attackRange', 'breakSound',
     'providesBannerPatterns', 'providesTrimMaterial', 'dye', 'additionalTradeCost',
   ]
-  const isArray = Effect.runSync(Effect.result(Effect.try({
-    try: () => Array.isArray(value),
-    catch: () => optionsFailure('options', 'Unable to inspect item component options', value, 'hostile-input'),
-  })))
-  if (Result.isFailure(isArray)) return Result.fail(isArray.failure)
-  if (isArray.success) {
-    return Result.fail(optionsFailure('options', 'Item component options must be a non-null object', value, 'invalid-type'))
+  const record = snapshotInputRecord(value, optionKeys.map(String))
+  if (Result.isFailure(record)) {
+    const invalidType = record.failure.reason === 'invalid-container' || record.failure.reason === 'unsupported-prototype'
+    return Result.fail(optionsFailure(
+      'options',
+      invalidType ? 'Item component options must be a non-null object' : 'Unable to inspect item component options',
+      value,
+      invalidType ? 'invalid-type' : 'hostile-input',
+    ))
   }
-  try {
-    const copy: ItemComponentOptions = {}
-    const state: ComponentOptionSnapshotState = {
-      ancestors: new WeakSet<object>(),
-      snapshots: new WeakMap<object, unknown>(),
+  const copy: Record<string, unknown> = Object.create(null)
+  for (const key of new Set(optionKeys)) {
+    const entry = record.success[String(key)]
+    if (entry === undefined) continue
+    const snapshot = snapshotInputValue(entry, MAX_GENERIC_INPUT_ARRAY_LENGTH, String(key))
+    if (Result.isFailure(snapshot)) {
+      const field = snapshot.failure.path ?? String(key)
+      const message = snapshot.failure.reason === 'hostile-input'
+        ? `Unable to inspect item component option ${field}`
+        : snapshot.failure.reason === 'cyclic'
+          ? `Cyclic item component option ${field} is invalid`
+          : `Unable to snapshot item component option ${field}`
+      const reason = snapshot.failure.reason === 'unsupported-prototype'
+        ? 'invalid-value'
+        : snapshot.failure.reason === 'invalid-container'
+          ? 'invalid-type'
+          : snapshot.failure.reason === 'cyclic'
+            ? 'invalid-value'
+            : 'hostile-input'
+      return Result.fail(optionsFailure(field, message, snapshot.failure.value, reason))
     }
-    for (const key of optionKeys) {
-      const entry = value[key]
-      if (entry === undefined) continue
-      const snapshot = snapshotOptionValue(entry, String(key), state)
-      if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
-      Object.defineProperty(copy, key, { enumerable: true, value: snapshot.success })
-    }
-    return Result.succeed(Object.freeze(copy))
-  } catch {
-    return Result.fail(optionsFailure('options', 'Unable to inspect item component options', value, 'hostile-input'))
+    Object.defineProperty(copy, key, { enumerable: true, value: snapshot.success })
   }
+  return Result.succeed(copy)
 }
 
 const validateOptions = (

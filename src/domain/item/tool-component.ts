@@ -1,4 +1,9 @@
 import { Effect, Result } from 'effect'
+import {
+  MAX_GENERIC_INPUT_ARRAY_LENGTH,
+  snapshotInputArray,
+  snapshotInputRecord,
+} from '../../input-snapshot.js'
 import { DEFAULT_MINING_SPEED } from '../block/block-break-speed-data.js'
 import { isBlockType, type BlockType } from '../block/block-type.js'
 import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
@@ -88,8 +93,15 @@ const isIterable = (value: unknown): value is Iterable<unknown> =>
 const readArray = (
   field: string,
   value: unknown,
-): ToolResult<ReadonlyArray<unknown> | undefined> =>
-  capture(field, value, () => Array.isArray(value) ? value : undefined)
+): ToolResult<ReadonlyArray<unknown> | undefined> => {
+  const snapshot = snapshotInputArray(value, MAX_GENERIC_INPUT_ARRAY_LENGTH, field)
+  if (Result.isSuccess(snapshot)) return Result.succeed(snapshot.success)
+  if (snapshot.failure.reason === 'invalid-container') return Result.succeed(undefined)
+  const tooLarge = snapshot.failure.reason === 'too-large'
+  const errorField = snapshot.failure.path ?? field
+  const reason = tooLarge ? 'out-of-range' : 'hostile-input'
+  return Result.fail(failure(errorField, tooLarge ? `${field} exceeds the maximum length` : `Unable to inspect ${errorField}`, value, reason))
+}
 
 const brandValue = <A, E extends Readonly<{ readonly message: string }>>(
   result: Result.Result<A, E>,
@@ -114,28 +126,19 @@ const readRecord = (
   field: string,
   allowedKeys: ReadonlyArray<string>,
 ): ToolResult<Record<string, unknown>> => {
-  if (typeof value !== 'object' || value === null) {
-    return Result.fail(failure(field, `${field} must be an object`, value, 'invalid-type'))
-  }
-  const record = capture(field, value, () => {
-    if (Array.isArray(value)) return undefined
-    const prototype = Object.getPrototypeOf(value)
-    if (prototype !== Object.prototype && prototype !== null) return undefined
-    const keys = Object.keys(value)
-    const copy: Record<string, unknown> = {}
-    for (const key of keys) {
-      if (!allowedKeys.includes(key)) return { invalidKey: key }
-      Object.defineProperty(copy, key, { enumerable: true, value: Reflect.get(value, key) })
+  const record = snapshotInputRecord(value, allowedKeys, allowedKeys, field)
+  if (Result.isFailure(record)) {
+    if (record.failure.reason === 'unexpected-field') {
+      const key = record.failure.field
+      return Result.fail(failure(field, `unknown ${field} ${String(key)}`, key, 'invalid-value'))
     }
-    return copy
-  })
-  if (Result.isFailure(record)) return Result.fail(record.failure)
-  if (record.success === undefined) {
-    return Result.fail(failure(field, `${field} must be an object`, value, 'invalid-type'))
-  }
-  if ('invalidKey' in record.success) {
-    const key = record.success['invalidKey']
-    return Result.fail(failure(field, `unknown ${field} ${String(key)}`, key, 'invalid-value'))
+    const invalidType = record.failure.reason === 'invalid-container' || record.failure.reason === 'unsupported-prototype'
+    return Result.fail(failure(
+      field,
+      invalidType ? `${field} must be an object` : `Unable to inspect ${record.failure.path ?? field}`,
+      value,
+      invalidType ? 'invalid-type' : 'hostile-input',
+    ))
   }
   return Result.succeed(record.success)
 }
@@ -149,11 +152,11 @@ const readToolRule = (value: unknown, index: number): ToolResult<ToolRule> =>
     const blockEntries = yield* readArray(`${field} blocks`, blocks)
     let normalizedBlocks: ToolRule['blocks']
     if (blockEntries !== undefined) {
-      const length = yield* capture(`${field} blocks`, blocks, () => blockEntries.length)
+      const length = blockEntries.length
       if (length === 0) return yield* Result.fail(failure(field, `${field} must contain at least one block`, blocks, 'out-of-range'))
       const entries: ToolBlockMatcher[] = []
       for (let blockIndex = 0; blockIndex < length; blockIndex += 1) {
-        const block = yield* capture(`${field} blocks[${blockIndex}]`, blocks, () => blockEntries[blockIndex])
+        const block = blockEntries[blockIndex]
         if (!isToolBlockMatcher(block)) return yield* Result.fail(failure(field, `${field} contains an unknown block or block tag`, block, 'out-of-range'))
         entries.push(block)
       }
@@ -189,10 +192,10 @@ const readToolRules = (value: unknown): ToolResult<ReadonlyArray<ToolRule>> =>
   Result.gen(function* () {
     const entries = yield* readArray('tool component rules', value)
     if (entries === undefined) return yield* Result.fail(failure('rules', 'tool component rules must be an array', value, 'invalid-type'))
-    const length = yield* capture('tool component rules', value, () => entries.length)
+    const length = entries.length
     const rules: ToolRule[] = []
     for (let index = 0; index < length; index += 1) {
-      const entry = yield* capture(`tool rule ${index}`, value, () => entries[index])
+      const entry = entries[index]
       rules.push(yield* readToolRule(entry, index))
     }
     return Object.freeze(rules)

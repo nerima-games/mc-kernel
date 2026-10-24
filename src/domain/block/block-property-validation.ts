@@ -5,6 +5,7 @@
  * external shape and the resolved domain data independently readable.
  */
 import { Result } from 'effect'
+import { MAX_GENERIC_INPUT_ARRAY_LENGTH, snapshotInputValue } from '../../input-snapshot.js'
 import {
   BlockBlastResistance,
   BlockContactDamage,
@@ -364,15 +365,28 @@ const validateStructuredProperties = (
 function validateBlockPropertyOverrides(
   overrides: unknown,
 ): Result.Result<ValidatedBlockPropertyOverrides, BlockPropertyFailure> {
+  const snapshot = snapshotInputValue(overrides, MAX_GENERIC_INPUT_ARRAY_LENGTH, 'block property overrides')
+  if (Result.isFailure(snapshot)) {
+    const reason = snapshot.failure.reason === 'too-large' ? 'range' : 'type'
+    const message = snapshot.failure.reason === 'hostile-input'
+      ? snapshot.failure.path?.startsWith('block property overrides.supportRule')
+        ? 'block property supportRule must be readable'
+        : 'block property overrides must be readable'
+      : snapshot.failure.reason === 'too-large'
+        ? 'block property overrides exceed input limits'
+        : 'block property overrides must be an object'
+    return failure(reason, message)
+  }
+  const copiedOverrides = snapshot.success
   try {
-    if (!isRecord(overrides)) {
+    if (!isRecord(copiedOverrides)) {
       return failure('type', 'block property overrides must be an object')
     }
     return Result.gen(function* () {
-      yield* assertKnownKeys(overrides, BLOCK_PROPERTY_NAMES, 'block property')
-      const categorical = yield* validateCategoricalProperties(overrides)
-      const numeric = yield* validateNumericProperties(overrides)
-      const structured = yield* validateStructuredProperties(overrides)
+      yield* assertKnownKeys(copiedOverrides, BLOCK_PROPERTY_NAMES, 'block property')
+      const categorical = yield* validateCategoricalProperties(copiedOverrides)
+      const numeric = yield* validateNumericProperties(copiedOverrides)
+      const structured = yield* validateStructuredProperties(copiedOverrides)
       return { ...categorical, ...numeric, ...structured }
     })
   } catch {

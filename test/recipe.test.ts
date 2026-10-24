@@ -851,6 +851,30 @@ describe("recipe data", () => {
       craftGrid(gridDimension(1), gridDimension(1), [itemStack("stone", 1), itemStack("dirt", 1)]),
       rangeFailure("Craft grid contains more cells than its dimensions allow"),
     );
+    let lengthReads = 0
+    let elementReads = 0
+    let prototypeReads = 0
+    const oversized = new Proxy([], {
+      get(target, key, receiver) {
+        if (key === 'length') {
+          lengthReads += 1
+          return 1_000_000_000
+        }
+        if (typeof key === 'string' && /^\d+$/u.test(key)) elementReads += 1
+        return Reflect.get(target, key, receiver)
+      },
+      getPrototypeOf() {
+        prototypeReads += 1
+        throw new Error('array prototype must not be inspected')
+      },
+    })
+    expectRecipeFailure(
+      Reflect.apply(craftGrid, undefined, [3, 3, oversized]),
+      rangeFailure("Craft grid contains more cells than its dimensions allow"),
+    )
+    expect(lengthReads).toBe(1)
+    expect(elementReads).toBe(0)
+    expect(prototypeReads).toBe(0)
     expectRecipeFailure(
       Reflect.apply(craftGrid, undefined, [1, 1, "stone"]),
       rangeFailure("Craft grid contains more cells than its dimensions allow"),
