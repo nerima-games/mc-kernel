@@ -137,14 +137,14 @@ export type ItemComponentNbtLong = bigint & Brand.Brand<'ItemComponentNbtLong'>
 const MIN_NBT_LONG = -9223372036854775808n
 const MAX_NBT_LONG = 9223372036854775807n
 export const ItemComponentNbtLong: Brand.Constructor<ItemComponentNbtLong> = Brand.make<ItemComponentNbtLong>(
-  (value) => value >= MIN_NBT_LONG && value <= MAX_NBT_LONG
+  (value) => typeof value === 'bigint' && value >= MIN_NBT_LONG && value <= MAX_NBT_LONG
     ? true
     : `ItemComponentNbtLong must fit a signed 64-bit integer, received ${String(value)}`,
 )
 
 export type LootTableSeed = bigint & Brand.Brand<'LootTableSeed'>
 export const LootTableSeed: Brand.Constructor<LootTableSeed> = Brand.make<LootTableSeed>(
-  (value) => value >= MIN_NBT_LONG && value <= MAX_NBT_LONG
+  (value) => typeof value === 'bigint' && value >= MIN_NBT_LONG && value <= MAX_NBT_LONG
     ? true
     : `LootTableSeed must fit a signed 64-bit integer, received ${String(value)}`,
 )

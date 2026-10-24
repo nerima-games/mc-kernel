@@ -91,10 +91,22 @@ describe('item branded primitives', () => {
     expect(ItemPrimitive.ItemComponentNbtLong.is(MAX_SIGNED_LONG)).toBe(true)
     expect(ItemPrimitive.ItemComponentNbtLong.is(MIN_SIGNED_LONG - 1n)).toBe(false)
     expect(ItemPrimitive.ItemComponentNbtLong.is(MAX_SIGNED_LONG + 1n)).toBe(false)
+    expect(
+      Reflect.apply(ItemPrimitive.ItemComponentNbtLong.is, ItemPrimitive.ItemComponentNbtLong, [1]),
+    ).toBe(false)
+    expect(
+      Reflect.apply(ItemPrimitive.ItemComponentNbtLong.is, ItemPrimitive.ItemComponentNbtLong, ['1']),
+    ).toBe(false)
     expect(ItemPrimitive.LootTableSeed.is(MIN_SIGNED_LONG)).toBe(true)
     expect(ItemPrimitive.LootTableSeed.is(MAX_SIGNED_LONG)).toBe(true)
     expect(ItemPrimitive.LootTableSeed.is(MIN_SIGNED_LONG - 1n)).toBe(false)
     expect(ItemPrimitive.LootTableSeed.is(MAX_SIGNED_LONG + 1n)).toBe(false)
+    expect(
+      Reflect.apply(ItemPrimitive.LootTableSeed.is, ItemPrimitive.LootTableSeed, [1]),
+    ).toBe(false)
+    expect(
+      Reflect.apply(ItemPrimitive.LootTableSeed.is, ItemPrimitive.LootTableSeed, ['1']),
+    ).toBe(false)
   })
 
   it('validates string semantics and custom model data', () => {
