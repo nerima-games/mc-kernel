@@ -207,27 +207,48 @@ const assertAllowedGenerations = (
   value: unknown,
 ): Result.Result<readonly [BookGeneration, BookGeneration], RecipeFailure> => {
   const generations = value ?? [0, 1];
+  let snapshot: readonly [unknown, unknown] | undefined;
+  try {
+    if (Array.isArray(generations) && generations.length === 2) {
+      snapshot = [generations[0], generations[1]];
+    }
+  } catch {
+    return recipeTypeFailure(
+      "Allowed book generations could not be read",
+    );
+  }
+  if (snapshot === undefined) {
+    return recipeRangeFailure(
+      "Allowed book generations must be an ordered range from 0 to 2",
+    );
+  }
+  const [minimum, maximum] = snapshot;
   if (
-    !Array.isArray(generations) ||
-    generations.length !== 2 ||
-    typeof generations[0] !== "number" ||
-    typeof generations[1] !== "number" ||
-    !Number.isInteger(generations[0]) ||
-    !Number.isInteger(generations[1]) ||
-    generations[0] < 0 ||
-    generations[0] > 2 ||
-    generations[1] < 0 ||
-    generations[1] > 2 ||
-    generations[0] > generations[1]
+    typeof minimum !== "number" ||
+    typeof maximum !== "number" ||
+    !Number.isInteger(minimum) ||
+    !Number.isInteger(maximum) ||
+    minimum < 0 ||
+    minimum > 2 ||
+    maximum < 0 ||
+    maximum > 2 ||
+    minimum > maximum
   ) {
     return recipeRangeFailure(
       "Allowed book generations must be an ordered range from 0 to 2",
     );
   }
-  return Result.succeed([
-    BookGeneration(generations[0]),
-    BookGeneration(generations[1]),
-  ] as const);
+  const checkedMinimum = BookGeneration.result(minimum);
+  const checkedMaximum = BookGeneration.result(maximum);
+  if (
+    Result.isFailure(checkedMinimum) ||
+    Result.isFailure(checkedMaximum)
+  ) {
+    return recipeRangeFailure(
+      "Allowed book generations must be an ordered range from 0 to 2",
+    );
+  }
+  return Result.succeed([checkedMinimum.success, checkedMaximum.success]);
 };
 
 const isFireworkExplosionShape = (
@@ -257,6 +278,28 @@ const assertShapeIngredients = (
     shapes[shape] = normalized.success;
   }
   return Result.succeed(shapes);
+};
+
+const snapshotTags = (
+  value: unknown,
+): Result.Result<readonly unknown[], RecipeFailure> => {
+  try {
+    if (!Array.isArray(value)) {
+      return recipeTypeFailure(
+        "Crafting special recipe tags must be resource locations",
+      );
+    }
+    const length = value.length;
+    const tags: unknown[] = [];
+    for (let index = 0; index < length; index += 1) {
+      tags.push(value[index]);
+    }
+    return Result.succeed(tags);
+  } catch {
+    return recipeTypeFailure(
+      "Crafting special recipe tags could not be read",
+    );
+  }
 };
 
 const isTags = (value: unknown): value is readonly RecipeStationTag[] =>
@@ -327,12 +370,24 @@ const assertRecipeTags = (
   value: unknown,
 ): Result.Result<readonly RecipeStationTag[], RecipeFailure> => {
   const tags = value === undefined ? [CRAFTING_SPECIAL_STATION_TAG] : value;
-  if (!isTags(tags)) {
+  const snapshot = snapshotTags(tags);
+  if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure);
+  if (!isTags(snapshot.success)) {
     return recipeTypeFailure(
       "Crafting special recipe tags must be resource locations",
     );
   }
-  return Result.succeed(tags.map((tag) => RecipeStationTag(tag)));
+  const checkedTags: RecipeStationTag[] = [];
+  for (const tag of snapshot.success) {
+    const checkedTag = RecipeStationTag.result(tag);
+    if (Result.isFailure(checkedTag)) {
+      return recipeTypeFailure(
+        "Crafting special recipe tags must be resource locations",
+      );
+    }
+    checkedTags.push(checkedTag.success);
+  }
+  return Result.succeed(checkedTags);
 };
 
 const normalizeOptions = (

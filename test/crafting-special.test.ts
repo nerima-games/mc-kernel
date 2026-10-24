@@ -315,6 +315,33 @@ describe("crafting special recipe data", () => {
         [BookGeneration(2), BookGeneration(2)],
       )).allowedGenerations,
     ).toEqual([2, 2]);
+    let generationReads = 0;
+    const changingGenerations = new Proxy([0, 1], {
+      get: (target, property, receiver) => {
+        if (property === "1") {
+          generationReads += 1;
+          return generationReads === 1 ? 1 : 4;
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const changingGenerationResult = Reflect.apply(
+      craftingBookCloningRecipe,
+      undefined,
+      [
+        ResourceLocation("minecraft:single_read_generations"),
+        exactly("written_book"),
+        exactly("paper"),
+        itemStack("written_book", StackCount(1)),
+        changingGenerations,
+      ],
+    );
+    expect(changingGenerationResult).toMatchObject({
+      _tag: "Success",
+      success: { allowedGenerations: [0, 1] },
+    });
+    expect(generationReads).toBe(1);
+
     for (const generations of [
       "0,1",
       [0],
@@ -336,6 +363,29 @@ describe("crafting special recipe data", () => {
         "RecipeRangeFailure",
       );
     }
+
+    let tagReads = 0;
+    const changingTags = new Proxy(["minecraft:crafting_table"], {
+      get: (target, property, receiver) => {
+        if (property === "0") {
+          tagReads += 1;
+          return tagReads === 1 ? "minecraft:crafting_table" : "Minecraft:Invalid";
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const changingTagResult = Reflect.apply(craftingDyeRecipe, undefined, [
+      ResourceLocation("minecraft:single_read_tags"),
+      exactly("leather"),
+      exactly("redstone_dust"),
+      itemStack("leather", 1),
+      { tags: changingTags },
+    ]);
+    expect(changingTagResult).toMatchObject({
+      _tag: "Success",
+      success: { tags: ["minecraft:crafting_table"] },
+    });
+    expect(tagReads).toBe(1);
 
     recipeFailure(
       Reflect.apply(craftingFireworkStarRecipe, undefined, [

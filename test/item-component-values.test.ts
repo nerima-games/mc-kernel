@@ -1634,4 +1634,28 @@ describe('item component values', () => {
     reject(Reflect.apply(itemComponentValuesResult.tooltipDisplayComponent, undefined, [{ hiddenComponents: 1 }]), 'hiddenComponents', 'TypeError', 1, 'invalid-type')
     reject(Reflect.apply(itemComponentValuesResult.tooltipDisplayComponent, undefined, [{ hiddenComponents: ['INVALID!'] }]), 'hiddenComponents', 'TypeError', ['INVALID!'])
   })
+
+  it('validates and brands one snapshot of hostile dyed-color channels', () => {
+    let colorReads = 0
+    const changingColor = new Proxy([0, 0.5, 1], {
+      get: (target, property, receiver) => {
+        if (property === '0') {
+          colorReads += 1
+          return colorReads === 1 ? 0 : 1.5
+        }
+        return Reflect.get(target, property, receiver)
+      },
+    })
+    const result = Reflect.apply(
+      itemComponentValuesResult.dyedColorComponent,
+      undefined,
+      [changingColor],
+    )
+
+    expect(result).toMatchObject({
+      _tag: 'Success',
+      success: [0, 0.5, 1],
+    })
+    expect(colorReads).toBe(1)
+  })
 })

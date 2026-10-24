@@ -609,17 +609,20 @@ export const customDataComponent = (value: CustomDataComponent): ItemComponentRe
 }
 
 export const dyedColorComponent = (value: DyedColorComponent): ItemComponentResult<DyedColorComponent> => {
-  if (!isDyedColorComponent(value)) {
+  const snapshot = snapshotInputValue(value, 'dyed_color')
+  if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
+  const input = snapshot.success
+  if (!isDyedColorComponent(input)) {
     return Result.fail(componentFailure('dyed_color', 'dyed_color must be an RGB integer or three normalized color channels', value, 'out-of-range', 'RangeError'))
   }
-  if (typeof value === 'number') {
-    return brandResult(RgbColor.result(value), 'dyed_color', value, 'RangeError', 'out-of-range')
+  if (typeof input === 'number') {
+    return brandResult(RgbColor.result(input), 'dyed_color', input, 'RangeError', 'out-of-range')
   }
   return Result.gen(function* () {
     const channels: [DyeColorChannel, DyeColorChannel, DyeColorChannel] = [
-      yield* brandResult(DyeColorChannel.result(value[0]), 'dyed_color[0]', value[0], 'RangeError', 'out-of-range'),
-      yield* brandResult(DyeColorChannel.result(value[1]), 'dyed_color[1]', value[1], 'RangeError', 'out-of-range'),
-      yield* brandResult(DyeColorChannel.result(value[2]), 'dyed_color[2]', value[2], 'RangeError', 'out-of-range'),
+      yield* brandResult(DyeColorChannel.result(input[0]), 'dyed_color[0]', input[0], 'RangeError', 'out-of-range'),
+      yield* brandResult(DyeColorChannel.result(input[1]), 'dyed_color[1]', input[1], 'RangeError', 'out-of-range'),
+      yield* brandResult(DyeColorChannel.result(input[2]), 'dyed_color[2]', input[2], 'RangeError', 'out-of-range'),
     ]
     return Object.freeze(channels)
   })

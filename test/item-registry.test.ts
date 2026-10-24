@@ -671,7 +671,7 @@ describe('item registry', () => {
     })),
   )
 
-  it('returns failures for byte inputs that change or throw while being read', () => {
+  it('returns failures for hostile byte inputs and brands the validated snapshot', () => {
     const revoked = Proxy.revocable(new Uint8Array([0, 0]), {})
     revoked.revoke()
     expectItemFailure(Reflect.apply(ItemIdBytes, undefined, [revoked.proxy]), {
@@ -680,17 +680,19 @@ describe('item registry', () => {
     })
 
     let reads = 0
-    const changesAfterValidation = {
+    const changesAfterValidation = new Proxy({
       slice: () => {
         reads += 1
         if (reads === 1) return new Uint8Array([0, itemIdOf('stone')])
-        throw new Error('hostile')
+        return new Uint8Array([0, 0xff])
       },
-    }
-    expectItemFailure(Reflect.apply(ItemIdBytes, undefined, [changesAfterValidation]), {
-      _tag: 'ItemValidationFailure', field: 'bytes', reason: 'hostile-input',
-      message: 'Unable to read ItemIdBytes input',
+    }, {})
+    const changingResult = Reflect.apply(ItemIdBytes, undefined, [changesAfterValidation])
+    expect(changingResult).toMatchObject({
+      _tag: 'Success',
+      success: new Uint8Array([0, itemIdOf('stone')]),
     })
+    expect(reads).toBe(1)
 
     const missingByte = { slice: () => ({ length: 2 }) }
     expectItemFailure(Reflect.apply(ItemIdBytes, undefined, [missingByte]), {
