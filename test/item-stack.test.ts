@@ -168,6 +168,10 @@ describe("canonical item stacks", () => {
       _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "count",
       message: "Item stack count must be a number, received 1", value: "1",
     });
+    expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 0), {
+      _tag: "ItemValidationFailure", kind: "RangeError", reason: "out-of-range", field: "count",
+      message: "Item stack count for stone must be an integer in [1, 64], received 0", value: 0,
+    });
     expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 1, null), {
       _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "options",
       message: "Item stack options must be a non-null object", value: null,

@@ -288,8 +288,18 @@ describe("data-pack registry", () => {
       decodeNumber,
     ));
     expect(invalidFormat).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-layer' });
+    const outOfRangeFormat = resultFailure(dataPackLayerFromUnknown(
+      { ...validLayer, format: -0.1 },
+      decodeNumber,
+    ));
+    expect(outOfRangeFormat).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-format' });
     const invalidPriority = resultFailure(dataPackLayerFromUnknown({ ...validLayer, priority: "2" }, decodeNumber));
     expect(invalidPriority).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-layer' });
+    const outOfRangePriority = resultFailure(dataPackLayerFromUnknown(
+      { ...validLayer, priority: 1.5 },
+      decodeNumber,
+    ));
+    expect(outOfRangePriority).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-priority' });
     const invalidEntries = resultFailure(dataPackLayerFromUnknown({ ...validLayer, entries: {} }, decodeNumber));
     expect(invalidEntries).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-layer' });
     const invalidEntryId = resultFailure(dataPackLayerFromUnknown(
