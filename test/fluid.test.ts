@@ -11,7 +11,7 @@ import {
   fluidKindOfBlockId,
   SOURCE_FLUID_LEVEL,
 } from '../src/domain/block/fluid'
-import { optionValue } from './block-result-helpers'
+import { optionValue, resultValue } from './block-result-helpers'
 
 describe('fluid data', () => {
   it('exposes fluid block vocabulary and level constants', () => {
@@ -28,8 +28,8 @@ describe('fluid data', () => {
     expect(FLOWING_FLUID_LEVEL).toBe(7)
     expect(optionValue(blockIdOfFluidKind('water'))).toBe(waterId)
     expect(optionValue(blockIdOfFluidKind('lava'))).toBe(lavaId)
-    expect(fluidKindOfBlockId(waterId)).toBe('water')
-    expect(fluidKindOfBlockId(lavaId)).toBe('lava')
-    expect(fluidKindOfBlockId(optionValue(blockIdOf('air')))).toBeNull()
+    expect(resultValue(fluidKindOfBlockId(waterId))).toBe('water')
+    expect(resultValue(fluidKindOfBlockId(lavaId))).toBe('lava')
+    expect(resultValue(fluidKindOfBlockId(optionValue(blockIdOf('air'))))).toBeNull()
   })
 })

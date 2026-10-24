@@ -38,7 +38,7 @@ import {
   transmitsLight as transmitsLightResult,
 } from '../src/domain/block/block-registry'
 import type { BlockRegistryResolutionFailure } from '../src/domain/block/block-registry-indexes'
-import { optionValue, resultValue } from './block-result-helpers'
+import { optionValue, resultFailure, resultValue } from './block-result-helpers'
 const number = Number
 
 const blockIdOf = (type: Parameters<typeof blockIdOfOption>[0]) => optionValue(blockIdOfOption(type))

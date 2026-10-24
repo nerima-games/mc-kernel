@@ -70,7 +70,7 @@ describe('BlockPositionKey', () => {
 
   it('rejects non-string values at the unknown-input boundary', () =>
     Effect.runPromise(Effect.sync(() => {
-      for (const value of [null, 0, {}]) {
+      for (const value of [undefined, null, 0, {}]) {
         expect(isBlockPositionKey(value)).toBe(false)
         expect(decodeBlockPositionKey(value)).toBeUndefined()
         const decoded = parseBlockPositionKey(value)

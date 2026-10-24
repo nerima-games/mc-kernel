@@ -29,10 +29,16 @@ import {
   type BlockPropertyName,
   type BlockPropertyOverrides,
 } from './block-property-data.js'
-import { HARVEST_TIERS, HARVEST_TOOL_CATEGORIES } from './block-harvest-data.js'
+import {
+  HARVEST_TIERS,
+  HARVEST_TOOL_CATEGORIES,
+  type BlockDropRule,
+  type HarvestToolRequirement,
+} from './block-harvest-data.js'
+import type { SupportRule } from './block-support-data.js'
 import { isBlockType } from './block-type.js'
 import { isItemType } from '../item/item-type.js'
-import { MAX_STACK_COUNT } from '../time/quantities.js'
+import { MAX_STACK_COUNT, StackCount } from '../time/quantities.js'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -67,14 +73,14 @@ const assertKnownKeys = (
   return Result.succeed(undefined)
 }
 
-const assertFiniteNonNegative = (name: string, value: unknown): Result.Result<void, BlockPropertyFailure> => {
+const assertFiniteNonNegative = (name: string, value: unknown): Result.Result<number, BlockPropertyFailure> => {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     return failure('range', `${name} must be a finite number greater than or equal to zero`)
   }
-  return Result.succeed(undefined)
+  return Result.succeed(value)
 }
 
-const assertHardness = (value: unknown): Result.Result<void, BlockPropertyFailure> => {
+const assertHardness = (value: unknown): Result.Result<number, BlockPropertyFailure> => {
   if (
     typeof value !== 'number' ||
     !Number.isFinite(value) ||
@@ -85,43 +91,68 @@ const assertHardness = (value: unknown): Result.Result<void, BlockPropertyFailur
       'block property hardness must be a finite number greater than or equal to zero or -1',
     )
   }
-  return Result.succeed(undefined)
+  return Result.succeed(value)
 }
 
-const assertBlastResistance = (value: unknown): Result.Result<void, BlockPropertyFailure> => {
+const assertBlastResistance = (value: unknown): Result.Result<number, BlockPropertyFailure> => {
   if (typeof value !== 'number' || Number.isNaN(value) || value < 0) {
     return failure('range', 'block property blastResistance must be a non-negative number or Infinity')
   }
-  return Result.succeed(undefined)
+  return Result.succeed(value)
 }
 
-const assertBoolean = (name: string, value: unknown): Result.Result<void, BlockPropertyFailure> => {
+const assertBoolean = (name: string, value: unknown): Result.Result<boolean, BlockPropertyFailure> => {
   if (typeof value !== 'boolean') {
     return failure('type', `${name} must be a boolean`)
   }
-  return Result.succeed(undefined)
+  return Result.succeed(value)
 }
 
-const validateHarvestToolRequirement = (value: unknown): Result.Result<void, BlockPropertyFailure> =>
+const propertyBrandFailure = (name: string): BlockPropertyFailure => ({
+  _tag: 'BlockPropertyFailure',
+  reason: 'range',
+  message: `block property ${name} is outside its allowed range`,
+})
+
+const brandedProperty = <A>(
+  value: Result.Result<A, unknown>,
+  name: string,
+): Result.Result<A, BlockPropertyFailure> => Result.mapError(value, () => propertyBrandFailure(name))
+
+const validateCategoricalValue = <const T extends ReadonlyArray<string>>(
+  values: T,
+  value: unknown,
+  name: string,
+): Result.Result<T[number] | undefined, BlockPropertyFailure> => {
+  if (value === undefined) return Result.succeed(undefined)
+  if (!isOneOf(values, value)) return failure('type', `unknown block property ${name} ${String(value)}`)
+  return Result.succeed(value)
+}
+
+const validateHarvestToolRequirement = (
+  value: unknown,
+): Result.Result<HarvestToolRequirement, BlockPropertyFailure> =>
   Result.gen(function* () {
     if (!isRecord(value)) {
       return yield* failure('type', 'block property harvestTool must be an object')
     }
     yield* assertKnownKeys(value, ['category', 'minTier'], 'block property harvestTool field')
 
-    if (!isOneOf(HARVEST_TOOL_CATEGORIES, value['category'])) {
+    const category = value['category']
+    if (!isOneOf(HARVEST_TOOL_CATEGORIES, category)) {
       return yield* failure(
         'type',
-        `unknown block property harvestTool category ${String(value['category'])}`,
+        `unknown block property harvestTool category ${String(category)}`,
       )
     }
-    if (!isOneOf(HARVEST_TIERS, value['minTier'])) {
-      return yield* failure('type', `unknown block property harvestTool tier ${String(value['minTier'])}`)
+    const minTier = value['minTier']
+    if (!isOneOf(HARVEST_TIERS, minTier)) {
+      return yield* failure('type', `unknown block property harvestTool tier ${String(minTier)}`)
     }
-    return undefined
+    return { category, minTier }
   })
 
-const validateDropRule = (value: unknown): Result.Result<void, BlockPropertyFailure> =>
+const validateDropRule = (value: unknown): Result.Result<BlockDropRule, BlockPropertyFailure> =>
   Result.gen(function* () {
     if (!isRecord(value)) {
       return yield* failure('type', 'block property drops must be an object')
@@ -132,7 +163,8 @@ const validateDropRule = (value: unknown): Result.Result<void, BlockPropertyFail
       'block property drops field',
     )
 
-    if (value['item'] !== 'self' && !isItemType(value['item'])) {
+    const item = value['item']
+    if (item !== 'self' && !isItemType(item)) {
       return yield* failure('type', 'block property drops item must be a registered ItemType or self')
     }
     const silkTouchItem = value['silkTouchItem']
@@ -140,23 +172,31 @@ const validateDropRule = (value: unknown): Result.Result<void, BlockPropertyFail
       return yield* failure('type', 'block property drops silkTouchItem must be a registered ItemType')
     }
     const count = value['count']
-    if (
-      typeof count !== 'number' ||
-      !Number.isInteger(count) ||
-      count < 1 ||
-      count > MAX_STACK_COUNT
-    ) {
+    if (typeof count !== 'number') {
       return yield* failure(
         'range',
         `block property drops count must be an integer in [1, ${MAX_STACK_COUNT}]`,
       )
     }
-    yield* assertBoolean('block property drops requiresSilkTouch', value['requiresSilkTouch'])
-    yield* assertBoolean('block property drops affectedByFortune', value['affectedByFortune'])
-    return undefined
+    const requiresSilkTouch = yield* assertBoolean(
+      'block property drops requiresSilkTouch',
+      value['requiresSilkTouch'],
+    )
+    const affectedByFortune = yield* assertBoolean(
+      'block property drops affectedByFortune',
+      value['affectedByFortune'],
+    )
+    const stackCount = yield* brandedProperty(StackCount.result(count), 'drops.count')
+    return {
+      item,
+      ...(silkTouchItem === undefined ? {} : { silkTouchItem }),
+      count: stackCount,
+      requiresSilkTouch,
+      affectedByFortune,
+    }
   })
 
-const validateSupportRule = (value: unknown): Result.Result<void, BlockPropertyFailure> =>
+const validateSupportRule = (value: unknown): Result.Result<SupportRule, BlockPropertyFailure> =>
   Result.gen(function* () {
     if (!isRecord(value)) {
       return yield* failure('type', 'block property supportRule must be an object')
@@ -165,7 +205,7 @@ const validateSupportRule = (value: unknown): Result.Result<void, BlockPropertyF
     const kind = value['kind']
     if (kind === 'none' || kind === 'anySupporting') {
       yield* assertKnownKeys(value, ['kind'], 'block property supportRule field')
-      return undefined
+      return { kind }
     }
 
     if (kind === 'oneOf') {
@@ -177,91 +217,18 @@ const validateSupportRule = (value: unknown): Result.Result<void, BlockPropertyF
       if (!blocks.every(isBlockType)) {
         return yield* failure('type', 'block property supportRule contains an unknown block type')
       }
-      return undefined
+      return { kind, blocks }
     }
 
     return yield* failure('type', `unknown block property supportRule kind ${String(kind)}`)
   })
 
-const validateCategoricalProperties = (
-  overrides: BlockPropertyOverrides,
-): Result.Result<void, BlockPropertyFailure> => {
-  if (overrides.opacity !== undefined && !isOneOf(BLOCK_OPACITIES, overrides.opacity)) {
-    return failure('type', `unknown block property opacity ${String(overrides.opacity)}`)
-  }
-  if (overrides.lightEmission !== undefined && !isLightLevel(overrides.lightEmission)) {
-    return failure(
-      'range',
-      `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${overrides.lightEmission}`,
-    )
-  }
-  if (overrides.fluid !== undefined && !isOneOf(FLUID_KINDS, overrides.fluid)) {
-    return failure('type', `unknown block property fluid ${String(overrides.fluid)}`)
-  }
-  if (overrides.collisionShape !== undefined && !isOneOf(COLLISION_SHAPES, overrides.collisionShape)) {
-    return failure('type', `unknown block property collisionShape ${String(overrides.collisionShape)}`)
-  }
-  if (overrides.renderKind !== undefined && !isOneOf(RENDER_KINDS, overrides.renderKind)) {
-    return failure('type', `unknown block property renderKind ${String(overrides.renderKind)}`)
-  }
-  if (overrides.footstepMaterial !== undefined && !isOneOf(FOOTSTEP_MATERIALS, overrides.footstepMaterial)) {
-    return failure('type', `unknown block property footstepMaterial ${String(overrides.footstepMaterial)}`)
-  }
-  if (overrides.railKind !== undefined && !isOneOf(RAIL_KINDS, overrides.railKind)) {
-    return failure('type', `unknown block property railKind ${String(overrides.railKind)}`)
-  }
-  return Result.succeed(undefined)
-}
+type CategoricalBlockPropertyOverrides = Pick<
+  BlockPropertyOverrides,
+  'opacity' | 'fluid' | 'collisionShape' | 'renderKind' | 'footstepMaterial' | 'railKind'
+> & { readonly lightEmission?: number }
 
-const validateFriction = (value: number): Result.Result<void, BlockPropertyFailure> => {
-  if (value < 0 || value > 1) {
-    return failure('range', 'block property friction must be a finite number in [0, 1]')
-  }
-  return Result.succeed(undefined)
-}
-
-const validateNumericProperties = (
-  overrides: BlockPropertyOverrides,
-): Result.Result<void, BlockPropertyFailure> =>
-  Result.gen(function* () {
-    if (overrides.hardness !== undefined) yield* assertHardness(overrides.hardness)
-    if (overrides.friction !== undefined) {
-      yield* assertFiniteNonNegative('block property friction', overrides.friction)
-      yield* validateFriction(overrides.friction)
-    }
-    if (overrides.contactDamage !== undefined) {
-      yield* assertFiniteNonNegative('block property contactDamage', overrides.contactDamage)
-    }
-    if (overrides.movementDrag !== undefined) {
-      yield* assertFiniteNonNegative('block property movementDrag', overrides.movementDrag)
-    }
-    if (overrides.xpOnBreak !== undefined) {
-      yield* assertFiniteNonNegative('block property xpOnBreak', overrides.xpOnBreak)
-    }
-    if (overrides.blastResistance !== undefined) yield* assertBlastResistance(overrides.blastResistance)
-    return undefined
-  })
-
-const validateStructuredProperties = (
-  overrides: BlockPropertyOverrides,
-): Result.Result<void, BlockPropertyFailure> =>
-  Result.gen(function* () {
-    if (overrides.harvestTool !== undefined) yield* validateHarvestToolRequirement(overrides.harvestTool)
-    if (overrides.drops !== undefined) yield* validateDropRule(overrides.drops)
-    if (overrides.supportRule !== undefined) yield* validateSupportRule(overrides.supportRule)
-    return undefined
-  })
-
-type RawNumericBlockPropertyOverrides =
-  | 'lightEmission'
-  | 'hardness'
-  | 'friction'
-  | 'blastResistance'
-  | 'contactDamage'
-  | 'movementDrag'
-  | 'xpOnBreak'
-
-type ValidatedBlockPropertyOverrides = Omit<BlockPropertyOverrides, RawNumericBlockPropertyOverrides> & {
+type RawNumericBlockPropertyOverrides = {
   readonly lightEmission?: number
   readonly hardness?: number
   readonly friction?: number
@@ -271,29 +238,135 @@ type ValidatedBlockPropertyOverrides = Omit<BlockPropertyOverrides, RawNumericBl
   readonly xpOnBreak?: number
 }
 
+type StructuredBlockPropertyOverrides = Pick<BlockPropertyOverrides, 'harvestTool' | 'drops' | 'supportRule'>
+
+type ValidatedBlockPropertyOverrides = CategoricalBlockPropertyOverrides &
+  RawNumericBlockPropertyOverrides &
+  StructuredBlockPropertyOverrides
+
+const validateCategoricalProperties = (
+  overrides: Record<string, unknown>,
+): Result.Result<CategoricalBlockPropertyOverrides, BlockPropertyFailure> =>
+  Result.gen(function* () {
+    const opacity = yield* validateCategoricalValue(BLOCK_OPACITIES, overrides['opacity'], 'opacity')
+    const lightEmission = overrides['lightEmission']
+    if (lightEmission !== undefined && !isLightLevel(lightEmission)) {
+      return yield* failure(
+        'range',
+        `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${lightEmission}`,
+      )
+    }
+    const fluid = yield* validateCategoricalValue(FLUID_KINDS, overrides['fluid'], 'fluid')
+    const collisionShape = yield* validateCategoricalValue(
+      COLLISION_SHAPES,
+      overrides['collisionShape'],
+      'collisionShape',
+    )
+    const renderKind = yield* validateCategoricalValue(RENDER_KINDS, overrides['renderKind'], 'renderKind')
+    const footstepMaterial = yield* validateCategoricalValue(
+      FOOTSTEP_MATERIALS,
+      overrides['footstepMaterial'],
+      'footstepMaterial',
+    )
+    const railKind = yield* validateCategoricalValue(RAIL_KINDS, overrides['railKind'], 'railKind')
+    return {
+      ...(opacity === undefined ? {} : { opacity }),
+      ...(lightEmission === undefined ? {} : { lightEmission }),
+      ...(fluid === undefined ? {} : { fluid }),
+      ...(collisionShape === undefined ? {} : { collisionShape }),
+      ...(renderKind === undefined ? {} : { renderKind }),
+      ...(footstepMaterial === undefined ? {} : { footstepMaterial }),
+      ...(railKind === undefined ? {} : { railKind }),
+    }
+  })
+
+const validateFriction = (value: number): Result.Result<void, BlockPropertyFailure> => {
+  if (value < 0 || value > 1) {
+    return failure('range', 'block property friction must be a finite number in [0, 1]')
+  }
+  return Result.succeed(undefined)
+}
+
+const validateNumericProperties = (
+  overrides: Record<string, unknown>,
+): Result.Result<RawNumericBlockPropertyOverrides, BlockPropertyFailure> =>
+  Result.gen(function* () {
+    const hardnessInput = overrides['hardness']
+    const hardness = hardnessInput === undefined ? undefined : yield* assertHardness(hardnessInput)
+    const frictionInput = overrides['friction']
+    const friction = frictionInput === undefined
+      ? undefined
+      : yield* assertFiniteNonNegative('block property friction', frictionInput)
+    const frictionValidation = friction === undefined ? Result.succeed(undefined) : validateFriction(friction)
+    yield* frictionValidation
+    const blastResistanceInput = overrides['blastResistance']
+    const blastResistance = blastResistanceInput === undefined
+      ? undefined
+      : yield* assertBlastResistance(blastResistanceInput)
+    const contactDamageInput = overrides['contactDamage']
+    const contactDamage = contactDamageInput === undefined
+      ? undefined
+      : yield* assertFiniteNonNegative('block property contactDamage', contactDamageInput)
+    const movementDragInput = overrides['movementDrag']
+    const movementDrag = movementDragInput === undefined
+      ? undefined
+      : yield* assertFiniteNonNegative('block property movementDrag', movementDragInput)
+    const xpOnBreakInput = overrides['xpOnBreak']
+    const xpOnBreak = xpOnBreakInput === undefined
+      ? undefined
+      : yield* assertFiniteNonNegative('block property xpOnBreak', xpOnBreakInput)
+    return {
+      ...(hardness === undefined ? {} : { hardness }),
+      ...(friction === undefined ? {} : { friction }),
+      ...(blastResistance === undefined ? {} : { blastResistance }),
+      ...(contactDamage === undefined ? {} : { contactDamage }),
+      ...(movementDrag === undefined ? {} : { movementDrag }),
+      ...(xpOnBreak === undefined ? {} : { xpOnBreak }),
+    }
+  })
+
+const validateStructuredProperties = (
+  overrides: Record<string, unknown>,
+): Result.Result<StructuredBlockPropertyOverrides, BlockPropertyFailure> =>
+  Result.gen(function* () {
+    const harvestToolInput = overrides['harvestTool']
+    const harvestTool = harvestToolInput === undefined
+      ? undefined
+      : yield* validateHarvestToolRequirement(harvestToolInput)
+    const hasDrops = Object.hasOwn(overrides, 'drops')
+    const dropsInput = overrides['drops']
+    const drops = dropsInput === undefined ? undefined : yield* validateDropRule(dropsInput)
+    const supportRuleInput = overrides['supportRule']
+    const supportRule = supportRuleInput === undefined
+      ? undefined
+      : yield* validateSupportRule(supportRuleInput)
+    return {
+      ...(harvestTool === undefined ? {} : { harvestTool }),
+      ...(hasDrops ? { drops } : {}),
+      ...(supportRule === undefined ? {} : { supportRule }),
+    }
+  })
+
 function validateBlockPropertyOverrides(
   overrides: unknown,
 ): Result.Result<ValidatedBlockPropertyOverrides, BlockPropertyFailure> {
   if (!isRecord(overrides)) {
     return failure('type', 'block property overrides must be an object')
   }
-  return Result.map(
-    Result.gen(function* () {
-      yield* assertKnownKeys(overrides, BLOCK_PROPERTY_NAMES, 'block property')
-      yield* validateCategoricalProperties(overrides as BlockPropertyOverrides)
-      yield* validateNumericProperties(overrides as BlockPropertyOverrides)
-      yield* validateStructuredProperties(overrides as BlockPropertyOverrides)
-      return undefined
-    }),
-    () => overrides as ValidatedBlockPropertyOverrides,
-  )
+  return Result.gen(function* () {
+    yield* assertKnownKeys(overrides, BLOCK_PROPERTY_NAMES, 'block property')
+    const categorical = yield* validateCategoricalProperties(overrides)
+    const numeric = yield* validateNumericProperties(overrides)
+    const structured = yield* validateStructuredProperties(overrides)
+    return { ...categorical, ...numeric, ...structured }
+  })
 }
 
 /** Validate external or table data and brand its numeric property values. */
 export const normalizeBlockPropertyOverrides = (
   overrides: unknown,
 ): Result.Result<BlockPropertyOverrides, BlockPropertyFailure> =>
-  Result.map(validateBlockPropertyOverrides(overrides), (validated) => {
+  Result.flatMap(validateBlockPropertyOverrides(overrides), (validated) => Result.gen(function* () {
     const {
       lightEmission,
       hardness,
@@ -305,24 +378,39 @@ export const normalizeBlockPropertyOverrides = (
       ...otherOverrides
     } = validated
 
+    const brandedLightEmission = lightEmission === undefined
+      ? undefined
+      : yield* brandedProperty(LightLevel.result(lightEmission), 'lightEmission')
+    const brandedHardness = hardness === undefined
+      ? undefined
+      : yield* brandedProperty(BlockHardness.result(hardness), 'hardness')
+    const brandedFriction = friction === undefined
+      ? undefined
+      : yield* brandedProperty(BlockFriction.result(friction), 'friction')
+    const brandedBlastResistance = blastResistance === undefined
+      ? undefined
+      : yield* brandedProperty(BlockBlastResistance.result(blastResistance), 'blastResistance')
+    const brandedContactDamage = contactDamage === undefined
+      ? undefined
+      : yield* brandedProperty(BlockContactDamage.result(contactDamage), 'contactDamage')
+    const brandedMovementDrag = movementDrag === undefined
+      ? undefined
+      : yield* brandedProperty(BlockMovementDrag.result(movementDrag), 'movementDrag')
+    const brandedXpOnBreak = xpOnBreak === undefined
+      ? undefined
+      : yield* brandedProperty(BlockExperiencePoints.result(xpOnBreak), 'xpOnBreak')
+
     return {
       ...otherOverrides,
-      ...(lightEmission === undefined ? {} : { lightEmission: LightLevel(lightEmission) }),
-      ...(hardness === undefined ? {} : { hardness: BlockHardness(hardness) }),
-      ...(friction === undefined ? {} : { friction: BlockFriction(friction) }),
-      ...(blastResistance === undefined
-        ? {}
-        : { blastResistance: BlockBlastResistance(blastResistance) }),
-      ...(contactDamage === undefined ? {} : { contactDamage: BlockContactDamage(contactDamage) }),
-      ...(movementDrag === undefined ? {} : { movementDrag: BlockMovementDrag(movementDrag) }),
-      ...(xpOnBreak === undefined ? {} : { xpOnBreak: BlockExperiencePoints(xpOnBreak) }),
+      ...(brandedLightEmission === undefined ? {} : { lightEmission: brandedLightEmission }),
+      ...(brandedHardness === undefined ? {} : { hardness: brandedHardness }),
+      ...(brandedFriction === undefined ? {} : { friction: brandedFriction }),
+      ...(brandedBlastResistance === undefined ? {} : { blastResistance: brandedBlastResistance }),
+      ...(brandedContactDamage === undefined ? {} : { contactDamage: brandedContactDamage }),
+      ...(brandedMovementDrag === undefined ? {} : { movementDrag: brandedMovementDrag }),
+      ...(brandedXpOnBreak === undefined ? {} : { xpOnBreak: brandedXpOnBreak }),
     }
-  })
-
-const resolveLightEmission = (overrides: BlockPropertyOverrides): LightLevel => {
-  const lightEmission = overrides.lightEmission
-  return lightEmission ?? BLOCK_PROPERTY_DEFAULTS.lightEmission
-}
+  }))
 
 /** Fill in defaults for every property the overrides do not mention. */
 export const resolveBlockProperties = (
@@ -331,7 +419,7 @@ export const resolveBlockProperties = (
   Result.map(normalizeBlockPropertyOverrides(overrides), (validated) => ({
     ...BLOCK_PROPERTY_DEFAULTS,
     ...validated,
-    lightEmission: resolveLightEmission(validated),
+    lightEmission: validated.lightEmission ?? BLOCK_PROPERTY_DEFAULTS.lightEmission,
   }))
 
 const isBlockPropertyName = (value: unknown): value is BlockPropertyName =>
@@ -358,7 +446,7 @@ export function propertyOf(
     const resolved: BlockProperties = {
       ...BLOCK_PROPERTY_DEFAULTS,
       ...validated,
-      lightEmission: resolveLightEmission(validated),
+      lightEmission: validated.lightEmission ?? BLOCK_PROPERTY_DEFAULTS.lightEmission,
     }
     return resolved[name]
   })

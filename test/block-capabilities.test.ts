@@ -9,7 +9,7 @@ import {
 } from '../src/domain/block/block-capabilities'
 import {
   BLOCK_IDS,
-  type BlockId,
+  BlockId,
   blockIdOf as blockIdOption,
   blockTypeOfId as blockTypeOfIdResult,
   capabilitiesOfBlockId as capabilitiesOfBlockIdResult,
@@ -27,8 +27,8 @@ const resolveBlockCapabilities = (overrides: BlockCapabilityOverrides) =>
   resultValue(resolveBlockCapabilitiesResult(overrides))
 const blockCapabilitiesOf = (definition: BlockDefinition) => resultValue(blockCapabilitiesOfResult(definition))
 const blockIdOf = (type: Parameters<typeof blockIdOption>[0]) => optionValue(blockIdOption(type))
-const blockTypeOfId = (id: number) => resultValue(blockTypeOfIdResult(id))
-const capabilitiesOfBlockId = (id: number) => resultValue(capabilitiesOfBlockIdResult(id))
+const blockTypeOfId = (id: number) => resultValue(blockTypeOfIdResult(resultValue(BlockId.result(id))))
+const capabilitiesOfBlockId = (id: number) => resultValue(capabilitiesOfBlockIdResult(resultValue(BlockId.result(id))))
 const capabilityOfBlockId = (...args: Parameters<typeof capabilityOfBlockIdResult>) =>
   resultValue(capabilityOfBlockIdResult(...args))
 
@@ -296,6 +296,19 @@ describe('resolveBlockCapabilities', () => {
   it('resolving an empty override set reproduces the defaults exactly', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(resolveBlockCapabilities({})).toStrictEqual({ ...BLOCK_CAPABILITY_DEFAULTS })
+    })),
+  )
+
+  it('treats an explicitly undefined override as omitted', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const malformed = { passable: undefined }
+
+      expect(resultValue(Reflect.apply(resolveBlockCapabilitiesResult, undefined, [malformed]))).toStrictEqual({
+        ...BLOCK_CAPABILITY_DEFAULTS,
+      })
+      expect(resultValue(Reflect.apply(capabilityOfResult, undefined, [malformed, 'passable']))).toBe(
+        BLOCK_CAPABILITY_DEFAULTS.passable,
+      )
     })),
   )
 

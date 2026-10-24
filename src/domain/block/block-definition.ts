@@ -100,7 +100,7 @@ const validateKnownDefinitionKeys = (
 }
 
 function validateBlockDefinition(
-  definition: unknown,
+  definition: BlockDefinition,
 ): Result.Result<BlockDefinition, BlockDefinitionFailure> {
   if (!isRecord(definition)) {
     return failure('invalid-shape', 'block definition must be an object')
@@ -117,7 +117,7 @@ function validateBlockDefinition(
   if (definition['properties'] !== undefined && !isRecord(definition['properties'])) {
     return failure('invalid-shape', 'BlockDefinition.properties must be an object')
   }
-  return Result.succeed(definition as BlockDefinition)
+  return Result.succeed(definition)
 }
 
 /** Resolve a definition's capability flags, defaulting an absent field to the defaults. */

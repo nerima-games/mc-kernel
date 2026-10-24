@@ -79,12 +79,12 @@ const failure = (
   message: string,
 ): Result.Result<never, LightVolumeFailure> => Result.fail({ _tag: 'LightVolumeFailure', reason, message })
 
-export const LightVolumeHeight = (value: number): Result.Result<LightVolumeHeight, LightVolumeFailure> => {
-  if (!Number.isInteger(value) || value < MIN_VOLUME_HEIGHT || value > MAX_VOLUME_HEIGHT) {
-    return failure('invalid-height', lightVolumeHeightMessage(value))
-  }
-  return Result.succeed(LightVolumeHeightBrand(value))
-}
+export const LightVolumeHeight = (value: number): Result.Result<LightVolumeHeight, LightVolumeFailure> =>
+  Result.mapError(LightVolumeHeightBrand.result(value), (): LightVolumeFailure => ({
+    _tag: 'LightVolumeFailure',
+    reason: 'invalid-height',
+    message: lightVolumeHeightMessage(value),
+  }))
 
 export const lightVolumeCellCount = (height: LightVolumeHeight): LightChannelLength =>
   LightChannelLength(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * height)

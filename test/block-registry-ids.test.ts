@@ -21,15 +21,15 @@ import { optionValue, resultFailure, resultValue } from './block-result-helpers'
 
 const number = Number
 const blockIdOf = (type: BlockType) => optionValue(blockIdOfOption(type))
-const blockTypeOfId = (id: number) => resultValue(blockTypeOfIdResult(id))
-const isKnownBlockId = (id: number) => resultValue(isKnownBlockIdResult(id))
-const resolvedBlockOfId = (id: number) => resultValue(resolvedBlockOfIdResult(id))
+const blockTypeOfId = (id: number) => resultValue(blockTypeOfIdResult(resultValue(BlockId.result(id))))
+const isKnownBlockId = (id: number) => resultValue(isKnownBlockIdResult(resultValue(BlockId.result(id))))
+const resolvedBlockOfId = (id: number) => resultValue(resolvedBlockOfIdResult(resultValue(BlockId.result(id))))
 
 describe('id assignment is permanent', () => {
   it('omits optional properties when normalizing propertyless registry input', () => {
     const input = { id: AIR_BLOCK_ID, definition: { type: 'air' as const } }
 
-    expect(normalizeBlockRegistryEntry(input)).toEqual(input)
+    expect(resultValue(normalizeBlockRegistryEntry(input))).toEqual(input)
   })
 
   /**

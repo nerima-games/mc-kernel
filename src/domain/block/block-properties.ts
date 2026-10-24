@@ -6,3 +6,4 @@
  */
 export * from './block-property-data.js'
 export { propertyOf, resolveBlockProperties } from './block-property-validation.js'
+export type { BlockPropertyFailure } from './block-property-validation.js'

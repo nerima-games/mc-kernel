@@ -33,13 +33,21 @@ function validateOverrideKeys(
     return failure('not-object', 'block capability overrides must be an object')
   }
 
+  const validated: Partial<Record<BlockCapabilityFlag, boolean>> = {}
   for (const key of Object.keys(overrides)) {
-    if (!BLOCK_CAPABILITY_FLAGS.some((flag) => flag === key)) {
+    const flag = BLOCK_CAPABILITY_FLAGS.find((candidate) => candidate === key)
+    if (flag === undefined) {
       return failure('unknown-key', `unknown block capability ${key}`)
     }
+    const value = overrides[key]
+    if (value === undefined) continue
+    if (typeof value !== 'boolean') {
+      return failure('not-boolean', `block capability ${flag} must be a boolean`)
+    }
+    validated[flag] = value
   }
 
-  return Result.succeed(overrides as BlockCapabilityOverrides)
+  return Result.succeed(validated)
 }
 
 /**
@@ -59,9 +67,6 @@ export const resolveBlockCapabilities = (
     for (const flag of BLOCK_CAPABILITY_FLAGS) {
       const override = validated[flag]
       if (typeof override !== 'undefined') {
-        if (typeof override !== 'boolean') {
-          return failure('not-boolean', `block capability ${flag} must be a boolean`)
-        }
         resolved[flag] = override
       }
     }
@@ -81,9 +86,6 @@ export const capabilityOf = (
     const override = validated[flag]
     if (typeof override === 'undefined') {
       return Result.succeed(BLOCK_CAPABILITY_DEFAULTS[flag])
-    }
-    if (typeof override !== 'boolean') {
-      return failure('not-boolean', `block capability ${flag} must be a boolean`)
     }
     return Result.succeed(override)
   })

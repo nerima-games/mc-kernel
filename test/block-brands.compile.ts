@@ -29,6 +29,7 @@ import {
   lightVolumeCellCount,
   lightVolumeIndexOf,
 } from '../src/domain/block/light'
+import { optionValue, resultValue } from './block-result-helpers'
 
 const hardness = BlockHardness(1)
 const friction = BlockFriction(0.5)
@@ -36,7 +37,7 @@ const blastResistance = BlockBlastResistance(10)
 const contactDamage = BlockContactDamage(1)
 const movementDrag = BlockMovementDrag(0.2)
 const experience = BlockExperiencePoints(5)
-const resolvedProperties: BlockProperties = resolveBlockProperties({
+const resolvedProperties: BlockProperties = resultValue(resolveBlockProperties({
   blastResistance,
   contactDamage,
   friction,
@@ -44,28 +45,28 @@ const resolvedProperties: BlockProperties = resolveBlockProperties({
   lightEmission: LightLevel(4),
   movementDrag,
   xpOnBreak: experience,
-})
+}))
 const clampedLightLevel = clampLightLevel(LightLevelCandidate(4))
 
-const stoneId = blockIdOf('stone')
-const stoneType = blockTypeOfId(stoneId)
-const empty = isEmpty(BlockId(0))
-const state = BlockState.fromBytes(new Uint8Array([stoneId]))
+const stoneId = optionValue(blockIdOf('stone'))
+const stoneType = resultValue(blockTypeOfId(stoneId))
+const empty = isEmpty(resultValue(BlockId.result(0)))
+const state = resultValue(BlockState.fromBytes(new Uint8Array([stoneId])))
 const stateLength: BlockStateLength = state.length
-const stateId: BlockId = state.get(BlockStateIndex(0))
-state.set(BlockStateIndex(0), stoneId)
-state.copyTo(new Uint8Array(2), BlockStateByteOffset(0))
-BlockState.fromElementBytes(new Uint8Array(2), BlockStateLength(1))
+const stateId: BlockId = resultValue(state.get(BlockStateIndex(0)))
+resultValue(state.set(BlockStateIndex(0), stoneId))
+resultValue(state.copyTo(new Uint8Array(2), BlockStateByteOffset(0)))
+resultValue(BlockState.fromElementBytes(new Uint8Array(2), BlockStateLength(1)))
 
-const channel = lightChannel(new Uint8Array([0]))
+const channel = resultValue(lightChannel(new Uint8Array([0])))
 const channelLength: LightChannelLength = channel.length
 const channelValue = channel.at(LightChannelIndex(0))
 channel.copyTo(new Uint8Array(1), LightChannelByteOffset(0))
-const volume = lightVolume(LightVolumeHeight(1), new Uint8Array(256), new Uint8Array(256))
+const volume = resultValue(lightVolume(resultValue(LightVolumeHeight(1)), new Uint8Array(256), new Uint8Array(256)))
 const volumeHeight: LightVolumeHeight = volume.height
 const volumeCellCount: LightChannelLength = lightVolumeCellCount(volume.height)
 const local: LocalBlockCoord = { lx: LocalAxis(0), ly: BlockAxis(0), lz: LocalAxis(0) }
-const volumeIndex: LightChannelIndex = lightVolumeIndexOf(volume.height, local)
+const volumeIndex: LightChannelIndex = resultValue(lightVolumeIndexOf(volume.height, local))
 const container: StorageContainer = {
   capacity: ContainerSlotCount(1),
   kind: 'chest',

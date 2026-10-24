@@ -30,6 +30,10 @@ import {
   blockPropertiesOf as blockPropertiesOfResult,
   resolveBlock as resolveBlockResult,
 } from '../src/domain/block/block-definition'
+import { normalizeBlockRegistryEntry, normalizeRegistryEntry } from '../src/domain/block/block-registry-entries'
+import { normalizeBlockPropertyOverrides } from '../src/domain/block/block-property-validation'
+import type { BlockRegistryEntryInput } from '../src/domain/block/block-registry-entry-input'
+import { BlockId } from '../src/domain/block/block-registry-types'
 import { describe, expect, it } from 'vitest'
 import { Effect, Result } from 'effect'
 import { expectTypeOf } from 'vitest'
@@ -319,7 +323,7 @@ describe('light level branding', () => {
       expect(resolve({ blastResistance: BlockBlastResistance(Number.POSITIVE_INFINITY) }).blastResistance).toBe(
         Number.POSITIVE_INFINITY,
       )
-      expect(resolve({ blastResistance: NO_PROPERTIES }).blastResistance).toBe(NO_PROPERTIES)
+      expect(resolve({ blastResistance: BlockBlastResistance(NO_PROPERTIES) }).blastResistance).toBe(NO_PROPERTIES)
       expectPropertyFailure(
         Reflect.apply(resolveBlockPropertiesResult, undefined, [{ blastResistance: -1 }]),
         'range',
@@ -375,7 +379,7 @@ describe('light level branding', () => {
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: null }]), 'type', 'block property drops must be an object')
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, silkTouchItem: 'future' } }]), 'type', 'block property drops silkTouchItem must be a registered ItemType')
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 'many' } }]), 'range', 'block property drops count must be an integer in [1, 99]')
-      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 0 } }]), 'range', 'block property drops count must be an integer in [1, 99]')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 0 } }]), 'range', 'block property drops.count is outside its allowed range')
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, requiresSilkTouch: 'yes' } }]), 'type', 'block property drops requiresSilkTouch must be a boolean')
 
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ supportRule: null }]), 'type', 'block property supportRule must be an object')
@@ -390,6 +394,30 @@ describe('light level branding', () => {
       expect(LightLevel(3)).toBe(3)
     })),
   )
+
+  it('normalizes block registry entries with and without property overrides', () => {
+    const withoutProperties: BlockRegistryEntryInput = { id: BlockId(0), definition: { type: 'stone' } }
+    expect(normalizeRegistryEntry(withoutProperties)).toStrictEqual(withoutProperties)
+    expect(resultValue(normalizeBlockRegistryEntry(withoutProperties))).toStrictEqual(withoutProperties)
+
+    const withProperties: BlockRegistryEntryInput = {
+      id: BlockId(1),
+      definition: { type: 'stone', properties: { friction: 0.6 } },
+    }
+    const normalized = resultValue(normalizeBlockRegistryEntry(withProperties))
+    expect(normalized.definition.properties?.friction).toBe(0.6)
+  })
+
+  it('fills a default when friction is omitted from the overrides', () => {
+    expect(resolveBlockProperties({}).friction).toBe(BLOCK_PROPERTY_DEFAULTS.friction)
+  })
+
+  it('normalizes overrides when friction is omitted', () => {
+    const normalized = normalizeBlockPropertyOverrides({})
+
+    expect(Result.isSuccess(normalized)).toBe(true)
+    if (Result.isSuccess(normalized)) expect(normalized.success.friction).toBeUndefined()
+  })
 
   it('the public constructor exposes its branded failure through Result', () =>
     Effect.runPromise(Effect.sync(() => {

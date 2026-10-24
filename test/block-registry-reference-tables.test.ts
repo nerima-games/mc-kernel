@@ -27,6 +27,7 @@ import {
   BLOCK_IDS,
   BLOCK_ID_MAX,
   BLOCK_REGISTRY,
+  BlockId,
   blockIdOf as blockIdOfOption,
   blockIdsWithCapability as blockIdsWithCapabilityResult,
   blockTypeOfId as blockTypeOfIdResult,
@@ -41,12 +42,12 @@ const number = Number
 const blockIdOf = (type: BlockType) => optionValue(blockIdOfOption(type))
 const blockIdsWithCapability = (flag: Parameters<typeof blockIdsWithCapabilityResult>[0]) =>
   optionValue(resultValue(blockIdsWithCapabilityResult(flag)))
-const blockTypeOfId = (id: number) => resultValue(blockTypeOfIdResult(id))
-const capabilitiesOfBlockId = (id: number) => resultValue(capabilitiesOfBlockIdResult(id))
+const blockTypeOfId = (id: number) => resultValue(blockTypeOfIdResult(resultValue(BlockId.result(id))))
+const capabilitiesOfBlockId = (id: number) => resultValue(capabilitiesOfBlockIdResult(resultValue(BlockId.result(id))))
 const capabilityOfBlockId = (...args: Parameters<typeof capabilityOfBlockIdResult>) =>
   resultValue(capabilityOfBlockIdResult(...args))
 const propertyOfBlockId = <K extends Parameters<typeof propertyOfBlockIdResult>[1]>(id: number, name: K) =>
-  resultValue(propertyOfBlockIdResult(id, name))
+  resultValue(propertyOfBlockIdResult(resultValue(BlockId.result(id)), name))
 
 const EXPECTED_BLOCK_TYPES: ReadonlyArray<BlockType> = [
   'air',

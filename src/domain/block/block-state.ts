@@ -1,5 +1,5 @@
 import { Brand, Result } from 'effect'
-import { BLOCK_IDS, BLOCK_ID_MAX, isKnownBlockId } from './block-registry.js'
+import { BLOCK_IDS, BLOCK_ID_MAX } from './block-registry.js'
 import { BlockId } from './block-registry-types.js'
 
 const MIN_INDEX = 0
@@ -59,10 +59,15 @@ export type BlockStateFailure = {
   readonly message: string
 }
 
+const failureValue = (
+  reason: BlockStateFailure['reason'],
+  message: string,
+): BlockStateFailure => ({ _tag: 'BlockStateFailure', reason, message })
+
 const failure = (
   reason: BlockStateFailure['reason'],
   message: string,
-): Result.Result<never, BlockStateFailure> => Result.fail({ _tag: 'BlockStateFailure', reason, message })
+): Result.Result<never, BlockStateFailure> => Result.fail(failureValue(reason, message))
 
 const validateIndex = (index: number, length: number): Result.Result<number, BlockStateFailure> => {
   if (!Number.isInteger(index) || index < MIN_INDEX || index >= length) {
@@ -74,12 +79,16 @@ const validateIndex = (index: number, length: number): Result.Result<number, Blo
   return Result.succeed(index)
 }
 
-const validateKnownBlockId = (blockId: number, index: number): Result.Result<number, BlockStateFailure> => {
-  if (!isKnownBlockId(blockId)) {
-    return failure('unknown-block-id', `Block state contains unknown block id ${blockId} at index ${index}`)
-  }
-  return Result.succeed(blockId)
-}
+const validateKnownBlockId = (id: number, index: number): Result.Result<BlockId, BlockStateFailure> =>
+  Result.flatMap(
+    Result.mapError(
+      BlockId.result(id),
+      () => failureValue('unknown-block-id', `Block state contains unknown block id ${id} at index ${index}`),
+    ),
+    (blockId) => KNOWN_BLOCK_ID_TABLE[blockId] === BLOCK_ID_ENABLED
+      ? Result.succeed(blockId)
+      : failure('unknown-block-id', `Block state contains unknown block id ${blockId} at index ${index}`),
+  )
 
 const validateCopyRange = (
   targetLength: number,
@@ -135,28 +144,32 @@ export class BlockState {
     payload: Uint8Array,
     elementCount: BlockStateLength,
   ): Result.Result<BlockState, BlockStateFailure> {
-    if (!Number.isSafeInteger(elementCount) || elementCount < MIN_INDEX) {
-      return failure(
-        'invalid-element-count',
-        `Block state element count must be a non-negative safe integer, received ${elementCount}`,
-      )
-    }
-    const validatedElementCount = BlockStateLength(elementCount)
-    if (payload.length < validatedElementCount * BYTES_PER_ELEMENT) {
-      return failure(
-        'invalid-element-count',
-        `Block state element payload must contain ${validatedElementCount * BYTES_PER_ELEMENT} bytes, received ${payload.length}`,
-      )
-    }
-    const owned = payload.slice(MIN_INDEX, validatedElementCount * BYTES_PER_ELEMENT)
-    const view = new DataView(owned.buffer, owned.byteOffset, owned.byteLength)
-    for (let index = MIN_INDEX; index < validatedElementCount; index += INDEX_INCREMENT) {
-      const value = view.getUint16(index * BYTES_PER_ELEMENT, true)
-      if (KNOWN_BLOCK_ID_TABLE[value] !== BLOCK_ID_ENABLED) {
-        return failure('unknown-block-id', `Block state contains unknown block id ${value} at index ${index}`)
+    return Result.flatMap(
+      Result.mapError(
+        BlockStateLength.result(elementCount),
+        () => failureValue(
+          'invalid-element-count',
+          `Block state element count must be a non-negative safe integer, received ${elementCount}`,
+        ),
+      ),
+      (validatedElementCount) => {
+        if (payload.length < validatedElementCount * BYTES_PER_ELEMENT) {
+          return failure(
+            'invalid-element-count',
+            `Block state element payload must contain ${validatedElementCount * BYTES_PER_ELEMENT} bytes, received ${payload.length}`,
+          )
+        }
+        const owned = payload.slice(MIN_INDEX, validatedElementCount * BYTES_PER_ELEMENT)
+        const view = new DataView(owned.buffer, owned.byteOffset, owned.byteLength)
+        for (let index = MIN_INDEX; index < validatedElementCount; index += INDEX_INCREMENT) {
+          const value = view.getUint16(index * BYTES_PER_ELEMENT, true)
+          if (KNOWN_BLOCK_ID_TABLE[value] !== BLOCK_ID_ENABLED) {
+            return failure('unknown-block-id', `Block state contains unknown block id ${value} at index ${index}`)
+          }
+        }
+        return Result.succeed(new BlockState(owned))
       }
-    }
-    return Result.succeed(new BlockState(owned))
+    )
   }
 
   private constructor(bytes: Uint8Array) {
@@ -172,9 +185,10 @@ export class BlockState {
 
   /** Read a known block id at a checked linear index. */
   get(index: BlockStateIndex): Result.Result<BlockId, BlockStateFailure> {
-    return Result.map(validateIndex(index, this.length), (checkedIndex) =>
-      BlockId(this.#view.getUint16(checkedIndex * BYTES_PER_ELEMENT, true)),
-    )
+    return Result.flatMap(validateIndex(index, this.length), (checkedIndex) => {
+      const value = this.#view.getUint16(checkedIndex * BYTES_PER_ELEMENT, true)
+      return validateKnownBlockId(value, checkedIndex)
+    })
   }
 
   /** Replace a block id after checking both the index and registry membership. */

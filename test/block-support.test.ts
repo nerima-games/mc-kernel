@@ -44,8 +44,8 @@ import { optionValue, resultFailure, resultValue } from './block-result-helpers'
 const blockIdOf = (type: BlockType) => optionValue(blockIdOfOption(type))
 const canBlockStaySupported = (...args: Parameters<typeof canBlockStaySupportedResult>) =>
   resultValue(canBlockStaySupportedResult(...args))
-const isSupportSensitiveBlockId = (id: number) => resultValue(isSupportSensitiveBlockIdResult(id))
-const supportRuleOfBlockId = (id: number) => resultValue(supportRuleOfBlockIdResult(id))
+const isSupportSensitiveBlockId = (id: BlockId) => resultValue(isSupportSensitiveBlockIdResult(id))
+const supportRuleOfBlockId = (id: BlockId) => resultValue(supportRuleOfBlockIdResult(id))
 const satisfiesSupportRule = (...args: Parameters<typeof satisfiesSupportRuleResult>) =>
   resultValue(satisfiesSupportRuleResult(...args))
 
@@ -430,9 +430,12 @@ describe('the id-keyed readings are total', () => {
         expect(canBlockStaySupported(id, blockIdOf('air'))).toBe(true)
       }
       for (const id of INVALID_BLOCK_IDS) {
-        expect(Reflect.apply(supportRuleOfBlockId, undefined, [id])).toStrictEqual(NEEDS_NO_SUPPORT)
-        expect(Reflect.apply(isSupportSensitiveBlockId, undefined, [id])).toBe(false)
-        expect(Reflect.apply(canBlockStaySupported, undefined, [id, blockIdOf('air')])).toBe(true)
+        const failure = resultFailure(BlockId.result(id))
+        expect(resultFailure(Reflect.apply(supportRuleOfBlockIdResult, undefined, [id]))).toEqual(failure)
+        expect(resultFailure(Reflect.apply(isSupportSensitiveBlockIdResult, undefined, [id]))).toEqual(failure)
+        expect(resultFailure(Reflect.apply(canBlockStaySupportedResult, undefined, [id, blockIdOf('air')]))).toEqual(
+          failure,
+        )
       }
     })),
   )

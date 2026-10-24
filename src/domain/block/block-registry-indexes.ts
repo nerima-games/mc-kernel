@@ -78,6 +78,9 @@ const failure = (
  */
 const isWithinTable = (id: number): boolean => id >= 0 && id < BLOCK_ID_TABLE_LENGTH
 
+export const blockPropertyColumnValueOrDefault = <Value>(value: Value | undefined, fallback: Value): Value =>
+  Option.fromNullishOr(value).pipe(Option.getOrElse(() => fallback))
+
 const buildResolvedById = (): Result.Result<ReadonlyArray<ResolvedBlock | undefined>, BlockRegistryResolutionFailure> =>
   Result.gen(function* () {
     const table: Array<ResolvedBlock | undefined> = Array.from(
@@ -126,7 +129,8 @@ const seededMap = <K, V>(
   build: (key: K) => V,
 ): ReadonlyMap<K, V> => new Map(keys.map((key): readonly [K, V] => [key, build(key)]))
 
-const buildCapabilitiesById = (
+/** Exported only for focused invariant tests; the package surface is the stable registry facade. */
+export const buildCapabilitiesById = (
   resolvedById: ReadonlyArray<ResolvedBlock | undefined>,
 ): ReadonlyMap<BlockCapabilityFlag, Uint8Array> => {
   const columns = new Map<BlockCapabilityFlag, Uint8Array>()
@@ -222,7 +226,8 @@ const buildPropertyValuesByName = (
   return columns
 }
 
-const buildPropertyColumns = (resolvedById: ReadonlyArray<ResolvedBlock | undefined>): PropertyColumns => {
+/** Exported only for focused invariant tests; the package surface is the stable registry facade. */
+export const buildPropertyColumns = (resolvedById: ReadonlyArray<ResolvedBlock | undefined>): PropertyColumns => {
   const byName = buildPropertyValuesByName(resolvedById)
   const opacity: BlockOpacity[] = Array.from(
     { length: BLOCK_ID_TABLE_LENGTH },
@@ -326,18 +331,9 @@ type SupportBlockIdsById = ReadonlyMap<BlockId, ReadonlySet<BlockId>>
 const EMPTY_SUPPORT_BLOCK_IDS: ReadonlySet<BlockId> = new Set()
 
 /** Exported only for focused invariant tests; the package surface is the stable registry facade. */
-export const buildSupportBlockIdsById = (
-  supportRules?: ReadonlyArray<SupportRule | undefined>,
-): Result.Result<SupportBlockIdsById, BlockRegistryIndexFailure> => {
-  if (supportRules === undefined) {
-    return Result.flatMap(PROPERTY_COLUMNS, (columns) => buildSupportBlockIdsByRules(columns.supportRule))
-  }
-  return buildSupportBlockIdsByRules(supportRules)
-}
-
-const buildSupportBlockIdsByRules = (
+function buildSupportBlockIdsByRules(
   supportRules: ReadonlyArray<SupportRule | undefined>,
-): Result.Result<SupportBlockIdsById, BlockRegistryFailure> => {
+): Result.Result<SupportBlockIdsById, BlockRegistryFailure> {
   const blockIdsById = new Map<BlockId, ReadonlySet<BlockId>>()
 
   for (const entry of BLOCK_REGISTRY) {
@@ -371,9 +367,18 @@ const buildSupportBlockIdsByRules = (
   return Result.succeed(blockIdsById)
 }
 
+export const buildSupportBlockIdsById = (
+  supportRules?: ReadonlyArray<SupportRule | undefined>,
+): Result.Result<SupportBlockIdsById, BlockRegistryIndexFailure> => {
+  if (supportRules === undefined) {
+    return Result.flatMap(PROPERTY_COLUMNS, (columns) => buildSupportBlockIdsByRules(columns.supportRule))
+  }
+  return buildSupportBlockIdsByRules(supportRules)
+}
+
 const SUPPORT_BLOCK_IDS_BY_ID = buildSupportBlockIdsById()
 
-const supportBlockIdsOf = (
+export const supportBlockIdsOf = (
   blockIdsById: SupportBlockIdsById,
   id: BlockId,
 ): Result.Result<ReadonlySet<BlockId>, BlockRegistryFailure> => {
@@ -487,7 +492,8 @@ export const blockIdsWithCapability = (
 ): Result.Result<Option.Option<ReadonlySet<BlockId>>, BlockRegistryResolutionFailure> =>
   Result.map(IDS_BY_CAPABILITY, (idsByCapability) => Option.fromNullishOr(idsByCapability.get(flag)))
 
-const buildIdsByOpacity = (columns: PropertyColumns): ReadonlyMap<BlockOpacity, ReadonlySet<BlockId>> => {
+/** Exported only for focused invariant tests; the package surface is the stable registry facade. */
+export const buildIdsByOpacity = (columns: PropertyColumns): ReadonlyMap<BlockOpacity, ReadonlySet<BlockId>> => {
   const table = new Map<BlockOpacity, Set<BlockId>>()
 
   for (const opacity of BLOCK_OPACITIES) {
@@ -516,7 +522,7 @@ export const opacityOfBlockId = (id: BlockId): Result.Result<BlockOpacity, Block
   Result.flatMap(BlockId.result(id), (blockId) =>
     Result.map(PROPERTY_COLUMNS, (columns) =>
       isWithinTable(blockId)
-        ? columns.opacity[blockId] ?? BLOCK_PROPERTY_DEFAULTS.opacity
+        ? blockPropertyColumnValueOrDefault(columns.opacity[blockId], BLOCK_PROPERTY_DEFAULTS.opacity)
         : BLOCK_PROPERTY_DEFAULTS.opacity,
     ),
   )
@@ -540,7 +546,7 @@ export const supportRuleOfBlockId = (
   Result.flatMap(BlockId.result(id), (blockId) =>
     Result.map(PROPERTY_COLUMNS, (columns) =>
       isWithinTable(blockId)
-        ? columns.supportRule[blockId] ?? BLOCK_PROPERTY_DEFAULTS.supportRule
+        ? blockPropertyColumnValueOrDefault(columns.supportRule[blockId], BLOCK_PROPERTY_DEFAULTS.supportRule)
         : BLOCK_PROPERTY_DEFAULTS.supportRule,
     ),
   )
