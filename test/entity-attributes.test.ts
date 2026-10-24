@@ -81,6 +81,24 @@ describe('entity attributes', () => {
     )
   })
 
+  it('snapshots getter-backed options before validation and brand construction', () => {
+    let reads = 0
+    const options = new Proxy({ bounciness: 0.5 }, {
+      get(target, key, receiver) {
+        if (key === 'bounciness') {
+          reads += 1
+          return reads === 1 ? 0.5 : 2
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+
+    const result = Reflect.apply(entityAttributes, undefined, [options])
+    expect(Result.isSuccess(result)).toBe(true)
+    expect(reads).toBe(1)
+    expect(result).toMatchObject({ success: { bounciness: 0.5 } })
+  })
+
   it('rejects malformed option and attribute records', () => {
     const malformedOptions: unknown[] = [
       null,

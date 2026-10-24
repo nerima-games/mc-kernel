@@ -1,6 +1,6 @@
 import { Result } from "effect";
 import { dataPackResourcePath } from "../world/data-pack-registry.js";
-import type { DataPackResourcePath } from "../world/data-pack-registry.js";
+import type { DataPackRegistryFailure, DataPackResourcePath } from "../world/data-pack-registry.js";
 import {
   cookingRecipe,
   type CookingRecipe,
@@ -1155,10 +1155,10 @@ export const recipeFromUnknown: typeof portableRecipeFromUnknown =
 /** Returns the canonical data-pack path for a namespaced recipe id. */
 export const recipeDataPath = (
   id: NamespacedResourceLocation,
-): RecipeResult<DataPackResourcePath> =>
+): Result.Result<DataPackResourcePath, RecipeFailure | DataPackRegistryFailure> =>
   Result.gen(function* () {
     const recipeId = yield* decodeRecipeId(id);
-    return dataPackResourcePath(
+    return yield* dataPackResourcePath(
       NamespacedResourceLocation("minecraft:recipe"),
       NamespacedResourceLocation(recipeId),
     );

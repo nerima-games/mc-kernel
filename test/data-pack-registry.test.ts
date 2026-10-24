@@ -233,6 +233,38 @@ describe("data-pack registry", () => {
       (id, value) => Result.succeed(`${id}:${String(value)}`),
     ));
     expect(decodedWithId.entries[0]?.value).toBe("example:regular:4");
+
+    let entriesReads = 0
+    const changingLayer = new Proxy({ ...validLayer }, {
+      get(target, key, receiver) {
+        if (key === 'entries') {
+          entriesReads += 1
+          return entriesReads === 1 ? validLayer.entries : {}
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    const changingLayerResult = dataPackLayerFromUnknown(changingLayer, decodeNumber)
+    expect(Result.isSuccess(changingLayerResult)).toBe(true)
+    expect(entriesReads).toBe(1)
+
+    let idReads = 0
+    const changingEntry = new Proxy({ id: 'example:regular', value: 4 }, {
+      get(target, key, receiver) {
+        if (key === 'id') {
+          idReads += 1
+          return idReads === 1 ? 'example:regular' : 1
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    const changingEntryResult = dataPackLayerFromUnknown({
+      ...validLayer,
+      entries: [changingEntry],
+    }, decodeNumber)
+    expect(Result.isSuccess(changingEntryResult)).toBe(true)
+    expect(idReads).toBe(1)
+
     const decodeFailure = resultFailure(dataPackLayerFromUnknown(
       { ...validLayer, entries: [{ id: 'example:regular', value: 'four' }] },
       decodeNumber,
@@ -377,11 +409,22 @@ describe("data-pack registry", () => {
 
   it("maps registry ids to vanilla data paths", () => {
     expect(
-      dataPackResourcePath(
+      resultValue(dataPackResourcePath(
         NamespacedResourceLocation("minecraft:sulfur_cube_archetype"),
         NamespacedResourceLocation("example:regular"),
-      ),
+      )),
     ).toBe("data/example/sulfur_cube_archetype/regular.json");
+    const pathTraversal = dataPackResourcePath(
+      NamespacedResourceLocation("minecraft:recipe"),
+      NamespacedResourceLocation("example:../secret"),
+    );
+    expect(Result.isFailure(pathTraversal)).toBe(true);
+    if (Result.isFailure(pathTraversal)) {
+      expect(pathTraversal.failure).toMatchObject({
+        _tag: 'DataPackRegistryFailure',
+        reason: 'invalid-resource-path',
+      });
+    }
   });
 });
 
@@ -425,11 +468,11 @@ describe("Sulfur Cube data-pack registry", () => {
     expect(
       selected.get(NamespacedResourceLocation("example:regular"))?.buoyant,
     ).toBe(false);
-    expect(
+    expect(resultValue(
       sulfurCubeArchetypeDataPath(
         NamespacedResourceLocation("minecraft:regular"),
       ),
-    ).toBe("data/minecraft/sulfur_cube_archetype/regular.json");
+    )).toBe("data/minecraft/sulfur_cube_archetype/regular.json");
   });
 
   it("decodes archetype values through the generic data-pack boundary", () => {

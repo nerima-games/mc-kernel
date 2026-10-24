@@ -468,6 +468,24 @@ describe("Sulfur Cube archetype registry", () => {
     );
   });
 
+  it("snapshots getter-backed decoder input before brand construction", () => {
+    let reads = 0
+    const input = new Proxy({ ...validOptions }, {
+      get(target, key, receiver) {
+        if (key === 'items') {
+          reads += 1
+          return reads === 1 ? validOptions.items : 'invalid!'
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+
+    const result = sulfurCubeArchetypeFromUnknown(input)
+    expect(Result.isSuccess(result)).toBe(true)
+    expect(reads).toBe(1)
+    if (Result.isSuccess(result)) expect(result.success.items).toBe(validOptions.items)
+  })
+
   it("rejects malformed normalized values without widening the runtime boundary", () => {
     const archetype = sulfurCubeArchetype(validOptions);
 

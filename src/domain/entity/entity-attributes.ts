@@ -1,5 +1,5 @@
 /** Constructors and pure rules for current Java entity attributes. */
-import { Result } from 'effect'
+import { Effect, Result } from 'effect'
 import {
   ENTITY_ATTRIBUTE_DEFINITIONS,
   type EntityAttributeName,
@@ -35,6 +35,56 @@ const entityAttributesFromOptions = (options: EntityAttributeOptions): EntityAtt
     ),
   })
 
+const entityAttributesFailure = (value: unknown): EntityAttributesFailure => ({
+  _tag: 'InvalidEntityAttributeOptions',
+  value,
+})
+
+const mapBrandFailure = <Value, Error>(
+  result: Result.Result<Value, Error>,
+  value: unknown,
+): Result.Result<Value, EntityAttributesFailure> =>
+  Result.mapError(result, () => entityAttributesFailure(value))
+
+const entityAttributesFromValidatedOptions = (
+  options: EntityAttributeOptions,
+  original: unknown,
+): Result.Result<EntityAttributes, EntityAttributesFailure> =>
+  Result.gen(function* () {
+    const bounciness = yield* mapBrandFailure(
+      Bounciness.result(valueOrDefault(options.bounciness, ENTITY_ATTRIBUTE_DEFINITIONS.bounciness.defaultValue)),
+      original,
+    )
+    const frictionModifier = yield* mapBrandFailure(
+      EntityPhysicsModifier.result(valueOrDefault(options.frictionModifier, ENTITY_ATTRIBUTE_DEFINITIONS.frictionModifier.defaultValue)),
+      original,
+    )
+    const airDragModifier = yield* mapBrandFailure(
+      EntityPhysicsModifier.result(valueOrDefault(options.airDragModifier, ENTITY_ATTRIBUTE_DEFINITIONS.airDragModifier.defaultValue)),
+      original,
+    )
+    const nameTagDistance = yield* mapBrandFailure(
+      EntityVisibilityDistance.result(valueOrDefault(options.nameTagDistance, ENTITY_ATTRIBUTE_DEFINITIONS.nameTagDistance.defaultValue)),
+      original,
+    )
+    const belowNameDistance = yield* mapBrandFailure(
+      EntityVisibilityDistance.result(valueOrDefault(options.belowNameDistance, ENTITY_ATTRIBUTE_DEFINITIONS.belowNameDistance.defaultValue)),
+      original,
+    )
+    const knockbackResistance = yield* mapBrandFailure(
+      KnockbackResistance.result(valueOrDefault(options.knockbackResistance, ENTITY_ATTRIBUTE_DEFINITIONS.knockbackResistance.defaultValue)),
+      original,
+    )
+    return Object.freeze({
+      bounciness,
+      frictionModifier,
+      airDragModifier,
+      nameTagDistance,
+      belowNameDistance,
+      knockbackResistance,
+    })
+  })
+
 export type EntityAttributesFailure = Readonly<{
   readonly _tag: 'InvalidEntityAttributeOptions'
   readonly value: unknown
@@ -42,10 +92,22 @@ export type EntityAttributesFailure = Readonly<{
 
 export const entityAttributes = (
   options: EntityAttributeOptions = {},
-): Result.Result<EntityAttributes, EntityAttributesFailure> =>
-  isEntityAttributeOptions(options)
-    ? Result.succeed(entityAttributesFromOptions(options))
-    : Result.fail({ _tag: 'InvalidEntityAttributeOptions', value: options })
+): Result.Result<EntityAttributes, EntityAttributesFailure> => {
+  const snapshot = Effect.runSync(Effect.result(Effect.try({
+    try: () => {
+      if (typeof options !== 'object' || options === null || Array.isArray(options)) return options
+      const prototype = Object.getPrototypeOf(options)
+      if (prototype !== Object.prototype && prototype !== null) return options
+      return Object.fromEntries(Object.entries(options))
+    },
+    catch: () => undefined,
+  })))
+  if (Result.isFailure(snapshot)) return Result.fail(entityAttributesFailure(options))
+  const normalized: unknown = snapshot.success
+  return isEntityAttributeOptions(normalized)
+    ? entityAttributesFromValidatedOptions(normalized, options)
+    : Result.fail(entityAttributesFailure(options))
+}
 
 export const DEFAULT_ENTITY_ATTRIBUTES: EntityAttributes = entityAttributesFromOptions({})
 

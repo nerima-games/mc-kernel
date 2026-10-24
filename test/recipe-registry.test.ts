@@ -77,7 +77,7 @@ describe("recipe registry", () => {
 
     expect(recipe?._tag).toBe("Cooking");
     expect(
-      recipeDataPackPath(namespacedResourceLocation("example:shared")),
+      resultValue(recipeDataPackPath(namespacedResourceLocation("example:shared"))),
     ).toBe("data/example/recipe/shared.json");
   });
 

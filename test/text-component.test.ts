@@ -60,7 +60,7 @@ describe('text components', () => {
     }
   })
 
-  it('returns failure results when host objects change during inspection', () => {
+  it('snapshots host objects once and returns failures when inspection is hostile', () => {
     const hostileRead = new Proxy({}, {
       ownKeys() {
         throw new Error('keys are unavailable')
@@ -78,16 +78,8 @@ describe('text components', () => {
     })
     const result = textComponent(changesDuringCopy)
 
-    expect(ownKeyReads).toBe(2)
-    expect(Result.isFailure(result)).toBe(true)
-    if (Result.isFailure(result)) {
-      expect(result.failure).toMatchObject({
-        _tag: 'TextComponentFailure',
-        kind: 'TypeError',
-        reason: 'hostile-input',
-        message: 'Unable to inspect text component',
-      })
-    }
+    expect(ownKeyReads).toBe(1)
+    expect(result).toStrictEqual(Result.succeed({ text: 'valid' }))
   })
 
   it('omits an undefined input from the invalid-value failure details', () => {

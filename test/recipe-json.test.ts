@@ -586,6 +586,14 @@ describe("current Java portable recipe JSON", () => {
     expect(recipeSuccess(recipeDataPath("minecraft:iron_block"))).toBe(
       "data/minecraft/recipe/iron_block.json",
     );
+    const traversingPath = recipeDataPath("minecraft:../secret");
+    expect(Result.isFailure(traversingPath)).toBe(true);
+    if (Result.isFailure(traversingPath)) {
+      expect(traversingPath.failure).toMatchObject({
+        _tag: "DataPackRegistryFailure",
+        reason: "invalid-resource-path",
+      });
+    }
     expect(recipeSuccess(portableRecipeFromUnknown("minecraft:portable_shaped", {
       type: "minecraft:crafting_shaped",
       pattern: ["S"],

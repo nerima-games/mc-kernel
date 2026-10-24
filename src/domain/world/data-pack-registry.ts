@@ -13,6 +13,7 @@ export type DataPackRegistryFailure = Readonly<{
     | 'invalid-format'
     | 'invalid-priority'
     | 'invalid-resource-location'
+    | 'invalid-resource-path'
     | 'duplicate-entry'
   readonly message: string
 }>
@@ -99,23 +100,60 @@ const namespacedResourceLocation = (value: string): Result.Result<NamespacedReso
     (error) => ({ _tag: 'DataPackRegistryFailure', reason: 'invalid-resource-location', message: error.message }),
   )
 
+const snapshotRecord = (value: unknown): UnknownRecord | undefined => {
+  try {
+    if (!isRecord(value)) return undefined
+    const snapshot: Record<string, unknown> = {}
+    for (const key of Object.keys(value)) {
+      Object.defineProperty(snapshot, key, {
+        value: value[key],
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      })
+    }
+    return snapshot
+  } catch {
+    return undefined
+  }
+}
+
+function snapshotArray<Value>(value: ReadonlyArray<Value>): ReadonlyArray<Value> | undefined
+function snapshotArray(value: unknown): ReadonlyArray<unknown> | undefined
+function snapshotArray(value: unknown): ReadonlyArray<unknown> | undefined {
+  try {
+    if (!Array.isArray(value)) return undefined
+    const length = value.length
+    const snapshot: unknown[] = []
+    for (let index = 0; index < length; index += 1) {
+      if (!Object.hasOwn(value, index)) return undefined
+      snapshot.push(value[index])
+    }
+    return snapshot
+  } catch {
+    return undefined
+  }
+}
+
 const dataPackEntryFromUnknown = <T, E>(
   value: unknown,
   decodeValue: (id: NamespacedResourceLocation, value: unknown) => Result.Result<T, E>,
 ): Result.Result<DataPackRegistryEntryOptions<T>, DataPackRegistryFailure | E> => {
+  const entry = snapshotRecord(value)
   if (
-    !isRecord(value) ||
-    !hasOnlyKeys(value, ["id", "value"]) ||
-    !hasAllKeys(value, ["id", "value"])
+    entry === undefined ||
+    !hasOnlyKeys(entry, ["id", "value"]) ||
+    !hasAllKeys(entry, ["id", "value"])
   ) {
     return failure('invalid-entry', "Data-pack registry entries must contain exactly id and value")
   }
-  const id = value["id"]
+  const id = entry["id"]
+  const entryValue = entry["value"]
   if (typeof id !== "string") {
     return failure('invalid-entry', "Data-pack registry entry id must be a string")
   }
   return Result.flatMap(namespacedResourceLocation(id), (namespacedId) =>
-    Result.map(decodeValue(namespacedId, value["value"]), (decoded) => ({ id: namespacedId, value: decoded })),
+    Result.map(decodeValue(namespacedId, entryValue), (decoded) => ({ id: namespacedId, value: decoded })),
   )
 }
 
@@ -134,26 +172,36 @@ export const dataPackLayer = <T>(
   options: DataPackLayerOptions<T>,
 ): Result.Result<DataPackLayer<T>, DataPackRegistryFailure> =>
   Result.gen(function* () {
+    if (!isRecord(options)) {
+      return yield* failure('invalid-layer', 'Data-pack layer must contain a pack, format, priority, and entries array')
+    }
+    const packValue = options['pack']
+    const formatValue = options['format']
+    const priorityValue = options['priority']
+    const snapshotEntries = snapshotArray(options['entries'])
     if (
-      !isRecord(options) ||
-      typeof options['pack'] !== 'string' ||
-      typeof options['format'] !== 'number' ||
-      typeof options['priority'] !== 'number' ||
-      !Array.isArray(options['entries'])
+      typeof packValue !== 'string' ||
+      typeof formatValue !== 'number' ||
+      typeof priorityValue !== 'number' ||
+      snapshotEntries === undefined
     ) {
       return yield* failure('invalid-layer', 'Data-pack layer must contain a pack, format, priority, and entries array')
     }
-    const pack = yield* namespacedResourceLocation(options.pack)
-    const format = yield* DataPackFormat(options.format)
-    const priority = yield* DataPackPriority(options.priority)
+    const pack = yield* namespacedResourceLocation(packValue)
+    const format = yield* DataPackFormat(formatValue)
+    const priority = yield* DataPackPriority(priorityValue)
     const ids = new Set<NamespacedResourceLocation>()
     const entries: Array<DataPackRegistryEntry<T>> = []
-    for (const entry of options.entries) {
-      const unknownEntry: unknown = entry
-      if (!isRecord(unknownEntry) || typeof unknownEntry['id'] !== 'string') {
+    for (const entry of snapshotEntries) {
+      if (!isRecord(entry)) {
         return yield* failure('invalid-entry', 'Data-pack registry entry id must be a string')
       }
-      const normalized = yield* namespacedEntryOf({ id: unknownEntry['id'], value: entry.value }, ids)
+      const id = entry['id']
+      const value = entry['value']
+      if (typeof id !== 'string') {
+        return yield* failure('invalid-entry', 'Data-pack registry entry id must be a string')
+      }
+      const normalized = yield* namespacedEntryOf({ id, value }, ids)
       ids.add(normalized.id)
       entries.push(normalized)
     }
@@ -173,31 +221,35 @@ export const dataPackLayer = <T>(
 const dataPackLayerFromUnknownWithDecoder = <T, E>(
   value: unknown,
   decodeValue: (id: NamespacedResourceLocation, value: unknown) => Result.Result<T, E>,
-): Result.Result<DataPackLayer<T>, DataPackRegistryFailure | E> =>
-  Result.gen(function* () {
+): Result.Result<DataPackLayer<T>, DataPackRegistryFailure | E> => {
+  const layer = snapshotRecord(value)
+  if (layer === undefined) {
+    return failure('invalid-layer', "Data-pack layer must contain exactly pack, format, priority, and entries")
+  }
+  const rawEntries = snapshotArray(layer['entries'])
+  return Result.gen(function* () {
     if (
-      !isRecord(value) ||
-      !hasOnlyKeys(value, ["pack", "format", "priority", "entries"]) ||
-      !hasAllKeys(value, ["pack", "format", "priority", "entries"])
+      !hasOnlyKeys(layer, ["pack", "format", "priority", "entries"]) ||
+      !hasAllKeys(layer, ["pack", "format", "priority", "entries"])
     ) {
       return yield* failure('invalid-layer', "Data-pack layer must contain exactly pack, format, priority, and entries")
     }
-    if (typeof value["pack"] !== "string") {
+    if (typeof layer["pack"] !== "string") {
       return yield* failure('invalid-layer', "Data-pack layer pack must be a string")
     }
-    if (typeof value["format"] !== "number") {
+    if (typeof layer["format"] !== "number") {
       return yield* failure('invalid-layer', "Data-pack layer format must be a number")
     }
-    const format = yield* DataPackFormat(value['format'])
-    if (typeof value["priority"] !== "number") {
+    const format = yield* DataPackFormat(layer['format'])
+    if (typeof layer["priority"] !== "number") {
       return yield* failure('invalid-layer', "Data-pack layer priority must be a number")
     }
-    const priority = yield* DataPackPriority(value['priority'])
-    if (!Array.isArray(value["entries"])) {
+    const priority = yield* DataPackPriority(layer['priority'])
+    if (rawEntries === undefined) {
       return yield* failure('invalid-layer', "Data-pack layer entries must be an array")
     }
-    const pack = yield* namespacedResourceLocation(value['pack'])
-    const entries = yield* Result.all(value['entries'].map((entry) => dataPackEntryFromUnknown(entry, decodeValue)))
+    const pack = yield* namespacedResourceLocation(layer['pack'])
+    const entries = yield* Result.all(rawEntries.map((entry) => dataPackEntryFromUnknown(entry, decodeValue)))
     return yield* dataPackLayer({
       pack,
       format,
@@ -205,6 +257,7 @@ const dataPackLayerFromUnknownWithDecoder = <T, E>(
       entries,
     })
   })
+}
 
 export const dataPackLayerFromUnknown = <T, E>(
   value: unknown,
@@ -259,9 +312,16 @@ export const selectDataPackRegistry = <T>(
 export const dataPackResourcePath = (
   registry: NamespacedResourceLocation,
   entry: NamespacedResourceLocation,
-): DataPackResourcePath => {
+): Result.Result<DataPackResourcePath, DataPackRegistryFailure> => {
   const registrySeparator = registry.indexOf(":");
   const registryPath = registry.slice(registrySeparator + 1);
   const entrySeparator = entry.indexOf(":");
-  return DataPackResourcePath(`data/${entry.slice(0, entrySeparator)}/${registryPath}/${entry.slice(entrySeparator + 1)}.json`);
+  return Result.mapError(
+    DataPackResourcePath.result(`data/${entry.slice(0, entrySeparator)}/${registryPath}/${entry.slice(entrySeparator + 1)}.json`),
+    (error) => ({
+      _tag: 'DataPackRegistryFailure',
+      reason: 'invalid-resource-path',
+      message: error.message,
+    }),
+  )
 };

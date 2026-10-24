@@ -92,6 +92,24 @@ describe("JSON values", () => {
     }
   });
 
+  it("reads getter-backed values once while taking the decoder snapshot", () => {
+    let reads = 0
+    const changing = new Proxy({ value: 1 }, {
+      get(target, key, receiver) {
+        if (key === 'value') {
+          reads += 1
+          return reads === 1 ? 1 : Number.NaN
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+
+    const result = jsonValueFromUnknown(changing)
+    expect(Result.isSuccess(result)).toBe(true)
+    expect(reads).toBe(1)
+    if (Result.isSuccess(result)) expect(result.success).toEqual({ value: 1 })
+  });
+
   it("compares JSON values structurally", () => {
     expect(jsonValuesEqual(null, null)).toBe(true);
     expect(jsonValuesEqual(true, true)).toBe(true);

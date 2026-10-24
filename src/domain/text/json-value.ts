@@ -49,19 +49,62 @@ export const isJsonValue = (value: unknown): value is JsonValue => {
   return Result.isSuccess(checked) && checked.success
 }
 
-const freezeJsonValue = (value: JsonValue): JsonValue => {
+type JsonSnapshot = Readonly<{ readonly valid: true; readonly value: JsonValue }> | Readonly<{ readonly valid: false }>;
+
+const snapshotJsonValueIn = (
+  value: unknown,
+  active: WeakSet<object>,
+): JsonSnapshot => {
+  if (value === null || typeof value === 'boolean' || typeof value === 'string') {
+    return { valid: true, value }
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value)
+      ? { valid: true, value }
+      : { valid: false }
+  }
+  if (typeof value !== 'object' || active.has(value)) {
+    return { valid: false }
+  }
+
+  active.add(value)
   if (Array.isArray(value)) {
-    return Object.freeze(value.map(freezeJsonValue));
-  }
-  if (value !== null && typeof value === "object") {
-    const frozen: Record<string, JsonValue> = {};
-    for (const [key, child] of Object.entries(value)) {
-      frozen[key] = freezeJsonValue(child);
+    const length = value.length
+    const snapshot: JsonValue[] = new Array(length)
+    for (let index = 0; index < length; index += 1) {
+      if (!Object.hasOwn(value, index)) continue
+      const child = snapshotJsonValueIn(value[index], active)
+      if (!child.valid) {
+        active.delete(value)
+        return { valid: false }
+      }
+      snapshot[index] = child.value
     }
-    return Object.freeze(frozen);
+    active.delete(value)
+    return { valid: true, value: Object.freeze(snapshot) }
   }
-  return value;
-};
+  if (!isPlainRecord(value)) {
+    active.delete(value)
+    return { valid: false }
+  }
+
+  const snapshot: Record<string, JsonValue> = {}
+  for (const [key, childValue] of Object.entries(value)) {
+    const child = snapshotJsonValueIn(childValue, active)
+    if (!child.valid) {
+      active.delete(value)
+      return { valid: false }
+    }
+    Object.defineProperty(snapshot, key, {
+      value: child.value,
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    })
+  }
+  active.delete(value)
+  return { valid: true, value: Object.freeze(snapshot) }
+}
 
 export type JsonValueFailure = Readonly<{
   readonly _tag: 'JsonValueFailure'
@@ -87,9 +130,7 @@ export const jsonValueFromUnknown = (
   value: unknown,
 ): Result.Result<JsonValue, JsonValueFailure> => {
   const normalized = Effect.runSync(Effect.result(Effect.try({
-    try: () => isJsonValueIn(value, new WeakSet<object>())
-      ? { valid: true as const, value: freezeJsonValue(value) }
-      : { valid: false as const },
+    try: () => snapshotJsonValueIn(value, new WeakSet<object>()),
     catch: () => jsonValueFailure('hostile-input', 'Unable to inspect JSON value', value),
   })))
   if (Result.isFailure(normalized)) return Result.fail(normalized.failure)

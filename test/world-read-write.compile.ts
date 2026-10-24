@@ -104,10 +104,10 @@ export const blockCount: ChunkBlockCount = chunkBlockCount(chunkHeight)
 resultValue(makeChunk(chunkCoord(chunk, chunk), chunkHeight, new Uint8Array(0)))
 export const localY: ChunkLocalY = ChunkLocalY(0)
 export const biomeTemperature: BiomeTemperature = BIOME_PROPERTY_DEFAULTS.temperature
-export const dataPath: DataPackResourcePath = dataPackResourcePath(
+export const dataPath: DataPackResourcePath = resultValue(dataPackResourcePath(
   NamespacedResourceLocation('minecraft:recipe'),
   NamespacedResourceLocation('example:iron_block'),
-)
+))
 derivePrecipitationKind(BiomeTemperature(0))
 dataPackLayer({
   pack: NamespacedResourceLocation('example:pack'),

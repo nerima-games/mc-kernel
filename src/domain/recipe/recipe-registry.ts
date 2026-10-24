@@ -54,5 +54,5 @@ export const selectRecipes = (
 ): ReadonlyMap<NamespacedResourceLocation, PortableRecipe> =>
   selectDataPackRegistry(layers, format);
 
-export const recipeDataPackPath = (entry: NamespacedResourceLocation): DataPackResourcePath =>
+export const recipeDataPackPath = (entry: NamespacedResourceLocation): Result.Result<DataPackResourcePath, DataPackRegistryFailure> =>
   dataPackResourcePath(RECIPE_DATA_REGISTRY, entry);

@@ -624,7 +624,7 @@ const transmuteRecipeFromUnknown: (
 ) => Result.Result<PortableRecipe, RecipeFailure>;
 const portableRecipeFromUnknown: (id: NamespacedResourceLocation, value: unknown) => Result.Result<PortableRecipe, RecipeFailure>;
 const recipeFromUnknown: typeof portableRecipeFromUnknown;
-const recipeDataPath: (id: NamespacedResourceLocation) => Result.Result<DataPackResourcePath, RecipeFailure>;
+const recipeDataPath: (id: NamespacedResourceLocation) => Result.Result<DataPackResourcePath, RecipeFailure | DataPackRegistryFailure>;
 const craftingRecipeDataPath: typeof recipeDataPath;
 const recipeDataPackLayer: (
   options: RecipeDataPackLayerOptions,
@@ -1042,7 +1042,7 @@ const selectSulfurCubeArchetypes: (
 ) => ReadonlyMap<NamespacedResourceLocation, SulfurCubeArchetype>;
 const sulfurCubeArchetypeDataPath: (
   entry: NamespacedResourceLocation,
-) => DataPackResourcePath;
+) => Result.Result<DataPackResourcePath, DataPackRegistryFailure>;
 ```
 
 公式 26.2 が列挙する archetype の挙動名、block/item/entity tag、`minecraft:bounce` game event、`minecraft:sulfur_cube_content` component、`minecraft:sulfur_cube_hot` damage type、Sulfur Cube particle の識別子を branded な portable data として公開する。`#` 付きの block/item/entity tag は `TagLocation`、registry・component・game event・damage type・particle は `ResourceLocation` で区別する。`sulfurCubeArchetypeDataPackLayer` は JSON の外部値を decoder 境界で検証し、`selectSulfurCubeArchetypes` は対象 format の layer を priority 順に重ねて registry を解決する。公式ページが個別 archetype JSON の数値を掲載していないため、kernel は vanilla の数値を推測して固定しない。JSON・pack filesystem の読み出しと、Sulfur Cube の物理・爆発・接触イベントの実行は上位層の責務である。仕様は [Minecraft Java Edition 26.2](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-2) を参照する。
@@ -1665,7 +1665,7 @@ recipe registry と Sulfur Cube archetype registry が同じ形の「複数 pack
 type DataPackFormat = number & Brand.Brand<"DataPackFormat">;
 type DataPackPriority = number & Brand.Brand<"DataPackPriority">;
 type DataPackResourcePath = string & Brand.Brand<"DataPackResourcePath">; // safe relative JSON path below data/
-type DataPackRegistryFailure = Readonly<{ readonly _tag: 'DataPackRegistryFailure'; readonly reason: 'invalid-layer' | 'invalid-entry' | 'invalid-format' | 'invalid-priority' | 'invalid-resource-location' | 'duplicate-entry'; readonly message: string }>;
+type DataPackRegistryFailure = Readonly<{ readonly _tag: 'DataPackRegistryFailure'; readonly reason: 'invalid-layer' | 'invalid-entry' | 'invalid-format' | 'invalid-priority' | 'invalid-resource-location' | 'invalid-resource-path' | 'duplicate-entry'; readonly message: string }>;
 const DataPackFormat(value: number): Result.Result<DataPackFormat, DataPackRegistryFailure>;
 const DataPackPriority(value: number): Result.Result<DataPackPriority, DataPackRegistryFailure>;
 const DataPackResourcePath(value: string): DataPackResourcePath;
@@ -1701,7 +1701,7 @@ const selectDataPackRegistry: <T>(
 const dataPackResourcePath: (
   registry: NamespacedResourceLocation,
   id: NamespacedResourceLocation,
-) => DataPackResourcePath;
+) => Result.Result<DataPackResourcePath, DataPackRegistryFailure>;
 ```
 
 format が完全一致しない layer は選択から落ち、同じ id は priority の高い layer が勝つ。

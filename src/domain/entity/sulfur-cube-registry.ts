@@ -64,4 +64,5 @@ export const selectSulfurCubeArchetypes = (
 
 export const sulfurCubeArchetypeDataPath = (
   entry: NamespacedResourceLocation,
-): DataPackResourcePath => dataPackResourcePath(SULFUR_CUBE_ARCHETYPE_REGISTRY_ID, entry);
+): Result.Result<DataPackResourcePath, DataPackRegistryFailure> =>
+  dataPackResourcePath(SULFUR_CUBE_ARCHETYPE_REGISTRY_ID, entry);
