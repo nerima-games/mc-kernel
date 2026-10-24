@@ -10,12 +10,12 @@
 
 複数リポジトリが共有し、どれか一つの所有リポジトリに置くと依存方向が崩れる型は kernel に置く。それ以外の型はその所有者のリポジトリに置く。
 
-TypeScript のコードブロックは公開宣言の要約である。`...` や `/` でまとめた記述は省略を示し、全ブロックがそのままコンパイルできる宣言とは限らない。
+TypeScript のコードブロックは公開宣言の要約である。単独の `...` は省略、引数名に付く `...` は可変長引数を示す。本文や見出しで名前を並べる際の `/` は併記を示す。全ブロックがそのままコンパイルできる宣言とは限らない。
 `package.json` の `types` 条件は root entrypoint を `dist/index.d.ts`、各 `./domain/<name>` subpath を `dist/domain/<name>.d.ts` に対応づける。各公開 import entrypoint の完全な型宣言は package に含まれるそのファイルから確認できる。
 
 ## 数値・文字列・bigint の意味型
 
-公開 API で意味のある数値・文字列・bigint を引数や戻り値として渡す場合と、公開データ型でフィールドとして保持する場合は、その意味に対応するブランド型を使う。ブランドのコンストラクタは未検証のプリミティブを受け取り、検証後にブランド値を返す。外部データの decoder は `unknown` を受け取る。次の表はブランド型を使う主な公開 API 群を示す。
+公開 API で意味のある数値・文字列・bigint を引数や戻り値として渡す場合と、公開データ型でフィールドとして保持する場合は、その意味に対応するブランド型を使う。`Brand.Constructor` 型のブランドコンストラクタは未検証のプリミティブを受け取る。通常の呼び出しは検証済みのブランド値を返し、検証に失敗すると `BrandError` を投げる。失敗を値として扱う場合は `.result(value)` を使うと `Result` を、理由が不要な場合は `.option(value)` を使うと `Option` を受け取れる。外部データの decoder は `unknown` を受け取る。次の表はブランド型を使う主な公開 API 群を示す。
 
 | 領域 | 主な公開契約 |
 | --- | --- |
@@ -33,7 +33,7 @@ TypeScript のコードブロックは公開宣言の要約である。`...` や
 | 領域 | ブランドと受理域 |
 | --- | --- |
 | coordinates / shared vocabulary | `PositionAxis`: 有限値。`AngleRadians`: 有限値。`SnapshotAgeSecs`: 有限値で、clock skew を表す負値も受理する。 |
-| block | `LightLevelCandidate`: NaN 以外。`BlockHardness`: 有限値で 0 以上、または -1。`BlockFriction`: [0, 1]。`BlockBlastResistance`: 非負値または正の Infinity。`BlockContactDamage` / `BlockMovementDrag` / `BlockExperiencePoints`: 有限非負値。`ContainerSlotCount`、`LightChannelLength`、`LightChannelIndex`、`LightChannelByteOffset`、`BlockStateLength`、`BlockStateIndex`、`BlockStateByteOffset`: 非負 safe integer。`LightVolumeHeight`: 整数 [1, `MAX_CHUNK_HEIGHT`]。 |
+| block | `LightLevelCandidate`: NaN 以外。`BlockHardness`: 有限値で 0 以上、または -1。`BlockFriction`: [0, 1]。`BlockBlastResistance`: 非負値または正の Infinity。`BlockContactDamage` / `BlockMovementDrag` / `BlockExperiencePoints`: 有限非負値。`ContainerSlotCount`: 正の safe integer。`LightChannelLength`、`LightChannelIndex`、`LightChannelByteOffset`、`BlockStateLength`、`BlockStateIndex`、`BlockStateByteOffset`: 非負 safe integer。`LightVolumeHeight`: 整数 [1, `MAX_CHUNK_HEIGHT`]。 |
 | world | `ChunkLocalY`: 整数 [0, `MAX_CHUNK_HEIGHT` - 1]。`ChunkBlockCount`: 256 の倍数 [256, 256 × `MAX_CHUNK_HEIGHT`]。`SectionIndex` / `SectionLength` / `HeightmapColumnIndex`: 非負 safe integer、heightmap index は 0..255。`BiomeTemperature`: 有限 [-0.7, 2]。`BiomeDownfall`: [0, 1]。`BiomeTint`: packed RGB 整数 [0, 0xFFFFFF]。`RandomSeed`: safe integer。`RandomIntBound`: 正の safe integer。`RandomInt`: 非負 safe integer。`RandomFraction`: [0, 1)。`DataPackFormat`: 有限非負値。`DataPackPriority`: 非負 safe integer。`DataPackResourcePath`: `data/` 下の安全な相対 `.json` path。 |
 | text | `VanillaResourcePath`: 小文字英数字と `/._-` の vanilla path。`RenderDistanceChunks`: 整数 [2, 16]。`FieldOfViewDegrees`: 有限 [30, 110]。`VolumeLevel`: [0, 1]。`MouseSensitivity`: [0.1, 3]。`InputAction` / `KeyCode`: 空白だけではない文字列。`DifficultyDamageMultiplier`: [0, 1.5]。`DifficultyHungerMultiplier`: [0, 1]。 |
 | entity | `EntitySerial` / `EntityRosterRepairCount` / `ExplosionBlockCount` / `ExplosionRayStepCount` / `ExplosionEntityCount`: 非負 safe integer。`EntityHealthPoints` / `ExplosionRadius` / `SulfurCubeContactDamageAmount`: 有限非負値。`ExplosionExposure`: [0, 1]。`PortalWidth`: 整数 [2, 21]。`PortalHeight`: 整数 [3, 21]。`VehicleVelocityComponent` と Sulfur Cube の knockback/sound 値: 有限値。`VehicleValidationPath` / `VehicleValidationReason`: 文字列。`SulfurCubeExplosionPower`: 非負 safe integer。 |
@@ -140,7 +140,6 @@ const aabbContainsPoint: (box: AABB, point: Position) => boolean
 `HORIZONTAL_BLOCK_FACES` は既存 gameplay 規則と互換な `west, east, north, south` の順を固定する。
 北は -Z、西は -X であり、近傍探索を実行ごとに同じ順序に保つ。
 
-`Position` は連続座標、`BlockPosition` はブロック格子上の座標を表す。両方を `{x,y,z}` で表すと、足元原点と AABB 中心の Y 規約を取り違えても型検査で検出できず、位置ずれが実行時まで残る。
 `Position` は連続座標、`BlockPosition` はブロック格子上の座標を表す。両方を `{x,y,z}` で表すと、足元原点と AABB 中心の Y 規約を取り違えても型検査で検出できず、位置ずれが実行時まで残る。各軸は専用ブランドで分かれ、数値をそのまま `position`、`blockPosition`、`chunkCoord` に渡すことはできない。`BlockAxis` / `ChunkAxis` は safe integer、`LocalAxis` は 0..15 の整数、`PositionAxis` は有限数を受け付ける。
 `blockPositionOfPosition` は各軸に `Math.floor` を適用するため、`-0.2` は `-1` のセルになる。整数軸が safe integer の範囲を外れると `CoordinateConversionFailure` を返す。`aabbIntersects` は面が触れるだけなら `false`、`aabbContainsPoint` は境界上の点を含めて `true` を返す。
 
@@ -171,10 +170,6 @@ const decodeChunkKey(value: unknown): ChunkCoord | undefined
 整数の再文字列化と入力テキストが一致することを要求する（`hasCanonicalIntegerText`）。
 これにより同じ座標は常に同じキー文字列になり、キーの文字列比較がそのまま座標の等価性比較になる。
 数値からキーを作るときは負の 0 を `normalizeZero` で `0` に畳む。文字列キーの `-0` 表記は正準形ではないため拒否し、`0` と `-0` が別のキーになることを防ぐ。
-
-`BlockPositionKey` / `ChunkKey` and their inverse converters return `CoordinateKeyFailure` on invalid input.
-`decodeBlockPositionKey` / `decodeChunkKey` accept untrusted network or save data and return `undefined`
-when callers do not need a failure reason.
 
 ## 3. ブロック語彙（block-type）
 
@@ -222,17 +217,16 @@ const blockTypeOfId(id: BlockId): Result.Result<BlockType | undefined, BlockRegi
 const isKnownBlockId(id: BlockId): Result.Result<boolean, BlockRegistryResolutionFailure>
 const resolvedBlockOfId(id: BlockId): Result.Result<ResolvedBlock | undefined, BlockRegistryResolutionFailure>
 const resolvedBlockAt(id: BlockId): Result.Result<Option.Option<ResolvedBlock>, BlockRegistryResolutionFailure>
-const blockIdOfFluidKind(kind: FlowingFluidKind): Option.Option<BlockId>
-const fluidKindOfBlockId(blockId: BlockId): Result.Result<FlowingFluidKind | null, BlockRegistryResolutionFailure>
 ```
 
-安定した公開 import path は `@nerima-games/mc-kernel/domain/block-registry` である。
+ブロックレジストリの安定した公開 import path は `@nerima-games/mc-kernel/domain/block-registry` である。Fluid の lookup は `@nerima-games/mc-kernel/domain/fluid` から利用できる（§5-sexies）。
 
 **チャンクバイトから直接読む関数群。** いずれも `resolveBlock` で定義を都度組み立てるのではなく、
 `BLOCK_REGISTRY` から起動時に一度だけ構築した `Uint8Array` / `ReadonlySet` の列を引く。
 チャンク全体のメッシュ生成・光伝播・落下判定など、ブロックあたり 1 回以上呼ばれるホットパス向け。
 
 ```typescript
+const capabilityOfBlockId(id: BlockId, flag: BlockCapabilityFlag): Result.Result<boolean, BlockRegistryResolutionFailure>
 const capabilitiesOfBlockId(id: BlockId): Result.Result<BlockCapabilities, BlockRegistryResolutionFailure>
 const propertyOfBlockId<K extends BlockPropertyName>(id: BlockId, name: K): Result.Result<BlockProperties[K], BlockRegistryResolutionFailure>
 const opacityOfBlockId(id: BlockId): Result.Result<BlockOpacity, BlockRegistryResolutionFailure>
@@ -253,7 +247,7 @@ const blockIdsWithOpacity(opacity: BlockOpacity): Result.Result<Option.Option<Re
 §4-3-bis の `dropOfBlockId` は未知の `id` に対して成功値 `undefined` を返す（理由はそちらに書いてある）。
 
 `blockIdsWithCapability` / `blockIdsWithOpacity` は `Set` を毎回組み立てず、起動時に構築した
-同一インスタンスを `Result<Option<ReadonlySet<number>>, BlockRegistryResolutionFailure>` で返す。
+同一インスタンスを `Result<Option<ReadonlySet<BlockId>>, BlockRegistryResolutionFailure>` で返す。
 呼び出し側が変更してはならない共有オブジェクトである。
 
 ## 3-bis. アイテム語彙とブロック↔アイテムの橋（item-type / block-item）
@@ -270,7 +264,7 @@ const itemOfBlock(block: BlockType): PlaceableItemType | undefined   // 部分�
 const blockOfPlaceableItem(item: PlaceableItemType): BlockType       // 全域、証明済みの設置 item 上だけ
 ```
 
-`ItemType` をブランデッド文字列でなくリテラル union にする理由は `BlockType` と同じである。**挙動は名前比較ではなく能力から読む**ため、閉じたリテラル集合でそれを機械検査できる。ブランドは外部からの侵入を防ぐが、綴り間違いは防げない（`ItemId('stik')` も通る）。そのため `domain/item-type.ts` のガードは `domain/block-type.ts` と同じ形にしてある。
+`ItemType` をブランデッド文字列でなくリテラル union にする理由は `BlockType` と同じである。**挙動は名前比較ではなく能力から読む**ため、閉じたリテラル集合でそれを機械検査できる。外部文字列の綴り間違いは `isItemType` で拒否する（`isItemType('stik')` は `false`）。このガードは `domain/block-type.ts` と同じ形にしてある。
 
 **`ItemType` は `BlockType` の部分集合ではない。両方向で。**
 
@@ -293,13 +287,11 @@ const blockOfPlaceableItem(item: PlaceableItemType): BlockType       // 全域�
 kernel は現在の `ItemType` roster に対応する純粋な装備スロット規則・装備スナップショット・耐久遷移を `equipment-data.ts` / `equipment.ts` で所有する。
 ただし、このカタログは現在 kernel に表現されているアイテムの範囲であり、全エディション・全バージョンの防具、道具、プレイヤーインベントリを網羅する完全な公式レジストリではない。
 プレイヤーインベントリの搬送、所有権、サーバー権威、装備変更のゲームプレイ統合は上位パッケージが所有する。
-`supportRule` が配置条件を所有するようになったため、条件依存の草花・キノコ・サトウキビ・サボテン・睡蓮 10 種も
-既定 self-drop と同じ根拠でアイテム形を持つ。
 埋めるのは `BLOCK_TYPES` と同じく加算的である。
 綴りは `BLOCK_TYPES` に合わせた `lower_snake_case`。旧呼び出し側の暫定値にあった `UPPER_SNAKE`
 （`'OAK_PLANKS'` / `'STICK'`）は、現行の `'oak_planks'` などの `ItemType` 値に置き換える。
 
-### 3-bis-2. アイテムの数値 wire ID（item-registry）
+### 3-bis-1. アイテムの数値 wire ID（item-registry）
 
 `BlockId` と対になる、アイテム側の永続数値 ID とその 2 バイト wire 表現。
 
@@ -342,7 +334,7 @@ const ItemIdBytes(bytes: Uint8Array | ItemIdBytes): Result.Result<ItemIdBytes, I
 道具・防具・薬品・ボート等は 1 を返す。
 `maxStackCountForItem` は item-stack subpath の同じ item 上限 lookup で、両関数は `itemComponents` が解決する item component の既定値を返す。stack ごとの `max_stack_size` がある場合は `maxStackCountForStack` がそちらを優先する。
 
-### 3-bis-3. Java の `minecraft:tool` component
+### 3-bis-2. Java の `minecraft:tool` component
 
 `ToolComponent`はJava Editionのtool componentを値として表す。kernelはruleを検証・コンパイルし、ブロックとtag membershipに対する道具の採掘プロパティを解決する。採掘時間の計算やプレイヤー操作の進行は含まない。
 
@@ -408,6 +400,8 @@ const resolveToolMiningProperties: (
 ) => Result.Result<ResolvedToolMiningProperties, ItemValidationFailure>;
 ```
 
+`resolveToolMiningProperties` が受け取る公開引数は `ToolResolutionContextInput` である。`ToolResolutionContext` はその入力を検証し、`ReadonlyMap` と `ReadonlySet` に正規化した内部表現を表す。
+
 `rules` は配列順に評価し、最初に対象ブロックを含む rule の各指定値を採用する。未指定の `speed` は
 `defaultMiningSpeed`（既定値 1）へ、未指定の `correctForDrops` は `false` へフォールバックする。
 未指定の `canDestroyBlocksInCreative` は公式既定値 `true` へフォールバックする。
@@ -420,11 +414,12 @@ const resolveToolMiningProperties: (
 kernel はタグ名のレジストリやサービスアダプタを仮定せず、タグ membership の純粋な値を解決入力として受け取る。
 プレイヤー操作の進行状態、採掘への耐久適用、ドロップ生成、サーバー権威判定は上位 gameplay が統合する。装備スナップショット内の耐久値検証と純粋な減少・破損遷移は kernel の `equipment.ts` が所有する。
 
-`ToolBlockTag`を使うルールを解決するときは、`ToolResolutionContextInput`を第3引数に渡す。tag membershipは`ReadonlyMap<ToolBlockTag, ReadonlySet<BlockType>>`または同じ反復可能なMap-like / Set-like契約で与える。tag registryや採掘操作の実行はkernelに含まれない。
+### 3-bis-3. Entity 語彙（entity-type）
 
-### 3-bis-5. Entity 語彙（entity-type）
-
-`entity-type.ts` は `BlockType` / `ItemType` と同じ「閉じたリテラル union + runtime guard」の形で `EntityType` を公開する。属性の値域、既定値、modifier適用は`entity-attributes*.ts`が提供する。Entityの状態操作はkernelの公開APIに含まれず、移設先は[責務と移行先](./responsibility.md)を参照する。spawn/despawn、AI、networkは上位層の責務である。
+`entity-type.ts` は `BlockType` / `ItemType` と同じ「閉じたリテラル union + runtime guard」の形で `EntityType` を公開する。
+`entity-attributes*.ts` は属性の値域、既定値、modifier適用を提供する。
+`EntityState<S>` は位置、体力、`behaviour` を持つ。`Entity<S>` はそこに `id` と `kind` を加える。
+spawn/despawn、AI、networkは上位層が扱う。担当する実行時処理は[責務と移行先](./responsibility.md)を参照する。
 
 ```typescript
 const ENTITY_TYPES: ReadonlyArray<EntityType>; // Minecraft Java Edition 26.3 の entity registry id と同一の閉じた集合
@@ -445,6 +440,7 @@ type EntityState<S> = Readonly<{
   healthPoints: EntityHealthPoints;
   behaviour: S;
 }>;
+type Entity<S> = EntityState<S> & Readonly<{ id: EntityId; kind: EntityKind }>;
 ```
 
 **既存の `entity-types.ts`（複数形）が持つ `EntityKind` は、この語彙とは別物として残る。** `EntityKind` は網羅性チェックの効かない開いた branded string で、modding が持ち込む未知の entity 名を受け取るために使う。`EntityType` はその上に載る閉じた語彙であり、`isEntityType` はセーブファイル・ネットワークフレーム・開発者コンソールからの値を検証する。`isBlockType` / `isItemType` と同じ shape で意図的に揃えてある。エンティティ名もブロック・アイテム名と同じ形式で保存するためである。
@@ -462,7 +458,7 @@ const effectiveBounciness: (block: number, entity: number) => Result.Result<Boun
 
 `isEntityAttributeOptions` と `isEntityAttributes` は unknown 入力の guard である。属性の適用、tick 更新、entity lifecycle は上位層の責務とする。
 
-### 3-ter. ItemStack とレシピ
+### 3-ter-1. ItemStack とレシピ
 
 `ItemStack` は `item` / `count` / 解決済み `components` の3フィールドだけを持つ不変値であり、`itemStack` がアイテムごとの最大スタック数と数量 `1..max` を検証する。数量 0 は `ItemStack` に格納せず、空の `ItemSlot`（`undefined`）で表す。`itemStack` は item の既定 component または `options.components` を基底にし、`options.componentPatch` があれば適用してから解決済み `components` として格納する。patch や未解決の payload を `ItemStack` のフィールドや sidecar として保持しない。
 耐久値やエンチャントは component に含め、`ItemStack` の独立したトップレベルフィールドにはしない。インベントリの搬送、所有権、装備状態はこの型に含めない。
@@ -527,17 +523,6 @@ const itemDurabilityDefinitionFor: (
 
 ```typescript
 const VANILLA_CRAFTING_RECIPES: ReadonlyArray<Recipe>;
-const matchRecipe: (
-  table: RecipeTable,
-  input: CraftGrid,
-  context?: RecipeMatchContext,
-) => RecipeMatch;
-const ingredientMatches: (
-  ingredient: CraftingIngredient,
-  item: ItemType,
-  itemTags?: ItemTagMemberships,
-) => boolean;
-
 type RecipePatternKeyMap = Readonly<Record<RecipePatternSymbol, CraftingIngredientInput>>;
 type RecipeOptions = {
   readonly assumeSymmetry?: boolean;
@@ -547,27 +532,23 @@ type RecipeOptions = {
   readonly showNotification?: boolean;
   readonly tags?: ReadonlyArray<RecipeStationTag>;
 };
-const exactly: (item: ItemType, count?: RecipeIngredientCount) => ExactIngredient;
-const tagged: (tag: RecipeItemTag, count?: RecipeIngredientCount) => ItemTagIngredient;
-const shapedRecipe: (
-  id: RecipeId,
-  rows: ReadonlyArray<RecipePatternRow>,
-  key: RecipePatternKeyMap,
-  output: ItemStack,
-  options?: RecipeOptions,
-) => ShapedRecipe;
-const shapelessRecipe: (
-  id: RecipeId,
-  ingredients: ReadonlyArray<CraftingIngredientInput>,
-  output: ItemStack,
-  options?: RecipeOptions,
-) => ShapelessRecipe;
-const craftGrid: (
-  width: RecipeGridDimension,
-  height: RecipeGridDimension,
-  items: ReadonlyArray<CraftGridInput>,
-) => CraftGrid;
+const exactly: (item: ItemType, count?: RecipeIngredientCount) => Result.Result<ExactIngredient, RecipeFailure>;
+const tagged: (tag: RecipeItemTag, count?: RecipeIngredientCount) => Result.Result<ItemTagIngredient, RecipeFailure>;
+const anyOf: (options: ReadonlyArray<IngredientInput>, count?: RecipeIngredientCount) => Result.Result<AnyOfIngredient, RecipeFailure>;
+const craftingIngredient: (value: unknown) => Result.Result<CraftingIngredient, RecipeFailure>;
+const ingredientMatches: (ingredient: CraftingIngredient, item: ItemType, itemTags?: ItemTagMemberships) => Result.Result<boolean, RecipeFailure>;
+const shapedRecipe: (id: RecipeId, rows: ReadonlyArray<RecipePatternRow>, key: RecipePatternKeyMap, output: ItemStack, options?: RecipeOptions) => Result.Result<ShapedRecipe, RecipeFailure>;
+const shapelessRecipe: (id: RecipeId, ingredients: ReadonlyArray<CraftingIngredientInput>, output: ItemStack, options?: RecipeOptions) => Result.Result<ShapelessRecipe, RecipeFailure>;
+const craftGrid: (width: RecipeGridDimension, height: RecipeGridDimension, items: ReadonlyArray<CraftGridInput>) => Result.Result<CraftGrid, RecipeFailure>;
 const cellAt: (grid: CraftGrid, x: RecipeGridIndex, y: RecipeGridIndex) => Slot;
+const cookingRecipe: (id: RecipeId, station: CookingStation, ingredient: CraftingIngredientInput, output: ItemStack, cookTimeTicks: PositiveTickCount, experience: RecipeExperience, options?: CookingRecipeOptions) => Result.Result<CookingRecipe, RecipeFailure>;
+const cookingRecipeForItem: (id: RecipeId, station: CookingStation, ingredient: CraftingIngredientInput, output: ItemType, count: StackCount, cookTimeTicks: PositiveTickCount, experience: RecipeExperience, options?: CookingRecipeOptions) => Result.Result<CookingRecipe, RecipeFailure>;
+const stonecuttingRecipe: (id: RecipeId, ingredient: CraftingIngredientInput, output: ItemStack, options?: StonecuttingRecipeOptions) => Result.Result<StonecuttingRecipe, RecipeFailure>;
+const smithingTransformRecipe: (id: RecipeId, template: CraftingIngredientInput, base: CraftingIngredientInput, addition: CraftingIngredientInput, output: ItemStack, options?: SmithingRecipeOptions) => Result.Result<SmithingTransformRecipe, RecipeFailure>;
+const smithingTrimRecipe: (id: RecipeId, template: CraftingIngredientInput, base: CraftingIngredientInput, addition: CraftingIngredientInput, options?: SmithingRecipeOptions) => Result.Result<SmithingTrimRecipe, RecipeFailure>;
+const transmuteRecipe: (id: RecipeId, source: CraftingIngredientInput, material: CraftingIngredientInput, output: ItemStack, options?: TransmuteRecipeOptions) => Result.Result<TransmuteRecipe, RecipeFailure>;
+const transmuteRecipeForItem: (id: RecipeId, source: CraftingIngredientInput, material: CraftingIngredientInput, output: ItemType, count: StackCount, options?: TransmuteRecipeOptions) => Result.Result<TransmuteRecipe, RecipeFailure>;
+const brewingOutput: (recipe: BrewingRecipe) => Result.Result<ItemStack, RecipeFailure>;
 ```
 
 `VANILLA_CRAFTING_RECIPES` は Minecraft Java Edition 26.3 向けの検証済みデータである。
@@ -581,23 +562,6 @@ type RecipeFailure =
   | { readonly _tag: 'RecipeRangeFailure'; readonly name: 'RangeError'; readonly message: string }
   | { readonly _tag: 'RecipeExternalFailure'; readonly name: string; readonly message: string; readonly componentKey?: string }
   | { readonly _tag: 'RecipeItemFailure'; readonly failure: ItemStackFailure };
-
-const exactly: (item: unknown, count?: unknown) => Result.Result<ExactIngredient, RecipeFailure>;
-const tagged: (tag: unknown, count?: unknown) => Result.Result<ItemTagIngredient, RecipeFailure>;
-const anyOf: (options: unknown, count?: unknown) => Result.Result<AnyOfIngredient, RecipeFailure>;
-const craftingIngredient: (value: unknown) => Result.Result<CraftingIngredient, RecipeFailure>;
-const ingredientMatches: (ingredient: CraftingIngredient, item: ItemType, itemTags?: ItemTagMemberships) => Result.Result<boolean, RecipeFailure>;
-const shapedRecipe: (id: RecipeId, rows: ReadonlyArray<string>, key: Readonly<Record<string, CraftingIngredientInput>>, output: ItemStack, options?: RecipeOptions) => Result.Result<ShapedRecipe, RecipeFailure>;
-const shapelessRecipe: (id: RecipeId, ingredients: ReadonlyArray<CraftingIngredientInput>, output: ItemStack, options?: RecipeOptions) => Result.Result<ShapelessRecipe, RecipeFailure>;
-const craftGrid: (width: number, height: number, items: ReadonlyArray<CraftGridInput>) => Result.Result<CraftGrid, RecipeFailure>;
-const cookingRecipe: (id: RecipeId, station: CookingStation, ingredient: CraftingIngredientInput, output: ItemStack, cookTimeTicks: number, experience: number, options?: CookingRecipeOptions) => Result.Result<CookingRecipe, RecipeFailure>;
-const cookingRecipeForItem: (id: RecipeId, station: CookingStation, ingredient: CraftingIngredientInput, output: ItemType, count: number, cookTimeTicks: number, experience: number, options?: CookingRecipeOptions) => Result.Result<CookingRecipe, RecipeFailure>;
-const stonecuttingRecipe: (id: RecipeId, ingredient: CraftingIngredientInput, output: ItemStack, options?: StonecuttingRecipeOptions) => Result.Result<StonecuttingRecipe, RecipeFailure>;
-const smithingTransformRecipe: (id: string, template: CraftingIngredientInput, base: CraftingIngredientInput, addition: CraftingIngredientInput, output: ItemStack, options?: SmithingRecipeOptions) => Result.Result<SmithingTransformRecipe, RecipeFailure>;
-const smithingTrimRecipe: (id: string, template: CraftingIngredientInput, base: CraftingIngredientInput, addition: CraftingIngredientInput, options?: SmithingRecipeOptions) => Result.Result<SmithingTrimRecipe, RecipeFailure>;
-const transmuteRecipe: (id: RecipeId, source: CraftingIngredientInput, material: CraftingIngredientInput, output: ItemStack, options?: TransmuteRecipeOptions) => Result.Result<TransmuteRecipe, RecipeFailure>;
-const transmuteRecipeForItem: (id: RecipeId, source: CraftingIngredientInput, material: CraftingIngredientInput, output: ItemType, count: number, options?: TransmuteRecipeOptions) => Result.Result<TransmuteRecipe, RecipeFailure>;
-const brewingOutput: (recipe: BrewingRecipe) => Result.Result<ItemStack, RecipeFailure>;
 ```
 
 `craftingDyeRecipe`、`craftingImbueRecipe`、`craftingBannerDuplicateRecipe`、`craftingBookCloningRecipe`、`craftingDecoratedPotRecipe`、`craftingFireworkRocketRecipe`、`craftingFireworkStarFadeRecipe`、`craftingFireworkStarRecipe`、`craftingMapExtendingRecipe`、`craftingShieldDecorationRecipe` はいずれも `Result` と `RecipeFailure` を返す。`staticShapedRecipe` と `staticShapelessRecipe` は型付き静的データ向けで、検証を必要としない入力から直接値を返す。
@@ -680,8 +644,7 @@ const selectRecipes: (
 
 root のほか `@nerima-games/mc-kernel/domain/json-value`、`domain/item-component-patch`、`domain/recipe-json`、`domain/recipe-registry` subpath から利用できる。recipe result の item
 stack/components は [Minecraft Snapshot 24w10a](https://www.minecraft.net/pt-pt/article/minecraft-snapshot-24w10a) の item stack component 変更を、stonecutting / smithing /
-transmute の現在の JSON schema は [Minecraft Java Edition 26.1](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-1) を参照する。decoder の対応範囲を全 recipe
-registry と誤認しないよう、未知の recipe type は明示的に拒否する。
+transmute の現在の JSON schema は [Minecraft Java Edition 26.1](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-1) を参照する。
 
 `mergeItemComponentPatches` validates both patches at the boundary and returns `ItemComponentPatchDecodeError`
 for invalid input, hostile input, or set/remove conflicts. Its success value is `undefined` only when both inputs
@@ -708,9 +671,6 @@ type CraftingSpecialRecipe =
 
 レシピ値は `craftingDyeRecipe`、`craftingBannerDuplicateRecipe` などのコンストラクタで作る。
 `id`、`category`、`priority`、`tags` を構築時に検証し、`options` に object 以外を渡すと拒否する。
-
-`craftingDyeRecipeFromUnknown` から `craftingShieldDecorationRecipeFromUnknown` までの 10 種の decoder は、対応する Java 版 document を厳格に読む。
-各 decoder は type 不一致、必須キーの欠落、未知キーを拒否する。`portableRecipeFromUnknown` はこれらを含む recipe type を振り分ける。
 
 - **バナー複製は元のバナーを消費しない。** 消えるのは無地の複製先だけで、模様を持つ側は grid に残る。
   ここが他の 2 入力 special recipe と違う唯一の点である。
@@ -824,16 +784,32 @@ const VANILLA_SMELTING_RECIPES: ReadonlyArray<SmeltingRecipe>;
 const VANILLA_FUEL_RULES: ReadonlyArray<FuelRule>;
 ```
 
-`BrewingState`と`FurnaceState`はblock entityの共有データ型でもある。静的データはrootまたは実在する`@nerima-games/mc-kernel/domain/recipe` subpathからimportできる。状態の構築・遷移と結果の計算はkernelの公開APIに含まれない。
+`BrewingState`と`FurnaceState`はblock entityの共有データ型でもある。静的データはrootまたは実在する`@nerima-games/mc-kernel/domain/recipe` subpathからimportできる。
 
 ### Dimension と作物
 
-`Dimension` は vanilla の Overworld・Nether・End に限定した共有語彙で、`isDimension` は保存データやネットワーク入力の runtime guard である。作物 lifecycle は `mc-sim` が所有する（[実行時処理の所有元](./responsibility.md)）。
+`Dimension` は vanilla の Overworld・Nether・End に限定した共有語彙で、`isDimension` は保存データやネットワーク入力の runtime guard である。root は作物の静的定義も公開する。作物 lifecycle は `mc-sim` が所有する（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
 const DIMENSIONS: readonly ["overworld", "nether", "end"];
 type Dimension = "overworld" | "nether" | "end";
 const isDimension: (value: unknown) => value is Dimension;
+
+const CROP_TYPES: readonly ["wheat_crop", "potato_crop", "nether_wart_crop"];
+type CropType = (typeof CROP_TYPES)[number];
+type CropDefinition = {
+  readonly crop: CropType;
+  readonly maturitySecs: FixedDurationSecs;
+  readonly seed: ItemType;
+  readonly soil: BlockType;
+  readonly dimensions: ReadonlyArray<Dimension>;
+  readonly guaranteedMatureYield: ReadonlyArray<ItemStack>;
+};
+const CROP_REGISTRY: Readonly<Record<CropType, CropDefinition>>;
+const WHEAT_MATURITY_SECS: FixedDurationSecs;
+const POTATO_MATURITY_SECS: FixedDurationSecs;
+const NETHER_WART_MATURITY_SECS: FixedDurationSecs;
+const BONE_MEAL_GROWTH_SECS: FixedDurationSecs;
 ```
 
 ### 石切台と鍛造
@@ -1208,8 +1184,6 @@ const resistsExplosion: (id: BlockId, power: BlockBlastResistance) => Result.Res
 
 爆発計画と適用、および着火済みTNTのruntimeは`mc-sim`が所有する。移設先は[責務と移行先](./responsibility.md)を参照する。
 
-`ExplosionRequest.radius` は `ExplosionRadius`、`seed` は `RandomSeed` を使う。各制限は `ExplosionBlockCount`、`ExplosionRayStepCount`、`ExplosionEntityCount` で表し、entity effect の exposure は `ExplosionExposure` で表す。`resistsExplosion` は `BlockId` と `BlockBlastResistance` を受け取る。
-
 root と `@nerima-games/mc-kernel/domain/explosion` subpath から利用できる。
 
 ## 4. ブロック能力モデル
@@ -1324,6 +1298,7 @@ const satisfiesSupportRule(
 `isSupportSensitive` は `rule.kind !== 'none'` から導出する。
 `satisfiesSupportRule` は rule と下のブロックの `canSupportAttachments` 能力を組み合わせて判定する。
 下の ID が未知の場合は通常の不透明ブロックとして支え能力を持つものと扱う。
+`supportRule` が配置条件を所有するため、条件依存の草花・キノコ・サトウキビ・サボテン・睡蓮 10 種も既定 self-drop と同じ根拠でアイテム形を持つ。
 
 `domain/block-registry.ts` の `canBlockStaySupported(id, supportBelow)` はこの純関数を
 id ベースの lookup に配線したものである（§3-1-bis）。
@@ -1357,8 +1332,7 @@ const resolveDrop(requirement, rule, brokenBlock, context?): BlockDrop | undefin
 `item: 'self'` は「自分自身のアイテム」を表す番兵。既定値は自分が何のブロックかを知り得ないため、
 リテラルではなく番兵でなければならない。
 
-**`item` is now `ItemType | 'self'` instead of `BlockType | 'self'`.** This allows a block to drop a non-block item;
-for example, `glowstone` drops `glowstone_dust`, which is not a block type.
+**`item` is now `ItemType | 'self'` instead of `BlockType | 'self'`.** This allows a block to drop a non-block item.
 同じ理由で `resolveDropItem` は**部分関数になった**。旧版は `BlockType` を返して全域だった
 （「自分自身」は必ずブロックだから）。答えがアイテムになると「自分自身」は存在しないことがありうる
 （`air` / `water` / `lava` / `bedrock` / `snow`）。`undefined` がその答えで、count 0 の drop rule は存在しないため、インベントリに何も入らない。
@@ -1646,28 +1620,28 @@ Fluid の block ID と level 定数・変換関数、redstone block ID と power
 
 ```typescript
 type FlowingFluidKind = "water" | "lava";
-const FLUID_BLOCK_IDS: Readonly<{ readonly lava: BlockId; readonly water: BlockId }>;
-const FLUID_MIX_BLOCK_IDS: Readonly<{ readonly cobblestone: BlockId; readonly obsidian: BlockId }>;
+const FLUID_BLOCK_IDS: Readonly<{ readonly lava: Option.Option<BlockId>; readonly water: Option.Option<BlockId> }>;
+const FLUID_MIX_BLOCK_IDS: Readonly<{ readonly cobblestone: Option.Option<BlockId>; readonly obsidian: Option.Option<BlockId> }>;
 const FLUID_LEVEL_MIN: number;
 const FLUID_LEVEL_MAX: number;
 const FLUID_LEVEL_STEP: number;
 const SOURCE_FLUID_LEVEL: number;
 const FLOWING_FLUID_LEVEL: number;
-const blockIdOfFluidKind: (kind: FlowingFluidKind) => BlockId;
-const fluidKindOfBlockId: (blockId: BlockId) => FlowingFluidKind | null;
+const blockIdOfFluidKind: (kind: FlowingFluidKind) => Option.Option<BlockId>;
+const fluidKindOfBlockId: (blockId: BlockId) => Result.Result<FlowingFluidKind | null, BlockRegistryResolutionFailure>;
 
 const REDSTONE_BLOCK_IDS: Readonly<{
-  readonly block: BlockId;
-  readonly comparator: BlockId;
-  readonly lamp: BlockId;
-  readonly lampLit: BlockId;
-  readonly lever: BlockId;
-  readonly observer: BlockId;
-  readonly pressurePlate: BlockId;
-  readonly repeater: BlockId;
-  readonly stoneButton: BlockId;
-  readonly torch: BlockId;
-  readonly wire: BlockId;
+  readonly block: Option.Option<BlockId>;
+  readonly comparator: Option.Option<BlockId>;
+  readonly lamp: Option.Option<BlockId>;
+  readonly lampLit: Option.Option<BlockId>;
+  readonly lever: Option.Option<BlockId>;
+  readonly observer: Option.Option<BlockId>;
+  readonly pressurePlate: Option.Option<BlockId>;
+  readonly repeater: Option.Option<BlockId>;
+  readonly stoneButton: Option.Option<BlockId>;
+  readonly torch: Option.Option<BlockId>;
+  readonly wire: Option.Option<BlockId>;
 }>;
 const REDSTONE_POWER_MIN: number;
 const REDSTONE_POWER_MAX: number;
@@ -1849,9 +1823,7 @@ const encodeLightVolume: (volume: LightVolume) => Result.Result<Uint8Array, Ligh
 const decodeLightVolume: (encoded: Uint8Array) => Result.Result<LightVolume, LightVolumeFailure>;
 ```
 
-**The light volume has a separate codec and `MCLT` magic; `chunk.ts` does not encode it.** `LightChannel.at` takes a branded
-`LightChannelIndex`, and `copyTo` takes a branded `LightChannelByteOffset`. Channel construction, reads, copies,
-volume creation, and encoding/decoding return `LightVolumeFailure` values.
+**The light volume has a separate codec and `MCLT` magic; `chunk.ts` does not encode it.**
 
 ## 5-nonies. Heightmap（heightmap）
 
@@ -2037,17 +2009,22 @@ type RandomSourceScript = Readonly<{
 const fixedRandomSource: (script: RandomSourceScript) => Result.Result<RandomSource, RandomSourceFailure>;
 ```
 
-`seededRandomSource` implements the Park–Miller minimal standard Lehmer generator. It accepts safe-integer seeds,
-normalizes them modulo `2^31 - 1`, and maps a zero state to one, so seeds `0` and `2^31 - 1` produce the same sequence
-as seed `1`. Invalid seeds and bounds return `RandomSourceFailure`. Each seeded source is deterministic for a given seed
-and call order. `fixedRandomSource` returns `sequence-exhausted` through `RandomSourceFailure` after consuming its
-scripted values.
+`seededRandomSource` は Park–Miller の「minimal standard」Lehmer 生成器を実装する。seed は safe integer に限り、modulus で剰余化した後、状態が 0 なら 1 に正規化するため、seed `0` と seed `2^31 - 1` は seed `1` と同じ列を返す。同じ seed と同じ呼び出し順は常に同じ値の列を返し、リプレイと早送りの前提になる。不正な seed と bound は `RandomSourceFailure` を返す。`fixedRandomSource` は `fixedClock` と対の scripted 実装で、指定した値を使い切ると、黙って折り返したり既定値へフォールバックしたりせず、`sequence-exhausted` の `RandomSourceFailure` を返す。
 
 ## 6-ter. 共通ドメイン語彙（shared-vocabulary）
 
-`domain/shared-vocabulary` は branded ID、座標、tick、revision の Schema と型を公開する。`EntityIdSchema` と `WorldIdSchema` は非空文字列、`DimensionIdSchema` は `overworld` / `nether` / `end`、`ItemIdSchema` と `BlockIdSchema` は 0..65535 の整数を受け付ける。`BlockPositionSchema` は整数の `BlockAxis` 3 軸、`BlockAddressSchema` は dimension と block position、`WorldPositionSchema` は dimension と有限座標を検証する。tick と world/dimension revision は非負整数である。
+`domain/shared-vocabulary` は branded ID、座標、tick、revision の Schema を公開する。`EntityIdSchema` と `WorldIdSchema` は非空文字列、`DimensionIdSchema` は `overworld` / `nether` / `end`、`ItemIdSchema` と `BlockIdSchema` は 0..65535 の整数を受け付ける。`BlockPositionSchema` は整数の `BlockAxis` 3 軸、`BlockAddressSchema` は dimension と block position、`WorldPositionSchema` は dimension と有限座標を検証する。tick と world/dimension revision は非負整数である。
 
-`BlockId` は 0..65535 の数値ブランド、`BlockPosition` は `BlockAxis` 3 軸を持つ object 型である。`WorldPosition` の x/y/z は有限な `PositionAxis` で、dimension とともに検証される。`AngleRadians` は有限なラジアン値で、camera pose と vehicle heading が共有する。
+型として直接公開する名前は `AngleRadians`、`BlockAddress`、`WorldPosition`、`WorldRevision`、`DimensionRevision` である。`EntityId`、`WorldId`、`DimensionId`、`BlockId`、`ItemId`、`BlockPosition`、`SimulationTick` は Schema の decode 結果に含まれるが、この subpath から型名では import できない。Schema の出力型を注釈に使う場合は、たとえば `Schema.Schema.Type<typeof BlockPositionSchema>` と書ける。
+
+`BlockIdSchema` の出力は 0..65535 の数値ブランドである。公開型の形は次のとおり。
+
+```typescript
+type BlockAddress = Schema.Schema.Type<typeof BlockAddressSchema>;
+type WorldPosition = Schema.Schema.Type<typeof WorldPositionSchema>;
+```
+
+`BlockPositionSchema` は整数軸、`WorldPositionSchema` は有限座標を検証する。`AngleRadians` は有限なラジアン値で、camera pose と vehicle heading が共有する。
 
 ## 7. `GameModule` / `StageRegistration`（frame）
 
@@ -2114,9 +2091,7 @@ stage の実行環境は `ClockPort` だけを要求する。
 readonly cameraPose: Effect.Effect<CameraPoseSnapshot, never, ClockPort>
 ```
 
-要求は**メソッド側**に付いていて、`PlayerService` の取得側には付いていない。
-登録時にサービスを掴んだ stage は、1 フレーム後にそのメソッドを呼ぶ時点で `ClockPort` を必要とし、
-そしてそれ以外は必要としない。上に挙げた他の候補はすべて逆の性質だった。一度取得すれば残余要求は無い。
+要求は**メソッド側**に付いていて、`PlayerService` の取得時には付かない。登録時に `PlayerService` を取得した stage は、1 フレーム後に `cameraPose` を呼ぶ時点で `ClockPort` を必要とする。
 
 stage は時間を読まずに進めず、かつグローバルから読んではならないので、`never` も候補ではなかった。
 
@@ -2209,7 +2184,7 @@ class BlockState {
   static fromElementBytes(payload: Uint8Array, elementCount: BlockStateLength): Result.Result<BlockState, BlockStateFailure>;
   get length(): BlockStateLength
   get(index: BlockStateIndex): Result.Result<BlockId, BlockStateFailure>
-  set(index: number, blockId: BlockId): Result.Result<void, BlockStateFailure>
+  set(index: BlockStateIndex, blockId: BlockId): Result.Result<void, BlockStateFailure>
   toBytes(): Uint8Array
   copyTo(target: Uint8Array, offset?: BlockStateByteOffset): Result.Result<void, BlockStateFailure>
 }
@@ -2220,7 +2195,7 @@ const decodeChunk(encoded: Uint8Array | EncodedChunk): Result.Result<Chunk, Chun
 ```
 
 `chunk()` / `decodeChunk()` は入力バイト列を構築時に一度だけ検証し、以後は `ChunkBlocks` 経由でのみ
-読み書きさせる。**添字演算子（`blocks[i]`）は意図的に公開していない** —— `get` / `set` は範囲と registry membership を検証し、失敗を `BlockStateFailure` で返して
+読み書きさせる。**添字演算子（`blocks[i]`）は意図的に公開していない。** `get` / `set` は範囲と registry membership を検証し、失敗を `BlockStateFailure` で返して
 バッファの不変条件（長さの範囲内であること・登録済み ID のみが書けること）を強制する。生バイト列が
 必要な消費者（ワイヤ送信、コピー）は `toBytes()`（新規コピーを返す）または `copyTo(target, offset?)`
 （呼び出し側バッファへ範囲チェック付きで書き込み、割り当てを増やさない）を使う。

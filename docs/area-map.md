@@ -56,8 +56,8 @@ re-exports that barrel.
 `item-components-data.ts`, `item-components-validation.ts`, `item-components.ts`,
 `item-defense-data.ts`, `item-defense-validation.ts`, `item-defense.ts`,
 `item-enchantments-data.ts`, `item-enchantments-validation.ts`, `item-enchantments.ts`,
-`item-primitives.ts`,
-`item-registry.ts`, `item-stack.ts`, `item-tool-data.ts`, `item-tool.ts`,
+`item-failure.ts`, `item-primitives.ts`, `item-registry.ts`, `item-stack-canonical.ts`, `item-stack.ts`,
+`item-tool-data.ts`, `item-tool.ts`,
 `item-type-data.ts`, `item-type.ts`, `tool-component.ts`, `use-cooldown-data.ts`,
 `use-cooldown-validation.ts`, `use-cooldown.ts`, `weapon-data.ts`,
 `weapon-validation.ts`, `weapon.ts`
@@ -66,7 +66,7 @@ re-exports that barrel.
 
 `brewing-data.ts`, `brewing.ts`, `cooking-data.ts`, `cooking.ts`, `crafting-data.ts`,
 `crafting-special-data.ts`, `crafting.ts`, `recipe-data.ts`, `recipe-json.ts`,
-`recipe-registry.ts`, `recipe-vanilla-data.ts`, `recipe.ts`, `smelting-data.ts`,
+`recipe-error.ts`, `recipe-registry.ts`, `recipe-vanilla-data.ts`, `recipe.ts`, `smelting-data.ts`,
 `smelting.ts`, `smithing-data.ts`, `smithing.ts`, `stonecutting-data.ts`,
 `stonecutting.ts`, `transmute-data.ts`, `transmute.ts`
 

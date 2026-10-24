@@ -31,23 +31,23 @@
 
 ### Effect 4のResultへ移行する
 
-`addTick`、`secondsForTicks`、`itemComponentPatchFromUnknownEither`、`mergeItemComponentPatchesEither`はEffect 4の`Result.Result`を返す。関数名に`Either`が残る2つのitem component APIも、戻り値は`Either`ではなく`Result`である。
+`addTick`、`secondsForTicks`、`decodeItemComponentPatch`、`mergeItemComponentPatches`はEffect 4の`Result.Result`を返す。0.9ではitem component patch APIの名前が`itemComponentPatchFromUnknownEither`から`decodeItemComponentPatch`に、`mergeItemComponentPatchesEither`から`mergeItemComponentPatches`に変わった。
 
 ```typescript
 import { Result } from "effect";
 import {
-  itemComponentPatchFromUnknownEither,
-  mergeItemComponentPatchesEither,
+  decodeItemComponentPatch,
+  mergeItemComponentPatches,
 } from "@nerima-games/mc-kernel";
 
-const decoded = itemComponentPatchFromUnknownEither(input);
+const decoded = decodeItemComponentPatch(input);
 if (Result.isFailure(decoded)) {
   const error = decoded.failure;
 } else {
   const patch = decoded.success;
 }
 
-const merged = mergeItemComponentPatchesEither(left, right);
+const merged = mergeItemComponentPatches(left, right);
 if (Result.isFailure(merged)) {
   const error = merged.failure;
 } else {
@@ -55,9 +55,9 @@ if (Result.isFailure(merged)) {
 }
 ```
 
-`itemComponentPatchFromUnknownEither`の戻り値は`Result.Result<ItemComponentPatch, ItemComponentPatchDecodeError>`、`mergeItemComponentPatchesEither`の戻り値は`Result.Result<ItemComponentPatch | undefined, ItemComponentPatchDecodeError>`である。`Result.isFailure`で失敗を絞り込むと`.failure`を、成功側では`.success`を参照できる。`addTick`と`secondsForTicks`も同じResult分岐を使い、それぞれ成功値として`SimulationTick`と`FixedDurationSecs`を返す。
+`decodeItemComponentPatch`は`Result.Result<ItemComponentPatch, ItemComponentPatchDecodeError>`を、`mergeItemComponentPatches`は`Result.Result<ItemComponentPatch | undefined, ItemComponentPatchDecodeError>`を返す。`Result.isFailure`で失敗を絞り込むと`.failure`を、成功側では`.success`を参照できる。両引数がともに`undefined`なら、成功値も`undefined`になる。`addTick`と`secondsForTicks`も同じResult分岐を使い、それぞれ成功値として`SimulationTick`と`FixedDurationSecs`を返す。
 
-公開名を接尾辞だけから改名・型変更しないでください。戻り値と型は0.9の型宣言で確認してください。
+公開関数名と戻り値型は、`package.json`の`types`条件が指す公開entrypointの型宣言で確認してください。
 
 ## BrandのコンストラクタAPIを変更する
 
