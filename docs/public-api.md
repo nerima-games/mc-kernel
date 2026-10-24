@@ -451,10 +451,10 @@ type Entity<S> = EntityState<S> & Readonly<{ id: EntityId; kind: EntityKind }>;
 
 **既存の `entity-types.ts`（複数形）が持つ `EntityKind` は、この語彙とは別物として残る。** `EntityKind` は網羅性チェックの効かない開いた branded string で、modding が持ち込む未知の entity 名を受け取るために使う。`EntityType` はその上に載る閉じた語彙であり、`isEntityType` はセーブファイル・ネットワークフレーム・開発者コンソールからの値を検証する。`isBlockType` / `isItemType` と同じ shape で意図的に揃えてある。エンティティ名もブロック・アイテム名と同じ形式で保存するためである。
 
-entity attribute は現在の Java attribute vocabulary、既定値、pure な effective bounciness 計算を公開する。options と数値範囲の検証失敗は tagged failure として返す。
+entity attribute は現在の Java attribute vocabulary、既定値、pure な effective bounciness 計算を公開する。options の検証失敗と brand 構築失敗は `Result` failure として返す。
 
 ```typescript
-type EntityAttributesFailure = Readonly<{ readonly _tag: 'InvalidEntityAttributeOptions'; readonly value: unknown }>;
+type EntityAttributesFailure = Readonly<{ readonly _tag: 'InvalidEntityAttributeOptions'; readonly value: unknown }> | Brand.BrandError;
 type EffectiveBouncinessFailure = Readonly<{ readonly _tag: 'InvalidBounciness'; readonly block: number; readonly entity: number }>;
 const entityAttributes: (options?: EntityAttributeOptions) => Result.Result<EntityAttributes, EntityAttributesFailure>;
 const DEFAULT_ENTITY_ATTRIBUTES: EntityAttributes;
@@ -975,7 +975,7 @@ const resolveStatusEffectDefinition: (value: unknown) => Result.Result<StatusEff
 
 ### 3-quater-quater-bis. Sulfur Cube archetype registry
 
-`minecraft:sulfur_cube_archetype` の JSON を `unknown` の入力境界で検証し、`sulfurCubeArchetype` が `TagLocation`、resource location、`AttributeModifierAmount` へ正規化した immutable な定義を返す。成功後の戻り値は `SulfurCubeArchetype` として厳密に型付けされる。必須の item tag、浮力、attribute modifier、knockback modifier、sound settings に加え、任意の explosion と contact damage を表現できる。内部の builder は `SulfurCubeArchetypeOptions` を受け、保存 JSON などの外部値は `sulfurCubeArchetypeFromUnknown` で一度だけ検証してから builder に渡す。`isSulfurCubeArchetypeOptions` は保存データなどの `unknown` 境界、`isSulfurCubeArchetype` は正規化後の値の境界を検証する。
+`sulfurCubeArchetypeFromUnknown` は、保存 JSON などの外部値を一度だけ snapshot に取り込み、`minecraft:sulfur_cube_archetype` の入力境界で検証してから、branded な定義を `Result` で返す。型付き options を受ける `sulfurCubeArchetype` は、`TagLocation`、resource location、`AttributeModifierAmount` へ正規化した immutable な `SulfurCubeArchetype` を構築する。必須の item tag、浮力、attribute modifier、knockback modifier、sound settings に加え、任意の explosion と contact damage を表現できる。`isSulfurCubeArchetypeOptions` は保存データなどの `unknown` 境界、`isSulfurCubeArchetype` は正規化後の値の境界を検証する。
 
 ```typescript
 const SULFUR_CUBE_ARCHETYPE_REGISTRY: ResourceLocation;
@@ -1024,7 +1024,7 @@ const SULFUR_CUBE_PARTICLES: Readonly<{
 const sulfurCubeArchetype: (
   options: SulfurCubeArchetypeOptions,
 ) => SulfurCubeArchetype;
-type SulfurCubeArchetypeFailure = { readonly _tag: 'InvalidSulfurCubeArchetypeOptions'; readonly value: unknown };
+type SulfurCubeArchetypeFailure = { readonly _tag: 'InvalidSulfurCubeArchetypeOptions'; readonly value: unknown } | Brand.BrandError;
 const sulfurCubeArchetypeFromUnknown: (value: unknown) => Result.Result<SulfurCubeArchetype, SulfurCubeArchetypeFailure>;
 const isSulfurCubeArchetypeOptions: (
   value: unknown,

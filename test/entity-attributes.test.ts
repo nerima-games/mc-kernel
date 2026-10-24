@@ -97,6 +97,16 @@ describe('entity attributes', () => {
     expect(Result.isSuccess(result)).toBe(true)
     expect(reads).toBe(1)
     expect(result).toMatchObject({ success: { bounciness: 0.5 } })
+
+    const hostile = new Proxy({}, {
+      getPrototypeOf() {
+        throw new Error('prototype is unavailable')
+      },
+    })
+    expect(Result.isFailure(Reflect.apply(entityAttributes, undefined, [hostile]))).toBe(true)
+    expect(Result.isFailure(Reflect.apply(entityAttributes, undefined, [null]))).toBe(true)
+    expect(Result.isFailure(Reflect.apply(entityAttributes, undefined, [[]]))).toBe(true)
+    expect(Result.isFailure(Reflect.apply(entityAttributes, undefined, [new Date()]))).toBe(true)
   })
 
   it('rejects malformed option and attribute records', () => {

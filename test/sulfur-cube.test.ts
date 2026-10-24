@@ -484,6 +484,21 @@ describe("Sulfur Cube archetype registry", () => {
     expect(Result.isSuccess(result)).toBe(true)
     expect(reads).toBe(1)
     if (Result.isSuccess(result)) expect(result.success.items).toBe(validOptions.items)
+
+    expect(Result.isFailure(sulfurCubeArchetypeFromUnknown(new Date()))).toBe(true)
+    const hostile = new Proxy({}, {
+      ownKeys() {
+        throw new Error('keys are unavailable')
+      },
+    })
+    expect(Result.isFailure(sulfurCubeArchetypeFromUnknown(hostile))).toBe(true)
+    const cyclic: Record<string, unknown> = {}
+    cyclic['self'] = cyclic
+    expect(Result.isFailure(sulfurCubeArchetypeFromUnknown(cyclic))).toBe(true)
+    expect(Result.isFailure(sulfurCubeArchetypeFromUnknown({
+      ...validOptions,
+      extra: new Array(1),
+    }))).toBe(true)
   })
 
   it("rejects malformed normalized values without widening the runtime boundary", () => {

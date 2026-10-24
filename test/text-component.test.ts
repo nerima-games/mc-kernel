@@ -67,6 +67,11 @@ describe('text components', () => {
       },
     })
     expect(isTextComponent(hostileRead)).toBe(false)
+    const hostileResult = textComponent(hostileRead)
+    expect(Result.isFailure(hostileResult)).toBe(true)
+    if (Result.isFailure(hostileResult)) {
+      expect(hostileResult.failure.reason).toBe('hostile-input')
+    }
 
     let ownKeyReads = 0
     const changesDuringCopy = new Proxy({ text: 'valid' }, {

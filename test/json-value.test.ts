@@ -54,6 +54,10 @@ describe("JSON values", () => {
     expect(Object.isFrozen(nested)).toBe(true);
     const invalidValue = jsonValueFromUnknown(undefined);
     expect(Result.isFailure(invalidValue)).toBe(true);
+    expect(Result.isFailure(jsonValueFromUnknown([undefined]))).toBe(true);
+    expect(Result.isFailure(jsonValueFromUnknown(new Date()))).toBe(true);
+    expect(Result.isFailure(jsonValueFromUnknown(Number.NaN))).toBe(true);
+    expect(Result.isSuccess(jsonValueFromUnknown(new Array(1)))).toBe(true);
     if (Result.isFailure(invalidValue)) {
       expect(invalidValue.failure).toMatchObject({
         _tag: "JsonValueFailure",

@@ -1,5 +1,5 @@
 /** Constructors and pure rules for current Java entity attributes. */
-import { Effect, Result } from 'effect'
+import { Brand, Effect, Result } from 'effect'
 import {
   ENTITY_ATTRIBUTE_DEFINITIONS,
   type EntityAttributeName,
@@ -40,41 +40,16 @@ const entityAttributesFailure = (value: unknown): EntityAttributesFailure => ({
   value,
 })
 
-const mapBrandFailure = <Value, Error>(
-  result: Result.Result<Value, Error>,
-  value: unknown,
-): Result.Result<Value, EntityAttributesFailure> =>
-  Result.mapError(result, () => entityAttributesFailure(value))
-
 const entityAttributesFromValidatedOptions = (
   options: EntityAttributeOptions,
-  original: unknown,
 ): Result.Result<EntityAttributes, EntityAttributesFailure> =>
   Result.gen(function* () {
-    const bounciness = yield* mapBrandFailure(
-      Bounciness.result(valueOrDefault(options.bounciness, ENTITY_ATTRIBUTE_DEFINITIONS.bounciness.defaultValue)),
-      original,
-    )
-    const frictionModifier = yield* mapBrandFailure(
-      EntityPhysicsModifier.result(valueOrDefault(options.frictionModifier, ENTITY_ATTRIBUTE_DEFINITIONS.frictionModifier.defaultValue)),
-      original,
-    )
-    const airDragModifier = yield* mapBrandFailure(
-      EntityPhysicsModifier.result(valueOrDefault(options.airDragModifier, ENTITY_ATTRIBUTE_DEFINITIONS.airDragModifier.defaultValue)),
-      original,
-    )
-    const nameTagDistance = yield* mapBrandFailure(
-      EntityVisibilityDistance.result(valueOrDefault(options.nameTagDistance, ENTITY_ATTRIBUTE_DEFINITIONS.nameTagDistance.defaultValue)),
-      original,
-    )
-    const belowNameDistance = yield* mapBrandFailure(
-      EntityVisibilityDistance.result(valueOrDefault(options.belowNameDistance, ENTITY_ATTRIBUTE_DEFINITIONS.belowNameDistance.defaultValue)),
-      original,
-    )
-    const knockbackResistance = yield* mapBrandFailure(
-      KnockbackResistance.result(valueOrDefault(options.knockbackResistance, ENTITY_ATTRIBUTE_DEFINITIONS.knockbackResistance.defaultValue)),
-      original,
-    )
+    const bounciness = yield* Bounciness.result(valueOrDefault(options.bounciness, ENTITY_ATTRIBUTE_DEFINITIONS.bounciness.defaultValue))
+    const frictionModifier = yield* EntityPhysicsModifier.result(valueOrDefault(options.frictionModifier, ENTITY_ATTRIBUTE_DEFINITIONS.frictionModifier.defaultValue))
+    const airDragModifier = yield* EntityPhysicsModifier.result(valueOrDefault(options.airDragModifier, ENTITY_ATTRIBUTE_DEFINITIONS.airDragModifier.defaultValue))
+    const nameTagDistance = yield* EntityVisibilityDistance.result(valueOrDefault(options.nameTagDistance, ENTITY_ATTRIBUTE_DEFINITIONS.nameTagDistance.defaultValue))
+    const belowNameDistance = yield* EntityVisibilityDistance.result(valueOrDefault(options.belowNameDistance, ENTITY_ATTRIBUTE_DEFINITIONS.belowNameDistance.defaultValue))
+    const knockbackResistance = yield* KnockbackResistance.result(valueOrDefault(options.knockbackResistance, ENTITY_ATTRIBUTE_DEFINITIONS.knockbackResistance.defaultValue))
     return Object.freeze({
       bounciness,
       frictionModifier,
@@ -88,7 +63,7 @@ const entityAttributesFromValidatedOptions = (
 export type EntityAttributesFailure = Readonly<{
   readonly _tag: 'InvalidEntityAttributeOptions'
   readonly value: unknown
-}>
+}> | Brand.BrandError
 
 export const entityAttributes = (
   options: EntityAttributeOptions = {},
@@ -105,7 +80,7 @@ export const entityAttributes = (
   if (Result.isFailure(snapshot)) return Result.fail(entityAttributesFailure(options))
   const normalized: unknown = snapshot.success
   return isEntityAttributeOptions(normalized)
-    ? entityAttributesFromValidatedOptions(normalized, options)
+    ? entityAttributesFromValidatedOptions(normalized)
     : Result.fail(entityAttributesFailure(options))
 }
 

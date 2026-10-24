@@ -1,4 +1,4 @@
-import { Effect, Result } from "effect";
+import { Brand, Effect, Result } from "effect";
 import { NamespacedResourceLocation, ResourceLocation, TagLocation } from "../text/identifiers.js";
 import { isSulfurCubeArchetypeOptions } from "./sulfur-cube-validation.js";
 import type {
@@ -102,18 +102,12 @@ export const sulfurCubeArchetype = (
 export type SulfurCubeArchetypeFailure = Readonly<{
   readonly _tag: "InvalidSulfurCubeArchetypeOptions";
   readonly value: unknown;
-}>;
+}> | Brand.BrandError
 
 const invalidSulfurCubeArchetypeOptions = (value: unknown): SulfurCubeArchetypeFailure => ({
   _tag: "InvalidSulfurCubeArchetypeOptions",
   value,
 })
-
-const mapBrandFailure = <Value, Error>(
-  result: Result.Result<Value, Error>,
-  original: unknown,
-): Result.Result<Value, SulfurCubeArchetypeFailure> =>
-  Result.mapError(result, () => invalidSulfurCubeArchetypeOptions(original))
 
 const INVALID_SULFUR_CUBE_SNAPSHOT = Symbol('InvalidSulfurCubeSnapshot')
 
@@ -155,80 +149,68 @@ const snapshotUnknownValue = (value: unknown, active: WeakSet<object>): unknown 
 
 const explosionFromOptions = (
   options: SulfurCubeArchetypeOptions['explosion'],
-  original: unknown,
-): Result.Result<SulfurCubeExplosion | undefined, SulfurCubeArchetypeFailure> => {
+): Result.Result<SulfurCubeExplosion | undefined, Brand.BrandError> => {
   if (options === undefined) return Result.succeed(undefined)
   return Result.gen(function* () {
-    const fuse = yield* mapBrandFailure(PositiveTickCount.result(options.fuse), original)
-    const power = yield* mapBrandFailure(SulfurCubeExplosionPower.result(options.power), original)
+    const fuse = yield* PositiveTickCount.result(options.fuse)
+    const power = yield* SulfurCubeExplosionPower.result(options.power)
     return Object.freeze({ fuse, power, causesFire: options.causesFire })
   })
 }
 
 const contactDamageFromOptions = (
   options: SulfurCubeArchetypeOptions['contactDamage'],
-  original: unknown,
-): Result.Result<SulfurCubeContactDamage | undefined, SulfurCubeArchetypeFailure> => {
+): Result.Result<SulfurCubeContactDamage | undefined, Brand.BrandError> => {
   if (options === undefined) return Result.succeed(undefined)
   return Result.gen(function* () {
-    const amount = yield* mapBrandFailure(SulfurCubeContactDamageAmount.result(options.amount), original)
-    const damageType = yield* mapBrandFailure(ResourceLocation.result(options.damageType), original)
+    const amount = yield* SulfurCubeContactDamageAmount.result(options.amount)
+    const damageType = yield* ResourceLocation.result(options.damageType)
     return Object.freeze({ amount, damageType, attributeToSource: options.attributeToSource })
   })
 }
 
 const attributeModifierFromOptions = (
   options: SulfurCubeArchetypeOptions['attributeModifiers'][number],
-  original: unknown,
-): Result.Result<SulfurCubeAttributeModifier, SulfurCubeArchetypeFailure> =>
+): Result.Result<SulfurCubeAttributeModifier, Brand.BrandError> =>
   Result.gen(function* () {
-    const attribute = yield* mapBrandFailure(NamespacedResourceLocation.result(options.attribute), original)
-    const id = yield* mapBrandFailure(NamespacedResourceLocation.result(options.id), original)
-    const amount = yield* mapBrandFailure(AttributeModifierAmount.result(options.amount), original)
+    const attribute = yield* NamespacedResourceLocation.result(options.attribute)
+    const id = yield* NamespacedResourceLocation.result(options.id)
+    const amount = yield* AttributeModifierAmount.result(options.amount)
     return Object.freeze({ attribute, id, amount, operation: options.operation })
   })
 
 const knockbackModifiersFromOptions = (
   options: SulfurCubeArchetypeOptions['knockbackModifiers'],
-  original: unknown,
-): Result.Result<SulfurCubeKnockbackModifiers, SulfurCubeArchetypeFailure> =>
+): Result.Result<SulfurCubeKnockbackModifiers, Brand.BrandError> =>
   Result.gen(function* () {
-    const horizontalPower = yield* mapBrandFailure(SulfurCubeKnockbackPower.result(options.horizontalPower), original)
-    const verticalPower = yield* mapBrandFailure(SulfurCubeKnockbackPower.result(options.verticalPower), original)
+    const horizontalPower = yield* SulfurCubeKnockbackPower.result(options.horizontalPower)
+    const verticalPower = yield* SulfurCubeKnockbackPower.result(options.verticalPower)
     return Object.freeze({ horizontalPower, verticalPower })
   })
 
 const soundSettingsFromOptions = (
   options: SulfurCubeArchetypeOptions['soundSettings'],
-  original: unknown,
-): Result.Result<SulfurCubeSoundSettings, SulfurCubeArchetypeFailure> =>
+): Result.Result<SulfurCubeSoundSettings, Brand.BrandError> =>
   Result.gen(function* () {
-    const hitSound = yield* mapBrandFailure(ResourceLocation.result(options.hitSound), original)
-    const pushSound = yield* mapBrandFailure(ResourceLocation.result(options.pushSound), original)
-    const pushSoundImpulseThreshold = yield* mapBrandFailure(
-      SulfurCubePushSoundImpulseThreshold.result(options.pushSoundImpulseThreshold),
-      original,
-    )
-    const pushSoundCooldown = yield* mapBrandFailure(
-      SulfurCubePushSoundCooldown.result(options.pushSoundCooldown),
-      original,
-    )
+    const hitSound = yield* ResourceLocation.result(options.hitSound)
+    const pushSound = yield* ResourceLocation.result(options.pushSound)
+    const pushSoundImpulseThreshold = yield* SulfurCubePushSoundImpulseThreshold.result(options.pushSoundImpulseThreshold)
+    const pushSoundCooldown = yield* SulfurCubePushSoundCooldown.result(options.pushSoundCooldown)
     return Object.freeze({ hitSound, pushSound, pushSoundImpulseThreshold, pushSoundCooldown })
   })
 
 const sulfurCubeArchetypeFromValidatedOptions = (
   options: SulfurCubeArchetypeOptions,
-  original: unknown,
-): Result.Result<SulfurCubeArchetype, SulfurCubeArchetypeFailure> =>
+): Result.Result<SulfurCubeArchetype, Brand.BrandError> =>
   Result.gen(function* () {
-    const items = yield* mapBrandFailure(TagLocation.result(options.items), original)
-    const explosion = yield* explosionFromOptions(options.explosion, original)
-    const contactDamage = yield* contactDamageFromOptions(options.contactDamage, original)
+    const items = yield* TagLocation.result(options.items)
+    const explosion = yield* explosionFromOptions(options.explosion)
+    const contactDamage = yield* contactDamageFromOptions(options.contactDamage)
     const attributeModifiers = yield* Result.all(
-      options.attributeModifiers.map((modifier) => attributeModifierFromOptions(modifier, original)),
+      options.attributeModifiers.map(attributeModifierFromOptions),
     )
-    const knockbackModifiers = yield* knockbackModifiersFromOptions(options.knockbackModifiers, original)
-    const soundSettings = yield* soundSettingsFromOptions(options.soundSettings, original)
+    const knockbackModifiers = yield* knockbackModifiersFromOptions(options.knockbackModifiers)
+    const soundSettings = yield* soundSettingsFromOptions(options.soundSettings)
     return Object.freeze({
       items,
       buoyant: options.buoyant,
@@ -254,7 +236,7 @@ export const sulfurCubeArchetypeFromUnknown = (
   ) {
     return Result.fail(invalidSulfurCubeArchetypeOptions(value))
   }
-  return sulfurCubeArchetypeFromValidatedOptions(snapshot.success, value)
+  return sulfurCubeArchetypeFromValidatedOptions(snapshot.success)
 };
 
 export {

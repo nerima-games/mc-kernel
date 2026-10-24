@@ -265,6 +265,23 @@ describe("data-pack registry", () => {
     expect(Result.isSuccess(changingEntryResult)).toBe(true)
     expect(idReads).toBe(1)
 
+    const hostileLayer = new Proxy({ ...validLayer }, {
+      ownKeys() {
+        throw new Error('layer keys are unavailable')
+      },
+    })
+    expect(Result.isFailure(dataPackLayerFromUnknown(hostileLayer, decodeNumber))).toBe(true)
+    const hostileEntries = new Proxy([], {
+      get(target, key, receiver) {
+        if (key === 'length') throw new Error('entry length is unavailable')
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    expect(Result.isFailure(dataPackLayerFromUnknown({
+      ...validLayer,
+      entries: hostileEntries,
+    }, decodeNumber))).toBe(true)
+
     const decodeFailure = resultFailure(dataPackLayerFromUnknown(
       { ...validLayer, entries: [{ id: 'example:regular', value: 'four' }] },
       decodeNumber,
@@ -334,11 +351,36 @@ describe("data-pack registry", () => {
     expect(outOfRangePriority).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-priority' });
     const invalidEntries = resultFailure(dataPackLayerFromUnknown({ ...validLayer, entries: {} }, decodeNumber));
     expect(invalidEntries).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-layer' });
+    expect(Result.isFailure(dataPackLayerFromUnknown({
+      ...validLayer,
+      entries: new Array(1),
+    }, decodeNumber))).toBe(true);
+    expect(Result.isFailure(dataPackLayerFromUnknown(null, decodeNumber))).toBe(true);
     const invalidEntryId = resultFailure(dataPackLayerFromUnknown(
       { ...validLayer, entries: [{ id: 1, value: 4 }] },
       decodeNumber,
     ));
     expect(invalidEntryId).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-entry' });
+    const invalidEntryRecord = resultFailure(dataPackLayerFromUnknown(
+      { ...validLayer, entries: [null] },
+      decodeNumber,
+    ));
+    expect(invalidEntryRecord).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-entry' });
+
+    const typedInvalidEntries = Reflect.apply(dataPackLayer, undefined, [{
+      pack: NamespacedResourceLocation('example:typed'),
+      format: resultValue(DataPackFormat(1)),
+      priority: resultValue(DataPackPriority(0)),
+      entries: {},
+    }]);
+    expect(Result.isFailure(typedInvalidEntries)).toBe(true);
+    const typedInvalidEntry = Reflect.apply(dataPackLayer, undefined, [{
+      pack: NamespacedResourceLocation('example:typed'),
+      format: resultValue(DataPackFormat(1)),
+      priority: resultValue(DataPackPriority(0)),
+      entries: [null],
+    }]);
+    expect(Result.isFailure(typedInvalidEntry)).toBe(true);
   });
 
   it("selects exact formats and applies priority with stable equal-priority ordering", () => {
