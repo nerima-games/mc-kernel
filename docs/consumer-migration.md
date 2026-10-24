@@ -21,9 +21,9 @@
 
 `mc-sim`、`mx-gameplay`、`mc-worldgen`、`mx-redstone`では、移動対象の各シンボルを利用する公開APIを確認できていない。これらの処理に依存するconsumerは、kernel 0.8のpinを保ち、owner packageが該当APIを公開してから切り替える。ソースディレクトリから直接importしたり、未確認の関数名を移行先として仮定したりしない。
 
-## 移行先で維持する境界規則
+## 移行先APIが守る境界規則
 
-`game-rule` の値が `number` でないか有限でない場合、正規化処理は既定値に戻す。有限値は整数化してから定義済み範囲に clamp する。非有限値を上下限へ丸めない。この処理は `mc-sim` が所有する。
+`game-rule`の保存値が数値でない場合や有限でない場合は、破損値として扱い、`mc-sim`の正規化処理で既定値に戻します。有限値は整数化して定義済み範囲にclampします。game-ruleは共有stateやworldが正となるstateを制御するため、保存値の破損処理をclient settingsの範囲補正と分けています。
 
 Anvil snapshot v1.0.0 は閉じた wire format である。decode時は最上位と入れ子のすべてのobjectで未知のfieldを拒否し、無視して読み込まない。codecは `mc-sim` が所有する。
 
