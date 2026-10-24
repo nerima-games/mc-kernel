@@ -45,6 +45,7 @@ kernel が誰かに依存した時点で構造的に循環が生じるためで�
 | [docs/freeze-checklist.md](./docs/freeze-checklist.md) | 1.0.0 凍結の前提条件と、公開前に残る項目 |
 
 下の相対リンクはリポジトリ内で使う。配布物にはREADMEを含むが、`docs/`以下は含まない。
+パッケージ利用者は[GitHub上のdocsディレクトリ](https://github.com/nerima-games/mc-kernel/tree/main/docs)から各文書を読める。
 
 ## 依存ルール（16 リポジトリ共通）
 

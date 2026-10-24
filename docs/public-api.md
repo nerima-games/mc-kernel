@@ -10,7 +10,8 @@
 
 複数リポジトリが共有し、どれか一つの所有リポジトリに置くと依存方向が崩れる型は kernel に置く。それ以外の型はその所有者のリポジトリに置く。
 
-TypeScript のコードブロックは公開宣言や使用例の抜粋であり、完全なソースファイルではない。単独の `...` は省略、引数名に付く `...` は可変長引数を示す。本文や見出しで名前を並べる際の `/` は併記を示す。import path を明記した例だけが package entrypoint を示す。
+TypeScript のコードブロックは公開宣言や使用例の抜粋であり、完全なソースファイルではない。単独の `...` は省略、引数名に付く `...` は可変長引数を示す。本文や見出しで名前を並べる際の `/` は併記を示す。
+`domain/<name>` は公開 subpath を示す文脈で使う略記であり、完全な import path は `@nerima-games/mc-kernel/domain/<name>` である。import path を明記した例だけが package entrypoint を示す。
 `package.json` の `types` 条件は root entrypoint を `dist/index.d.ts`、各 `./domain/<name>` subpath を `dist/domain/<name>.d.ts` に対応づける。各公開 import entrypoint の完全な型宣言は package に含まれるそのファイルから確認できる。
 
 ## 数値・文字列・bigint の意味型
@@ -296,9 +297,13 @@ kernel は現在の `ItemType` roster に対応する純粋な装備スロット
 
 `BlockId` と対になる、アイテム側の永続数値 ID とその 2 バイト wire 表現。
 
-以下でいう `ReadonlyByteArray` は、item registry と chunk codec の各 module が内部で使う構造型の略記であり、公開 export ではない。`Uint8Array` の読み取り API と数値インデックスだけを残し、`buffer`、長さ・offset の可変ビュー情報、書き込みメソッドを除く。
+以下の `ReadonlyByteArray` は item registry と chunk codec の内部型であり、公開 export ではない。型の構造を示す。
 
 ```typescript
+type ReadonlyByteArray = Omit<
+  Uint8Array,
+  'buffer' | 'byteLength' | 'byteOffset' | 'copyWithin' | 'fill' | 'reverse' | 'set' | 'sort' | 'subarray'
+> & { readonly [index: number]: number }
 type ItemId = number & Brand.Brand<'ItemId'>
 type ItemIdBytes = ReadonlyByteArray & Brand.Brand<'ItemIdBytes'>
 type ItemDefinition = { readonly id: ItemId; readonly type: ItemType; readonly maxStackCount: ItemStackLimit }
@@ -496,13 +501,8 @@ const ItemComponentPatchConflictError: (args: Readonly<{ readonly componentKey: 
 
 `itemStack` accepts the branded `StackCount`; `itemStackFromUnknown` validates untrusted item, count, and options values.
 Both return `ItemStackFailure` for invalid data. `decodeItemComponentPatch` and `mergeItemComponentPatches`
-return `ItemComponentPatchDecodeError` values for invalid patches or set/remove conflicts. A `!` prefix removes
-the named component and the resolved payload does not retain that key. `ItemComponentPatchConflictError` is a
+return `ItemComponentPatchDecodeError` values for invalid patches or set/remove conflicts. `ItemComponentPatchConflictError` is a
 Result-returning factory whose success value contains a branded `NamespacedResourceLocation`.
-`itemStackEqualsIgnoringCount` と `itemStacksCanMerge` は item と components の構造的等価性で判定し、
-`splitItemStack` / `mergeItemStacks` は components を失わず新しい snapshot を返す。数量の移送量には
-`TransferQuantity`（1..99 の正の整数）を使う。これらの関数は入力を変更せず、全量を移送した結果の余りを
-`undefined` の `ItemSlot` で返す。
 
 
 
