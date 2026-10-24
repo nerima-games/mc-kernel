@@ -43,7 +43,7 @@ const buildChunk = (placements: ReadonlyArray<Placement>) => {
   for (const [lx, lz, ly, blockId] of placements) {
     blocks[blockIndexOf(lx, lz, ly)] = blockId
   }
-  return resultValue(chunk(chunkCoord(ChunkAxis(0), ChunkAxis(0)), ChunkHeight(CHUNK_HEIGHT), blocks))
+  return resultValue(chunk(chunkCoord(ChunkAxis(0), ChunkAxis(0)), resultValue(ChunkHeight(CHUNK_HEIGHT)), blocks))
 }
 
 const everyColumnIsUndefined = (heightmap: Heightmap): boolean =>

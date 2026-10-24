@@ -25,11 +25,7 @@ const failure = (
 /** A non-negative data-pack format number, including decimal formats such as 107.1. */
 export type DataPackFormat = number & Brand.Brand<"DataPackFormat">;
 
-const dataPackFormatBrand = Brand.make<DataPackFormat>((value) =>
-  Number.isFinite(value) && value >= DATA_PACK_FORMAT_MIN
-    ? true
-    : `DataPackFormat must be a finite non-negative number, received ${value}`,
-)
+const dataPackFormatBrand = Brand.nominal<DataPackFormat>()
 
 export const DataPackFormat = (value: number): Result.Result<DataPackFormat, DataPackRegistryFailure> =>
   Number.isFinite(value) && value >= DATA_PACK_FORMAT_MIN
@@ -39,11 +35,7 @@ export const DataPackFormat = (value: number): Result.Result<DataPackFormat, Dat
 /** A stable non-negative precedence for a data-pack layer. Larger values win. */
 export type DataPackPriority = number & Brand.Brand<"DataPackPriority">;
 
-const dataPackPriorityBrand = Brand.make<DataPackPriority>((value) =>
-  Number.isSafeInteger(value) && value >= DATA_PACK_PRIORITY_MIN
-    ? true
-    : `DataPackPriority must be a non-negative safe integer, received ${value}`,
-)
+const dataPackPriorityBrand = Brand.nominal<DataPackPriority>()
 
 export const DataPackPriority = (value: number): Result.Result<DataPackPriority, DataPackRegistryFailure> =>
   Number.isSafeInteger(value) && value >= DATA_PACK_PRIORITY_MIN
@@ -128,7 +120,7 @@ const dataPackEntryFromUnknown = <T, E>(
 }
 
 const namespacedEntryOf = <T>(
-  entry: DataPackRegistryEntryOptions<T>,
+  entry: Readonly<{ readonly id: string; readonly value: T }>,
   ids: ReadonlySet<NamespacedResourceLocation>,
 ): Result.Result<DataPackRegistryEntry<T>, DataPackRegistryFailure> =>
   Result.flatMap(namespacedResourceLocation(entry.id), (id) => {

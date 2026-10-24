@@ -96,12 +96,7 @@ type ValidatedEncodedChunk = {
   readonly view: DataView
 }
 
-const ChunkHeightBrand = Brand.make<ChunkHeight>(
-  (value) =>
-    Number.isInteger(value) && value > 0 && value <= MAX_CHUNK_HEIGHT
-      ? true
-      : `Chunk height must be an integer in [1, ${MAX_CHUNK_HEIGHT}], received ${value}`,
-)
+const ChunkHeightBrand = Brand.nominal<ChunkHeight>()
 
 export const ChunkLocalY: Brand.Constructor<ChunkLocalY> = Brand.make<ChunkLocalY>(
   (value) =>
@@ -159,7 +154,7 @@ const validateBlocks = (blocks: unknown, height: ChunkHeight): Result.Result<Blo
     return failure('invalid-block-state', 'Chunk blocks must be a BlockState')
   }
   const expected = chunkBlockCount(height)
-  if (blocks.length !== expected) {
+  if (Number(blocks.length) !== Number(expected)) {
     return failure('invalid-block-count', `Chunk block data length must be ${expected}, received ${blocks.length}`)
   }
   return Result.succeed(blocks)

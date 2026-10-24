@@ -116,6 +116,20 @@ describe('chunk binary codec', () => {
     })),
   )
 
+  it('validates an encoded chunk and detaches its input bytes', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const encoded = new Uint8Array(encodeChunk(
+        chunk(chunkCoord(1, -2), height, sampleBlocks()),
+      ))
+      const owned = resultValue(encodedChunkResult(encoded))
+
+      expect(owned[0]).toBe(0x4d)
+      encoded[0] = 0
+      expect(owned[0]).toBe(0x4d)
+      expect(resultFailure(encodedChunkResult(new Uint8Array())).reason).toBe('truncated-header')
+    })),
+  )
+
   it('round-trips coordinates, height, and block data', () =>
     Effect.runPromise(Effect.sync(() => {
       const source = chunk(chunkCoord(-17, 23), height, sampleBlocks())

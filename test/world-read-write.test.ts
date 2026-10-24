@@ -191,6 +191,13 @@ describe('world read/write vocabulary', () => {
     const unknownEdit = resultFailure(blockEdit(origin, BlockId(0xffff)))
     expect(unknownEdit.reason).toBe('unknown-block-id')
     expect(unknownEdit.message).toMatch(/unknown block id/)
+
+    const invalidEdit = resultFailure(Reflect.apply(blockEdit, undefined, [origin, -1]))
+    expect(invalidEdit).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'unknown-block-id',
+      message: 'Block edit contains an unknown block id -1',
+    })
   })
 
   it('rejectsInvalidRevisionAndIndexBrands', () => {

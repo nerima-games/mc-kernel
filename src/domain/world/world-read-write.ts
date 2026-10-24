@@ -1,10 +1,11 @@
-import { Brand, Result } from 'effect'
-import { BlockId, isKnownBlockId, type BlockId as BlockIdType } from '../block/block-registry.js'
+import { Brand, Option, Result } from 'effect'
+import { isKnownBlockId, type BlockId as BlockIdType } from '../block/block-registry.js'
 import { LightLevel } from '../block/block-property-data.js'
 import { CHUNK_SIZE_XZ, ChunkAxis, chunkCoord, type BlockPosition } from '../coordinates/coordinate-primitives.js'
 import { type ChunkKey, chunkKeyOf } from '../coordinates/coordinate-keys.js'
 
 const MIN_INDEX = 0
+const sectionBlockId = Brand.nominal<BlockIdType>()
 export type WorldEpoch = number & Brand.Brand<'WorldEpoch'>
 export type ChunkRevision = number & Brand.Brand<'ChunkRevision'>
 export type LightRevision = number & Brand.Brand<'LightRevision'>
@@ -68,27 +69,31 @@ const sectionLengthBrand = Brand.make<SectionLength>(
       : `SectionLength must be a non-negative safe integer, received ${value}`,
 )
 
-const nonNegativeBrand = <A extends number & Brand.Brand<any>>(
-  value: number,
-  label: string,
-  reason: 'invalid-epoch' | 'invalid-revision' | 'invalid-index',
-  brand: Brand.Constructor<A>,
-): Result.Result<A, WorldReadWriteFailure> =>
-  Result.mapError(
-    brand.result(value),
-    () => failureValue(reason, `${label} must be a non-negative safe integer, received ${value}`),
-  )
-
 export const WorldEpoch = (value: number): Result.Result<WorldEpoch, WorldReadWriteFailure> =>
-  nonNegativeBrand(value, 'WorldEpoch', 'invalid-epoch', worldEpochBrand)
+  Result.mapError(
+    worldEpochBrand.result(value),
+    () => failureValue('invalid-epoch', `WorldEpoch must be a non-negative safe integer, received ${value}`),
+  )
 export const ChunkRevision = (value: number): Result.Result<ChunkRevision, WorldReadWriteFailure> =>
-  nonNegativeBrand(value, 'ChunkRevision', 'invalid-revision', chunkRevisionBrand)
+  Result.mapError(
+    chunkRevisionBrand.result(value),
+    () => failureValue('invalid-revision', `ChunkRevision must be a non-negative safe integer, received ${value}`),
+  )
 export const LightRevision = (value: number): Result.Result<LightRevision, WorldReadWriteFailure> =>
-  nonNegativeBrand(value, 'LightRevision', 'invalid-revision', lightRevisionBrand)
+  Result.mapError(
+    lightRevisionBrand.result(value),
+    () => failureValue('invalid-revision', `LightRevision must be a non-negative safe integer, received ${value}`),
+  )
 export const ChunkLocalIndex = (value: number): Result.Result<ChunkLocalIndex, WorldReadWriteFailure> =>
-  nonNegativeBrand(value, 'ChunkLocalIndex', 'invalid-index', chunkLocalIndexBrand)
+  Result.mapError(
+    chunkLocalIndexBrand.result(value),
+    () => failureValue('invalid-index', `ChunkLocalIndex must be a non-negative safe integer, received ${value}`),
+  )
 export const SectionIndex = (value: number): Result.Result<SectionIndex, WorldReadWriteFailure> =>
-  nonNegativeBrand(value, 'SectionIndex', 'invalid-index', sectionIndexBrand)
+  Result.mapError(
+    sectionIndexBrand.result(value),
+    () => failureValue('invalid-index', `SectionIndex must be a non-negative safe integer, received ${value}`),
+  )
 export const SectionLength = (value: number): Result.Result<SectionLength, WorldReadWriteFailure> =>
   Result.mapError(
     sectionLengthBrand.result(value),
@@ -141,15 +146,15 @@ const readOnlySection = <Value extends number>(
 })
 
 const blockIdOfValue = (value: number): Result.Result<BlockIdType, WorldReadWriteFailure> =>
-  Result.flatMap(
-    Result.mapError(
-      BlockId.result(value),
-      () => failureValue('unknown-block-id', `Section contains an unknown block id ${value}`),
-    ),
-    (blockId) => isKnownBlockId(blockId)
-      ? Result.succeed(blockId)
-      : failure('unknown-block-id', `Section contains an unknown block id ${value}`),
-  )
+  Result.gen(function* () {
+    // Uint16Array guarantees every stored value is within BlockId's range.
+    const blockId = sectionBlockId(value)
+    const known = Option.getOrNull(Result.getSuccess(isKnownBlockId(blockId)))
+    if (!known) {
+      return yield* failure('unknown-block-id', `Section contains an unknown block id ${value}`)
+    }
+    return blockId
+  })
 
 const lightLevelOfValue = (value: number): Result.Result<LightLevel, WorldReadWriteFailure> =>
   Result.mapError(
@@ -204,12 +209,17 @@ export type BlockEdit = {
 export const blockEdit = (
   position: BlockPosition,
   blockId: BlockIdType,
-): Result.Result<BlockEdit, WorldReadWriteFailure> => {
-  if (!isKnownBlockId(blockId)) {
-    return failure('unknown-block-id', `Block edit contains an unknown block id ${blockId}`)
-  }
-  return Result.succeed(Object.freeze({ position, blockId }))
-}
+): Result.Result<BlockEdit, WorldReadWriteFailure> =>
+  Result.gen(function* () {
+    const known = yield* Result.mapError(
+      isKnownBlockId(blockId),
+      () => failureValue('unknown-block-id', `Block edit contains an unknown block id ${blockId}`),
+    )
+    if (!known) {
+      return yield* failure('unknown-block-id', `Block edit contains an unknown block id ${blockId}`)
+    }
+    return Object.freeze({ position, blockId })
+  })
 export const BlockEdit: (
   position: BlockPosition,
   blockId: BlockIdType,

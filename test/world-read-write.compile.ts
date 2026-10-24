@@ -99,8 +99,9 @@ view.getLight(sectionIndex)
 section.get(sectionIndex)
 
 export const heightmapIndex: HeightmapColumnIndex = heightmapColumnIndex(local, local)
-export const blockCount: ChunkBlockCount = chunkBlockCount(ChunkHeight(1))
-makeChunk(chunkCoord(chunk, chunk), ChunkHeight(1), new Uint8Array(0))
+const chunkHeight = resultValue(ChunkHeight(1))
+export const blockCount: ChunkBlockCount = chunkBlockCount(chunkHeight)
+resultValue(makeChunk(chunkCoord(chunk, chunk), chunkHeight, new Uint8Array(0)))
 export const localY: ChunkLocalY = ChunkLocalY(0)
 export const biomeTemperature: BiomeTemperature = BIOME_PROPERTY_DEFAULTS.temperature
 export const dataPath: DataPackResourcePath = dataPackResourcePath(

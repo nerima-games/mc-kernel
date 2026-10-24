@@ -60,11 +60,11 @@ const failure = (
 const brandFailure = (
   reason: RandomSourceFailure['reason'],
   label: string,
-  error: unknown,
+  error: Readonly<{ readonly message: string }>,
 ): RandomSourceFailure => ({
   _tag: 'RandomSourceFailure',
   reason,
-  message: `${label}: ${error instanceof Error ? error.message : String(error)}`,
+  message: `${label}: ${error.message}`,
 })
 
 export type RandomSource = Readonly<{
@@ -89,6 +89,8 @@ const validateBound = (bound: number): Result.Result<RandomIntBound, RandomSourc
  */
 const MCG_MODULUS = 2147483647
 const MCG_MULTIPLIER = 16807
+const randomFraction = Brand.nominal<RandomFraction>()
+const randomInt = Brand.nominal<RandomInt>()
 
 const normalizeSeed = (seed: number): number => {
   const reduced = ((seed % MCG_MODULUS) + MCG_MODULUS) % MCG_MODULUS
@@ -108,19 +110,13 @@ export const seededRandomSource = (seed: number): Result.Result<RandomSource, Ra
 
       const nextFloat = (): Result.Result<RandomFraction, RandomSourceFailure> => {
         state = (state * MCG_MULTIPLIER) % MCG_MODULUS
-        return Result.mapError(
-          RandomFraction.result(state / MCG_MODULUS),
-          (error) => brandFailure('invalid-seed', 'RandomSource generated an invalid fraction', error),
-        )
+        return Result.succeed(randomFraction(state / MCG_MODULUS))
       }
 
       const nextInt = (bound: number): Result.Result<RandomInt, RandomSourceFailure> =>
         Result.flatMap(validateBound(bound), (validBound) =>
           Result.flatMap(nextFloat(), (fraction) =>
-            Result.mapError(
-              RandomInt.result(Math.floor(fraction * validBound)),
-              (error) => brandFailure('invalid-bound', 'RandomSource generated an invalid integer', error),
-            ),
+            Result.succeed(randomInt(Math.floor(fraction * validBound))),
           ),
         )
 

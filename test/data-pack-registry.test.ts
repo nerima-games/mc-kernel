@@ -171,6 +171,27 @@ describe("data-pack registry", () => {
     expect(invalidEntry.reason).toBe('invalid-resource-location');
   });
 
+  it("rejects malformed runtime layer and entry values", () => {
+    const invalidLayer = resultFailure(Reflect.apply(dataPackLayer, undefined, [null]));
+    expect(invalidLayer).toMatchObject({
+      _tag: 'DataPackRegistryFailure',
+      reason: 'invalid-layer',
+      message: 'Data-pack layer must contain a pack, format, priority, and entries array',
+    });
+
+    const invalidEntry = resultFailure(Reflect.apply(dataPackLayer, undefined, [{
+      pack: 'example:base',
+      format: 107.1,
+      priority: 0,
+      entries: [{ id: 1, value: 'invalid' }],
+    }]));
+    expect(invalidEntry).toMatchObject({
+      _tag: 'DataPackRegistryFailure',
+      reason: 'invalid-entry',
+      message: 'Data-pack registry entry id must be a string',
+    });
+  });
+
   it("maps values while preserving the layer identity and frozen entries", () => {
     const layer = resultValue(dataPackLayerFromRaw({
       pack: "example:base",
@@ -253,6 +274,15 @@ describe("data-pack registry", () => {
     expect(duplicate).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'duplicate-entry' });
     const invalidPack = resultFailure(dataPackLayerFromUnknown({ ...validLayer, pack: 1 }, decodeNumber));
     expect(invalidPack).toMatchObject({ _tag: 'DataPackRegistryFailure', reason: 'invalid-layer' });
+    const invalidNamespacedPack = resultFailure(dataPackLayerFromUnknown(
+      { ...validLayer, pack: 'base' },
+      decodeNumber,
+    ));
+    expect(invalidNamespacedPack).toMatchObject({
+      _tag: 'DataPackRegistryFailure',
+      reason: 'invalid-resource-location',
+      message: 'NamespacedResourceLocation must include a namespace, received "base"',
+    });
     const invalidFormat = resultFailure(dataPackLayerFromUnknown(
       { ...validLayer, format: "107.1" },
       decodeNumber,

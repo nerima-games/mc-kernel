@@ -155,9 +155,33 @@ describe('fixedRandomSource', () => {
   })
 
   it('rejects malformed scripts with a tagged failure', () => {
-    const failure = resultFailure(fixedRandomSource({ nextInts: 'not-an-array' } as never))
-    expect(failure._tag).toBe('RandomSourceFailure')
-    expect(failure.reason).toBe('invalid-script')
-    expect(failure.message).toMatch(/optional int and float arrays/)
+    expect(Reflect.apply(fixedRandomSource, undefined, [{ nextInts: 'not-an-array' }])).toMatchObject({
+      _tag: 'Failure',
+      failure: {
+        _tag: 'RandomSourceFailure',
+        reason: 'invalid-script',
+        message: expect.stringMatching(/optional int and float arrays/),
+      },
+    })
+    expect(resultFailure(Reflect.apply(fixedRandomSource, undefined, [{ nextInts: ['not-an-integer'] }]))).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script integer values must be numbers',
+    })
+    expect(resultFailure(Reflect.apply(fixedRandomSource, undefined, [{ nextInts: [-1] }]))).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script contains an invalid integer: RandomInt must be a non-negative safe integer',
+    })
+    expect(resultFailure(Reflect.apply(fixedRandomSource, undefined, [{ nextFloats: ['not-a-fraction'] }]))).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script fraction values must be numbers',
+    })
+    expect(resultFailure(Reflect.apply(fixedRandomSource, undefined, [{ nextFloats: [1] }]))).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script contains an invalid fraction: RandomFraction must be in [0, 1)',
+    })
   })
 })
