@@ -1,7 +1,16 @@
+import { Brand } from 'effect'
 import type { ItemType } from './item-type.js'
 import { VANILLA_26_3_ENCHANTMENT_IDS, VANILLA_26_3_ENCHANTMENT_MAX_LEVELS } from '../world/vanilla-26-3-generated.js'
 import { EnchantmentLevel } from '../time/quantities.js'
-import { AnvilMaterialCost } from './anvil-primitives.js'
+
+type AnvilRuleMaterialCost = number & Brand.Brand<'AnvilRuleMaterialCost'>
+
+const AnvilRuleMaterialCost: Brand.Constructor<AnvilRuleMaterialCost> = Brand.make<AnvilRuleMaterialCost>(
+  (value) =>
+    Number.isSafeInteger(value) && value >= 0 && value <= 99
+      ? true
+      : `AnvilRuleMaterialCost must be an integer in [0, 99], received ${String(value)}`,
+)
 
 export const SUPPORTED_VANILLA_ENCHANTMENT_IDS: typeof VANILLA_26_3_ENCHANTMENT_IDS = VANILLA_26_3_ENCHANTMENT_IDS
 /*
@@ -46,17 +55,17 @@ type VanillaEnchantmentRule = Readonly<{
   readonly maxLevel: EnchantmentLevel
   readonly applicableItems: ReadonlyArray<ItemType>
   readonly incompatibleWith: ReadonlyArray<SupportedVanillaEnchantmentId>
-  readonly costPerLevel: AnvilMaterialCost
+  readonly costPerLevel: AnvilRuleMaterialCost
 }>
 
 export type VanillaAnvilCost = Readonly<{
-  readonly item: AnvilMaterialCost
-  readonly book: AnvilMaterialCost
+  readonly item: AnvilRuleMaterialCost
+  readonly book: AnvilRuleMaterialCost
 }>
 
 const anvilCost = (item: number, book: number): VanillaAnvilCost => ({
-  item: AnvilMaterialCost(item),
-  book: AnvilMaterialCost(book),
+  item: AnvilRuleMaterialCost(item),
+  book: AnvilRuleMaterialCost(book),
 })
 
 export const VANILLA_ENCHANTMENT_COSTS: Readonly<

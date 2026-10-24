@@ -14,7 +14,6 @@ export * from "./_item-registry.js";
 export * from "./_item-type.js";
 export * from "./_tool-component.js";
 export * from "./_weapon.js";
-export * from "./anvil-primitives.js";
 export * from "./item-primitives.js";
 export * from "./anvil-constants.js";
 export * from "./food-data.js";

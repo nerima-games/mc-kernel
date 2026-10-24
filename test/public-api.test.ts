@@ -8,7 +8,6 @@ import * as dimensionModule from "../src/domain/world/dimension";
 import * as entityModule from "../src/domain/entity/entity";
 import * as sulfurCubeModule from "../src/domain/entity/sulfur-cube";
 import * as sulfurCubeRegistryModule from "../src/domain/entity/sulfur-cube-registry";
-import * as anvilPrimitivesModule from "../src/domain/item/anvil-primitives";
 import * as enchantmentModule from "../src/domain/item/enchantment";
 import * as fluidModule from "../src/domain/block/fluid";
 import * as foodModule from "../src/domain/item/food-data";
@@ -703,10 +702,6 @@ describe("public API surface", () => {
           "compileToolComponent",
           "resolveToolMiningProperties",
           "isToolComponent",
-          // Retained anvil brand constructors and constants
-          "AnvilEnchantmentId",
-          "AnvilCustomName",
-          "AnvilMaterialCost",
           "ANVIL_TOO_EXPENSIVE_LEVEL",
           "ANVIL_REPAIR_BONUS_RATIO",
           // The block -> item bridge (audit §6-8's intersection, derived)
@@ -1375,15 +1370,9 @@ describe("public API surface", () => {
         expect(kernel.SUPPORTED_VANILLA_ANVIL_RULE_SET).toBe(
           enchantmentModule.SUPPORTED_VANILLA_ANVIL_RULE_SET,
         );
-        expect(kernel.AnvilEnchantmentId).toBe(
-          anvilPrimitivesModule.AnvilEnchantmentId,
-        );
-        expect(kernel.AnvilCustomName).toBe(
-          anvilPrimitivesModule.AnvilCustomName,
-        );
-        expect(kernel.AnvilMaterialCost).toBe(
-          anvilPrimitivesModule.AnvilMaterialCost,
-        );
+        expect(kernel).not.toHaveProperty("AnvilEnchantmentId");
+        expect(kernel).not.toHaveProperty("AnvilCustomName");
+        expect(kernel).not.toHaveProperty("AnvilMaterialCost");
         expect(kernel.MIN_FRAME_DELTA_SECS).toBe(
           frameTimingModule.MIN_FRAME_DELTA_SECS,
         );
