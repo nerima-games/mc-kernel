@@ -1,5 +1,7 @@
 import { DIMENSIONS, type Dimension } from '../world/dimension.js'
-import { itemStack, type ItemStack } from '../item/item-stack.js'
+import { itemStackForCanonicalItem } from '../item/item-stack-canonical.js'
+import type { ItemStack } from '../item/item-stack.js'
+import { FixedDurationSecs, StackCount, type FixedDurationSecs as FixedDurationSecsValue } from '../time/quantities.js'
 import type { BlockType } from './block-type.js'
 import type { ItemType } from '../item/item-type.js'
 
@@ -11,14 +13,14 @@ export const CROP_TYPES: readonly ['wheat_crop', 'potato_crop', 'nether_wart_cro
 
 export type CropType = (typeof CROP_TYPES)[number]
 
-export const WHEAT_MATURITY_SECS = 480
-export const POTATO_MATURITY_SECS = 480
-export const NETHER_WART_MATURITY_SECS = 480
-export const BONE_MEAL_GROWTH_SECS = 30
+export const WHEAT_MATURITY_SECS: FixedDurationSecsValue = FixedDurationSecs(480)
+export const POTATO_MATURITY_SECS: FixedDurationSecsValue = FixedDurationSecs(480)
+export const NETHER_WART_MATURITY_SECS: FixedDurationSecsValue = FixedDurationSecs(480)
+export const BONE_MEAL_GROWTH_SECS: FixedDurationSecsValue = FixedDurationSecs(30)
 
 export type CropDefinition = {
   readonly crop: CropType
-  readonly maturitySecs: number
+  readonly maturitySecs: FixedDurationSecsValue
   readonly seed: ItemType
   readonly soil: BlockType
   readonly dimensions: ReadonlyArray<Dimension>
@@ -34,7 +36,7 @@ export const CROP_REGISTRY: Readonly<Record<CropType, CropDefinition>> = {
     seed: 'wheat_seeds',
     soil: 'farmland',
     dimensions: ALL_DIMENSIONS,
-    guaranteedMatureYield: [itemStack('wheat', 1), itemStack('wheat_seeds', 1)],
+    guaranteedMatureYield: [itemStackForCanonicalItem('wheat', StackCount(1)), itemStackForCanonicalItem('wheat_seeds', StackCount(1))],
   },
   potato_crop: {
     crop: 'potato_crop',
@@ -42,7 +44,7 @@ export const CROP_REGISTRY: Readonly<Record<CropType, CropDefinition>> = {
     seed: 'potato',
     soil: 'farmland',
     dimensions: ALL_DIMENSIONS,
-    guaranteedMatureYield: [itemStack('potato', 2)],
+    guaranteedMatureYield: [itemStackForCanonicalItem('potato', StackCount(2))],
   },
   nether_wart_crop: {
     crop: 'nether_wart_crop',
@@ -50,6 +52,6 @@ export const CROP_REGISTRY: Readonly<Record<CropType, CropDefinition>> = {
     seed: 'nether_wart',
     soil: 'soul_sand',
     dimensions: ALL_DIMENSIONS,
-    guaranteedMatureYield: [itemStack('nether_wart', 2)],
+    guaranteedMatureYield: [itemStackForCanonicalItem('nether_wart', StackCount(2))],
   },
 }

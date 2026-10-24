@@ -1,9 +1,17 @@
 import {
   BLOCK_OPACITIES,
+  BlockBlastResistance,
+  BlockContactDamage,
+  BlockExperiencePoints,
+  BlockFriction,
+  BlockHardness,
+  BlockMovementDrag,
   BLOCK_PROPERTY_DEFAULTS,
   BLOCK_PROPERTY_NAMES,
   LightLevel,
+  LightLevelCandidate,
   type BlockProperties,
+  type BlockPropertyFailure,
   type BlockPropertyOverrides,
   type LightLevel as LightLevelType,
   COLLISION_SHAPES,
@@ -14,12 +22,20 @@ import {
   RENDER_KINDS,
   clampLightLevel,
   isLightLevel,
-  propertyOf,
-  resolveBlockProperties,
+  propertyOf as propertyOfResult,
+  resolveBlockProperties as resolveBlockPropertiesResult,
 } from '../src/domain/block/block-properties'
-import { type BlockDefinition, blockPropertiesOf, resolveBlock } from '../src/domain/block/block-definition'
+import {
+  type BlockDefinition,
+  blockPropertiesOf as blockPropertiesOfResult,
+  resolveBlock as resolveBlockResult,
+} from '../src/domain/block/block-definition'
+import { normalizeBlockRegistryEntry, normalizeRegistryEntry } from '../src/domain/block/block-registry-entries'
+import { normalizeBlockPropertyOverrides } from '../src/domain/block/block-property-validation'
+import type { BlockRegistryEntryInput } from '../src/domain/block/block-registry-entry-input'
+import { BlockId } from '../src/domain/block/block-registry-types'
 import { describe, expect, it } from 'vitest'
-import { Effect, Either } from 'effect'
+import { Effect, Result } from 'effect'
 import { expectTypeOf } from 'vitest'
 import {
   DEFAULT_BLOCK_DROP,
@@ -29,6 +45,24 @@ import {
   satisfiesHarvestTier,
 } from '../src/domain/block/block-harvest'
 import { StackCount } from '../src/domain/time/quantities'
+import { resultFailure, resultValue } from './block-result-helpers'
+
+const propertyOf = (overrides: BlockPropertyOverrides, name: Parameters<typeof propertyOfResult>[1]) =>
+  resultValue(propertyOfResult(overrides, name))
+const resolveBlockProperties = (overrides: BlockPropertyOverrides) =>
+  resultValue(resolveBlockPropertiesResult(overrides))
+const blockPropertiesOf = (definition: BlockDefinition) => resultValue(blockPropertiesOfResult(definition))
+const resolveBlock = (definition: BlockDefinition) => resultValue(resolveBlockResult(definition))
+const expectPropertyFailure = (
+  result: Result.Result<unknown, BlockPropertyFailure>,
+  reason: 'type' | 'range' | 'unknown-key',
+  message: string | RegExp,
+) => {
+  const failure = resultFailure(result)
+  expect(failure).toMatchObject({ _tag: 'BlockPropertyFailure', reason })
+  if (message instanceof RegExp) expect(failure.message).toMatch(message)
+  else expect(failure.message).toBe(message)
+}
 
 const TORCH_LIGHT_LEVEL = 14
 const DEFAULT_HARDNESS = 8
@@ -57,7 +91,7 @@ describe('block properties — the additive-safety guarantee, extended to non-bo
         // Widening `emissive: boolean` to a number LATER would not be additive,
         // It would be a five-deep republish cascade.
         const torch: BlockDefinition = {
-          properties: { lightEmission: TORCH_LIGHT_LEVEL },
+          properties: { lightEmission: LightLevel(TORCH_LIGHT_LEVEL) },
           type: 'torch',
         }
 
@@ -95,21 +129,21 @@ describe('block properties — the additive-safety guarantee, extended to non-bo
         lightEmission: LightLevel(0),
         fluid: 'none',
         collisionShape: 'full',
-        blastResistance: NO_PROPERTIES,
-        contactDamage: NO_PROPERTIES,
+        blastResistance: BlockBlastResistance(NO_PROPERTIES),
+        contactDamage: BlockContactDamage(NO_PROPERTIES),
         drops: { affectedByFortune: false, count: StackCount(1), item: 'self', requiresSilkTouch: false },
         footstepMaterial: 'default',
-        friction: 0.6,
-        hardness: DEFAULT_HARDNESS,
+        friction: BlockFriction(0.6),
+        hardness: BlockHardness(DEFAULT_HARDNESS),
         harvestTool: { category: 'none', minTier: 'none' },
-        movementDrag: NO_PROPERTIES,
+        movementDrag: BlockMovementDrag(NO_PROPERTIES),
         railKind: 'none',
         renderKind: 'cube',
         // Audit §4.6 states this default in as many words: `supportRule='none'`.
         // An ordinary cube requires nothing beneath it, so a block that says
         // Nothing about support is not "unsupported" — it is uninterested.
         supportRule: { kind: 'none' },
-        xpOnBreak: NO_PROPERTIES,
+        xpOnBreak: BlockExperiencePoints(NO_PROPERTIES),
       }
       expect({ ...BLOCK_PROPERTY_DEFAULTS }).toStrictEqual(expected)
     })),
@@ -117,7 +151,7 @@ describe('block properties — the additive-safety guarantee, extended to non-bo
 
   it('the resolved set is a fresh object and never aliases the shared defaults table', () =>
     Effect.runPromise(Effect.sync(() => {
-      const first = resolveBlockProperties({ hardness: 50 })
+      const first = resolveBlockProperties({ hardness: BlockHardness(50) })
       const second = resolveBlockProperties({})
       expect(first).not.toBe(second)
       expect(second.hardness).toBe(BLOCK_PROPERTY_DEFAULTS.hardness)
@@ -141,7 +175,7 @@ describe('the three corrected types (audit §5)', () => {
       ]
       for (const [, level] of cases) {
         expect(isLightLevel(level)).toBe(true)
-        expect(resolveBlockProperties({ lightEmission: level }).lightEmission).toBe(level)
+        expect(resolveBlockProperties({ lightEmission: LightLevel(level) }).lightEmission).toBe(level)
       }
       // ...and they are genuinely distinct, which is what a boolean destroys.
       expect(new Set(cases.map(([, level]) => level)).size).toBe(cases.length)
@@ -189,19 +223,62 @@ describe('light level helpers', () => {
 
   it('clamps into range and truncates toward zero', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(clampLightLevel(FAR_BELOW_MINIMUM_LIGHT_LEVEL)).toBe(EXPECTED_LIGHT_LEVEL_MINIMUM)
-      expect(clampLightLevel(FAR_ABOVE_MAXIMUM_LIGHT_LEVEL)).toBe(EXPECTED_LIGHT_LEVEL_MAXIMUM)
-      expect(clampLightLevel(FRACTIONAL_LIGHT_LEVEL_TO_TRUNCATE)).toBe(TRUNCATED_LIGHT_LEVEL)
-      expect(clampLightLevel(EXPECTED_LIGHT_LEVEL_MAXIMUM)).toBe(EXPECTED_LIGHT_LEVEL_MAXIMUM)
-      expectTypeOf(clampLightLevel(7.9)).toEqualTypeOf<LightLevelType>()
+      expect(clampLightLevel(LightLevelCandidate(FAR_BELOW_MINIMUM_LIGHT_LEVEL))).toBe(
+        EXPECTED_LIGHT_LEVEL_MINIMUM,
+      )
+      expect(clampLightLevel(LightLevelCandidate(FAR_ABOVE_MAXIMUM_LIGHT_LEVEL))).toBe(
+        EXPECTED_LIGHT_LEVEL_MAXIMUM,
+      )
+      expect(clampLightLevel(LightLevelCandidate(FRACTIONAL_LIGHT_LEVEL_TO_TRUNCATE))).toBe(
+        TRUNCATED_LIGHT_LEVEL,
+      )
+      expect(clampLightLevel(LightLevelCandidate(EXPECTED_LIGHT_LEVEL_MAXIMUM))).toBe(
+        EXPECTED_LIGHT_LEVEL_MAXIMUM,
+      )
+      expect(clampLightLevel(LightLevelCandidate(Number.NEGATIVE_INFINITY))).toBe(EXPECTED_LIGHT_LEVEL_MINIMUM)
+      expect(clampLightLevel(LightLevelCandidate(Number.POSITIVE_INFINITY))).toBe(EXPECTED_LIGHT_LEVEL_MAXIMUM)
+      expectTypeOf(clampLightLevel(LightLevelCandidate(7.9))).toEqualTypeOf<LightLevelType>()
+      expect(() => LightLevelCandidate(Number.NaN)).toThrow()
     })),
   )
 })
 
 describe('light level branding', () => {
-  it('brands resolved light emission values while preserving numeric override ergonomics', () =>
+  it('validates the bounds of numeric block-property brands', () => {
+    expect(BlockHardness(0)).toBe(0)
+    expect(BlockHardness(-1)).toBe(-1)
+    expect(() => BlockHardness(-2)).toThrow()
+    expect(() => BlockHardness(Number.POSITIVE_INFINITY)).toThrow()
+
+    expect(BlockFriction(0)).toBe(0)
+    expect(BlockFriction(1)).toBe(1)
+    expect(() => BlockFriction(-0.01)).toThrow()
+    expect(() => BlockFriction(1.01)).toThrow()
+
+    expect(BlockBlastResistance(0)).toBe(0)
+    expect(BlockBlastResistance(Number.POSITIVE_INFINITY)).toBe(Number.POSITIVE_INFINITY)
+    expect(() => BlockBlastResistance(-1)).toThrow()
+    expect(() => BlockBlastResistance(Number.NaN)).toThrow()
+
+    expect(BlockContactDamage(0)).toBe(0)
+    expect(BlockContactDamage(1)).toBe(1)
+    expect(() => BlockContactDamage(-1)).toThrow()
+    expect(() => BlockContactDamage(Number.POSITIVE_INFINITY)).toThrow()
+
+    expect(BlockMovementDrag(0)).toBe(0)
+    expect(BlockMovementDrag(1)).toBe(1)
+    expect(() => BlockMovementDrag(-1)).toThrow()
+    expect(() => BlockMovementDrag(Number.NaN)).toThrow()
+
+    expect(BlockExperiencePoints(0)).toBe(0)
+    expect(BlockExperiencePoints(1)).toBe(1)
+    expect(() => BlockExperiencePoints(-1)).toThrow()
+    expect(() => BlockExperiencePoints(Number.POSITIVE_INFINITY)).toThrow()
+  })
+
+  it('brands resolved light emission values after an explicit LightLevel override', () =>
     Effect.runPromise(Effect.sync(() => {
-      const resolved = resolveBlockProperties({ lightEmission: 14 })
+      const resolved = resolveBlockProperties({ lightEmission: LightLevel(14) })
 
       expect(resolved.lightEmission).toBe(14)
       expectTypeOf(resolved.lightEmission).toEqualTypeOf<LightLevelType>()
@@ -210,7 +287,11 @@ describe('light level branding', () => {
 
   it('rejects invalid light emission overrides', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => resolveBlockProperties({ lightEmission: 16 })).toThrow(/LightLevel must be an integer/)
+      expectPropertyFailure(
+        Reflect.apply(resolveBlockPropertiesResult, undefined, [{ lightEmission: ABOVE_MAXIMUM_LIGHT_LEVEL }]),
+        'range',
+        /LightLevel must be an integer/,
+      )
     })),
   )
 
@@ -218,40 +299,64 @@ describe('light level branding', () => {
     Effect.runPromise(Effect.sync(() => {
       const resolve = resolveBlockProperties
 
-      expect(() => Reflect.apply(resolve, undefined, [{ futureProperty: true }])).toThrow(
+      expectPropertyFailure(
+        Reflect.apply(resolveBlockPropertiesResult, undefined, [{ futureProperty: true }]),
+        'unknown-key',
         'unknown block property futureProperty',
       )
-      expect(resolve({ hardness: -1 }).hardness).toBe(-1)
-      expect(() => resolve({ hardness: -2 })).toThrow(
+      expect(resolve({ hardness: BlockHardness(-1) }).hardness).toBe(-1)
+      expectPropertyFailure(
+        Reflect.apply(resolveBlockPropertiesResult, undefined, [{ hardness: -2 }]),
+        'range',
         'block property hardness must be a finite number greater than or equal to zero or -1',
       )
-      expect(() => resolve({ friction: 2 })).toThrow('block property friction must be a finite number in [0, 1]')
-      expect(() => resolve({ friction: -1 })).toThrow(
+      expectPropertyFailure(
+        Reflect.apply(resolveBlockPropertiesResult, undefined, [{ friction: 2 }]),
+        'range',
+        'block property friction must be a finite number in [0, 1]',
+      )
+      expectPropertyFailure(
+        Reflect.apply(resolveBlockPropertiesResult, undefined, [{ friction: -1 }]),
+        'range',
         'block property friction must be a finite number greater than or equal to zero',
       )
-      expect(resolve({ blastResistance: Number.POSITIVE_INFINITY }).blastResistance).toBe(
+      expect(resolve({ blastResistance: BlockBlastResistance(Number.POSITIVE_INFINITY) }).blastResistance).toBe(
         Number.POSITIVE_INFINITY,
       )
-      expect(resolve({ blastResistance: NO_PROPERTIES }).blastResistance).toBe(NO_PROPERTIES)
-      expect(() => resolve({ blastResistance: -1 })).toThrow(
+      expect(resolve({ blastResistance: BlockBlastResistance(NO_PROPERTIES) }).blastResistance).toBe(NO_PROPERTIES)
+      expectPropertyFailure(
+        Reflect.apply(resolveBlockPropertiesResult, undefined, [{ blastResistance: -1 }]),
+        'range',
         'block property blastResistance must be a non-negative number or Infinity',
       )
-      expect(() => resolve({ blastResistance: Number.NaN })).toThrow(
+      expectPropertyFailure(
+        Reflect.apply(resolveBlockPropertiesResult, undefined, [{ blastResistance: Number.NaN }]),
+        'range',
         'block property blastResistance must be a non-negative number or Infinity',
       )
-      expect(() =>
-        Reflect.apply(resolve, undefined, [{ harvestTool: { category: 'pickaxe', minTier: 'diamond', futureField: true } }]),
-      ).toThrow('unknown block property harvestTool field futureField')
-      expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, item: 'not-an-item' } }])).toThrow(
+      expectPropertyFailure(
+        Reflect.apply(resolveBlockPropertiesResult, undefined, [{ harvestTool: { category: 'pickaxe', minTier: 'diamond', futureField: true } }]),
+        'unknown-key',
+        'unknown block property harvestTool field futureField',
+      )
+      expectPropertyFailure(
+        Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, item: 'not-an-item' } }]),
+        'type',
         'block property drops item must be a registered ItemType or self',
       )
-      expect(() => Reflect.apply(resolve, undefined, [{ supportRule: { blocks: ['stone'] } }])).toThrow(
+      expectPropertyFailure(
+        Reflect.apply(resolveBlockPropertiesResult, undefined, [{ supportRule: { blocks: ['stone'] } }]),
+        'type',
         'unknown block property supportRule kind undefined',
       )
-      expect(() => Reflect.apply(resolve, undefined, [{ supportRule: { kind: 'oneOf', blocks: ['not-a-block'] } }])).toThrow(
+      expectPropertyFailure(
+        Reflect.apply(resolveBlockPropertiesResult, undefined, [{ supportRule: { kind: 'oneOf', blocks: ['not-a-block'] } }]),
+        'type',
         'block property supportRule contains an unknown block type',
       )
-      expect(() => Reflect.apply(propertyOf, undefined, [{ futureProperty: true }, 'hardness'])).toThrow(
+      expectPropertyFailure(
+        Reflect.apply(propertyOfResult, undefined, [{ futureProperty: true }, 'hardness']),
+        'unknown-key',
         'unknown block property futureProperty',
       )
     })),
@@ -259,48 +364,123 @@ describe('light level branding', () => {
 
   it('rejects malformed values for every public property vocabulary', () =>
     Effect.runPromise(Effect.sync(() => {
-      const resolve = resolveBlockProperties
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [null]), 'type', 'block property overrides must be an object')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ opacity: 'future' }]), 'type', 'unknown block property opacity future')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ fluid: 'future' }]), 'type', 'unknown block property fluid future')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ collisionShape: 'future' }]), 'type', 'unknown block property collisionShape future')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ renderKind: 'future' }]), 'type', 'unknown block property renderKind future')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ footstepMaterial: 'future' }]), 'type', 'unknown block property footstepMaterial future')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ railKind: 'future' }]), 'type', 'unknown block property railKind future')
 
-      expect(() => Reflect.apply(resolve, undefined, [null])).toThrow('block property overrides must be an object')
-      expect(() => Reflect.apply(resolve, undefined, [{ opacity: 'future' }])).toThrow('unknown block property opacity future')
-      expect(() => Reflect.apply(resolve, undefined, [{ fluid: 'future' }])).toThrow('unknown block property fluid future')
-      expect(() => Reflect.apply(resolve, undefined, [{ collisionShape: 'future' }])).toThrow(
-        'unknown block property collisionShape future',
-      )
-      expect(() => Reflect.apply(resolve, undefined, [{ renderKind: 'future' }])).toThrow('unknown block property renderKind future')
-      expect(() => Reflect.apply(resolve, undefined, [{ footstepMaterial: 'future' }])).toThrow(
-        'unknown block property footstepMaterial future',
-      )
-      expect(() => Reflect.apply(resolve, undefined, [{ railKind: 'future' }])).toThrow('unknown block property railKind future')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ harvestTool: null }]), 'type', 'block property harvestTool must be an object')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ harvestTool: { category: 'future', minTier: 'none' } }]), 'type', 'unknown block property harvestTool category future')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ harvestTool: { category: 'none', minTier: 'future' } }]), 'type', 'unknown block property harvestTool tier future')
 
-      expect(() => Reflect.apply(resolve, undefined, [{ harvestTool: null }])).toThrow('block property harvestTool must be an object')
-      expect(() => Reflect.apply(resolve, undefined, [{ harvestTool: { category: 'future', minTier: 'none' } }])).toThrow(
-        'unknown block property harvestTool category future',
-      )
-      expect(() => Reflect.apply(resolve, undefined, [{ harvestTool: { category: 'none', minTier: 'future' } }])).toThrow(
-        'unknown block property harvestTool tier future',
-      )
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: null }]), 'type', 'block property drops must be an object')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, silkTouchItem: 'future' } }]), 'type', 'block property drops silkTouchItem must be a registered ItemType')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 'many' } }]), 'range', 'block property drops count must be an integer in [1, 99]')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 0 } }]), 'range', 'block property drops.count is outside its allowed range')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, requiresSilkTouch: 'yes' } }]), 'type', 'block property drops requiresSilkTouch must be a boolean')
 
-      expect(() => Reflect.apply(resolve, undefined, [{ drops: null }])).toThrow('block property drops must be an object')
-      expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, silkTouchItem: 'future' } }])).toThrow(
-        'block property drops silkTouchItem must be a registered ItemType',
-      )
-      expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 'many' } }])).toThrow(
-        'block property drops count must be an integer',
-      )
-      expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 0 } }])).toThrow(
-        'block property drops count must be an integer in [1, 99]',
-      )
-      expect(() => Reflect.apply(resolve, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, requiresSilkTouch: 'yes' } }])).toThrow(
-        'block property drops requiresSilkTouch must be a boolean',
-      )
-
-      expect(() => Reflect.apply(resolve, undefined, [{ supportRule: null }])).toThrow('block property supportRule must be an object')
-      expect(() => resolve({ supportRule: { kind: 'oneOf', blocks: [] } })).toThrow(
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ supportRule: null }]), 'type', 'block property supportRule must be an object')
+      expectPropertyFailure(
+        normalizeBlockPropertyOverrides({ supportRule: { kind: 'oneOf', blocks: 'stone' } }),
+        'range',
         'block property supportRule blocks must contain at least one block',
       )
+      expectPropertyFailure(resolveBlockPropertiesResult({ supportRule: { kind: 'oneOf', blocks: [] } }), 'range', 'block property supportRule blocks must contain at least one block')
+      expectPropertyFailure(
+        normalizeBlockPropertyOverrides({ supportRule: { kind: 'oneOf', blocks: new Array(65_537) } }),
+        'range',
+        'block property overrides exceed input limits',
+      )
 
-      expect(() => Reflect.apply(propertyOf, undefined, [{}, 'future'])).toThrow('unknown block property future')
+      expectPropertyFailure(Reflect.apply(propertyOfResult, undefined, [{}, 'future']), 'type', 'unknown block property future')
+    })),
+  )
+
+  it('returns a failure when override keys cannot be read', () => {
+    const unreadableOverrides = new Proxy({}, {
+      ownKeys() {
+        throw new Error('hostile key enumeration')
+      },
+    })
+
+    expectPropertyFailure(
+      normalizeBlockPropertyOverrides(unreadableOverrides),
+      'type',
+      'block property overrides must be readable',
+    )
+  })
+
+  it('returns a type failure for cyclic property overrides', () => {
+    const cyclic: Record<string, unknown> = {}
+    cyclic['supportRule'] = cyclic
+
+    expectPropertyFailure(
+      normalizeBlockPropertyOverrides(cyclic),
+      'type',
+      'block property overrides must be an object',
+    )
+  })
+
+  it('returns failures when formatting nested untrusted values throws', () => {
+    const valueWithThrowingStringConversion = {
+      toString() {
+        throw new Error('untrusted string conversion')
+      },
+    }
+
+    expectPropertyFailure(
+      normalizeBlockPropertyOverrides({ opacity: valueWithThrowingStringConversion }),
+      'type',
+      'block property overrides must be readable',
+    )
+    expectPropertyFailure(
+      normalizeBlockPropertyOverrides({ supportRule: { kind: valueWithThrowingStringConversion } }),
+      'type',
+      'block property supportRule must be readable',
+    )
+  })
+
+  it('snapshots support-rule fields and blocks, and reports throwing getters', () =>
+    Effect.runPromise(Effect.sync(() => {
+      let kindReads = 0
+      let blockReads = 0
+      const blocks = new Proxy(['stone'], {
+        get(target, key, receiver) {
+          if (key === '0') {
+            blockReads += 1
+            return blockReads === 1 ? 'stone' : 'not-a-block'
+          }
+          return Reflect.get(target, key, receiver)
+        },
+      })
+      const supportRule = new Proxy({ kind: 'oneOf', blocks }, {
+        get(target, key, receiver) {
+          if (key === 'kind') {
+            kindReads += 1
+            return kindReads === 1 ? 'oneOf' : 'none'
+          }
+          return Reflect.get(target, key, receiver)
+        },
+      })
+
+      const properties = resultValue(normalizeBlockPropertyOverrides({ supportRule }))
+      expect(properties.supportRule).toStrictEqual({ kind: 'oneOf', blocks: ['stone'] })
+      expect({ kindReads, blockReads }).toStrictEqual({ kindReads: 1, blockReads: 1 })
+
+      const throwingBlocks = new Proxy(['stone'], {
+        get(target, key, receiver) {
+          if (key === '0') throw new Error('hostile array element')
+          return Reflect.get(target, key, receiver)
+        },
+      })
+      expectPropertyFailure(
+        normalizeBlockPropertyOverrides({ supportRule: { kind: 'oneOf', blocks: throwingBlocks } }),
+        'type',
+        'block property supportRule must be readable',
+      )
     })),
   )
 
@@ -310,18 +490,40 @@ describe('light level branding', () => {
     })),
   )
 
-  it('the public constructor throws its own branded error, distinct from resolveBlockProperties guard', () =>
+  it('normalizes block registry entries with and without property overrides', () => {
+    const withoutProperties: BlockRegistryEntryInput = { id: BlockId(0), definition: { type: 'stone' } }
+    expect(normalizeRegistryEntry(withoutProperties)).toStrictEqual(withoutProperties)
+    expect(resultValue(normalizeBlockRegistryEntry(withoutProperties))).toStrictEqual(withoutProperties)
+
+    const withProperties: BlockRegistryEntryInput = {
+      id: BlockId(1),
+      definition: { type: 'stone', properties: { friction: 0.6 } },
+    }
+    const normalized = resultValue(normalizeBlockRegistryEntry(withProperties))
+    expect(normalized.definition.properties?.friction).toBe(0.6)
+  })
+
+  it('fills a default when friction is omitted from the overrides', () => {
+    expect(resolveBlockProperties({}).friction).toBe(BLOCK_PROPERTY_DEFAULTS.friction)
+  })
+
+  it('normalizes overrides when friction is omitted', () => {
+    const normalized = normalizeBlockPropertyOverrides({})
+
+    expect(Result.isSuccess(normalized)).toBe(true)
+    if (Result.isSuccess(normalized)) expect(normalized.success.friction).toBeUndefined()
+  })
+
+  it('the public constructor exposes its branded failure through Result', () =>
     Effect.runPromise(Effect.sync(() => {
       // `resolveBlockProperties` never calls `LightLevel` with an out-of-range
-      // value — it throws its own TypeError before the brand constructor is
-      // reached (see `resolveLightEmission`). The brand's own refinement error
-      // is only reachable by calling the exported constructor directly.
-      expect(() => LightLevel(ABOVE_MAXIMUM_LIGHT_LEVEL)).toThrow()
-
-      const result = LightLevel.either(ABOVE_MAXIMUM_LIGHT_LEVEL)
-      expect(Either.isLeft(result)).toBe(true)
-      if (Either.isLeft(result)) {
-        expect(result.left[0]?.message).toBe(
+      // value — it returns its own validation failure before the brand
+      // constructor is reached (see `resolveLightEmission`). Calling the
+      // exported brand constructor's `.result` exposes its refinement failure.
+      const result = LightLevel.result(ABOVE_MAXIMUM_LIGHT_LEVEL)
+      expect(Result.isFailure(result)).toBe(true)
+      if (Result.isFailure(result)) {
+        expect(result.failure.message).toBe(
           `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${ABOVE_MAXIMUM_LIGHT_LEVEL}`,
         )
       }
@@ -435,7 +637,7 @@ describe('harvestTool and drops (the two struct fields, audit §7)', () => {
       }
       const drops = blockPropertiesOf(glass).drops
       expect(drops).toBeDefined()
-      if (drops === undefined) throw new Error('expected glass drop rule')
+      if (drops === undefined) return
       expect(drops.requiresSilkTouch).toBe(true)
       // ...and it did not disturb anything else.
       expect(blockPropertiesOf(glass).hardness).toBe(BLOCK_PROPERTY_DEFAULTS.hardness)
@@ -446,7 +648,7 @@ describe('harvestTool and drops (the two struct fields, audit §7)', () => {
 describe('propertyOf', () => {
   it('agrees with resolveBlockProperties for every property, with and without overrides', () =>
     Effect.runPromise(Effect.sync(() => {
-      const overrides: BlockPropertyOverrides = { fluid: 'water', lightEmission: NO_PROPERTIES, opacity: 'fluid' }
+      const overrides: BlockPropertyOverrides = { fluid: 'water', lightEmission: LightLevel(NO_PROPERTIES), opacity: 'fluid' }
       const resolved = resolveBlockProperties(overrides)
       for (const name of BLOCK_PROPERTY_NAMES) {
         expect(propertyOf(overrides, name)).toStrictEqual(resolved[name])
@@ -459,7 +661,7 @@ describe('propertyOf', () => {
     Effect.runPromise(Effect.sync(() => {
       // `??` not `||`. lightEmission defaults to 0 so this looks like a
       // No-op; hardness does not, so it is the one that actually proves it.
-      expect(propertyOf({ hardness: NO_PROPERTIES }, 'hardness')).toBe(NO_PROPERTIES)
+      expect(propertyOf({ hardness: BlockHardness(NO_PROPERTIES) }, 'hardness')).toBe(NO_PROPERTIES)
       expect(propertyOf({}, 'hardness')).toBe(DEFAULT_HARDNESS)
     })),
   )

@@ -1,19 +1,27 @@
+import * as itemAttributeModifiersResult from '../src/domain/item/item-attribute-modifiers'
 import {
   ATTRIBUTE_MODIFIER_OPERATIONS,
   ATTRIBUTE_MODIFIER_SLOTS,
-  attributeModifier,
-  attributeModifierDisplay,
-  attributeModifiersComponent,
   isAttributeModifier,
   isAttributeModifierDisplay,
   isAttributeModifiersComponent,
 } from '../src/domain/item/item-attribute-modifiers'
+import { expectItemFailure, itemResultValue } from './item-result-assertions'
 import { describe, expect, it } from 'vitest'
+import { ResourceLocation } from '../src/domain/text/identifiers'
+import { AttributeModifierAmount } from '../src/domain/time/quantities'
+
+const attributeModifier = (...args: Parameters<typeof itemAttributeModifiersResult.attributeModifier>) =>
+  itemResultValue(itemAttributeModifiersResult.attributeModifier(...args))
+const attributeModifierDisplay = (...args: Parameters<typeof itemAttributeModifiersResult.attributeModifierDisplay>) =>
+  itemResultValue(itemAttributeModifiersResult.attributeModifierDisplay(...args))
+const attributeModifiersComponent = (...args: Parameters<typeof itemAttributeModifiersResult.attributeModifiersComponent>) =>
+  itemResultValue(itemAttributeModifiersResult.attributeModifiersComponent(...args))
 
 const baseModifier = {
-  type: 'minecraft:generic.attack_damage',
-  id: 'minecraft:test_damage',
-  amount: 3,
+  type: ResourceLocation('minecraft:generic.attack_damage'),
+  id: ResourceLocation('minecraft:test_damage'),
+  amount: AttributeModifierAmount(3),
   operation: 'add_value' as const,
   slot: 'mainhand' as const,
 }
@@ -72,7 +80,7 @@ describe('item attribute modifiers', () => {
     const defaultSlotModifier = attributeModifier({
       type: baseModifier.type,
       amount: baseModifier.amount,
-      id: 'minecraft:test_any',
+      id: ResourceLocation('minecraft:test_any'),
       operation: 'add_multiplied_base',
     })
     const component = attributeModifiersComponent([
@@ -114,6 +122,73 @@ describe('item attribute modifiers', () => {
     expect(Object.isFrozen(component[0])).toBe(true)
     expect(isAttributeModifier(modifier)).toBe(true)
     expect(isAttributeModifiersComponent(component)).toBe(true)
+  })
+
+  it('snapshots display getters once before validation and construction', () => {
+    let typeReads = 0
+    let valueReads = 0
+    const changingDisplay = new Proxy({ type: 'override' as const, value: { text: 'Snapshot' } }, {
+      ownKeys: () => ['type', 'value'],
+      getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
+      get: (_target, key) => {
+        if (key === 'type') {
+          typeReads += 1
+          return typeReads === 1 ? 'override' : 'default'
+        }
+        if (key === 'value') {
+          valueReads += 1
+          return valueReads === 1 ? { text: 'Snapshot' } : null
+        }
+        return undefined
+      },
+    })
+    expect(attributeModifierDisplay(changingDisplay)).toEqual({
+      type: 'override', value: { text: 'Snapshot' },
+    })
+    expect(typeReads).toBe(1)
+    expect(valueReads).toBe(1)
+
+    let displayReads = 0
+    const changingOptions = new Proxy(baseModifier, {
+      get: (target, key, receiver) => key === 'display'
+        ? (++displayReads === 1 ? { type: 'override', value: 'First' } : { type: 'default' })
+        : Reflect.get(target, key, receiver),
+    })
+    expect(attributeModifier(changingOptions).display).toEqual({ type: 'override', value: 'First' })
+    expect(displayReads).toBe(1)
+
+    const hostileDisplay = new Proxy({}, {
+      ownKeys: () => ['type'],
+      getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
+      get: () => { throw new Error('hostile') },
+    })
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifierDisplay, undefined, [hostileDisplay]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input', field: 'display',
+      message: 'Unable to inspect attribute modifier display',
+    })
+
+    const nullPrototypeDisplay = Object.assign(Object.create(null), { type: 'default' })
+    expect(attributeModifierDisplay(nullPrototypeDisplay)).toEqual({ type: 'default' })
+
+    const inheritedDisplay = Object.assign(new Date(), { type: 'default' })
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifierDisplay, undefined, [inheritedDisplay]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-value', field: 'display',
+      message: 'Attribute modifier display must be valid',
+    })
+
+    const hostileText = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifierDisplay, undefined, [{
+      type: 'override', value: hostileText,
+    }]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input', field: 'display',
+      message: 'Attribute modifier display must be valid',
+    })
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{
+      ...baseModifier, display: { type: 'override', value: hostileText },
+    }]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input', field: 'display',
+      message: 'Attribute modifier display must be valid',
+    })
   })
 
   it('accepts official display variants and rejects malformed displays', () => {
@@ -161,25 +236,67 @@ describe('item attribute modifiers', () => {
   })
 
   it('validates constructor input at the public boundary', () => {
-    const invokeDisplay = (display: unknown) =>
-      () => Reflect.apply(attributeModifierDisplay, undefined, [display])
-    const invokeModifier = (options: unknown) =>
-      () => Reflect.apply(attributeModifier, undefined, [options])
+    const failure = (field: string, message: string, value: unknown, reason = 'invalid-value') => ({
+      _tag: 'ItemValidationFailure',
+      kind: reason === 'out-of-range' ? 'RangeError' : 'TypeError',
+      reason,
+      field,
+      message,
+      value,
+    })
+    for (const display of [null, { type: 'override', value: null }, { type: 'default', extra: true }]) {
+      expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifierDisplay, undefined, [display]), failure(
+        'display', 'Attribute modifier display must be valid', display,
+      ))
+    }
 
-    expect(invokeDisplay(null)).toThrow(TypeError)
-    expect(invokeDisplay({ type: 'override', value: null })).toThrow(TypeError)
-    expect(invokeDisplay({ type: 'default', extra: true })).toThrow(TypeError)
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [null]), failure(
+      'options', 'Attribute modifier options must be a non-null object', null, 'invalid-type',
+    ))
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [[]]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-type', field: 'options',
+      message: 'Attribute modifier options must be a non-null object', value: [],
+    })
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, type: 'INVALID!' }]), failure(
+      'type', 'type must be a valid resource location', 'INVALID!',
+    ))
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, id: 'INVALID!' }]), failure(
+      'id', 'id must be a valid resource location', 'INVALID!',
+    ))
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, amount: Number.NaN }]), failure(
+      'amount', 'amount must be a finite number', Number.NaN, 'invalid-type',
+    ))
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, amount: Infinity }]), failure(
+      'amount', 'amount must be a finite number', Infinity, 'invalid-type',
+    ))
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, amount: '1' }]), failure(
+      'amount', 'amount must be a finite number', '1', 'invalid-type',
+    ))
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, operation: 'multiply' }]), failure(
+      'operation', 'Unknown attribute modifier operation: multiply', 'multiply',
+    ))
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, slot: 'finger' }]), failure(
+      'slot', 'Unknown attribute modifier slot: finger', 'finger',
+    ))
+    const invalidDisplay = { type: 'default', extra: true }
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, display: invalidDisplay }]), failure(
+      'display', 'display must be a valid attribute modifier display', invalidDisplay,
+    ))
 
-    expect(invokeModifier(null)).toThrow(TypeError)
-    expect(invokeModifier([])).toThrow(TypeError)
-    expect(invokeModifier({ ...baseModifier, type: 'INVALID!' })).toThrow(TypeError)
-    expect(invokeModifier({ ...baseModifier, id: 'INVALID!' })).toThrow(TypeError)
-    expect(invokeModifier({ ...baseModifier, amount: Number.NaN })).toThrow(TypeError)
-    expect(invokeModifier({ ...baseModifier, operation: 'multiply' })).toThrow(TypeError)
-    expect(invokeModifier({ ...baseModifier, slot: 'finger' })).toThrow(TypeError)
-    expect(invokeModifier({ ...baseModifier, display: { type: 'default', extra: true } })).toThrow(TypeError)
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifiersComponent, undefined, [null]), failure(
+      'options', 'Attribute modifiers must be an array', null, 'invalid-type',
+    ))
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifiersComponent, undefined, [[{}]]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-value', field: 'type',
+      message: 'type must be a valid resource location', value: undefined,
+    })
 
-    expect(() => Reflect.apply(attributeModifiersComponent, undefined, [null])).toThrow(TypeError)
-    expect(() => Reflect.apply(attributeModifiersComponent, undefined, [{}])).toThrow(TypeError)
+    const hostileOptions = new Proxy(baseModifier, {
+      get: () => { throw new Error('hostile') },
+    })
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [hostileOptions]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input', field: 'options',
+      message: 'Unable to inspect attribute modifier options',
+    })
   })
 })

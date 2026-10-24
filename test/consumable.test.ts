@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import * as consumableResult from '../src/domain/item/consumable'
 import {
   CONSUMABLE_ANIMATIONS,
   DEFAULT_CONSUMABLE_COMPONENT,
-  consumableApplyEffects,
   consumableClearAllEffects,
-  consumableComponent,
   consumableComponentOf,
   consumablePlaySound,
   consumableRemoveEffects,
-  consumableStatusEffect,
-  consumableTeleportRandomly,
   foodComponentOf,
   isConsumableComponent,
   isConsumableEffect,
@@ -20,8 +17,26 @@ import {
   isUseRemainderComponent,
   useRemainderComponentOf,
 } from '../src/domain/item/consumable'
-import { FOOD_DEFINITION_BY_ITEM } from '../src/domain/item/food'
+import { FOOD_DEFINITION_BY_ITEM } from '../src/domain/item/food-data'
 import { ResourceLocation } from '../src/domain/text/identifiers'
+import { ConsumeSeconds } from '../src/domain/time/quantities'
+import {
+  EffectAmplifier,
+  EffectDurationSecs,
+  FoodEffectProbability,
+  RandomTeleportDiameter,
+} from '../src/domain/item/item-primitives'
+import { expectItemFailure, itemResultValue } from './item-result-assertions'
+import { MAX_GENERIC_INPUT_ARRAY_LENGTH } from '../src/input-snapshot'
+
+const consumableApplyEffects = (...args: Parameters<typeof consumableResult.consumableApplyEffects>) =>
+  itemResultValue(consumableResult.consumableApplyEffects(...args))
+const consumableComponent = (...args: Parameters<typeof consumableResult.consumableComponent>) =>
+  itemResultValue(consumableResult.consumableComponent(...args))
+const consumableStatusEffect = (...args: Parameters<typeof consumableResult.consumableStatusEffect>) =>
+  itemResultValue(consumableResult.consumableStatusEffect(...args))
+const consumableTeleportRandomly = (...args: Parameters<typeof consumableResult.consumableTeleportRandomly>) =>
+  itemResultValue(consumableResult.consumableTeleportRandomly(...args))
 
 describe('consumable item components', () => {
   it('publishes the official animation vocabulary and defaults', () => {
@@ -56,7 +71,11 @@ describe('consumable item components', () => {
   })
 
   it('guards official component values without unsafe casts', () => {
-    const statusEffect = consumableStatusEffect(ResourceLocation('minecraft:speed'), 30, 0)
+    const statusEffect = consumableStatusEffect(
+      ResourceLocation('minecraft:speed'),
+      EffectDurationSecs(30),
+      EffectAmplifier(0),
+    )
     const applyEffects = consumableApplyEffects([statusEffect])
     const removeEffects = consumableRemoveEffects([ResourceLocation('minecraft:poison')])
     const clearAllEffects = consumableClearAllEffects()
@@ -153,7 +172,11 @@ describe('consumable item components', () => {
   })
 
   it('constructs every official consume effect and component variant', () => {
-    const statusEffect = consumableStatusEffect(ResourceLocation('minecraft:speed'), 30, 1)
+    const statusEffect = consumableStatusEffect(
+      ResourceLocation('minecraft:speed'),
+      EffectDurationSecs(30),
+      EffectAmplifier(1),
+    )
     expect(statusEffect).toEqual({
       effectId: 'minecraft:speed',
       durationSecs: 30,
@@ -164,7 +187,7 @@ describe('consumable item components', () => {
       effects: [statusEffect],
       probability: 1,
     })
-    expect(consumableApplyEffects([statusEffect], 0.5)).toEqual({
+    expect(consumableApplyEffects([statusEffect], FoodEffectProbability(0.5))).toEqual({
       type: 'minecraft:apply_effects',
       effects: [statusEffect],
       probability: 0.5,
@@ -175,7 +198,10 @@ describe('consumable item components', () => {
     })
     expect(consumableClearAllEffects()).toEqual({ type: 'minecraft:clear_all_effects' })
     expect(consumableTeleportRandomly()).toEqual({ type: 'minecraft:teleport_randomly', diameter: 16 })
-    expect(consumableTeleportRandomly(8)).toEqual({ type: 'minecraft:teleport_randomly', diameter: 8 })
+    expect(consumableTeleportRandomly(RandomTeleportDiameter(8))).toEqual({
+      type: 'minecraft:teleport_randomly',
+      diameter: 8,
+    })
     expect(consumablePlaySound(ResourceLocation('entity.player.burp'))).toEqual({
       type: 'minecraft:play_sound',
       sound: 'entity.player.burp',
@@ -183,7 +209,7 @@ describe('consumable item components', () => {
     expect(consumableComponent()).toEqual(DEFAULT_CONSUMABLE_COMPONENT)
     expect(
       consumableComponent({
-        consumeSeconds: 2,
+        consumeSeconds: ConsumeSeconds(2),
         animation: 'drink',
         sound: ResourceLocation('item.bottle.fill'),
         hasConsumeParticles: false,
@@ -201,18 +227,123 @@ describe('consumable item components', () => {
   it('rejects invalid numeric values at the component boundary', () => {
     const effectId = ResourceLocation('minecraft:speed')
 
-    expect(() => consumableStatusEffect(effectId, 0, 0)).toThrow()
-    expect(() => consumableStatusEffect(effectId, Number.NaN, 0)).toThrow()
-    expect(() => consumableStatusEffect(effectId, 30, -1)).toThrow()
-    expect(() => consumableStatusEffect(effectId, 30, 0.5)).toThrow()
-    expect(() => consumableApplyEffects([], -0.1)).toThrow()
-    expect(() => consumableApplyEffects([], 1.1)).toThrow()
-    expect(() => consumableApplyEffects([], Number.NaN)).toThrow()
-    expect(() => consumableTeleportRandomly(0)).toThrow()
-    expect(() => consumableTeleportRandomly(Number.POSITIVE_INFINITY)).toThrow()
-    expect(consumableComponent({ consumeSeconds: 0 }).consumeSeconds).toBe(0)
-    expect(() => consumableComponent({ consumeSeconds: Number.NaN })).toThrow()
-    expect(() => consumableComponent({ consumeSeconds: Number.POSITIVE_INFINITY })).toThrow()
+    const validation = (field: string, message: string, value: unknown) => ({
+      _tag: 'ItemValidationFailure',
+      kind: 'RangeError',
+      reason: 'out-of-range',
+      field,
+      message,
+      value,
+    })
+    expectItemFailure(Reflect.apply(consumableResult.consumableStatusEffect, undefined, [effectId, 0, 0]), validation(
+      'durationSecs', 'durationSecs must be positive', 0,
+    ))
+    expectItemFailure(Reflect.apply(consumableResult.consumableStatusEffect, undefined, [effectId, Number.NaN, 0]), validation(
+      'durationSecs', 'durationSecs must be positive', Number.NaN,
+    ))
+    for (const amplifier of [-1, 0.5]) {
+      expectItemFailure(Reflect.apply(consumableResult.consumableStatusEffect, undefined, [effectId, 30, amplifier]), validation(
+        'amplifier', `amplifier must be a non-negative integer, received ${amplifier}`, amplifier,
+      ))
+    }
+    for (const probability of [-0.1, 1.1, Number.NaN]) {
+      expectItemFailure(Reflect.apply(consumableResult.consumableApplyEffects, undefined, [[], probability]), validation(
+        'probability', `probability must be in [0, 1], received ${probability}`, probability,
+      ))
+    }
+    for (const diameter of [0, Number.POSITIVE_INFINITY]) {
+      expectItemFailure(Reflect.apply(consumableResult.consumableTeleportRandomly, undefined, [diameter]), validation(
+        'diameter', 'diameter must be positive', diameter,
+      ))
+    }
+    expect(consumableComponent({ consumeSeconds: ConsumeSeconds(0) }).consumeSeconds).toBe(0)
+    for (const consumeSeconds of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      expectItemFailure(Reflect.apply(consumableResult.consumableComponent, undefined, [{ consumeSeconds }]), validation(
+        'consumeSeconds', 'consumeSeconds must be finite and non-negative', consumeSeconds,
+      ))
+    }
+  })
+
+  it('validates and constructs one snapshot of consumable options', () => {
+    for (const options of [null, []]) {
+      expectItemFailure(Reflect.apply(consumableResult.consumableComponent, undefined, [options]), {
+        _tag: 'ItemValidationFailure',
+        kind: 'TypeError',
+        reason: 'invalid-type',
+        field: 'options',
+        message: 'Consumable component options must be a non-null object',
+        value: options,
+      })
+    }
+
+    let reads = 0
+    const changingOptions = new Proxy({}, {
+      get: (_target, key) => {
+        if (key !== 'consumeSeconds') return undefined
+        reads += 1
+        return reads === 1 ? ConsumeSeconds(2) : Number.NaN
+      },
+    })
+    expect(itemResultValue(Reflect.apply(consumableResult.consumableComponent, undefined, [changingOptions]))).toEqual({
+      ...DEFAULT_CONSUMABLE_COMPONENT,
+      consumeSeconds: 2,
+    })
+    expect(reads).toBe(1)
+
+    const hostileOptions = new Proxy({}, {
+      get: (_target, key) => key === 'sound' ? (() => { throw new Error('hostile') })() : undefined,
+    })
+    expectItemFailure(Reflect.apply(consumableResult.consumableComponent, undefined, [hostileOptions]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'options',
+      message: 'Unable to inspect consumable component options',
+      value: hostileOptions,
+    })
+
+    const revokedOptions = Proxy.revocable({}, {})
+    revokedOptions.revoke()
+    expectItemFailure(Reflect.apply(consumableResult.consumableComponent, undefined, [revokedOptions.proxy]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'options',
+      message: 'Unable to inspect consumable component options',
+    })
+  })
+
+  it('rejects invalid option values and malformed consume-effect snapshots', () => {
+    const reject = (options: unknown, expected: Parameters<typeof expectItemFailure>[1]) =>
+      expectItemFailure(Reflect.apply(consumableResult.consumableComponent, undefined, [options]), expected)
+
+    reject({ consumeSeconds: '1' }, { field: 'consumeSeconds', reason: 'out-of-range' })
+    reject({ animation: 'sit' }, { field: 'animation', reason: 'invalid-value', value: 'sit' })
+    reject({ sound: 1 }, { field: 'sound', reason: 'invalid-value', value: 1 })
+    reject({ sound: 'not a resource location' }, { field: 'sound', reason: 'invalid-value' })
+    reject({ hasConsumeParticles: 1 }, { field: 'hasConsumeParticles', reason: 'invalid-type', value: 1 })
+    reject({ onConsumeEffects: {} }, { field: 'onConsumeEffects', reason: 'invalid-type' })
+    reject({ onConsumeEffects: [null] }, { field: 'onConsumeEffects', reason: 'invalid-value', value: null })
+
+    const oversizedEffects = new Array(MAX_GENERIC_INPUT_ARRAY_LENGTH + 1)
+    reject({ onConsumeEffects: oversizedEffects }, {
+      field: 'onConsumeEffects',
+      reason: 'out-of-range',
+      message: 'Unable to inspect onConsumeEffects',
+      value: oversizedEffects,
+    })
+
+    const hostileEffects = new Proxy([consumableClearAllEffects()], {
+      get: (target, key, receiver) => key === '0'
+        ? (() => { throw new Error('hostile') })()
+        : Reflect.get(target, key, receiver),
+    })
+    reject({ onConsumeEffects: hostileEffects }, {
+      field: 'onConsumeEffects[0]',
+      reason: 'hostile-input',
+      message: 'Unable to inspect onConsumeEffects[0]',
+      value: hostileEffects,
+    })
   })
 
   it('projects status effects with namespaced ids and probabilities', () => {

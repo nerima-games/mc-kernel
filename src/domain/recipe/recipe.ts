@@ -1,5 +1,16 @@
 export {
   MAX_RECIPE_SIDE,
+  RecipeCompletionCount,
+  RecipeExperience,
+  RecipeGridDimension,
+  RecipeGridIndex,
+  RecipeGroup,
+  RecipeId,
+  RecipeIngredientCount,
+  RecipePatternRow,
+  RecipePatternSymbol,
+  RecipePriority,
+  RecipeStationTag,
   cellAt,
   craftGrid,
   anyOf,
@@ -27,29 +38,15 @@ export type {
   PatternCell,
   Recipe,
   RecipeCategory,
-  RecipeId,
+  RecipePatternKeyMap,
   RecipeItemTag,
   RecipeMatchContext,
   RecipeOptions,
   RecipePattern,
-  RecipeStationTag,
   RecipeTable,
   ShapedRecipe,
   ShapelessRecipe,
 } from "./recipe-data.js";
-export {
-  conflictsIn,
-  matchRecipe,
-  matchRecipeWithAssignments,
-  matchesRecipe,
-  matchesShaped,
-  matchesShapeless,
-} from "./recipe-matching.js";
-export type {
-  RecipeConflict,
-  RecipeConflictReason,
-  RecipeIngredientAssignment,
-  RecipeMatch,
-  RecipeMatchWithAssignments,
-} from "./recipe-matching.js";
+export type { RecipeFailure } from "./recipe-error.js";
 export { VANILLA_CRAFTING_RECIPES } from "./recipe-vanilla-data.js";
+export { TransmuteMaterialSlotCount } from "./transmute-data.js";

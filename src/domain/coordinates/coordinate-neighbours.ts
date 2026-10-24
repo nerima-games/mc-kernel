@@ -1,4 +1,5 @@
-import { blockPosition, type BlockPosition } from './coordinate-primitives.js'
+import { Result } from 'effect'
+import { BlockAxis, blockPosition, type BlockPosition } from './coordinate-primitives.js'
 
 /**
  * The six faces of a block, in canonical traversal order.
@@ -42,54 +43,99 @@ const BLOCK_FACE_STEPS: Readonly<Record<BlockFace, readonly [number, number, num
 export const isBlockFace = (value: unknown): value is BlockFace =>
   typeof value === 'string' && BLOCK_FACE_LOOKUP.has(value)
 
+export type BlockNeighbourFailure = Readonly<{
+  readonly _tag: 'BlockNeighbourFailure'
+  readonly kind: 'TypeError' | 'RangeError'
+  readonly reason: 'unknown-face' | 'coordinate-overflow'
+  readonly message: string
+}>
+
+const failure = (
+  reason: BlockNeighbourFailure['reason'],
+  kind: BlockNeighbourFailure['kind'],
+  message: string,
+): Result.Result<never, BlockNeighbourFailure> =>
+  Result.fail({ _tag: 'BlockNeighbourFailure', reason, kind, message })
+
 /** The face reached by crossing a block through `face`. */
-export function oppositeBlockFace(face: BlockFace): BlockFace
-export function oppositeBlockFace(face: BlockFace): BlockFace {
+export const oppositeBlockFace = (
+  face: unknown,
+): Result.Result<BlockFace, BlockNeighbourFailure> => {
   if (!isBlockFace(face)) {
-    throw new TypeError('Unknown block face')
+    return failure('unknown-face', 'TypeError', 'Unknown block face')
   }
 
-  return BLOCK_FACE_OPPOSITES[face]
+  return Result.succeed(BLOCK_FACE_OPPOSITES[face])
 }
 
 const UNIT_STEP = 1
 
+const blockAxisAt = (value: number): Result.Result<ReturnType<typeof BlockAxis>, BlockNeighbourFailure> =>
+  Number.isSafeInteger(value)
+    ? Result.succeed(BlockAxis(value))
+    : failure('coordinate-overflow', 'RangeError', `Block coordinate exceeds the safe integer range: ${value}`)
+
+const offsetBlockPosition = (
+  source: BlockPosition,
+  dx: number,
+  dy: number,
+  dz: number,
+): Result.Result<BlockPosition, BlockNeighbourFailure> =>
+  Result.gen(function* () {
+    const x = yield* blockAxisAt(source.x + dx)
+    const y = yield* blockAxisAt(source.y + dy)
+    const z = yield* blockAxisAt(source.z + dz)
+    return blockPosition(x, y, z)
+  })
+
 /** The block cell touching `source` across `face`. */
-export function adjacentBlockPosition(source: BlockPosition, face: BlockFace): BlockPosition
-export function adjacentBlockPosition(source: BlockPosition, face: BlockFace): BlockPosition {
+export const adjacentBlockPosition = (
+  source: BlockPosition,
+  face: unknown,
+): Result.Result<BlockPosition, BlockNeighbourFailure> => {
   if (!isBlockFace(face)) {
-    throw new TypeError('Unknown block face')
+    return failure('unknown-face', 'TypeError', 'Unknown block face')
   }
 
   const [dx, dy, dz] = BLOCK_FACE_STEPS[face]
-  return blockPosition(source.x + dx, source.y + dy, source.z + dz)
+  return offsetBlockPosition(source, dx, dy, dz)
 }
 
 /** Horizontal neighbours in west, east, north, south order. */
 export const horizontalBlockNeighbours = (
   source: BlockPosition,
-): readonly [west: BlockPosition, east: BlockPosition, north: BlockPosition, south: BlockPosition] => [
-  blockPosition(source.x - UNIT_STEP, source.y, source.z),
-  blockPosition(source.x + UNIT_STEP, source.y, source.z),
-  blockPosition(source.x, source.y, source.z - UNIT_STEP),
-  blockPosition(source.x, source.y, source.z + UNIT_STEP),
-]
+): Result.Result<
+  readonly [west: BlockPosition, east: BlockPosition, north: BlockPosition, south: BlockPosition],
+  BlockNeighbourFailure
+> =>
+  Result.gen(function* () {
+    const west = yield* offsetBlockPosition(source, -UNIT_STEP, 0, 0)
+    const east = yield* offsetBlockPosition(source, UNIT_STEP, 0, 0)
+    const north = yield* offsetBlockPosition(source, 0, 0, -UNIT_STEP)
+    const south = yield* offsetBlockPosition(source, 0, 0, UNIT_STEP)
+    return [west, east, north, south]
+  })
 
 /** All face-adjacent cells, in `BLOCK_FACES` order. */
 export const blockNeighbours = (
   source: BlockPosition,
-): readonly [
-  down: BlockPosition,
-  up: BlockPosition,
-  north: BlockPosition,
-  south: BlockPosition,
-  west: BlockPosition,
-  east: BlockPosition,
-] => [
-  blockPosition(source.x, source.y - UNIT_STEP, source.z),
-  blockPosition(source.x, source.y + UNIT_STEP, source.z),
-  blockPosition(source.x, source.y, source.z - UNIT_STEP),
-  blockPosition(source.x, source.y, source.z + UNIT_STEP),
-  blockPosition(source.x - UNIT_STEP, source.y, source.z),
-  blockPosition(source.x + UNIT_STEP, source.y, source.z),
-]
+): Result.Result<
+  readonly [
+    down: BlockPosition,
+    up: BlockPosition,
+    north: BlockPosition,
+    south: BlockPosition,
+    west: BlockPosition,
+    east: BlockPosition,
+  ],
+  BlockNeighbourFailure
+> =>
+  Result.gen(function* () {
+    const down = yield* offsetBlockPosition(source, 0, -UNIT_STEP, 0)
+    const up = yield* offsetBlockPosition(source, 0, UNIT_STEP, 0)
+    const north = yield* offsetBlockPosition(source, 0, 0, -UNIT_STEP)
+    const south = yield* offsetBlockPosition(source, 0, 0, UNIT_STEP)
+    const west = yield* offsetBlockPosition(source, -UNIT_STEP, 0, 0)
+    const east = yield* offsetBlockPosition(source, UNIT_STEP, 0, 0)
+    return [down, up, north, south, west, east]
+  })

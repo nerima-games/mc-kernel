@@ -1,4 +1,4 @@
-import { position, type BlockPosition, type Position } from './coordinate-primitives.js'
+import { PositionAxis, position, type BlockPosition, type Position } from './coordinate-primitives.js'
 
 const UNIT_STEP = 1
 
@@ -14,13 +14,28 @@ export type AABB = {
 }
 
 export const aabb = (firstCorner: Position, secondCorner: Position): AABB => ({
-  min: position(Math.min(firstCorner.x, secondCorner.x), Math.min(firstCorner.y, secondCorner.y), Math.min(firstCorner.z, secondCorner.z)),
-  max: position(Math.max(firstCorner.x, secondCorner.x), Math.max(firstCorner.y, secondCorner.y), Math.max(firstCorner.z, secondCorner.z)),
+  min: position(
+    PositionAxis(Math.min(firstCorner.x, secondCorner.x)),
+    PositionAxis(Math.min(firstCorner.y, secondCorner.y)),
+    PositionAxis(Math.min(firstCorner.z, secondCorner.z)),
+  ),
+  max: position(
+    PositionAxis(Math.max(firstCorner.x, secondCorner.x)),
+    PositionAxis(Math.max(firstCorner.y, secondCorner.y)),
+    PositionAxis(Math.max(firstCorner.z, secondCorner.z)),
+  ),
 })
 
 /** The unit cube occupied by a block cell. */
 export const aabbOfBlock = (value: BlockPosition): AABB =>
-  aabb(position(value.x, value.y, value.z), position(value.x + UNIT_STEP, value.y + UNIT_STEP, value.z + UNIT_STEP))
+  aabb(
+    position(PositionAxis(value.x), PositionAxis(value.y), PositionAxis(value.z)),
+    position(
+      PositionAxis(value.x + UNIT_STEP),
+      PositionAxis(value.y + UNIT_STEP),
+      PositionAxis(value.z + UNIT_STEP),
+    ),
+  )
 
 /**
  * Overlap test. Touching faces do NOT count as an intersection: a box ending at

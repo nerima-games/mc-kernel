@@ -1,4 +1,6 @@
+import { Result } from "effect";
 import { dataPackResourcePath } from "../world/data-pack-registry.js";
+import type { DataPackRegistryFailure, DataPackResourcePath } from "../world/data-pack-registry.js";
 import {
   cookingRecipe,
   type CookingRecipe,
@@ -30,20 +32,24 @@ import {
   type CraftingMapExtendingRecipe,
   type CraftingShieldDecorationRecipe,
 } from "./crafting-special-data.js";
-import {
-  ResourceLocation,
-  NamespacedResourceLocation,
-  type NamespacedResourceLocation as NamespacedResourceLocationValue,
-} from "../text/identifiers.js";
-import {
-  applyItemComponentPatch,
-  itemComponentPatchFromUnknown,
-} from "../item/item-component-patch.js";
+import { NamespacedResourceLocation, TagLocation } from "../text/identifiers.js";
 import { isItemType, type ItemType } from "../item/item-type.js";
-import { itemComponents } from "../item/item-components.js";
-import { itemStack } from "../item/item-stack.js";
+import { itemStackFromUnknown, type ItemStack } from "../item/item-stack.js";
+import { BookGeneration } from "../item/item-primitives.js";
+import { PositiveTickCount } from "../time/quantities.js";
 import {
+  decodeItemComponentPatch,
+  type ItemComponentPatch,
+} from "../item/item-component-patch.js";
+import {
+  MAX_RECIPE_SIDE,
   anyOf,
+  RecipeGroup,
+  RecipeExperience,
+  RecipeId,
+  RecipePatternRow,
+  RecipePatternSymbol,
+  RecipeStationTag,
   shapelessRecipe,
   shapedRecipe,
   tagged,
@@ -51,6 +57,8 @@ import {
   type Recipe,
   type RecipeCategory,
   type RecipeOptions,
+  type RecipePatternKeyMap,
+  type RecipeItemTag,
 } from "./recipe-data.js";
 import {
   SMITHING_STATION_TAG,
@@ -66,14 +74,46 @@ import {
 } from "./stonecutting-data.js";
 import {
   transmuteRecipe,
+  TransmuteMaterialSlotCount,
   type TransmuteMaterialCount,
   type TransmuteRecipe,
 } from "./transmute-data.js";
+import {
+  recipeItemFailure,
+  recipeRangeFailure,
+  recipeTypeFailure,
+  type RecipeFailure,
+} from "./recipe-error.js";
+import {
+  MAX_GENERIC_INPUT_ARRAY_LENGTH,
+  snapshotDenseInputArray,
+  snapshotInputEntries,
+  snapshotInputRecord,
+} from "../../input-snapshot.js";
 
 type UnknownRecord = Readonly<Record<string, unknown>>;
+type RecipeResult<A> = Result.Result<A, RecipeFailure>;
 
-const isRecord = (value: unknown): value is UnknownRecord =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+const recordFromInput = (value: unknown): UnknownRecord | undefined => {
+  const snapshot = snapshotInputRecord(value);
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined;
+};
+
+const arrayFromInput = (
+  value: unknown,
+  maxLength: number,
+): ReadonlyArray<unknown> | undefined => {
+  const snapshot = snapshotDenseInputArray(value, maxLength);
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined;
+};
+
+const entriesFromInput = (
+  value: unknown,
+  maxEntries: number,
+): ReadonlyArray<readonly [string, unknown]> | undefined => {
+  const snapshot = snapshotInputEntries(value, maxEntries);
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined;
+};
 
 const hasOnlyKeys = (
   value: UnknownRecord,
@@ -85,184 +125,253 @@ const hasAllKeys = (
   keys: ReadonlyArray<string>,
 ): boolean => keys.every((key) => Object.hasOwn(value, key));
 
-const minecraftItemOf = (value: unknown, allowAir: boolean): ItemType => {
-  if (typeof value !== "string" || !NamespacedResourceLocation.is(value)) {
-    throw new TypeError(
+const minecraftItemOf = (
+  value: unknown,
+  allowAir: boolean,
+): RecipeResult<ItemType> => {
+  if (typeof value !== "string") {
+    return recipeTypeFailure(
       `Recipe item must be a namespaced id, received ${String(value)}`,
     );
   }
-  const separator = value.indexOf(":");
-  if (value.slice(0, separator) !== "minecraft") {
-    throw new TypeError(
-      `Kernel recipe decoder only supports vanilla items, received ${value}`,
+  const namespacedId = NamespacedResourceLocation.result(value);
+  if (Result.isFailure(namespacedId)) {
+    return recipeTypeFailure(
+      `Recipe item must be a namespaced id, received ${String(value)}`,
     );
   }
-  const item = value.slice(separator + 1);
-  if ((!allowAir && item === "air") || !isItemType(item)) {
-    throw new TypeError(`Unknown recipe item, received ${value}`);
+  const separator = namespacedId.success.indexOf(":");
+  if (namespacedId.success.slice(0, separator) !== "minecraft") {
+    return recipeTypeFailure(
+      `Kernel recipe decoder only supports vanilla items, received ${namespacedId.success}`,
+    );
   }
-  return item;
+  const item = namespacedId.success.slice(separator + 1);
+  if ((!allowAir && item === "air") || !isItemType(item)) {
+    return recipeTypeFailure(`Unknown recipe item, received ${namespacedId.success}`);
+  }
+  return Result.succeed(item);
 };
 
-const itemTagOf = (value: string): `#${NamespacedResourceLocationValue}` => {
+const itemTagOf = (
+  value: string,
+): RecipeResult<RecipeItemTag> => {
   const location = value.slice(1);
-  if (!NamespacedResourceLocation.is(location)) {
-    throw new TypeError(
+  const namespacedLocation = NamespacedResourceLocation.result(location);
+  if (Result.isFailure(namespacedLocation)) {
+    return recipeTypeFailure(
       `Recipe item tag must be namespaced, received ${value}`,
     );
   }
-  return `#${location}`;
+  const tag = TagLocation.result(`#${namespacedLocation.success}`);
+  return Result.isFailure(tag)
+    ? recipeTypeFailure("Recipe item tag must be namespaced")
+    : Result.succeed(tag.success);
 };
 
-const decodeIngredient = (value: unknown): CraftingIngredientInput => {
-  if (typeof value === "string") {
-    if (value.startsWith("#")) {
-      return tagged(itemTagOf(value));
+const decodeIngredient = (
+  value: unknown,
+): RecipeResult<CraftingIngredientInput> =>
+  Result.gen(function* () {
+    if (typeof value === "string") {
+      if (value.startsWith("#")) {
+        return yield* tagged(yield* itemTagOf(value));
+      }
+      return yield* minecraftItemOf(value, false);
     }
-    return minecraftItemOf(value, false);
-  }
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
-      throw new RangeError("Recipe ingredient alternatives must not be empty");
-    }
-    const items: Array<ItemType> = [];
-    for (const alternative of value) {
-      if (typeof alternative !== "string" || alternative.startsWith("#")) {
-        throw new TypeError(
-          "Recipe ingredient alternatives must contain item ids, not tags",
+    const alternatives = arrayFromInput(value, MAX_GENERIC_INPUT_ARRAY_LENGTH);
+    if (alternatives !== undefined) {
+      if (alternatives.length === 0) {
+        return yield* recipeRangeFailure(
+          "Recipe ingredient alternatives must not be empty",
         );
       }
-      items.push(minecraftItemOf(alternative, false));
+      const items: Array<ItemType> = [];
+      for (const alternative of alternatives) {
+        if (typeof alternative !== "string" || alternative.startsWith("#")) {
+          return yield* recipeTypeFailure(
+            "Recipe ingredient alternatives must contain item ids, not tags",
+          );
+        }
+        items.push(yield* minecraftItemOf(alternative, false));
+      }
+      return yield* anyOf(items);
     }
-    return anyOf(items);
-  }
-  throw new TypeError(
-    "Current recipe ingredients must be item/tag strings or item-id arrays",
-  );
-};
+    return yield* recipeTypeFailure(
+      "Current recipe ingredients must be item/tag strings or item-id arrays",
+    );
+  });
 
-const decodePattern = (value: unknown): ReadonlyArray<string> => {
-  if (!Array.isArray(value)) {
-    throw new TypeError("Shaped recipe pattern must be an array");
+const decodePattern = (
+  value: unknown,
+): RecipeResult<ReadonlyArray<RecipePatternRow>> => {
+  const rows = arrayFromInput(value, MAX_RECIPE_SIDE);
+  if (rows === undefined) {
+    return recipeTypeFailure("Shaped recipe pattern must be an array");
   }
-  const pattern: Array<string> = [];
-  for (const row of value) {
+  const pattern: Array<RecipePatternRow> = [];
+  for (const row of rows) {
     if (typeof row !== "string") {
-      throw new TypeError("Shaped recipe pattern rows must be strings");
+      return recipeTypeFailure("Shaped recipe pattern rows must be strings");
     }
-    pattern.push(row);
+    const patternRow = RecipePatternRow.result(row);
+    if (Result.isFailure(patternRow)) {
+      return recipeRangeFailure(
+        "Shaped recipe pattern rows must be strings no wider than 3 characters",
+      );
+    }
+    pattern.push(patternRow.success);
   }
-  return pattern;
+  return Result.succeed(pattern);
 };
 
 const decodeKey = (
   value: unknown,
-): Readonly<Record<string, CraftingIngredientInput>> => {
-  if (!isRecord(value)) {
-    throw new TypeError("Shaped recipe key must be an object");
-  }
-  const key: Record<string, CraftingIngredientInput> = {};
-  for (const [character, ingredient] of Object.entries(value)) {
-    key[character] = decodeIngredient(ingredient);
-  }
-  return key;
-};
+): RecipeResult<RecipePatternKeyMap> =>
+  Result.gen(function* () {
+    const entries = entriesFromInput(value, MAX_RECIPE_SIDE * MAX_RECIPE_SIDE);
+    if (entries === undefined) {
+      return yield* recipeTypeFailure("Shaped recipe key must be an object");
+    }
+    const key: Record<RecipePatternSymbol, CraftingIngredientInput> = {};
+    for (const [character, ingredient] of entries) {
+      const symbol = RecipePatternSymbol.result(character);
+      if (Result.isFailure(symbol)) {
+        return yield* recipeTypeFailure(
+          "Shaped recipe keys must use one non-space character",
+        );
+      }
+      key[symbol.success] = yield* decodeIngredient(ingredient);
+    }
+    return key;
+  });
 
 const decodeIngredients = (
   value: unknown,
-): ReadonlyArray<CraftingIngredientInput> => {
-  if (!Array.isArray(value)) {
-    throw new TypeError("Shapeless recipe ingredients must be an array");
+): RecipeResult<ReadonlyArray<CraftingIngredientInput>> => {
+  const ingredients = arrayFromInput(value, MAX_RECIPE_SIDE * MAX_RECIPE_SIDE);
+  if (ingredients === undefined) {
+    return recipeTypeFailure("Shapeless recipe ingredients must be an array");
   }
-  return value.map(decodeIngredient);
+  return Result.all(ingredients.map(decodeIngredient));
 };
 
-const decodeResultItem = (value: string | UnknownRecord): ItemType => {
+const decodeResultItem = (value: string | UnknownRecord): RecipeResult<ItemType> => {
   if (typeof value === "string") {
     return minecraftItemOf(value, true);
   }
   return minecraftItemOf(value["id"], true);
 };
 
-const decodeResult = (value: unknown) => {
-  if (typeof value === "string") {
-    return itemStack(decodeResultItem(value), 1);
-  }
-  if (!isRecord(value)) {
-    throw new TypeError(
-      "Recipe result must be an item id or item stack object",
-    );
-  }
-  if (
-    !hasOnlyKeys(value, ["id", "count", "components"]) ||
-    !hasAllKeys(value, ["id"])
-  ) {
-    throw new TypeError("Recipe result object has an invalid shape");
-  }
-  const item = decodeResultItem(value);
-  const count = Object.hasOwn(value, "count") ? value["count"] : 1;
-  if (typeof count !== "number") {
-    throw new TypeError("Recipe result count must be a number");
-  }
-  if (!Object.hasOwn(value, "components")) {
-    return itemStack(item, count);
-  }
-  const patch = itemComponentPatchFromUnknown(value["components"]);
-  return itemStack(item, count, {
-    components: applyItemComponentPatch(itemComponents(item), patch),
-  });
-};
+const decodePatchedComponents = (
+  value: unknown,
+): RecipeResult<ItemComponentPatch> =>
+  Result.mapError(decodeItemComponentPatch(value), recipeItemFailure);
 
-const decodeCategory = (value: unknown): RecipeCategory => {
+const decodeResult = (value: unknown): RecipeResult<ItemStack> =>
+  Result.gen(function* () {
+    const record = typeof value === "string" ? undefined : recordFromInput(value);
+    const resultItem = typeof value === "string" ? value : record;
+    if (resultItem === undefined) {
+      return yield* recipeTypeFailure(
+        "Recipe result must be an item id or item stack object",
+      );
+    }
+    if (
+      record !== undefined &&
+      (!hasOnlyKeys(record, ["id", "count", "components"]) ||
+        !hasAllKeys(record, ["id"]))
+    ) {
+      return yield* recipeTypeFailure("Recipe result object has an invalid shape");
+    }
+    const item = yield* decodeResultItem(resultItem);
+    const count =
+      record === undefined || !Object.hasOwn(record, "count")
+        ? 1
+        : record["count"];
+    if (typeof count !== "number") {
+      return yield* recipeTypeFailure("Recipe result count must be a number");
+    }
+    const componentPatch =
+      record === undefined || !Object.hasOwn(record, "components")
+        ? undefined
+        : yield* decodePatchedComponents(record["components"]);
+    return yield* Result.mapError(
+      itemStackFromUnknown(item, count, {
+        ...(componentPatch === undefined ? {} : { componentPatch }),
+      }),
+      recipeItemFailure,
+    );
+  });
+
+const decodeCategory = (value: unknown): RecipeResult<RecipeCategory> => {
   if (
     value !== "building" &&
     value !== "equipment" &&
     value !== "misc" &&
     value !== "redstone"
   ) {
-    throw new TypeError(
+    return recipeTypeFailure(
       `Recipe category is invalid, received ${String(value)}`,
     );
   }
-  return value;
+  return Result.succeed(value);
 };
 
 type CommonRecipeOptions = Readonly<{
   readonly category?: RecipeCategory;
-  readonly group?: string;
+  readonly group?: RecipeGroup;
   readonly showNotification?: boolean;
 }>;
 
-const decodeCommonOptions = (value: UnknownRecord): CommonRecipeOptions => {
-  let category: RecipeCategory | undefined;
-  let group: string | undefined;
-  let showNotification: boolean | undefined;
-  if (Object.hasOwn(value, "category")) {
-    category = decodeCategory(value["category"]);
+const decodeRecipeGroup = (value: unknown): RecipeResult<RecipeGroup> => {
+  if (typeof value !== "string") {
+    return recipeTypeFailure("Recipe group must be a string");
   }
-  if (Object.hasOwn(value, "group")) {
-    if (typeof value["group"] !== "string") {
-      throw new TypeError("Recipe group must be a string");
-    }
-    group = value["group"];
-  }
-  if (Object.hasOwn(value, "show_notification")) {
-    if (typeof value["show_notification"] !== "boolean") {
-      throw new TypeError("Recipe show_notification must be a boolean");
-    }
-    showNotification = value["show_notification"];
-  }
-  return {
-    ...(category === undefined ? {} : { category }),
-    ...(group === undefined ? {} : { group }),
-    ...(showNotification === undefined ? {} : { showNotification }),
-  };
+  return Result.mapError(RecipeGroup.result(value), () =>
+    ({
+      _tag: "RecipeTypeFailure",
+      name: "TypeError",
+      message: "Recipe group must be a string",
+    } satisfies RecipeFailure),
+  );
 };
 
-const decodeCraftingOptions = (value: UnknownRecord): RecipeOptions => ({
-  tags: ["crafting_table"],
-  ...decodeCommonOptions(value),
-});
+const decodeCommonOptions = (
+  value: UnknownRecord,
+): RecipeResult<CommonRecipeOptions> =>
+  Result.gen(function* () {
+    let category: RecipeCategory | undefined;
+    let group: RecipeGroup | undefined;
+    let showNotification: boolean | undefined;
+    if (Object.hasOwn(value, "category")) {
+      category = yield* decodeCategory(value["category"]);
+    }
+    if (Object.hasOwn(value, "group")) {
+      group = yield* decodeRecipeGroup(value["group"]);
+    }
+    if (Object.hasOwn(value, "show_notification")) {
+      if (typeof value["show_notification"] !== "boolean") {
+        return yield* recipeTypeFailure(
+          "Recipe show_notification must be a boolean",
+        );
+      }
+      showNotification = value["show_notification"];
+    }
+    return {
+      ...(category === undefined ? {} : { category }),
+      ...(group === undefined ? {} : { group }),
+      ...(showNotification === undefined ? {} : { showNotification }),
+    };
+  });
+
+const decodeCraftingOptions = (
+  value: UnknownRecord,
+): RecipeResult<RecipeOptions> =>
+  Result.gen(function* () {
+    const options = yield* decodeCommonOptions(value);
+    return { tags: [RecipeStationTag("crafting_table")], ...options };
+  });
 
 type NotificationRecipeOptions = Readonly<{
   readonly showNotification?: boolean;
@@ -270,10 +379,10 @@ type NotificationRecipeOptions = Readonly<{
 
 const decodeNotificationOptions = (
   value: UnknownRecord,
-): NotificationRecipeOptions => {
-  const { showNotification } = decodeCommonOptions(value);
-  return showNotification === undefined ? {} : { showNotification };
-};
+): RecipeResult<NotificationRecipeOptions> =>
+  Result.map(decodeCommonOptions(value), ({ showNotification }) =>
+    showNotification === undefined ? {} : { showNotification },
+  );
 
 const cookingStationOf = (type: string): CookingStation | undefined => {
   switch (type) {
@@ -290,78 +399,139 @@ const cookingStationOf = (type: string): CookingStation | undefined => {
   }
 };
 
-const decodeCookingStation = (type: string): CookingStation => {
+const decodeCookingStation = (type: string): RecipeResult<CookingStation> => {
   const station = cookingStationOf(type);
-  if (station === undefined) {
-    throw new TypeError(`Unsupported cooking recipe type: ${type}`);
-  }
-  return station;
+  return station === undefined
+    ? recipeTypeFailure(`Unsupported cooking recipe type: ${type}`)
+    : Result.succeed(station);
 };
 
-const decodeNumber = (value: unknown, field: string): number => {
-  if (typeof value !== "number") {
-    throw new TypeError(`Recipe ${field} must be a number`);
-  }
-  return value;
-};
+const decodeNumber = (value: unknown, field: string): RecipeResult<number> =>
+  typeof value === "number"
+    ? Result.succeed(value)
+    : recipeTypeFailure(`Recipe ${field} must be a number`);
 
-const decodeMaterialCount = (value: unknown): TransmuteMaterialCount => {
+const decodePositiveTickCount = (
+  value: unknown,
+): RecipeResult<PositiveTickCount> =>
+  Result.flatMap(decodeNumber(value, "cookingtime"), (ticks) => {
+    const checkedTicks = PositiveTickCount.result(ticks);
+    return Result.isFailure(checkedTicks)
+      ? recipeRangeFailure(
+          `Cooking time must be a positive safe integer, received ${String(ticks)}`,
+        )
+      : Result.succeed(checkedTicks.success);
+  });
+
+const decodeRecipeExperience = (
+  value: unknown,
+): RecipeResult<RecipeExperience> =>
+  Result.flatMap(decodeNumber(value, "experience"), (experience) => {
+    const checkedExperience = RecipeExperience.result(experience);
+    return Result.isFailure(checkedExperience)
+      ? recipeRangeFailure(
+          `Cooking experience must be a finite non-negative number, received ${String(experience)}`,
+        )
+      : Result.succeed(checkedExperience.success);
+  });
+
+const decodeMaterialCount = (
+  value: unknown,
+): RecipeResult<TransmuteMaterialCount> => {
+  const record = recordFromInput(value);
   if (
-    !isRecord(value) ||
-    !hasOnlyKeys(value, ["min", "max"]) ||
-    !hasAllKeys(value, ["min", "max"])
+    record === undefined ||
+    !hasOnlyKeys(record, ["min", "max"]) ||
+    !hasAllKeys(record, ["min", "max"])
   ) {
-    throw new TypeError(
+    return recipeTypeFailure(
       "Transmute material_count must be an object with min and max",
     );
   }
-  const min = value["min"];
-  const max = value["max"];
+  const min = record["min"];
+  const max = record["max"];
   if (
     typeof min !== "number" ||
     !Number.isSafeInteger(min) ||
     typeof max !== "number" ||
     !Number.isSafeInteger(max)
   ) {
-    throw new TypeError("Transmute material_count bounds must be integers");
+    return recipeTypeFailure("Transmute material_count bounds must be integers");
   }
-  return { min, max };
+  return Result.gen(function* () {
+    const checkedMin = TransmuteMaterialSlotCount.result(min);
+    if (Result.isFailure(checkedMin)) {
+      return yield* recipeRangeFailure(
+        "Transmute material_count bounds must be between 1 and 8",
+      );
+    }
+    const checkedMax = TransmuteMaterialSlotCount.result(max);
+    if (Result.isFailure(checkedMax)) {
+      return yield* recipeRangeFailure(
+        "Transmute material_count bounds must be between 1 and 8",
+      );
+    }
+    return { min: checkedMin.success, max: checkedMax.success };
+  });
 };
 
 const decodeIntegerRange = (
   value: unknown,
   field: string,
   maximum: number,
-): readonly [number, number] => {
+): RecipeResult<readonly [number, number]> => {
+  const record = recordFromInput(value);
   if (
-    !isRecord(value) ||
-    !hasOnlyKeys(value, ["min", "max"]) ||
-    !hasAllKeys(value, ["min", "max"])
+    record === undefined ||
+    !hasOnlyKeys(record, ["min", "max"]) ||
+    !hasAllKeys(record, ["min", "max"])
   ) {
-    throw new TypeError(`${field} must be an object with min and max`);
+    return recipeTypeFailure(`${field} must be an object with min and max`);
   }
-  const min = value["min"];
-  const max = value["max"];
+  const min = record["min"];
+  const max = record["max"];
   if (
     typeof min !== "number" ||
     !Number.isSafeInteger(min) ||
     typeof max !== "number" ||
-    !Number.isSafeInteger(max) ||
+    !Number.isSafeInteger(max)
+  ) {
+    return recipeTypeFailure(
+      `${field} must contain safe integer min and max values`,
+    );
+  }
+  if (
     min < 0 ||
     max < 0 ||
     min > maximum ||
     max > maximum ||
     min > max
   ) {
-    throw new RangeError(
+    return recipeRangeFailure(
       `${field} must be an ordered integer range from 0 to ${maximum}`,
     );
   }
-  return [min, max];
+  return Result.succeed([min, max]);
 };
 
-const decodeAllowedGenerations = (value: unknown): readonly [number, number] =>
-  decodeIntegerRange(value, "Book cloning allowed_generations", 2);
+const decodeAllowedGenerations = (
+  value: unknown,
+): RecipeResult<readonly [BookGeneration, BookGeneration]> =>
+  Result.gen(function* () {
+    const [min, max] = yield* decodeIntegerRange(
+      value,
+      "Book cloning allowed_generations",
+      2,
+    );
+    const checkedMin = BookGeneration.result(min);
+    const checkedMax = BookGeneration.result(max);
+    if (Result.isFailure(checkedMin) || Result.isFailure(checkedMax)) {
+      return yield* recipeRangeFailure(
+        "Book cloning allowed_generations must be between 0 and 2",
+      );
+    }
+    return [checkedMin.success, checkedMax.success] as const;
+  });
 
 const isFireworkExplosionShape = (
   value: string,
@@ -370,684 +540,594 @@ const isFireworkExplosionShape = (
 
 const decodeShapeIngredients = (
   value: unknown,
-): Readonly<
-  Partial<Record<FireworkExplosionShape, CraftingIngredientInput>>
-> => {
-  if (!isRecord(value)) {
-    throw new TypeError("Firework star shapes must be an object");
-  }
-  const shapes: Partial<
-    Record<FireworkExplosionShape, CraftingIngredientInput>
-  > = {};
-  for (const [shape, ingredient] of Object.entries(value)) {
-    if (!isFireworkExplosionShape(shape)) {
-      throw new TypeError(`Unsupported firework explosion shape: ${shape}`);
+): RecipeResult<
+  Readonly<Partial<Record<FireworkExplosionShape, CraftingIngredientInput>>>
+> =>
+  Result.gen(function* () {
+    const entries = entriesFromInput(value, MAX_GENERIC_INPUT_ARRAY_LENGTH);
+    if (entries === undefined) {
+      return yield* recipeTypeFailure("Firework star shapes must be an object");
     }
-    shapes[shape] = decodeIngredient(ingredient);
+    const shapes: Partial<
+      Record<FireworkExplosionShape, CraftingIngredientInput>
+    > = {};
+    for (const [shape, ingredient] of entries) {
+      if (!isFireworkExplosionShape(shape)) {
+        return yield* recipeTypeFailure(
+          `Unsupported firework explosion shape: ${shape}`,
+        );
+      }
+      shapes[shape] = yield* decodeIngredient(ingredient);
+    }
+    return shapes;
+  });
+
+const decodeRecipeId = (
+  value: NamespacedResourceLocation,
+): RecipeResult<RecipeId> => {
+  if (typeof value !== "string") {
+    return recipeTypeFailure(`Recipe id must be namespaced, received ${value}`);
   }
-  return shapes;
+  const recipeId = RecipeId.result(value);
+  if (Result.isFailure(recipeId)) {
+    return recipeTypeFailure(`Recipe id must be namespaced, received ${value}`);
+  }
+  const namespaced = NamespacedResourceLocation.result(value);
+  if (Result.isFailure(namespaced)) {
+    return recipeTypeFailure(`Recipe id must be namespaced, received ${value}`);
+  }
+  return Result.succeed(recipeId.success);
 };
 
-const decodeRecipeId = (value: string) => {
-  if (!NamespacedResourceLocation.is(value)) {
-    throw new TypeError(`Recipe id must be namespaced, received ${value}`);
+const decodeRecordWithType = (
+  value: unknown,
+  label: string,
+): RecipeResult<UnknownRecord & { readonly type: string }> => {
+  const record = recordFromInput(value);
+  const type = record?.["type"];
+  if (record === undefined || typeof type !== "string") {
+    return recipeTypeFailure(`${label} must contain a string type`);
   }
-  return ResourceLocation(value);
+  return Result.succeed({ ...record, type });
 };
+
+const decodeTypedDocument = (
+  id: NamespacedResourceLocation,
+  value: unknown,
+  type: string,
+  typeMessage: string,
+  keys: ReadonlyArray<string>,
+  required: ReadonlyArray<string>,
+  shapeMessage: string,
+): RecipeResult<{
+  readonly id: RecipeId;
+  readonly value: UnknownRecord;
+}> =>
+  Result.gen(function* () {
+    const recipeId = yield* decodeRecipeId(id);
+    const record = recordFromInput(value);
+    if (record === undefined || record["type"] !== type) {
+      return yield* recipeTypeFailure(typeMessage);
+    }
+    if (!hasOnlyKeys(record, keys) || !hasAllKeys(record, required)) {
+      return yield* recipeTypeFailure(shapeMessage);
+    }
+    return { id: recipeId, value: record };
+  });
 
 /** Decodes a current Java crafting recipe document at the JSON boundary. */
 export const craftingRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): Recipe => {
-  const recipeId = decodeRecipeId(id);
-  if (!isRecord(value) || typeof value["type"] !== "string") {
-    throw new TypeError("Crafting recipe must contain a string type");
-  }
-  const type = value["type"];
-  if (type === "minecraft:crafting_shaped") {
-    if (
-      !hasOnlyKeys(value, [
-        "type",
-        "category",
-        "group",
-        "show_notification",
-        "pattern",
-        "key",
-        "result",
-      ]) ||
-      !hasAllKeys(value, ["type", "pattern", "key", "result"])
-    ) {
-      throw new TypeError("Shaped crafting recipe has an invalid shape");
+): RecipeResult<Recipe> =>
+  Result.gen(function* () {
+    const recipeId = yield* decodeRecipeId(id);
+    const record = yield* decodeRecordWithType(value, "Crafting recipe");
+    if (record["type"] === "minecraft:crafting_shaped") {
+      if (
+        !hasOnlyKeys(record, [
+          "type",
+          "category",
+          "group",
+          "show_notification",
+          "pattern",
+          "key",
+          "result",
+        ]) ||
+        !hasAllKeys(record, ["type", "pattern", "key", "result"])
+      ) {
+        return yield* recipeTypeFailure(
+          "Shaped crafting recipe has an invalid shape",
+        );
+      }
+      return yield* shapedRecipe(
+        recipeId,
+        yield* decodePattern(record["pattern"]),
+        yield* decodeKey(record["key"]),
+        yield* decodeResult(record["result"]),
+        yield* decodeCraftingOptions(record),
+      );
     }
-    const options = decodeCraftingOptions(value);
-    return shapedRecipe(
-      recipeId,
-      decodePattern(value["pattern"]),
-      decodeKey(value["key"]),
-      decodeResult(value["result"]),
-      options,
-    );
-  }
-  if (type === "minecraft:crafting_shapeless") {
-    if (
-      !hasOnlyKeys(value, [
-        "type",
-        "category",
-        "group",
-        "show_notification",
-        "ingredients",
-        "result",
-      ]) ||
-      !hasAllKeys(value, ["type", "ingredients", "result"])
-    ) {
-      throw new TypeError("Shapeless crafting recipe has an invalid shape");
+    if (record["type"] === "minecraft:crafting_shapeless") {
+      if (
+        !hasOnlyKeys(record, [
+          "type",
+          "category",
+          "group",
+          "show_notification",
+          "ingredients",
+          "result",
+        ]) ||
+        !hasAllKeys(record, ["type", "ingredients", "result"])
+      ) {
+        return yield* recipeTypeFailure(
+          "Shapeless crafting recipe has an invalid shape",
+        );
+      }
+      return yield* shapelessRecipe(
+        recipeId,
+        yield* decodeIngredients(record["ingredients"]),
+        yield* decodeResult(record["result"]),
+        yield* decodeCraftingOptions(record),
+      );
     }
-    const options = decodeCraftingOptions(value);
-    return shapelessRecipe(
-      recipeId,
-      decodeIngredients(value["ingredients"]),
-      decodeResult(value["result"]),
-      options,
+    return yield* recipeTypeFailure(
+      `Unsupported crafting recipe type: ${record["type"]}`,
     );
-  }
-  throw new TypeError(`Unsupported crafting recipe type: ${type}`);
-};
+  });
 
 /** Decodes one of the current Java furnace-family recipe documents. */
 export const cookingRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): CookingRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (!isRecord(value) || typeof value["type"] !== "string") {
-    throw new TypeError("Cooking recipe must contain a string type");
-  }
-  const type = value["type"];
-  const station = decodeCookingStation(type);
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "category",
-      "group",
-      "show_notification",
-      "ingredient",
-      "result",
-      "experience",
-      "cookingtime",
-    ]) ||
-    !hasAllKeys(value, [
-      "type",
-      "ingredient",
-      "result",
-      "experience",
-      "cookingtime",
-    ])
-  ) {
-    throw new TypeError("Cooking recipe has an invalid shape");
-  }
-  const options = decodeCommonOptions(value);
-  return cookingRecipe(
-    recipeId,
-    station,
-    decodeIngredient(value["ingredient"]),
-    decodeResult(value["result"]),
-    decodeNumber(value["cookingtime"], "cookingtime"),
-    decodeNumber(value["experience"], "experience"),
-    options,
-  );
-};
+): RecipeResult<CookingRecipe> =>
+  Result.gen(function* () {
+    const recipeId = yield* decodeRecipeId(id);
+    const record = yield* decodeRecordWithType(value, "Cooking recipe");
+    const station = yield* decodeCookingStation(record["type"]);
+    if (
+      !hasOnlyKeys(record, [
+        "type",
+        "category",
+        "group",
+        "show_notification",
+        "ingredient",
+        "result",
+        "experience",
+        "cookingtime",
+      ]) ||
+      !hasAllKeys(record, [
+        "type",
+        "ingredient",
+        "result",
+        "experience",
+        "cookingtime",
+      ])
+    ) {
+      return yield* recipeTypeFailure("Cooking recipe has an invalid shape");
+    }
+    return yield* cookingRecipe(
+      recipeId,
+      station,
+      yield* decodeIngredient(record["ingredient"]),
+      yield* decodeResult(record["result"]),
+      yield* decodePositiveTickCount(record["cookingtime"]),
+      yield* decodeRecipeExperience(record["experience"]),
+      yield* decodeCommonOptions(record),
+    );
+  });
 
 /** Decodes a current Java crafting transmute recipe document. */
 export const transmuteRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): TransmuteRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (!isRecord(value) || typeof value["type"] !== "string") {
-    throw new TypeError("Transmute recipe must contain a string type");
-  }
-  if (value["type"] !== "minecraft:crafting_transmute") {
-    throw new TypeError(`Unsupported transmute recipe type: ${value["type"]}`);
-  }
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "category",
-      "group",
-      "show_notification",
-      "source",
-      "material",
-      "result",
-      "material_count",
-      "add_material_count_to_result",
-    ]) ||
-    !hasAllKeys(value, ["type", "source", "material", "result"])
-  ) {
-    throw new TypeError("Transmute recipe has an invalid shape");
-  }
-  const options = decodeCommonOptions(value);
-  const materialCount = Object.hasOwn(value, "material_count")
-    ? decodeMaterialCount(value["material_count"])
-    : undefined;
-  const addMaterialCountToResult = value["add_material_count_to_result"];
-  if (
-    addMaterialCountToResult !== undefined &&
-    typeof addMaterialCountToResult !== "boolean"
-  ) {
-    throw new TypeError(
-      "Transmute add_material_count_to_result must be boolean",
+): RecipeResult<TransmuteRecipe> =>
+  Result.gen(function* () {
+    const recipeId = yield* decodeRecipeId(id);
+    const record = yield* decodeRecordWithType(value, "Transmute recipe");
+    if (record["type"] !== "minecraft:crafting_transmute") {
+      return yield* recipeTypeFailure(
+        `Unsupported transmute recipe type: ${record["type"]}`,
+      );
+    }
+    if (
+      !hasOnlyKeys(record, [
+        "type",
+        "category",
+        "group",
+        "show_notification",
+        "source",
+        "material",
+        "result",
+        "material_count",
+        "add_material_count_to_result",
+      ]) ||
+      !hasAllKeys(record, ["type", "source", "material", "result"])
+    ) {
+      return yield* recipeTypeFailure("Transmute recipe has an invalid shape");
+    }
+    const options = yield* decodeCommonOptions(record);
+    const materialCount = Object.hasOwn(record, "material_count")
+      ? yield* decodeMaterialCount(record["material_count"])
+      : undefined;
+    const addMaterialCountToResult = record["add_material_count_to_result"];
+    if (
+      addMaterialCountToResult !== undefined &&
+      typeof addMaterialCountToResult !== "boolean"
+    ) {
+      return yield* recipeTypeFailure(
+        "Transmute add_material_count_to_result must be boolean",
+      );
+    }
+    return yield* transmuteRecipe(
+      recipeId,
+      yield* decodeIngredient(record["source"]),
+      yield* decodeIngredient(record["material"]),
+      yield* decodeResult(record["result"]),
+      {
+        ...options,
+        ...(materialCount === undefined ? {} : { materialCount }),
+        ...(addMaterialCountToResult === undefined
+          ? {}
+          : { addMaterialCountToResult }),
+      },
     );
-  }
-  return transmuteRecipe(
-    recipeId,
-    decodeIngredient(value["source"]),
-    decodeIngredient(value["material"]),
-    decodeResult(value["result"]),
-    {
-      ...options,
-      ...(materialCount === undefined ? {} : { materialCount }),
-      ...(addMaterialCountToResult === undefined
-        ? {}
-        : { addMaterialCountToResult }),
-    },
-  );
-};
+  });
 
 /** Decodes the current Java crafting dye recipe document. */
 export const craftingDyeRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): CraftingDyeRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (!isRecord(value) || value["type"] !== "minecraft:crafting_dye") {
-    throw new TypeError(
+): RecipeResult<CraftingDyeRecipe> =>
+  Result.gen(function* () {
+    const { id: recipeId, value: record } = yield* decodeTypedDocument(
+      id,
+      value,
+      "minecraft:crafting_dye",
       "Crafting dye recipe must have type minecraft:crafting_dye",
+      ["type", "category", "group", "show_notification", "target", "dye", "result"],
+      ["type", "target", "dye", "result"],
+      "Crafting dye recipe has an invalid shape",
     );
-  }
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "category",
-      "group",
-      "show_notification",
-      "target",
-      "dye",
-      "result",
-    ]) ||
-    !hasAllKeys(value, ["type", "target", "dye", "result"])
-  ) {
-    throw new TypeError("Crafting dye recipe has an invalid shape");
-  }
-  const options = decodeCommonOptions(value);
-  return craftingDyeRecipe(
-    recipeId,
-    decodeIngredient(value["target"]),
-    decodeIngredient(value["dye"]),
-    decodeResult(value["result"]),
-    {
-      category: options.category ?? "misc",
-      group: options.group ?? "",
-      showNotification: options.showNotification ?? true,
-    },
-  );
-};
+    const options = yield* decodeCommonOptions(record);
+    return yield* craftingDyeRecipe(
+      recipeId,
+      yield* decodeIngredient(record["target"]),
+      yield* decodeIngredient(record["dye"]),
+      yield* decodeResult(record["result"]),
+      {
+        category: options.category ?? "misc",
+        group: options.group ?? (yield* decodeRecipeGroup("")),
+        showNotification: options.showNotification ?? true,
+      },
+    );
+  });
 
 /** Decodes the current Java crafting imbue recipe document. */
 export const craftingImbueRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): CraftingImbueRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (!isRecord(value) || value["type"] !== "minecraft:crafting_imbue") {
-    throw new TypeError(
+): RecipeResult<CraftingImbueRecipe> =>
+  Result.gen(function* () {
+    const { id: recipeId, value: record } = yield* decodeTypedDocument(
+      id,
+      value,
+      "minecraft:crafting_imbue",
       "Crafting imbue recipe must have type minecraft:crafting_imbue",
+      ["type", "category", "group", "show_notification", "source", "material", "result"],
+      ["type", "source", "material", "result"],
+      "Crafting imbue recipe has an invalid shape",
     );
-  }
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "category",
-      "group",
-      "show_notification",
-      "source",
-      "material",
-      "result",
-    ]) ||
-    !hasAllKeys(value, ["type", "source", "material", "result"])
-  ) {
-    throw new TypeError("Crafting imbue recipe has an invalid shape");
-  }
-  const options = decodeCommonOptions(value);
-  return craftingImbueRecipe(
-    recipeId,
-    decodeIngredient(value["source"]),
-    decodeIngredient(value["material"]),
-    decodeResult(value["result"]),
-    {
-      category: options.category ?? "misc",
-      group: options.group ?? "",
-      showNotification: options.showNotification ?? true,
-    },
-  );
-};
+    const options = yield* decodeCommonOptions(record);
+    return yield* craftingImbueRecipe(
+      recipeId,
+      yield* decodeIngredient(record["source"]),
+      yield* decodeIngredient(record["material"]),
+      yield* decodeResult(record["result"]),
+      {
+        category: options.category ?? "misc",
+        group: options.group ?? (yield* decodeRecipeGroup("")),
+        showNotification: options.showNotification ?? true,
+      },
+    );
+  });
 
 /** Decodes the current Java banner duplication recipe document. */
 export const craftingBannerDuplicateRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): CraftingBannerDuplicateRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (
-    !isRecord(value) ||
-    value["type"] !== "minecraft:crafting_special_bannerduplicate"
-  ) {
-    throw new TypeError(
+): RecipeResult<CraftingBannerDuplicateRecipe> =>
+  Result.gen(function* () {
+    const { id: recipeId, value: record } = yield* decodeTypedDocument(
+      id,
+      value,
+      "minecraft:crafting_special_bannerduplicate",
       "Crafting banner duplicate recipe must have type minecraft:crafting_special_bannerduplicate",
-    );
-  }
-  if (
-    !hasOnlyKeys(value, ["type", "banner", "result", "show_notification"]) ||
-    !hasAllKeys(value, ["type", "banner", "result"])
-  ) {
-    throw new TypeError(
+      ["type", "banner", "result", "show_notification"],
+      ["type", "banner", "result"],
       "Crafting banner duplicate recipe has an invalid shape",
     );
-  }
-  return craftingBannerDuplicateRecipe(
-    recipeId,
-    decodeIngredient(value["banner"]),
-    decodeResult(value["result"]),
-    decodeNotificationOptions(value),
-  );
-};
+    return yield* craftingBannerDuplicateRecipe(
+      recipeId,
+      yield* decodeIngredient(record["banner"]),
+      yield* decodeResult(record["result"]),
+      yield* decodeNotificationOptions(record),
+    );
+  });
 
 /** Decodes the current Java written-book cloning recipe document. */
 export const craftingBookCloningRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): CraftingBookCloningRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (
-    !isRecord(value) ||
-    value["type"] !== "minecraft:crafting_special_bookcloning"
-  ) {
-    throw new TypeError(
+): RecipeResult<CraftingBookCloningRecipe> =>
+  Result.gen(function* () {
+    const { id: recipeId, value: record } = yield* decodeTypedDocument(
+      id,
+      value,
+      "minecraft:crafting_special_bookcloning",
       "Crafting book cloning recipe must have type minecraft:crafting_special_bookcloning",
+      ["type", "source", "material", "allowed_generations", "result", "show_notification"],
+      ["type", "source", "material", "result"],
+      "Crafting book cloning recipe has an invalid shape",
     );
-  }
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "source",
-      "material",
-      "allowed_generations",
-      "result",
-      "show_notification",
-    ]) ||
-    !hasAllKeys(value, ["type", "source", "material", "result"])
-  ) {
-    throw new TypeError("Crafting book cloning recipe has an invalid shape");
-  }
-  const allowedGenerations = Object.hasOwn(value, "allowed_generations")
-    ? decodeAllowedGenerations(value["allowed_generations"])
-    : undefined;
-  return craftingBookCloningRecipe(
-    recipeId,
-    decodeIngredient(value["source"]),
-    decodeIngredient(value["material"]),
-    decodeResult(value["result"]),
-    allowedGenerations,
-    decodeNotificationOptions(value),
-  );
-};
+    const allowedGenerations = Object.hasOwn(record, "allowed_generations")
+      ? yield* decodeAllowedGenerations(record["allowed_generations"])
+      : undefined;
+    return yield* craftingBookCloningRecipe(
+      recipeId,
+      yield* decodeIngredient(record["source"]),
+      yield* decodeIngredient(record["material"]),
+      yield* decodeResult(record["result"]),
+      allowedGenerations,
+      yield* decodeNotificationOptions(record),
+    );
+  });
 
 /** Decodes the current Java decorated-pot recipe document. */
 export const craftingDecoratedPotRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): CraftingDecoratedPotRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (
-    !isRecord(value) ||
-    value["type"] !== "minecraft:crafting_decorated_pot"
-  ) {
-    throw new TypeError(
+): RecipeResult<CraftingDecoratedPotRecipe> =>
+  Result.gen(function* () {
+    const { id: recipeId, value: record } = yield* decodeTypedDocument(
+      id,
+      value,
+      "minecraft:crafting_decorated_pot",
       "Crafting decorated pot recipe must have type minecraft:crafting_decorated_pot",
+      ["type", "back", "left", "right", "front", "result", "show_notification"],
+      ["type", "back", "left", "right", "front", "result"],
+      "Crafting decorated pot recipe has an invalid shape",
     );
-  }
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "back",
-      "left",
-      "right",
-      "front",
-      "result",
-      "show_notification",
-    ]) ||
-    !hasAllKeys(value, ["type", "back", "left", "right", "front", "result"])
-  ) {
-    throw new TypeError("Crafting decorated pot recipe has an invalid shape");
-  }
-  return craftingDecoratedPotRecipe(
-    recipeId,
-    decodeIngredient(value["back"]),
-    decodeIngredient(value["left"]),
-    decodeIngredient(value["right"]),
-    decodeIngredient(value["front"]),
-    decodeResult(value["result"]),
-    decodeNotificationOptions(value),
-  );
-};
+    return yield* craftingDecoratedPotRecipe(
+      recipeId,
+      yield* decodeIngredient(record["back"]),
+      yield* decodeIngredient(record["left"]),
+      yield* decodeIngredient(record["right"]),
+      yield* decodeIngredient(record["front"]),
+      yield* decodeResult(record["result"]),
+      yield* decodeNotificationOptions(record),
+    );
+  });
 
 /** Decodes the current Java firework rocket recipe document. */
 export const craftingFireworkRocketRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): CraftingFireworkRocketRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (
-    !isRecord(value) ||
-    value["type"] !== "minecraft:crafting_special_firework_rocket"
-  ) {
-    throw new TypeError(
+): RecipeResult<CraftingFireworkRocketRecipe> =>
+  Result.gen(function* () {
+    const { id: recipeId, value: record } = yield* decodeTypedDocument(
+      id,
+      value,
+      "minecraft:crafting_special_firework_rocket",
       "Crafting firework rocket recipe must have type minecraft:crafting_special_firework_rocket",
+      ["type", "shell", "fuel", "star", "result", "show_notification"],
+      ["type", "shell", "fuel", "star", "result"],
+      "Crafting firework rocket recipe has an invalid shape",
     );
-  }
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "shell",
-      "fuel",
-      "star",
-      "result",
-      "show_notification",
-    ]) ||
-    !hasAllKeys(value, ["type", "shell", "fuel", "star", "result"])
-  ) {
-    throw new TypeError("Crafting firework rocket recipe has an invalid shape");
-  }
-  return craftingFireworkRocketRecipe(
-    recipeId,
-    decodeIngredient(value["shell"]),
-    decodeIngredient(value["fuel"]),
-    decodeIngredient(value["star"]),
-    decodeResult(value["result"]),
-    decodeNotificationOptions(value),
-  );
-};
+    return yield* craftingFireworkRocketRecipe(
+      recipeId,
+      yield* decodeIngredient(record["shell"]),
+      yield* decodeIngredient(record["fuel"]),
+      yield* decodeIngredient(record["star"]),
+      yield* decodeResult(record["result"]),
+      yield* decodeNotificationOptions(record),
+    );
+  });
 
 /** Decodes the current Java firework star fade recipe document. */
 export const craftingFireworkStarFadeRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): CraftingFireworkStarFadeRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (
-    !isRecord(value) ||
-    value["type"] !== "minecraft:crafting_special_firework_star_fade"
-  ) {
-    throw new TypeError(
+): RecipeResult<CraftingFireworkStarFadeRecipe> =>
+  Result.gen(function* () {
+    const { id: recipeId, value: record } = yield* decodeTypedDocument(
+      id,
+      value,
+      "minecraft:crafting_special_firework_star_fade",
       "Crafting firework star fade recipe must have type minecraft:crafting_special_firework_star_fade",
-    );
-  }
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "target",
-      "dye",
-      "result",
-      "show_notification",
-    ]) ||
-    !hasAllKeys(value, ["type", "target", "dye", "result"])
-  ) {
-    throw new TypeError(
+      ["type", "target", "dye", "result", "show_notification"],
+      ["type", "target", "dye", "result"],
       "Crafting firework star fade recipe has an invalid shape",
     );
-  }
-  return craftingFireworkStarFadeRecipe(
-    recipeId,
-    decodeIngredient(value["target"]),
-    decodeIngredient(value["dye"]),
-    decodeResult(value["result"]),
-    decodeNotificationOptions(value),
-  );
-};
+    return yield* craftingFireworkStarFadeRecipe(
+      recipeId,
+      yield* decodeIngredient(record["target"]),
+      yield* decodeIngredient(record["dye"]),
+      yield* decodeResult(record["result"]),
+      yield* decodeNotificationOptions(record),
+    );
+  });
 
 /** Decodes the current Java firework star recipe document. */
 export const craftingFireworkStarRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): CraftingFireworkStarRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (
-    !isRecord(value) ||
-    value["type"] !== "minecraft:crafting_special_firework_star"
-  ) {
-    throw new TypeError(
+): RecipeResult<CraftingFireworkStarRecipe> =>
+  Result.gen(function* () {
+    const { id: recipeId, value: record } = yield* decodeTypedDocument(
+      id,
+      value,
+      "minecraft:crafting_special_firework_star",
       "Crafting firework star recipe must have type minecraft:crafting_special_firework_star",
+      ["type", "trail", "twinkle", "fuel", "dye", "shapes", "result", "show_notification"],
+      ["type", "trail", "twinkle", "fuel", "dye", "shapes", "result"],
+      "Crafting firework star recipe has an invalid shape",
     );
-  }
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "trail",
-      "twinkle",
-      "fuel",
-      "dye",
-      "shapes",
-      "result",
-      "show_notification",
-    ]) ||
-    !hasAllKeys(value, [
-      "type",
-      "trail",
-      "twinkle",
-      "fuel",
-      "dye",
-      "shapes",
-      "result",
-    ])
-  ) {
-    throw new TypeError("Crafting firework star recipe has an invalid shape");
-  }
-  return craftingFireworkStarRecipe(
-    recipeId,
-    decodeIngredient(value["trail"]),
-    decodeIngredient(value["twinkle"]),
-    decodeIngredient(value["fuel"]),
-    decodeIngredient(value["dye"]),
-    decodeShapeIngredients(value["shapes"]),
-    decodeResult(value["result"]),
-    decodeNotificationOptions(value),
-  );
-};
+    return yield* craftingFireworkStarRecipe(
+      recipeId,
+      yield* decodeIngredient(record["trail"]),
+      yield* decodeIngredient(record["twinkle"]),
+      yield* decodeIngredient(record["fuel"]),
+      yield* decodeIngredient(record["dye"]),
+      yield* decodeShapeIngredients(record["shapes"]),
+      yield* decodeResult(record["result"]),
+      yield* decodeNotificationOptions(record),
+    );
+  });
 
 /** Decodes the current Java map-extending recipe document. */
 export const craftingMapExtendingRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): CraftingMapExtendingRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (
-    !isRecord(value) ||
-    value["type"] !== "minecraft:crafting_special_mapextending"
-  ) {
-    throw new TypeError(
+): RecipeResult<CraftingMapExtendingRecipe> =>
+  Result.gen(function* () {
+    const { id: recipeId, value: record } = yield* decodeTypedDocument(
+      id,
+      value,
+      "minecraft:crafting_special_mapextending",
       "Crafting map extending recipe must have type minecraft:crafting_special_mapextending",
+      ["type", "map", "material", "result", "show_notification"],
+      ["type", "map", "material", "result"],
+      "Crafting map extending recipe has an invalid shape",
     );
-  }
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "map",
-      "material",
-      "result",
-      "show_notification",
-    ]) ||
-    !hasAllKeys(value, ["type", "map", "material", "result"])
-  ) {
-    throw new TypeError("Crafting map extending recipe has an invalid shape");
-  }
-  return craftingMapExtendingRecipe(
-    recipeId,
-    decodeIngredient(value["map"]),
-    decodeIngredient(value["material"]),
-    decodeResult(value["result"]),
-    decodeNotificationOptions(value),
-  );
-};
+    return yield* craftingMapExtendingRecipe(
+      recipeId,
+      yield* decodeIngredient(record["map"]),
+      yield* decodeIngredient(record["material"]),
+      yield* decodeResult(record["result"]),
+      yield* decodeNotificationOptions(record),
+    );
+  });
 
 /** Decodes the current Java shield-decoration recipe document. */
 export const craftingShieldDecorationRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): CraftingShieldDecorationRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (
-    !isRecord(value) ||
-    value["type"] !== "minecraft:crafting_special_shielddecoration"
-  ) {
-    throw new TypeError(
+): RecipeResult<CraftingShieldDecorationRecipe> =>
+  Result.gen(function* () {
+    const { id: recipeId, value: record } = yield* decodeTypedDocument(
+      id,
+      value,
+      "minecraft:crafting_special_shielddecoration",
       "Crafting shield decoration recipe must have type minecraft:crafting_special_shielddecoration",
-    );
-  }
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "banner",
-      "target",
-      "result",
-      "show_notification",
-    ]) ||
-    !hasAllKeys(value, ["type", "banner", "target", "result"])
-  ) {
-    throw new TypeError(
+      ["type", "banner", "target", "result", "show_notification"],
+      ["type", "banner", "target", "result"],
       "Crafting shield decoration recipe has an invalid shape",
     );
-  }
-  return craftingShieldDecorationRecipe(
-    recipeId,
-    decodeIngredient(value["banner"]),
-    decodeIngredient(value["target"]),
-    decodeResult(value["result"]),
-    decodeNotificationOptions(value),
-  );
-};
+    return yield* craftingShieldDecorationRecipe(
+      recipeId,
+      yield* decodeIngredient(record["banner"]),
+      yield* decodeIngredient(record["target"]),
+      yield* decodeResult(record["result"]),
+      yield* decodeNotificationOptions(record),
+    );
+  });
 
 /** Decodes a current Java stonecutting recipe document. */
 export const stonecuttingRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): StonecuttingRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (!isRecord(value) || value["type"] !== "minecraft:stonecutting") {
-    throw new TypeError(
+): RecipeResult<StonecuttingRecipe> =>
+  Result.gen(function* () {
+    const { id: recipeId, value: record } = yield* decodeTypedDocument(
+      id,
+      value,
+      "minecraft:stonecutting",
       "Stonecutting recipe must have type minecraft:stonecutting",
+      ["type", "ingredient", "result", "show_notification"],
+      ["type", "ingredient", "result"],
+      "Stonecutting recipe has an invalid shape",
     );
-  }
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "ingredient",
-      "result",
-      "show_notification",
-    ]) ||
-    !hasAllKeys(value, ["type", "ingredient", "result"])
-  ) {
-    throw new TypeError("Stonecutting recipe has an invalid shape");
-  }
-  return stonecuttingRecipe(
-    recipeId,
-    decodeIngredient(value["ingredient"]),
-    decodeResult(value["result"]),
-    decodeNotificationOptions(value),
-  );
-};
+    return yield* stonecuttingRecipe(
+      recipeId,
+      yield* decodeIngredient(record["ingredient"]),
+      yield* decodeResult(record["result"]),
+      yield* decodeNotificationOptions(record),
+    );
+  });
 
 /** Decodes a current Java smithing transform recipe document. */
 export const smithingTransformRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): SmithingTransformRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (!isRecord(value) || value["type"] !== "minecraft:smithing_transform") {
-    throw new TypeError(
+): RecipeResult<SmithingTransformRecipe> =>
+  Result.gen(function* () {
+    const { id: recipeId, value: record } = yield* decodeTypedDocument(
+      id,
+      value,
+      "minecraft:smithing_transform",
       "Smithing transform recipe must have type minecraft:smithing_transform",
+      ["type", "template", "base", "addition", "result", "show_notification"],
+      ["type", "template", "base", "addition", "result"],
+      "Smithing transform recipe has an invalid shape",
     );
-  }
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "template",
-      "base",
-      "addition",
-      "result",
-      "show_notification",
-    ]) ||
-    !hasAllKeys(value, ["type", "template", "base", "addition", "result"])
-  ) {
-    throw new TypeError("Smithing transform recipe has an invalid shape");
-  }
-  return smithingTransformRecipe(
-    recipeId,
-    decodeIngredient(value["template"]),
-    decodeIngredient(value["base"]),
-    decodeIngredient(value["addition"]),
-    decodeResult(value["result"]),
-    { tags: [SMITHING_STATION_TAG], ...decodeNotificationOptions(value) },
-  );
-};
+    return yield* smithingTransformRecipe(
+      recipeId,
+      yield* decodeIngredient(record["template"]),
+      yield* decodeIngredient(record["base"]),
+      yield* decodeIngredient(record["addition"]),
+      yield* decodeResult(record["result"]),
+      {
+        tags: [SMITHING_STATION_TAG],
+        ...(yield* decodeNotificationOptions(record)),
+      },
+    );
+  });
 
 /** Decodes a current Java smithing trim recipe document. */
 export const smithingTrimRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): SmithingTrimRecipe => {
-  const recipeId = decodeRecipeId(id);
-  if (!isRecord(value) || value["type"] !== "minecraft:smithing_trim") {
-    throw new TypeError(
+): RecipeResult<SmithingTrimRecipe> =>
+  Result.gen(function* () {
+    const { id: recipeId, value: record } = yield* decodeTypedDocument(
+      id,
+      value,
+      "minecraft:smithing_trim",
       "Smithing trim recipe must have type minecraft:smithing_trim",
+      ["type", "template", "base", "addition", "show_notification"],
+      ["type", "template", "base", "addition"],
+      "Smithing trim recipe has an invalid shape",
     );
-  }
-  if (
-    !hasOnlyKeys(value, [
-      "type",
-      "template",
-      "base",
-      "addition",
-      "show_notification",
-    ]) ||
-    !hasAllKeys(value, ["type", "template", "base", "addition"])
-  ) {
-    throw new TypeError("Smithing trim recipe has an invalid shape");
-  }
-  return smithingTrimRecipe(
-    recipeId,
-    decodeIngredient(value["template"]),
-    decodeIngredient(value["base"]),
-    decodeIngredient(value["addition"]),
-    { tags: [SMITHING_STATION_TAG], ...decodeNotificationOptions(value) },
-  );
-};
+    return yield* smithingTrimRecipe(
+      recipeId,
+      yield* decodeIngredient(record["template"]),
+      yield* decodeIngredient(record["base"]),
+      yield* decodeIngredient(record["addition"]),
+      {
+        tags: [SMITHING_STATION_TAG],
+        ...(yield* decodeNotificationOptions(record)),
+      },
+    );
+  });
 
 /** Decodes either current Java smithing recipe document. */
 export const smithingRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): SmithingRecipe => {
-  if (!isRecord(value) || typeof value["type"] !== "string") {
-    throw new TypeError("Smithing recipe must contain a string type");
-  }
-  if (value["type"] === "minecraft:smithing_transform") {
-    return smithingTransformRecipeFromUnknown(id, value);
-  }
-  if (value["type"] === "minecraft:smithing_trim") {
-    return smithingTrimRecipeFromUnknown(id, value);
-  }
-  throw new TypeError(`Unsupported smithing recipe type: ${value["type"]}`);
-};
+): RecipeResult<SmithingRecipe> =>
+  Result.gen(function* () {
+    const record = yield* decodeRecordWithType(value, "Smithing recipe");
+    if (record["type"] === "minecraft:smithing_transform") {
+      return yield* smithingTransformRecipeFromUnknown(id, record);
+    }
+    if (record["type"] === "minecraft:smithing_trim") {
+      return yield* smithingTrimRecipeFromUnknown(id, record);
+    }
+    return yield* recipeTypeFailure(
+      `Unsupported smithing recipe type: ${record["type"]}`,
+    );
+  });
 
 export type PortableRecipe =
   | Recipe
@@ -1068,75 +1148,73 @@ export type PortableRecipe =
 
 /** Decodes every portable Java recipe kind currently modeled by mc-kernel. */
 export const portableRecipeFromUnknown = (
-  id: string,
+  id: NamespacedResourceLocation,
   value: unknown,
-): PortableRecipe => {
-  if (!isRecord(value) || typeof value["type"] !== "string") {
-    throw new TypeError("Recipe must contain a string type");
-  }
-  const type = value["type"];
-  if (
-    type === "minecraft:crafting_shaped" ||
-    type === "minecraft:crafting_shapeless"
-  ) {
-    return craftingRecipeFromUnknown(id, value);
-  }
-  if (cookingStationOf(type) !== undefined) {
-    return cookingRecipeFromUnknown(id, value);
-  }
-  if (type === "minecraft:crafting_transmute") {
-    return transmuteRecipeFromUnknown(id, value);
-  }
-  if (type === "minecraft:crafting_special_bannerduplicate") {
-    return craftingBannerDuplicateRecipeFromUnknown(id, value);
-  }
-  if (type === "minecraft:crafting_special_bookcloning") {
-    return craftingBookCloningRecipeFromUnknown(id, value);
-  }
-  if (type === "minecraft:crafting_decorated_pot") {
-    return craftingDecoratedPotRecipeFromUnknown(id, value);
-  }
-  if (type === "minecraft:crafting_dye") {
-    return craftingDyeRecipeFromUnknown(id, value);
-  }
-  if (type === "minecraft:crafting_special_firework_rocket") {
-    return craftingFireworkRocketRecipeFromUnknown(id, value);
-  }
-  if (type === "minecraft:crafting_special_firework_star_fade") {
-    return craftingFireworkStarFadeRecipeFromUnknown(id, value);
-  }
-  if (type === "minecraft:crafting_special_firework_star") {
-    return craftingFireworkStarRecipeFromUnknown(id, value);
-  }
-  if (type === "minecraft:crafting_imbue") {
-    return craftingImbueRecipeFromUnknown(id, value);
-  }
-  if (type === "minecraft:crafting_special_mapextending") {
-    return craftingMapExtendingRecipeFromUnknown(id, value);
-  }
-  if (type === "minecraft:crafting_special_shielddecoration") {
-    return craftingShieldDecorationRecipeFromUnknown(id, value);
-  }
-  if (type === "minecraft:stonecutting") {
-    return stonecuttingRecipeFromUnknown(id, value);
-  }
-  if (
-    type === "minecraft:smithing_transform" ||
-    type === "minecraft:smithing_trim"
-  ) {
-    return smithingRecipeFromUnknown(id, value);
-  }
-  throw new TypeError(`Unsupported portable recipe type: ${type}`);
-};
+): RecipeResult<PortableRecipe> =>
+  Result.gen(function* () {
+    const record = yield* decodeRecordWithType(value, "Recipe");
+    const type = record["type"];
+    if (type === "minecraft:crafting_shaped" || type === "minecraft:crafting_shapeless") {
+      return yield* craftingRecipeFromUnknown(id, record);
+    }
+    if (cookingStationOf(type) !== undefined) {
+      return yield* cookingRecipeFromUnknown(id, record);
+    }
+    if (type === "minecraft:crafting_transmute") {
+      return yield* transmuteRecipeFromUnknown(id, record);
+    }
+    if (type === "minecraft:crafting_special_bannerduplicate") {
+      return yield* craftingBannerDuplicateRecipeFromUnknown(id, record);
+    }
+    if (type === "minecraft:crafting_special_bookcloning") {
+      return yield* craftingBookCloningRecipeFromUnknown(id, record);
+    }
+    if (type === "minecraft:crafting_decorated_pot") {
+      return yield* craftingDecoratedPotRecipeFromUnknown(id, record);
+    }
+    if (type === "minecraft:crafting_dye") {
+      return yield* craftingDyeRecipeFromUnknown(id, record);
+    }
+    if (type === "minecraft:crafting_special_firework_rocket") {
+      return yield* craftingFireworkRocketRecipeFromUnknown(id, record);
+    }
+    if (type === "minecraft:crafting_special_firework_star_fade") {
+      return yield* craftingFireworkStarFadeRecipeFromUnknown(id, record);
+    }
+    if (type === "minecraft:crafting_special_firework_star") {
+      return yield* craftingFireworkStarRecipeFromUnknown(id, record);
+    }
+    if (type === "minecraft:crafting_imbue") {
+      return yield* craftingImbueRecipeFromUnknown(id, record);
+    }
+    if (type === "minecraft:crafting_special_mapextending") {
+      return yield* craftingMapExtendingRecipeFromUnknown(id, record);
+    }
+    if (type === "minecraft:crafting_special_shielddecoration") {
+      return yield* craftingShieldDecorationRecipeFromUnknown(id, record);
+    }
+    if (type === "minecraft:stonecutting") {
+      return yield* stonecuttingRecipeFromUnknown(id, record);
+    }
+    if (type === "minecraft:smithing_transform" || type === "minecraft:smithing_trim") {
+      return yield* smithingRecipeFromUnknown(id, record);
+    }
+    return yield* recipeTypeFailure(`Unsupported portable recipe type: ${type}`);
+  });
 
 export const recipeFromUnknown: typeof portableRecipeFromUnknown =
   portableRecipeFromUnknown;
 
 /** Returns the canonical data-pack path for a namespaced recipe id. */
-export const recipeDataPath = (id: string): string =>
-  dataPackResourcePath(
-    NamespacedResourceLocation("minecraft:recipe"),
-    NamespacedResourceLocation(decodeRecipeId(id)),
-  );
+export const recipeDataPath = (
+  id: NamespacedResourceLocation,
+): Result.Result<DataPackResourcePath, RecipeFailure | DataPackRegistryFailure> =>
+  Result.gen(function* () {
+    yield* decodeRecipeId(id);
+    return yield* dataPackResourcePath(
+      NamespacedResourceLocation("minecraft:recipe"),
+      id,
+    );
+  });
 
 export const craftingRecipeDataPath: typeof recipeDataPath = recipeDataPath;

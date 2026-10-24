@@ -1,1 +1,23 @@
-export * from "./settings.js";
+export {
+  DEFAULT_SETTINGS,
+  FieldOfViewDegrees,
+  GRAPHICS_QUALITIES,
+  InputAction,
+  KeyCode,
+  MAX_FOV_DEGREES,
+  MAX_MOUSE_SENSITIVITY,
+  MAX_RENDER_DISTANCE,
+  MAX_VOLUME,
+  MIN_FOV_DEGREES,
+  MIN_MOUSE_SENSITIVITY,
+  MIN_RENDER_DISTANCE,
+  MIN_VOLUME,
+  MouseSensitivity,
+  RenderDistanceChunks,
+  VolumeLevel,
+  normaliseKeyBindings,
+  normaliseSettings,
+  rebindKey,
+  unbindKey,
+} from "./settings.js";
+export type { GraphicsQuality, Settings } from "./settings.js";

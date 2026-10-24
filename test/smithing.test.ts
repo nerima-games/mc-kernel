@@ -1,295 +1,253 @@
-import { describe, expect, it } from 'vitest'
+import { Result } from "effect";
+import { describe, expect, it } from "vitest";
 
-import { exactly, tagged } from '../src/domain/recipe/recipe-data'
+import { itemStack as itemStackResult } from "../src/domain/item/item-stack";
+import { RecipeId, RecipePriority, exactly } from "../src/domain/recipe/recipe-data";
+import { StackCount } from "../src/domain/time/quantities";
+import type { RecipeFailure } from "../src/domain/recipe/recipe-error";
+
+const recipeSuccess = <A, E>(result: Result.Result<A, E>): A => {
+  expect(Result.isSuccess(result)).toBe(true);
+  if (Result.isSuccess(result)) return result.success;
+  throw new Error(`Expected recipe success, received ${JSON.stringify(result.failure)}`);
+};
+
+const itemStack = (item: Parameters<typeof itemStackResult>[0], count: number) =>
+  recipeSuccess(itemStackResult(item, recipeSuccess(StackCount.result(count))));
+
+const recipeFailure = (
+  result: Result.Result<unknown, RecipeFailure>,
+  tag: RecipeFailure["_tag"],
+): void => {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) expect(result.failure._tag).toBe(tag);
+};
+
+const expectRecipeFailure = (
+  result: Result.Result<unknown, RecipeFailure>,
+  expected: RecipeFailure,
+): void => {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) expect(result.failure).toEqual(expected);
+};
 import {
   SMITHING_STATION_TAG,
   SMITHING_TRIM_MATERIAL_TAG,
   SMITHING_TRIM_TEMPLATE_TAG,
   SMITHING_TRIMMABLE_ARMOR_TAG,
   VANILLA_SMITHING_RECIPES,
-  applySmithing,
-  matchSmithingRecipe,
-  matchesSmithingRecipe,
-  smithingInput,
   smithingTransformRecipe,
   smithingTrimRecipe,
-} from '../src/domain/recipe/smithing'
-import type { ItemType } from '../src/domain/item/item-type'
-import { itemStack } from '../src/domain/item/item-stack'
-import { buildSmithingRecipeIndex } from '../src/domain/recipe/smithing-indexes'
-import type {
-  ItemTagMemberships,
-  RecipeItemTag,
-} from '../src/domain/recipe/recipe-data'
+} from "../src/domain/recipe/smithing-data";
 
-const transformRecipe = smithingTransformRecipe(
-  'minecraft:test_transform',
-  exactly('netherite_upgrade_smithing_template'),
-  exactly('diamond_sword'),
-  exactly('netherite_ingot'),
-  itemStack('netherite_sword', 1),
-  { tags: [SMITHING_STATION_TAG] },
-)
+describe("smithing recipe data", () => {
+  it("normalizes ingredient snapshots once and reports options getter failures", () => {
+    let countReads = 0;
+    const template = new Proxy(
+      { _tag: "Exact", item: "netherite_upgrade_smithing_template", count: 1 },
+      {
+        get(target, property, receiver) {
+          if (property === "count") {
+            countReads += 1;
+            return countReads === 1 ? 1 : 0;
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    );
+    const result = Reflect.apply(smithingTrimRecipe, undefined, [
+      RecipeId("minecraft:snapshot_ingredient"),
+      template,
+      SMITHING_TRIMMABLE_ARMOR_TAG,
+      SMITHING_TRIM_MATERIAL_TAG,
+    ]);
+    expect(Result.isSuccess(result)).toBe(true);
+    expect(countReads).toBe(1);
 
-const bulkTransformRecipe = smithingTransformRecipe(
-  'minecraft:test_bulk_transform',
-  exactly('stone'),
-  exactly('stone'),
-  exactly('stick'),
-  itemStack('torch', 1),
-  { tags: [SMITHING_STATION_TAG] },
-)
+    const options = new Proxy({}, {
+      get(_target, property) {
+        if (property === "priority") throw new Error("hostile getter");
+        return undefined;
+      },
+    });
+    const unreadable = Reflect.apply(smithingTrimRecipe, undefined, [
+      RecipeId("minecraft:unreadable_options"),
+      SMITHING_TRIM_TEMPLATE_TAG,
+      SMITHING_TRIMMABLE_ARMOR_TAG,
+      SMITHING_TRIM_MATERIAL_TAG,
+      options,
+    ]);
+    expectRecipeFailure(unreadable, {
+      _tag: "RecipeTypeFailure",
+      name: "TypeError",
+      message: "Smithing recipe options must be an object",
+    });
+  });
 
-const trimRecipe = smithingTrimRecipe(
-  'minecraft:test_trim',
-  tagged(SMITHING_TRIM_TEMPLATE_TAG),
-  tagged(SMITHING_TRIMMABLE_ARMOR_TAG),
-  tagged(SMITHING_TRIM_MATERIAL_TAG),
-  { tags: [SMITHING_STATION_TAG] },
-)
+  it("returns failures for invalid priority types and hostile tag snapshots", () => {
+    const template = SMITHING_TRIM_TEMPLATE_TAG;
+    const base = SMITHING_TRIMMABLE_ARMOR_TAG;
+    const addition = SMITHING_TRIM_MATERIAL_TAG;
+    expectRecipeFailure(
+      Reflect.apply(smithingTrimRecipe, undefined, [
+        RecipeId("minecraft:string_priority"),
+        template,
+        base,
+        addition,
+        { priority: "high" },
+      ]),
+      {
+        _tag: "RecipeRangeFailure",
+        name: "RangeError",
+        message: "Smithing recipe priority must be a non-negative safe integer",
+      },
+    );
 
-const trimTags: ItemTagMemberships = new Map<RecipeItemTag, ReadonlySet<ItemType>>([
-  [SMITHING_TRIM_TEMPLATE_TAG, new Set<ItemType>(['netherite_upgrade_smithing_template'])],
-  [SMITHING_TRIMMABLE_ARMOR_TAG, new Set<ItemType>(['diamond_helmet'])],
-  [SMITHING_TRIM_MATERIAL_TAG, new Set<ItemType>(['gold_ingot'])],
-])
+    const invalidLengthTags = new Proxy([SMITHING_STATION_TAG], {
+      get(target, property, receiver) {
+        return property === "length" ? Number.NaN : Reflect.get(target, property, receiver);
+      },
+    });
+    expectRecipeFailure(
+      Reflect.apply(smithingTrimRecipe, undefined, [
+        RecipeId("minecraft:invalid_tag_length"),
+        template,
+        base,
+        addition,
+        { tags: invalidLengthTags },
+      ]),
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Smithing recipe station tags must be an array",
+      },
+    );
 
-const transformInput = () => smithingInput({
-  template: itemStack('netherite_upgrade_smithing_template', 1),
-  base: itemStack('diamond_sword', 1),
-  addition: itemStack('netherite_ingot', 1),
-})
+    const unreadableTags = new Proxy([SMITHING_STATION_TAG], {
+      get(target, property, receiver) {
+        if (property === "length") throw new Error("hostile tag array");
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    expectRecipeFailure(
+      Reflect.apply(smithingTrimRecipe, undefined, [
+        RecipeId("minecraft:unreadable_tags"),
+        template,
+        base,
+        addition,
+        { tags: unreadableTags },
+      ]),
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Smithing recipe station tags must be an array",
+      },
+    );
 
-describe('smithing recipe data', () => {
-  it('constructs transform and trim recipes with normalized options', () => {
-    expect(SMITHING_STATION_TAG).toBe('smithing_table')
-    expect(SMITHING_TRIM_TEMPLATE_TAG).toBe('#minecraft:trim_templates')
-    expect(SMITHING_TRIMMABLE_ARMOR_TAG).toBe('#minecraft:trimmable_armor')
-    expect(SMITHING_TRIM_MATERIAL_TAG).toBe('#minecraft:trim_materials')
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    expectRecipeFailure(
+      Reflect.apply(smithingTrimRecipe, undefined, [
+        RecipeId("minecraft:revoked_options"),
+        template,
+        base,
+        addition,
+        revoked.proxy,
+      ]),
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Smithing recipe options must be an object",
+      },
+    );
+  });
 
-    const tags = [SMITHING_STATION_TAG]
-    const transform = smithingTransformRecipe(
-      'minecraft:normalized',
-      exactly('diamond_sword', 1),
-      exactly('diamond_sword'),
-      exactly('netherite_ingot'),
-      itemStack('netherite_sword', 1),
-      { priority: 2, tags },
-    )
-    tags.push('other_station')
-    expect(transform).toEqual({
-      _tag: 'SmithingTransform',
-      id: 'minecraft:normalized',
-      template: exactly('diamond_sword'),
-      base: exactly('diamond_sword'),
-      addition: exactly('netherite_ingot'),
-      output: itemStack('netherite_sword', 1),
+  it("constructs transform and trim recipes with station metadata", () => {
+    expect(SMITHING_STATION_TAG).toBe("smithing_table");
+    expect(SMITHING_TRIM_TEMPLATE_TAG).toBe("#minecraft:trim_templates");
+    expect(SMITHING_TRIMMABLE_ARMOR_TAG).toBe("#minecraft:trimmable_armor");
+    expect(SMITHING_TRIM_MATERIAL_TAG).toBe("#minecraft:trim_materials");
+
+    const transform = recipeSuccess(smithingTransformRecipe(
+      RecipeId("minecraft:custom_netherite_sword"),
+      SMITHING_TRIM_TEMPLATE_TAG,
+      recipeSuccess(exactly("diamond_sword")),
+      "netherite_ingot",
+      itemStack("netherite_sword", 1),
+      { priority: RecipePriority(2), showNotification: true, tags: [SMITHING_STATION_TAG] },
+    ));
+    expect(transform).toMatchObject({
+      _tag: "SmithingTransform",
+      id: "minecraft:custom_netherite_sword",
+      template: { _tag: "ItemTag", tag: SMITHING_TRIM_TEMPLATE_TAG },
+      base: recipeSuccess(exactly("diamond_sword")),
+      addition: recipeSuccess(exactly("netherite_ingot")),
+      output: itemStack("netherite_sword", 1),
       priority: 2,
+      showNotification: true,
       tags: [SMITHING_STATION_TAG],
-    })
+    });
 
-    expect(smithingTrimRecipe('minecraft:untagged', tagged('#minecraft:trim_templates'), tagged('#minecraft:trimmable_armor'), tagged('#minecraft:trim_materials'))).toEqual({
-      _tag: 'SmithingTrim',
-      id: 'minecraft:untagged',
-      template: tagged('#minecraft:trim_templates'),
-      base: tagged('#minecraft:trimmable_armor'),
-      addition: tagged('#minecraft:trim_materials'),
+    const trim = recipeSuccess(smithingTrimRecipe(
+      RecipeId("minecraft:trim_armor"),
+      SMITHING_TRIM_TEMPLATE_TAG,
+      SMITHING_TRIMMABLE_ARMOR_TAG,
+      SMITHING_TRIM_MATERIAL_TAG,
+    ));
+    expect(trim).toMatchObject({
+      _tag: "SmithingTrim",
       priority: 0,
       tags: [],
-    })
-    expect(VANILLA_SMITHING_RECIPES).toHaveLength(10)
-    expect(VANILLA_SMITHING_RECIPES.at(-1)?._tag).toBe('SmithingTrim')
-  })
+    });
+    expect(VANILLA_SMITHING_RECIPES).toHaveLength(10);
+    expect(VANILLA_SMITHING_RECIPES.every((recipe) => recipe.tags.includes(SMITHING_STATION_TAG))).toBe(true);
+    expect(VANILLA_SMITHING_RECIPES.at(-1)).toMatchObject({ _tag: "SmithingTrim" });
+  });
 
-  it('rejects malformed recipe definitions and options', () => {
-    expect(() => smithingTransformRecipe('', exactly('stone'), exactly('stone'), exactly('stick'), itemStack('stone', 1))).toThrow(TypeError)
-    expect(() => Reflect.apply(smithingTransformRecipe, undefined, ['minecraft:test', {}, exactly('stone'), exactly('stick'), itemStack('stone', 1)])).toThrow(TypeError)
-    expect(() => Reflect.apply(smithingTransformRecipe, undefined, ['minecraft:test', null, exactly('stone'), exactly('stick'), itemStack('stone', 1)])).toThrow(TypeError)
-    expect(() => Reflect.apply(smithingTransformRecipe, undefined, ['minecraft:test', { _tag: 'Exact', item: 'unknown', count: 1 }, exactly('stone'), exactly('stick'), itemStack('stone', 1)])).toThrow(TypeError)
-    expect(() => Reflect.apply(smithingTransformRecipe, undefined, ['minecraft:test', { _tag: 'ItemTag', tag: 'not-a-tag', count: 1 }, exactly('stone'), exactly('stick'), itemStack('stone', 1)])).toThrow(TypeError)
-    expect(() => smithingTransformRecipe('minecraft:test', { _tag: 'Exact', item: 'stone', count: 0 }, exactly('stone'), exactly('stick'), itemStack('stone', 1))).toThrow(TypeError)
-    expect(() => Reflect.apply(smithingTransformRecipe, undefined, ['minecraft:test', exactly('stone'), exactly('stone'), exactly('stick'), {}])).toThrow(TypeError)
-    expect(() => Reflect.apply(smithingTransformRecipe, undefined, ['minecraft:test', exactly('stone'), exactly('stone'), exactly('stick'), itemStack('stone', 1), null])).toThrow(TypeError)
-    expect(() => smithingTransformRecipe('minecraft:test', exactly('stone'), exactly('stone'), exactly('stick'), itemStack('stone', 1), { priority: -1 })).toThrow(RangeError)
-    expect(() => smithingTransformRecipe('minecraft:test', exactly('stone'), exactly('stone'), exactly('stick'), itemStack('stone', 1), { priority: 1.5 })).toThrow(RangeError)
-    expect(() => smithingTransformRecipe('minecraft:test', exactly('stone'), exactly('stone'), exactly('stick'), itemStack('stone', 1), { tags: [''] })).toThrow(TypeError)
-    expect(() => Reflect.apply(smithingTransformRecipe, undefined, ['minecraft:test', exactly('stone'), exactly('stone'), exactly('stick'), itemStack('stone', 1), { tags: 'smithing_table' }])).toThrow(TypeError)
-    expect(() => Reflect.apply(smithingTrimRecipe, undefined, ['minecraft:test', tagged('#minecraft:trim_templates'), tagged('#minecraft:trimmable_armor'), tagged('#minecraft:trim_materials'), { tags: [1] }])).toThrow(TypeError)
-    expect(() => Reflect.apply(smithingTransformRecipe, undefined, ['minecraft:test', exactly('stone'), exactly('stone'), exactly('stick'), itemStack('stone', 1), { showNotification: 1 }])).toThrow(TypeError)
-  })
-})
+  it("rejects malformed identifiers, ingredients, outputs, and options", () => {
+    const output = itemStack("netherite_sword", StackCount(1));
+    const ingredients = [SMITHING_TRIM_TEMPLATE_TAG, "diamond_sword", "netherite_ingot"] as const;
+    expectRecipeFailure(
+      Reflect.apply(smithingTransformRecipe, undefined, [null, ...ingredients, output]),
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Smithing recipe id must be a resource location",
+      },
+    );
+    recipeFailure(Reflect.apply(smithingTransformRecipe, undefined, [" ", ...ingredients, output]), "RecipeTypeFailure");
+    recipeFailure(Reflect.apply(smithingTransformRecipe, undefined, ["minecraft:bad", null, ...ingredients.slice(1), output]), "RecipeTypeFailure");
+    recipeFailure(Reflect.apply(smithingTransformRecipe, undefined, ["minecraft:bad", ...ingredients, {}]), "RecipeTypeFailure");
+    recipeFailure(Reflect.apply(smithingTrimRecipe, undefined, [" ", ...ingredients]), "RecipeTypeFailure");
+    recipeFailure(Reflect.apply(smithingTrimRecipe, undefined, ["minecraft:bad", null, ...ingredients.slice(1)]), "RecipeTypeFailure");
 
-describe('smithing recipe matching', () => {
-  it('matches exact ingredients, item tags, stations, and priorities', () => {
-    expect(matchesSmithingRecipe(transformRecipe, transformInput())).toBe(true)
-    expect(matchesSmithingRecipe(transformRecipe, smithingInput({
-      template: itemStack('netherite_upgrade_smithing_template', 1),
-      base: itemStack('diamond_sword', 1),
-      addition: itemStack('netherite_ingot', 1),
-    }), { station: 'wrong_station' })).toBe(false)
-    expect(matchesSmithingRecipe(smithingTrimRecipe('minecraft:any_station', exactly('stone'), exactly('stone'), exactly('stick')), smithingInput({
-      template: itemStack('stone', 1),
-      base: itemStack('stone', 1),
-      addition: itemStack('stick', 1),
-    }), {})).toBe(true)
-    expect(matchesSmithingRecipe(trimRecipe, smithingInput({
-      template: itemStack('netherite_upgrade_smithing_template', 1),
-      base: itemStack('diamond_helmet', 1),
-      addition: itemStack('gold_ingot', 1),
-    }), { station: SMITHING_STATION_TAG, itemTags: trimTags })).toBe(true)
-    // Deliberate behaviour change: an omitted itemTags now resolves to the
-    // kernel's vanilla tag table (tag-membership.ts) instead of an empty map,
-    // and diamond_helmet/gold_ingot/netherite_upgrade_smithing_template are
-    // genuine vanilla trim membership, so this now matches.
-    expect(matchesSmithingRecipe(trimRecipe, smithingInput({
-      template: itemStack('netherite_upgrade_smithing_template', 1),
-      base: itemStack('diamond_helmet', 1),
-      addition: itemStack('gold_ingot', 1),
-    }))).toBe(true)
-
-    const lowPriority = smithingTransformRecipe('minecraft:z_low', exactly('stone'), exactly('stone'), exactly('stick'), itemStack('stone', 1), { priority: 1 })
-    const samePriorityEarlier = smithingTransformRecipe('minecraft:a_same', exactly('stone'), exactly('stone'), exactly('stick'), itemStack('stick', 1), { priority: 1 })
-    const samePriorityLater = smithingTransformRecipe('minecraft:z_same', exactly('stone'), exactly('stone'), exactly('stick'), itemStack('torch', 1), { priority: 1 })
-    const higherPriority = smithingTransformRecipe('minecraft:high', exactly('stone'), exactly('stone'), exactly('stick'), itemStack('torch', 1), { priority: 2 })
-    const input = smithingInput({ template: itemStack('stone', 1), base: itemStack('stone', 1), addition: itemStack('stick', 1) })
-    expect(matchSmithingRecipe(input, {}, [higherPriority, lowPriority, samePriorityEarlier, samePriorityLater])).toBe(samePriorityEarlier)
-    expect(matchSmithingRecipe(input, {}, [higherPriority])?._tag).toBe('SmithingTransform')
-    expect(matchSmithingRecipe(transformInput(), { station: SMITHING_STATION_TAG }, [transformRecipe])?.id).toBe('minecraft:test_transform')
-    expect(matchSmithingRecipe(transformInput())?.id).toBe('minecraft:netherite_netherite_sword')
-    expect(matchSmithingRecipe(transformInput(), { station: 'wrong_station' })).toBeUndefined()
-    expect(matchSmithingRecipe(smithingInput({
-      template: itemStack('netherite_upgrade_smithing_template', 1),
-      base: itemStack('diamond_helmet', 1),
-      addition: itemStack('gold_ingot', 1),
-    }), { station: SMITHING_STATION_TAG, itemTags: trimTags })?.id).toBe('minecraft:trim')
-    expect(matchSmithingRecipe(smithingInput())).toBeUndefined()
-    expect(matchSmithingRecipe(input, {}, [transformRecipe])).toBeUndefined()
-    expect(matchSmithingRecipe(smithingInput({ template: itemStack('stone', 1), base: itemStack('stone', 1), addition: itemStack('stone', 1) }), {}, [])).toBeUndefined()
-  })
-
-  it('rejects malformed inputs, contexts, and recipe tables', () => {
-    expect(() => Reflect.apply(smithingInput, undefined, [null])).toThrow(TypeError)
-    expect(() => Reflect.apply(smithingInput, undefined, [[]])).toThrow(TypeError)
-    expect(() => Reflect.apply(smithingInput, undefined, [{ template: {} }])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchesSmithingRecipe, undefined, [null, smithingInput()])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchesSmithingRecipe, undefined, [transformRecipe, null])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchesSmithingRecipe, undefined, [transformRecipe, smithingInput(), null])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchesSmithingRecipe, undefined, [transformRecipe, smithingInput(), []])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchesSmithingRecipe, undefined, [transformRecipe, smithingInput(), { station: '' }])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchesSmithingRecipe, undefined, [transformRecipe, smithingInput(), { station: 1 }])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchesSmithingRecipe, undefined, [transformRecipe, smithingInput(), { itemTags: { get: 1 } }])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchSmithingRecipe, undefined, [null])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchSmithingRecipe, undefined, [smithingInput(), null])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchSmithingRecipe, undefined, [smithingInput(), {}, null])).toThrow(TypeError)
-
-    const malformedRecipes: unknown[] = [
-      null,
-      [],
-      { ...transformRecipe, _tag: 'Other' },
-      { ...transformRecipe, id: ' ' },
-      { ...transformRecipe, template: null },
-      { ...transformRecipe, template: { _tag: 'Exact', item: 'unknown', count: 1 } },
-      { ...transformRecipe, template: { _tag: 'Exact', item: 'stone', count: 0 } },
-      { ...transformRecipe, template: { _tag: 'ItemTag', tag: 'not-a-tag', count: 1 } },
-      { ...transformRecipe, template: { _tag: 'Unknown' } },
-      { ...transformRecipe, output: undefined },
-      { ...transformRecipe, priority: -1 },
-      { ...transformRecipe, tags: undefined },
-      { ...transformRecipe, tags: [''] },
-    ]
-    expect(() => Reflect.apply(matchSmithingRecipe, undefined, [smithingInput(), {}, malformedRecipes[0]])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchSmithingRecipe, undefined, [smithingInput(), {}, [malformedRecipes[1]]])).toThrow(TypeError)
-    for (const malformed of malformedRecipes.slice(2)) {
-      expect(() => Reflect.apply(matchSmithingRecipe, undefined, [smithingInput(), {}, [malformed]])).toThrow()
+    for (const [options, tag] of [
+      [null, "RecipeTypeFailure"],
+      [{ priority: -1 }, "RecipeRangeFailure"],
+      [{ priority: 1.5 }, "RecipeRangeFailure"],
+      [{ tags: "smithing_table" }, "RecipeTypeFailure"],
+      [{ tags: [""] }, "RecipeTypeFailure"],
+      [{ showNotification: 1 }, "RecipeTypeFailure"],
+    ] as const) {
+      recipeFailure(Reflect.apply(smithingTrimRecipe, undefined, [
+        "minecraft:bad_options",
+        SMITHING_TRIM_TEMPLATE_TAG,
+        SMITHING_TRIMMABLE_ARMOR_TAG,
+        SMITHING_TRIM_MATERIAL_TAG,
+        options,
+      ]), tag);
     }
-  })
-})
-
-describe('smithing recipe indexes', () => {
-  it('retains duplicate exact candidates and fallback recipes', () => {
-    const index = buildSmithingRecipeIndex([transformRecipe, trimRecipe, transformRecipe])
-    expect(index.exact
-      .get('netherite_upgrade_smithing_template')
-      ?.get('diamond_sword')
-      ?.get('netherite_ingot')).toEqual([transformRecipe, transformRecipe])
-    expect(index.fallback).toEqual([trimRecipe])
-  })
-})
-
-describe('smithing application', () => {
-  it('consumes transform ingredients and returns the output', () => {
-    const input = smithingInput({
-      template: itemStack('stone', 2),
-      base: itemStack('stone', 2),
-      addition: itemStack('stick', 2),
-    })
-    const operation = applySmithing(input, undefined, [bulkTransformRecipe])
-    expect(operation).toEqual({
-      _tag: 'Transform',
-      recipe: bulkTransformRecipe,
-      output: itemStack('torch', 1),
-      remaining: smithingInput({
-        template: itemStack('stone', 1),
-        base: itemStack('stone', 1),
-        addition: itemStack('stick', 1),
-      }),
-    })
-  })
-
-  it('returns a trim operation without inventing unsupported metadata', () => {
-    const base = itemStack('diamond_helmet', 1)
-    const operation = applySmithing(smithingInput({
-      template: itemStack('netherite_upgrade_smithing_template', 1),
-      base,
-      addition: itemStack('gold_ingot', 2),
-    }), { station: SMITHING_STATION_TAG, itemTags: trimTags }, [trimRecipe])
-    expect(operation._tag).toBe('Trim')
-    if (operation._tag !== 'Trim') return
-    expect(operation.recipe).toBe(trimRecipe)
-    expect(operation.base).toBe(base)
-    expect(operation.remaining).toEqual(smithingInput({
-      addition: itemStack('gold_ingot', 1),
-    }))
-  })
-
-  it('returns NoMatch and validates application arguments', () => {
-    expect(applySmithing(smithingInput(), {}, [])).toEqual({ _tag: 'NoMatch' })
-    expect(() => Reflect.apply(applySmithing, undefined, [null])).toThrow(TypeError)
-    expect(() => Reflect.apply(applySmithing, undefined, [smithingInput(), null])).toThrow(TypeError)
-    expect(() => Reflect.apply(applySmithing, undefined, [smithingInput(), {}, null])).toThrow(TypeError)
-    expect(() =>
-      Reflect.apply(applySmithing, undefined, [
-        smithingInput(),
-        {},
-        [{ ...bulkTransformRecipe, showNotification: 1 }],
+    expectRecipeFailure(
+      Reflect.apply(smithingTrimRecipe, undefined, [
+        "minecraft:bad_tags",
+        ...ingredients,
+        { tags: [1] },
       ]),
-    ).toThrow(TypeError)
-  })
-
-  it('rejects an input that changes after matching', () => {
-    const template = itemStack('stone', 1)
-    const base = itemStack('stone', 1)
-    const addition = itemStack('stick', 1)
-    let templateReads = 0
-    let baseReads = 0
-    let additionReads = 0
-    const unstableInput = {
-      get template() {
-        templateReads += 1
-        return templateReads <= 3 ? template : undefined
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Smithing recipe station tags must be resource locations",
       },
-      get base() {
-        baseReads += 1
-        return baseReads <= 3 ? base : undefined
-      },
-      get addition() {
-        additionReads += 1
-        return additionReads <= 3 ? addition : undefined
-      },
-    }
-
-    expect(() => applySmithing(unstableInput, { station: SMITHING_STATION_TAG }, [bulkTransformRecipe])).toThrow(
-      'Smithing recipe matched an incomplete input',
-    )
-  })
-})
+    );
+  });
+});

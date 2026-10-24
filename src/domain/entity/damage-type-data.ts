@@ -40,7 +40,7 @@
  * `never`, so this field is `true` for every entry — a verified fact about
  * the current roster, not a placeholder.
  */
-import { ResourceLocation, vanillaId } from '../text/identifiers.js'
+import { ResourceLocation, VanillaResourcePath, vanillaId } from '../text/identifiers.js'
 import { VANILLA_26_3_DAMAGE_TYPE_IDS } from '../world/vanilla-26-3-generated.js'
 
 export const DAMAGE_TYPE_NAMES: typeof VANILLA_26_3_DAMAGE_TYPE_IDS = VANILLA_26_3_DAMAGE_TYPE_IDS
@@ -179,4 +179,4 @@ export const DAMAGE_TYPE_DEFINITIONS: Readonly<Record<DamageTypeName, DamageType
  * `status-effect-data.ts`'s `statusEffectId` applies to effect ids.
  */
 export const damageTypeId = (name: DamageTypeName): ResourceLocation =>
-  vanillaId(name)
+  vanillaId(VanillaResourcePath(name))

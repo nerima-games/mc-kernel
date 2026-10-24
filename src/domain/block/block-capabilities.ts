@@ -1,3 +1,5 @@
+import { Result } from 'effect'
+import { snapshotInputRecord } from '../../input-snapshot.js'
 import {
   BLOCK_CAPABILITY_DEFAULTS,
   BLOCK_CAPABILITY_FLAGS,
@@ -10,21 +12,43 @@ import type {
 
 export * from './block-capability-data.js'
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
+export type BlockCapabilityFailure = {
+  readonly _tag: 'BlockCapabilityFailure'
+  readonly reason: 'not-object' | 'unknown-key' | 'not-boolean' | 'hostile-input'
+  readonly message: string
+}
 
-function assertKnownOverrideKeys(
+const failure = (
+  reason: BlockCapabilityFailure['reason'],
+  message: string,
+): Result.Result<never, BlockCapabilityFailure> =>
+  Result.fail({ _tag: 'BlockCapabilityFailure', reason, message })
+
+function validateOverrideKeys(
   overrides: unknown,
-): asserts overrides is BlockCapabilityOverrides {
-  if (!isRecord(overrides)) {
-    throw new TypeError('block capability overrides must be an object')
+): Result.Result<BlockCapabilityOverrides, BlockCapabilityFailure> {
+  const snapshot = snapshotInputRecord(overrides, BLOCK_CAPABILITY_FLAGS, BLOCK_CAPABILITY_FLAGS)
+  if (Result.isFailure(snapshot)) {
+    if (snapshot.failure.reason === 'unexpected-field') {
+      return failure('unknown-key', `unknown block capability ${snapshot.failure.field}`)
+    }
+    if (snapshot.failure.reason === 'hostile-input') {
+      return failure('hostile-input', 'block capability overrides must be readable')
+    }
+    return failure('not-object', 'block capability overrides must be an object')
   }
 
-  for (const key of Object.keys(overrides)) {
-    if (!BLOCK_CAPABILITY_FLAGS.some((flag) => flag === key)) {
-      throw new TypeError(`unknown block capability ${key}`)
+  const validated: Partial<Record<BlockCapabilityFlag, boolean>> = {}
+  for (const flag of BLOCK_CAPABILITY_FLAGS) {
+    if (!Object.hasOwn(snapshot.success, flag)) continue
+    const value = snapshot.success[flag]
+    if (typeof value !== 'boolean') {
+      return failure('not-boolean', `block capability ${flag} must be a boolean`)
     }
+    validated[flag] = value
   }
+
+  return Result.succeed(validated)
 }
 
 /**
@@ -33,39 +57,36 @@ function assertKnownOverrideKeys(
  * Unknown keys in `overrides` are rejected so that a misspelled or unsupported
  * schema field cannot silently change the meaning of a block definition.
  */
-export const resolveBlockCapabilities = (overrides: BlockCapabilityOverrides): BlockCapabilities => {
-  assertKnownOverrideKeys(overrides)
-
-  const resolved: { -readonly [capabilityFlag in BlockCapabilityFlag]: boolean } = {
-    ...BLOCK_CAPABILITY_DEFAULTS,
-  }
-
-  for (const flag of BLOCK_CAPABILITY_FLAGS) {
-    const override = overrides[flag]
-    if (typeof override !== 'undefined') {
-      if (typeof override !== 'boolean') {
-        throw new TypeError(`block capability ${flag} must be a boolean`)
-      }
-      resolved[flag] = override
+export const resolveBlockCapabilities = (
+  overrides: BlockCapabilityOverrides,
+): Result.Result<BlockCapabilities, BlockCapabilityFailure> =>
+  Result.flatMap(validateOverrideKeys(overrides), (validated) => {
+    const resolved: { -readonly [capabilityFlag in BlockCapabilityFlag]: boolean } = {
+      ...BLOCK_CAPABILITY_DEFAULTS,
     }
-  }
 
-  return resolved
-}
+    for (const flag of BLOCK_CAPABILITY_FLAGS) {
+      const override = validated[flag]
+      if (typeof override !== 'undefined') {
+        resolved[flag] = override
+      }
+    }
+
+    return Result.succeed(resolved)
+  })
 
 /**
  * Read one flag without materialising the whole set. Semantically identical to
  * `resolveBlockCapabilities(overrides)[flag]`.
  */
-export const capabilityOf = (overrides: BlockCapabilityOverrides, flag: BlockCapabilityFlag): boolean => {
-  assertKnownOverrideKeys(overrides)
-
-  const override = overrides[flag]
-  if (typeof override === 'undefined') {
-    return BLOCK_CAPABILITY_DEFAULTS[flag]
-  }
-  if (typeof override !== 'boolean') {
-    throw new TypeError(`block capability ${flag} must be a boolean`)
-  }
-  return override
-}
+export const capabilityOf = (
+  overrides: BlockCapabilityOverrides,
+  flag: BlockCapabilityFlag,
+): Result.Result<boolean, BlockCapabilityFailure> =>
+  Result.flatMap(validateOverrideKeys(overrides), (validated) => {
+    const override = validated[flag]
+    if (typeof override === 'undefined') {
+      return Result.succeed(BLOCK_CAPABILITY_DEFAULTS[flag])
+    }
+    return Result.succeed(override)
+  })

@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { BlockId, blockIdOf } from '../src/domain/block/block-registry.js'
-import { blockPosition, chunkCoord } from '../src/domain/coordinates/coordinate-primitives.js'
+import {
+  BlockAxis,
+  blockPosition as makeBlockPosition,
+  ChunkAxis,
+  chunkCoord as makeChunkCoord,
+} from '../src/domain/coordinates/coordinate-primitives.js'
+import { optionValue, resultFailure, resultValue } from './block-result-helpers.js'
 import { chunkKeyOf } from '../src/domain/coordinates/coordinate-keys.js'
 import {
   ChunkRevision,
   ChunkLocalIndex,
   LightRevision,
   SectionIndex,
+  SectionLength,
   WorldEpoch,
   blockEdit,
   blockWriteBatch,
@@ -17,10 +24,16 @@ import {
   readView,
   unloadedChunk,
 } from '../src/domain/world/world-read-write.js'
+import type { WorldReadWriteFailure } from '../src/domain/world/world-read-write.js'
 
 const SECTION_LENGTH = 16 * 16 * 16
-const stone = blockIdOf('stone')
-const air = blockIdOf('air')
+const blockPosition = (x: number, y: number, z: number) =>
+  makeBlockPosition(BlockAxis(x), BlockAxis(y), BlockAxis(z))
+const chunkCoord = (cx: number, cz: number) => makeChunkCoord(ChunkAxis(cx), ChunkAxis(cz))
+const worldFailureReason = (failure: WorldReadWriteFailure) =>
+  failure._tag === 'WorldReadWriteFailure' ? failure.reason : undefined
+const stone = optionValue(blockIdOf('stone'))
+const air = optionValue(blockIdOf('air'))
 const origin = blockPosition(0, 0, 0)
 const chunk = chunkKeyOf(chunkCoord(0, 0))
 
@@ -35,27 +48,30 @@ describe('world read/write vocabulary', () => {
     const blocks = new Uint16Array(SECTION_LENGTH)
     const light = new Uint16Array(SECTION_LENGTH)
     blocks[0] = stone
-    const view = readView({
-      epoch: WorldEpoch(1),
+    const view = resultValue(readView({
+      epoch: resultValue(WorldEpoch(1)),
       chunk,
-      blockRevision: ChunkRevision(2),
-      lightRevision: LightRevision(3),
+      blockRevision: resultValue(ChunkRevision(2)),
+      lightRevision: resultValue(LightRevision(3)),
       blocks,
       light,
-    })
+    }))
 
     blocks[0] = air
     const detached = view.blocks.snapshot()
     detached[0] = air
-    expect(view.getBlock(0)).toBe(stone)
+    expect(resultValue(view.getBlock(resultValue(SectionIndex(0))))).toBe(stone)
     expect(blocks[0]).toBe(air)
   })
 
   it('writeBlocksSTM_rejectsDuplicatePositionWithoutMutation', () => {
-    expect(() => blockWriteBatch(
-      expectedChunk(WorldEpoch(1), ChunkRevision(2)),
-      [blockEdit(origin, stone), blockEdit(origin, air)],
-    )).toThrow(/duplicate position/)
+    const duplicate = resultFailure(blockWriteBatch(
+      expectedChunk(resultValue(WorldEpoch(1)), resultValue(ChunkRevision(2))),
+      [resultValue(blockEdit(origin, stone)), resultValue(blockEdit(origin, air))],
+    ))
+    expect(duplicate._tag).toBe('WorldReadWriteFailure')
+    expect(worldFailureReason(duplicate)).toBe('duplicate-position')
+    expect(duplicate.message).toMatch(/duplicate position/)
   })
 
   it('writeBlocks_acceptsBlockAxisSafeIntegerRangeAndDetectsOnlyExactCollisions', () => {
@@ -64,19 +80,27 @@ describe('world read/write vocabulary', () => {
     const largePosition = blockPosition(1_000_000, 0, 0)
     const maximumPosition = blockPosition(Number.MAX_SAFE_INTEGER, 30_000_000, 1)
     const positions = [minimumPosition, boundaryPosition, largePosition, maximumPosition]
-    const batch = blockWriteBatch(
-      expectedChunk(WorldEpoch(0), ChunkRevision(0)),
-      positions.map((position) => blockEdit(position, stone)),
-    )
+    const batch = resultValue(blockWriteBatch(
+      expectedChunk(resultValue(WorldEpoch(0)), resultValue(ChunkRevision(0))),
+      positions.map((position) => resultValue(blockEdit(position, stone))),
+    ))
     expect(batch.edits.map((edit) => edit.position)).toStrictEqual(positions)
-    expect(() => blockWriteBatch(
-      expectedChunk(WorldEpoch(0), ChunkRevision(0)),
-      [blockEdit(minimumPosition, stone), blockEdit(boundaryPosition, air)],
-    )).not.toThrow()
-    expect(() => blockWriteBatch(
-      expectedChunk(WorldEpoch(0), ChunkRevision(0)),
-      [blockEdit(largePosition, stone), blockEdit(blockPosition(1_000_000, 0, 0), air)],
-    )).toThrow(/duplicate position/)
+
+    const distinct = resultValue(blockWriteBatch(
+      expectedChunk(resultValue(WorldEpoch(0)), resultValue(ChunkRevision(0))),
+      [resultValue(blockEdit(minimumPosition, stone)), resultValue(blockEdit(boundaryPosition, air))],
+    ))
+    expect(distinct.edits).toHaveLength(2)
+
+    const duplicate = resultFailure(blockWriteBatch(
+      expectedChunk(resultValue(WorldEpoch(0)), resultValue(ChunkRevision(0))),
+      [
+        resultValue(blockEdit(largePosition, stone)),
+        resultValue(blockEdit(blockPosition(1_000_000, 0, 0), air)),
+      ],
+    ))
+    expect(worldFailureReason(duplicate)).toBe('duplicate-position')
+    expect(duplicate.message).toMatch(/duplicate position/)
   })
 
   it('writeBlocksSTM_rejectsOutOfWorldAndUnloadedTargets', () => {
@@ -86,71 +110,176 @@ describe('world read/write vocabulary', () => {
   })
 
   it('writeBlocksSTM_rejectsRevisionConflictWithoutErasingLaterEdit', () => {
-    const batch = blockWriteBatch(
-      expectedChunk(WorldEpoch(4), ChunkRevision(8)),
-      [blockEdit(origin, stone)],
-    )
-    expect(batch.expected).toStrictEqual({ epoch: WorldEpoch(4), revision: ChunkRevision(8) })
+    const batch = resultValue(blockWriteBatch(
+      expectedChunk(resultValue(WorldEpoch(4)), resultValue(ChunkRevision(8))),
+      [resultValue(blockEdit(origin, stone))],
+    ))
+    expect(batch.expected).toStrictEqual({
+      epoch: resultValue(WorldEpoch(4)),
+      revision: resultValue(ChunkRevision(8)),
+    })
     expect(batch.edits).toHaveLength(1)
   })
 
   it('workerPacket_detachesRequiredSectionsWithoutAuthoritativeAlias', () => {
     const blocks = new Uint16Array(SECTION_LENGTH)
     const light = new Uint16Array(SECTION_LENGTH)
-    const view = readView({
-      epoch: WorldEpoch(1),
+    const view = resultValue(readView({
+      epoch: resultValue(WorldEpoch(1)),
       chunk,
-      blockRevision: ChunkRevision(1),
-      lightRevision: LightRevision(1),
+      blockRevision: resultValue(ChunkRevision(1)),
+      lightRevision: resultValue(LightRevision(1)),
       blocks,
       light,
-    })
+    }))
     const detached = view.light.snapshot()
     detached[0] = 15
-    expect(view.getLight(0)).toBe(0)
+    expect(resultValue(view.getLight(resultValue(SectionIndex(0))))).toBe(0)
   })
 
   it('rejectsInvalidSectionIndices', () => {
-    const view = readView({
-      epoch: WorldEpoch(0),
+    const view = resultValue(readView({
+      epoch: resultValue(WorldEpoch(0)),
       chunk,
-      blockRevision: ChunkRevision(0),
-      lightRevision: LightRevision(0),
+      blockRevision: resultValue(ChunkRevision(0)),
+      lightRevision: resultValue(LightRevision(0)),
       blocks: new Uint16Array(1),
       light: new Uint16Array(1),
-    })
-    expect(() => view.getBlock(-1)).toThrow(RangeError)
-    expect(() => view.getLight(1)).toThrow(RangeError)
-    expect(view.blocks.get(0)).toBe(0)
-    expect(view.light.get(0)).toBe(0)
-    expect(() => view.blocks.get(1)).toThrow(RangeError)
+    }))
+    // @ts-expect-error Raw indices are rejected at the type boundary and fail validation at runtime.
+    expect(worldFailureReason(resultFailure(view.getBlock(-1)))).toBe('invalid-index')
+    const validIndex = resultValue(SectionIndex(0))
+    const outsideIndex = resultValue(SectionIndex(1))
+    expect(worldFailureReason(resultFailure(view.getLight(outsideIndex)))).toBe('invalid-index')
+    expect(resultValue(view.blocks.get(validIndex))).toBe(0)
+    expect(resultValue(view.light.get(validIndex))).toBe(0)
+    expect(worldFailureReason(resultFailure(view.blocks.get(outsideIndex)))).toBe('invalid-index')
   })
 
   it('rejectsInvalidReadViewAndEditInputs', () => {
-    expect(() => readView({
-      epoch: WorldEpoch(0),
+    const mismatched = resultFailure(readView({
+      epoch: resultValue(WorldEpoch(0)),
       chunk,
-      blockRevision: ChunkRevision(0),
-      lightRevision: LightRevision(0),
+      blockRevision: resultValue(ChunkRevision(0)),
+      lightRevision: resultValue(LightRevision(0)),
       blocks: new Uint16Array(1),
       light: new Uint16Array(0),
-    })).toThrow(/equal lengths/)
-    expect(() => readView({
-      epoch: WorldEpoch(0),
+    }))
+    expect(mismatched._tag).toBe('WorldReadWriteFailure')
+    expect(worldFailureReason(mismatched)).toBe('invalid-read-view')
+    expect(mismatched.message).toMatch(/equal lengths/)
+
+    const unknownId = resultFailure(readView({
+      epoch: resultValue(WorldEpoch(0)),
       chunk,
-      blockRevision: ChunkRevision(0),
-      lightRevision: LightRevision(0),
+      blockRevision: resultValue(ChunkRevision(0)),
+      lightRevision: resultValue(LightRevision(0)),
       blocks: new Uint16Array([0xffff]),
       light: new Uint16Array(1),
-    })).toThrow(/unknown block id/)
-    expect(() => blockEdit(origin, BlockId(0xffff))).toThrow(/unknown block id/)
+    }))
+    expect(worldFailureReason(unknownId)).toBe('unknown-block-id')
+    expect(unknownId.message).toMatch(/unknown block id/)
+
+    const invalidLight = resultFailure(readView({
+      epoch: resultValue(WorldEpoch(0)),
+      chunk,
+      blockRevision: resultValue(ChunkRevision(0)),
+      lightRevision: resultValue(LightRevision(0)),
+      blocks: new Uint16Array(1),
+      light: new Uint16Array([16]),
+    }))
+    expect(worldFailureReason(invalidLight)).toBe('invalid-read-view')
+    expect(invalidLight.message).toMatch(/light level/)
+
+    const unknownEdit = resultFailure(blockEdit(origin, BlockId(0xffff)))
+    expect(worldFailureReason(unknownEdit)).toBe('unknown-block-id')
+    expect(unknownEdit.message).toMatch(/unknown block id/)
+
+    const invalidEdit = resultFailure(Reflect.apply(blockEdit, undefined, [origin, -1]))
+    expect(invalidEdit).toMatchObject({
+      _tag: 'BrandError',
+      name: 'BrandError',
+      message: 'BlockId must be an integer in [0, 65535], received -1',
+    })
+  })
+
+  it('returns read-view failures for unreadable and malformed input fields', () => {
+    const baseInput = {
+      epoch: resultValue(WorldEpoch(0)),
+      chunk,
+      blockRevision: resultValue(ChunkRevision(0)),
+      lightRevision: resultValue(LightRevision(0)),
+      blocks: new Uint16Array(1),
+      light: new Uint16Array(1),
+    }
+    const failureFor = (input: unknown) => resultFailure(Reflect.apply(readView, undefined, [input]))
+
+    const unreadable = new Proxy(baseInput, {
+      get(target, key, receiver) {
+        if (key === 'epoch') throw new Error('hostile read-view getter')
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    expect(failureFor(unreadable)).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView input fields must be readable',
+    })
+
+    expect(failureFor({ ...baseInput, blocks: [] })).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView sections must be Uint16Array values',
+    })
+
+    const proxiedBlocks = new Proxy(new Uint16Array(1), {})
+    expect(proxiedBlocks instanceof Uint16Array).toBe(true)
+    expect(failureFor({ ...baseInput, blocks: proxiedBlocks })).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView sections could not be copied',
+    })
+
+    expect(failureFor({ ...baseInput, epoch: '0' })).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView epoch must be a valid world epoch',
+    })
+    expect(failureFor({ ...baseInput, chunk: 'invalid-chunk-key' })).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView chunk must be a valid chunk key',
+    })
+    expect(failureFor({ ...baseInput, blockRevision: '0' })).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView revisions must be non-negative safe integers',
+    })
+    expect(failureFor({ ...baseInput, lightRevision: null })).toMatchObject({
+      _tag: 'WorldReadWriteFailure',
+      reason: 'invalid-read-view',
+      message: 'ReadView revisions must be non-negative safe integers',
+    })
   })
 
   it('rejectsInvalidRevisionAndIndexBrands', () => {
-    expect(() => WorldEpoch(-1)).toThrow()
-    expect(() => ChunkRevision(-1)).toThrow()
-    expect(() => LightRevision(-1)).toThrow()
-    expect(() => ChunkLocalIndex(-1)).toThrow()
-    expect(() => SectionIndex(-1)).toThrow()
+    const invalidEpoch = resultFailure(WorldEpoch(-1))
+    expect(worldFailureReason(invalidEpoch)).toBe('invalid-epoch')
+    expect(invalidEpoch.message).toMatch(/WorldEpoch must be a non-negative safe integer/)
+    expect(worldFailureReason(resultFailure(WorldEpoch(1.5)))).toBe('invalid-epoch')
+    expect(worldFailureReason(resultFailure(WorldEpoch(Number.POSITIVE_INFINITY)))).toBe('invalid-epoch')
+    expect(worldFailureReason(resultFailure(WorldEpoch(Number.MAX_SAFE_INTEGER + 1)))).toBe('invalid-epoch')
+    expect(worldFailureReason(resultFailure(ChunkRevision(-1)))).toBe('invalid-revision')
+    expect(worldFailureReason(resultFailure(ChunkRevision(1.5)))).toBe('invalid-revision')
+    expect(worldFailureReason(resultFailure(LightRevision(-1)))).toBe('invalid-revision')
+    expect(worldFailureReason(resultFailure(LightRevision(Number.NaN)))).toBe('invalid-revision')
+    expect(resultValue(ChunkLocalIndex(0))).toBe(0)
+    expect(worldFailureReason(resultFailure(ChunkLocalIndex(-1)))).toBe('invalid-index')
+    expect(worldFailureReason(resultFailure(ChunkLocalIndex(0.5)))).toBe('invalid-index')
+    expect(resultValue(SectionIndex(0))).toBe(0)
+    expect(worldFailureReason(resultFailure(SectionIndex(-1)))).toBe('invalid-index')
+    expect(worldFailureReason(resultFailure(SectionIndex(Number.MAX_SAFE_INTEGER + 1)))).toBe('invalid-index')
+    expect(worldFailureReason(resultFailure(SectionLength(-1)))).toBe('invalid-read-view')
+    expect(resultValue(SectionLength(0))).toBe(0)
   })
 })

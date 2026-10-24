@@ -1,11 +1,11 @@
 import type { Inventory } from '../item/inventory-data.js'
 import type { ItemStack } from '../item/item-stack.js'
 import type { ItemType } from '../item/item-type.js'
-import type { RecipeId } from './recipe-data.js'
+import type { RecipeId, RecipeIngredientCount } from './recipe-data.js'
 
 export type MissingIngredient = {
   readonly item: ItemType
-  readonly short: number
+  readonly short: RecipeIngredientCount
 }
 
 export type CraftResult =

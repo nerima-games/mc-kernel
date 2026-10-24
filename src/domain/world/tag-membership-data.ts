@@ -12,23 +12,24 @@
  * references exactly these three tags.
  */
 import type { ItemType } from "../item/item-type.js";
+import { NamespacedResourceLocation } from "../text/identifiers.js";
 import { VANILLA_26_3_TAG_IDS } from './vanilla-26-3-generated.js'
 
 export type VanillaItemTagMembershipEntry = {
-  readonly tag: string;
+  readonly tag: NamespacedResourceLocation;
   readonly members: ReadonlyArray<ItemType>;
 };
 
-const REPRESENTED_TAGS: ReadonlySet<string> = new Set([
-  'minecraft:trim_templates',
-  'minecraft:trimmable_armor',
-  'minecraft:trim_materials',
+const REPRESENTED_TAGS: ReadonlySet<NamespacedResourceLocation> = new Set([
+  NamespacedResourceLocation('minecraft:trim_templates'),
+  NamespacedResourceLocation('minecraft:trimmable_armor'),
+  NamespacedResourceLocation('minecraft:trim_materials'),
 ])
 
 export const VANILLA_ITEM_TAG_MEMBERSHIP_ENTRIES: ReadonlyArray<VanillaItemTagMembershipEntry> =
   [
     {
-      tag: "minecraft:trimmable_armor",
+      tag: NamespacedResourceLocation("minecraft:trimmable_armor"),
       members: [
         "iron_helmet",
         "iron_chestplate",
@@ -45,7 +46,7 @@ export const VANILLA_ITEM_TAG_MEMBERSHIP_ENTRIES: ReadonlyArray<VanillaItemTagMe
       ],
     },
     {
-      tag: "minecraft:trim_materials",
+      tag: NamespacedResourceLocation("minecraft:trim_materials"),
       members: [
         "iron_ingot",
         "gold_ingot",
@@ -58,6 +59,6 @@ export const VANILLA_ITEM_TAG_MEMBERSHIP_ENTRIES: ReadonlyArray<VanillaItemTagMe
       ],
     },
   ...VANILLA_26_3_TAG_IDS
-    .map((tag): VanillaItemTagMembershipEntry => ({ tag: `minecraft:${tag}`, members: [] }))
+    .map((tag): VanillaItemTagMembershipEntry => ({ tag: NamespacedResourceLocation(`minecraft:${tag}`), members: [] }))
     .filter((entry) => !REPRESENTED_TAGS.has(entry.tag)),
   ];

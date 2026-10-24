@@ -50,19 +50,81 @@ export const LIGHT_LEVEL_MAX = 15
 export type LightLevel = number & Brand.Brand<'LightLevel'>
 
 /** Guard for values arriving from save files or a developer console. */
-export const isLightLevel = (value: number): value is LightLevel =>
-  Number.isInteger(value) && value >= LIGHT_LEVEL_MIN && value <= LIGHT_LEVEL_MAX
+export const isLightLevel = (value: unknown): value is LightLevel =>
+  typeof value === 'number' && Number.isInteger(value) && value >= LIGHT_LEVEL_MIN && value <= LIGHT_LEVEL_MAX
 
-export const LightLevel: Brand.Brand.Constructor<LightLevel> = Brand.refined<LightLevel>(
-  isLightLevel,
+export const LightLevel: Brand.Constructor<LightLevel> = Brand.make<LightLevel>(
   (value) =>
-    Brand.error(
-      `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${value}`,
-    ),
+    isLightLevel(value)
+      ? true
+      : `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${value}`,
+)
+
+/** Non-NaN numeric input to light-level clamping; infinities clamp to the nearest bound. */
+export type LightLevelCandidate = number & Brand.Brand<'LightLevelCandidate'>
+export const LightLevelCandidate: Brand.Constructor<LightLevelCandidate> = Brand.make<LightLevelCandidate>(
+  (value) =>
+    !Number.isNaN(value)
+      ? true
+      : `LightLevelCandidate must not be NaN, received ${value}`,
+)
+
+/** Mining resistance. `-1` is the explicit unbreakable sentinel. */
+export type BlockHardness = number & Brand.Brand<'BlockHardness'>
+export const BlockHardness: Brand.Constructor<BlockHardness> = Brand.make<BlockHardness>(
+  (value) =>
+    Number.isFinite(value) && (value >= 0 || value === -1)
+      ? true
+      : `BlockHardness must be finite and non-negative or -1, received ${value}`,
+)
+
+/** Surface friction coefficient in [0, 1]. */
+export type BlockFriction = number & Brand.Brand<'BlockFriction'>
+export const BlockFriction: Brand.Constructor<BlockFriction> = Brand.make<BlockFriction>(
+  (value) =>
+    Number.isFinite(value) && value >= 0 && value <= 1
+      ? true
+      : `BlockFriction must be finite and in [0, 1], received ${value}`,
+)
+
+/** Explosion power needed to destroy a block; positive infinity is indestructible. */
+export type BlockBlastResistance = number & Brand.Brand<'BlockBlastResistance'>
+export const BlockBlastResistance: Brand.Constructor<BlockBlastResistance> = Brand.make<BlockBlastResistance>(
+  (value) =>
+    !Number.isNaN(value) && value >= 0
+      ? true
+      : `BlockBlastResistance must be non-negative or Infinity, received ${value}`,
+)
+
+/** Damage dealt by one contact tick. */
+export type BlockContactDamage = number & Brand.Brand<'BlockContactDamage'>
+export const BlockContactDamage: Brand.Constructor<BlockContactDamage> = Brand.make<BlockContactDamage>(
+  (value) =>
+    Number.isFinite(value) && value >= 0
+      ? true
+      : `BlockContactDamage must be finite and non-negative, received ${value}`,
+)
+
+/** Movement slowdown applied while inside the block. */
+export type BlockMovementDrag = number & Brand.Brand<'BlockMovementDrag'>
+export const BlockMovementDrag: Brand.Constructor<BlockMovementDrag> = Brand.make<BlockMovementDrag>(
+  (value) =>
+    Number.isFinite(value) && value >= 0
+      ? true
+      : `BlockMovementDrag must be finite and non-negative, received ${value}`,
+)
+
+/** Experience awarded when the block breaks. */
+export type BlockExperiencePoints = number & Brand.Brand<'BlockExperiencePoints'>
+export const BlockExperiencePoints: Brand.Constructor<BlockExperiencePoints> = Brand.make<BlockExperiencePoints>(
+  (value) =>
+    Number.isFinite(value) && value >= 0
+      ? true
+      : `BlockExperiencePoints must be finite and non-negative, received ${value}`,
 )
 
 /** Clamp into the four-bit light range. */
-export const clampLightLevel = (value: number): LightLevel =>
+export const clampLightLevel = (value: LightLevelCandidate): LightLevel =>
   LightLevel(Math.min(LIGHT_LEVEL_MAX, Math.max(LIGHT_LEVEL_MIN, Math.trunc(value))))
 
 // ---------------------------------------------------------------------------
@@ -84,22 +146,22 @@ export type BlockProperties = {
   /** Sound material selected by the gameplay footstep rule. */
   readonly footstepMaterial: FootstepMaterial
   /** Reference-scale break-time base; -1 is the explicit unbreakable sentinel. */
-  readonly hardness: number
+  readonly hardness: BlockHardness
   /** Surface friction, 0..1. */
-  readonly friction: number
+  readonly friction: BlockFriction
   /**
    * How much explosive power a normal creeper/TNT-class explosion needs to
    * destroy this block; `Infinity` for a block no such explosion can ever
    * destroy. `./explosion.ts`'s `resistsExplosion(id, power)` reads this
    * column directly.
    */
-  readonly blastResistance: number
+  readonly blastResistance: BlockBlastResistance
   /** Damage per contact tick. */
-  readonly contactDamage: number
+  readonly contactDamage: BlockContactDamage
   /** Movement slowdown while inside. */
-  readonly movementDrag: number
+  readonly movementDrag: BlockMovementDrag
   /** Experience granted on break. */
-  readonly xpOnBreak: number
+  readonly xpOnBreak: BlockExperiencePoints
   /** Rail behaviour. */
   readonly railKind: RailKind
   /** Tool family and minimum tier. */
@@ -118,12 +180,12 @@ export const BLOCK_PROPERTY_DEFAULTS: BlockProperties = {
   collisionShape: 'full',
   renderKind: 'cube',
   footstepMaterial: 'default',
-  hardness: 8,
-  friction: 0.6,
-  blastResistance: 0,
-  contactDamage: 0,
-  movementDrag: 0,
-  xpOnBreak: 0,
+  hardness: BlockHardness(8),
+  friction: BlockFriction(0.6),
+  blastResistance: BlockBlastResistance(0),
+  contactDamage: BlockContactDamage(0),
+  movementDrag: BlockMovementDrag(0),
+  xpOnBreak: BlockExperiencePoints(0),
   railKind: 'none',
   harvestTool: DEFAULT_HARVEST_TOOL,
   drops: DEFAULT_BLOCK_DROP,
@@ -142,9 +204,6 @@ export const BLOCK_PROPERTY_NAMES: ReadonlyArray<BlockPropertyName> = Object.key
 ).filter((key): key is BlockPropertyName => Object.hasOwn(BLOCK_PROPERTY_DEFAULTS, key))
 
 /** Optional values a block definition may override. */
-type BlockPropertyOverrideValue<K extends BlockPropertyName> =
-  K extends 'lightEmission' ? number | LightLevel : BlockProperties[K]
-
 export type BlockPropertyOverrides = {
-  readonly [K in BlockPropertyName]?: BlockPropertyOverrideValue<K>
+  readonly [K in BlockPropertyName]?: BlockProperties[K]
 }

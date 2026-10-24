@@ -1,11 +1,10 @@
-import { Brand } from 'effect'
+import { Brand, Result } from 'effect'
 
 import {
   BlockAxis,
   blockPositionFromAxes,
   ChunkAxis,
   chunkCoordFromAxes,
-  normalizeZero,
   type BlockPosition,
   type ChunkCoord,
 } from './coordinate-primitives.js'
@@ -14,7 +13,7 @@ const ZERO = 0
 const UNIT_STEP = 1
 const NO_INDEX = -1
 
-const canonicalIntegerText = (value: number): string => String(normalizeZero(value))
+const canonicalIntegerText = (value: number): string => String(value + ZERO)
 
 const hasCanonicalIntegerText = (texts: ReadonlyArray<string>, values: ReadonlyArray<number>): boolean =>
   values.every((coordinate, index) => Number.isSafeInteger(coordinate) && texts[index] === canonicalIntegerText(coordinate))
@@ -24,6 +23,26 @@ export type BlockPositionKey = string & Brand.Brand<'BlockPositionKey'>
 const brandBlockPositionKey = Brand.nominal<BlockPositionKey>()
 
 type ParsedBlockPositionKey = readonly [x: BlockAxis, y: BlockAxis, z: BlockAxis]
+
+export type CoordinateKeyFailure = Readonly<{
+  readonly _tag: 'CoordinateKeyFailure'
+  readonly kind: 'TypeError'
+  readonly reason: 'invalid-block-position-key' | 'invalid-chunk-key'
+  readonly message: string
+  readonly value?: unknown
+}>
+
+const keyFailure = (
+  reason: CoordinateKeyFailure['reason'],
+  message: string,
+  value: unknown,
+): CoordinateKeyFailure => ({
+  _tag: 'CoordinateKeyFailure',
+  kind: 'TypeError',
+  reason,
+  message,
+  ...(value === undefined ? {} : { value }),
+})
 
 const parseBlockPositionKey = (value: string): ParsedBlockPositionKey | undefined => {
   const firstComma = value.indexOf(',')
@@ -50,9 +69,9 @@ const parseBlockPositionKey = (value: string): ParsedBlockPositionKey | undefine
   }
 
   return [
-    BlockAxis(normalizeZero(coordinates[ZERO])),
-    BlockAxis(normalizeZero(coordinates[UNIT_STEP])),
-    BlockAxis(normalizeZero(coordinates[2])),
+    BlockAxis(coordinates[ZERO]),
+    BlockAxis(coordinates[UNIT_STEP]),
+    BlockAxis(coordinates[2]),
   ]
 }
 
@@ -61,29 +80,37 @@ export const blockPositionKeyOf = (value: BlockPosition): BlockPositionKey =>
   brandBlockPositionKey(`${String(value.x)},${String(value.y)},${String(value.z)}`)
 
 /** Validate external text before it becomes a branded block-position key. */
-export const BlockPositionKey = (value: string): BlockPositionKey => {
-  if (parseBlockPositionKey(value) === undefined) {
-    throw new TypeError(`Invalid BlockPositionKey: ${value}`)
+export const BlockPositionKey = (value: unknown): Result.Result<BlockPositionKey, CoordinateKeyFailure> => {
+  if (typeof value !== 'string' || parseBlockPositionKey(value) === undefined) {
+    return Result.fail(keyFailure(
+      'invalid-block-position-key',
+      `Invalid BlockPositionKey: ${typeof value === 'string' ? value : typeof value}`,
+      value,
+    ))
   }
 
-  return brandBlockPositionKey(value)
+  return Result.succeed(brandBlockPositionKey(value))
 }
 
 /** Narrow an external string after validating its complete canonical format. */
-export const isBlockPositionKey = (value: string): value is BlockPositionKey => parseBlockPositionKey(value) !== undefined
+export const isBlockPositionKey = (value: unknown): value is BlockPositionKey =>
+  typeof value === 'string' && parseBlockPositionKey(value) !== undefined
 
 /** Recover a block position from a key that has already been validated. */
-export const blockPositionOfKey = (value: BlockPositionKey): BlockPosition => {
+export const blockPositionOfKey = (
+  value: BlockPositionKey,
+): Result.Result<BlockPosition, CoordinateKeyFailure> => {
   const parsed = parseBlockPositionKey(value)
   if (parsed === undefined) {
-    throw new TypeError(`Invalid BlockPositionKey: ${value}`)
+    return Result.fail(keyFailure('invalid-block-position-key', `Invalid BlockPositionKey: ${value}`, value))
   }
 
-  return blockPositionFromAxes(...parsed)
+  return Result.succeed(blockPositionFromAxes(...parsed))
 }
 
 /** Decode untrusted storage or network input without allowing invalid axes in. */
-export const decodeBlockPositionKey = (value: string): BlockPosition | undefined => {
+export const decodeBlockPositionKey = (value: unknown): BlockPosition | undefined => {
+  if (typeof value !== 'string') return undefined
   const parsed = parseBlockPositionKey(value)
   return parsed === undefined ? undefined : blockPositionFromAxes(...parsed)
 }
@@ -108,36 +135,42 @@ const parseChunkKey = (value: string): ParsedChunkKey | undefined => {
     return undefined
   }
 
-  return [ChunkAxis(normalizeZero(coordinates[ZERO])), ChunkAxis(normalizeZero(coordinates[UNIT_STEP]))]
+  return [ChunkAxis(coordinates[ZERO]), ChunkAxis(coordinates[UNIT_STEP])]
 }
 
 /** Produces the canonical, allocation-minimal key for a chunk coordinate. */
 export const chunkKeyOf = (value: ChunkCoord): ChunkKey => brandChunkKey(`${String(value.cx)},${String(value.cz)}`)
 
 /** Validate external text before it becomes a branded chunk key. */
-export const ChunkKey = (value: string): ChunkKey => {
-  if (parseChunkKey(value) === undefined) {
-    throw new TypeError(`Invalid ChunkKey: ${value}`)
+export const ChunkKey = (value: unknown): Result.Result<ChunkKey, CoordinateKeyFailure> => {
+  if (typeof value !== 'string' || parseChunkKey(value) === undefined) {
+    return Result.fail(keyFailure(
+      'invalid-chunk-key',
+      `Invalid ChunkKey: ${typeof value === 'string' ? value : typeof value}`,
+      value,
+    ))
   }
 
-  return brandChunkKey(value)
+  return Result.succeed(brandChunkKey(value))
 }
 
 /** True only for the single canonical spelling of a safe-integer chunk key. */
-export const isChunkKey = (value: string): value is ChunkKey => parseChunkKey(value) !== undefined
+export const isChunkKey = (value: unknown): value is ChunkKey =>
+  typeof value === 'string' && parseChunkKey(value) !== undefined
 
 /** Parses a trusted canonical chunk key, rejecting malformed forged values. */
-export const chunkCoordOfKey = (value: ChunkKey): ChunkCoord => {
+export const chunkCoordOfKey = (value: ChunkKey): Result.Result<ChunkCoord, CoordinateKeyFailure> => {
   const parsed = parseChunkKey(value)
   if (parsed === undefined) {
-    throw new TypeError(`Invalid ChunkKey: ${value}`)
+    return Result.fail(keyFailure('invalid-chunk-key', `Invalid ChunkKey: ${value}`, value))
   }
 
-  return chunkCoordFromAxes(...parsed)
+  return Result.succeed(chunkCoordFromAxes(...parsed))
 }
 
 /** Decodes an untrusted chunk key without throwing for malformed input. */
-export const decodeChunkKey = (value: string): ChunkCoord | undefined => {
+export const decodeChunkKey = (value: unknown): ChunkCoord | undefined => {
+  if (typeof value !== 'string') return undefined
   const parsed = parseChunkKey(value)
   return parsed === undefined ? undefined : chunkCoordFromAxes(...parsed)
 }

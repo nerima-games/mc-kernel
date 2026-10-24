@@ -1,20 +1,7 @@
 /**
  * Vanilla-derived world-simulation gamerule vocabulary and defaults.
  *
- * Data-only, mirroring `settings-data.ts`. Unlike the closed vocabularies in
- * `status-effect-data.ts` / `biome-data.ts`, this pair has no separate
- * `-validation.ts`: `game-rule.ts` holds `normaliseGameRules` /
- * `isValidGameRules` / pure update together, the same split `settings.ts`
- * uses for `normaliseSettings` / `isValidSettings` / `applySettings`.
- *
- * The mirroring is structural — the validate/normalise/apply split — not a
- * behavioural equivalence. On non-finite input `game-rule.ts`'s
- * `normaliseInteger` deliberately diverges from `settings.ts`'s
- * `clampWithDefault`: a non-finite gamerule value falls back to the rule's
- * default rather than being clamped to a boundary, because a world save
- * reporting `Infinity` is corrupted data, not a request for the maximum,
- * and this is world-authoritative state shared by every player, not a
- * single client's input.
+ * Data-only, mirroring `settings-data.ts`.
  *
  * Covers the subset of vanilla's gamerule set a world simulation actually
  * branches on: daylight/weather cycling, mob spawning and griefing,

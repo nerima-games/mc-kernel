@@ -6,10 +6,13 @@
  * numeric id: capability, opacity, light, and the resolved definition.
  */
 import { describe, expect, it } from 'vitest'
-import { Effect } from 'effect'
+import { Effect, Result } from 'effect'
 import { expectTypeOf } from 'vitest'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block/block-capabilities'
-import { blockCapabilitiesOf, resolveBlock } from '../src/domain/block/block-definition'
+import {
+  blockCapabilitiesOf as blockCapabilitiesOfResult,
+  resolveBlock as resolveBlockResult,
+} from '../src/domain/block/block-definition'
 import {
   BLOCK_OPACITIES,
   BLOCK_PROPERTY_DEFAULTS,
@@ -21,20 +24,42 @@ import {
   BLOCK_ID_MAX,
   BLOCK_REGISTRY,
   BlockId,
-  blockIdOf,
-  blockIdsWithCapability,
-  blockIdsWithOpacity,
-  blockTypeOfId,
-  capabilitiesOfBlockId,
-  capabilityOfBlockId,
-  isKnownBlockId,
-  lightEmissionOfBlockId,
-  opacityOfBlockId,
-  propertyOfBlockId,
-  resolvedBlockOfId,
-  transmitsLight,
+  blockIdOf as blockIdOfOption,
+  blockIdsWithCapability as blockIdsWithCapabilityResult,
+  blockIdsWithOpacity as blockIdsWithOpacityResult,
+  blockTypeOfId as blockTypeOfIdResult,
+  capabilitiesOfBlockId as capabilitiesOfBlockIdResult,
+  capabilityOfBlockId as capabilityOfBlockIdResult,
+  isKnownBlockId as isKnownBlockIdResult,
+  lightEmissionOfBlockId as lightEmissionOfBlockIdResult,
+  opacityOfBlockId as opacityOfBlockIdResult,
+  propertyOfBlockId as propertyOfBlockIdResult,
+  resolvedBlockOfId as resolvedBlockOfIdResult,
+  transmitsLight as transmitsLightResult,
 } from '../src/domain/block/block-registry'
+import type { BlockRegistryResolutionFailure } from '../src/domain/block/block-registry-indexes'
+import { optionValue, resultFailure, resultValue } from './block-result-helpers'
 const number = Number
+
+const blockIdOf = (type: Parameters<typeof blockIdOfOption>[0]) => optionValue(blockIdOfOption(type))
+const blockIdsWithCapability = (flag: Parameters<typeof blockIdsWithCapabilityResult>[0]) =>
+  optionValue(resultValue(blockIdsWithCapabilityResult(flag)))
+const blockIdsWithOpacity = (opacity: Parameters<typeof blockIdsWithOpacityResult>[0]) =>
+  optionValue(resultValue(blockIdsWithOpacityResult(opacity)))
+const blockTypeOfId = (id: BlockId) => resultValue(blockTypeOfIdResult(id))
+const capabilitiesOfBlockId = (id: BlockId) => resultValue(capabilitiesOfBlockIdResult(id))
+const capabilityOfBlockId = (...args: Parameters<typeof capabilityOfBlockIdResult>) =>
+  resultValue(capabilityOfBlockIdResult(...args))
+const isKnownBlockId = (id: BlockId) => resultValue(isKnownBlockIdResult(id))
+const lightEmissionOfBlockId = (id: BlockId) => resultValue(lightEmissionOfBlockIdResult(id))
+const opacityOfBlockId = (id: BlockId) => resultValue(opacityOfBlockIdResult(id))
+const propertyOfBlockId = <K extends Parameters<typeof propertyOfBlockIdResult>[1]>(id: BlockId, name: K) =>
+  resultValue(propertyOfBlockIdResult(id, name))
+const resolvedBlockOfId = (id: BlockId) => resultValue(resolvedBlockOfIdResult(id))
+const transmitsLight = (id: BlockId) => resultValue(transmitsLightResult(id))
+const blockCapabilitiesOf = (definition: Parameters<typeof blockCapabilitiesOfResult>[0]) =>
+  resultValue(blockCapabilitiesOfResult(definition))
+const resolveBlock = (definition: Parameters<typeof resolveBlockResult>[0]) => resultValue(resolveBlockResult(definition))
 
 /**
  * `BLOCK_ID_TABLE_LENGTH` itself is not exported — this is the same
@@ -68,7 +93,7 @@ const ABOVE_TABLE_SAMPLE_IDS: ReadonlyArray<number> = [
   .filter((id) => id > highestRegisteredId && id <= BLOCK_ID_MAX)
   .sort((first, second) => first - second)
 
-const expectUnknownCapabilityDefaults = (unknown: number) => {
+const expectUnknownCapabilityDefaults = (unknown: BlockId) => {
   const capabilities = capabilitiesOfBlockId(unknown)
   expect(capabilities).toStrictEqual({ ...BLOCK_CAPABILITY_DEFAULTS })
   for (const flag of BLOCK_CAPABILITY_FLAGS) {
@@ -77,11 +102,12 @@ const expectUnknownCapabilityDefaults = (unknown: number) => {
   }
 }
 
-describe('unknown-id fallbacks stay total even for non-byte numbers', () => {
-  it('treats negative, fractional, and NaN ids as default-opacity blocks', () =>
+describe('unknown-id fallbacks stay total for valid BlockIds', () => {
+  it('rejects negative, fractional, and NaN ids through Result failures', () =>
     Effect.runPromise(Effect.sync(() => {
       for (const unknown of [number('-1'), number('1.5'), Number.NaN]) {
-        expect(transmitsLight(unknown)).toBe(false)
+        const failure = resultFailure(BlockId.result(unknown))
+        expect(resultFailure(Reflect.apply(transmitsLightResult, undefined, [unknown]))).toEqual(failure)
       }
     })),
   )
@@ -101,10 +127,10 @@ describe('reading behaviour off a chunk buffer byte', () => {
     Effect.runPromise(Effect.sync(() => {
       // THE slice question. Note that no block NAME appears on the read side:
       // The input is a number that came out of a Uint8Array.
-      expect(capabilityOfBlockId(number('5'), 'fallsWhenUnsupported')).toBe(true)
-      expect(capabilityOfBlockId(number('8'), 'fallsWhenUnsupported')).toBe(true)
-      expect(capabilityOfBlockId(number('2'), 'fallsWhenUnsupported')).toBe(false)
-      expect(capabilityOfBlockId(number('0'), 'fallsWhenUnsupported')).toBe(false)
+      expect(capabilityOfBlockId(BlockId(number('5')), 'fallsWhenUnsupported')).toBe(true)
+      expect(capabilityOfBlockId(BlockId(number('8')), 'fallsWhenUnsupported')).toBe(true)
+      expect(capabilityOfBlockId(BlockId(number('2')), 'fallsWhenUnsupported')).toBe(false)
+      expect(capabilityOfBlockId(BlockId(number('0')), 'fallsWhenUnsupported')).toBe(false)
 
       expect(
         [...blockIdsWithCapability('fallsWhenUnsupported')].sort((firstId, secondId) => firstId - secondId),
@@ -215,32 +241,34 @@ describe('the named light readings', () => {
       // at its boundaries and midpoint (see `ABOVE_TABLE_SAMPLE_IDS`).
       // Everything else below is a worked example of a consequence.
       for (let id = number('0'); id <= highestRegisteredId; id += number('1')) {
-        expect(opacityOfBlockId(id)).toBe(propertyOfBlockId(id, 'opacity'))
-        expect(lightEmissionOfBlockId(id)).toBe(propertyOfBlockId(id, 'lightEmission'))
-        expect(transmitsLight(id)).toBe(propertyOfBlockId(id, 'opacity') !== 'opaque')
+        const blockId = resultValue(BlockId.result(id))
+        expect(opacityOfBlockId(blockId)).toBe(propertyOfBlockId(blockId, 'opacity'))
+        expect(lightEmissionOfBlockId(blockId)).toBe(propertyOfBlockId(blockId, 'lightEmission'))
+        expect(transmitsLight(blockId)).toBe(propertyOfBlockId(blockId, 'opacity') !== 'opaque')
       }
       for (const id of ABOVE_TABLE_SAMPLE_IDS) {
-        expect(opacityOfBlockId(id)).toBe(propertyOfBlockId(id, 'opacity'))
-        expect(lightEmissionOfBlockId(id)).toBe(propertyOfBlockId(id, 'lightEmission'))
-        expect(transmitsLight(id)).toBe(propertyOfBlockId(id, 'opacity') !== 'opaque')
+        const blockId = BlockId(id)
+        expect(opacityOfBlockId(blockId)).toBe(propertyOfBlockId(blockId, 'opacity'))
+        expect(lightEmissionOfBlockId(blockId)).toBe(propertyOfBlockId(blockId, 'lightEmission'))
+        expect(transmitsLight(blockId)).toBe(propertyOfBlockId(blockId, 'opacity') !== 'opaque')
       }
     })),
   )
 
   it('are TOTAL, so a corrupt or newer-build byte reads as an unlit opaque cube', () =>
     Effect.runPromise(Effect.sync(() => {
-      const unknown = number('200')
+      const unknown = resultValue(BlockId.result(number('200')))
       expect(isKnownBlockId(unknown)).toBe(false)
 
       expect(opacityOfBlockId(unknown)).toBe('opaque')
       expect(transmitsLight(unknown)).toBe(false)
       expect(lightEmissionOfBlockId(unknown)).toBe(BLOCK_PROPERTY_DEFAULTS.lightEmission)
 
-      // Non-integers and out-of-range bytes take the same arm rather than
-      // Throwing: `StageRegistration`'s `run` has error channel `never`, so a
-      // Rule reading light out of a chunk buffer has nowhere to put a failure.
-      expect(opacityOfBlockId(number('-1'))).toBe('opaque')
-      expect(lightEmissionOfBlockId(number('1.5'))).toBe(number('0'))
+      for (const invalidId of [number('-1'), number('1.5')]) {
+        const failure = resultFailure(BlockId.result(invalidId))
+        expect(resultFailure(Reflect.apply(opacityOfBlockIdResult, undefined, [invalidId]))).toEqual(failure)
+        expect(resultFailure(Reflect.apply(lightEmissionOfBlockIdResult, undefined, [invalidId]))).toEqual(failure)
+      }
     })),
   )
 
@@ -312,7 +340,9 @@ describe('the named light readings', () => {
 
   it('returns the branded light-level type', () =>
     Effect.runPromise(Effect.sync(() => {
-      expectTypeOf(lightEmissionOfBlockId(blockIdOf('torch'))).toEqualTypeOf<LightLevel>()
+      expectTypeOf(lightEmissionOfBlockIdResult(blockIdOf('torch'))).toEqualTypeOf<
+        Result.Result<LightLevel, BlockRegistryResolutionFailure>
+      >()
     })),
   )
 
@@ -485,7 +515,7 @@ describe('the named light readings', () => {
 describe('unknown ids', () => {
   it('resolve to an ordinary opaque cube rather than failing', () =>
     Effect.runPromise(Effect.sync(() => {
-      const unknown = number('200')
+      const unknown = resultValue(BlockId.result(number('200')))
 
       expect(isKnownBlockId(unknown)).toBe(false)
       expect(blockTypeOfId(unknown)).toBeUndefined()
@@ -507,7 +537,7 @@ describe('unknown ids', () => {
       // Falsy, so physics would agree with the right answer for the wrong
       // Reason and keep agreeing until someone asked a flag whose default is
       // `true`.
-      const unknown = number('200')
+      const unknown = BlockId(number('200'))
       expectUnknownCapabilityDefaults(unknown)
     })),
   )
@@ -526,11 +556,19 @@ describe('unknown ids', () => {
       // expensive part — tens of thousands of ids that all take the identical
       // `isWithinTable === false` branch — so that gets boundary and midpoint
       // samples instead of a full walk.
-      for (let id = number('-2'); id <= highestRegisteredId; id += number('1')) {
-        expect(isKnownBlockId(id)).toBe(resolvedBlockOfId(id) !== globalThis.undefined)
+      for (let id = number('0'); id <= highestRegisteredId; id += number('1')) {
+        const blockId = resultValue(BlockId.result(id))
+        expect(isKnownBlockId(blockId)).toBe(resolvedBlockOfId(blockId) !== globalThis.undefined)
       }
       for (const id of [...ABOVE_TABLE_SAMPLE_IDS, BLOCK_ID_MAX + number('1'), BLOCK_ID_MAX + number('2')]) {
-        expect(isKnownBlockId(id)).toBe(resolvedBlockOfId(id) !== globalThis.undefined)
+        if (id > BLOCK_ID_MAX) {
+          const failure = resultFailure(BlockId.result(id))
+          expect(resultFailure(Reflect.apply(isKnownBlockIdResult, undefined, [id]))).toEqual(failure)
+          expect(resultFailure(Reflect.apply(resolvedBlockOfIdResult, undefined, [id]))).toEqual(failure)
+          continue
+        }
+        const blockId = resultValue(BlockId.result(id))
+        expect(isKnownBlockId(blockId)).toBe(resolvedBlockOfId(blockId) !== globalThis.undefined)
       }
       for (const id of BLOCK_IDS) {
         expect(isKnownBlockId(id)).toBe(true)
@@ -538,12 +576,14 @@ describe('unknown ids', () => {
     })),
   )
 
-  it('narrow numbers to BlockId when known', () =>
+  it('accepts branded ids and returns a Result for known-id checks', () =>
     Effect.runPromise(Effect.sync(() => {
-      const id: number = 2
-      if (!isKnownBlockId(id)) {
-        throw new Error('expected known block id in type-narrowing test')
-      }
+      const id = resultValue(BlockId.result(number('2')))
+      expect(isKnownBlockId(id)).toBe(true)
+      expectTypeOf(isKnownBlockIdResult).parameter(0).toEqualTypeOf<BlockId>()
+      expectTypeOf(isKnownBlockIdResult(id)).toEqualTypeOf<
+        Result.Result<boolean, BlockRegistryResolutionFailure>
+      >()
       expectTypeOf(id).toEqualTypeOf<BlockId>()
     })),
   )
@@ -552,7 +592,7 @@ describe('unknown ids', () => {
     Effect.runPromise(Effect.sync(() => {
       // The failure mode of guessing wrong is a mystery block, never a player
       // Falling through the world or terrain deleting itself.
-      const unknown = number('250')
+      const unknown = resultValue(BlockId.result(number('250')))
       expect(capabilityOfBlockId(unknown, 'fallsWhenUnsupported')).toBe(false)
       expect(capabilityOfBlockId(unknown, 'flammable')).toBe(false)
       expect(capabilityOfBlockId(unknown, 'passable')).toBe(false)
@@ -560,12 +600,15 @@ describe('unknown ids', () => {
     })),
   )
 
-  it('treats non-integers and out-of-range numbers the same way', () =>
+  it('propagates BlockId validation failures for malformed numbers', () =>
     Effect.runPromise(Effect.sync(() => {
       for (const value of [number('-1'), number('1.5'), Number.NaN, BLOCK_ID_MAX + number('1')]) {
-        expect(isKnownBlockId(value)).toBe(false)
-        expect(blockTypeOfId(value)).toBeUndefined()
-        expect(capabilityOfBlockId(value, 'fallsWhenUnsupported')).toBe(false)
+        const failure = resultFailure(BlockId.result(value))
+        expect(resultFailure(Reflect.apply(isKnownBlockIdResult, undefined, [value]))).toEqual(failure)
+        expect(resultFailure(Reflect.apply(blockTypeOfIdResult, undefined, [value]))).toEqual(failure)
+        expect(resultFailure(Reflect.apply(capabilityOfBlockIdResult, undefined, [value, 'fallsWhenUnsupported']))).toEqual(
+          failure,
+        )
       }
     })),
   )
@@ -630,23 +673,25 @@ describe('the table states differences only', () => {
       // midpoint — carries the same information as walking all ~65,400 of
       // them would.
       for (let rawId = number('0'); rawId <= highestRegisteredId; rawId += number('1')) {
-        const resolved = resolvedBlockOfId(rawId)
-        expect(capabilitiesOfBlockId(rawId)).toStrictEqual(
+        const id = BlockId(rawId)
+        const resolved = resolvedBlockOfId(id)
+        expect(capabilitiesOfBlockId(id)).toStrictEqual(
           resolved?.capabilities ?? BLOCK_CAPABILITY_DEFAULTS,
         )
         for (const flag of BLOCK_CAPABILITY_FLAGS) {
-          expect(capabilityOfBlockId(rawId, flag)).toBe(
+          expect(capabilityOfBlockId(id, flag)).toBe(
             resolved?.capabilities[flag] ?? BLOCK_CAPABILITY_DEFAULTS[flag],
           )
         }
       }
       for (const rawId of ABOVE_TABLE_SAMPLE_IDS) {
-        const resolved = resolvedBlockOfId(rawId)
-        expect(capabilitiesOfBlockId(rawId)).toStrictEqual(
+        const id = BlockId(rawId)
+        const resolved = resolvedBlockOfId(id)
+        expect(capabilitiesOfBlockId(id)).toStrictEqual(
           resolved?.capabilities ?? BLOCK_CAPABILITY_DEFAULTS,
         )
         for (const flag of BLOCK_CAPABILITY_FLAGS) {
-          expect(capabilityOfBlockId(rawId, flag)).toBe(
+          expect(capabilityOfBlockId(id, flag)).toBe(
             resolved?.capabilities[flag] ?? BLOCK_CAPABILITY_DEFAULTS[flag],
           )
         }

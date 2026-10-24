@@ -1,26 +1,58 @@
 /* eslint-disable max-statements, no-magic-numbers, sort-imports -- Group test framework before subject imports. */
 import { runInNewContext } from 'node:vm'
 import { describe, expect, it, vi } from 'vitest'
-import { Brand, Effect } from 'effect'
+import { Effect, Result } from 'effect'
 import {
   CHUNK_CODEC_VERSION,
   CHUNK_HEADER_BYTES,
-  ChunkBlocks,
-  EncodedChunk,
-  ChunkHeight,
+  ChunkBlockCount,
+  ChunkBlocks as chunkBlocksResult,
+  EncodedChunk as encodedChunkResult,
+  ChunkHeight as chunkHeightResult,
+  ChunkLocalY,
   MAX_CHUNK_HEIGHT,
-  chunk,
+  chunk as chunkResult,
   chunkBlockCount,
-  decodeChunk,
-  encodeChunk,
+  decodeChunk as decodeChunkResult,
+  encodeChunk as encodeChunkResult,
 } from '../src/domain/world/chunk'
-import { BlockId as blockId, blockIdOf } from '../src/domain/block/block-registry'
+import { BlockId as blockId, blockIdOf as blockIdOfOption } from '../src/domain/block/block-registry'
 import type { BlockId } from '../src/domain/block/block-registry-types'
-import { blockState } from '../src/domain/block/block-state'
-import { CHUNK_SIZE_XZ, chunkCoord } from '../src/domain/coordinates/coordinates'
+import {
+  BlockStateByteOffset,
+  BlockStateIndex,
+  blockState as blockStateResult,
+  type BlockStateFailure,
+} from '../src/domain/block/block-state'
+import type { ChunkFailure } from '../src/domain/world/chunk'
+import { CHUNK_SIZE_XZ, ChunkAxis, chunkCoord as makeChunkCoord } from '../src/domain/coordinates/coordinates'
+import { optionValue, resultFailure, resultValue } from './block-result-helpers'
+
+const ChunkHeight = (value: number) => resultValue(chunkHeightResult(value))
+const blockIdOf = (type: Parameters<typeof blockIdOfOption>[0]) => optionValue(blockIdOfOption(type))
+const blockState = (...args: Parameters<typeof blockStateResult>) => resultValue(blockStateResult(...args))
+const chunk = (...args: Parameters<typeof chunkResult>) => resultValue(chunkResult(...args))
+const decodeChunk = (...args: Parameters<typeof decodeChunkResult>) => resultValue(decodeChunkResult(...args))
+const encodeChunk = (...args: Parameters<typeof encodeChunkResult>) => resultValue(encodeChunkResult(...args))
+const blockStateGet = (state: ReturnType<typeof blockState>, index: number) => resultValue(state.get(BlockStateIndex(index)))
+const blockStateSet = (state: ReturnType<typeof blockState>, index: number, id: BlockId) => resultValue(state.set(BlockStateIndex(index), id))
+const blockStateCopyTo = (state: ReturnType<typeof blockState>, target: Uint8Array, offset?: number) =>
+  resultValue(state.copyTo(target, BlockStateByteOffset(offset ?? 0)))
+const expectFailure = (
+  result: Result.Result<unknown, ChunkFailure | BlockStateFailure>,
+  tag: ChunkFailure['_tag'] | BlockStateFailure['_tag'],
+  reason: ChunkFailure['reason'] | BlockStateFailure['reason'],
+  message: string | RegExp,
+) => {
+  const failure = resultFailure(result)
+  expect(failure).toMatchObject({ _tag: tag, reason })
+  if (message instanceof RegExp) expect(failure.message).toMatch(message)
+  else expect(failure.message).toBe(message)
+}
 
 const height = ChunkHeight(2)
 const blockCount = chunkBlockCount(height)
+const chunkCoord = (cx: number, cz: number) => makeChunkCoord(ChunkAxis(cx), ChunkAxis(cz))
 /** v2 wire elements are two little-endian bytes each; see block-state.ts BYTES_PER_ELEMENT. */
 const WIRE_BYTES_PER_ELEMENT = 2
 
@@ -84,6 +116,20 @@ describe('chunk binary codec', () => {
     })),
   )
 
+  it('validates an encoded chunk and detaches its input bytes', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const encoded = new Uint8Array(encodeChunk(
+        chunk(chunkCoord(1, -2), height, sampleBlocks()),
+      ))
+      const owned = resultValue(encodedChunkResult(encoded))
+
+      expect(owned[0]).toBe(0x4d)
+      encoded[0] = 0
+      expect(owned[0]).toBe(0x4d)
+      expect(resultFailure(encodedChunkResult(new Uint8Array())).reason).toBe('truncated-header')
+    })),
+  )
+
   it('round-trips coordinates, height, and block data', () =>
     Effect.runPromise(Effect.sync(() => {
       const source = chunk(chunkCoord(-17, 23), height, sampleBlocks())
@@ -119,7 +165,8 @@ describe('chunk binary codec', () => {
       })
 
       if (!isUint8Array(foreignBytes)) {
-        throw new TypeError('runtime realm did not produce a Uint8Array')
+        expect(isUint8Array(foreignBytes)).toBe(true)
+        return
       }
 
       const decoded = decodeChunk(foreignBytes)
@@ -155,18 +202,18 @@ describe('chunk binary codec', () => {
         return result
       }
 
-      expect(() => decodeChunk(valid.slice(0, CHUNK_HEADER_BYTES - 1))).toThrow(/header/)
-      expect(() => decodeChunk(corrupt(0, 0))).toThrow(/magic/)
-      expect(() => decodeChunk(corrupt(4, CHUNK_CODEC_VERSION + 1))).toThrow(/version/)
-      expect(() => decodeChunk(corrupt(6, CHUNK_SIZE_XZ - 1))).toThrow(/dimensions/)
-      expect(() => decodeChunk(corrupt(10, 0))).toThrow(/height/)
-      expect(() => decodeChunk(corrupt(20, 1))).toThrow(/payload length/)
-      expect(() => decodeChunk(valid.slice(0, -1))).toThrow(/encoded length/)
-      expect(() => decodeChunk(Uint8Array.from([...valid, 0]))).toThrow(/encoded length/)
+      expectFailure(decodeChunkResult(valid.slice(0, CHUNK_HEADER_BYTES - 1)), 'ChunkFailure', 'truncated-header', /header/)
+      expectFailure(decodeChunkResult(corrupt(0, 0)), 'ChunkFailure', 'invalid-magic', /magic/)
+      expectFailure(decodeChunkResult(corrupt(4, CHUNK_CODEC_VERSION + 1)), 'ChunkFailure', 'unsupported-version', /version/)
+      expectFailure(decodeChunkResult(corrupt(6, CHUNK_SIZE_XZ - 1)), 'ChunkFailure', 'invalid-dimensions', /dimensions/)
+      expectFailure(decodeChunkResult(corrupt(10, 0)), 'ChunkFailure', 'invalid-height', /height/)
+      expectFailure(decodeChunkResult(corrupt(20, 1)), 'ChunkFailure', 'invalid-payload-length', /payload length/)
+      expectFailure(decodeChunkResult(valid.slice(0, -1)), 'ChunkFailure', 'invalid-payload-length', /encoded length/)
+      expectFailure(decodeChunkResult(Uint8Array.from([...valid, 0])), 'ChunkFailure', 'invalid-payload-length', /encoded length/)
 
       const unknownId = valid.slice()
       unknownId[CHUNK_HEADER_BYTES] = 255
-      expect(() => decodeChunk(unknownId)).toThrow(/unknown block id 255/)
+      expectFailure(decodeChunkResult(unknownId), 'BlockStateFailure', 'unknown-block-id', /unknown block id 255/)
     })),
   )
 
@@ -175,16 +222,16 @@ describe('chunk binary codec', () => {
       const input = sampleBlocks()
       const source = chunk(chunkCoord(1, 2), height, input)
       input[0] = blockIdOf('water')
-      expect(source.blocks.get(0)).toBe(blockIdOf('stone'))
+      expect(blockStateGet(source.blocks, 0)).toBe(blockIdOf('stone'))
 
       const encoded = encodeChunk(source)
-      source.blocks.set(0, blockIdOf('water'))
+      blockStateSet(source.blocks, 0, blockIdOf('water'))
       expect(encoded[CHUNK_HEADER_BYTES]).toBe(blockIdOf('stone'))
 
       const mutableEncoded = encoded.slice()
       const decoded = decodeChunk(mutableEncoded)
       mutableEncoded[CHUNK_HEADER_BYTES] = blockIdOf('water')
-      expect(decoded.blocks.get(0)).toBe(blockIdOf('stone'))
+      expect(blockStateGet(decoded.blocks, 0)).toBe(blockIdOf('stone'))
     })),
   )
 
@@ -194,13 +241,13 @@ describe('chunk binary codec', () => {
       const copy = state.toBytes()
       copy[0] = blockIdOf('water')
 
-      expect(state.get(0)).toBe(blockIdOf('stone'))
-      state.set(0, blockIdOf('water'))
-      expect(state.get(0)).toBe(blockIdOf('water'))
-      expect(() => state.get(-1)).toThrow(/index/)
-      expect(() => state.get(state.length)).toThrow(/index/)
-      expect(() => state.set(0, blockId(255))).toThrow(/unknown block id 255/)
-      expect(() => blockState(new Uint8Array([255]))).toThrow(/unknown block id 255/)
+      expect(blockStateGet(state, 0)).toBe(blockIdOf('stone'))
+      blockStateSet(state, 0, blockIdOf('water'))
+      expect(blockStateGet(state, 0)).toBe(blockIdOf('water'))
+      expectFailure(Reflect.apply(state.get, state, [-1]), 'BlockStateFailure', 'invalid-index', /index/)
+      expectFailure(state.get(BlockStateIndex(state.length)), 'BlockStateFailure', 'invalid-index', /index/)
+      expectFailure(state.set(BlockStateIndex(0), blockId(255)), 'BlockStateFailure', 'unknown-block-id', /unknown block id 255/)
+      expectFailure(blockStateResult(new Uint8Array([255])), 'BlockStateFailure', 'unknown-block-id', /unknown block id 255/)
     })),
   )
 
@@ -210,12 +257,27 @@ describe('chunk binary codec', () => {
       const byteLength = state.length * WIRE_BYTES_PER_ELEMENT
       const target = new Uint8Array(byteLength)
 
-      state.copyTo(target)
+      blockStateCopyTo(state, target)
       expect(target).toStrictEqual(state.toBytes())
 
-      expect(() => state.copyTo(new Uint8Array(byteLength), -1)).toThrow(/copy range/)
-      expect(() => state.copyTo(new Uint8Array(byteLength - 1), 0)).toThrow(/copy range/)
-      expect(() => state.copyTo(new Uint8Array(byteLength), 1)).toThrow(/copy range/)
+      expectFailure(
+        Reflect.apply(state.copyTo, state, [new Uint8Array(byteLength), -1]),
+        'BlockStateFailure',
+        'invalid-copy-range',
+        /copy range/,
+      )
+      expectFailure(
+        state.copyTo(new Uint8Array(byteLength - 1), BlockStateByteOffset(0)),
+        'BlockStateFailure',
+        'invalid-copy-range',
+        /copy range/,
+      )
+      expectFailure(
+        state.copyTo(new Uint8Array(byteLength), BlockStateByteOffset(1)),
+        'BlockStateFailure',
+        'invalid-copy-range',
+        /copy range/,
+      )
     })),
   )
 
@@ -225,7 +287,7 @@ describe('chunk binary codec', () => {
       const state = source.blocks
       const { length } = state
 
-      expect(() => Object.defineProperty(state, 'length', { value: 0 })).toThrow(TypeError)
+      expect(Reflect.defineProperty(state, 'length', { value: 0 })).toBe(false)
       expect(state.length).toBe(length)
       expect(new DataView(encodeChunk(source).slice().buffer).getUint32(20, true)).toBe(
         length * WIRE_BYTES_PER_ELEMENT,
@@ -235,15 +297,53 @@ describe('chunk binary codec', () => {
 
   it('rejects constructor values outside the binary format bounds', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => ChunkHeight(0)).toThrow(/height/)
-      expect(() => ChunkHeight(MAX_CHUNK_HEIGHT + 1)).toThrow(/height/)
-      expect(() => ChunkBlocks(ChunkHeight(1), new Uint8Array())).toThrow(/length/)
-      expect(() => ChunkBlocks(ChunkHeight(1), new Uint8Array([255, ...new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ - 1)]))).toThrow(/unknown block id 255/)
-      expect(() => EncodedChunk(new Uint8Array())).toThrow(/header/)
-      expect(() => chunk(chunkCoord(0, 0), 1, new Uint8Array(255))).toThrow(/block data length must be 256, received 255/i)
-      expect(() => chunk(chunkCoord(0, 0), 0x1_0000, new Uint8Array())).toThrow(/height/)
-      expect(() => chunk(chunkCoord(0x8000_0000, 0), 1, new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cx/)
-      expect(() => chunk(chunkCoord(0, -0x8000_0001), 1, new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ))).toThrow(/cz/)
+      expect(ChunkHeight(1)).toBe(1)
+      expect(ChunkHeight(MAX_CHUNK_HEIGHT)).toBe(MAX_CHUNK_HEIGHT)
+      expectFailure(chunkHeightResult(0), 'ChunkFailure', 'invalid-height', /height/)
+      expectFailure(chunkHeightResult(MAX_CHUNK_HEIGHT + 1), 'ChunkFailure', 'invalid-height', /height/)
+      expectFailure(
+        chunkBlocksResult(ChunkHeight(1), new Uint8Array()),
+        'ChunkFailure',
+        'invalid-block-count',
+        /length/,
+      )
+      expectFailure(
+        chunkBlocksResult(ChunkHeight(1), new Uint8Array([255, ...new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ - 1)])),
+        'BlockStateFailure',
+        'unknown-block-id',
+        /unknown block id 255/,
+      )
+      expectFailure(encodedChunkResult(new Uint8Array()), 'ChunkFailure', 'truncated-header', /header/)
+      expectFailure(
+        chunkResult(chunkCoord(0, 0), ChunkHeight(1), new Uint8Array(255)),
+        'ChunkFailure',
+        'invalid-block-count',
+        /block data length must be 256, received 255/i,
+      )
+      expectFailure(chunkHeightResult(0x1_0000), 'ChunkFailure', 'invalid-height', /height/)
+      expect(ChunkLocalY(0)).toBe(0)
+      expect(ChunkLocalY(MAX_CHUNK_HEIGHT - 1)).toBe(MAX_CHUNK_HEIGHT - 1)
+      expect(() => ChunkLocalY(-1)).toThrow()
+      expect(() => ChunkLocalY(MAX_CHUNK_HEIGHT)).toThrow()
+      expect(ChunkBlockCount(256)).toBe(256)
+      expect(ChunkBlockCount(512)).toBe(512)
+      expect(ChunkBlockCount(256 * MAX_CHUNK_HEIGHT)).toBe(256 * MAX_CHUNK_HEIGHT)
+      expect(() => ChunkBlockCount(255)).toThrow()
+      expect(() => ChunkBlockCount(257)).toThrow()
+      expect(() => ChunkBlockCount(256 * (MAX_CHUNK_HEIGHT + 1))).toThrow()
+      const blockBytes = new Uint8Array(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ)
+      expectFailure(
+        Reflect.apply(chunkResult, undefined, [{ cx: 0x8000_0000, cz: 0 }, 1, blockBytes]),
+        'ChunkFailure',
+        'invalid-coordinate',
+        /cx/,
+      )
+      expectFailure(
+        Reflect.apply(chunkResult, undefined, [{ cx: 0, cz: -0x8000_0001 }, 1, blockBytes]),
+        'ChunkFailure',
+        'invalid-coordinate',
+        /cz/,
+      )
     })),
   )
 
@@ -251,33 +351,41 @@ describe('chunk binary codec', () => {
     Effect.runPromise(Effect.sync(() => {
       const coord = chunkCoord(0, 0)
 
-      expect(() => Reflect.apply(encodeChunk, undefined, [{
+      expectFailure(Reflect.apply(encodeChunkResult, undefined, [{
         coord,
         height,
         blocks: { length: blockCount },
-      }])).toThrow(/must be a BlockState/)
+      }]), 'ChunkFailure', 'invalid-block-state', /must be a BlockState/)
 
-      expect(() => Reflect.apply(encodeChunk, undefined, [{
+      expectFailure(Reflect.apply(encodeChunkResult, undefined, [{
         coord,
         height: ChunkHeight(1),
         blocks: blockState(sampleBlocks()),
-      }])).toThrow(/block data length must be/)
+      }]), 'ChunkFailure', 'invalid-block-count', /block data length must be/)
     })),
   )
 
   it('rejects malformed unknown encoding inputs at the public boundary', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => Reflect.apply(encodeChunk, undefined, [null])).toThrow('Chunk must be an object')
-      expect(() => Reflect.apply(encodeChunk, undefined, [[]])).toThrow('Chunk must be an object')
-      expect(() => Reflect.apply(encodeChunk, undefined, [{ coord: null, height, blocks: blockState(sampleBlocks()) }]))
-        .toThrow('Chunk coordinate must be an object')
-      expect(() => Reflect.apply(encodeChunk, undefined, [{ coord: chunkCoord(0, 0), height: '2', blocks: blockState(sampleBlocks()) }]))
-        .toThrow('Chunk height must be a number')
-      expect(() => Reflect.apply(encodeChunk, undefined, [{
+      expectFailure(Reflect.apply(encodeChunkResult, undefined, [null]), 'ChunkFailure', 'invalid-chunk-shape', 'Chunk must be an object')
+      expectFailure(Reflect.apply(encodeChunkResult, undefined, [[]]), 'ChunkFailure', 'invalid-chunk-shape', 'Chunk must be an object')
+      expectFailure(
+        Reflect.apply(encodeChunkResult, undefined, [{ coord: null, height, blocks: blockState(sampleBlocks()) }]),
+        'ChunkFailure',
+        'invalid-chunk-shape',
+        'Chunk coordinate must be an object',
+      )
+      expectFailure(
+        Reflect.apply(encodeChunkResult, undefined, [{ coord: chunkCoord(0, 0), height: '2', blocks: blockState(sampleBlocks()) }]),
+        'ChunkFailure',
+        'invalid-height',
+        'Chunk height must be a number, received 2',
+      )
+      expectFailure(Reflect.apply(encodeChunkResult, undefined, [{
         coord: { cx: '0', cz: 0 },
         height,
         blocks: blockState(sampleBlocks()),
-      }])).toThrow(/cx/)
+      }]), 'ChunkFailure', 'invalid-coordinate', /cx/)
     })),
   )
 
@@ -315,9 +423,9 @@ describe('chunk binary codec', () => {
       expect(decoded.coord).toStrictEqual(chunkCoord(5, -9))
       expect(decoded.height).toBe(legacyHeight)
       expect(decoded.blocks.length).toBe(legacyBlockCount)
-      expect(decoded.blocks.get(0)).toBe(stoneId)
-      expect(decoded.blocks.get(1)).toBe(blockIdOf('air'))
-      expect(decoded.blocks.get(legacyBlockCount - 1)).toBe(waterId)
+      expect(blockStateGet(decoded.blocks, 0)).toBe(stoneId)
+      expect(blockStateGet(decoded.blocks, 1)).toBe(blockIdOf('air'))
+      expect(blockStateGet(decoded.blocks, legacyBlockCount - 1)).toBe(waterId)
     })),
   )
 
@@ -329,7 +437,7 @@ describe('chunk binary codec', () => {
       // proves v2 rejects that meaning and only accepts a byte count.
       view.setUint32(20, blockCount, true)
 
-      expect(() => decodeChunk(encoded)).toThrow(/payload length/)
+      expectFailure(decodeChunkResult(encoded), 'ChunkFailure', 'invalid-payload-length', /payload length/)
     })),
   )
 
@@ -341,7 +449,7 @@ describe('chunk binary codec', () => {
       // read - not a truncated 8-bit one - catches this as corruption.
       encoded[CHUNK_HEADER_BYTES + 1] = 1
 
-      expect(() => decodeChunk(encoded)).toThrow(/unknown block id/)
+      expectFailure(decodeChunkResult(encoded), 'BlockStateFailure', 'unknown-block-id', /unknown block id/)
     })),
   )
 
@@ -374,18 +482,18 @@ describe('chunk binary codec', () => {
     vi.resetModules()
     vi.doMock('../src/domain/block/block-registry.js', async (importOriginal) => {
       const actual = await importOriginal<typeof import('../src/domain/block/block-registry')>()
-      const wideBlockId = Brand.nominal<BlockId>()(WIDE_BLOCK_ID_VALUE)
+      const wideBlockId = resultValue(blockId.result(WIDE_BLOCK_ID_VALUE))
 
       return {
         ...actual,
         BLOCK_IDS: [...actual.BLOCK_IDS, wideBlockId],
-        isKnownBlockId: (id: number): boolean => id === WIDE_BLOCK_ID_VALUE || actual.isKnownBlockId(id),
+        isKnownBlockId: (id: BlockId) =>
+          Result.map(actual.isKnownBlockId(id), (known) => id === wideBlockId || known),
       }
     })
 
-    try {
-      const wideChunkModule = await import('../src/domain/world/chunk.js')
-      const wideHeight = wideChunkModule.ChunkHeight(1)
+    await import('../src/domain/world/chunk.js').then((wideChunkModule) => {
+      const wideHeight = resultValue(wideChunkModule.ChunkHeight(1))
       const wideBlockCount = wideChunkModule.chunkBlockCount(wideHeight)
 
       const encoded = new Uint8Array(CHUNK_HEADER_BYTES + wideBlockCount * WIRE_BYTES_PER_ELEMENT)
@@ -400,15 +508,15 @@ describe('chunk binary codec', () => {
       view.setUint32(20, wideBlockCount * WIRE_BYTES_PER_ELEMENT, true)
       view.setUint16(CHUNK_HEADER_BYTES, WIDE_BLOCK_ID_VALUE, true)
 
-      const decoded = wideChunkModule.decodeChunk(encoded)
-      expect(decoded.blocks.get(0)).toBe(WIDE_BLOCK_ID_VALUE)
+      const decoded = resultValue(wideChunkModule.decodeChunk(encoded))
+      expect(resultValue(decoded.blocks.get(BlockStateIndex(0)))).toBe(WIDE_BLOCK_ID_VALUE)
 
-      const reencoded = wideChunkModule.encodeChunk(decoded)
-      const redecoded = wideChunkModule.decodeChunk(reencoded)
-      expect(redecoded.blocks.get(0)).toBe(WIDE_BLOCK_ID_VALUE)
-    } finally {
+      const reencoded = resultValue(wideChunkModule.encodeChunk(decoded))
+      const redecoded = resultValue(wideChunkModule.decodeChunk(reencoded))
+      expect(resultValue(redecoded.blocks.get(BlockStateIndex(0)))).toBe(WIDE_BLOCK_ID_VALUE)
+    }).finally(() => {
       vi.doUnmock('../src/domain/block/block-registry.js')
       vi.resetModules()
-    }
+    })
   })
 })

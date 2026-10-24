@@ -5,4 +5,5 @@
  * keeps the established import path stable for the package API.
  */
 export * from './block-property-data.js'
-export * from './block-property-validation.js'
+export { propertyOf, resolveBlockProperties } from './block-property-validation.js'
+export type { BlockPropertyFailure } from './block-property-validation.js'

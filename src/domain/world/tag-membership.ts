@@ -1,10 +1,13 @@
+import { Result } from "effect";
 import {
   dataPackLayer,
   type DataPackFormat,
   type DataPackLayer,
   type DataPackLayerOptions,
+  type DataPackRegistryFailure,
 } from "./data-pack-registry.js";
 import type { ItemType } from "../item/item-type.js";
+import { TagLocation } from "../text/identifiers.js";
 import type { ItemTagMemberships, RecipeItemTag } from "../recipe/recipe-data.js";
 import { VANILLA_ITEM_TAG_MEMBERSHIP_ENTRIES } from "./tag-membership-data.js";
 
@@ -24,7 +27,7 @@ export const VANILLA_ITEM_TAG_MEMBERSHIPS: ItemTagMemberships = new Map<
     },
   ].map(
     (entry): readonly [RecipeItemTag, ReadonlySet<ItemType>] => [
-      `#${entry.tag}`,
+      TagLocation(`#${entry.tag}`),
       new Set<ItemType>(entry.members),
     ],
   ),
@@ -37,7 +40,8 @@ export type ItemTagMembershipLayerOptions =
 /** Builds a data-pack layer of tag membership additions, reusing data-pack-registry's format/priority stacking. */
 export const itemTagMembershipLayer = (
   options: ItemTagMembershipLayerOptions,
-): ItemTagMembershipLayer => dataPackLayer(options);
+): Result.Result<ItemTagMembershipLayer, DataPackRegistryFailure> =>
+  dataPackLayer(options);
 
 /**
  * Extends a base tag table with data-pack layers.
@@ -62,7 +66,7 @@ export const extendItemTagMemberships = (
     .sort((left, right) => left.priority - right.priority);
   for (const layer of orderedLayers) {
     for (const entry of layer.entries) {
-      const tag: RecipeItemTag = `#${entry.id}`;
+      const tag: RecipeItemTag = TagLocation(`#${entry.id}`);
       const existing = merged.get(tag);
       if (existing === undefined) {
         merged.set(tag, new Set<ItemType>(entry.value));

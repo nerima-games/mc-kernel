@@ -1,286 +1,295 @@
-import { describe, expect, it } from "vitest";
+import { Result } from "effect";
+import { describe, expect, it, vi } from "vitest";
 
-import { itemStack } from "../src/domain/item/item-stack";
-import { craftGrid, exactly, tagged } from "../src/domain/recipe/recipe-data";
+import { itemStack as itemStackResult } from "../src/domain/item/item-stack";
 import {
-  applyTransmute,
-  matchTransmuteRecipe,
-  matchTransmuteRecipes,
-  matchesTransmuteRecipe,
-} from "../src/domain/recipe/transmute";
-import {
-  isTransmuteMaterialCount,
-  isTransmuteRecipe,
+  TransmuteMaterialSlotCount,
   transmuteRecipe,
   transmuteRecipeForItem,
+  isTransmuteMaterialCount,
+  isTransmuteRecipe,
+  TRANSMUTE_MAX_MATERIAL_SLOTS,
 } from "../src/domain/recipe/transmute-data";
+import { RecipeGroup, RecipeId, RecipePriority } from "../src/domain/recipe/recipe-data";
+import { StackCount } from "../src/domain/time/quantities";
+import type { RecipeFailure } from "../src/domain/recipe/recipe-error";
 
-const recipe = transmuteRecipe(
-  "minecraft:diamond_from_iron",
-  "iron_block",
-  "diamond",
-  itemStack("netherite_scrap", 1),
-  { materialCount: { min: 2, max: 8 }, addMaterialCountToResult: true },
-);
+const recipeSuccess = <A, E>(result: Result.Result<A, E>): A => {
+  expect(Result.isSuccess(result)).toBe(true);
+  if (Result.isSuccess(result)) return result.success;
+  throw new Error(`Expected recipe success, received ${JSON.stringify(result.failure)}`);
+};
 
-const grid = craftGrid(3, 3, [
-  itemStack("iron_block", 1),
-  itemStack("diamond", 1),
-  itemStack("diamond", 1),
-  undefined,
-  undefined,
-  undefined,
-  undefined,
-  undefined,
-  undefined,
-]);
+const itemStack = (item: Parameters<typeof itemStackResult>[0], count: number) =>
+  recipeSuccess(itemStackResult(item, recipeSuccess(StackCount.result(count))));
 
-describe("portable transmute recipes", () => {
-  it("constructs and validates the material range", () => {
-    expect(recipe.materialCount).toEqual({ min: 2, max: 8 });
-    expect(recipe.addMaterialCountToResult).toBe(true);
-    expect(isTransmuteRecipe(recipe)).toBe(true);
-    expect(isTransmuteRecipe(null)).toBe(false);
-    expect(() =>
-      transmuteRecipe(
-        "minecraft:bad",
-        "iron_block",
-        "diamond",
-        itemStack("netherite_scrap", 1),
-        { materialCount: { min: 1, max: 2 } },
-      ),
-    ).toThrow(RangeError);
-    expect(() =>
-      transmuteRecipe(
-        "minecraft:bad",
-        "iron_block",
-        "diamond",
-        itemStack("netherite_scrap", 1),
-        { materialCount: { min: 2, max: 8 }, addMaterialCountToResult: true },
-      ),
-    ).not.toThrow();
+const recipeFailure = (
+  result: Result.Result<unknown, RecipeFailure>,
+  tag: RecipeFailure["_tag"],
+): void => {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) expect(result.failure._tag).toBe(tag);
+};
 
-    for (const materialCount of [
-      { min: "2", max: 8 },
-      { min: 2, max: "8" },
-      { min: 0, max: 8 },
-      { min: 2, max: 9 },
-      { min: 8, max: 2 },
-    ]) {
-      expect(() =>
-        Reflect.apply(transmuteRecipe, undefined, [
-          "minecraft:bad",
-          "iron_block",
-          "diamond",
-          itemStack("netherite_scrap", 1),
-          { materialCount },
-        ]),
-      ).toThrow(RangeError);
-    }
+const expectRecipeFailure = (
+  result: Result.Result<unknown, RecipeFailure>,
+  expected: RecipeFailure,
+): void => {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) expect(result.failure).toEqual(expected);
+};
+
+describe("transmute recipe data", () => {
+  it("snapshots material bounds once and returns option getter failures", () => {
+    let minReads = 0;
+    let maxReads = 0;
+    const materialCount = new Proxy({}, {
+      get(_target, property) {
+        if (property === "min") {
+          minReads += 1;
+          return minReads === 1 ? 2 : 9;
+        }
+        if (property === "max") {
+          maxReads += 1;
+          return maxReads === 1 ? 3 : 0;
+        }
+        return undefined;
+      },
+    });
+    const result = Reflect.apply(transmuteRecipe, undefined, [
+      RecipeId("minecraft:snapshot_material_count"),
+      "stone",
+      "dirt",
+      itemStack("sand", 1),
+      { materialCount },
+    ]);
+    expect(Result.isSuccess(result)).toBe(true);
+    expect(minReads).toBe(1);
+    expect(maxReads).toBe(1);
+
+    const options = new Proxy({}, {
+      get(_target, property) {
+        if (property === "priority") throw new Error("hostile getter");
+        return undefined;
+      },
+    });
+    const unreadable = Reflect.apply(transmuteRecipe, undefined, [
+      RecipeId("minecraft:unreadable_options"),
+      "stone",
+      "dirt",
+      itemStack("sand", 1),
+      options,
+    ]);
+    expectRecipeFailure(unreadable, {
+      _tag: "RecipeTypeFailure",
+      name: "TypeError",
+      message: "Transmute recipe options must be an object",
+    });
+  });
+
+  it("validates material ranges and constructs recipes", () => {
+    expect(TRANSMUTE_MAX_MATERIAL_SLOTS).toBe(8);
     expect(isTransmuteMaterialCount({ min: 1, max: 1 })).toBe(true);
     expect(isTransmuteMaterialCount({ min: 2, max: 8 })).toBe(true);
-    expect(isTransmuteMaterialCount(null)).toBe(false);
-
-    const valid = [
-      "minecraft:bad",
-      "iron_block",
-      "diamond",
-      itemStack("netherite_scrap", 1),
-    ];
-    expect(() =>
-      Reflect.apply(transmuteRecipe, undefined, ["", ...valid.slice(1)]),
-    ).toThrow(TypeError);
-    expect(() =>
-      Reflect.apply(transmuteRecipe, undefined, [
-        valid[0],
-        null,
-        ...valid.slice(2),
-      ]),
-    ).toThrow(TypeError);
-    expect(() =>
-      Reflect.apply(transmuteRecipe, undefined, [...valid.slice(0, 3), {}]),
-    ).toThrow(TypeError);
-    for (const options of [
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    for (const value of [
       null,
-      { category: "invalid" },
-      { group: 1 },
-      { priority: -1 },
-      { showNotification: 1 },
-      { addMaterialCountToResult: 1 },
+      [],
+      revoked.proxy,
+      { min: "1", max: 1 },
+      { min: 1.5, max: 2 },
+      { min: 0, max: 1 },
+      { min: 1, max: 2 },
+      { min: 2, max: 9 },
+      { min: 4, max: 3 },
     ]) {
-      expect(() =>
-        Reflect.apply(transmuteRecipe, undefined, [...valid, options]),
-      ).toThrow();
+      expect(isTransmuteMaterialCount(value)).toBe(false);
     }
 
-    // Folding the material count into the result cannot push the stack past
-    // what the item can hold.
-    expect(() =>
-      transmuteRecipe(
-        "minecraft:overflowing",
-        "iron_block",
-        "diamond",
-        itemStack("netherite_scrap", 60),
-        { materialCount: { min: 2, max: 8 }, addMaterialCountToResult: true },
-      ),
-    ).toThrow(RangeError);
-
-    const described = transmuteRecipe(
-      "minecraft:described",
-      "iron_block",
-      "diamond",
-      itemStack("netherite_scrap", 1),
-      { category: "misc", group: "gems" },
-    );
-    expect(isTransmuteRecipe(described)).toBe(true);
-    expect(isTransmuteRecipe({ ...described, category: "invalid" })).toBe(false);
-    expect(isTransmuteRecipe({ ...described, group: 1 })).toBe(false);
-    expect(isTransmuteRecipe({ ...described, showNotification: 1 })).toBe(false);
-
-    expect(
-      transmuteRecipeForItem(
-        "minecraft:for_item",
-        "iron_block",
-        "diamond",
-        "netherite_scrap",
-        2,
-      ),
-    ).toMatchObject({
+    const recipe = recipeSuccess(transmuteRecipe(
+      RecipeId("minecraft:convert_stone"),
+      "stone",
+      "dirt",
+      itemStack("sand", StackCount(1)),
+      {
+        addMaterialCountToResult: true,
+        category: "redstone",
+        group: RecipeGroup("conversion"),
+        materialCount: {
+          min: TransmuteMaterialSlotCount(2),
+          max: TransmuteMaterialSlotCount(4),
+        },
+        priority: RecipePriority(3),
+        showNotification: false,
+      },
+    ));
+    expect(recipe).toMatchObject({
       _tag: "Transmute",
-      output: itemStack("netherite_scrap", 2),
+      source: { _tag: "Exact", item: "stone", count: 1 },
+      material: { _tag: "Exact", item: "dirt", count: 1 },
+      output: itemStack("sand", StackCount(1)),
+      materialCount: { min: 2, max: 4 },
+      addMaterialCountToResult: true,
+      category: "redstone",
+      group: "conversion",
+      priority: 3,
+      showNotification: false,
     });
+    expect(isTransmuteRecipe(recipe)).toBe(true);
+    expect(recipeSuccess(transmuteRecipeForItem(
+      RecipeId("minecraft:convert_gravel"),
+      "stone",
+      "dirt",
+      "gravel",
+      StackCount(2),
+    )).output).toEqual(itemStack("gravel", 2));
   });
 
-  it("matches source and material slots and computes the output count", () => {
-    const match = matchTransmuteRecipe(grid, {}, [recipe]);
-    expect(match).toMatchObject({
-      _tag: "Match",
-      sourceSlotIndex: 0,
-      materialSlotIndexes: [1, 2],
-      output: itemStack("netherite_scrap", 3),
-    });
-    expect(matchesTransmuteRecipe(recipe, grid)).toBe(true);
-    expect(matchTransmuteRecipes(grid, {}, [recipe])).toHaveLength(1);
-    expect(
-      matchTransmuteRecipe(craftGrid(2, 2, [itemStack("iron_block", 1)]), {}, [
-        recipe,
-      ]),
-    ).toEqual({ _tag: "NoMatch" });
-    expect(
-      matchTransmuteRecipe(
-        craftGrid(3, 3, [itemStack("iron_block", 1), undefined, undefined]),
-        {},
-        [recipe],
-      ),
-    ).toEqual({ _tag: "NoMatch" });
-    expect(
-      matchTransmuteRecipe(
-        craftGrid(3, 3, [
-          itemStack("iron_block", 1),
-          itemStack("stone", 1),
-          itemStack("diamond", 1),
-        ]),
-        {},
-        [recipe],
-      ),
-    ).toEqual({ _tag: "NoMatch" });
-    expect(
-      matchTransmuteRecipe(
-        craftGrid(3, 3, [
-          itemStack("iron_block", 1),
-          itemStack("diamond", 1),
-          undefined,
-        ]),
-        {},
-        [recipe],
-      ),
-    ).toEqual({ _tag: "NoMatch" });
+  it("rejects invalid constructor fields and unsafe result counts", () => {
+    const output = itemStack("sand", 1);
+    expectRecipeFailure(
+      Reflect.apply(transmuteRecipe, undefined, [null, "stone", "dirt", output]),
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Transmute recipe id must be a resource location",
+      },
+    );
+    recipeFailure(Reflect.apply(transmuteRecipe, undefined, [" ", "stone", "dirt", output]), "RecipeTypeFailure");
+    recipeFailure(Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", null, "dirt", output]), "RecipeTypeFailure");
+    recipeFailure(Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", "stone", null, output]), "RecipeTypeFailure");
+    recipeFailure(Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", "stone", "dirt", {}]), "RecipeTypeFailure");
+    recipeFailure(Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", "stone", "dirt", output, null]), "RecipeTypeFailure");
+
+    for (const [options, tag] of [
+      [{ category: "invalid" }, "RecipeTypeFailure"],
+      [{ group: 1 }, "RecipeTypeFailure"],
+      [{ priority: "high" }, "RecipeRangeFailure"],
+      [{ priority: -1 }, "RecipeRangeFailure"],
+      [{ priority: 1.5 }, "RecipeRangeFailure"],
+      [{ showNotification: 1 }, "RecipeTypeFailure"],
+      [{ addMaterialCountToResult: 1 }, "RecipeTypeFailure"],
+      [{ materialCount: { min: 1, max: 2 } }, "RecipeRangeFailure"],
+      [{ materialCount: { min: 0, max: 1 } }, "RecipeRangeFailure"],
+      [{ materialCount: { min: 2, max: 9 } }, "RecipeRangeFailure"],
+      [{ materialCount: { min: 1.5, max: 2 } }, "RecipeRangeFailure"],
+      [{ materialCount: { min: "1", max: 1 } }, "RecipeRangeFailure"],
+    ] as const) {
+      recipeFailure(Reflect.apply(transmuteRecipe, undefined, [
+        "minecraft:bad_options",
+        "stone",
+        "dirt",
+        output,
+        options,
+      ]), tag);
+    }
+    recipeFailure(transmuteRecipe(
+      RecipeId("minecraft:overflow"),
+      "stone",
+      "dirt",
+      itemStack("diamond_sword", 1),
+      {
+        addMaterialCountToResult: true,
+        materialCount: {
+          min: TransmuteMaterialSlotCount(2),
+          max: TransmuteMaterialSlotCount(2),
+        },
+      },
+    ), "RecipeRangeFailure");
   });
 
-  it("supports tags and applies consumption immutably", () => {
-    const taggedRecipe = transmuteRecipe(
-      "minecraft:tagged",
-      exactly("iron_block", 2),
-      tagged("#minecraft:gems"),
-      itemStack("netherite_scrap", 1),
-      { materialCount: { min: 1, max: 1 } },
-    );
-    const taggedGrid = craftGrid(3, 3, [
-      itemStack("iron_block", 2),
-      itemStack("diamond", 2),
-      undefined,
+  it("rejects unknown output items and counts outside the result stack range", () => {
+    const unknownOutput = Reflect.apply(transmuteRecipeForItem, undefined, [
+      "minecraft:unknown_output",
+      "stone",
+      "dirt",
+      "not_an_item",
+      1,
     ]);
-    const itemTags = new Map([
-      [tagged("#minecraft:gems").tag, new Set(["diamond"] as const)],
-    ]);
-    expect(matchesTransmuteRecipe(taggedRecipe, taggedGrid, { itemTags })).toBe(
-      true,
-    );
-    const applied = applyTransmute(taggedRecipe, taggedGrid, { itemTags });
-    expect(applied).toMatchObject({
-      _tag: "Applied",
-      output: itemStack("netherite_scrap", 1),
-      remainingGrid: craftGrid(3, 3, [
-        undefined,
-        itemStack("diamond", 1),
-        undefined,
-      ]),
-    });
-    expect(taggedGrid.cells[0]).toEqual(itemStack("iron_block", 2));
-    expect(applyTransmute(recipe, taggedGrid)).toEqual({ _tag: "NoMatch" });
-    expect(() =>
-      Reflect.apply(matchesTransmuteRecipe, undefined, [recipe, {}, {}]),
-    ).toThrow(TypeError);
-    expect(() =>
-      Reflect.apply(matchTransmuteRecipes, undefined, [grid, { itemTags: [] }]),
-    ).toThrow(TypeError);
-    expect(() =>
-      Reflect.apply(matchTransmuteRecipes, undefined, [grid, null]),
-    ).toThrow(TypeError);
-    expect(() =>
-      Reflect.apply(matchTransmuteRecipes, undefined, [grid, { station: "" }]),
-    ).toThrow(TypeError);
-    expect(() =>
-      Reflect.apply(matchTransmuteRecipes, undefined, [null, {}, []]),
-    ).toThrow(TypeError);
-    expect(() =>
-      Reflect.apply(matchTransmuteRecipes, undefined, [grid, {}, null]),
-    ).toThrow(TypeError);
-    expect(() =>
-      Reflect.apply(matchTransmuteRecipes, undefined, [
-        grid,
-        {},
-        [{ ...recipe, _tag: "NotTransmute" }],
-      ]),
-    ).toThrow(TypeError);
+    expect(Result.isFailure(unknownOutput)).toBe(true);
+    if (Result.isFailure(unknownOutput)) {
+      expect(unknownOutput.failure).toMatchObject({
+        _tag: "RecipeTypeFailure",
+        message: "Unknown item type: not_an_item",
+      });
+    }
 
-    // Two matching recipes is what puts the comparator to work.
-    const rival = transmuteRecipe(
-      "minecraft:diamond_from_iron_rival",
-      "iron_block",
-      "diamond",
-      itemStack("netherite_scrap", 1),
-      { materialCount: { min: 2, max: 8 }, addMaterialCountToResult: true },
-    );
-    expect(
-      matchTransmuteRecipes(grid, {}, [rival, recipe]).map((match) =>
-        match._tag === "Match" ? match.recipe.id : match._tag,
-      ),
-    ).toEqual([recipe.id, rival.id]);
+    const invalidCounts: ReadonlyArray<readonly [string, number, number]> = [
+      ["sand", 0, 64],
+      ["sand", 1.5, 64],
+      ["diamond_sword", 2, 1],
+    ];
+    for (const [output, count, maxCount] of invalidCounts) {
+      const invalidCount = Reflect.apply(transmuteRecipeForItem, undefined, [
+        "minecraft:invalid_output_count",
+        "stone",
+        "dirt",
+        output,
+        count,
+      ]);
+      expect(Result.isFailure(invalidCount)).toBe(true);
+      if (Result.isFailure(invalidCount)) {
+        expect(invalidCount.failure).toMatchObject({
+          _tag: "RecipeRangeFailure",
+          message: `Item stack count for ${output} must be an integer in [1, ${maxCount}], received ${count}`,
+        });
+      }
+    }
   });
 
-  it("resolves a genuine vanilla tag when itemTags is omitted from the match context", () => {
-    const vanillaTaggedRecipe = transmuteRecipe(
-      "minecraft:trim_material_transmute",
-      exactly("iron_block", 1),
-      tagged("#minecraft:trim_materials"),
-      itemStack("netherite_scrap", 1),
-    );
-    const vanillaGrid = craftGrid(3, 3, [
-      itemStack("iron_block", 1),
-      itemStack("diamond", 1),
-      undefined,
-    ]);
-    expect(matchesTransmuteRecipe(vanillaTaggedRecipe, vanillaGrid)).toBe(true);
+  it("guards recipe records and rejects invalid metadata", () => {
+    const valid = recipeSuccess(transmuteRecipe(
+      RecipeId("minecraft:guarded"),
+      "stone",
+      "dirt",
+      itemStack("sand", 1),
+      {
+        category: "misc",
+        group: RecipeGroup("test"),
+        priority: RecipePriority(1),
+        showNotification: true,
+      },
+    ));
+    expect(isTransmuteRecipe(valid)).toBe(true);
+    expect(isTransmuteRecipe(null)).toBe(false);
+    expect(isTransmuteRecipe([])).toBe(false);
+    for (const value of [
+      { ...valid, _tag: "Other" },
+      { ...valid, id: " " },
+      { ...valid, source: null },
+      { ...valid, material: null },
+      { ...valid, output: null },
+      { ...valid, materialCount: { min: 1, max: 2 } },
+      { ...valid, addMaterialCountToResult: 1 },
+      { ...valid, category: "invalid" },
+      { ...valid, group: 1 },
+      { ...valid, priority: -1 },
+      { ...valid, showNotification: 1 },
+    ]) {
+      expect(isTransmuteRecipe(value)).toBe(false);
+    }
+  });
+
+  it("maps a group brand validation failure to a recipe failure", () => {
+    const brandResult = RecipePriority.result(-1);
+    if (Result.isSuccess(brandResult)) throw new Error("expected an invalid recipe priority");
+    const resultSpy = vi
+      .spyOn(RecipeGroup, "result")
+      .mockReturnValue(Result.fail(brandResult.failure));
+    try {
+      recipeFailure(
+        transmuteRecipe(
+          RecipeId("minecraft:bad_group"),
+          "stone",
+          "dirt",
+          itemStack("sand", 1),
+          { group: RecipeGroup("conversion") },
+        ),
+        "RecipeTypeFailure",
+      );
+    } finally {
+      resultSpy.mockRestore();
+    }
   });
 });

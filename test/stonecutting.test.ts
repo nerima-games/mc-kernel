@@ -1,215 +1,177 @@
-import { describe, expect, it } from 'vitest'
-import { itemStack } from '../src/domain/item/item-stack'
+import { Result } from "effect";
+import { describe, expect, it } from "vitest";
+import { TagLocation } from "../src/domain/text/identifiers";
+
+import { itemStack as itemStackResult } from "../src/domain/item/item-stack";
 import {
+  RecipeId,
+  RecipePriority,
   anyOf,
   exactly,
   tagged,
-  type ItemTagMemberships,
-  type RecipeItemTag,
-} from '../src/domain/recipe/recipe-data'
-import type { ItemType } from '../src/domain/item/item-type'
-import { buildStonecuttingRecipeIndex } from '../src/domain/recipe/stonecutting-indexes'
+} from "../src/domain/recipe/recipe-data";
+import { StackCount } from "../src/domain/time/quantities";
 import {
   STONECUTTING_STATION_TAG,
   VANILLA_STONECUTTING_RECIPES,
-  applyStonecutting,
-  matchStonecuttingRecipe,
-  matchStonecuttingRecipes,
   stonecuttingRecipe,
-} from '../src/domain/recipe/stonecutting'
+} from "../src/domain/recipe/stonecutting-data";
+import type { RecipeFailure } from "../src/domain/recipe/recipe-error";
 
-const STONE_INPUT_TAG: RecipeItemTag = '#minecraft:stone_inputs'
-const STONE_TAGS: ItemTagMemberships = new Map<RecipeItemTag, ReadonlySet<ItemType>>([
-  [STONE_INPUT_TAG, new Set<ItemType>(['stone'])],
-])
+const success = <A, E>(result: Result.Result<A, E>): A => {
+  expect(Result.isSuccess(result)).toBe(true);
+  if (Result.isSuccess(result)) return result.success;
+  throw new Error(`Expected recipe success, received ${JSON.stringify(result.failure)}`);
+};
+const itemStack = (item: Parameters<typeof itemStackResult>[0], count: number) =>
+  success(itemStackResult(item, success(StackCount.result(count))));
+const recipeId = (value: string) => success(RecipeId.result(value));
+const tagLocation = (value: string) => success(TagLocation.result(value));
+const recipePriority = (value: number) => success(RecipePriority.result(value));
+const expectFailure = (
+  result: Result.Result<unknown, RecipeFailure>,
+  expected: RecipeFailure,
+): void => {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) expect(result.failure).toEqual(expected);
+};
+const typeFailure = (message: string): RecipeFailure => ({ _tag: "RecipeTypeFailure", name: "TypeError", message });
+const rangeFailure = (message: string): RecipeFailure => ({ _tag: "RecipeRangeFailure", name: "RangeError", message });
 
-describe('stonecutting', () => {
-  it('normalizes exact and tagged recipes and validates their boundaries', () => {
-    expect(stonecuttingRecipe('minecraft:exact', 'stone', itemStack('stone_slab', 1))).toEqual({
-      _tag: 'Stonecutting',
-      id: 'minecraft:exact',
-      ingredient: exactly('stone'),
-      output: itemStack('stone_slab', 1),
-      priority: 0,
-    })
-    expect(stonecuttingRecipe('minecraft:tag', STONE_INPUT_TAG, itemStack('stone_slab', 1))).toEqual({
-      _tag: 'Stonecutting',
-      id: 'minecraft:tag',
-      ingredient: tagged(STONE_INPUT_TAG),
-      output: itemStack('stone_slab', 1),
-      priority: 0,
-    })
-    expect(
-      stonecuttingRecipe(
-        'minecraft:object',
-        { _tag: 'Exact', item: 'stone', count: 2 },
-        itemStack('stone_slab', 1),
-        { priority: 2 },
-      ),
-    ).toEqual({
-      _tag: 'Stonecutting',
-      id: 'minecraft:object',
-      ingredient: exactly('stone', 2),
-      output: itemStack('stone_slab', 1),
-      priority: 2,
-    })
-    expect(
-      stonecuttingRecipe(
-        'minecraft:tag-object',
-        { _tag: 'ItemTag', tag: STONE_INPUT_TAG, count: 1 },
-        itemStack('stone_slab', 1),
-      ).ingredient,
-    ).toEqual(tagged(STONE_INPUT_TAG))
-    expect(stonecuttingRecipe('minecraft:default-priority', 'stone', itemStack('stone_slab', 1), {})).toMatchObject({
-      priority: 0,
-    })
+describe("stonecutting recipe data", () => {
+  it("normalizes ingredient snapshots once and contains option getter failures", () => {
+    let countReads = 0;
+    const ingredient = new Proxy(
+      { _tag: "Exact", item: "stone", count: 1 },
+      {
+        get(target, property, receiver) {
+          if (property === "count") {
+            countReads += 1;
+            return countReads === 1 ? 1 : 0;
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    );
+    const result = Reflect.apply(stonecuttingRecipe, undefined, [
+      recipeId("minecraft:snapshot_ingredient"),
+      ingredient,
+      itemStack("stone_slab", 1),
+    ]);
+    expect(Result.isSuccess(result)).toBe(true);
+    expect(countReads).toBe(1);
 
-    expect(() => stonecuttingRecipe('', 'stone', itemStack('stone_slab', 1))).toThrow(TypeError)
-    expect(() => Reflect.apply(stonecuttingRecipe, undefined, ['minecraft:bad', null, itemStack('stone_slab', 1)])).toThrow(TypeError)
-    expect(() => Reflect.apply(stonecuttingRecipe, undefined, ['minecraft:bad', [], itemStack('stone_slab', 1)])).toThrow(TypeError)
-    expect(() => Reflect.apply(stonecuttingRecipe, undefined, ['minecraft:bad', 'not-an-item', itemStack('stone_slab', 1)])).toThrow(TypeError)
-    expect(() => stonecuttingRecipe('minecraft:bad', { _tag: 'Exact', item: 'stone', count: 0 }, itemStack('stone_slab', 1))).toThrow(RangeError)
-    expect(() => Reflect.apply(stonecuttingRecipe, undefined, ['minecraft:bad', { _tag: 'ItemTag', tag: 'stone', count: 1 }, itemStack('stone_slab', 1)])).toThrow(TypeError)
-    expect(() => Reflect.apply(stonecuttingRecipe, undefined, ['minecraft:bad', { _tag: 'Other', item: 'stone', count: 1 }, itemStack('stone_slab', 1)])).toThrow(TypeError)
-    expect(() => Reflect.apply(stonecuttingRecipe, undefined, ['minecraft:bad', 'stone', {}])).toThrow(TypeError)
-    expect(() => Reflect.apply(stonecuttingRecipe, undefined, ['minecraft:bad', 'stone', itemStack('stone_slab', 1), null])).toThrow(TypeError)
-    expect(() => stonecuttingRecipe('minecraft:bad', 'stone', itemStack('stone_slab', 1), { priority: -1 })).toThrow(RangeError)
-    expect(() => stonecuttingRecipe('minecraft:bad', 'stone', itemStack('stone_slab', 1), { priority: 1.5 })).toThrow(RangeError)
-    expect(() => Reflect.apply(stonecuttingRecipe, undefined, ['minecraft:bad', 'stone', itemStack('stone_slab', 1), { showNotification: 1 }])).toThrow(TypeError)
-
-    // The ingredient may also arrive as a list or as an AnyOf record, and each
-    // of those shapes has its own emptiness and membership rules.
-    expect(stonecuttingRecipe('minecraft:list', ['stone', 'cobblestone'], itemStack('stone_slab', 1)).ingredient).toEqual(
-      anyOf([exactly('stone'), exactly('cobblestone')]),
-    )
-    expect(stonecuttingRecipe('minecraft:any_of', anyOf([exactly('stone')]), itemStack('stone_slab', 1)).ingredient).toEqual(
-      anyOf([exactly('stone')]),
-    )
-    expect(() => Reflect.apply(stonecuttingRecipe, undefined, ['minecraft:bad', ['stone', 'not-an-item'], itemStack('stone_slab', 1)])).toThrow(TypeError)
-    expect(() => Reflect.apply(stonecuttingRecipe, undefined, ['minecraft:bad', { _tag: 'AnyOf', options: [], count: 1 }, itemStack('stone_slab', 1)])).toThrow(TypeError)
-    expect(() => Reflect.apply(stonecuttingRecipe, undefined, ['minecraft:bad', { _tag: 'AnyOf', options: ['not-an-item'], count: 1 }, itemStack('stone_slab', 1)])).toThrow(TypeError)
-    expect(() => Reflect.apply(stonecuttingRecipe, undefined, ['minecraft:bad', { _tag: 'AnyOf', options: 'stone', count: 1 }, itemStack('stone_slab', 1)])).toThrow(TypeError)
-    expect(() => Reflect.apply(stonecuttingRecipe, undefined, ['minecraft:bad', { _tag: 'AnyOf', options: ['stone'] }, itemStack('stone_slab', 1)])).toThrow(TypeError)
-  })
-
-  it('indexes exact and tagged candidates', () => {
-    const exact = stonecuttingRecipe('minecraft:exact', exactly('stone'), itemStack('stone_slab', 1))
-    const taggedRecipe = stonecuttingRecipe('minecraft:tagged', tagged(STONE_INPUT_TAG), itemStack('stone_slab', 1))
-    const index = buildStonecuttingRecipeIndex([taggedRecipe, exact, exact])
-
-    expect(index.exactByItem.get('stone')).toEqual([exact, exact])
-    expect(index.tagged).toEqual([taggedRecipe])
-  })
-
-  it('matches vanilla and custom recipes by station, tags, count, priority, and id', () => {
-    expect(VANILLA_STONECUTTING_RECIPES).toHaveLength(5)
-    expect(matchStonecuttingRecipes(itemStack('purpur_block', 1))).toHaveLength(3)
-    expect(matchStonecuttingRecipe(itemStack('purpur_block', 1))).toMatchObject({
-      _tag: 'Match',
-      recipe: { id: 'minecraft:purpur_pillar_from_purpur_block' },
-      output: itemStack('purpur_pillar', 1),
-    })
-    expect(matchStonecuttingRecipe(itemStack('stone', 1))).toMatchObject({
-      _tag: 'Match',
-      recipe: { id: 'minecraft:stone_slab_from_stone' },
-      output: itemStack('stone_slab', 2),
-    })
-
-    const tagMatch = stonecuttingRecipe('minecraft:tag_match', tagged(STONE_INPUT_TAG), itemStack('stone_slab', 1))
-    const exactEarlier = stonecuttingRecipe('minecraft:a_exact', exactly('stone'), itemStack('purpur_slab', 1), { priority: 1 })
-    const exactLater = stonecuttingRecipe('minecraft:z_exact', exactly('stone'), itemStack('purpur_stairs', 1), { priority: 1 })
-    const customRecipes = [exactLater, tagMatch, exactEarlier]
-
-    expect(matchStonecuttingRecipes(itemStack('stone', 1), { itemTags: STONE_TAGS }, customRecipes)).toEqual([
-      tagMatch,
-      exactEarlier,
-      exactLater,
-    ])
-    expect(matchStonecuttingRecipes(itemStack('stone', 1), {}, [tagMatch])).toEqual([])
-    expect(matchStonecuttingRecipes(itemStack('stone', 1), { station: STONECUTTING_STATION_TAG }, customRecipes)).toHaveLength(2)
-    expect(matchStonecuttingRecipes(itemStack('stone', 1), {}, [stonecuttingRecipe('minecraft:two', exactly('stone', 2), itemStack('stone_slab', 1))])).toEqual([])
-    expect(matchStonecuttingRecipes(itemStack('cobblestone', 1), {}, customRecipes)).toEqual([])
-    expect(matchStonecuttingRecipes(itemStack('stone', 1), {}, [])).toEqual([])
-    expect(matchStonecuttingRecipes(undefined)).toEqual([])
-    expect(matchStonecuttingRecipes(itemStack('stone', 1), { station: 'furnace' })).toEqual([])
-    expect(matchStonecuttingRecipe(itemStack('stone', 1), { itemTags: STONE_TAGS }, [tagMatch])).toMatchObject({
-      _tag: 'Match',
-      recipe: tagMatch,
-    })
-    expect(matchStonecuttingRecipe(itemStack('cobblestone', 1), {}, customRecipes)).toEqual({ _tag: 'NoMatch' })
-  })
-
-  it('resolves a genuine vanilla tag when itemTags is omitted from the match context', () => {
-    const trimMaterialTag: RecipeItemTag = '#minecraft:trim_materials'
-    const vanillaTagRecipe = stonecuttingRecipe('minecraft:trim_material_cut', tagged(trimMaterialTag), itemStack('stone_slab', 1))
-
-    expect(matchStonecuttingRecipe(itemStack('iron_ingot', 1), {}, [vanillaTagRecipe])).toMatchObject({
-      _tag: 'Match',
-      recipe: vanillaTagRecipe,
-    })
-  })
-
-  it('applies a matching recipe and preserves remaining input', () => {
-    const oneInput = stonecuttingRecipe('minecraft:one', exactly('stone'), itemStack('stone_slab', 1))
-    const twoInput = stonecuttingRecipe('minecraft:two', exactly('stone', 2), itemStack('stone_slab', 1))
-
-    expect(applyStonecutting(oneInput, itemStack('stone', 1))).toEqual({
-      _tag: 'Applied',
-      recipe: oneInput,
-      output: itemStack('stone_slab', 1),
-      remainingInput: undefined,
-    })
-    expect(applyStonecutting(twoInput, itemStack('stone', 3))).toEqual({
-      _tag: 'Applied',
-      recipe: twoInput,
-      output: itemStack('stone_slab', 1),
-      remainingInput: itemStack('stone', 1),
-    })
-    expect(applyStonecutting(oneInput, undefined)).toEqual({ _tag: 'NoMatch' })
-    expect(applyStonecutting(twoInput, itemStack('stone', 1))).toEqual({ _tag: 'NoMatch' })
-    expect(applyStonecutting(oneInput, itemStack('stone', 1), { station: 'furnace' })).toEqual({ _tag: 'NoMatch' })
-    expect(applyStonecutting(oneInput, itemStack('cobblestone', 1))).toEqual({ _tag: 'NoMatch' })
-  })
-
-  it('rejects malformed runtime inputs at the public boundaries', () => {
-    const input = itemStack('stone', 1)
-    const validRecipe = stonecuttingRecipe('minecraft:valid', exactly('stone'), itemStack('stone_slab', 1))
-    const malformedRecipes: ReadonlyArray<unknown> = [
-      null,
-      [],
-      { ...validRecipe, _tag: 'Other' },
-    { ...validRecipe, priority: '1' },
-    { ...validRecipe, id: '' },
-    { ...validRecipe, id: 1 },
-    { ...validRecipe, ingredient: null },
-    { ...validRecipe, ingredient: 'not-an-item' },
-    { ...validRecipe, output: {} },
-      { ...validRecipe, priority: -1 },
-      { ...validRecipe, priority: 1.5 },
-      { ...validRecipe, showNotification: 1 },
-    ]
-
-    expect(() =>
-      Reflect.apply(matchStonecuttingRecipes, undefined, [
-        input,
-        {},
-        [{ ...validRecipe, showNotification: true }],
+    const options = new Proxy({}, {
+      get(_target, property) {
+        if (property === "priority") throw new Error("hostile getter");
+        return undefined;
+      },
+    });
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, [
+        recipeId("minecraft:unreadable_options"),
+        "stone",
+        itemStack("stone_slab", 1),
+        options,
       ]),
-    ).not.toThrow()
+      typeFailure("Stonecutting recipe options must be an object"),
+    );
+  });
 
-    expect(() => Reflect.apply(matchStonecuttingRecipes, undefined, [null])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchStonecuttingRecipes, undefined, [input, null])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchStonecuttingRecipes, undefined, [input, { station: 1 }])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchStonecuttingRecipes, undefined, [input, { itemTags: {} }])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchStonecuttingRecipes, undefined, [input, { itemTags: new Map([['bad', new Set<ItemType>(['stone'])]]) }])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchStonecuttingRecipes, undefined, [input, { itemTags: new Map([[STONE_INPUT_TAG, new Set(['unknown'])]]) }])).toThrow(TypeError)
-    expect(() => Reflect.apply(matchStonecuttingRecipes, undefined, [input, {}, null])).toThrow(TypeError)
-    for (const malformedRecipe of malformedRecipes) {
-      expect(() => Reflect.apply(matchStonecuttingRecipes, undefined, [input, {}, [malformedRecipe]])).toThrow()
+  it("constructs exact, tagged, and alternative ingredient recipes", () => {
+    expect(STONECUTTING_STATION_TAG).toBe("stonecutter");
+    expect(success(stonecuttingRecipe(
+      recipeId("minecraft:cut_stone"),
+      "stone",
+      itemStack("stone_slab", 2),
+    ))).toMatchObject({
+      _tag: "Stonecutting",
+      ingredient: success(exactly("stone")),
+      output: itemStack("stone_slab", 2),
+      priority: 0,
+    });
+
+    expect(success(stonecuttingRecipe(
+      recipeId("minecraft:cut_planks"),
+      tagLocation("#minecraft:planks"),
+      itemStack("stick", 1),
+      { priority: recipePriority(2), showNotification: false },
+    ))).toMatchObject({
+      ingredient: success(tagged(tagLocation("#minecraft:planks"))),
+      priority: 2,
+      showNotification: false,
+    });
+    expect(success(stonecuttingRecipe(
+      recipeId("minecraft:cut_alternatives"),
+      ["stone", "diorite"],
+      itemStack("stone_slab", 2),
+    )).ingredient).toEqual(success(anyOf(["stone", "diorite"])));
+    expect(success(stonecuttingRecipe(
+      recipeId("minecraft:cut_structured_alternatives"),
+      success(anyOf(["stone", "diorite"])),
+      itemStack("stone_slab", 2),
+    )).ingredient).toEqual(success(anyOf(["stone", "diorite"])));
+
+    expect(VANILLA_STONECUTTING_RECIPES).toHaveLength(5);
+    expect(VANILLA_STONECUTTING_RECIPES.map((recipe) => recipe.output.item)).toContain("stone_slab");
+    expect(VANILLA_STONECUTTING_RECIPES.find((recipe) => recipe.output.item === "stone_slab")?.output.count).toBe(2);
+  });
+
+  it("returns tagged failures for invalid ingredients, outputs, identifiers, and options", () => {
+    const output = itemStack("stone_slab", 2);
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, [null, "stone", output]),
+      typeFailure("Stonecutting recipe id must be a resource location"),
+    );
+    expectFailure(Reflect.apply(stonecuttingRecipe, undefined, [" ", "stone", output]), typeFailure("Stonecutting recipe id must be a resource location"));
+    for (const ingredient of [
+      "unknown",
+      {},
+      { _tag: "Exact", item: "stone", count: "1" },
+      { _tag: "ItemTag", tag: "planks", count: 1 },
+      [],
+      { _tag: "AnyOf", count: 1, options: [] },
+      { _tag: "AnyOf", count: "1", options: ["stone"] },
+    ]) {
+      expectFailure(
+        Reflect.apply(stonecuttingRecipe, undefined, ["minecraft:bad", ingredient, output]),
+        typeFailure("Stonecutting ingredient has an invalid shape"),
+      );
     }
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, ["minecraft:bad", ["stone", "invalid"], output]),
+      typeFailure("Stonecutting ingredient has an invalid shape"),
+    );
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, ["minecraft:bad", "stone", {}]),
+      typeFailure("Stonecutting recipe output must be an ItemStack"),
+    );
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, ["minecraft:bad", "stone", output, null]),
+      typeFailure("Stonecutting recipe options must be an object"),
+    );
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, [recipeId("minecraft:bad"), "stone", output, { priority: -1 }]),
+      rangeFailure("Stonecutting recipe priority must be a non-negative safe integer, received -1"),
+    );
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, [recipeId("minecraft:bad"), "stone", output, { priority: 1.5 }]),
+      rangeFailure("Stonecutting recipe priority must be a non-negative safe integer, received 1.5"),
+    );
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, ["minecraft:bad", "stone", output, { showNotification: 1 }]),
+      typeFailure("Stonecutting recipe show notification must be a boolean"),
+    );
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, ["minecraft:bad", "stone", output, { priority: "high" }]),
+      rangeFailure("Stonecutting recipe priority must be a non-negative safe integer"),
+    );
 
-    expect(() => Reflect.apply(applyStonecutting, undefined, [null, input])).toThrow(TypeError)
-    expect(() => Reflect.apply(applyStonecutting, undefined, [validRecipe, 1])).toThrow(TypeError)
-    expect(() => Reflect.apply(applyStonecutting, undefined, [validRecipe, input, null])).toThrow(TypeError)
-  })
-})
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, ["minecraft:revoked_options", "stone", output, revoked.proxy]),
+      typeFailure("Stonecutting recipe options must be an object"),
+    );
+  });
+});

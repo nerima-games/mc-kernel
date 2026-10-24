@@ -23,6 +23,7 @@
  * fixed value, per the "differences only" convention above
  * (docs/responsibility.md §3-2).
  */
+import { Brand } from 'effect'
 import type { Dimension } from './dimension.js'
 import { VANILLA_26_3_BIOME_IDS } from './vanilla-26-3-generated.js'
 
@@ -145,7 +146,31 @@ export const PRECIPITATION_KINDS = ['none', 'rain', 'snow'] as const
 export type PrecipitationKind = (typeof PRECIPITATION_KINDS)[number]
 
 /** Vanilla's own boundary: below this temperature, precipitation renders as snow. */
-export const SNOW_TEMPERATURE_THRESHOLD = 0.15
+/** Vanilla biome temperature in climate units, bounded by the shipped roster's [-0.7, 2] range. */
+export type BiomeTemperature = number & Brand.Brand<'BiomeTemperature'>
+export const BiomeTemperature: Brand.Constructor<BiomeTemperature> = Brand.make<BiomeTemperature>(
+  (value) => Number.isFinite(value) && value >= -0.7 && value <= 2
+    ? true
+    : `BiomeTemperature must be finite and in [-0.7, 2], received ${value}`,
+)
+
+/** Biome downfall as a unitless fraction in [0, 1]. */
+export type BiomeDownfall = number & Brand.Brand<'BiomeDownfall'>
+export const BiomeDownfall: Brand.Constructor<BiomeDownfall> = Brand.make<BiomeDownfall>(
+  (value) => Number.isFinite(value) && value >= 0 && value <= 1
+    ? true
+    : `BiomeDownfall must be a finite fraction in [0, 1], received ${value}`,
+)
+
+/** Packed RGB biome tint in 0xRRGGBB form. */
+export type BiomeTint = number & Brand.Brand<'BiomeTint'>
+export const BiomeTint: Brand.Constructor<BiomeTint> = Brand.make<BiomeTint>(
+  (value) => Number.isInteger(value) && value >= 0 && value <= 0xffffff
+    ? true
+    : `BiomeTint must be an integer in [0, 0xFFFFFF], received ${value}`,
+)
+
+export const SNOW_TEMPERATURE_THRESHOLD: BiomeTemperature = BiomeTemperature(0.15)
 
 /**
  * Derive the snow/rain half of precipitation from temperature so it can
@@ -153,7 +178,7 @@ export const SNOW_TEMPERATURE_THRESHOLD = 0.15
  * hot biomes such as `desert` and `savanna` have no precipitation at all),
  * so it is declared per-biome instead, see `BiomePropertyOverrides`.
  */
-export const derivePrecipitationKind = (temperature: number): 'rain' | 'snow' =>
+export const derivePrecipitationKind = (temperature: BiomeTemperature): 'rain' | 'snow' =>
   temperature < SNOW_TEMPERATURE_THRESHOLD ? 'snow' : 'rain'
 
 // ---------------------------------------------------------------------------
@@ -163,29 +188,29 @@ export const derivePrecipitationKind = (temperature: number): 'rain' | 'snow' =>
 /** A fully resolved, per-biome property set with every property present. */
 export type BiomeProperties = {
   /** Climate value driving the snow/rain split and (with `downfall`) foliage colour. */
-  readonly temperature: number
+  readonly temperature: BiomeTemperature
   /** Rainfall/humidity, 0..1. */
-  readonly downfall: number
+  readonly downfall: BiomeDownfall
   /** What falls from the sky here, if anything. */
   readonly precipitation: PrecipitationKind
   /** Grass block tint, packed 0xRRGGBB. */
-  readonly grassTint: number
+  readonly grassTint: BiomeTint
   /** Leaf/foliage tint, packed 0xRRGGBB. */
-  readonly foliageTint: number
+  readonly foliageTint: BiomeTint
   /** Water surface tint, packed 0xRRGGBB. */
-  readonly waterTint: number
+  readonly waterTint: BiomeTint
   /** Which dimension generates this biome. */
   readonly dimension: Dimension
 }
 
 /** Defaults for an ordinary temperate overworld biome (plains' climate). */
 export const BIOME_PROPERTY_DEFAULTS: BiomeProperties = {
-  temperature: 0.8,
-  downfall: 0.4,
+  temperature: BiomeTemperature(0.8),
+  downfall: BiomeDownfall(0.4),
   precipitation: 'rain',
-  grassTint: 0x91bd59,
-  foliageTint: 0x77ab2f,
-  waterTint: 0x3f76e4,
+  grassTint: BiomeTint(0x91bd59),
+  foliageTint: BiomeTint(0x77ab2f),
+  waterTint: BiomeTint(0x3f76e4),
   dimension: 'overworld',
 }
 
@@ -198,12 +223,12 @@ export const BIOME_PROPERTY_DEFAULTS: BiomeProperties = {
  * merely wrong to write.
  */
 export type BiomePropertyOverrides = {
-  readonly temperature?: number
-  readonly downfall?: number
+  readonly temperature?: BiomeTemperature
+  readonly downfall?: BiomeDownfall
   readonly precipitation?: 'none'
-  readonly grassTint?: number
-  readonly foliageTint?: number
-  readonly waterTint?: number
+  readonly grassTint?: BiomeTint
+  readonly foliageTint?: BiomeTint
+  readonly waterTint?: BiomeTint
   readonly dimension?: Dimension
 }
 
@@ -212,164 +237,164 @@ export const BIOME_PROPERTY_OVERRIDES: Record<BiomeType, BiomePropertyOverrides>
   // ---------------------------------------------------------------------------
   // Oceans
   // ---------------------------------------------------------------------------
-  ocean: { temperature: 0.5, downfall: 0.5 },
-  deep_ocean: { temperature: 0.5, downfall: 0.5 },
-  warm_ocean: { temperature: 0.5, downfall: 0.5, waterTint: 0x43d5ee },
-  lukewarm_ocean: { temperature: 0.5, downfall: 0.5, waterTint: 0x45adf2 },
-  deep_lukewarm_ocean: { temperature: 0.5, downfall: 0.5, waterTint: 0x45adf2 },
-  cold_ocean: { temperature: 0.5, downfall: 0.5, waterTint: 0x3d57d6 },
-  deep_cold_ocean: { temperature: 0.5, downfall: 0.5, waterTint: 0x3d57d6 },
-  frozen_ocean: { temperature: 0, downfall: 0.5, waterTint: 0x3938c9 },
+  ocean: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5) },
+  deep_ocean: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5) },
+  warm_ocean: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5), waterTint: BiomeTint(0x43d5ee) },
+  lukewarm_ocean: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5), waterTint: BiomeTint(0x45adf2) },
+  deep_lukewarm_ocean: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5), waterTint: BiomeTint(0x45adf2) },
+  cold_ocean: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5), waterTint: BiomeTint(0x3d57d6) },
+  deep_cold_ocean: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5), waterTint: BiomeTint(0x3d57d6) },
+  frozen_ocean: { temperature: BiomeTemperature(0), downfall: BiomeDownfall(0.5), waterTint: BiomeTint(0x3938c9) },
   // Upstream's stored temperature is 0.5, not 0: vanilla's frozen surface
   // (icebergs, packed ice) comes from the `frozen` temperature_modifier, a
   // noise-based generation-time adjustment this table does not model
   // (mc-worldgen's concern, not the kernel's climate table). Read literally,
   // this makes deep_frozen_ocean derive `rain`, unlike frozen_ocean's `snow`
   // — a real, verified asymmetry between the two biomes, not a bent value.
-  deep_frozen_ocean: { temperature: 0.5, downfall: 0.5, waterTint: 0x3938c9 },
+  deep_frozen_ocean: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5), waterTint: BiomeTint(0x3938c9) },
 
   // ---------------------------------------------------------------------------
   // Rivers
   // ---------------------------------------------------------------------------
-  river: { temperature: 0.5, downfall: 0.5 },
-  frozen_river: { temperature: 0, downfall: 0.5, waterTint: 0x3938c9 },
+  river: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5) },
+  frozen_river: { temperature: BiomeTemperature(0), downfall: BiomeDownfall(0.5), waterTint: BiomeTint(0x3938c9) },
 
   // ---------------------------------------------------------------------------
   // Beaches and shores
   // ---------------------------------------------------------------------------
   beach: {},
-  snowy_beach: { temperature: 0.05, downfall: 0.3, waterTint: 0x3d57d6 },
-  stony_shore: { temperature: 0.2, downfall: 0.3 },
+  snowy_beach: { temperature: BiomeTemperature(0.05), downfall: BiomeDownfall(0.3), waterTint: BiomeTint(0x3d57d6) },
+  stony_shore: { temperature: BiomeTemperature(0.2), downfall: BiomeDownfall(0.3) },
 
   // ---------------------------------------------------------------------------
   // Plains
   // ---------------------------------------------------------------------------
   plains: {},
   sunflower_plains: {},
-  snowy_plains: { temperature: 0, downfall: 0.5 },
-  ice_spikes: { temperature: 0, downfall: 0.5 },
+  snowy_plains: { temperature: BiomeTemperature(0), downfall: BiomeDownfall(0.5) },
+  ice_spikes: { temperature: BiomeTemperature(0), downfall: BiomeDownfall(0.5) },
 
   // ---------------------------------------------------------------------------
   // Desert — hot and explicitly dry, not merely too warm for snow.
   // ---------------------------------------------------------------------------
-  desert: { temperature: 2, downfall: 0, precipitation: 'none' },
+  desert: { temperature: BiomeTemperature(2), downfall: BiomeDownfall(0), precipitation: 'none' },
 
   // ---------------------------------------------------------------------------
   // Mushroom fields
   // ---------------------------------------------------------------------------
-  mushroom_fields: { temperature: 0.9, downfall: 1 },
+  mushroom_fields: { temperature: BiomeTemperature(0.9), downfall: BiomeDownfall(1) },
 
   // ---------------------------------------------------------------------------
   // Swamps — both use the `swamp` grass_color_modifier upstream, so
   // grassTint is left at the default rather than a fixed value; only water
   // and foliage are stored colours.
   // ---------------------------------------------------------------------------
-  swamp: { downfall: 0.9, foliageTint: 0x6a7039, waterTint: 0x617b64 },
-  mangrove_swamp: { downfall: 0.9, foliageTint: 0x8db127, waterTint: 0x3a7a6a },
+  swamp: { downfall: BiomeDownfall(0.9), foliageTint: BiomeTint(0x6a7039), waterTint: BiomeTint(0x617b64) },
+  mangrove_swamp: { downfall: BiomeDownfall(0.9), foliageTint: BiomeTint(0x8db127), waterTint: BiomeTint(0x3a7a6a) },
 
   // ---------------------------------------------------------------------------
   // Forests
   // ---------------------------------------------------------------------------
-  forest: { temperature: 0.7, downfall: 0.8 },
-  flower_forest: { temperature: 0.7, downfall: 0.8 },
-  birch_forest: { temperature: 0.6, downfall: 0.6 },
-  old_growth_birch_forest: { temperature: 0.6, downfall: 0.6 },
+  forest: { temperature: BiomeTemperature(0.7), downfall: BiomeDownfall(0.8) },
+  flower_forest: { temperature: BiomeTemperature(0.7), downfall: BiomeDownfall(0.8) },
+  birch_forest: { temperature: BiomeTemperature(0.6), downfall: BiomeDownfall(0.6) },
+  old_growth_birch_forest: { temperature: BiomeTemperature(0.6), downfall: BiomeDownfall(0.6) },
   // Upstream also carries a `dark_forest` grass_color_modifier this table
   // does not model, so grassTint is left at the default rather than a fixed
   // value (same reasoning as the swamp group above).
-  dark_forest: { temperature: 0.7, downfall: 0.8 },
+  dark_forest: { temperature: BiomeTemperature(0.7), downfall: BiomeDownfall(0.8) },
 
   // ---------------------------------------------------------------------------
   // Taigas
   // ---------------------------------------------------------------------------
-  taiga: { temperature: 0.25, downfall: 0.8 },
-  snowy_taiga: { temperature: -0.5, downfall: 0.4, waterTint: 0x3d57d6 },
-  old_growth_pine_taiga: { temperature: 0.3, downfall: 0.8 },
-  old_growth_spruce_taiga: { temperature: 0.25, downfall: 0.8 },
+  taiga: { temperature: BiomeTemperature(0.25), downfall: BiomeDownfall(0.8) },
+  snowy_taiga: { temperature: BiomeTemperature(-0.5), downfall: BiomeDownfall(0.4), waterTint: BiomeTint(0x3d57d6) },
+  old_growth_pine_taiga: { temperature: BiomeTemperature(0.3), downfall: BiomeDownfall(0.8) },
+  old_growth_spruce_taiga: { temperature: BiomeTemperature(0.25), downfall: BiomeDownfall(0.8) },
 
   // ---------------------------------------------------------------------------
   // Savannas — hot and explicitly dry, like desert.
   // ---------------------------------------------------------------------------
-  savanna: { temperature: 2, downfall: 0, precipitation: 'none' },
-  savanna_plateau: { temperature: 2, downfall: 0, precipitation: 'none' },
+  savanna: { temperature: BiomeTemperature(2), downfall: BiomeDownfall(0), precipitation: 'none' },
+  savanna_plateau: { temperature: BiomeTemperature(2), downfall: BiomeDownfall(0), precipitation: 'none' },
 
   // ---------------------------------------------------------------------------
   // Windswept
   // ---------------------------------------------------------------------------
-  windswept_hills: { temperature: 0.2, downfall: 0.3 },
-  windswept_gravelly_hills: { temperature: 0.2, downfall: 0.3 },
-  windswept_forest: { temperature: 0.2, downfall: 0.3 },
-  windswept_savanna: { temperature: 2, downfall: 0, precipitation: 'none' },
+  windswept_hills: { temperature: BiomeTemperature(0.2), downfall: BiomeDownfall(0.3) },
+  windswept_gravelly_hills: { temperature: BiomeTemperature(0.2), downfall: BiomeDownfall(0.3) },
+  windswept_forest: { temperature: BiomeTemperature(0.2), downfall: BiomeDownfall(0.3) },
+  windswept_savanna: { temperature: BiomeTemperature(2), downfall: BiomeDownfall(0), precipitation: 'none' },
 
   // ---------------------------------------------------------------------------
   // Jungles
   // ---------------------------------------------------------------------------
-  jungle: { temperature: 0.95, downfall: 0.9 },
-  sparse_jungle: { temperature: 0.95, downfall: 0.8 },
-  bamboo_jungle: { temperature: 0.95, downfall: 0.9 },
+  jungle: { temperature: BiomeTemperature(0.95), downfall: BiomeDownfall(0.9) },
+  sparse_jungle: { temperature: BiomeTemperature(0.95), downfall: BiomeDownfall(0.8) },
+  bamboo_jungle: { temperature: BiomeTemperature(0.95), downfall: BiomeDownfall(0.9) },
 
   // ---------------------------------------------------------------------------
   // Badlands — hot, explicitly dry, and the one group with its own fixed
   // grass/foliage tint rather than the temperature/downfall-derived default.
   // ---------------------------------------------------------------------------
-  badlands: { temperature: 2, downfall: 0, precipitation: 'none', grassTint: 0x90814d, foliageTint: 0x9e814d },
+  badlands: { temperature: BiomeTemperature(2), downfall: BiomeDownfall(0), precipitation: 'none', grassTint: BiomeTint(0x90814d), foliageTint: BiomeTint(0x9e814d) },
   eroded_badlands: {
-    temperature: 2,
-    downfall: 0,
+    temperature: BiomeTemperature(2),
+    downfall: BiomeDownfall(0),
     precipitation: 'none',
-    grassTint: 0x90814d,
-    foliageTint: 0x9e814d,
+    grassTint: BiomeTint(0x90814d),
+    foliageTint: BiomeTint(0x9e814d),
   },
   wooded_badlands: {
-    temperature: 2,
-    downfall: 0,
+    temperature: BiomeTemperature(2),
+    downfall: BiomeDownfall(0),
     precipitation: 'none',
-    grassTint: 0x90814d,
-    foliageTint: 0x9e814d,
+    grassTint: BiomeTint(0x90814d),
+    foliageTint: BiomeTint(0x9e814d),
   },
 
   // ---------------------------------------------------------------------------
   // Mountains and peaks
   // ---------------------------------------------------------------------------
-  meadow: { temperature: 0.5, downfall: 0.8, waterTint: 0x0e4ecf },
-  cherry_grove: { temperature: 0.5, downfall: 0.8, grassTint: 0xb6db61, foliageTint: 0xb6db61, waterTint: 0x5db7ef },
-  grove: { temperature: -0.2, downfall: 0.8 },
-  snowy_slopes: { temperature: -0.3, downfall: 0.9 },
-  frozen_peaks: { temperature: -0.7, downfall: 0.9 },
-  jagged_peaks: { temperature: -0.7, downfall: 0.9 },
-  stony_peaks: { temperature: 1, downfall: 0.3 },
+  meadow: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.8), waterTint: BiomeTint(0x0e4ecf) },
+  cherry_grove: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.8), grassTint: BiomeTint(0xb6db61), foliageTint: BiomeTint(0xb6db61), waterTint: BiomeTint(0x5db7ef) },
+  grove: { temperature: BiomeTemperature(-0.2), downfall: BiomeDownfall(0.8) },
+  snowy_slopes: { temperature: BiomeTemperature(-0.3), downfall: BiomeDownfall(0.9) },
+  frozen_peaks: { temperature: BiomeTemperature(-0.7), downfall: BiomeDownfall(0.9) },
+  jagged_peaks: { temperature: BiomeTemperature(-0.7), downfall: BiomeDownfall(0.9) },
+  stony_peaks: { temperature: BiomeTemperature(1), downfall: BiomeDownfall(0.3) },
 
   // ---------------------------------------------------------------------------
   // The empty biome
   // ---------------------------------------------------------------------------
-  the_void: { temperature: 0.5, downfall: 0.5, precipitation: 'none' },
+  the_void: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5), precipitation: 'none' },
 
   // ---------------------------------------------------------------------------
   // Caves — generate within the overworld dimension.
   // ---------------------------------------------------------------------------
   dripstone_caves: {},
-  lush_caves: { temperature: 0.5, downfall: 0.5 },
+  lush_caves: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5) },
   deep_dark: {},
 
   // ---------------------------------------------------------------------------
   // Nether — hot, dry, and its own dimension.
   // ---------------------------------------------------------------------------
-  nether_wastes: { temperature: 2, downfall: 0, precipitation: 'none', dimension: 'nether' },
-  crimson_forest: { temperature: 2, downfall: 0, precipitation: 'none', dimension: 'nether' },
-  warped_forest: { temperature: 2, downfall: 0, precipitation: 'none', dimension: 'nether' },
-  soul_sand_valley: { temperature: 2, downfall: 0, precipitation: 'none', dimension: 'nether' },
-  basalt_deltas: { temperature: 2, downfall: 0, precipitation: 'none', dimension: 'nether' },
+  nether_wastes: { temperature: BiomeTemperature(2), downfall: BiomeDownfall(0), precipitation: 'none', dimension: 'nether' },
+  crimson_forest: { temperature: BiomeTemperature(2), downfall: BiomeDownfall(0), precipitation: 'none', dimension: 'nether' },
+  warped_forest: { temperature: BiomeTemperature(2), downfall: BiomeDownfall(0), precipitation: 'none', dimension: 'nether' },
+  soul_sand_valley: { temperature: BiomeTemperature(2), downfall: BiomeDownfall(0), precipitation: 'none', dimension: 'nether' },
+  basalt_deltas: { temperature: BiomeTemperature(2), downfall: BiomeDownfall(0), precipitation: 'none', dimension: 'nether' },
 
   // ---------------------------------------------------------------------------
   // The End — no weather, its own dimension, and its own fixed climate
   // (0.5/0.5, not the overworld-temperate default).
   // ---------------------------------------------------------------------------
-  the_end: { temperature: 0.5, downfall: 0.5, precipitation: 'none', dimension: 'end' },
-  small_end_islands: { temperature: 0.5, downfall: 0.5, precipitation: 'none', dimension: 'end' },
-  end_midlands: { temperature: 0.5, downfall: 0.5, precipitation: 'none', dimension: 'end' },
-  end_highlands: { temperature: 0.5, downfall: 0.5, precipitation: 'none', dimension: 'end' },
-  end_barrens: { temperature: 0.5, downfall: 0.5, precipitation: 'none', dimension: 'end' },
-  dappled_forest: { temperature: 0.6, downfall: 0.6, grassTint: 0xdf6827, foliageTint: 0xe68e30, waterTint: 0x375154 },
-  pale_garden: { temperature: 0.7, downfall: 0.8, grassTint: 0x778272, foliageTint: 0x878d76, waterTint: 0x76889d },
-  sulfur_caves: { grassTint: 0xaba64f, waterTint: 0x34bf89 },
+  the_end: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5), precipitation: 'none', dimension: 'end' },
+  small_end_islands: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5), precipitation: 'none', dimension: 'end' },
+  end_midlands: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5), precipitation: 'none', dimension: 'end' },
+  end_highlands: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5), precipitation: 'none', dimension: 'end' },
+  end_barrens: { temperature: BiomeTemperature(0.5), downfall: BiomeDownfall(0.5), precipitation: 'none', dimension: 'end' },
+  dappled_forest: { temperature: BiomeTemperature(0.6), downfall: BiomeDownfall(0.6), grassTint: BiomeTint(0xdf6827), foliageTint: BiomeTint(0xe68e30), waterTint: BiomeTint(0x375154) },
+  pale_garden: { temperature: BiomeTemperature(0.7), downfall: BiomeDownfall(0.8), grassTint: BiomeTint(0x778272), foliageTint: BiomeTint(0x878d76), waterTint: BiomeTint(0x76889d) },
+  sulfur_caves: { grassTint: BiomeTint(0xaba64f), waterTint: BiomeTint(0x34bf89) },
 }

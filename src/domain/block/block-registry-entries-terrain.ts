@@ -1,11 +1,11 @@
 /** Registry entries 36-49; the numeric order is the wire-level BlockId order. */
 import { BlockId } from './block-registry-types.js'
-import type { BlockRegistryEntry } from './block-registry-types.js'
+import type { BlockRegistryEntryInput } from './block-registry-entry-input.js'
 import { StackCount } from '../time/quantities.js'
 import { DEFAULT_BLOCK_DROP } from './block-harvest-data.js'
 import { DROPS_NOTHING, NEEDS_WOODEN_PICKAXE, NEEDS_DIAMOND_PICKAXE, FASTER_WITH_SHOVEL } from './block-registry-rules.js'
 
-export const BLOCK_REGISTRY_TERRAIN: ReadonlyArray<BlockRegistryEntry> = [
+export const BLOCK_REGISTRY_TERRAIN: ReadonlyArray<BlockRegistryEntryInput> = [
   // ---------------------------------------------------------------------------
   // ids 36-49: terrain and mineral stone (`blocks.config.terrain.ts`)
   // ---------------------------------------------------------------------------

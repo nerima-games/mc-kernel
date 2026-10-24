@@ -1,38 +1,48 @@
 import { Brand } from "effect";
-import { Either } from "effect";
-import { TaggedError } from "effect/Data";
+import { Result } from "effect";
+import { MAX_GENERIC_INPUT_ARRAY_LENGTH, snapshotInputValue } from "../../input-snapshot.js";
 import { NamespacedResourceLocation } from "../text/identifiers.js";
 import {
   isJsonValue,
-  jsonValueFromUnknown,
   jsonValuesEqual,
   type JsonValue,
 } from "../text/json-value.js";
 import { isItemComponents, itemComponentsSnapshot, type ItemComponents } from "./item-components-validation.js";
-export const ItemComponentPatchConflictError: new (args: { readonly componentKey: string }) => {
-  readonly _tag: "ItemComponentPatchConflictError";
-  readonly componentKey: string;
-} = TaggedError("ItemComponentPatchConflictError");
+import { itemValidationFailure, type ItemValidationFailure } from "./item-failure.js";
 
-export type ItemComponentPatchDecodeError = Error | Readonly<{
+export type ItemComponentPatchConflict = Readonly<{
   readonly _tag: "ItemComponentPatchConflictError";
-  readonly componentKey: string;
+  readonly componentKey: NamespacedResourceLocation;
 }>;
+export type ItemComponentPatchDecodeError = ItemValidationFailure | ItemComponentPatchConflict;
+
+export const ItemComponentPatchConflictError = (
+  args: Readonly<{ readonly componentKey: string }>,
+): Result.Result<ItemComponentPatchConflict, ItemComponentPatchDecodeError> =>
+  Result.mapError(
+    Result.map(NamespacedResourceLocation.result(args.componentKey), (brandedComponentKey) => ({
+      _tag: "ItemComponentPatchConflictError" as const,
+      componentKey: brandedComponentKey,
+    })),
+    (error) => itemValidationFailure(
+      args.componentKey,
+      error.message,
+      "invalid-value",
+      args.componentKey,
+    ),
+  );
 
 /** A component key, optionally prefixed with `!` to remove that component. */
 export type ItemComponentPatchKey = string &
   Brand.Brand<"ItemComponentPatchKey">;
 
-export const ItemComponentPatchKey: Brand.Brand.Constructor<ItemComponentPatchKey> =
-  Brand.refined<ItemComponentPatchKey>(
-    (value) =>
-      NamespacedResourceLocation.is(
-        value.startsWith("!") ? value.slice(1) : value,
-      ),
-    (value) =>
-      Brand.error(
-        `ItemComponentPatchKey must be a namespaced component with an optional ! prefix, received ${JSON.stringify(value)}`,
-      ),
+export const ItemComponentPatchKey: Brand.Constructor<ItemComponentPatchKey> =
+  Brand.make<ItemComponentPatchKey>((value) =>
+    NamespacedResourceLocation.is(
+      value.startsWith("!") ? value.slice(1) : value,
+    )
+      ? true
+      : `ItemComponentPatchKey must be a namespaced component with an optional ! prefix, received ${JSON.stringify(value)}`,
   );
 
 export type ItemComponentPatch = Readonly<
@@ -41,126 +51,96 @@ export type ItemComponentPatch = Readonly<
 
 export type ItemComponentPatchOptions = Readonly<Record<string, JsonValue>>;
 
-type UnknownRecord = Readonly<Record<string, unknown>>;
+const failure = (
+  field: string,
+  message: string,
+  reason: ItemValidationFailure["reason"] = "invalid-value",
+  value?: unknown,
+): ItemComponentPatchDecodeError => itemValidationFailure(field, message, reason, value);
 
-const isPlainRecord = (value: unknown): value is UnknownRecord => {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-};
-
-const isItemComponentPatchEntry = (key: string, value: unknown): boolean =>
-  ItemComponentPatchKey.is(key) && isJsonValue(value);
-
-export const isItemComponentPatch = (
+export const decodeItemComponentPatch = (
   value: unknown,
-): value is ItemComponentPatch => {
-  try {
-    return isPlainRecord(value) &&
-      Object.keys(value).every((key) => isItemComponentPatchEntry(key, value[key]));
-  } catch {
-    return false;
+): Result.Result<ItemComponentPatch, ItemComponentPatchDecodeError> => {
+  const snapshot = snapshotInputValue(value, MAX_GENERIC_INPUT_ARRAY_LENGTH);
+  if (Result.isFailure(snapshot)) {
+    const reason = snapshot.failure.reason === 'hostile-input'
+      ? 'hostile-input'
+      : snapshot.failure.reason === 'too-large'
+        ? 'out-of-range'
+        : snapshot.failure.reason === 'unsupported-prototype' || snapshot.failure.reason === 'invalid-container'
+          ? 'invalid-type'
+          : 'invalid-value'
+    const field = snapshot.failure.path ?? 'patch'
+    return Result.fail(failure(field, "Item component patch must be a plain JSON object", reason, snapshot.failure.value));
   }
-};
-
-export const itemComponentPatchFromUnknown = (
-  value: unknown,
-): ItemComponentPatch => {
-  if (!isPlainRecord(value)) {
-    throw new TypeError("Item component patch must be a plain object");
+  if (typeof snapshot.success !== 'object' || snapshot.success === null || Array.isArray(snapshot.success)) {
+    return Result.fail(failure("patch", "Item component patch must be a plain object", "invalid-type", value));
   }
   const normalized: Record<ItemComponentPatchKey, JsonValue> = {};
   const canonicalKeys = new Set<string>();
-  for (const key of Object.keys(value)) {
-    if (!ItemComponentPatchKey.is(key)) {
-      throw new TypeError(`Item component key must be namespaced: ${key}`);
+  for (const [key, componentValue] of Object.entries(snapshot.success)) {
+    const brandedKey = ItemComponentPatchKey.result(key);
+    if (Result.isFailure(brandedKey)) {
+      return Result.fail(failure(key, brandedKey.failure.message, "invalid-value", key));
     }
-    const componentValue = value[key];
     if (!isJsonValue(componentValue)) {
-      throw new TypeError(`Item component value must be JSON: ${key}`);
+      const reason = componentValue === undefined ? 'invalid-type' : 'invalid-value'
+      return Result.fail(failure(key, `Item component value must be JSON: ${key}`, reason, componentValue));
     }
     const canonicalKey = key.startsWith("!") ? key.slice(1) : key;
     if (canonicalKeys.has(canonicalKey)) {
-      throw new ItemComponentPatchConflictError({ componentKey: canonicalKey });
+      return Result.flatMap(
+        ItemComponentPatchConflictError({ componentKey: canonicalKey }),
+        (conflict) => Result.fail(conflict),
+      );
     }
     canonicalKeys.add(canonicalKey);
-    normalized[ItemComponentPatchKey(key)] =
-      jsonValueFromUnknown(componentValue);
+    normalized[brandedKey.success] = componentValue;
   }
-  return Object.freeze(normalized);
+  return Result.succeed(Object.freeze(normalized));
 };
 
-export const itemComponentPatchFromUnknownEither = (
+export const isItemComponentPatch = (
   value: unknown,
-): Either.Either<ItemComponentPatch, ItemComponentPatchDecodeError> =>
-  Either.try({
-    try: () => itemComponentPatchFromUnknown(value),
-    catch: (error) => (error instanceof Error ? error : new Error("Invalid item component patch")),
-  });
+): value is ItemComponentPatch => Result.isSuccess(decodeItemComponentPatch(value));
 
 export const itemComponentPatch = (
   options: ItemComponentPatchOptions,
-): ItemComponentPatch => itemComponentPatchFromUnknown(options);
+): Result.Result<ItemComponentPatch, ItemComponentPatchDecodeError> => decodeItemComponentPatch(options);
 
-export function mergeItemComponentPatches(
-  left: ItemComponentPatch | undefined,
-  right: ItemComponentPatch,
-): ItemComponentPatch;
-export function mergeItemComponentPatches(
+const mergeDecodedPatches = (
   left: ItemComponentPatch,
-  right: ItemComponentPatch | undefined,
-): ItemComponentPatch;
-export function mergeItemComponentPatches(
-  left: ItemComponentPatch | undefined,
-  right: ItemComponentPatch | undefined,
-): ItemComponentPatch | undefined;
-export function mergeItemComponentPatches(
-  left: ItemComponentPatch | undefined,
-  right: ItemComponentPatch | undefined,
-): ItemComponentPatch | undefined {
-  if (left !== undefined && !isItemComponentPatch(left)) {
-    throw new TypeError("Left item component patch is invalid");
-  }
-  if (right !== undefined && !isItemComponentPatch(right)) {
-    throw new TypeError("Right item component patch is invalid");
-  }
-  if (left === undefined) {
-    return right === undefined ? undefined : itemComponentPatchFromUnknown(right);
-  }
-  if (right === undefined) {
-    return itemComponentPatchFromUnknown(left);
-  }
-  const merged: Record<string, JsonValue> = {};
+  right: ItemComponentPatch,
+): Result.Result<ItemComponentPatch, ItemComponentPatchDecodeError> => {
+  const merged: Record<string, unknown> = {};
   for (const patch of [left, right]) {
-    for (const key of Object.keys(patch)) {
-      const componentKey = ItemComponentPatchKey(key);
-      const value = patch[componentKey];
-      if (value === undefined) {
-        throw new TypeError(
-          `Item component patch has an invalid value: ${key}`,
-        );
-      }
+    for (const [key, value] of Object.entries(patch)) {
       const removal = key.startsWith("!");
       const canonicalKey = removal ? key.slice(1) : key;
       const oppositeKey = removal ? canonicalKey : `!${canonicalKey}`;
       if (Object.hasOwn(merged, key) || Object.hasOwn(merged, oppositeKey)) {
-        throw new ItemComponentPatchConflictError({ componentKey: canonicalKey });
+        return Result.flatMap(
+          ItemComponentPatchConflictError({ componentKey: canonicalKey }),
+          (conflict) => Result.fail(conflict),
+        );
       }
       merged[key] = value;
     }
   }
-  return itemComponentPatchFromUnknown(merged);
-}
+  return decodeItemComponentPatch(merged);
+};
 
-export const mergeItemComponentPatchesEither = (
+export const mergeItemComponentPatches = (
   left: ItemComponentPatch | undefined,
   right: ItemComponentPatch | undefined,
-): Either.Either<ItemComponentPatch | undefined, ItemComponentPatchDecodeError> =>
-  Either.try({
-    try: () => mergeItemComponentPatches(left, right),
-    catch: (error) => (error instanceof Error ? error : new Error("Invalid item component patch")),
+): Result.Result<ItemComponentPatch | undefined, ItemComponentPatchDecodeError> =>
+  Result.gen(function* () {
+    if (left !== undefined) yield* decodeItemComponentPatch(left);
+    const decodedRight = right === undefined ? undefined : yield* decodeItemComponentPatch(right);
+    if (left === undefined) return decodedRight;
+    const currentLeft = yield* decodeItemComponentPatch(left);
+    if (decodedRight === undefined) return currentLeft;
+    return yield* mergeDecodedPatches(currentLeft, decodedRight);
   });
 
 const COMPONENT_NAMES: Readonly<Record<string, keyof ItemComponents>> = {
@@ -247,29 +227,36 @@ const COMPONENT_NAMES: Readonly<Record<string, keyof ItemComponents>> = {
   sulfur_cube_content: "sulfurCubeContent",
 };
 
+export type ApplyItemComponentPatchFailure = ItemComponentPatchDecodeError | ItemValidationFailure;
+
 export const applyItemComponentPatch = (
   base: ItemComponents,
   patch: ItemComponentPatch,
-): ItemComponents => {
-  if (!isItemComponents(base)) throw new TypeError("Base item components are invalid");
-  if (!isItemComponentPatch(patch)) throw new TypeError("Item component patch is invalid");
-  let next: Record<string, unknown> = { ...base };
-  for (const key of Object.keys(patch)) {
-    const componentKey = key.startsWith("!") ? key.slice(1) : key;
-    const field = COMPONENT_NAMES[componentKey.slice(componentKey.indexOf(":") + 1)];
-    if (field === undefined) throw new TypeError(`Unsupported item component: ${componentKey}`);
-    if (key.startsWith("!")) {
-      if (patch[ItemComponentPatchKey(key)] !== null) {
-        throw new TypeError(`Removal patch must use null: ${key}`);
+): Result.Result<ItemComponents, ApplyItemComponentPatchFailure> =>
+  Result.gen(function* () {
+    const snapshot = yield* itemComponentsSnapshot(base);
+    const decoded = yield* decodeItemComponentPatch(patch);
+    let next: Record<string, unknown> = { ...snapshot };
+    for (const [key, patchValue] of Object.entries(decoded)) {
+      const componentKey = key.startsWith("!") ? key.slice(1) : key;
+      const field = COMPONENT_NAMES[componentKey.slice(componentKey.indexOf(":") + 1)];
+      if (field === undefined) {
+        return yield* Result.fail(failure(key, `Unsupported item component: ${componentKey}`, "invalid-value", componentKey));
       }
-      next = Object.fromEntries(Object.entries(next).filter(([propertyKey]) => propertyKey !== field));
-    } else {
-      next[field] = patch[ItemComponentPatchKey(key)];
+      if (key.startsWith("!")) {
+        if (patchValue !== null) {
+          return yield* Result.fail(failure(key, `Removal patch must use null: ${key}`, "invalid-value", patchValue));
+        }
+        next = Object.fromEntries(Object.entries(next).filter(([propertyKey]) => propertyKey !== field));
+      } else {
+        next[field] = patchValue;
+      }
     }
-  }
-  if (!isItemComponents(next)) throw new TypeError("Patched item components are invalid");
-  return itemComponentsSnapshot(next);
-};
+    if (!isItemComponents(next)) {
+      return yield* Result.fail(failure("components", "Patched item components are invalid", "invalid-value", next));
+    }
+    return yield* itemComponentsSnapshot(next);
+  });
 
 export const itemComponentPatchesEqual = (
   left: ItemComponentPatch | undefined,
@@ -289,7 +276,7 @@ export const itemComponentPatchesEqual = (
       if (!ItemComponentPatchKey.is(key)) {
         return false;
       }
-      const rightKey = ItemComponentPatchKey(key);
+      const rightKey = key;
       const leftValue = left[rightKey];
       const rightValue = right[rightKey];
       return (

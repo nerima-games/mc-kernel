@@ -39,14 +39,18 @@
  * is answered by the mechanism rather than by the location — the table states
  * OVERRIDES only, so a wrong row is one wrong line rather than a fork.
  */
+import { Result } from 'effect'
+import { snapshotInputRecord } from '../../input-snapshot.js'
 import {
   type BlockCapabilities,
   type BlockCapabilityOverrides,
+  type BlockCapabilityFailure,
   resolveBlockCapabilities,
 } from './block-capabilities.js'
 import {
   type BlockProperties,
   type BlockPropertyOverrides,
+  type BlockPropertyFailure,
   resolveBlockProperties,
 } from './block-properties.js'
 import { isBlockType, type BlockType } from './block-type.js'
@@ -73,53 +77,94 @@ export type ResolvedBlock = {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const assertKnownDefinitionKeys = (definition: Record<string, unknown>): void => {
-  for (const key of Object.keys(definition)) {
-    if (!['type', 'capabilities', 'properties'].includes(key)) {
-      throw new TypeError(`unknown block definition field ${key}`)
-    }
-  }
+export type BlockDefinitionFailure = {
+  readonly _tag: 'BlockDefinitionFailure'
+  readonly reason: 'unknown-field' | 'invalid-shape'
+  readonly message: string
 }
 
-function validateBlockDefinition(definition: unknown): asserts definition is BlockDefinition {
-  if (!isRecord(definition)) {
-    throw new TypeError('block definition must be an object')
-  }
-  assertKnownDefinitionKeys(definition)
+const failure = (
+  reason: BlockDefinitionFailure['reason'],
+  message: string,
+): Result.Result<never, BlockDefinitionFailure> =>
+  Result.fail({ _tag: 'BlockDefinitionFailure', reason, message })
 
-  if (!isBlockType(definition['type'])) {
-    throw new TypeError('BlockDefinition.type must be a registered BlockType')
+function validateBlockDefinition(
+  definition: BlockDefinition,
+): Result.Result<BlockDefinition, BlockDefinitionFailure> {
+  const snapshot = snapshotInputRecord(
+    definition,
+    ['type', 'capabilities', 'properties'],
+    ['type', 'capabilities', 'properties'],
+  )
+  if (Result.isFailure(snapshot)) {
+    return snapshot.failure.reason === 'unexpected-field'
+      ? failure('unknown-field', `unknown block definition field ${snapshot.failure.field}`)
+      : failure('invalid-shape', 'block definition must be an object')
   }
-  if (definition['capabilities'] !== undefined && !isRecord(definition['capabilities'])) {
-    throw new TypeError('BlockDefinition.capabilities must be an object')
+
+  const type = snapshot.success['type']
+  const capabilities = snapshot.success['capabilities']
+  const properties = snapshot.success['properties']
+  if (!isBlockType(type)) {
+    return failure('invalid-shape', 'BlockDefinition.type must be a registered BlockType')
   }
-  if (definition['properties'] !== undefined && !isRecord(definition['properties'])) {
-    throw new TypeError('BlockDefinition.properties must be an object')
+  if (capabilities !== undefined && !isRecord(capabilities)) {
+    return failure('invalid-shape', 'BlockDefinition.capabilities must be an object')
   }
+  if (properties !== undefined && !isRecord(properties)) {
+    return failure('invalid-shape', 'BlockDefinition.properties must be an object')
+  }
+  return Result.succeed({
+    type,
+    ...(capabilities === undefined ? {} : { capabilities }),
+    ...(properties === undefined ? {} : { properties }),
+  })
+}
+
+const resolveCapabilities = (
+  overrides: BlockCapabilityOverrides,
+): Result.Result<BlockCapabilities, BlockCapabilityFailure> => {
+  const result = resolveBlockCapabilities(overrides)
+  if (Result.isFailure(result) && result.failure.reason === 'hostile-input') {
+    return Result.fail({
+      _tag: 'BlockCapabilityFailure',
+      reason: 'not-boolean',
+      message: 'block capability fields must be readable as booleans',
+    })
+  }
+  return result
 }
 
 /** Resolve a definition's capability flags, defaulting an absent field to the defaults. */
-export const blockCapabilitiesOf = (definition: BlockDefinition): BlockCapabilities => {
-  validateBlockDefinition(definition)
-  return resolveBlockCapabilities(definition.capabilities ?? {})
-}
+export const blockCapabilitiesOf = (
+  definition: BlockDefinition,
+): Result.Result<BlockCapabilities, BlockDefinitionFailure | BlockCapabilityFailure> =>
+  Result.flatMap(validateBlockDefinition(definition), (validated) =>
+    resolveCapabilities(validated.capabilities ?? {}),
+  )
 
 /** Resolve a definition's typed properties, defaulting an absent field to the defaults. */
-export const blockPropertiesOf = (definition: BlockDefinition): BlockProperties => {
-  validateBlockDefinition(definition)
-  return resolveBlockProperties(definition.properties ?? {})
-}
+export const blockPropertiesOf = (
+  definition: BlockDefinition,
+): Result.Result<BlockProperties, BlockDefinitionFailure | BlockPropertyFailure> =>
+  Result.flatMap(validateBlockDefinition(definition), (validated) =>
+    resolveBlockProperties(validated.properties ?? {}),
+  )
 
 /** Resolve both halves at once. */
-export const resolveBlock = (definition: BlockDefinition): ResolvedBlock => {
-  validateBlockDefinition(definition)
-
-  return {
-    capabilities: resolveBlockCapabilities(definition.capabilities ?? {}),
-    properties: resolveBlockProperties(definition.properties ?? {}),
-    type: definition.type,
-  }
-}
+export const resolveBlock = (
+  definition: BlockDefinition,
+): Result.Result<
+  ResolvedBlock,
+  BlockDefinitionFailure | BlockCapabilityFailure | BlockPropertyFailure
+> =>
+  Result.gen(function* () {
+    const validated = yield* validateBlockDefinition(definition)
+    const capabilities = yield* resolveCapabilities(validated.capabilities ?? {})
+    const properties = yield* resolveBlockProperties(validated.properties ?? {})
+    return { capabilities, properties, type: validated.type }
+  })
 
 // ---------------------------------------------------------------------------
 // Capability ledger: what the audit found and where its authoritative data lives

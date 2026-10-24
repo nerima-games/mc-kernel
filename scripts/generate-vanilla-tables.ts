@@ -1,15 +1,18 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import * as Either from 'effect/Either'
+import * as Result from 'effect/Result'
 import * as Schema from 'effect/Schema'
 
-const record = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+const record = Schema.Record(Schema.String, Schema.Unknown)
 const strings = Schema.Array(Schema.String)
 const parse = (text: string): unknown => JSON.parse(text)
-const read = async <A, I>(file: string, schema: Schema.Schema<A, I>): Promise<A> => {
-  const result = Schema.decodeUnknownEither(schema)(parse(await readFile(file, 'utf8')))
-  if (Either.isLeft(result)) throw new Error(`invalid golden ${file}: ${String(result.left)}`)
-  return result.right
+const read = async <S extends Schema.ConstraintDecoder<unknown, never>>(
+  file: string,
+  schema: S,
+): Promise<S["Type"]> => {
+  const result = Schema.decodeUnknownResult(schema)(parse(await readFile(file, 'utf8')))
+  if (Result.isFailure(result)) throw new Error(`invalid golden ${file}: ${String(result.failure)}`)
+  return result.success
 }
 
 const golden = join(process.cwd(), 'test', 'golden')

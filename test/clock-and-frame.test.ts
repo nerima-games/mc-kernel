@@ -1,11 +1,12 @@
-import { type CameraPoseSnapshot, snapshotAgeSecs } from '../src/domain/presentation/camera'
+import { type CameraPoseSnapshot, SnapshotAgeSecs, snapshotAgeSecs } from '../src/domain/presentation/camera'
 import { ClockPort, FixedClockLayer, monotonicSecs, wallClockEpochMillis } from '../src/domain/time/clock'
-import { Context, Effect, Layer, Ref } from 'effect'
+import { Context, Effect, Layer, Ref, Result } from 'effect'
+import { AngleRadians } from '../src/domain/shared-vocabulary/shared-vocabulary'
 import { DeltaTimeSecs, EpochMillis, MonotonicTimeSecs } from '../src/domain/time/quantities'
 import type { FrameServices, GameModule, StageRegistration } from '../src/domain/time/frame'
 import { describe, expect, it } from 'vitest'
 import { StageId } from '../src/domain/text/identifiers'
-import { position } from '../src/domain/coordinates/coordinates'
+import { PositionAxis, position } from '../src/domain/coordinates/coordinates'
 
 const ZERO = 0
 const ONE = 1
@@ -27,7 +28,6 @@ const EXPECTED_STAGE_READING = 1_235
 const EXPECTED_POSE_READING = 2_469
 const epochMillis = EpochMillis
 const deltaTimeSecs = DeltaTimeSecs
-const contextTag = Context.Tag
 const fixedClockLayer = FixedClockLayer
 const monotonicTimeSecs = MonotonicTimeSecs
 const stageId = StageId
@@ -85,9 +85,13 @@ describe('ClockPort', () => {
 describe('CameraPoseSnapshot', () => {
   const snapshot: CameraPoseSnapshot = {
     capturedAtSecs: monotonicTimeSecs(CAPTURED_AT_SECS),
-    pitchRadians: ZERO,
-    position: position(SNAPSHOT_POSITION_X, SNAPSHOT_POSITION_Y, SNAPSHOT_POSITION_Z),
-    yawRadians: ZERO,
+    pitchRadians: AngleRadians(ZERO),
+    position: position(
+      PositionAxis(SNAPSHOT_POSITION_X),
+      PositionAxis(SNAPSHOT_POSITION_Y),
+      PositionAxis(SNAPSHOT_POSITION_Z),
+    ),
+    yawRadians: AngleRadians(ZERO),
   }
 
   it('snapshotAgeSecs tells the renderer how stale the pose it is mirroring has become', () =>
@@ -107,6 +111,15 @@ describe('CameraPoseSnapshot', () => {
       expect(snapshotAgeSecs(snapshot, monotonicTimeSecs(CLOCK_SKEW_SECS))).toBeCloseTo(EXPECTED_CLOCK_SKEW_AGE_SECS, TEN)
     })),
   )
+
+  it('angle and snapshot-age brands reject non-finite numbers', () => {
+    expect(Result.isSuccess(AngleRadians.result(-Math.PI))).toBe(true)
+    expect(Result.isSuccess(AngleRadians.result(Math.PI))).toBe(true)
+    expect(Result.isFailure(AngleRadians.result(Number.NaN))).toBe(true)
+    expect(Result.isFailure(AngleRadians.result(Number.POSITIVE_INFINITY))).toBe(true)
+    expect(Result.isFailure(SnapshotAgeSecs.result(Number.NaN))).toBe(true)
+    expect(Result.isFailure(SnapshotAgeSecs.result(Number.NEGATIVE_INFINITY))).toBe(true)
+  })
 })
 
 describe('GameModule / StageRegistration contract', () => {
@@ -170,10 +183,10 @@ describe('GameModule / StageRegistration contract', () => {
          * frame. Note the shape of `cameraPose`: the ClockPort requirement is on
          * the method, which is precisely why FrameServices collapses to ClockPort.
          */
-        class PoseSource extends contextTag('test/PoseSource')<
-        PoseSource,
-        { readonly cameraPose: Effect.Effect<number, never, ClockPort> }
-      >() {}
+        class PoseSource extends Context.Service<
+          PoseSource,
+          { readonly cameraPose: Effect.Effect<number, never, ClockPort> }
+        >()('test/PoseSource') {}
       const poseSource = PoseSource
 
       const seen = yield* Ref.make<ReadonlyArray<number>>([])

@@ -12,16 +12,13 @@
  * the Layers and topologically sorts the stages by their `after` edges. No
  * repository calls another repository's stage directly, and no repository knows
  * the global stage order.
- *
- * `StageRegistration` and `GameModule` are reproduced here verbatim from
- * plan.md §4.1, including their declaration as `interface` rather than `type`.
- * They are the written contract; keeping them character-identical to the plan
- * is worth more than local style consistency.
  */
 import type { Effect, Layer } from 'effect'
 import type { ClockPort } from './clock.js'
 import type { DeltaTimeSecs } from './quantities.js'
 import type { StageId } from '../text/identifiers.js'
+import type { QaNamespace } from '../module-contracts/module-contracts.js'
+import type { SaveSliceRegistration } from '../save-slices/save-slices.js'
 
 /**
  * The context every frame stage may assume is present. SETTLED — `ClockPort`,
@@ -149,7 +146,13 @@ export interface StageRegistration {
  * usable") would give the host two places to look and no way to tell them
  * apart.
  */
-export interface GameModule<ROut, Error, RIn, RRegister = never> {
+export interface KernelGameModule<ROut, Error, RIn, RRegister = never> {
   readonly layers: Layer.Layer<ROut, Error, RIn>
   readonly frameStages: Effect.Effect<ReadonlyArray<StageRegistration>, never, RRegister>
+}
+
+export interface GameModule<ROut, Error, RIn, RRegister = never>
+  extends KernelGameModule<ROut, Error, RIn, RRegister> {
+  readonly qa?: QaNamespace
+  readonly saveSlices?: ReadonlyArray<SaveSliceRegistration>
 }

@@ -1,4 +1,5 @@
 import type { TextComponent, TextComponentValue } from './text-component-data.js'
+import { Effect, Result } from 'effect'
 
 type RecordValue = Record<string, unknown>
 
@@ -32,13 +33,13 @@ const isTextComponentValueInternal = (
 }
 
 export const isTextComponent = (value: unknown): value is TextComponent => {
-  if (typeof value === 'string') {
-    return true
-  }
-
-  if (value === null || typeof value !== 'object') {
-    return false
-  }
-
-  return isTextComponentValueInternal(value, new WeakSet<object>())
+  const checked = Effect.runSync(Effect.result(Effect.try({
+    try: () => {
+      if (typeof value === 'string') return true
+      if (value === null || typeof value !== 'object') return false
+      return isTextComponentValueInternal(value, new WeakSet<object>())
+    },
+    catch: () => false,
+  })))
+  return Result.isSuccess(checked) && checked.success
 }

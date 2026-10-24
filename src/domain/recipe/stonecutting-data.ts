@@ -1,18 +1,43 @@
+import { Result } from "effect";
 import {
   craftingIngredient,
-  isRecipeItemTag,
+  RecipeIngredientCount,
+  RecipeId,
+  RecipePriority,
+  RecipeStationTag,
   type CraftingIngredient,
   type CraftingIngredientInput,
-  type IngredientInput,
-  type RecipeId,
+  type RecipePriority as RecipePriorityValue,
+  type RecipeStationTag as RecipeStationTagValue,
 } from "./recipe-data.js";
-import { isItemStack, itemStack, type ItemStack } from "../item/item-stack.js";
-import { isItemType, type ItemType } from "../item/item-type.js";
+import { isItemStack, type ItemStack } from "../item/item-stack.js";
+import { itemStackForCanonicalItem } from "../item/item-stack-canonical.js";
+import type { ItemType } from "../item/item-type.js";
+import { StackCount } from "../time/quantities.js";
+import {
+  recipeRangeFailure,
+  recipeTypeFailure,
+  type RecipeFailure,
+} from "./recipe-error.js";
+import { snapshotInputRecord } from "../../input-snapshot.js";
 
-export const STONECUTTING_STATION_TAG = "stonecutter";
+const recipeTypeFailureValue = (message: string): RecipeFailure => ({
+  _tag: "RecipeTypeFailure",
+  name: "TypeError",
+  message,
+});
+
+const recipeRangeFailureValue = (message: string): RecipeFailure => ({
+  _tag: "RecipeRangeFailure",
+  name: "RangeError",
+  message,
+});
+
+export const STONECUTTING_STATION_TAG: RecipeStationTagValue =
+  RecipeStationTag("stonecutter");
 
 export type StonecuttingRecipeOptions = {
-  readonly priority?: number;
+  readonly priority?: RecipePriorityValue;
   readonly showNotification?: boolean;
 };
 
@@ -21,7 +46,7 @@ export type StonecuttingRecipe = {
   readonly id: RecipeId;
   readonly ingredient: CraftingIngredient;
   readonly output: ItemStack;
-  readonly priority: number;
+  readonly priority: RecipePriorityValue;
   readonly showNotification?: boolean;
 };
 
@@ -37,120 +62,105 @@ type RecordValue = {
   readonly showNotification?: unknown;
 };
 
-const isRecord = (value: unknown): value is RecordValue =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const assertRecipeId = (id: unknown): RecipeId => {
-  if (typeof id !== "string" || id.trim().length === 0) {
-    throw new TypeError("Stonecutting recipe id must be a non-empty string");
-  }
-  return id;
+const recordFromInput = (
+  value: unknown,
+  fields: ReadonlyArray<keyof RecordValue>,
+): RecordValue | undefined => {
+  const snapshot = snapshotInputRecord(value, fields);
+  return Result.isSuccess(snapshot) ? snapshot.success : undefined;
 };
 
-const assertPriority = (value: unknown): number => {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-    throw new RangeError(
-      `Stonecutting recipe priority must be a non-negative safe integer, received ${String(value)}`,
+const assertRecipeId = (
+  id: unknown,
+): Result.Result<RecipeId, RecipeFailure> =>
+  typeof id === "string"
+    ? Result.mapError(
+        RecipeId.result(id),
+        () => recipeTypeFailureValue("Stonecutting recipe id must be a resource location"),
+      )
+    : recipeTypeFailure("Stonecutting recipe id must be a resource location");
+
+const assertPriority = (
+  value: unknown,
+): Result.Result<RecipePriorityValue, RecipeFailure> => {
+  if (typeof value !== "number") {
+    return recipeRangeFailure(
+      "Stonecutting recipe priority must be a non-negative safe integer",
     );
   }
-  return value;
+  const message = `Stonecutting recipe priority must be a non-negative safe integer, received ${value}`;
+  return Result.mapError(
+    RecipePriority.result(value),
+    () => recipeRangeFailureValue(message),
+  );
 };
 
-const isUncheckedIngredientInput = (
+const normalizeIngredient = (
   value: unknown,
-): value is IngredientInput => {
-  if (typeof value === "string") {
-    return isItemType(value) || isRecipeItemTag(value);
-  }
-  if (!isRecord(value) || typeof value.count !== "number") {
-    return false;
-  }
-  if (value._tag === "Exact") {
-    return isItemType(value.item);
-  }
-  return value._tag === "ItemTag" && isRecipeItemTag(value.tag);
-};
-
-const isUncheckedCraftingIngredientInput = (
-  value: unknown,
-): value is CraftingIngredientInput => {
-  if (Array.isArray(value)) {
-    return value.length > 0 && value.every(isUncheckedIngredientInput);
-  }
-  if (
-    isRecord(value) &&
-    value._tag === "AnyOf" &&
-    Array.isArray(value.options) &&
-    typeof value.count === "number"
-  ) {
-    return (
-      value.options.length > 0 &&
-      value.options.every(isUncheckedIngredientInput)
-    );
-  }
-  return isUncheckedIngredientInput(value);
-};
-
-const normalizeIngredient = (value: unknown): CraftingIngredient => {
-  if (!isUncheckedCraftingIngredientInput(value)) {
-    throw new TypeError("Stonecutting ingredient has an invalid shape");
-  }
-  return craftingIngredient(value);
+): Result.Result<CraftingIngredient, RecipeFailure> => {
+  const normalized = craftingIngredient(value);
+  return Result.isFailure(normalized)
+    ? recipeTypeFailure("Stonecutting ingredient has an invalid shape")
+    : normalized;
 };
 
 const normalizeOptions = (
   options: unknown,
-): Pick<StonecuttingRecipe, "priority" | "showNotification"> => {
-  if (options === undefined) {
-    return { priority: 0 };
-  }
-  if (!isRecord(options)) {
-    throw new TypeError("Stonecutting recipe options must be an object");
-  }
-  const showNotification = options.showNotification;
-  if (showNotification !== undefined && typeof showNotification !== "boolean") {
-    throw new TypeError(
-      "Stonecutting recipe show notification must be a boolean",
-    );
-  }
-  return {
-    priority: assertPriority(options.priority ?? 0),
-    ...(showNotification === undefined ? {} : { showNotification }),
-  };
-};
+): Result.Result<
+  Pick<StonecuttingRecipe, "priority" | "showNotification">,
+  RecipeFailure
+> =>
+  Result.gen(function* () {
+    if (options === undefined) {
+      return { priority: RecipePriority(0) };
+    }
+    const record = recordFromInput(options, ["priority", "showNotification"]);
+    if (record === undefined) {
+      return yield* recipeTypeFailure("Stonecutting recipe options must be an object");
+    }
+    const showNotification = record.showNotification;
+    if (showNotification !== undefined && typeof showNotification !== "boolean") {
+      return yield* recipeTypeFailure(
+        "Stonecutting recipe show notification must be a boolean",
+      );
+    }
+    return {
+      priority: yield* assertPriority(record.priority ?? 0),
+      ...(showNotification === undefined ? {} : { showNotification }),
+    };
+  });
 
-export function stonecuttingRecipe(
+export const stonecuttingRecipe = (
   id: RecipeId,
   ingredient: CraftingIngredientInput,
   output: ItemStack,
   options?: StonecuttingRecipeOptions,
-): StonecuttingRecipe;
-export function stonecuttingRecipe(
-  id: RecipeId,
-  ingredient: CraftingIngredientInput,
-  output: ItemStack,
-  options?: StonecuttingRecipeOptions,
-): StonecuttingRecipe {
-  const normalizedOutput = output;
-  if (!isItemStack(normalizedOutput)) {
-    throw new TypeError("Stonecutting recipe output must be an ItemStack");
-  }
-  return {
-    _tag: "Stonecutting",
-    id: assertRecipeId(id),
-    ingredient: normalizeIngredient(ingredient),
-    output: normalizedOutput,
-    ...normalizeOptions(options),
-  };
-}
+): Result.Result<StonecuttingRecipe, RecipeFailure> =>
+  Result.gen(function* () {
+    if (!isItemStack(output)) {
+      return yield* recipeTypeFailure("Stonecutting recipe output must be an ItemStack");
+    }
+    return {
+      _tag: "Stonecutting",
+      id: yield* assertRecipeId(id),
+      ingredient: yield* normalizeIngredient(ingredient),
+      output,
+      ...(yield* normalizeOptions(options)),
+    };
+  });
 
 const vanillaStonecuttingRecipe = (
   id: string,
   ingredient: ItemType,
   output: ItemType,
   count: number,
-): StonecuttingRecipe =>
-  stonecuttingRecipe(id, ingredient, itemStack(output, count));
+): StonecuttingRecipe => ({
+  _tag: "Stonecutting",
+  id: RecipeId(id),
+  ingredient: { _tag: "Exact", item: ingredient, count: RecipeIngredientCount(1) },
+  output: itemStackForCanonicalItem(output, StackCount(count)),
+  priority: RecipePriority(0),
+});
 
 export const VANILLA_STONECUTTING_RECIPES: StonecuttingRecipeTable = [
   vanillaStonecuttingRecipe(

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Result } from "effect";
 
 import {
   isJsonValue,
@@ -31,7 +32,10 @@ describe("JSON values", () => {
 
   it("clones and freezes values at the decoder boundary", () => {
     const input = { nested: [1, { valid: true }] };
-    const normalized = jsonValueFromUnknown(input);
+    const result = jsonValueFromUnknown(input);
+    expect(Result.isSuccess(result)).toBe(true);
+    if (Result.isFailure(result)) return;
+    const normalized = result.success;
 
     expect(normalized).toEqual(input);
     expect(normalized).not.toBe(input);
@@ -48,11 +52,80 @@ describe("JSON values", () => {
       throw new Error("expected a nested JSON value");
     }
     expect(Object.isFrozen(nested)).toBe(true);
-    expect(() => jsonValueFromUnknown(undefined)).toThrow(TypeError);
+    const invalidValue = jsonValueFromUnknown(undefined);
+    expect(Result.isFailure(invalidValue)).toBe(true);
+    expect(Result.isFailure(jsonValueFromUnknown([undefined]))).toBe(true);
+    expect(Result.isFailure(jsonValueFromUnknown(new Date()))).toBe(true);
+    expect(Result.isFailure(jsonValueFromUnknown(Number.NaN))).toBe(true);
+    expect(Result.isSuccess(jsonValueFromUnknown(new Array(1)))).toBe(true);
+    if (Result.isFailure(invalidValue)) {
+      expect(invalidValue.failure).toMatchObject({
+        _tag: "JsonValueFailure",
+        kind: "TypeError",
+        reason: "invalid-value",
+        message: "Value must be a finite, acyclic JSON value",
+      });
+    }
 
     const cycle: Record<string, unknown> = {};
     cycle["self"] = cycle;
-    expect(() => jsonValueFromUnknown(cycle)).toThrow(TypeError);
+    const invalidCycle = jsonValueFromUnknown(cycle);
+    expect(Result.isFailure(invalidCycle)).toBe(true);
+    if (Result.isFailure(invalidCycle)) {
+      expect(invalidCycle.failure.reason).toBe("invalid-value");
+    }
+  });
+
+  it("returns a hostile-input failure for proxies that throw during inspection", () => {
+    const hostile = new Proxy({}, {
+      ownKeys: () => {
+        throw new Error("blocked keys");
+      },
+    });
+
+    expect(isJsonValue(hostile)).toBe(false);
+    const result = jsonValueFromUnknown(hostile);
+    expect(Result.isFailure(result)).toBe(true);
+    if (Result.isFailure(result)) {
+      expect(result.failure).toMatchObject({
+        _tag: "JsonValueFailure",
+        reason: "hostile-input",
+        message: "Unable to inspect JSON value",
+      });
+      expect(result.failure.value).toBe(hostile);
+    }
+  });
+
+  it("reads getter-backed values once while taking the decoder snapshot", () => {
+    let reads = 0
+    const changing = new Proxy({ value: 1 }, {
+      get(target, key, receiver) {
+        if (key === 'value') {
+          reads += 1
+          return reads === 1 ? 1 : Number.NaN
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+
+    const result = jsonValueFromUnknown(changing)
+    expect(Result.isSuccess(result)).toBe(true)
+    expect(reads).toBe(1)
+    if (Result.isSuccess(result)) expect(result.success).toEqual({ value: 1 })
+  });
+
+  it("preserves sparse array positions in the frozen decoder snapshot", () => {
+    const input = new Array(2);
+    input[1] = "present";
+    const result = jsonValueFromUnknown(input);
+
+    expect(Result.isSuccess(result)).toBe(true);
+    if (Result.isSuccess(result) && Array.isArray(result.success)) {
+      expect(result.success).toHaveLength(2);
+      expect(Object.hasOwn(result.success, 0)).toBe(false);
+      expect(result.success[1]).toBe("present");
+      expect(Object.isFrozen(result.success)).toBe(true);
+    }
   });
 
   it("compares JSON values structurally", () => {

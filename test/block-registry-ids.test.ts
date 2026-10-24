@@ -1,5 +1,5 @@
 /** Stable block ID allocation contracts independent of runtime lookup behaviour. */
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import {
@@ -9,17 +9,29 @@ import {
   BLOCK_REGISTRY,
   BlockId,
   UNREGISTERED_BLOCK_TYPES,
-  blockIdOf,
-  blockTypeOfId,
+  blockIdOf as blockIdOfOption,
+  blockTypeOfId as blockTypeOfIdResult,
   isEmpty,
-  isKnownBlockId,
-  resolvedBlockOfId
+  isKnownBlockId as isKnownBlockIdResult,
+  resolvedBlockOfId as resolvedBlockOfIdResult
 } from '../src/domain/block/block-registry'
+import { normalizeBlockRegistryEntry } from '../src/domain/block/block-registry-entries'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
+import { optionValue, resultFailure, resultValue } from './block-result-helpers'
 
 const number = Number
+const blockIdOf = (type: BlockType) => optionValue(blockIdOfOption(type))
+const blockTypeOfId = (id: number) => resultValue(blockTypeOfIdResult(resultValue(BlockId.result(id))))
+const isKnownBlockId = (id: number) => resultValue(isKnownBlockIdResult(resultValue(BlockId.result(id))))
+const resolvedBlockOfId = (id: number) => resultValue(resolvedBlockOfIdResult(resultValue(BlockId.result(id))))
 
 describe('id assignment is permanent', () => {
+  it('omits optional properties when normalizing propertyless registry input', () => {
+    const input = { id: AIR_BLOCK_ID, definition: { type: 'air' as const } }
+
+    expect(resultValue(normalizeBlockRegistryEntry(input))).toEqual(input)
+  })
+
   /**
    * The literal table. Changing a number here is changing a save format, and
    * the diff on this array is what makes that visible in review.
@@ -165,11 +177,9 @@ describe('id assignment is permanent', () => {
     Effect.runPromise(Effect.sync(() => {
       for (const [type, id] of PINNED_IDS) {
         expect(blockIdOf(type)).toBe(id)
-        expect(blockTypeOfId(id)).toBe(type)
+        expect(blockTypeOfId(BlockId(id))).toBe(type)
       }
-      expect(() => Reflect.apply(blockIdOf, undefined, ['not_a_block'])).toThrow(
-        'Block registry is missing a row for not_a_block',
-      )
+      expect(Option.isNone(Reflect.apply(blockIdOfOption, undefined, ['not_a_block']))).toBe(true)
     })),
   )
 
@@ -238,9 +248,9 @@ describe('id assignment is permanent', () => {
     })),
   )
 
-  it('a BlockId only proves the byte fits the chunk buffer, not that a row claims it', () =>
+  it('a BlockId only proves the id fits the 16-bit chunk field, not that a row claims it', () =>
     Effect.runPromise(Effect.sync(() => {
-      // `BlockId` validates against the chunk-buffer range (0-255,
+      // `BlockId` validates against the chunk-buffer range (0-65535,
       // `block-registry-types.ts`), not against the registry (0-122 today).
       // A registered id resolves normally:
       const registered = BlockId(2)
@@ -261,14 +271,17 @@ describe('id assignment is permanent', () => {
   it('air is zero, because a zero-filled buffer must already be a valid chunk', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(AIR_BLOCK_ID).toBe(number('0'))
-      expectTypeOf(isEmpty).toEqualTypeOf<(id: number) => boolean>()
+      expectTypeOf(isEmpty).toEqualTypeOf<(id: BlockId) => boolean>()
       expect(isEmpty(AIR_BLOCK_ID)).toBe(true)
-      for (const nonAir of [number('1'), BLOCK_ID_MAX, number('-1'), number('1.5'), Number.NaN]) {
-        expect(isEmpty(nonAir)).toBe(false)
+      for (const nonAir of [number('1'), BLOCK_ID_MAX]) {
+        expect(isEmpty(BlockId(nonAir))).toBe(false)
+      }
+      for (const invalid of [number('-1'), number('1.5'), Number.NaN]) {
+        expect(Reflect.apply(isEmpty, undefined, [invalid])).toBe(false)
       }
       const fresh = new Uint8Array(number('8'))
       for (const byte of fresh) {
-        expect(blockTypeOfId(byte)).toBe('air')
+        expect(blockTypeOfId(BlockId(byte))).toBe('air')
       }
     })),
   )
@@ -276,9 +289,9 @@ describe('id assignment is permanent', () => {
   it('rejects ids the chunk buffer cannot hold', () =>
     Effect.runPromise(Effect.sync(() => {
       const blockId = BlockId
-      expect(() => blockId(number('-1'))).toThrow()
-      expect(() => blockId(BLOCK_ID_MAX + number('1'))).toThrow()
-      expect(() => blockId(number('1.5'))).toThrow()
+      expect(resultFailure(blockId.result(number('-1'))).message).toMatch(/integer in \[0, 65535\]/)
+      expect(resultFailure(blockId.result(BLOCK_ID_MAX + number('1'))).message).toMatch(/integer in \[0, 65535\]/)
+      expect(resultFailure(blockId.result(number('1.5'))).message).toMatch(/integer in \[0, 65535\]/)
       expect(blockId(BLOCK_ID_MAX)).toBe(BLOCK_ID_MAX)
     })),
   )

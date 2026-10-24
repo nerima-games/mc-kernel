@@ -1,10 +1,13 @@
+import { Result } from 'effect'
 import {
   FOOD_DEFINITION_BY_ITEM,
   type FoodDefinition,
   type FoodEffect,
 } from './food-data.js'
 import {
+  CONSUMABLE_ANIMATIONS,
   DEFAULT_CONSUMABLE_COMPONENT,
+  type ConsumableAnimation,
   type ConsumableApplyEffects,
   type ConsumableClearAllEffects,
   type ConsumableComponent,
@@ -18,11 +21,20 @@ import {
   type ItemUseComponents,
   type UseRemainderComponent,
 } from './consumable-data.js'
-import type { ResourceLocation } from '../text/identifiers.js'
+import { isConsumableEffect } from './consumable-validation.js'
+import { ResourceLocation, type ResourceLocation as ResourceLocationType } from '../text/identifiers.js'
 import type { FoodStatusEffectName } from './food-data.js'
 import type { ItemType } from './item-type.js'
 import { ConsumeSeconds } from '../time/quantities.js'
 import { statusEffectId } from '../entity/status-effect-data.js'
+import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
+import { MAX_GENERIC_INPUT_ARRAY_LENGTH, snapshotInputRecord, snapshotInputValue } from '../../input-snapshot.js'
+import {
+  EffectAmplifier,
+  EffectDurationSecs,
+  FoodEffectProbability,
+  RandomTeleportDiameter,
+} from './item-primitives.js'
 
 export {
   CONSUMABLE_ANIMATIONS,
@@ -52,49 +64,47 @@ export {
 
 const namespacedEffectIdOf = (name: FoodStatusEffectName): ResourceLocation => statusEffectId(name)
 
-const assertFinite = (name: string, value: number): void => {
-  if (!Number.isFinite(value)) {
-    throw new RangeError(`${name} must be finite, received ${value}`)
-  }
-}
-
-const assertPositive = (name: string, value: number): void => {
-  assertFinite(name, value)
-  if (value <= 0) {
-    throw new RangeError(`${name} must be positive, received ${value}`)
-  }
-}
-
-const assertNonNegativeInteger = (name: string, value: number): void => {
-  if (!Number.isInteger(value) || value < 0) {
-    throw new RangeError(`${name} must be a non-negative integer, received ${value}`)
-  }
-}
-
-const assertProbability = (value: number): void => {
-  assertFinite('probability', value)
-  if (value < 0 || value > 1) {
-    throw new RangeError(`probability must be in [0, 1], received ${value}`)
-  }
-}
+const brandValue = <A, E extends Readonly<{ readonly message: string }>>(
+  result: Result.Result<A, E>,
+  name: string,
+  message: string,
+  value: unknown,
+): Result.Result<A, ItemValidationFailure> =>
+  Result.mapError(result, () => itemValidationFailure(name, message, 'out-of-range', value))
 
 export const consumableStatusEffect = (
   effectId: ResourceLocation,
-  durationSecs: number,
-  amplifier: number,
-): ConsumableStatusEffect => {
-  assertPositive('durationSecs', durationSecs)
-  assertNonNegativeInteger('amplifier', amplifier)
-  return { effectId, durationSecs, amplifier }
-}
+  durationSecs: EffectDurationSecs,
+  amplifier: EffectAmplifier,
+): Result.Result<ConsumableStatusEffect, ItemValidationFailure> => Result.gen(function* () {
+  const checkedDuration = yield* brandValue(
+    EffectDurationSecs.result(durationSecs),
+    'durationSecs',
+    'durationSecs must be positive',
+    durationSecs,
+  )
+  const checkedAmplifier = yield* brandValue(
+    EffectAmplifier.result(amplifier),
+    'amplifier',
+    `amplifier must be a non-negative integer, received ${amplifier}`,
+    amplifier,
+  )
+  return { effectId, durationSecs: checkedDuration, amplifier: checkedAmplifier }
+})
 
 export const consumableApplyEffects = (
   effects: ReadonlyArray<ConsumableStatusEffect>,
-  probability = 1,
-): ConsumableApplyEffects => {
-  assertProbability(probability)
-  return { type: 'minecraft:apply_effects', effects, probability }
-}
+  probability: FoodEffectProbability = FoodEffectProbability(1),
+): Result.Result<ConsumableApplyEffects, ItemValidationFailure> =>
+  Result.map(
+    brandValue(
+      FoodEffectProbability.result(probability),
+      'probability',
+      `probability must be in [0, 1], received ${probability}`,
+      probability,
+    ),
+    (checkedProbability) => ({ type: 'minecraft:apply_effects', effects, probability: checkedProbability }),
+  )
 
 export const consumableRemoveEffects = (
   effects: ReadonlyArray<ResourceLocation>,
@@ -104,45 +114,138 @@ export const consumableClearAllEffects = (): ConsumableClearAllEffects => ({
   type: 'minecraft:clear_all_effects',
 })
 
-export const consumableTeleportRandomly = (diameter = 16): ConsumableTeleportRandomly => {
-  assertPositive('diameter', diameter)
-  return { type: 'minecraft:teleport_randomly', diameter }
-}
+export const consumableTeleportRandomly = (
+  diameter: RandomTeleportDiameter = RandomTeleportDiameter(16),
+): Result.Result<ConsumableTeleportRandomly, ItemValidationFailure> =>
+  Result.map(
+    brandValue(
+      RandomTeleportDiameter.result(diameter),
+      'diameter',
+      'diameter must be positive',
+      diameter,
+    ),
+    (checkedDiameter) => ({ type: 'minecraft:teleport_randomly', diameter: checkedDiameter }),
+  )
 
 export const consumablePlaySound = (sound: ResourceLocation): ConsumablePlaySound => ({
   type: 'minecraft:play_sound',
   sound,
 })
 
-export const consumableComponent = (
-  options: ConsumableComponentOptions = {},
-): ConsumableComponent => {
-  const consumeSeconds =
-    options.consumeSeconds === undefined
-      ? DEFAULT_CONSUMABLE_COMPONENT.consumeSeconds
-      : ConsumeSeconds(options.consumeSeconds)
-
-  return {
-    consumeSeconds,
-    animation: options.animation ?? DEFAULT_CONSUMABLE_COMPONENT.animation,
-    sound: options.sound ?? DEFAULT_CONSUMABLE_COMPONENT.sound,
-    hasConsumeParticles: options.hasConsumeParticles ?? DEFAULT_CONSUMABLE_COMPONENT.hasConsumeParticles,
-    onConsumeEffects: options.onConsumeEffects ?? DEFAULT_CONSUMABLE_COMPONENT.onConsumeEffects,
+const snapshotConsumableOptions = (value: unknown): Result.Result<Readonly<Record<string, unknown>>, ItemValidationFailure> => {
+  const snapshot = snapshotInputRecord(value, ['consumeSeconds', 'animation', 'sound', 'hasConsumeParticles', 'onConsumeEffects'])
+  if (Result.isFailure(snapshot)) {
+    const invalidType = snapshot.failure.reason === 'invalid-container' || snapshot.failure.reason === 'unsupported-prototype'
+    return Result.fail(itemValidationFailure(
+      'options',
+      invalidType ? 'Consumable component options must be a non-null object' : 'Unable to inspect consumable component options',
+      invalidType ? 'invalid-type' : 'hostile-input',
+      value,
+    ))
   }
+  return Result.succeed(snapshot.success)
 }
 
-const statusEffectOf = (effect: Extract<FoodEffect, { readonly kind: 'status' }>): ConsumableStatusEffect =>
-  consumableStatusEffect(namespacedEffectIdOf(effect.name), effect.durationSecs, effect.amplifier)
+const isConsumableAnimation = (value: unknown): value is ConsumableAnimation =>
+  typeof value === 'string' && CONSUMABLE_ANIMATIONS.some((animation) => animation === value)
 
-const applyEffectsOf = (effect: Extract<FoodEffect, { readonly kind: 'status' }>): ConsumableApplyEffects =>
-  consumableApplyEffects([statusEffectOf(effect)], effect.chance)
+export const consumableComponent = (
+  options: ConsumableComponentOptions = {},
+): Result.Result<ConsumableComponent, ItemValidationFailure> => {
+  const snapshot = snapshotConsumableOptions(options)
+  if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
+  const input = snapshot.success
+  return Result.gen(function* () {
+    const consumeSecondsValue = input['consumeSeconds'] === undefined
+      ? DEFAULT_CONSUMABLE_COMPONENT.consumeSeconds
+      : input['consumeSeconds']
+    if (typeof consumeSecondsValue !== 'number') {
+      return yield* Result.fail(itemValidationFailure(
+        'consumeSeconds',
+        'consumeSeconds must be finite and non-negative',
+        'out-of-range',
+        consumeSecondsValue,
+      ))
+    }
+    const consumeSeconds = yield* Result.mapError(
+      ConsumeSeconds.result(consumeSecondsValue),
+      () => itemValidationFailure('consumeSeconds', 'consumeSeconds must be finite and non-negative', 'out-of-range', consumeSecondsValue),
+    )
+
+    const animationValue = input['animation'] === undefined
+      ? DEFAULT_CONSUMABLE_COMPONENT.animation
+      : input['animation']
+    if (!isConsumableAnimation(animationValue)) {
+      return yield* Result.fail(itemValidationFailure('animation', 'animation must be a valid consumable animation', 'invalid-value', animationValue))
+    }
+    const animation = animationValue
+
+    const soundValue = input['sound'] === undefined ? DEFAULT_CONSUMABLE_COMPONENT.sound : input['sound']
+    if (typeof soundValue !== 'string' || !ResourceLocation.is(soundValue)) {
+      return yield* Result.fail(itemValidationFailure('sound', 'sound must be a valid resource location', 'invalid-value', soundValue))
+    }
+    const sound: ResourceLocationType = soundValue
+
+    const hasConsumeParticlesValue = input['hasConsumeParticles'] === undefined
+      ? DEFAULT_CONSUMABLE_COMPONENT.hasConsumeParticles
+      : input['hasConsumeParticles']
+    if (typeof hasConsumeParticlesValue !== 'boolean') {
+      return yield* Result.fail(itemValidationFailure('hasConsumeParticles', 'hasConsumeParticles must be a boolean', 'invalid-type', hasConsumeParticlesValue))
+    }
+
+    const effectsValue = input['onConsumeEffects'] === undefined
+      ? DEFAULT_CONSUMABLE_COMPONENT.onConsumeEffects
+      : input['onConsumeEffects']
+    const effectsSnapshot = snapshotInputValue(effectsValue, MAX_GENERIC_INPUT_ARRAY_LENGTH, 'onConsumeEffects')
+    if (Result.isFailure(effectsSnapshot)) {
+      const reason = effectsSnapshot.failure.reason === 'too-large' ? 'out-of-range' : 'hostile-input'
+      // This snapshot call always supplies the root path prefix above.
+      const errorPath = effectsSnapshot.failure.path
+      return yield* Result.fail(itemValidationFailure(
+        errorPath,
+        `Unable to inspect ${errorPath}`,
+        reason,
+        effectsSnapshot.failure.value,
+      ))
+    }
+    if (!Array.isArray(effectsSnapshot.success)) {
+      return yield* Result.fail(itemValidationFailure('onConsumeEffects', 'onConsumeEffects must be an array of valid consumable effects', 'invalid-type', effectsSnapshot.success))
+    }
+    const onConsumeEffects: ConsumableEffect[] = []
+    for (const effect of effectsSnapshot.success) {
+      if (!isConsumableEffect(effect)) {
+        return yield* Result.fail(itemValidationFailure('onConsumeEffects', 'onConsumeEffects must be an array of valid consumable effects', 'invalid-value', effect))
+      }
+      onConsumeEffects.push(effect)
+    }
+    return Object.freeze({
+      consumeSeconds,
+      animation,
+      sound,
+      hasConsumeParticles: hasConsumeParticlesValue,
+      onConsumeEffects: Object.freeze(onConsumeEffects),
+    })
+  })
+}
+
+const statusEffectOf = (effect: Extract<FoodEffect, { readonly kind: 'status' }>): ConsumableStatusEffect => Object.freeze({
+  effectId: namespacedEffectIdOf(effect.name),
+  durationSecs: effect.durationSecs,
+  amplifier: effect.amplifier,
+})
+
+const applyEffectsOf = (effect: Extract<FoodEffect, { readonly kind: 'status' }>): ConsumableApplyEffects => Object.freeze({
+  type: 'minecraft:apply_effects',
+  effects: Object.freeze([statusEffectOf(effect)]),
+  probability: effect.chance,
+})
 
 const removeEffectsOf = (effect: Extract<FoodEffect, { readonly kind: 'remove' }>): ConsumableRemoveEffects =>
-  consumableRemoveEffects([namespacedEffectIdOf(effect.name)])
+  Object.freeze(consumableRemoveEffects(Object.freeze([namespacedEffectIdOf(effect.name)])))
 
 const teleportRandomlyOf = (
   _effect: Extract<FoodEffect, { readonly kind: 'teleport' }>,
-): ConsumableTeleportRandomly => consumableTeleportRandomly()
+): ConsumableTeleportRandomly => Object.freeze({ type: 'minecraft:teleport_randomly', diameter: RandomTeleportDiameter(16) })
 
 const consumableEffectOf = (effect: FoodEffect): ConsumableEffect =>
   effect.kind === 'status'
@@ -151,24 +254,27 @@ const consumableEffectOf = (effect: FoodEffect): ConsumableEffect =>
       ? removeEffectsOf(effect)
       : teleportRandomlyOf(effect)
 
-const foodComponentFrom = (definition: FoodDefinition): FoodComponent => ({
+const foodComponentFrom = (definition: FoodDefinition): FoodComponent => Object.freeze({
   nutrition: definition.nutrition,
   saturation: definition.saturation,
   canAlwaysEat: definition.canAlwaysEat,
 })
 
 const consumableComponentFrom = (definition: FoodDefinition): ConsumableComponent =>
-  consumableComponent({ onConsumeEffects: definition.effects.map(consumableEffectOf) })
+  Object.freeze({
+    ...DEFAULT_CONSUMABLE_COMPONENT,
+    onConsumeEffects: Object.freeze(definition.effects.map(consumableEffectOf)),
+  })
 
 const useRemainderComponentFrom = (definition: FoodDefinition): UseRemainderComponent | undefined =>
   definition.useRemainder === undefined
     ? undefined
-    : {
+    : Object.freeze({
         item: definition.useRemainder,
         count: 1,
-      }
+      })
 
-const itemUseComponentsFrom = (definition: FoodDefinition): ItemUseComponents => ({
+const itemUseComponentsFrom = (definition: FoodDefinition): ItemUseComponents => Object.freeze({
   food: foodComponentFrom(definition),
   consumable: consumableComponentFrom(definition),
   useRemainder: useRemainderComponentFrom(definition),

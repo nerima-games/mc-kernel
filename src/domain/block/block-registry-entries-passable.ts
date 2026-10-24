@@ -1,11 +1,11 @@
 /** Registry entries 18-32; the numeric order is the wire-level BlockId order. */
 import { BlockId } from './block-registry-types.js'
-import type { BlockRegistryEntry } from './block-registry-types.js'
+import type { BlockRegistryEntryInput } from './block-registry-entry-input.js'
 import { DEFAULT_BLOCK_DROP } from './block-harvest-data.js'
 import { NEEDS_ANY_SUPPORT } from './block-support-data.js'
 import { SURFACE_PLANT_CAPABILITIES, PLANT_PROPERTIES, DROPS_NOTHING, NEEDS_PLANTABLE_GROUND, NEEDS_SUGAR_CANE_GROUND, NEEDS_WATER } from './block-registry-rules.js'
 
-export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntry> = [
+export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntryInput> = [
   // -------------------------------------------------------------------------
   // ids 18-32: the rest of `PASSABLE_BLOCK_IDS`
   // -------------------------------------------------------------------------

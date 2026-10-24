@@ -1,9 +1,57 @@
+import { Brand } from 'effect'
 import { ResourceLocation, TagLocation } from '../text/identifiers.js'
+import { PositiveTickCount } from '../time/quantities.js'
 import type {
+  NamespacedResourceLocation as NamespacedResourceLocationValue,
   ResourceLocation as ResourceLocationValue,
   TagLocation as TagLocationValue,
 } from '../text/identifiers.js'
 import type { AttributeModifierAmount } from '../time/quantities.js'
+
+export type SulfurCubeExplosionPower = number & Brand.Brand<'SulfurCubeExplosionPower'>
+export const SulfurCubeExplosionPower: Brand.Constructor<SulfurCubeExplosionPower> =
+  Brand.make<SulfurCubeExplosionPower>(
+    (value) =>
+      Number.isSafeInteger(value) && value >= 0
+        ? true
+        : `SulfurCubeExplosionPower must be a non-negative safe integer, received ${value}`,
+  )
+
+export type SulfurCubeContactDamageAmount = number & Brand.Brand<'SulfurCubeContactDamageAmount'>
+export const SulfurCubeContactDamageAmount: Brand.Constructor<SulfurCubeContactDamageAmount> =
+  Brand.make<SulfurCubeContactDamageAmount>(
+    (value) =>
+      Number.isFinite(value) && value >= 0
+        ? true
+        : `SulfurCubeContactDamageAmount must be finite and non-negative, received ${value}`,
+  )
+
+export type SulfurCubeKnockbackPower = number & Brand.Brand<'SulfurCubeKnockbackPower'>
+export const SulfurCubeKnockbackPower: Brand.Constructor<SulfurCubeKnockbackPower> =
+  Brand.make<SulfurCubeKnockbackPower>(
+    (value) =>
+      Number.isFinite(value)
+        ? true
+        : `SulfurCubeKnockbackPower must be finite, received ${value}`,
+  )
+
+export type SulfurCubePushSoundImpulseThreshold = number & Brand.Brand<'SulfurCubePushSoundImpulseThreshold'>
+export const SulfurCubePushSoundImpulseThreshold: Brand.Constructor<SulfurCubePushSoundImpulseThreshold> =
+  Brand.make<SulfurCubePushSoundImpulseThreshold>(
+    (value) =>
+      Number.isFinite(value)
+        ? true
+        : `SulfurCubePushSoundImpulseThreshold must be finite, received ${value}`,
+  )
+
+export type SulfurCubePushSoundCooldown = number & Brand.Brand<'SulfurCubePushSoundCooldown'>
+export const SulfurCubePushSoundCooldown: Brand.Constructor<SulfurCubePushSoundCooldown> =
+  Brand.make<SulfurCubePushSoundCooldown>(
+    (value) =>
+      Number.isFinite(value)
+        ? true
+        : `SulfurCubePushSoundCooldown must be finite, received ${value}`,
+  )
 
 export const SULFUR_CUBE_ARCHETYPE_REGISTRY: ResourceLocation = ResourceLocation(
   'minecraft:sulfur_cube_archetype',
@@ -109,34 +157,34 @@ export type SulfurCubeAttributeModifierOperation =
   (typeof SULFUR_CUBE_ATTRIBUTE_MODIFIER_OPERATIONS)[number]
 
 export type SulfurCubeExplosion = Readonly<{
-  readonly fuse: number
-  readonly power: number
+  readonly fuse: PositiveTickCount
+  readonly power: SulfurCubeExplosionPower
   readonly causesFire: boolean
 }>
 
 export type SulfurCubeContactDamage = Readonly<{
-  readonly amount: number
+  readonly amount: SulfurCubeContactDamageAmount
   readonly damageType: ResourceLocationValue
   readonly attributeToSource: boolean
 }>
 
 export type SulfurCubeAttributeModifier = Readonly<{
-  readonly attribute: ResourceLocationValue
-  readonly id: ResourceLocationValue
+  readonly attribute: NamespacedResourceLocationValue
+  readonly id: NamespacedResourceLocationValue
   readonly amount: AttributeModifierAmount
   readonly operation: SulfurCubeAttributeModifierOperation
 }>
 
 export type SulfurCubeKnockbackModifiers = Readonly<{
-  readonly horizontalPower: number
-  readonly verticalPower: number
+  readonly horizontalPower: SulfurCubeKnockbackPower
+  readonly verticalPower: SulfurCubeKnockbackPower
 }>
 
 export type SulfurCubeSoundSettings = Readonly<{
   readonly hitSound: ResourceLocationValue
   readonly pushSound: ResourceLocationValue
-  readonly pushSoundImpulseThreshold: number
-  readonly pushSoundCooldown: number
+  readonly pushSoundImpulseThreshold: SulfurCubePushSoundImpulseThreshold
+  readonly pushSoundCooldown: SulfurCubePushSoundCooldown
 }>
 
 export type SulfurCubeArchetype = Readonly<{
@@ -150,38 +198,38 @@ export type SulfurCubeArchetype = Readonly<{
 }>
 
 export type SulfurCubeExplosionOptions = Readonly<{
-  readonly fuse: number
-  readonly power: number
+  readonly fuse: PositiveTickCount
+  readonly power: SulfurCubeExplosionPower
   readonly causesFire: boolean
 }>
 
 export type SulfurCubeContactDamageOptions = Readonly<{
-  readonly amount: number
-  readonly damageType: string
+  readonly amount: SulfurCubeContactDamageAmount
+  readonly damageType: ResourceLocationValue
   readonly attributeToSource: boolean
 }>
 
 export type SulfurCubeAttributeModifierOptions = Readonly<{
-  readonly attribute: string
-  readonly id: string
-  readonly amount: number
+  readonly attribute: NamespacedResourceLocationValue
+  readonly id: NamespacedResourceLocationValue
+  readonly amount: AttributeModifierAmount
   readonly operation: SulfurCubeAttributeModifierOperation
 }>
 
 export type SulfurCubeKnockbackModifiersOptions = Readonly<{
-  readonly horizontalPower: number
-  readonly verticalPower: number
+  readonly horizontalPower: SulfurCubeKnockbackPower
+  readonly verticalPower: SulfurCubeKnockbackPower
 }>
 
 export type SulfurCubeSoundSettingsOptions = Readonly<{
-  readonly hitSound: string
-  readonly pushSound: string
-  readonly pushSoundImpulseThreshold: number
-  readonly pushSoundCooldown: number
+  readonly hitSound: ResourceLocationValue
+  readonly pushSound: ResourceLocationValue
+  readonly pushSoundImpulseThreshold: SulfurCubePushSoundImpulseThreshold
+  readonly pushSoundCooldown: SulfurCubePushSoundCooldown
 }>
 
 export type SulfurCubeArchetypeOptions = Readonly<{
-  readonly items: string
+  readonly items: TagLocationValue
   readonly buoyant: boolean
   readonly explosion?: SulfurCubeExplosionOptions
   readonly contactDamage?: SulfurCubeContactDamageOptions

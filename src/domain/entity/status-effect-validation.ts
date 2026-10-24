@@ -5,6 +5,7 @@
  * shape and the resolved domain data independently readable
  * (architecture.md §6).
  */
+import { Result } from 'effect'
 import {
   STATUS_EFFECT_DEFINITIONS,
   STATUS_EFFECT_NAMES,
@@ -34,10 +35,17 @@ export const isStatusEffectName = (value: unknown): value is StatusEffectName =>
 export const isStatusEffectId = (value: unknown): value is ResourceLocation =>
   typeof value === 'string' && STATUS_EFFECT_ID_SET.has(value)
 
-/** Validate untrusted input and resolve it to its table row, or throw. */
-export const resolveStatusEffectDefinition = (value: unknown): StatusEffectDefinition => {
+export type StatusEffectDefinitionFailure = Readonly<{
+  readonly _tag: 'UnknownStatusEffect'
+  readonly value: unknown
+}>
+
+/** Validate untrusted input and resolve it to its table row. */
+export const resolveStatusEffectDefinition = (
+  value: unknown,
+): Result.Result<StatusEffectDefinition, StatusEffectDefinitionFailure> => {
   if (!isStatusEffectName(value)) {
-    throw new TypeError(`unknown status effect ${String(value)}`)
+    return Result.fail({ _tag: 'UnknownStatusEffect', value })
   }
-  return STATUS_EFFECT_DEFINITIONS[value]
+  return Result.succeed(STATUS_EFFECT_DEFINITIONS[value])
 }

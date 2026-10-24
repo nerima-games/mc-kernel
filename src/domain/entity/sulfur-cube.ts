@@ -1,4 +1,5 @@
-import { ResourceLocation, TagLocation } from "../text/identifiers.js";
+import { Brand, Result } from "effect";
+import { NamespacedResourceLocation, ResourceLocation, TagLocation } from "../text/identifiers.js";
 import { isSulfurCubeArchetypeOptions } from "./sulfur-cube-validation.js";
 import type {
   SulfurCubeArchetype,
@@ -9,7 +10,18 @@ import type {
   SulfurCubeKnockbackModifiers,
   SulfurCubeSoundSettings,
 } from "./sulfur-cube-data.js";
-import { AttributeModifierAmount } from "../time/quantities.js";
+import { AttributeModifierAmount, PositiveTickCount } from "../time/quantities.js";
+import {
+  MAX_GENERIC_INPUT_ARRAY_LENGTH,
+  snapshotInputValue,
+} from "../../input-snapshot.js";
+import {
+  SulfurCubeContactDamageAmount,
+  SulfurCubeExplosionPower,
+  SulfurCubeKnockbackPower,
+  SulfurCubePushSoundCooldown,
+  SulfurCubePushSoundImpulseThreshold,
+} from "./sulfur-cube-data.js";
 
 const explosionOf = (
   options: SulfurCubeArchetypeOptions["explosion"],
@@ -18,8 +30,8 @@ const explosionOf = (
     return undefined;
   }
   return Object.freeze({
-    fuse: options.fuse,
-    power: options.power,
+    fuse: PositiveTickCount(options.fuse),
+    power: SulfurCubeExplosionPower(options.power),
     causesFire: options.causesFire,
   });
 };
@@ -31,7 +43,7 @@ const contactDamageOf = (
     return undefined;
   }
   return Object.freeze({
-    amount: options.amount,
+    amount: SulfurCubeContactDamageAmount(options.amount),
     damageType: ResourceLocation(options.damageType),
     attributeToSource: options.attributeToSource,
   });
@@ -41,8 +53,8 @@ const attributeModifierOf = (
   options: SulfurCubeArchetypeOptions["attributeModifiers"][number],
 ): SulfurCubeAttributeModifier =>
   Object.freeze({
-    attribute: ResourceLocation(options.attribute),
-    id: ResourceLocation(options.id),
+    attribute: NamespacedResourceLocation(options.attribute),
+    id: NamespacedResourceLocation(options.id),
     amount: AttributeModifierAmount(options.amount),
     operation: options.operation,
   });
@@ -51,8 +63,8 @@ const knockbackModifiersOf = (
   options: SulfurCubeArchetypeOptions["knockbackModifiers"],
 ): SulfurCubeKnockbackModifiers =>
   Object.freeze({
-    horizontalPower: options.horizontalPower,
-    verticalPower: options.verticalPower,
+    horizontalPower: SulfurCubeKnockbackPower(options.horizontalPower),
+    verticalPower: SulfurCubeKnockbackPower(options.verticalPower),
   });
 
 const soundSettingsOf = (
@@ -61,8 +73,8 @@ const soundSettingsOf = (
   Object.freeze({
     hitSound: ResourceLocation(options.hitSound),
     pushSound: ResourceLocation(options.pushSound),
-    pushSoundImpulseThreshold: options.pushSoundImpulseThreshold,
-    pushSoundCooldown: options.pushSoundCooldown,
+    pushSoundImpulseThreshold: SulfurCubePushSoundImpulseThreshold(options.pushSoundImpulseThreshold),
+    pushSoundCooldown: SulfurCubePushSoundCooldown(options.pushSoundCooldown),
   });
 
 export const sulfurCubeArchetype = (
@@ -91,16 +103,107 @@ export const sulfurCubeArchetype = (
   return Object.freeze({ ...base, explosion, contactDamage });
 };
 
+export type SulfurCubeArchetypeFailure = Readonly<{
+  readonly _tag: "InvalidSulfurCubeArchetypeOptions";
+  readonly value: unknown;
+}> | Brand.BrandError
+
+const invalidSulfurCubeArchetypeOptions = (value: unknown): SulfurCubeArchetypeFailure => ({
+  _tag: "InvalidSulfurCubeArchetypeOptions",
+  value,
+})
+
+const explosionFromOptions = (
+  options: SulfurCubeArchetypeOptions['explosion'],
+): Result.Result<SulfurCubeExplosion | undefined, Brand.BrandError> => {
+  if (options === undefined) return Result.succeed(undefined)
+  return Result.gen(function* () {
+    const fuse = yield* PositiveTickCount.result(options.fuse)
+    const power = yield* SulfurCubeExplosionPower.result(options.power)
+    return Object.freeze({ fuse, power, causesFire: options.causesFire })
+  })
+}
+
+const contactDamageFromOptions = (
+  options: SulfurCubeArchetypeOptions['contactDamage'],
+): Result.Result<SulfurCubeContactDamage | undefined, Brand.BrandError> => {
+  if (options === undefined) return Result.succeed(undefined)
+  return Result.gen(function* () {
+    const amount = yield* SulfurCubeContactDamageAmount.result(options.amount)
+    const damageType = yield* ResourceLocation.result(options.damageType)
+    return Object.freeze({ amount, damageType, attributeToSource: options.attributeToSource })
+  })
+}
+
+const attributeModifierFromOptions = (
+  options: SulfurCubeArchetypeOptions['attributeModifiers'][number],
+): Result.Result<SulfurCubeAttributeModifier, Brand.BrandError> =>
+  Result.gen(function* () {
+    const attribute = yield* NamespacedResourceLocation.result(options.attribute)
+    const id = yield* NamespacedResourceLocation.result(options.id)
+    const amount = yield* AttributeModifierAmount.result(options.amount)
+    return Object.freeze({ attribute, id, amount, operation: options.operation })
+  })
+
+const knockbackModifiersFromOptions = (
+  options: SulfurCubeArchetypeOptions['knockbackModifiers'],
+): Result.Result<SulfurCubeKnockbackModifiers, Brand.BrandError> =>
+  Result.gen(function* () {
+    const horizontalPower = yield* SulfurCubeKnockbackPower.result(options.horizontalPower)
+    const verticalPower = yield* SulfurCubeKnockbackPower.result(options.verticalPower)
+    return Object.freeze({ horizontalPower, verticalPower })
+  })
+
+const soundSettingsFromOptions = (
+  options: SulfurCubeArchetypeOptions['soundSettings'],
+): Result.Result<SulfurCubeSoundSettings, Brand.BrandError> =>
+  Result.gen(function* () {
+    const hitSound = yield* ResourceLocation.result(options.hitSound)
+    const pushSound = yield* ResourceLocation.result(options.pushSound)
+    const pushSoundImpulseThreshold = yield* SulfurCubePushSoundImpulseThreshold.result(options.pushSoundImpulseThreshold)
+    const pushSoundCooldown = yield* SulfurCubePushSoundCooldown.result(options.pushSoundCooldown)
+    return Object.freeze({ hitSound, pushSound, pushSoundImpulseThreshold, pushSoundCooldown })
+  })
+
+const sulfurCubeArchetypeFromValidatedOptions = (
+  options: SulfurCubeArchetypeOptions,
+): Result.Result<SulfurCubeArchetype, Brand.BrandError> =>
+  Result.gen(function* () {
+    const items = yield* TagLocation.result(options.items)
+    const explosion = yield* explosionFromOptions(options.explosion)
+    const contactDamage = yield* contactDamageFromOptions(options.contactDamage)
+    const attributeModifiers = yield* Result.all(
+      options.attributeModifiers.map(attributeModifierFromOptions),
+    )
+    const knockbackModifiers = yield* knockbackModifiersFromOptions(options.knockbackModifiers)
+    const soundSettings = yield* soundSettingsFromOptions(options.soundSettings)
+    return Object.freeze({
+      items,
+      buoyant: options.buoyant,
+      ...(explosion === undefined ? {} : { explosion }),
+      ...(contactDamage === undefined ? {} : { contactDamage }),
+      attributeModifiers: Object.freeze(attributeModifiers),
+      knockbackModifiers,
+      soundSettings,
+    })
+  })
+
 export const sulfurCubeArchetypeFromUnknown = (
   value: unknown,
-): SulfurCubeArchetype => {
-  if (!isSulfurCubeArchetypeOptions(value)) {
-    throw new TypeError("Sulfur Cube archetype options must be valid");
+): Result.Result<SulfurCubeArchetype, SulfurCubeArchetypeFailure> => {
+  const snapshot = snapshotInputValue(value, MAX_GENERIC_INPUT_ARRAY_LENGTH)
+  if (Result.isFailure(snapshot) || !isSulfurCubeArchetypeOptions(snapshot.success)) {
+    return Result.fail(invalidSulfurCubeArchetypeOptions(value))
   }
-  return sulfurCubeArchetype(value);
+  return sulfurCubeArchetypeFromValidatedOptions(snapshot.success)
 };
 
 export {
+  SulfurCubeContactDamageAmount,
+  SulfurCubeExplosionPower,
+  SulfurCubeKnockbackPower,
+  SulfurCubePushSoundCooldown,
+  SulfurCubePushSoundImpulseThreshold,
   SULFUR_CUBE_ARCHETYPE_REGISTRY,
   SULFUR_CUBE_ATTRIBUTE_MODIFIER_OPERATIONS,
   SULFUR_CUBE_BLOCK_TAGS,

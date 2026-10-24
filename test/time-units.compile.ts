@@ -9,7 +9,14 @@ import {
   SessionEpoch,
   SimulationTick,
 } from '../src/domain/time/quantities'
-import { addTick, secondsForTicks } from '../src/domain/time/frame-timing'
+import {
+  addTick,
+  clampFrameDelta,
+  frameDeltaBetween,
+  frameDeltaLossBetween,
+  frameDeltaLossSecs,
+  secondsForTicks,
+} from '../src/domain/time/frame-timing'
 
 export const epochMillis: EpochMillis = EpochMillis(1_700_000_000_000)
 export const monotonicTimeSecs: MonotonicTimeSecs = MonotonicTimeSecs(1)
@@ -20,6 +27,10 @@ export const interpolationFraction: ReturnType<typeof InterpolationFraction> = I
 export const sessionEpoch: ReturnType<typeof SessionEpoch> = SessionEpoch('session-1')
 export const nonNegativeTickCount: ReturnType<typeof NonNegativeTickCount> = NonNegativeTickCount(0)
 export const positiveTickCount: ReturnType<typeof PositiveTickCount> = PositiveTickCount(1)
+export const clampedFrameDelta: DeltaTimeSecs = clampFrameDelta(deltaTimeSecs)
+export const frameDeltaFromClock: DeltaTimeSecs = frameDeltaBetween(undefined, monotonicTimeSecs)
+export const frameDeltaLoss: DeltaTimeSecs = frameDeltaLossSecs(deltaTimeSecs)
+export const frameDeltaLossFromClock: DeltaTimeSecs = frameDeltaLossBetween(undefined, monotonicTimeSecs)
 
 // @ts-expect-error EpochMillis and MonotonicTimeSecs are distinct brands.
 export const epochAsMonotonic: MonotonicTimeSecs = epochMillis
@@ -89,6 +100,19 @@ addTick(1, nonNegativeTickCount)
 addTick(simulationTick, 1)
 // @ts-expect-error A raw number is not a checked tick count.
 secondsForTicks(1)
+
+// @ts-expect-error A raw number is not a checked frame delta.
+clampFrameDelta(0.016)
+// @ts-expect-error A raw number is not a monotonic timestamp.
+frameDeltaBetween(undefined, 1)
+// @ts-expect-error A raw number is not a previous monotonic timestamp.
+frameDeltaBetween(1, monotonicTimeSecs)
+// @ts-expect-error A raw number is not a checked frame delta.
+frameDeltaLossSecs(0.016)
+// @ts-expect-error Frame loss uses branded monotonic timestamps.
+frameDeltaLossBetween(undefined, 1)
+// @ts-expect-error Frame loss uses a branded previous monotonic timestamp.
+frameDeltaLossBetween(1, monotonicTimeSecs)
 
 // @ts-expect-error Session epochs are not arbitrary strings at the type boundary.
 export const invalidEpoch: ReturnType<typeof SessionEpoch> = 'session-2'

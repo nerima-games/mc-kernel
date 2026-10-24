@@ -27,16 +27,27 @@ import {
   BLOCK_IDS,
   BLOCK_ID_MAX,
   BLOCK_REGISTRY,
-  blockIdOf,
-  blockIdsWithCapability,
-  blockTypeOfId,
-  capabilitiesOfBlockId,
-  capabilityOfBlockId,
-  propertyOfBlockId,
+  BlockId,
+  blockIdOf as blockIdOfOption,
+  blockIdsWithCapability as blockIdsWithCapabilityResult,
+  blockTypeOfId as blockTypeOfIdResult,
+  capabilitiesOfBlockId as capabilitiesOfBlockIdResult,
+  capabilityOfBlockId as capabilityOfBlockIdResult,
+  propertyOfBlockId as propertyOfBlockIdResult,
 } from '../src/domain/block/block-registry'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
+import { optionValue, resultValue } from './block-result-helpers'
 
 const number = Number
+const blockIdOf = (type: BlockType) => optionValue(blockIdOfOption(type))
+const blockIdsWithCapability = (flag: Parameters<typeof blockIdsWithCapabilityResult>[0]) =>
+  optionValue(resultValue(blockIdsWithCapabilityResult(flag)))
+const blockTypeOfId = (id: number) => resultValue(blockTypeOfIdResult(resultValue(BlockId.result(id))))
+const capabilitiesOfBlockId = (id: number) => resultValue(capabilitiesOfBlockIdResult(resultValue(BlockId.result(id))))
+const capabilityOfBlockId = (...args: Parameters<typeof capabilityOfBlockIdResult>) =>
+  resultValue(capabilityOfBlockIdResult(...args))
+const propertyOfBlockId = <K extends Parameters<typeof propertyOfBlockIdResult>[1]>(id: number, name: K) =>
+  resultValue(propertyOfBlockIdResult(resultValue(BlockId.result(id)), name))
 
 const EXPECTED_BLOCK_TYPES: ReadonlyArray<BlockType> = [
   'air',
@@ -174,7 +185,7 @@ const expectOreProperties = () => {
     expect(propertyOfBlockId(id, 'harvestTool').minTier).toBe(minTier)
     const drops = propertyOfBlockId(id, 'drops')
     expect(drops).toBeDefined()
-    if (drops === undefined) throw new Error(`expected drop rule for ${type}`)
+    if (drops === undefined) return
     expect(drops.item).toBe(item)
     expect(propertyOfBlockId(id, 'xpOnBreak')).toBe(xpOnBreak)
     expect(drops.affectedByFortune).toBe(affectedByFortune)
@@ -457,8 +468,8 @@ describe('the reference tables this roster transcribes', () => {
       // ...while its sibling in the SAME reference file is on the 0-100 scale,
       // Which is what makes this the reference's inconsistency and not kernel's.
       // `end_gateway` is -1 in the reference. Preserve it as the explicit
-      // unbreakable sentinel; `computeBreakTicks` distinguishes it from zero,
-      // which means instant break. Values below the sentinel are invalid.
+      // unbreakable sentinel; zero means instant break. Values below it are
+      // invalid.
       for (const id of BLOCK_IDS) {
         const hardness = propertyOfBlockId(id, 'hardness')
         expect(hardness === UNBREAKABLE_HARDNESS || hardness >= 0).toBe(true)

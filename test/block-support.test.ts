@@ -23,30 +23,39 @@
 import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block/block-properties'
 import {
   BLOCK_REGISTRY,
-  blockIdOf,
-  canBlockStaySupported,
-  isSupportSensitiveBlockId,
-  supportRuleOfBlockId,
+  BlockId,
+  blockIdOf as blockIdOfOption,
+  canBlockStaySupported as canBlockStaySupportedResult,
+  isSupportSensitiveBlockId as isSupportSensitiveBlockIdResult,
+  supportRuleOfBlockId as supportRuleOfBlockIdResult,
 } from '../src/domain/block/block-registry'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
 import {
   NEEDS_ANY_SUPPORT,
   NEEDS_NO_SUPPORT,
+  type SupportRule,
   isSupportSensitive,
   needsOneOf,
-  satisfiesSupportRule,
+  satisfiesSupportRule as satisfiesSupportRuleResult,
 } from '../src/domain/block/block-support'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
+import { optionValue, resultFailure, resultValue } from './block-result-helpers'
+
+const blockIdOf = (type: BlockType) => optionValue(blockIdOfOption(type))
+const canBlockStaySupported = (...args: Parameters<typeof canBlockStaySupportedResult>) =>
+  resultValue(canBlockStaySupportedResult(...args))
+const isSupportSensitiveBlockId = (id: BlockId) => resultValue(isSupportSensitiveBlockIdResult(id))
+const supportRuleOfBlockId = (id: BlockId) => resultValue(supportRuleOfBlockIdResult(id))
+const satisfiesSupportRule = (...args: Parameters<typeof satisfiesSupportRuleResult>) =>
+  resultValue(satisfiesSupportRuleResult(...args))
 
 const UNNAMED_BLOCK_TYPE = BLOCK_TYPES.at(BLOCK_TYPES.length)
 const NON_SENSITIVE_BLOCK_COUNT = 103
 const NO_NAMED_SUPPORTS = 0
-const UNKNOWN_BLOCK_ID = 200
-const MAX_BLOCK_ID = 255
-const NEGATIVE_BLOCK_ID = -1
-const FRACTIONAL_BLOCK_ID = 1.5
-const UNKNOWN_BLOCK_IDS = [UNKNOWN_BLOCK_ID, MAX_BLOCK_ID, NEGATIVE_BLOCK_ID, FRACTIONAL_BLOCK_ID, Number.NaN]
+const UNKNOWN_BLOCK_ID = BlockId(200)
+const UNKNOWN_BLOCK_IDS = [UNKNOWN_BLOCK_ID, BlockId(255)]
+const INVALID_BLOCK_IDS = [-1, 1.5, Number.NaN]
 
 // ---------------------------------------------------------------------------
 // The three arms, in isolation
@@ -130,11 +139,80 @@ describe('SupportRule — the three arms', () => {
 describe('support-rule input validation', () => {
   it('rejects malformed support-rule values at the public boundary', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => Reflect.apply(satisfiesSupportRule, undefined, [{ kind: 'invalid' }, 'stone', true])).toThrow('Unknown support rule kind')
-      expect(() => Reflect.apply(satisfiesSupportRule, undefined, [null, 'stone', true])).toThrow('Unknown support rule kind')
-      expect(() => Reflect.apply(satisfiesSupportRule, undefined, [{ kind: 'oneOf', blocks: ['not-a-block'] }, 'stone', true])).toThrow(
-        'Unknown support rule kind',
-      )
+      for (const rule of [
+        { kind: 'invalid' },
+        null,
+        { kind: 'oneOf', blocks: ['not-a-block'] },
+      ]) {
+        expect(resultFailure(Reflect.apply(satisfiesSupportRuleResult, undefined, [rule, 'stone', true]))).toMatchObject({
+          _tag: 'SupportRuleFailure',
+          message: 'Unknown support rule kind',
+        })
+      }
+    })),
+  )
+
+  it('rejects non-array and unreadable-length block lists with a failure', () => {
+    const nonArray = resultFailure(Reflect.apply(satisfiesSupportRuleResult, undefined, [
+      { kind: 'oneOf', blocks: 'sand' },
+      'sand',
+      true,
+    ]))
+    const unreadableLength = new Proxy<BlockType[]>(['sand'], {
+      get(target, key, receiver) {
+        if (key === 'length') return Number.NaN
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    const invalidLength = resultFailure(Reflect.apply(satisfiesSupportRuleResult, undefined, [
+      { kind: 'oneOf', blocks: unreadableLength },
+      'sand',
+      true,
+    ]))
+
+    expect(nonArray).toMatchObject({ _tag: 'SupportRuleFailure', message: 'Unknown support rule kind' })
+    expect(invalidLength).toMatchObject({ _tag: 'SupportRuleFailure', message: 'Unknown support rule kind' })
+  })
+
+  it('snapshots rule variants and block arrays, returning failures for throwing reads', () =>
+    Effect.runPromise(Effect.sync(() => {
+      let kindReads = 0
+      let blockReads = 0
+      const blocks = new Proxy<BlockType[]>(['sand'], {
+        get(target, key, receiver) {
+          if (key === '0') {
+            blockReads += 1
+            return blockReads === 1 ? 'sand' : 'not-a-block'
+          }
+          return Reflect.get(target, key, receiver)
+        },
+      })
+      const rule = new Proxy<Extract<SupportRule, { readonly kind: 'oneOf' }>>({ kind: 'oneOf', blocks }, {
+        get(target, key, receiver) {
+          if (key === 'kind') {
+            kindReads += 1
+            return kindReads === 1 ? 'oneOf' : 'none'
+          }
+          return Reflect.get(target, key, receiver)
+        },
+      })
+
+      expect(satisfiesSupportRuleResult(rule, 'sand', false)).toMatchObject({
+        _tag: 'Success',
+        success: true,
+      })
+      expect({ kindReads, blockReads }).toStrictEqual({ kindReads: 1, blockReads: 1 })
+
+      const throwing = new Proxy({ kind: 'none' }, {
+        get(target, key, receiver) {
+          if (key === 'kind') throw new Error('hostile getter')
+          return Reflect.get(target, key, receiver)
+        },
+      })
+      expect(resultFailure(Reflect.apply(satisfiesSupportRuleResult, undefined, [throwing, 'sand', false]))).toMatchObject({
+        _tag: 'SupportRuleFailure',
+        message: 'Unknown support rule kind',
+      })
     })),
   )
 })
@@ -356,7 +434,7 @@ describe('the supportRule column across the whole registry', () => {
       expect(named.length).toBeGreaterThan(NO_NAMED_SUPPORTS)
       for (const block of named) {
         // A rule naming a block with no registry row would be a rule that can
-        // Never be satisfied, and `blockIdOf` would silently answer AIR.
+        // never be satisfied; `blockIdOf` now represents that absence with None.
         expect(BLOCK_TYPES).toContain(block)
       }
       // Every named support must be part of the public block vocabulary.
@@ -415,6 +493,14 @@ describe('the id-keyed readings are total', () => {
         expect(supportRuleOfBlockId(id)).toStrictEqual(NEEDS_NO_SUPPORT)
         expect(isSupportSensitiveBlockId(id)).toBe(false)
         expect(canBlockStaySupported(id, blockIdOf('air'))).toBe(true)
+      }
+      for (const id of INVALID_BLOCK_IDS) {
+        const failure = resultFailure(BlockId.result(id))
+        expect(resultFailure(Reflect.apply(supportRuleOfBlockIdResult, undefined, [id]))).toEqual(failure)
+        expect(resultFailure(Reflect.apply(isSupportSensitiveBlockIdResult, undefined, [id]))).toEqual(failure)
+        expect(resultFailure(Reflect.apply(canBlockStaySupportedResult, undefined, [id, blockIdOf('air')]))).toEqual(
+          failure,
+        )
       }
     })),
   )

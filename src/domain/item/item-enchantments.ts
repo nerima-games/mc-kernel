@@ -1,4 +1,6 @@
 /** Constructors and guards for current Java item enchantment components. */
+import { Result } from 'effect'
+import { MAX_GENERIC_INPUT_ENTRIES, snapshotInputEntries } from '../../input-snapshot.js'
 import { ResourceLocation } from '../text/identifiers.js'
 import {
   isEnchantmentLevelMap,
@@ -11,47 +13,54 @@ import type {
   StoredEnchantmentsComponent,
 } from './item-enchantments-data.js'
 import { EnchantmentLevel } from '../time/quantities.js'
+import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
 
 export type EnchantmentLevelMapOptions = Readonly<Record<string, number>>
 
-const validateOptionsObject = (value: unknown, name: string): void => {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new TypeError(`${name} must be a non-null object`)
-  }
-}
-
-const validateLevel = (value: unknown, name: string): number => {
+const validateLevel = (value: unknown, name: string): Result.Result<EnchantmentLevel, ItemValidationFailure> => {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new TypeError(`${name} must be a finite number`)
+    return Result.fail(itemValidationFailure(name, `${name} must be a finite number`, 'invalid-type', value))
   }
-  if (!EnchantmentLevel.is(value)) {
-    throw new RangeError(`${name} must be a safe integer in [0, 255]`)
-  }
-  return value
+  return Result.mapError(
+    EnchantmentLevel.result(value),
+    () => itemValidationFailure(name, `${name} must be a safe integer in [0, 255]`, 'out-of-range', value),
+  )
 }
 
 const enchantmentLevelMapOf = (
   options: EnchantmentLevelMapOptions,
   name: string,
-): EnchantmentLevelMap => {
-  validateOptionsObject(options, `${name} options`)
-  const entries: Record<string, EnchantmentLevel> = {}
-  for (const [id, level] of Object.entries(options)) {
-    if (!ResourceLocation.is(id)) {
-      throw new TypeError(`${name} keys must be valid resource locations: ${id}`)
-    }
-    entries[id] = EnchantmentLevel(validateLevel(level, `${name}[${id}]`))
+): Result.Result<EnchantmentLevelMap, ItemValidationFailure> => {
+  const decodedEntries = snapshotInputEntries(options, MAX_GENERIC_INPUT_ENTRIES)
+  if (Result.isFailure(decodedEntries)) {
+    const invalidType = decodedEntries.failure.reason === 'invalid-container' || decodedEntries.failure.reason === 'unsupported-prototype'
+    const tooLarge = decodedEntries.failure.reason === 'too-large'
+    return Result.fail(itemValidationFailure(
+      'options',
+      invalidType ? `${name} options must be a non-null object` : tooLarge ? `${name} options exceed the maximum size` : `${name} options could not be inspected`,
+      invalidType ? 'invalid-type' : tooLarge ? 'out-of-range' : 'hostile-input',
+      options,
+    ))
   }
-  return Object.freeze(entries)
+  const normalized: Record<string, EnchantmentLevel> = {}
+  for (const [id, level] of decodedEntries.success) {
+    if (!ResourceLocation.is(id)) {
+      return Result.fail(itemValidationFailure(id, `${name} keys must be valid resource locations: ${id}`, 'invalid-value', id))
+    }
+    const checkedLevel = validateLevel(level, `${name}[${id}]`)
+    if (Result.isFailure(checkedLevel)) return Result.fail(checkedLevel.failure)
+    normalized[id] = checkedLevel.success
+  }
+  return Result.succeed(Object.freeze(normalized))
 }
 
 export const enchantmentsComponent = (
   options: EnchantmentLevelMapOptions = {},
-): EnchantmentsComponent => enchantmentLevelMapOf(options, 'enchantments')
+): Result.Result<EnchantmentsComponent, ItemValidationFailure> => enchantmentLevelMapOf(options, 'enchantments')
 
 export const storedEnchantmentsComponent = (
   options: EnchantmentLevelMapOptions = {},
-): StoredEnchantmentsComponent => enchantmentLevelMapOf(options, 'stored_enchantments')
+): Result.Result<StoredEnchantmentsComponent, ItemValidationFailure> => enchantmentLevelMapOf(options, 'stored_enchantments')
 
 export {
   isEnchantmentLevelMap,

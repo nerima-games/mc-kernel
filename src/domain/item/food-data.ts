@@ -1,5 +1,17 @@
 import type { ItemType } from './item-type.js'
 import type { StatusEffectName } from '../entity/status-effect-data.js'
+import {
+  EffectAmplifier,
+  EffectDurationSecs,
+  FoodEffectProbability,
+  FoodNutrition,
+  FoodSaturation,
+  type EffectAmplifier as EffectAmplifierValue,
+  type EffectDurationSecs as EffectDurationSecsValue,
+  type FoodEffectProbability as FoodEffectProbabilityValue,
+  type FoodNutrition as FoodNutritionValue,
+  type FoodSaturation as FoodSaturationValue,
+} from './item-primitives.js'
 
 /**
  * The vanilla food effects, `Extract`ed from the closed status-effect
@@ -22,34 +34,54 @@ export type FoodStatusEffectName = Extract<
 export type FoodStatusEffect = Readonly<{
   readonly kind: 'status'
   readonly name: FoodStatusEffectName
-  readonly chance: number
-  readonly durationSecs: number
-  readonly amplifier: number
+  readonly chance: FoodEffectProbabilityValue
+  readonly durationSecs: EffectDurationSecsValue
+  readonly amplifier: EffectAmplifierValue
 }>
 
 export type FoodRemoveEffect = Readonly<{
   readonly kind: 'remove'
   readonly name: 'poison'
-  readonly chance: number
+  readonly chance: FoodEffectProbabilityValue
 }>
 
 export type FoodTeleportEffect = Readonly<{
   readonly kind: 'teleport'
-  readonly chance: number
+  readonly chance: FoodEffectProbabilityValue
 }>
 
 export type FoodEffect = FoodStatusEffect | FoodRemoveEffect | FoodTeleportEffect
 
 export type FoodDefinition = Readonly<{
   readonly item: ItemType
-  readonly nutrition: number
-  readonly saturation: number
+  readonly nutrition: FoodNutritionValue
+  readonly saturation: FoodSaturationValue
   readonly canAlwaysEat: boolean
   readonly useRemainder: ItemType | undefined
   readonly effects: ReadonlyArray<FoodEffect>
 }>
 
-export const VANILLA_FOOD_DEFINITIONS: ReadonlyArray<FoodDefinition> = [
+type FoodEffectDefinitionInput =
+  | Readonly<{
+      readonly kind: 'status'
+      readonly name: FoodStatusEffectName
+      readonly chance: number
+      readonly durationSecs: number
+      readonly amplifier: number
+    }>
+  | Readonly<{ readonly kind: 'remove'; readonly name: 'poison'; readonly chance: number }>
+  | Readonly<{ readonly kind: 'teleport'; readonly chance: number }>
+
+type FoodDefinitionInput = Readonly<{
+  readonly item: ItemType
+  readonly nutrition: number
+  readonly saturation: number
+  readonly canAlwaysEat: boolean
+  readonly useRemainder: ItemType | undefined
+  readonly effects: ReadonlyArray<FoodEffectDefinitionInput>
+}>
+
+const VANILLA_FOOD_DEFINITION_INPUTS: ReadonlyArray<FoodDefinitionInput> = [
   {
     item: 'cod',
     nutrition: 2,
@@ -374,7 +406,29 @@ export const VANILLA_FOOD_DEFINITIONS: ReadonlyArray<FoodDefinition> = [
     useRemainder: undefined,
     effects: [],
   },
-] as const satisfies ReadonlyArray<FoodDefinition>
+] as const satisfies ReadonlyArray<FoodDefinitionInput>
+
+const foodEffectOf = (effect: FoodEffectDefinitionInput): FoodEffect => {
+  const chance = FoodEffectProbability(effect.chance)
+  if (effect.kind === 'status') {
+    return {
+      ...effect,
+      chance,
+      durationSecs: EffectDurationSecs(effect.durationSecs),
+      amplifier: EffectAmplifier(effect.amplifier),
+    }
+  }
+  return { ...effect, chance }
+}
+
+export const VANILLA_FOOD_DEFINITIONS: ReadonlyArray<FoodDefinition> = VANILLA_FOOD_DEFINITION_INPUTS.map(
+  (definition) => ({
+    ...definition,
+    nutrition: FoodNutrition(definition.nutrition),
+    saturation: FoodSaturation(definition.saturation),
+    effects: Object.freeze(definition.effects.map(foodEffectOf)),
+  }),
+)
 
 export const FOOD_DEFINITION_BY_ITEM: ReadonlyMap<ItemType, FoodDefinition> = new Map(
   VANILLA_FOOD_DEFINITIONS.map(

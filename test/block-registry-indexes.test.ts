@@ -1,34 +1,59 @@
 import { Effect } from 'effect'
 import { describe, expect, it } from 'vitest'
-import { BLOCK_PROPERTY_DEFAULTS } from '../src/domain/block/block-properties'
+import { BLOCK_OPACITIES, BLOCK_PROPERTY_DEFAULTS } from '../src/domain/block/block-properties'
 import { isSupportSensitive } from '../src/domain/block/block-support'
+import { BLOCK_REGISTRY } from '../src/domain/block/block-registry'
 import {
   BLOCK_IDS,
-  buildIdByType,
+  blockPropertyColumnValueOrDefault,
+  buildCapabilitiesById,
+  buildIdByType as buildIdByTypeResult,
+  buildIdsByOpacity,
   buildKnownById,
-  buildSupportBlockIdsById,
-  blockIdsWithCapability,
-  blockIdsWithOpacity,
-  blockTypeOfId,
-  canBlockStaySupported,
-  capabilitiesOfBlockId,
-  capabilityOfBlockId,
-  dropOfBlockId,
-  isKnownBlockId,
-  isSupportSensitiveBlockId,
-  lightEmissionOfBlockId,
-  opacityOfBlockId,
-  propertyOfBlockId,
+  buildPropertyColumns,
+  buildSupportBlockIdsById as buildSupportBlockIdsByIdResult,
+  blockIdsWithCapability as blockIdsWithCapabilityResult,
+  blockIdsWithOpacity as blockIdsWithOpacityResult,
+  blockTypeOfId as blockTypeOfIdResult,
+  canBlockStaySupported as canBlockStaySupportedResult,
+  capabilitiesOfBlockId as capabilitiesOfBlockIdResult,
+  capabilityOfBlockId as capabilityOfBlockIdResult,
+  dropOfBlockId as dropOfBlockIdResult,
+  isKnownBlockId as isKnownBlockIdResult,
+  isSupportSensitiveBlockId as isSupportSensitiveBlockIdResult,
+  lightEmissionOfBlockId as lightEmissionOfBlockIdResult,
+  opacityOfBlockId as opacityOfBlockIdResult,
+  propertyOfBlockId as propertyOfBlockIdResult,
   RAW_COLUMN_DEFAULTS,
-  resolvedBlockAt,
-  resolvedBlockOfId,
-  supportRuleOfBlockId,
-  transmitsLight,
+  resolvedBlockAt as resolvedBlockAtResult,
+  resolvedBlockOfId as resolvedBlockOfIdResult,
+  supportRuleOfBlockId as supportRuleOfBlockIdResult,
+  supportBlockIdsOf,
+  transmitsLight as transmitsLightResult,
 } from '../src/domain/block/block-registry-indexes'
 import * as blockRegistryIndexes from '../src/domain/block/block-registry-indexes'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block/block-capabilities'
 import { BLOCK_PROPERTY_NAMES } from '../src/domain/block/block-properties'
-import { BLOCK_ID_MAX } from '../src/domain/block/block-registry-types'
+import { BLOCK_ID_MAX, BlockId } from '../src/domain/block/block-registry-types'
+import { optionValue, resultFailure, resultValue } from './block-result-helpers'
+
+const canBlockStaySupported = (...args: Parameters<typeof canBlockStaySupportedResult>) =>
+  resultValue(canBlockStaySupportedResult(...args))
+const blockTypeOfId = (id: BlockId) => resultValue(blockTypeOfIdResult(id))
+const capabilitiesOfBlockId = (id: BlockId) => resultValue(capabilitiesOfBlockIdResult(id))
+const capabilityOfBlockId = (...args: Parameters<typeof capabilityOfBlockIdResult>) =>
+  resultValue(capabilityOfBlockIdResult(...args))
+const dropOfBlockId = (...args: Parameters<typeof dropOfBlockIdResult>) => resultValue(dropOfBlockIdResult(...args))
+const isKnownBlockId = (id: BlockId) => resultValue(isKnownBlockIdResult(id))
+const isSupportSensitiveBlockId = (id: BlockId) => resultValue(isSupportSensitiveBlockIdResult(id))
+const lightEmissionOfBlockId = (id: BlockId) => resultValue(lightEmissionOfBlockIdResult(id))
+const opacityOfBlockId = (id: BlockId) => resultValue(opacityOfBlockIdResult(id))
+const propertyOfBlockId = <K extends Parameters<typeof propertyOfBlockIdResult>[1]>(id: BlockId, name: K) =>
+  resultValue(propertyOfBlockIdResult(id, name))
+const resolvedBlockAt = (id: BlockId) => optionValue(resultValue(resolvedBlockAtResult(id)))
+const resolvedBlockOfId = (id: BlockId) => resultValue(resolvedBlockOfIdResult(id))
+const supportRuleOfBlockId = (id: BlockId) => resultValue(supportRuleOfBlockIdResult(id))
+const transmitsLight = (id: BlockId) => resultValue(transmitsLightResult(id))
 
 // The complete, currently-reviewed set of value exports from
 // `block-registry-indexes.ts`. A new zero-initialised typed-array column
@@ -45,9 +70,13 @@ const EXPECTED_BLOCK_REGISTRY_INDEX_EXPORTS = [
   'blockIdOf',
   'blockIdsWithCapability',
   'blockIdsWithOpacity',
+  'blockPropertyColumnValueOrDefault',
   'blockTypeOfId',
+  'buildCapabilitiesById',
   'buildIdByType',
+  'buildIdsByOpacity',
   'buildKnownById',
+  'buildPropertyColumns',
   'buildSupportBlockIdsById',
   'canBlockStaySupported',
   'capabilitiesOfBlockId',
@@ -62,25 +91,98 @@ const EXPECTED_BLOCK_REGISTRY_INDEX_EXPORTS = [
   'resolvedBlockAt',
   'resolvedBlockOfId',
   'supportRuleOfBlockId',
+  'supportBlockIdsOf',
   'transmitsLight',
 ].sort()
 
 describe('block registry indexes', () => {
+  it('uses a block property default only when a dense column has no value', () => {
+    expect(blockPropertyColumnValueOrDefault(undefined, BLOCK_PROPERTY_DEFAULTS.opacity))
+      .toBe(BLOCK_PROPERTY_DEFAULTS.opacity)
+    expect(blockPropertyColumnValueOrDefault(BLOCK_OPACITIES[0], BLOCK_PROPERTY_DEFAULTS.opacity))
+      .toBe(BLOCK_OPACITIES[0])
+  })
+
   it('rejects a registry that omits a required vocabulary row', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => buildIdByType([], ['air'])).toThrow('Block registry is missing a row for air')
+      expect(resultFailure(buildIdByTypeResult([], ['air']))).toMatchObject({
+        _tag: 'BlockRegistryFailure',
+        reason: 'missing-block-row',
+        message: 'Block registry is missing a row for air',
+      })
+    })),
+  )
+
+  it('builds a vocabulary index from registered rows', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const [entry] = BLOCK_REGISTRY
+      expect(entry).toBeDefined()
+      if (entry === undefined) return
+
+      const index = resultValue(buildIdByTypeResult([entry], [entry.definition.type]))
+      expect(index.get(entry.definition.type)).toBe(entry.id)
+    })),
+  )
+
+  it('fills defaults when resolved rows are absent', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const capabilities = buildCapabilitiesById([])
+      expect(capabilities.size).toBe(BLOCK_CAPABILITY_FLAGS.length)
+      for (const flag of BLOCK_CAPABILITY_FLAGS) {
+        expect(Array.from(capabilities.get(flag) ?? [])).toEqual(
+          Array.from({ length: BLOCK_IDS.length }, () => BLOCK_CAPABILITY_DEFAULTS[flag] ? 1 : 0),
+        )
+      }
+
+      const properties = buildPropertyColumns([])
+      expect(properties.opacity.every((value) => value === BLOCK_PROPERTY_DEFAULTS.opacity)).toBe(true)
+      expect(properties.lightEmission.every((value) => value === BLOCK_PROPERTY_DEFAULTS.lightEmission)).toBe(true)
+      expect(properties.transmitsLight.every((value) => value === 0)).toBe(true)
+      expect(properties.byName.opacity.every((value) => value === BLOCK_PROPERTY_DEFAULTS.opacity)).toBe(true)
+    })),
+  )
+
+  it('returns missing-support failure for an incomplete support-id map', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(resultFailure(supportBlockIdsOf(new Map(), BlockId(1)))).toMatchObject({
+        _tag: 'BlockRegistryFailure',
+        reason: 'missing-support-ids',
+      })
+    })),
+  )
+
+  it('defaults missing opacity values and ignores values without a bucket', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const defaulted = Reflect.apply(buildIdsByOpacity, undefined, [{ opacity: [] }])
+      const defaultBuckets = new Map(BLOCK_OPACITIES.map((opacity) => [
+        opacity,
+        opacity === BLOCK_PROPERTY_DEFAULTS.opacity ? new Set(BLOCK_IDS) : new Set(),
+      ]))
+      expect(defaulted).toEqual(defaultBuckets)
+
+      const invalidOpacity = Array.from({ length: BLOCK_IDS.length }, () => 'invalid')
+      const ignored = Reflect.apply(buildIdsByOpacity, undefined, [{ opacity: invalidOpacity }])
+      expect(ignored).toEqual(new Map(BLOCK_OPACITIES.map((opacity) => [opacity, new Set()])))
     })),
   )
 
   it('rejects missing derived registry rows', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => resolvedBlockAt(-1)).toThrow('Block registry is missing a resolved row for -1')
-      expect(() => buildSupportBlockIdsById([])).toThrow('Block registry is missing a support rule')
+      expect(resultFailure(Reflect.apply(resolvedBlockAtResult, undefined, [-1]))).toEqual(
+        resultFailure(BlockId.result(-1)),
+      )
+      expect(resultFailure(buildSupportBlockIdsByIdResult([]))).toMatchObject({
+        _tag: 'BlockRegistryFailure',
+        reason: 'missing-support-rule',
+        message: expect.stringContaining('Block registry is missing a support rule for '),
+      })
 
       const invalidSupportRule = { kind: 'oneOf', blocks: ['invalid'] }
-      expect(() => Reflect.apply(buildSupportBlockIdsById, undefined, [[invalidSupportRule]])).toThrow(
-        'Block registry is missing a row for invalid',
-      )
+      expect(resultFailure(Reflect.apply(buildSupportBlockIdsByIdResult, undefined, [[invalidSupportRule]]))).toMatchObject({
+        _tag: 'BlockRegistryFailure',
+        reason: 'missing-block-row',
+        message: 'Block registry is missing a row for invalid',
+      })
     })),
   )
 
@@ -88,20 +190,25 @@ describe('block registry indexes', () => {
     Effect.runPromise(Effect.sync(() => {
       expect(BLOCK_IDS).not.toHaveLength(0)
       const firstBlockId = BLOCK_IDS[0]
-      if (firstBlockId === undefined) throw new Error('Block registry fixture must not be empty')
+      expect(firstBlockId).toBeDefined()
+      if (firstBlockId === undefined) return
       expect(propertyOfBlockId(firstBlockId, 'opacity')).toBeDefined()
-      expect(propertyOfBlockId(-1, 'opacity')).toBe(BLOCK_PROPERTY_DEFAULTS.opacity)
+      expect(resultFailure(Reflect.apply(propertyOfBlockIdResult, undefined, [-1, 'opacity']))).toEqual(
+        resultFailure(BlockId.result(-1)),
+      )
     })),
   )
 
   it('rejects missing capability and opacity indexes', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => Reflect.apply(blockIdsWithCapability, undefined, ['invalid'])).toThrow(
-        'Block capability index is missing invalid',
-      )
-      expect(() => Reflect.apply(blockIdsWithOpacity, undefined, ['invalid'])).toThrow(
-        'Block opacity index is missing invalid',
-      )
+      expect(Reflect.apply(blockIdsWithCapabilityResult, undefined, ['invalid'])).toMatchObject({
+        _tag: 'Success',
+        success: { _tag: 'None' },
+      })
+      expect(Reflect.apply(blockIdsWithOpacityResult, undefined, ['invalid'])).toMatchObject({
+        _tag: 'Success',
+        success: { _tag: 'None' },
+      })
     })),
   )
 
@@ -148,8 +255,8 @@ describe('block registry indexes', () => {
   it('resolves an id above the resized table exactly as a known-unregistered id resolves', () =>
     Effect.runPromise(Effect.sync(() => {
       const highestRegisteredId = BLOCK_IDS.reduce((highest, id) => Math.max(highest, id), -1)
-      const knownUnregisteredId = -1
-      const idsAboveTheResizedTable = [highestRegisteredId + 1, BLOCK_ID_MAX]
+      const knownUnregisteredId = resultValue(BlockId.result(BLOCK_ID_MAX))
+      const idsAboveTheResizedTable = [highestRegisteredId + 1, BLOCK_ID_MAX].map((id) => resultValue(BlockId.result(id)))
 
       for (const id of idsAboveTheResizedTable) {
         expect(isKnownBlockId(id)).toBe(isKnownBlockId(knownUnregisteredId))
@@ -179,8 +286,8 @@ describe('block registry indexes', () => {
         expect(isSupportSensitiveBlockId(id)).toBe(isSupportSensitiveBlockId(knownUnregisteredId))
         expect(isSupportSensitiveBlockId(id)).toBe(false)
 
-        expect(canBlockStaySupported(id, 0)).toBe(canBlockStaySupported(knownUnregisteredId, 0))
-        expect(canBlockStaySupported(id, 0)).toBe(true)
+        expect(canBlockStaySupported(id, BlockId(0))).toBe(canBlockStaySupported(knownUnregisteredId, BlockId(0)))
+        expect(canBlockStaySupported(id, BlockId(0))).toBe(true)
 
         expect(capabilitiesOfBlockId(id)).toEqual(capabilitiesOfBlockId(knownUnregisteredId))
         expect(capabilitiesOfBlockId(id)).toEqual(BLOCK_CAPABILITY_DEFAULTS)
@@ -207,7 +314,8 @@ describe('block registry indexes', () => {
   it('marks a gap in the resolved table as unknown, not just an out-of-range id', () =>
     Effect.runPromise(Effect.sync(() => {
       const firstBlockId = BLOCK_IDS[0]
-      if (firstBlockId === undefined) throw new Error('Block registry fixture must not be empty')
+      expect(firstBlockId).toBeDefined()
+      if (firstBlockId === undefined) return
 
       const sparseResolvedById = [undefined, resolvedBlockAt(firstBlockId)]
       const known = buildKnownById(sparseResolvedById)
@@ -220,15 +328,18 @@ describe('block registry indexes', () => {
   // exhaustively filled at every index up to `BLOCK_ID_TABLE_LENGTH`, so the
   // only way an in-range read still misses is a non-integer id: neither a
   // plain array nor a typed array recognises a fractional index as an
-  // element, so `column[1.5]` reads as a missing property and returns
-  // `undefined`. A caller passes a raw `number`, not a validated `BlockId`,
-  // so this is a real input this function must default correctly for.
-  it('defaults a fractional in-range id the same as an out-of-range one', () =>
+  // element, so the registry boundary rejects a fractional ID through the
+  // BlockId brand constructor and returns its validation failure.
+  it('returns the BlockId failure for fractional registry ids', () =>
     Effect.runPromise(Effect.sync(() => {
       const fractionalId = 0.5
 
-      expect(propertyOfBlockId(fractionalId, 'opacity')).toBe(BLOCK_PROPERTY_DEFAULTS.opacity)
-      expect(opacityOfBlockId(fractionalId)).toBe(BLOCK_PROPERTY_DEFAULTS.opacity)
+      expect(resultFailure(Reflect.apply(propertyOfBlockIdResult, undefined, [fractionalId, 'opacity']))).toEqual(
+        resultFailure(BlockId.result(fractionalId)),
+      )
+      expect(resultFailure(Reflect.apply(opacityOfBlockIdResult, undefined, [fractionalId]))).toEqual(
+        resultFailure(BlockId.result(fractionalId)),
+      )
     })),
   )
 
@@ -247,9 +358,9 @@ describe('block registry indexes', () => {
     Effect.runPromise(Effect.sync(() => {
       const highestRegisteredId = BLOCK_IDS.reduce((highest, id) => Math.max(highest, id), -1)
 
-      const resolved = resolvedBlockOfId(highestRegisteredId)
+      const resolved = resolvedBlockOfId(BlockId(highestRegisteredId))
       expect(resolved).toBeDefined()
-      if (resolved === undefined) throw new Error('unreachable: asserted defined above')
+      if (resolved === undefined) return
 
       const propertiesThatDifferFromDefaults = BLOCK_PROPERTY_NAMES.filter(
         (name) => JSON.stringify(resolved.properties[name]) !== JSON.stringify(BLOCK_PROPERTY_DEFAULTS[name]),

@@ -1,275 +1,87 @@
 import { describe, expect, it } from 'vitest'
+import { Result } from 'effect'
+import { BlockBlastResistance } from '../src/domain/block/block-properties'
+import { blockIdOf } from '../src/domain/block/block-registry'
+import { BlockId } from '../src/domain/block/block-registry-types'
 import {
-  DEFAULT_EXPLOSION_LIMITS,
-  applyExplosionPlan,
-  blockIdOf,
-  planExplosion,
+  ExplosionExposure,
+  ExplosionBlockCount,
+  ExplosionEntityCount,
+  ExplosionRadius,
+  ExplosionRayStepCount,
   resistsExplosion,
-  type ExplosionBlock,
-  type ExplosionEntity,
-  type ExplosionMutation,
-} from '../src/index'
+} from '../src/domain/entity/explosion'
+import { optionValue, resultValue } from './block-result-helpers.js'
+
+const expectBrandFailure = <A>(result: Result.Result<A, unknown>, message: string) => {
+  expect(Result.isFailure(result)).toBe(true)
+  if (Result.isFailure(result)) {
+    expect(result.failure).toMatchObject({
+      _tag: 'BrandError',
+      name: 'BrandError',
+    })
+    expect(result.failure).toHaveProperty('message', message)
+  }
+}
 
 const TNT_POWER = 4
 const CHARGED_CREEPER_POWER = 6
 const HUGE_POWER = 1_000_000
-
-const keyOf = (x: number, y: number, z: number): string => `${x},${y},${z}`
-const emptyBlock: ExplosionBlock = { resistance: 0, destructible: true }
-
-const world = (
-  entries: ReadonlyArray<readonly [string, ExplosionBlock | undefined]> = [],
-  fallback: ExplosionBlock | undefined = emptyBlock,
-) => {
-  const cells = new Map(entries)
-  return ({ x, y, z }: { readonly x: number; readonly y: number; readonly z: number }) =>
-    cells.has(keyOf(x, y, z)) ? cells.get(keyOf(x, y, z)) : fallback
-}
-
-const unloadedWorld = (entries: ReadonlyArray<readonly [string, ExplosionBlock | undefined]> = []) => {
-  const cells = new Map(entries)
-  return ({ x, y, z }: { readonly x: number; readonly y: number; readonly z: number }) =>
-    cells.get(keyOf(x, y, z))
-}
-
-const entity = (id: string, x: number, y: number, z: number): ExplosionEntity => ({
-  id,
-  feetPosition: { x, y, z },
-})
-
-describe('explosion planning', () => {
-  it('is deterministic and uses block resistance for destruction', () => {
-    const request = {
-      center: { x: 0.5, y: 0.5, z: 0.5 },
-      radius: 2.5,
-      seed: 11,
-      blocks: world([
-        [keyOf(1, 0, 0), { resistance: 100, destructible: true }],
-      ]),
-      entities: [],
-    }
-
-    const first = planExplosion(request)
-    const second = planExplosion(request)
-    const lowResistance = planExplosion({
-      ...request,
-      blocks: world([[keyOf(1, 0, 0), { resistance: -1, destructible: true }]]),
-    })
-
-    expect(first).toStrictEqual(second)
-    expect(first.destroyedBlocks).not.toContainEqual({ x: 1, y: 0, z: 0 })
-    expect(lowResistance.destroyedBlocks).toContainEqual({ x: 1, y: 0, z: 0 })
-  })
-
-  it('keeps non-destructible and unloaded cells out of the mutation', () => {
-    const nonDestructible = planExplosion({
-      center: { x: 0.5, y: 0.5, z: 0.5 },
-      radius: 2,
-      seed: 1,
-      blocks: world([[keyOf(1, 0, 0), { resistance: 0, destructible: false }]]),
-      entities: [],
-    })
-    expect(nonDestructible.destroyedBlocks).not.toContainEqual({ x: 1, y: 0, z: 0 })
-
-    const unloadedRay = planExplosion({
-      center: { x: 0.5, y: 0.5, z: 0.5 },
-      radius: 2,
-      seed: 1,
-      blocks: unloadedWorld([[keyOf(1, 0, 0), emptyBlock]]),
-      entities: [],
-      limits: { maxRaySteps: 32 },
-    })
-    expect(unloadedRay.destroyedBlocks).toEqual([])
-    expect(unloadedRay.truncated).toBe(false)
-  })
-
-  it('normalizes non-finite inputs and limits', () => {
-    const normalized = planExplosion({
-      center: { x: Number.NaN, y: Number.POSITIVE_INFINITY, z: Number.NEGATIVE_INFINITY },
-      radius: Number.NaN,
-      seed: Number.POSITIVE_INFINITY,
-      blocks: world(),
-      entities: [],
-      limits: {
-        maxVisitedBlocks: -2,
-        maxRaySteps: Number.NaN,
-        maxAffectedEntities: Number.POSITIVE_INFINITY,
-      },
-    })
-
-    expect(normalized.center).toEqual({ x: 0, y: 0, z: 0 })
-    expect(normalized.radius).toBe(0)
-    expect(normalized.seed).toBe(0)
-    expect(normalized.limits).toEqual({
-      maxVisitedBlocks: 0,
-      maxRaySteps: DEFAULT_EXPLOSION_LIMITS.maxRaySteps,
-      maxAffectedEntities: DEFAULT_EXPLOSION_LIMITS.maxAffectedEntities,
-    })
-    expect(normalized.truncated).toBe(false)
-  })
-
-  it('marks visited-block and ray-step bounds as truncated', () => {
-    const visitedLimit = planExplosion({
-      center: { x: 0.5, y: 0.5, z: 0.5 },
-      radius: 2,
-      seed: 1,
-      blocks: world(),
-      entities: [],
-      limits: { maxVisitedBlocks: 1 },
-    })
-    expect(visitedLimit.visitedBlocks).toBe(1)
-    expect(visitedLimit.truncated).toBe(true)
-
-    const rayLimit = planExplosion({
-      center: { x: 0.5, y: 0.5, z: 0.5 },
-      radius: 2,
-      seed: 1,
-      blocks: world(),
-      entities: [],
-      limits: { maxRaySteps: 1 },
-    })
-    expect(rayLimit.truncated).toBe(true)
-  })
-
-  it('uses cached radial traces for large explosions and respects shielding', () => {
-    const request = {
-      center: { x: 0.5, y: 0.5, z: 0.5 },
-      radius: 16,
-      seed: 11,
-      blocks: world(),
-      entities: [],
-    }
-    const open = planExplosion(request)
-    const repeated = planExplosion(request)
-    const shielded = planExplosion({
-      ...request,
-      blocks: world([
-        [keyOf(4, 0, 0), { resistance: 20, destructible: true }],
-        [keyOf(8, 0, 0), emptyBlock],
-      ]),
-    })
-
-    expect(open).toStrictEqual(repeated)
-    expect(open.destroyedBlocks).toContainEqual({ x: 8, y: 0, z: 0 })
-    expect(shielded.destroyedBlocks).not.toContainEqual({ x: 8, y: 0, z: 0 })
-  })
-
-  it('handles unloaded radial prefixes and bounded large traces', () => {
-    const sparse = planExplosion({
-      center: { x: 0.5, y: 0.5, z: 0.5 },
-      radius: 9,
-      seed: 2,
-      blocks: unloadedWorld([
-        [keyOf(7, 0, 0), { resistance: 0, destructible: false }],
-        [keyOf(8, 0, 0), emptyBlock],
-      ]),
-      entities: [],
-    })
-    expect(sparse.truncated).toBe(false)
-    expect(sparse.destroyedBlocks).not.toContainEqual({ x: 8, y: 0, z: 0 })
-
-    const rayLimited = planExplosion({
-      center: { x: 0.5, y: 0.5, z: 0.5 },
-      radius: 9,
-      seed: 2,
-      blocks: world(),
-      entities: [],
-      limits: { maxRaySteps: 1 },
-    })
-    expect(rayLimited.truncated).toBe(true)
-  })
-
-  it('plans exposed entity damage and handles center, out-of-range, and sparse entities', () => {
-    const sparseEntities: ExplosionEntity[] = new Array(2)
-    sparseEntities[1] = entity('near', 1, 0, 0)
-    const plan = planExplosion({
-      center: { x: 0, y: 0, z: 0 },
-      radius: 4,
-      seed: 3,
-      blocks: world(),
-      entities: [
-        entity('center', 0, -0.9, 0),
-        ...sparseEntities,
-        entity('far', 10, 0, 0),
-      ],
-      limits: { maxAffectedEntities: 4 },
-    })
-
-    expect(plan.entityEffects.map(({ id }) => id)).toEqual(['center', 'near'])
-    expect(plan.entityEffects[0]?.knockback).toEqual({ x: 0, y: 0, z: 0 })
-    expect(plan.entityEffects[0]?.damage).toBeGreaterThan(1)
-    expect(plan.entityEffects[1]?.exposure).toBeGreaterThan(0)
-    expect(plan.truncated).toBe(false)
-
-    const limited = planExplosion({
-      center: { x: 0, y: 0, z: 0 },
-      radius: 4,
-      seed: 3,
-      blocks: world(),
-      entities: [entity('first', 0, -0.9, 0), entity('second', 1, 0, 0)],
-      limits: { maxAffectedEntities: 1 },
-    })
-    expect(limited.entityEffects).toHaveLength(1)
-    expect(limited.truncated).toBe(true)
-
-    const zeroRadius = planExplosion({
-      center: { x: 0, y: 0, z: 0 },
-      radius: 0,
-      seed: 3,
-      blocks: world(),
-      entities: [entity('center', 0, -0.9, 0)],
-    })
-    expect(zeroRadius.entityEffects).toEqual([])
-  })
-
-  it('omits fully occluded entity effects and commits one mutation', () => {
-    const plan = planExplosion({
-      center: { x: 0.5, y: 0.5, z: 0.5 },
-      radius: 4,
-      seed: 4,
-      blocks: unloadedWorld(),
-      entities: [entity('occluded', 1, 0, 0)],
-    })
-    expect(plan.entityEffects).toEqual([])
-
-    let mutation: ExplosionMutation | undefined
-    applyExplosionPlan(plan, (next) => {
-      mutation = next
-    })
-    expect(mutation).toEqual({
-      destroyedBlocks: plan.destroyedBlocks,
-      entityEffects: plan.entityEffects,
-    })
-  })
-})
 
 describe('resistsExplosion', () => {
   it('reproduces the mx-gameplay block-vocabulary.ts mirror of resistsNormalExplosion(id) at TNT/creeper power', () => {
     // mx-gameplay's mirror (`block-vocabulary.ts:610,649`) flags exactly
     // `bedrock` and `obsidian` as resistant to a normal creeper/TNT
     // explosion; every other block resolves to `false`.
-    const bedrockId = blockIdOf('bedrock')
-    const obsidianId = blockIdOf('obsidian')
-    const stoneId = blockIdOf('stone')
+    const bedrockId = optionValue(blockIdOf('bedrock'))
+    const obsidianId = optionValue(blockIdOf('obsidian'))
+    const stoneId = optionValue(blockIdOf('stone'))
 
-    for (const power of [TNT_POWER, CHARGED_CREEPER_POWER, HUGE_POWER]) {
-      expect(resistsExplosion(bedrockId, power)).toBe(true)
-      expect(resistsExplosion(obsidianId, power)).toBe(true)
-      expect(resistsExplosion(stoneId, power)).toBe(false)
+    for (const power of [TNT_POWER, CHARGED_CREEPER_POWER, HUGE_POWER].map(BlockBlastResistance)) {
+      expect(resultValue(resistsExplosion(bedrockId, power))).toBe(true)
+      expect(resultValue(resistsExplosion(obsidianId, power))).toBe(true)
+      expect(resultValue(resistsExplosion(stoneId, power))).toBe(false)
     }
   })
 
   it('an ordinary block never resists a positive-power explosion, matching its blastResistance default of 0', () => {
-    const stoneId = blockIdOf('stone')
-    expect(resistsExplosion(stoneId, Number.EPSILON)).toBe(false)
+    const stoneId = optionValue(blockIdOf('stone'))
+    expect(resultValue(resistsExplosion(stoneId, BlockBlastResistance(Number.EPSILON)))).toBe(false)
     // A zero-power explosion destroys nothing, so even a default-resistance
     // block "survives" it — the `>=` boundary, not a special case.
-    expect(resistsExplosion(stoneId, 0)).toBe(true)
+    expect(resultValue(resistsExplosion(stoneId, BlockBlastResistance(0)))).toBe(true)
   })
 
-  it('an unregistered block id resolves to the default blastResistance rather than throwing', () => {
-    const UNREGISTERED_ID = 65_535
-    expect(resistsExplosion(UNREGISTERED_ID, 0)).toBe(true)
-    expect(resistsExplosion(UNREGISTERED_ID, TNT_POWER)).toBe(false)
+  it('an unregistered block id resolves to the default blastResistance', () => {
+    const UNREGISTERED_ID = BlockId(65_535)
+    expect(resultValue(resistsExplosion(UNREGISTERED_ID, BlockBlastResistance(0)))).toBe(true)
+    expect(resultValue(resistsExplosion(UNREGISTERED_ID, BlockBlastResistance(TNT_POWER)))).toBe(false)
+  })
+
+  it('validates explosion quantities at their inclusive and exclusive boundaries', () => {
+    expect(ExplosionRadius(0)).toBe(0)
+    expect(ExplosionRadius(Number.MAX_VALUE)).toBe(Number.MAX_VALUE)
+    expectBrandFailure(ExplosionRadius.result(-Number.EPSILON), 'ExplosionRadius must be finite and non-negative, received -2.220446049250313e-16')
+    expectBrandFailure(ExplosionRadius.result(Number.POSITIVE_INFINITY), 'ExplosionRadius must be finite and non-negative, received Infinity')
+    expectBrandFailure(ExplosionRadius.result(Number.NaN), 'ExplosionRadius must be finite and non-negative, received NaN')
+
+    const boundaryValues = [0, Number.MAX_SAFE_INTEGER]
+    for (const value of boundaryValues) {
+      expect(ExplosionBlockCount(value)).toBe(value)
+      expect(ExplosionRayStepCount(value)).toBe(value)
+      expect(ExplosionEntityCount(value)).toBe(value)
+    }
+    expectBrandFailure(ExplosionBlockCount.result(-1), 'ExplosionBlockCount must be a non-negative safe integer, received -1')
+    expectBrandFailure(ExplosionRayStepCount.result(1.5), 'ExplosionRayStepCount must be a non-negative safe integer, received 1.5')
+    expectBrandFailure(
+      ExplosionEntityCount.result(Number.MAX_SAFE_INTEGER + 1),
+      `ExplosionEntityCount must be a non-negative safe integer, received ${Number.MAX_SAFE_INTEGER + 1}`,
+    )
+
+    expect(ExplosionExposure(0)).toBe(0)
+    expect(ExplosionExposure(1)).toBe(1)
+    expectBrandFailure(ExplosionExposure.result(-Number.EPSILON), 'ExplosionExposure must be finite and in [0, 1], received -2.220446049250313e-16')
+    expectBrandFailure(ExplosionExposure.result(1 + Number.EPSILON), `ExplosionExposure must be finite and in [0, 1], received ${1 + Number.EPSILON}`)
+    expectBrandFailure(ExplosionExposure.result(Number.NaN), 'ExplosionExposure must be finite and in [0, 1], received NaN')
   })
 })

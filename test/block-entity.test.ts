@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   BARREL_SLOT_COUNT,
   CHEST_SLOT_COUNT,
+  ContainerSlotCount,
   DISPENSER_SLOT_COUNT,
   DROPPER_SLOT_COUNT,
   HOPPER_SLOT_COUNT,
@@ -21,34 +22,53 @@ import {
   isFurnaceState,
   isStorageContainer,
 } from '../src/domain/block/block-entity-validation'
-import {
-  blockEntityAt,
-  clearBlockEntity,
-  emptyBlockEntities,
-  setBlockEntity,
-  type BlockEntities,
-} from '../src/domain/block/block-entity'
-import { blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
-import { itemStack, type Slot } from '../src/domain/item/item-stack'
-import { emptyFurnaceState, furnaceState, type FurnaceState } from '../src/domain/recipe/smelting'
+import { BlockAxis, blockPosition, type BlockPosition } from '../src/domain/coordinates/coordinate-primitives'
+import { itemStack as itemStackResult, type Slot } from '../src/domain/item/item-stack'
+import { FixedDurationSecs, StackCount } from '../src/domain/time/quantities'
+import type { FurnaceState } from '../src/domain/recipe/smelting-data'
 import {
   BREWING_MAX_FUEL_CHARGES,
   BREWING_TIME_SECS,
-  brewingState,
-  emptyBrewingState,
+  BrewingFuelCharges,
   type BrewingState,
-} from '../src/domain/recipe/brewing'
+} from '../src/domain/recipe/brewing-data'
+import { resultValue } from './block-result-helpers'
 
-const AT_ORIGIN: BlockPosition = blockPosition(0, 0, 0)
-const AT_OTHER: BlockPosition = blockPosition(1, 2, 3)
+const itemStack = (...args: Parameters<typeof itemStackResult>) => resultValue(itemStackResult(...args))
+
+const AT_ORIGIN: BlockPosition = blockPosition(BlockAxis(0), BlockAxis(0), BlockAxis(0))
+const EMPTY_FURNACE: FurnaceState = {
+  station: 'furnace',
+  input: undefined,
+  fuel: undefined,
+  output: undefined,
+  fuelTimeRemainingSecs: FixedDurationSecs(0),
+  fuelTimeTotalSecs: FixedDurationSecs(0),
+  cookProgressSecs: FixedDurationSecs(0),
+}
+const EMPTY_BREWING: BrewingState = {
+  bottles: [undefined, undefined, undefined],
+  ingredient: undefined,
+  fuel: undefined,
+  fuelCharges: BrewingFuelCharges(0),
+  brewProgressSecs: FixedDurationSecs(0),
+}
 
 const containerOf = (kind: StorageContainerKind, slots: ReadonlyArray<Slot>): StorageContainer => ({
   kind,
   capacity: STORAGE_CONTAINER_CAPACITIES[kind],
   slots,
 })
-
 describe('storage container capacities', () => {
+  it('accepts positive safe-integer capacities and rejects values outside that range', () => {
+    expect(ContainerSlotCount(1)).toBe(1)
+    expect(ContainerSlotCount(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER)
+    expect(() => ContainerSlotCount(0)).toThrow()
+    expect(() => ContainerSlotCount(-1)).toThrow()
+    expect(() => ContainerSlotCount(1.5)).toThrow()
+    expect(() => ContainerSlotCount(Number.MAX_SAFE_INTEGER + 1)).toThrow()
+  })
+
   it('names every capacity and matches the declared table (cross-checked against Minecraft Wiki: Inventory, Shulker Box)', () => {
     expect(STORAGE_CONTAINER_CAPACITIES).toStrictEqual({
       chest: CHEST_SLOT_COUNT,
@@ -77,7 +97,7 @@ describe('storage container guard', () => {
   })
 
   it('accepts a container filled to exactly its capacity', () => {
-    const stack = itemStack('cobblestone', 1)
+    const stack = itemStack('cobblestone', StackCount(1))
     const full = Array.from({ length: HOPPER_SLOT_COUNT }, () => stack)
     expect(isStorageContainer(containerOf('hopper', full))).toBe(true)
   })
@@ -117,18 +137,18 @@ describe('storage container guard', () => {
 })
 
 describe('furnace state guard', () => {
-  const validFurnace: FurnaceState = furnaceState({
+  const validFurnace: FurnaceState = {
     station: 'blast_furnace',
-    input: itemStack('cobblestone', 1),
-    fuel: itemStack('coal', 1),
-    output: itemStack('stone', 1),
-    fuelTimeRemainingSecs: 5,
-    fuelTimeTotalSecs: 10,
-    cookProgressSecs: 2,
-  })
+    input: itemStack('cobblestone', StackCount(1)),
+    fuel: itemStack('coal', StackCount(1)),
+    output: itemStack('stone', StackCount(1)),
+    fuelTimeRemainingSecs: FixedDurationSecs(5),
+    fuelTimeTotalSecs: FixedDurationSecs(10),
+    cookProgressSecs: FixedDurationSecs(2),
+  }
 
   it('accepts an empty furnace and a furnace mid-cook', () => {
-    expect(isFurnaceState(emptyFurnaceState())).toBe(true)
+    expect(isFurnaceState(EMPTY_FURNACE)).toBe(true)
     expect(isFurnaceState(validFurnace)).toBe(true)
   })
 
@@ -173,16 +193,16 @@ describe('furnace state guard', () => {
 })
 
 describe('brewing state guard', () => {
-  const validBrewing: BrewingState = brewingState({
-    bottles: [itemStack('glass_bottle', 1), undefined, undefined],
-    ingredient: itemStack('nether_wart', 1),
-    fuel: itemStack('blaze_powder', 1),
-    fuelCharges: 5,
-    brewProgressSecs: 10,
-  })
+  const validBrewing: BrewingState = {
+    bottles: [itemStack('glass_bottle', StackCount(1)), undefined, undefined],
+    ingredient: itemStack('nether_wart', StackCount(1)),
+    fuel: itemStack('blaze_powder', StackCount(1)),
+    fuelCharges: BrewingFuelCharges(5),
+    brewProgressSecs: FixedDurationSecs(10),
+  }
 
   it('accepts an empty brewing stand and one mid-brew', () => {
-    expect(isBrewingState(emptyBrewingState())).toBe(true)
+    expect(isBrewingState(EMPTY_BREWING)).toBe(true)
     expect(isBrewingState(validBrewing)).toBe(true)
   })
 
@@ -266,12 +286,12 @@ describe('block entity guard', () => {
   const furnaceEntity: BlockEntity = {
     _tag: 'Furnace',
     position: AT_ORIGIN,
-    state: emptyFurnaceState(),
+    state: EMPTY_FURNACE,
   }
   const brewingEntity: BlockEntity = {
     _tag: 'BrewingStand',
     position: AT_ORIGIN,
-    state: emptyBrewingState(),
+    state: EMPTY_BREWING,
   }
   const signEntity: BlockEntity = {
     _tag: 'Sign',
@@ -313,39 +333,5 @@ describe('block entity guard', () => {
 
   it('rejects a Sign entity with invalid text', () => {
     expect(isBlockEntity({ ...signEntity, text: 123 })).toBe(false)
-  })
-})
-
-describe('block entities collection', () => {
-  it('starts empty', () => {
-    const state: BlockEntities = emptyBlockEntities()
-    expect(state.entities.size).toBe(0)
-    expect(blockEntityAt(state, AT_ORIGIN)).toBeUndefined()
-  })
-
-  it('sets and looks up an entity by position', () => {
-    const entity: BlockEntity = { _tag: 'Sign', position: AT_ORIGIN, text: 'hi' }
-    const state = setBlockEntity(emptyBlockEntities(), entity)
-    expect(blockEntityAt(state, AT_ORIGIN)).toStrictEqual(entity)
-    expect(blockEntityAt(state, AT_OTHER)).toBeUndefined()
-  })
-
-  it('does not mutate the source state', () => {
-    const entity: BlockEntity = { _tag: 'Sign', position: AT_ORIGIN, text: 'hi' }
-    const before = emptyBlockEntities()
-    setBlockEntity(before, entity)
-    expect(before.entities.size).toBe(0)
-  })
-
-  it('clears an entity at a position', () => {
-    const entity: BlockEntity = { _tag: 'Sign', position: AT_ORIGIN, text: 'hi' }
-    const withEntity = setBlockEntity(emptyBlockEntities(), entity)
-    const cleared = clearBlockEntity(withEntity, AT_ORIGIN)
-    expect(blockEntityAt(cleared, AT_ORIGIN)).toBeUndefined()
-  })
-
-  it('clearing a position with nothing there is a no-op', () => {
-    const state = emptyBlockEntities()
-    expect(clearBlockEntity(state, AT_ORIGIN)).toBe(state)
   })
 })

@@ -1,13 +1,8 @@
 /**
  * Runtime validation for block entities arriving from save files.
  *
- * Keeping this module separate from the value vocabulary makes the accepted
- * external shape and the resolved domain data independently readable, in the
- * same split `./block-property-validation` uses. `FurnaceState` and
- * `BrewingState` are imported from `./smelting` and `./brewing` as union
- * members only — this module never edits either — so their guards are
- * written here rather than reused, in the same import-without-editing
- * bridge `./block-item` uses for `PlaceableItemType`.
+ * `FurnaceState` and `BrewingState` come from the recipe data modules. Their
+ * block-entity guards live here.
  */
 import {
   BREWING_BOTTLE_SLOTS,
@@ -15,7 +10,7 @@ import {
   BREWING_TIME_SECS,
   type BrewingBottles,
   type BrewingState,
-} from '../recipe/brewing.js'
+} from '../recipe/brewing-data.js'
 import {
   STORAGE_CONTAINER_CAPACITIES,
   STORAGE_CONTAINER_KINDS,
@@ -25,7 +20,7 @@ import {
 } from './block-entity-data.js'
 import type { BlockPosition } from '../coordinates/coordinates.js'
 import { isItemStack, type Slot } from '../item/item-stack.js'
-import { COOKING_STATIONS, type CookingStation, type FurnaceState } from '../recipe/smelting.js'
+import { COOKING_STATIONS, type CookingStation, type FurnaceState } from '../recipe/smelting-data.js'
 import { isTextComponent } from '../text/text-component.js'
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -42,7 +37,6 @@ const isFiniteIntegerInRange = (value: unknown, minimum: number, maximum: number
 
 const isSlot = (value: unknown): value is Slot => value === undefined || isItemStack(value)
 
-/** Guard for a block position arriving as untrusted save data. */
 export const isBlockEntityPosition = (value: unknown): value is BlockPosition => {
   if (!isRecord(value)) {
     return false
@@ -54,7 +48,6 @@ export const isBlockEntityPosition = (value: unknown): value is BlockPosition =>
 const isStorageContainerKind = (value: unknown): value is StorageContainerKind =>
   typeof value === 'string' && STORAGE_CONTAINER_KINDS.some((kind) => kind === value)
 
-/** Guard for a storage container. Rejects a slot count over its declared capacity. */
 export const isStorageContainer = (value: unknown): value is StorageContainer => {
   if (!isRecord(value)) {
     return false
@@ -75,10 +68,6 @@ const isCookingStation = (value: unknown): value is CookingStation =>
 
 /**
  * Guard for a furnace's cooking state.
- *
- * Field-for-field mirror of `assertFurnaceState` in `./smelting.ts`,
- * including the derived bound `fuelTimeRemainingSecs <= fuelTimeTotalSecs`.
- * An edit to one invariant requires the matching edit there.
  */
 export const isFurnaceState = (value: unknown): value is FurnaceState => {
   if (!isRecord(value)) {
@@ -102,10 +91,6 @@ const isBrewingBottles = (value: unknown): value is BrewingBottles =>
 
 /**
  * Guard for a brewing stand's state.
- *
- * Field-for-field mirror of `assertBrewingState` in `./brewing.ts`,
- * including the derived bound `brewProgressSecs <= BREWING_TIME_SECS`.
- * An edit to one invariant requires the matching edit there.
  */
 export const isBrewingState = (value: unknown): value is BrewingState => {
   if (!isRecord(value)) {
@@ -122,7 +107,6 @@ export const isBrewingState = (value: unknown): value is BrewingState => {
   )
 }
 
-/** Guard for a block entity of any kind, dispatched on its `_tag`. */
 export const isBlockEntity = (value: unknown): value is BlockEntity => {
   if (!isRecord(value)) {
     return false

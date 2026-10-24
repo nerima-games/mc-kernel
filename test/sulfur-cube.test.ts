@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { Result } from "effect";
 
-import { ResourceLocation, TagLocation } from "../src/domain/text/identifiers";
-import { AttributeModifierAmount } from "../src/domain/time/quantities";
+import { NamespacedResourceLocation, ResourceLocation, TagLocation } from "../src/domain/text/identifiers";
+import { AttributeModifierAmount, PositiveTickCount } from "../src/domain/time/quantities";
 import {
   SULFUR_CUBE_ARCHETYPE_REGISTRY,
   SULFUR_CUBE_ATTRIBUTE_MODIFIER_OPERATIONS,
@@ -13,6 +14,11 @@ import {
   SULFUR_CUBE_GAME_EVENTS,
   SULFUR_CUBE_ITEM_TAGS,
   SULFUR_CUBE_PARTICLES,
+  SulfurCubeContactDamageAmount,
+  SulfurCubeExplosionPower,
+  SulfurCubeKnockbackPower,
+  SulfurCubePushSoundCooldown,
+  SulfurCubePushSoundImpulseThreshold,
   isSulfurCubeArchetype,
   isSulfurCubeArchetypeOptions,
   sulfurCubeArchetype,
@@ -26,50 +32,50 @@ import {
 } from "../src/domain/entity/sulfur-cube";
 
 const explosionOptions: SulfurCubeExplosionOptions = {
-  fuse: 20,
-  power: 4,
+  fuse: PositiveTickCount(20),
+  power: SulfurCubeExplosionPower(4),
   causesFire: true,
 };
 
 const contactDamageOptions: SulfurCubeContactDamageOptions = {
-  amount: 3.5,
+  amount: SulfurCubeContactDamageAmount(3.5),
   damageType: SULFUR_CUBE_DAMAGE_TYPES.hot,
   attributeToSource: true,
 };
 
 const firstAttributeModifier: SulfurCubeAttributeModifierOptions = {
-  attribute: "minecraft:bounciness",
-  id: "minecraft:sulfur_cube_bounciness",
-  amount: 0.25,
+  attribute: NamespacedResourceLocation("minecraft:bounciness"),
+  id: NamespacedResourceLocation("minecraft:sulfur_cube_bounciness"),
+  amount: AttributeModifierAmount(0.25),
   operation: "add_value",
 };
 
 const attributeModifiers: ReadonlyArray<SulfurCubeAttributeModifierOptions> = [
   firstAttributeModifier,
   {
-    attribute: "minecraft:friction_modifier",
-    id: "minecraft:sulfur_cube_friction",
-    amount: -0.1,
+    attribute: NamespacedResourceLocation("minecraft:friction_modifier"),
+    id: NamespacedResourceLocation("minecraft:sulfur_cube_friction"),
+    amount: AttributeModifierAmount(-0.1),
     operation: "add_multiplied_base",
   },
   {
-    attribute: "minecraft:air_drag_modifier",
-    id: "minecraft:sulfur_cube_air_drag",
-    amount: 0.2,
+    attribute: NamespacedResourceLocation("minecraft:air_drag_modifier"),
+    id: NamespacedResourceLocation("minecraft:sulfur_cube_air_drag"),
+    amount: AttributeModifierAmount(0.2),
     operation: "add_multiplied_total",
   },
 ];
 
 const knockbackModifiers: SulfurCubeKnockbackModifiersOptions = {
-  horizontalPower: 1.25,
-  verticalPower: 0.5,
+  horizontalPower: SulfurCubeKnockbackPower(1.25),
+  verticalPower: SulfurCubeKnockbackPower(0.5),
 };
 
 const soundSettings: SulfurCubeSoundSettingsOptions = {
-  hitSound: "minecraft:entity.slime.squish",
-  pushSound: "minecraft:entity.slime.jump",
-  pushSoundImpulseThreshold: 0.4,
-  pushSoundCooldown: 0.2,
+  hitSound: ResourceLocation("minecraft:entity.slime.squish"),
+  pushSound: ResourceLocation("minecraft:entity.slime.jump"),
+  pushSoundImpulseThreshold: SulfurCubePushSoundImpulseThreshold(0.4),
+  pushSoundCooldown: SulfurCubePushSoundCooldown(0.2),
 };
 
 const validOptions = {
@@ -125,6 +131,28 @@ const withoutOptionalValues = (): SulfurCubeArchetypeOptions => ({
 });
 
 describe("Sulfur Cube archetype registry", () => {
+  it("validates the new quantity brands at their accepted and rejected boundaries", () => {
+    expect(PositiveTickCount(1)).toBe(1)
+    expect(() => PositiveTickCount(0)).toThrow()
+    expect(SulfurCubeExplosionPower(0)).toBe(0)
+    expect(SulfurCubeExplosionPower(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER)
+    expect(() => SulfurCubeExplosionPower(-1)).toThrow()
+    expect(() => SulfurCubeExplosionPower(1.5)).toThrow()
+    expect(() => SulfurCubeExplosionPower(Number.MAX_SAFE_INTEGER + 1)).toThrow()
+    expect(SulfurCubeContactDamageAmount(0)).toBe(0)
+    expect(SulfurCubeContactDamageAmount(Number.MAX_VALUE)).toBe(Number.MAX_VALUE)
+    expect(() => SulfurCubeContactDamageAmount(-Number.EPSILON)).toThrow()
+    expect(() => SulfurCubeContactDamageAmount(Number.POSITIVE_INFINITY)).toThrow()
+    expect(() => SulfurCubeContactDamageAmount(Number.NaN)).toThrow()
+    expect(SulfurCubeKnockbackPower(-Number.MAX_VALUE)).toBe(-Number.MAX_VALUE)
+    expect(() => SulfurCubeKnockbackPower(Number.NaN)).toThrow()
+    expect(() => SulfurCubeKnockbackPower(Number.NEGATIVE_INFINITY)).toThrow()
+    expect(SulfurCubePushSoundImpulseThreshold(0)).toBe(0)
+    expect(() => SulfurCubePushSoundImpulseThreshold(Number.POSITIVE_INFINITY)).toThrow()
+    expect(SulfurCubePushSoundCooldown(0)).toBe(0)
+    expect(() => SulfurCubePushSoundCooldown(Number.NEGATIVE_INFINITY)).toThrow()
+  })
+
   it("constructs the complete official registry shape with branded values", () => {
     const archetype = sulfurCubeArchetype(validOptions);
 
@@ -253,21 +281,47 @@ describe("Sulfur Cube archetype registry", () => {
       knockbackModifiers,
       soundSettings,
     } satisfies SulfurCubeArchetypeOptions;
-    const neither = sulfurCubeArchetypeFromUnknown({
+    const neitherOptions = {
       ...withoutOptionals,
       explosion: undefined,
       contactDamage: undefined,
-    });
-    const explosionOnly = sulfurCubeArchetypeFromUnknown({
+    };
+    const explosionOnlyOptions = {
       ...validOptions,
       contactDamage: undefined,
-    });
-    const contactOnly = sulfurCubeArchetypeFromUnknown({
+    };
+    const contactOnlyOptions = {
       ...validOptions,
       explosion: undefined,
+    };
+    const neither = sulfurCubeArchetype(withoutOptionals);
+    const explosionOnly = sulfurCubeArchetype({
+      items: validOptions.items,
+      buoyant: validOptions.buoyant,
+      explosion: explosionOptions,
+      attributeModifiers,
+      knockbackModifiers,
+      soundSettings,
+    });
+    const contactOnly = sulfurCubeArchetype({
+      items: validOptions.items,
+      buoyant: validOptions.buoyant,
+      contactDamage: contactDamageOptions,
+      attributeModifiers,
+      knockbackModifiers,
+      soundSettings,
     });
 
     expect(isSulfurCubeArchetypeOptions(withoutOptionals)).toBe(true);
+    expect(sulfurCubeArchetypeFromUnknown(neitherOptions)).toStrictEqual(
+      Result.succeed(neither),
+    );
+    expect(sulfurCubeArchetypeFromUnknown(explosionOnlyOptions)).toStrictEqual(
+      Result.succeed(explosionOnly),
+    );
+    expect(sulfurCubeArchetypeFromUnknown(contactOnlyOptions)).toStrictEqual(
+      Result.succeed(contactOnly),
+    );
     expect(isSulfurCubeArchetypeOptions(neither)).toBe(true);
     expect(Object.hasOwn(neither, "explosion")).toBe(false);
     expect(Object.hasOwn(neither, "contactDamage")).toBe(false);
@@ -405,10 +459,69 @@ describe("Sulfur Cube archetype registry", () => {
     expect(
       isSulfurCubeArchetypeOptions(optionsWith({ soundSettings: null })),
     ).toBe(false);
-    expect(() =>
-      sulfurCubeArchetypeFromUnknown(optionsWith({ items: "invalid!" })),
-    ).toThrow(TypeError);
+    const invalidOptions = optionsWith({ items: "invalid!" });
+    expect(sulfurCubeArchetypeFromUnknown(invalidOptions)).toStrictEqual(
+      Result.fail({
+        _tag: "InvalidSulfurCubeArchetypeOptions",
+        value: invalidOptions,
+      }),
+    );
   });
+
+  it("snapshots getter-backed decoder input before brand construction", () => {
+    let reads = 0
+    const input = new Proxy({ ...validOptions }, {
+      get(target, key, receiver) {
+        if (key === 'items') {
+          reads += 1
+          return reads === 1 ? validOptions.items : 'invalid!'
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+
+    const result = sulfurCubeArchetypeFromUnknown(input)
+    expect(Result.isSuccess(result)).toBe(true)
+    expect(reads).toBe(1)
+    if (Result.isSuccess(result)) expect(result.success.items).toBe(validOptions.items)
+
+    expect(Result.isFailure(sulfurCubeArchetypeFromUnknown(new Date()))).toBe(true)
+    const hostile = new Proxy({}, {
+      ownKeys() {
+        throw new Error('keys are unavailable')
+      },
+    })
+    expect(Result.isFailure(sulfurCubeArchetypeFromUnknown(hostile))).toBe(true)
+    const cyclic: Record<string, unknown> = {}
+    cyclic['self'] = cyclic
+    expect(Result.isFailure(sulfurCubeArchetypeFromUnknown(cyclic))).toBe(true)
+    expect(Result.isFailure(sulfurCubeArchetypeFromUnknown({
+      ...validOptions,
+      extra: new Array(1),
+    }))).toBe(true)
+  })
+
+  it("rejects a proxy whose prototype changes before reading option values", () => {
+    let prototypeReads = 0
+    let buoyantReads = 0
+    const input = new Proxy({ ...validOptions }, {
+      getPrototypeOf() {
+        prototypeReads += 1
+        return prototypeReads === 1 ? { custom: true } : Object.prototype
+      },
+      get(target, key, receiver) {
+        if (key === 'buoyant') {
+          buoyantReads += 1
+          return buoyantReads === 1 ? true : 1
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+
+    expect(Result.isFailure(sulfurCubeArchetypeFromUnknown(input))).toBe(true)
+    expect(prototypeReads).toBe(1)
+    expect(buoyantReads).toBe(0)
+  })
 
   it("rejects malformed normalized values without widening the runtime boundary", () => {
     const archetype = sulfurCubeArchetype(validOptions);

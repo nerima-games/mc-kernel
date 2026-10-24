@@ -5,6 +5,7 @@
  * shape and the resolved domain data independently readable
  * (architecture.md §6).
  */
+import { Result } from 'effect'
 import {
   DAMAGE_TYPE_DEFINITIONS,
   DAMAGE_TYPE_NAMES,
@@ -34,10 +35,17 @@ export const isDamageTypeName = (value: unknown): value is DamageTypeName =>
 export const isDamageTypeId = (value: unknown): value is ResourceLocation =>
   typeof value === 'string' && DAMAGE_TYPE_ID_SET.has(value)
 
-/** Validate untrusted input and resolve it to its table row, or throw. */
-export const resolveDamageTypeDefinition = (value: unknown): DamageTypeDefinition => {
+export type DamageTypeDefinitionFailure = Readonly<{
+  readonly _tag: 'UnknownDamageType'
+  readonly value: unknown
+}>
+
+/** Validate untrusted input and resolve it to its table row. */
+export const resolveDamageTypeDefinition = (
+  value: unknown,
+): Result.Result<DamageTypeDefinition, DamageTypeDefinitionFailure> => {
   if (!isDamageTypeName(value)) {
-    throw new TypeError(`unknown damage type ${String(value)}`)
+    return Result.fail({ _tag: 'UnknownDamageType', value })
   }
-  return DAMAGE_TYPE_DEFINITIONS[value]
+  return Result.succeed(DAMAGE_TYPE_DEFINITIONS[value])
 }

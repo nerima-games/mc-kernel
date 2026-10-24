@@ -1,4 +1,5 @@
 /** Constructors and guards for Java item defense components. */
+import { Result } from 'effect'
 import { ResourceLocation, TagLocation } from '../text/identifiers.js'
 import type {
   BlocksAttacksComponent,
@@ -20,158 +21,267 @@ import type {
   ResourceLocationProvider,
   ResourceLocationProviderInput,
 } from './item-component-values-data.js'
+import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
+import {
+  MAX_GENERIC_INPUT_ARRAY_LENGTH,
+  snapshotInputArray,
+  snapshotInputRecord,
+} from '../../input-snapshot.js'
 
 export type DamageReductionOptions = Readonly<{
   readonly type?: ResourceLocationProviderInput
-  readonly base: number
-  readonly factor: number
-  readonly horizontalBlockingAngle?: number
+  readonly base: DamageReductionRule['base']
+  readonly factor: DamageReductionRule['factor']
+  readonly horizontalBlockingAngle?: DamageReductionRule['horizontalBlockingAngle']
 }>
 
 export type ItemDamageRuleOptions = Readonly<{
-  readonly threshold: number
-  readonly base: number
-  readonly factor: number
+  readonly threshold: ItemDamageRule['threshold']
+  readonly base: ItemDamageRule['base']
+  readonly factor: ItemDamageRule['factor']
 }>
 
 export type BlocksAttacksOptions = Readonly<{
-  readonly blockDelaySeconds?: number
-  readonly disableCooldownScale?: number
+  readonly blockDelaySeconds?: BlocksAttacksComponent['blockDelaySeconds']
+  readonly disableCooldownScale?: BlocksAttacksComponent['disableCooldownScale']
   readonly damageReductions?: ReadonlyArray<DamageReductionOptions>
   readonly itemDamage?: ItemDamageRuleOptions
-  readonly blockSound?: string
-  readonly disabledSound?: string
+  readonly blockSound?: NonNullable<BlocksAttacksComponent['blockSound']>
+  readonly disabledSound?: NonNullable<BlocksAttacksComponent['disabledSound']>
   readonly bypassedBy?: ResourceLocationProviderInput
 }>
 
-const validateOptionsObject = (value: unknown, name: string): void => {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new TypeError(`${name} must be a non-null object`)
-  }
+type DefenseResult<A> = Result.Result<A, ItemValidationFailure>
+
+const failure = (
+  field: string,
+  message: string,
+  value?: unknown,
+  reason: ItemValidationFailure['reason'] = 'invalid-value',
+  kind: ItemValidationFailure['kind'] = 'TypeError',
+): ItemValidationFailure => itemValidationFailure(field, message, reason, value, kind)
+
+const brandValue = <A, E extends Readonly<{ readonly message: string }>>(
+  result: Result.Result<A, E>,
+  field: string,
+  value: unknown,
+  reason: ItemValidationFailure['reason'] = 'invalid-value',
+): DefenseResult<A> => Result.mapError(
+  result,
+  (error) => failure(field, error.message, value, reason),
+)
+
+const recordFromInput = (
+  value: unknown,
+  fieldPrefix: string,
+  fields: ReadonlyArray<string>,
+): DefenseResult<Readonly<Record<string, unknown>>> => {
+  const name = fieldPrefix || 'blocksAttacks options'
+  const snapshot = snapshotInputRecord(value, fields, undefined, fieldPrefix || undefined)
+  if (Result.isSuccess(snapshot)) return Result.succeed(snapshot.success)
+  const invalidType = snapshot.failure.reason === 'invalid-container' || snapshot.failure.reason === 'unsupported-prototype'
+  const field = snapshot.failure.path ?? name
+  return Result.fail(failure(
+    invalidType ? name : field,
+    invalidType ? `${name} must be a non-null object` : `Unable to inspect ${field}`,
+    value,
+    invalidType ? 'invalid-type' : 'hostile-input',
+  ))
 }
 
-const validateFiniteNumber = (value: unknown, name: string): number => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new TypeError(`${name} must be a finite number`)
-  }
-  return value
+const arrayFromInput = (
+  value: unknown,
+  field: string,
+): DefenseResult<ReadonlyArray<unknown>> => {
+  const snapshot = snapshotInputArray(value, MAX_GENERIC_INPUT_ARRAY_LENGTH, field)
+  if (Result.isSuccess(snapshot)) return Result.succeed(snapshot.success)
+  const invalidArray = snapshot.failure.reason === 'invalid-container'
+  const tooLarge = snapshot.failure.reason === 'too-large'
+  // This snapshot call always receives the field as its path prefix.
+  const errorField = snapshot.failure.path
+  return Result.fail(failure(
+    errorField,
+    invalidArray ? `${field} must be an array` : tooLarge ? `${field} exceeds the maximum length` : `Unable to inspect ${errorField}`,
+    value,
+    invalidArray ? 'invalid-type' : tooLarge ? 'out-of-range' : 'hostile-input',
+  ))
 }
 
-const validateNonNegativeFiniteNumber = (value: unknown, name: string): void => {
-  if (validateFiniteNumber(value, name) < 0) {
-    throw new RangeError(`${name} must be a non-negative finite number`)
-  }
-}
+const finiteNumber = (value: unknown, name: string): DefenseResult<number> =>
+  typeof value === 'number' && Number.isFinite(value)
+    ? Result.succeed(value)
+    : Result.fail(failure(name, `${name} must be a finite number`, value, 'invalid-type'))
 
-const validatePositiveFiniteNumber = (value: unknown, name: string): void => {
-  if (validateFiniteNumber(value, name) <= 0) {
-    throw new RangeError(`${name} must be a positive finite number`)
-  }
-}
+const nonNegativeFiniteNumber = (value: unknown, name: string): DefenseResult<number> =>
+  Result.flatMap(finiteNumber(value, name), (number) => number < 0
+    ? Result.fail(failure(name, `${name} must be a non-negative finite number`, value, 'out-of-range', 'RangeError'))
+    : Result.succeed(number))
+
+const positiveFiniteNumber = (value: unknown, name: string): DefenseResult<number> =>
+  Result.flatMap(finiteNumber(value, name), (number) => number <= 0
+    ? Result.fail(failure(name, `${name} must be a positive finite number`, value, 'out-of-range', 'RangeError'))
+    : Result.succeed(number))
 
 const resourceLocationProviderOf = (
-  value: ResourceLocationProviderInput,
-  name: string,
-): ResourceLocationProvider => {
+  value: unknown,
+  field: string,
+): DefenseResult<ResourceLocationProvider> => {
   if (typeof value === 'string') {
-    return value.startsWith('#') ? TagLocation(value) : ResourceLocation(value)
+    return value.startsWith('#')
+      ? brandValue(TagLocation.result(value), field, value)
+      : brandValue(ResourceLocation.result(value), field, value)
   }
-  if (!Array.isArray(value)) {
-    throw new TypeError(`${name} must be a resource location, tag, or list of resource locations`)
+  const copiedEntries = snapshotInputArray(value, MAX_GENERIC_INPUT_ARRAY_LENGTH, field)
+  if (Result.isFailure(copiedEntries) && copiedEntries.failure.reason === 'invalid-container') {
+    return Result.fail(failure(field, `${field} must be a string or an array of resource locations`, value, 'invalid-type'))
   }
-  const entries = value.map((entry) => {
-    if (typeof entry !== 'string' || entry.startsWith('#')) {
-      throw new TypeError(`${name} lists must contain resource locations`)
+  if (Result.isFailure(copiedEntries)) {
+    // This snapshot call always receives the field as its path prefix.
+    const errorField = copiedEntries.failure.path
+    return Result.fail(failure(errorField, `Unable to inspect ${errorField}`, value, 'hostile-input'))
+  }
+  const entries = copiedEntries.success
+  return Result.gen(function* () {
+    const locations: ResourceLocation[] = []
+    for (const entry of entries) {
+      if (typeof entry !== 'string' || entry.startsWith('#')) {
+        return yield* Result.fail(failure(field, `${field} lists must contain resource locations`, entry, 'invalid-type'))
+      }
+      locations.push(yield* brandValue(ResourceLocation.result(entry), field, entry))
     }
-    return ResourceLocation(entry)
+    return Object.freeze(locations)
   })
-  return Object.freeze(entries)
 }
 
-const validateDamageReductionOptions = (options: DamageReductionOptions, index: number): void => {
-  validateOptionsObject(options, `damageReductions[${index}]`)
-  validateFiniteNumber(options.base, `damageReductions[${index}].base`)
-  validateFiniteNumber(options.factor, `damageReductions[${index}].factor`)
-  if (options.horizontalBlockingAngle !== undefined) {
-    validatePositiveFiniteNumber(options.horizontalBlockingAngle, `damageReductions[${index}].horizontalBlockingAngle`)
-  }
-  if (options.type !== undefined) {
-    resourceLocationProviderOf(options.type, `damageReductions[${index}].type`)
+const resourceLocationOf = (
+  value: unknown,
+  field: string,
+): DefenseResult<ResourceLocation> => {
+  if (typeof value === 'string') return brandValue(ResourceLocation.result(value), field, value)
+  try {
+    const rendered = JSON.stringify(value) ?? String(value)
+    return Result.fail(failure(field, `ResourceLocation has invalid syntax, received ${rendered}`, value))
+  } catch {
+    return Result.fail(failure(field, `Unable to inspect ${field}`, value, 'hostile-input'))
   }
 }
 
-const validateItemDamageRuleOptions = (options: ItemDamageRuleOptions): void => {
-  validateOptionsObject(options, 'itemDamage')
-  validateNonNegativeFiniteNumber(options.threshold, 'itemDamage.threshold')
-  validateFiniteNumber(options.base, 'itemDamage.base')
-  validateFiniteNumber(options.factor, 'itemDamage.factor')
-}
-
-const damageReductionRuleOf = (options: DamageReductionOptions): DamageReductionRule =>
-  Object.freeze({
-    type: options.type === undefined ? undefined : resourceLocationProviderOf(options.type, 'damage reduction type'),
-    base: DamageReductionBase(options.base),
-    factor: DamageReductionFactor(options.factor),
-    horizontalBlockingAngle: HorizontalBlockingAngle(options.horizontalBlockingAngle ?? 90),
-  })
-
-const itemDamageRuleOf = (options: ItemDamageRuleOptions): ItemDamageRule =>
-  Object.freeze({
-    threshold: ItemDamageThreshold(options.threshold),
-    base: ItemDamageBase(options.base),
-    factor: ItemDamageFactor(options.factor),
-  })
-
-export const damageResistantComponent = (types: ResourceLocationProviderInput): DamageResistantComponent =>
-  Object.freeze({ types: resourceLocationProviderOf(types, 'damage_resistant.types') })
-
-export const blocksAttacksComponent = (options: BlocksAttacksOptions = {}): BlocksAttacksComponent => {
-  validateOptionsObject(options, 'blocksAttacks options')
-  if (options.blockDelaySeconds !== undefined) {
-    validateNonNegativeFiniteNumber(options.blockDelaySeconds, 'blockDelaySeconds')
-  }
-  if (options.disableCooldownScale !== undefined) {
-    validateNonNegativeFiniteNumber(options.disableCooldownScale, 'disableCooldownScale')
-  }
-  if (options.damageReductions !== undefined) {
-    if (!Array.isArray(options.damageReductions)) {
-      throw new TypeError('damageReductions must be an array')
-    }
-    options.damageReductions.forEach((rule, index) => validateDamageReductionOptions(rule, index))
-  }
-  if (options.itemDamage !== undefined) {
-    validateItemDamageRuleOptions(options.itemDamage)
-  }
-  if (options.blockSound !== undefined && typeof options.blockSound !== 'string') {
-    throw new TypeError('blockSound must be a resource location')
-  }
-  if (options.disabledSound !== undefined && typeof options.disabledSound !== 'string') {
-    throw new TypeError('disabledSound must be a resource location')
-  }
-  if (options.bypassedBy !== undefined) {
-    resourceLocationProviderOf(options.bypassedBy, 'bypassedBy')
-  }
-
-  const damageReductions = Object.freeze(
-    (options.damageReductions ?? []).map((rule) => damageReductionRuleOf(rule)),
-  )
-  const itemDamage = options.itemDamage === undefined ? undefined : itemDamageRuleOf(options.itemDamage)
-  const blockSound = options.blockSound === undefined ? undefined : ResourceLocation(options.blockSound)
-  const disabledSound = options.disabledSound === undefined ? undefined : ResourceLocation(options.disabledSound)
-  const bypassedBy = options.bypassedBy === undefined
+const damageReductionRuleOf = (
+  options: unknown,
+  index: number,
+): DefenseResult<DamageReductionRule> => Result.flatMap(
+  recordFromInput(options, `damageReductions[${index}]`, ['base', 'factor', 'horizontalBlockingAngle', 'type']),
+  (input) => Result.gen(function* () {
+  const baseValue = yield* finiteNumber(input['base'], `damageReductions[${index}].base`)
+  const factorValue = yield* finiteNumber(input['factor'], `damageReductions[${index}].factor`)
+  const angle = input['horizontalBlockingAngle']
+  const angleValue = angle === undefined
+    ? 90
+    : yield* positiveFiniteNumber(angle, `damageReductions[${index}].horizontalBlockingAngle`)
+  const rawType = input['type']
+  const type = rawType === undefined
     ? undefined
-    : resourceLocationProviderOf(options.bypassedBy, 'bypassedBy')
+    : yield* resourceLocationProviderOf(rawType, `damageReductions[${index}].type`)
+  const base = yield* brandValue(DamageReductionBase.result(baseValue), `damageReductions[${index}].base`, baseValue)
+  const factor = yield* brandValue(DamageReductionFactor.result(factorValue), `damageReductions[${index}].factor`, factorValue)
+  const horizontalBlockingAngle = yield* brandValue(HorizontalBlockingAngle.result(angleValue), `damageReductions[${index}].horizontalBlockingAngle`, angleValue, 'out-of-range')
+  return Object.freeze({ type, base, factor, horizontalBlockingAngle })
+  }),
+)
 
-  return Object.freeze({
-    blockDelaySeconds: BlockingDelaySeconds(options.blockDelaySeconds ?? 0),
-    disableCooldownScale: DisableCooldownScale(options.disableCooldownScale ?? 1),
-    damageReductions,
-    itemDamage,
-    blockSound,
-    disabledSound,
-    bypassedBy,
-  })
+const damageReductionRulesOf = (
+  options: unknown,
+): DefenseResult<ReadonlyArray<DamageReductionRule>> => Result.flatMap(
+  arrayFromInput(options, 'damageReductions'),
+  (values) => {
+  const rules: DamageReductionRule[] = []
+  for (const [index, option] of values.entries()) {
+    const rule = damageReductionRuleOf(option, index)
+    if (Result.isFailure(rule)) return Result.fail(rule.failure)
+    rules.push(rule.success)
+  }
+  return Result.succeed(rules)
+  },
+)
+
+const itemDamageRuleOf = (options: unknown): DefenseResult<ItemDamageRule> => Result.flatMap(
+  recordFromInput(options, 'itemDamage', ['threshold', 'base', 'factor']),
+  (input) => Result.gen(function* () {
+  const thresholdValue = yield* nonNegativeFiniteNumber(input['threshold'], 'itemDamage.threshold')
+  const baseValue = yield* finiteNumber(input['base'], 'itemDamage.base')
+  const factorValue = yield* finiteNumber(input['factor'], 'itemDamage.factor')
+  const threshold = yield* brandValue(ItemDamageThreshold.result(thresholdValue), 'itemDamage.threshold', thresholdValue, 'out-of-range')
+  const base = yield* brandValue(ItemDamageBase.result(baseValue), 'itemDamage.base', baseValue)
+  const factor = yield* brandValue(ItemDamageFactor.result(factorValue), 'itemDamage.factor', factorValue)
+  return Object.freeze({ threshold, base, factor })
+  }),
+)
+
+export const damageResistantComponent = (
+  types: ResourceLocationProviderInput,
+): DefenseResult<DamageResistantComponent> =>
+  Result.map(resourceLocationProviderOf(types, 'damage_resistant.types'), (value) => Object.freeze({ types: value }))
+
+const blocksAttacksComponentAfterCooldown = (
+  options: Readonly<Record<string, unknown>>,
+  blockDelayValue: number,
+  cooldownScaleValue: number,
+): DefenseResult<BlocksAttacksComponent> => {
+  const input = options['damageReductions']
+  const damageReductionResult = input === undefined
+    ? Result.succeed<ReadonlyArray<DamageReductionRule>>([])
+    : damageReductionRulesOf(input)
+
+  return Result.flatMap(damageReductionResult,
+    (damageReductions) => Result.gen(function* () {
+      const rawItemDamage = options['itemDamage']
+      const itemDamage = rawItemDamage === undefined ? undefined : yield* itemDamageRuleOf(rawItemDamage)
+      const rawBlockSound = options['blockSound']
+      const blockSound = rawBlockSound === undefined
+        ? undefined
+        : yield* resourceLocationOf(rawBlockSound, 'blockSound')
+      const rawDisabledSound = options['disabledSound']
+      const disabledSound = rawDisabledSound === undefined
+        ? undefined
+        : yield* resourceLocationOf(rawDisabledSound, 'disabledSound')
+      const rawBypassedBy = options['bypassedBy']
+      const bypassedBy = rawBypassedBy === undefined
+        ? undefined
+        : yield* resourceLocationProviderOf(rawBypassedBy, 'bypassedBy')
+      const blockDelaySeconds = yield* brandValue(BlockingDelaySeconds.result(blockDelayValue), 'blockDelaySeconds', blockDelayValue, 'out-of-range')
+      const disableCooldownScale = yield* brandValue(DisableCooldownScale.result(cooldownScaleValue), 'disableCooldownScale', cooldownScaleValue, 'out-of-range')
+      return Object.freeze({
+        blockDelaySeconds,
+        disableCooldownScale,
+        damageReductions: Object.freeze(damageReductions),
+        itemDamage,
+        blockSound,
+        disabledSound,
+        bypassedBy,
+      })
+    }),
+  )
 }
+
+export const blocksAttacksComponent = (
+  options: BlocksAttacksOptions = {},
+): DefenseResult<BlocksAttacksComponent> => Result.flatMap(
+  recordFromInput(options, '', [
+    'blockDelaySeconds', 'disableCooldownScale', 'damageReductions', 'itemDamage',
+    'blockSound', 'disabledSound', 'bypassedBy',
+  ]),
+  (snapshot) => Result.flatMap(
+      snapshot['blockDelaySeconds'] === undefined
+        ? Result.succeed(0)
+        : nonNegativeFiniteNumber(snapshot['blockDelaySeconds'], 'blockDelaySeconds'),
+      (blockDelayValue) => Result.flatMap(
+        snapshot['disableCooldownScale'] === undefined
+          ? Result.succeed(1)
+          : nonNegativeFiniteNumber(snapshot['disableCooldownScale'], 'disableCooldownScale'),
+        (cooldownScaleValue) => blocksAttacksComponentAfterCooldown(snapshot, blockDelayValue, cooldownScaleValue),
+      ),
+  ),
+)
 
 export type {
   BlocksAttacksComponent,

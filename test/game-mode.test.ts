@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { Result } from 'effect'
 import {
+  DifficultyDamageMultiplier,
+  DifficultyHungerMultiplier,
   DIFFICULTIES,
   DIFFICULTY_PROPERTIES,
   GAME_MODES,
@@ -128,6 +131,22 @@ describe('DIFFICULTY_PROPERTIES', () => {
     expect(DIFFICULTY_PROPERTIES.hard.hungerMultiplier).toBe(1)
   })
 
+  it('validates difficulty multiplier boundaries', () => {
+    expect(DifficultyDamageMultiplier.is(0)).toBe(true)
+    expect(DifficultyDamageMultiplier.is(0.5)).toBe(true)
+    expect(DifficultyDamageMultiplier.is(1.5)).toBe(true)
+    expect(DifficultyDamageMultiplier.is(-0.1)).toBe(false)
+    expect(DifficultyDamageMultiplier.is(1.6)).toBe(false)
+    expect(DifficultyDamageMultiplier.is(Number.POSITIVE_INFINITY)).toBe(false)
+
+    expect(DifficultyHungerMultiplier.is(0)).toBe(true)
+    expect(DifficultyHungerMultiplier.is(0.5)).toBe(true)
+    expect(DifficultyHungerMultiplier.is(1)).toBe(true)
+    expect(DifficultyHungerMultiplier.is(-0.1)).toBe(false)
+    expect(DifficultyHungerMultiplier.is(1.1)).toBe(false)
+    expect(DifficultyHungerMultiplier.is(Number.NaN)).toBe(false)
+  })
+
   it('carries no behaviour — a difficulty row is only flags, numbers and a name, never a callable', () => {
     for (const difficulty of DIFFICULTIES) {
       const definition = DIFFICULTY_PROPERTIES[difficulty]
@@ -177,22 +196,43 @@ describe('isDifficulty', () => {
 
 describe('resolveGameModeProperties', () => {
   it('resolves a valid mode to its table row', () => {
-    expect(resolveGameModeProperties('creative')).toBe(GAME_MODE_PROPERTIES.creative)
+    expect(resolveGameModeProperties('creative')).toEqual(Result.succeed(GAME_MODE_PROPERTIES.creative))
   })
 
-  it('throws on an unrecognised value', () => {
-    expect(() => resolveGameModeProperties(UNKNOWN_MODE_NAME)).toThrow(TypeError)
-    expect(() => resolveGameModeProperties(NON_STRING_VALUE)).toThrow(TypeError)
+  it('returns tagged failures for unrecognised values', () => {
+    for (const value of [UNKNOWN_MODE_NAME, NON_STRING_VALUE, undefined]) {
+      const result = resolveGameModeProperties(value)
+      expect(Result.isFailure(result)).toBe(true)
+      if (Result.isFailure(result)) {
+        expect(result.failure).toMatchObject({
+          _tag: 'GameModeValidationFailure',
+          kind: 'TypeError',
+          reason: 'unknown-game-mode',
+          field: 'gameMode',
+        })
+        if (value === undefined) expect(Object.hasOwn(result.failure, 'value')).toBe(false)
+      }
+    }
   })
 })
 
 describe('resolveDifficultyProperties', () => {
   it('resolves a valid difficulty to its table row', () => {
-    expect(resolveDifficultyProperties('hard')).toBe(DIFFICULTY_PROPERTIES.hard)
+    expect(resolveDifficultyProperties('hard')).toEqual(Result.succeed(DIFFICULTY_PROPERTIES.hard))
   })
 
-  it('throws on an unrecognised value', () => {
-    expect(() => resolveDifficultyProperties(UNKNOWN_DIFFICULTY_NAME)).toThrow(TypeError)
-    expect(() => resolveDifficultyProperties(NON_STRING_VALUE)).toThrow(TypeError)
+  it('returns tagged failures for unrecognised values', () => {
+    for (const value of [UNKNOWN_DIFFICULTY_NAME, NON_STRING_VALUE]) {
+      const result = resolveDifficultyProperties(value)
+      expect(Result.isFailure(result)).toBe(true)
+      if (Result.isFailure(result)) {
+        expect(result.failure).toMatchObject({
+          _tag: 'GameModeValidationFailure',
+          kind: 'TypeError',
+          reason: 'unknown-difficulty',
+          field: 'difficulty',
+        })
+      }
+    }
   })
 })

@@ -15,8 +15,9 @@ import {
   maxStackCountOfItem,
 } from '../src/domain/item/item-registry'
 import { ITEM_TYPES, type ItemType } from '../src/domain/item/item-type'
-import { Effect } from 'effect'
+import { Effect, Result } from 'effect'
 import { expectTypeOf } from 'vitest'
+import { expectItemFailure, itemResultValue } from './item-result-assertions'
 
 const BREWING_ITEM_IDS = {
   awkward_potion: 128,
@@ -29,8 +30,8 @@ const BREWING_ITEM_IDS = {
   water_bottle: 127,
 } as const satisfies Readonly<Partial<Record<ItemType, number>>>
 
-const EYE_OF_ENDER_ITEM_ID = 135
-const ENCHANTED_BOOK_ITEM_ID = 136
+const EYE_OF_ENDER_ITEM_ID = ItemId(135)
+const ENCHANTED_BOOK_ITEM_ID = ItemId(136)
 const FLUID_AND_VEHICLE_ITEM_IDS = {
   bucket: 137,
   lava_bucket: 139,
@@ -416,7 +417,7 @@ const expectAppendedItemIds = (ids: Readonly<Partial<Record<ItemType, number>>>)
     const id = ids[type]
     if (id === undefined) continue
     expect(itemIdOf(type), type).toBe(id)
-    expect(itemTypeOfId(id), type).toBe(type)
+    expect(itemTypeOfId(ItemId(id)), type).toBe(type)
     expect(itemDefinitionOf(type).id, type).toBe(id)
   }
 }
@@ -517,8 +518,9 @@ describe('item registry', () => {
       expect(itemIdOf(ITEM_TYPES[0])).toBe(0)
       expect(itemIdOf('stick')).toBe(13)
       expect(itemIdOf('lily_pad')).toBe(126)
-      expect(itemTypeOfId(126)).toBe('lily_pad')
+      expect(Reflect.apply(itemTypeOfId, undefined, [126])).toBe('lily_pad')
       expect(itemTypeOfId(ItemId(126))).toBe('lily_pad')
+      expect(itemDefinitionOf(1)).toBeUndefined()
     })),
   )
 
@@ -537,9 +539,15 @@ describe('item registry', () => {
     })),
   )
 
-  it('rejects an ItemType value absent from the registry', () =>
+  it('defines a canonical row for every ItemType', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => Reflect.apply(itemDefinitionOf, undefined, ['unobtainium'])).toThrow('Item registry is missing a row')
+      for (const type of ITEM_TYPES) {
+        expect(itemDefinitionOf(type)).toEqual({
+          id: itemIdOf(type),
+          type,
+          maxStackCount: maxStackCountOfItem(type),
+        })
+      }
     })),
   )
 
@@ -586,9 +594,9 @@ describe('item registry', () => {
       expect(itemIdOf('shears')).toBe(170)
       expect(itemIdOf('wool')).toBe(171)
       expect(itemIdOf('dropper')).toBe(172)
-      expect(itemTypeOfId(170)).toBe('shears')
-      expect(itemTypeOfId(171)).toBe('wool')
-      expect(itemTypeOfId(172)).toBe('dropper')
+      expect(itemTypeOfId(ItemId(170))).toBe('shears')
+      expect(itemTypeOfId(ItemId(171))).toBe('wool')
+      expect(itemTypeOfId(ItemId(172))).toBe('dropper')
       expect(maxStackCountOfItem('shears')).toBe(1)
       expect(maxStackCountOfItem('wool')).toBe(64)
     })),
@@ -612,9 +620,10 @@ describe('item registry', () => {
     Effect.runPromise(Effect.sync(() => {
       for (const type of ITEM_TYPES) {
         const bytes = encodeItemId(type)
-        expect(ItemIdBytes(bytes)).toStrictEqual(bytes)
-        expect(ItemIdBytes(bytes)).not.toBe(bytes)
-        expect(decodeItemId(bytes)).toBe(type)
+        const validatedBytes = itemResultValue(ItemIdBytes(bytes))
+        expect(validatedBytes).toStrictEqual(bytes)
+        expect(validatedBytes).not.toBe(bytes)
+        expect(itemResultValue(decodeItemId(validatedBytes))).toBe(type)
       }
       for (const [type, id] of EXPECTED_ENCODED_ITEM_ID_BYTES) {
         expect([...encodeItemId(type)], type).toStrictEqual([0, id])
@@ -625,34 +634,113 @@ describe('item registry', () => {
   it('accepts only complete bytes for registered item ids', () =>
     Effect.runPromise(Effect.sync(() => {
       const padded = Uint8Array.from([0xff, 0, 127, 0xff])
-      expect(ItemIdBytes(padded.subarray(1, 3))).toStrictEqual(new Uint8Array([0, 127]))
-      expect(ItemIdBytes(new Uint8Array([0, 127]))).toStrictEqual(new Uint8Array([0, 127]))
-      expect(ItemIdBytes(new Uint8Array([0, EYE_OF_ENDER_ITEM_ID]))).toStrictEqual(
+      expect(itemResultValue(ItemIdBytes(padded.subarray(1, 3)))).toStrictEqual(new Uint8Array([0, 127]))
+      expect(itemResultValue(ItemIdBytes(new Uint8Array([0, 127])))).toStrictEqual(new Uint8Array([0, 127]))
+      expect(itemResultValue(ItemIdBytes(new Uint8Array([0, EYE_OF_ENDER_ITEM_ID])))).toStrictEqual(
         new Uint8Array([0, EYE_OF_ENDER_ITEM_ID]),
       )
-      expect(() => ItemIdBytes(new Uint8Array())).toThrow(/exactly 2 bytes/u)
-      expect(() => ItemIdBytes(new Uint8Array([0]))).toThrow(/exactly 2 bytes/u)
-      expect(() => ItemIdBytes(new Uint8Array([0, 127, 0]))).toThrow(/exactly 2 bytes/u)
-      expect(() => ItemIdBytes(new Uint8Array([1, 24]))).toThrow(/registered item id/u)
-      expect(() => ItemIdBytes(new Uint8Array([0xff, 0xff]))).toThrow(/registered item id/u)
+      for (const length of [0, 1, 3]) {
+        const input = new Uint8Array(length)
+        expectItemFailure(ItemIdBytes(input), {
+          _tag: 'ItemValidationFailure', kind: 'RangeError', reason: 'out-of-range', field: 'bytes',
+          message: `ItemIdBytes must be exactly 2 bytes, received ${length}`, value: length,
+        })
+      }
+      for (const [input, id] of [
+        [new Uint8Array([1, 24]), 280],
+        [new Uint8Array([0xff, 0xff]), 0xffff],
+      ] as const) {
+        const expected = {
+          _tag: 'ItemValidationFailure', kind: 'RangeError', reason: 'out-of-range', field: 'id',
+          message: `ItemIdBytes must encode a registered item id, received ${id}`, value: id,
+        }
+        expectItemFailure(ItemIdBytes(input), expected)
+        expectItemFailure(Reflect.apply(decodeItemId, undefined, [input]), expected)
+      }
     })),
   )
 
   it('owns validated byte inputs', () =>
     Effect.runPromise(Effect.sync(() => {
       const input = Uint8Array.from([0, itemIdOf('stone')])
-      const bytes = ItemIdBytes(input)
+      const bytes = itemResultValue(ItemIdBytes(input))
 
       input[1] = itemIdOf('dirt')
 
-      expect(decodeItemId(bytes)).toBe('stone')
+      expect(itemResultValue(decodeItemId(bytes))).toBe('stone')
     })),
   )
 
+  it('returns failures for hostile byte inputs and brands the validated snapshot', () => {
+    const revoked = Proxy.revocable(new Uint8Array([0, 0]), {})
+    revoked.revoke()
+    expectItemFailure(Reflect.apply(ItemIdBytes, undefined, [revoked.proxy]), {
+      _tag: 'ItemValidationFailure', field: 'bytes', reason: 'hostile-input',
+      message: 'Unable to read ItemIdBytes input',
+    })
+
+    let reads = 0
+    const changesAfterValidation = new Proxy({
+      slice: () => {
+        reads += 1
+        if (reads === 1) return new Uint8Array([0, itemIdOf('stone')])
+        return new Uint8Array([0, 0xff])
+      },
+    }, {})
+    const changingResult = Reflect.apply(ItemIdBytes, undefined, [changesAfterValidation])
+    expect(changingResult).toMatchObject({
+      _tag: 'Success',
+      success: new Uint8Array([0, itemIdOf('stone')]),
+    })
+    expect(reads).toBe(1)
+
+    const missingByte = { slice: () => ({ length: 2 }) }
+    expectItemFailure(Reflect.apply(ItemIdBytes, undefined, [missingByte]), {
+      _tag: 'ItemValidationFailure', field: 'bytes', reason: 'out-of-range',
+      message: 'ItemIdBytes must contain exactly two bytes', value: 2,
+    })
+
+    const unreadableSnapshot = new Proxy({ length: 2, 1: itemIdOf('stone') }, {
+      get: (target, property, receiver) => {
+        if (property === '0') throw new Error('hostile snapshot')
+        return Reflect.get(target, property, receiver)
+      },
+    })
+    expectItemFailure(Reflect.apply(ItemIdBytes, undefined, [{ slice: () => unreadableSnapshot }]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input', field: 'bytes',
+      message: 'Unable to read ItemIdBytes input',
+    })
+
+    const invalidBytePairs: ReadonlyArray<readonly [unknown, unknown]> = [
+      ['0', itemIdOf('stone')],
+      [-1, itemIdOf('stone')],
+      [0x100, itemIdOf('stone')],
+      [0, '1'],
+      [0, -1],
+      [0, 0x100],
+    ]
+    for (const [highByte, lowByte] of invalidBytePairs) {
+      const snapshot = { length: 2, 0: highByte, 1: lowByte }
+      expectItemFailure(Reflect.apply(ItemIdBytes, undefined, [{ slice: () => snapshot }]), {
+        _tag: 'ItemValidationFailure', kind: 'RangeError', reason: 'out-of-range', field: 'bytes',
+        message: 'ItemIdBytes entries must be unsigned 8-bit integers', value: [highByte, lowByte],
+      })
+    }
+  })
+
   it('recognises known and unknown uint16 item ids', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(() => ItemId(-1)).toThrow()
-      expect(() => ItemId(0x10000)).toThrow()
+      for (const id of [-1, 0x10000]) {
+        const result = ItemId.result(id)
+        expect(Result.isFailure(result)).toBe(true)
+        if (Result.isFailure(result)) {
+          expect(result.failure).toMatchObject({
+            _tag: 'BrandError',
+            name: 'BrandError',
+            message: `ItemId must be an integer in [0, 65535], received ${id}`,
+          })
+        }
+      }
       expect(isKnownItemId(134)).toBe(true)
       expect(isKnownItemId(EYE_OF_ENDER_ITEM_ID)).toBe(true)
       expect(isKnownItemId(ENCHANTED_BOOK_ITEM_ID)).toBe(true)

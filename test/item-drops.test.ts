@@ -18,9 +18,10 @@
  *   - a `self` drop always names an item that exists in the item vocabulary.
  */
 import { describe, expect, it } from 'vitest'
-import { Effect } from 'effect'
+import { ok } from 'node:assert/strict'
+import { Effect, Option, Result } from 'effect'
 import { expectTypeOf } from 'vitest'
-import { blockPropertiesOf, type BlockDefinition } from '../src/domain/block/block-definition'
+import { blockPropertiesOf as blockPropertiesOfResult, type BlockDefinition } from '../src/domain/block/block-definition'
 import {
   BARE_HANDED,
   type BlockDropRule,
@@ -31,11 +32,28 @@ import {
   resolveDrop,
   resolveDropItem,
 } from '../src/domain/block/block-harvest'
-import { BLOCK_IDS, BLOCK_REGISTRY, blockIdOf, dropOfBlockId } from '../src/domain/block/block-registry'
+import {
+  BLOCK_IDS,
+  BLOCK_REGISTRY,
+  blockIdOf,
+  dropOfBlockId as dropOfBlockIdResult,
+  type BlockId,
+} from '../src/domain/block/block-registry'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
 import { ITEM_TYPES, type ItemType, isItemType } from '../src/domain/item/item-type'
 import { itemOfBlock } from '../src/domain/block/block-item'
 import { StackCount, type StackCount as StackCountValue } from '../src/domain/time/quantities'
+import { resultValue } from './block-result-helpers'
+
+const blockPropertiesOf = (...args: Parameters<typeof blockPropertiesOfResult>) =>
+  resultValue(blockPropertiesOfResult(...args))
+const dropOfBlockId = (...args: Parameters<typeof dropOfBlockIdResult>) => resultValue(dropOfBlockIdResult(...args))
+
+const knownBlockIdOf = (type: BlockType): BlockId => {
+  const id = blockIdOf(type)
+  ok(Option.isSome(id))
+  return id.value
+}
 
 /** A diamond pickaxe without enchantments: nothing is tier-gated for this player. */
 const FULLY_EQUIPPED: HarvestContext = { heldTier: 'diamond', silkTouch: true }
@@ -92,7 +110,8 @@ const UNKNOWN_HIGH_BLOCK_ID = 200
 const UNKNOWN_HIGHER_BLOCK_ID = 250
 const UNKNOWN_NEGATIVE_BLOCK_ID = -1
 const UNKNOWN_FRACTIONAL_BLOCK_ID = 1.5
-const UNKNOWN_BLOCK_IDS = [UNKNOWN_HIGH_BLOCK_ID, UNKNOWN_HIGHER_BLOCK_ID, UNKNOWN_NEGATIVE_BLOCK_ID, UNKNOWN_FRACTIONAL_BLOCK_ID, Number.NaN]
+const UNREGISTERED_BLOCK_IDS = [UNKNOWN_HIGH_BLOCK_ID, UNKNOWN_HIGHER_BLOCK_ID]
+const INVALID_BLOCK_IDS = [UNKNOWN_NEGATIVE_BLOCK_ID, UNKNOWN_FRACTIONAL_BLOCK_ID, Number.NaN]
 const NO_DROP: undefined = globalThis.undefined
 
 const dropContextFor = (type: BlockType): HarvestContext => {
@@ -279,7 +298,7 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
     Effect.runPromise(Effect.sync(() => {
       for (const [type, bare, equipped] of EXPECTED_DROPS) {
         // No block name on the read side: the input is a number.
-        const id = blockIdOf(type)
+        const id = knownBlockIdOf(type)
         expect(dropOfBlockId(id)?.item ?? 'nothing').toBe(bare)
           const context = dropContextFor(type)
         expect(dropOfBlockId(id, context)?.item ?? 'nothing').toBe(equipped)
@@ -305,10 +324,10 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
       // fortune flag, not silk touch, and `glowstone` now has a
       // `silkTouchItem` (`glowstone`, not `glowstone_dust`) — the silk-touch
       // case for glowstone is asserted separately, under "the tool gate".
-      const glowstone = dropOfBlockId(blockIdOf('glowstone'), DIAMOND_PICKAXE)
+      const glowstone = dropOfBlockId(knownBlockIdOf('glowstone'), DIAMOND_PICKAXE)
         expect(glowstone).toStrictEqual({ affectedByFortune: true, count: 2, item: 'glowstone_dust' })
 
-      expect(dropOfBlockId(blockIdOf('dirt'))?.affectedByFortune).toBe(false)
+      expect(dropOfBlockId(knownBlockIdOf('dirt'))?.affectedByFortune).toBe(false)
     })),
   )
 
@@ -317,8 +336,18 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
       // Unlike `capabilityOfBlockId`, an unknown id does NOT fall back to the
       // Ordinary-cube defaults here: doing so would print items into an
       // Inventory from a corrupt chunk.
-        for (const unknown of UNKNOWN_BLOCK_IDS) {
-        expect(dropOfBlockId(unknown, FULLY_EQUIPPED)).toBeUndefined()
+      expect(Option.isNone(Reflect.apply(blockIdOf, undefined, ['unobtainium']))).toBe(true)
+      for (const unknown of UNREGISTERED_BLOCK_IDS) {
+        const result = Reflect.apply(dropOfBlockIdResult, undefined, [unknown, FULLY_EQUIPPED])
+        expect(Result.isSuccess(result)).toBe(true)
+        if (Result.isSuccess(result)) expect(result.success).toBeUndefined()
+      }
+      for (const invalid of INVALID_BLOCK_IDS) {
+        const result = Reflect.apply(dropOfBlockIdResult, undefined, [invalid, FULLY_EQUIPPED])
+        expect(Result.isFailure(result)).toBe(true)
+        if (Result.isFailure(result)) {
+          expect(result.failure).toMatchObject({ _tag: 'BrandError', name: 'BrandError' })
+        }
       }
     })),
   )
@@ -327,7 +356,7 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
 describe('the tool gate', () => {
   it('stone drops nothing without a pickaxe and cobblestone with one', () =>
     Effect.runPromise(Effect.sync(() => {
-      const stone = blockIdOf('stone')
+      const stone = knownBlockIdOf('stone')
 
       expect(dropOfBlockId(stone, BARE_HANDED)).toBeUndefined()
       expect(dropOfBlockId(stone)).toBeUndefined()
@@ -344,7 +373,7 @@ describe('the tool gate', () => {
       // `dirt` declares `category: 'shovel'` and no minimum tier. Bare hands
       // Must still get the dirt — conflating the speed axis with the drop axis
       // Is the bug `domain/block-harvest.ts` is shaped to prevent.
-      expect(dropOfBlockId(blockIdOf('dirt'), BARE_HANDED)?.item).toBe('dirt')
+      expect(dropOfBlockId(knownBlockIdOf('dirt'), BARE_HANDED)?.item).toBe('dirt')
       expect(blockPropertiesOf({ type: 'dirt' }).harvestTool.category).toBe('none')
       expect(BLOCK_REGISTRY.find((entry) => entry.definition.type === 'dirt')?.definition.properties?.harvestTool)
         .toStrictEqual({ category: 'shovel', minTier: 'none' })
@@ -353,25 +382,25 @@ describe('the tool gate', () => {
 
   it('silk touch is a gate on glass, and only on glass', () =>
     Effect.runPromise(Effect.sync(() => {
-      const glass = blockIdOf('glass')
+      const glass = knownBlockIdOf('glass')
 
       expect(dropOfBlockId(glass, { heldTier: 'diamond' })).toBeUndefined()
       expect(dropOfBlockId(glass, { silkTouch: true })?.item).toBe('glass')
       // Silk touch does not unlock a tier-gated block.
-      expect(dropOfBlockId(blockIdOf('stone'), { silkTouch: true })).toBeUndefined()
+      expect(dropOfBlockId(knownBlockIdOf('stone'), { silkTouch: true })).toBeUndefined()
     })),
   )
 
   it('silk touch substitutes the block for cobblestone, dirt, and raw ore drops', () =>
     Effect.runPromise(Effect.sync(() => {
-      expect(dropOfBlockId(blockIdOf('stone'), { heldTier: 'wooden', silkTouch: true })?.item).toBe('stone')
-      expect(dropOfBlockId(blockIdOf('grass_block'), { silkTouch: true })?.item).toBe('grass_block')
-      expect(dropOfBlockId(blockIdOf('iron_ore'), SILK_TOUCH)).toStrictEqual({
+      expect(dropOfBlockId(knownBlockIdOf('stone'), { heldTier: 'wooden', silkTouch: true })?.item).toBe('stone')
+      expect(dropOfBlockId(knownBlockIdOf('grass_block'), { silkTouch: true })?.item).toBe('grass_block')
+      expect(dropOfBlockId(knownBlockIdOf('iron_ore'), SILK_TOUCH)).toStrictEqual({
         affectedByFortune: false,
         count: 1,
         item: 'iron_ore',
       })
-      expect(dropOfBlockId(blockIdOf('deepslate_redstone_ore'), SILK_TOUCH)).toStrictEqual({
+      expect(dropOfBlockId(knownBlockIdOf('deepslate_redstone_ore'), SILK_TOUCH)).toStrictEqual({
         affectedByFortune: true,
         count: 4,
         item: 'deepslate_redstone_ore',
@@ -384,7 +413,7 @@ describe('the tool gate', () => {
       // block, not the dust) though its own pre-repoint mirror forced
       // `count: 1` blanket for every silk-touch drop — a simplification
       // kernel's per-row model does not carry.
-      expect(dropOfBlockId(blockIdOf('glowstone'), SILK_TOUCH)).toStrictEqual({
+      expect(dropOfBlockId(knownBlockIdOf('glowstone'), SILK_TOUCH)).toStrictEqual({
         affectedByFortune: true,
         count: 2,
         item: 'glowstone',
@@ -400,15 +429,15 @@ describe('the tool gate', () => {
       // pinned this before its deletion; the small wheat-seed chance on a
       // bare-hand break is a gameplay-layer bonus drop, not a kernel rule.
       for (const plant of ['tall_grass', 'fern'] as const) {
-        expect(dropOfBlockId(blockIdOf(plant))).toBeUndefined()
-        expect(dropOfBlockId(blockIdOf(plant), FULLY_EQUIPPED)).toBeUndefined()
+        expect(dropOfBlockId(knownBlockIdOf(plant))).toBeUndefined()
+        expect(dropOfBlockId(knownBlockIdOf(plant), FULLY_EQUIPPED)).toBeUndefined()
       }
 
       // The contrast case: every other cross-mesh plant row in the same file
       // still drops itself, so this is a decision about these two rows and
       // not an accidental blanket change to `PLANT_PROPERTIES`.
       for (const plant of ['sapling', 'dandelion', 'poppy', 'brown_mushroom', 'red_mushroom'] as const) {
-        expect(dropOfBlockId(blockIdOf(plant))?.item).toBe(plant)
+        expect(dropOfBlockId(knownBlockIdOf(plant))?.item).toBe(plant)
       }
     })),
   )
@@ -428,9 +457,7 @@ describe('the tool gate', () => {
       expect(resolveDropItem(DEFAULT_BLOCK_DROP, 'water')).toBeUndefined()
 
       const resolvedDrop = resolveDrop(DEFAULT_HARVEST_TOOL, DEFAULT_BLOCK_DROP, 'dirt', FULLY_EQUIPPED)
-      if (resolvedDrop === undefined) {
-        throw new Error('expected dirt to resolve to a drop')
-      }
+      ok(resolvedDrop !== undefined)
       expectTypeOf(DEFAULT_BLOCK_DROP.count).toEqualTypeOf<StackCountValue>()
       expectTypeOf(resolvedDrop.count).toEqualTypeOf<StackCountValue>()
     })),
@@ -506,7 +533,7 @@ describe('additive safety', () => {
       // Legal context is that guarantee, spelled.
       const empty: HarvestContext = {}
       expect(empty).toStrictEqual(BARE_HANDED)
-      expect(dropOfBlockId(blockIdOf('dirt'), empty)).toStrictEqual(dropOfBlockId(blockIdOf('dirt')))
+      expect(dropOfBlockId(knownBlockIdOf('dirt'), empty)).toStrictEqual(dropOfBlockId(knownBlockIdOf('dirt')))
     })),
   )
 })
@@ -623,8 +650,8 @@ describe('the rule that keeps a `self` drop honest', () => {
       // `NO_BASE_DROP_BLOCK_TYPES` (`block-service.config.ts:199`) has exactly
       // One member. Pinned because a reader who knows silk touch would expect
       // Ice to behave like glass, and it does not.
-      expect(dropOfBlockId(blockIdOf('ice'), FULLY_EQUIPPED)).toBeUndefined()
-      expect(dropOfBlockId(blockIdOf('glass'), FULLY_EQUIPPED)?.item).toBe('glass')
+      expect(dropOfBlockId(knownBlockIdOf('ice'), FULLY_EQUIPPED)).toBeUndefined()
+      expect(dropOfBlockId(knownBlockIdOf('glass'), FULLY_EQUIPPED)?.item).toBe('glass')
     })),
   )
 

@@ -4,20 +4,33 @@ import {
   type BlockCapabilityFlag,
   type BlockCapabilityOverrides,
   TRUE_BY_DEFAULT_CAPABILITY_FLAGS,
-  capabilityOf,
-  resolveBlockCapabilities,
+  capabilityOf as capabilityOfResult,
+  resolveBlockCapabilities as resolveBlockCapabilitiesResult,
 } from '../src/domain/block/block-capabilities'
 import {
   BLOCK_IDS,
-  blockIdOf,
-  blockTypeOfId,
-  capabilitiesOfBlockId,
-  capabilityOfBlockId,
+  BlockId,
+  blockIdOf as blockIdOption,
+  blockTypeOfId as blockTypeOfIdResult,
+  capabilitiesOfBlockId as capabilitiesOfBlockIdResult,
+  capabilityOfBlockId as capabilityOfBlockIdResult,
 } from '../src/domain/block/block-registry'
 import { BLOCK_PROPERTY_DEFAULTS, BLOCK_PROPERTY_NAMES } from '../src/domain/block/block-properties'
-import { type BlockDefinition, blockCapabilitiesOf } from '../src/domain/block/block-definition'
+import { type BlockDefinition, blockCapabilitiesOf as blockCapabilitiesOfResult } from '../src/domain/block/block-definition'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
+import { optionValue, resultFailure, resultValue } from './block-result-helpers'
+
+const capabilityOf = (overrides: BlockCapabilityOverrides, flag: BlockCapabilityFlag) =>
+  resultValue(capabilityOfResult(overrides, flag))
+const resolveBlockCapabilities = (overrides: BlockCapabilityOverrides) =>
+  resultValue(resolveBlockCapabilitiesResult(overrides))
+const blockCapabilitiesOf = (definition: BlockDefinition) => resultValue(blockCapabilitiesOfResult(definition))
+const blockIdOf = (type: Parameters<typeof blockIdOption>[0]) => optionValue(blockIdOption(type))
+const blockTypeOfId = (id: number) => resultValue(blockTypeOfIdResult(resultValue(BlockId.result(id))))
+const capabilitiesOfBlockId = (id: number) => resultValue(capabilitiesOfBlockIdResult(resultValue(BlockId.result(id))))
+const capabilityOfBlockId = (...args: Parameters<typeof capabilityOfBlockIdResult>) =>
+  resultValue(capabilityOfBlockIdResult(...args))
 
 const EMPTY_COLLECTION_LENGTH = 0
 const MINIMUM_DISTINCT_CAPABILITY_VALUES = 1
@@ -54,6 +67,13 @@ describe('block capability flags — the additive-safety guarantee', () => {
     Effect.runPromise(Effect.sync(() => {
       const stone: BlockDefinition = { type: 'stone' }
       expect(blockCapabilitiesOf(stone)).toStrictEqual({ ...BLOCK_CAPABILITY_DEFAULTS })
+    })),
+  )
+
+  it('treats an explicitly undefined override as omitted', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const resolved = resultValue(Reflect.apply(resolveBlockCapabilitiesResult, undefined, [{ passable: undefined }]))
+      expect(resolved).toStrictEqual({ ...BLOCK_CAPABILITY_DEFAULTS })
     })),
   )
 
@@ -286,6 +306,19 @@ describe('resolveBlockCapabilities', () => {
     })),
   )
 
+  it('treats an explicitly undefined override as omitted', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const malformed = { passable: undefined }
+
+      expect(resultValue(Reflect.apply(resolveBlockCapabilitiesResult, undefined, [malformed]))).toStrictEqual({
+        ...BLOCK_CAPABILITY_DEFAULTS,
+      })
+      expect(resultValue(Reflect.apply(capabilityOfResult, undefined, [malformed, 'passable']))).toBe(
+        BLOCK_CAPABILITY_DEFAULTS.passable,
+      )
+    })),
+  )
+
   it('the resolved set is a fresh object and never aliases the shared defaults table', () =>
     Effect.runPromise(Effect.sync(() => {
       const first = resolveBlockCapabilities({ passable: true })
@@ -322,12 +355,18 @@ describe('capabilityOf', () => {
     Effect.runPromise(Effect.sync(() => {
       const malformed = { passable: 'yes' }
 
-      expect(() => Reflect.apply(resolveBlockCapabilities, undefined, [malformed])).toThrow(
-        'block capability passable must be a boolean',
-      )
-      expect(() => Reflect.apply(capabilityOf, undefined, [malformed, 'passable'])).toThrow(
-        'block capability passable must be a boolean',
-      )
+      const resolveFailure = resultFailure(Reflect.apply(resolveBlockCapabilitiesResult, undefined, [malformed]))
+      const capabilityFailure = resultFailure(Reflect.apply(capabilityOfResult, undefined, [malformed, 'passable']))
+      expect(resolveFailure).toMatchObject({
+        _tag: 'BlockCapabilityFailure',
+        reason: 'not-boolean',
+        message: 'block capability passable must be a boolean',
+      })
+      expect(capabilityFailure).toMatchObject({
+        _tag: 'BlockCapabilityFailure',
+        reason: 'not-boolean',
+        message: 'block capability passable must be a boolean',
+      })
     })),
   )
 
@@ -335,12 +374,18 @@ describe('capabilityOf', () => {
     Effect.runPromise(Effect.sync(() => {
       const malformed = { futureCapability: true }
 
-      expect(() => Reflect.apply(resolveBlockCapabilities, undefined, [malformed])).toThrow(
-        'unknown block capability futureCapability',
-      )
-      expect(() => Reflect.apply(capabilityOf, undefined, [malformed, 'passable'])).toThrow(
-        'unknown block capability futureCapability',
-      )
+      const resolveFailure = resultFailure(Reflect.apply(resolveBlockCapabilitiesResult, undefined, [malformed]))
+      const capabilityFailure = resultFailure(Reflect.apply(capabilityOfResult, undefined, [malformed, 'passable']))
+      expect(resolveFailure).toMatchObject({
+        _tag: 'BlockCapabilityFailure',
+        reason: 'unknown-key',
+        message: 'unknown block capability futureCapability',
+      })
+      expect(capabilityFailure).toMatchObject({
+        _tag: 'BlockCapabilityFailure',
+        reason: 'unknown-key',
+        message: 'unknown block capability futureCapability',
+      })
     })),
   )
 
@@ -348,12 +393,18 @@ describe('capabilityOf', () => {
     Effect.runPromise(Effect.sync(() => {
       const malformed = null
 
-      expect(() => Reflect.apply(resolveBlockCapabilities, undefined, [malformed])).toThrow(
-        'block capability overrides must be an object',
-      )
-      expect(() => Reflect.apply(capabilityOf, undefined, [malformed, 'passable'])).toThrow(
-        'block capability overrides must be an object',
-      )
+      const resolveFailure = resultFailure(Reflect.apply(resolveBlockCapabilitiesResult, undefined, [malformed]))
+      const capabilityFailure = resultFailure(Reflect.apply(capabilityOfResult, undefined, [malformed, 'passable']))
+      expect(resolveFailure).toMatchObject({
+        _tag: 'BlockCapabilityFailure',
+        reason: 'not-object',
+        message: 'block capability overrides must be an object',
+      })
+      expect(capabilityFailure).toMatchObject({
+        _tag: 'BlockCapabilityFailure',
+        reason: 'not-object',
+        message: 'block capability overrides must be an object',
+      })
     })),
   )
 })
@@ -436,10 +487,10 @@ describe('audit §4.9, continued — the roster additions that make the argument
       // If someone were to redefine any of these four in terms of another, the
       // Pair would agree on every row and this fails naming the pair.
       const READINGS = {
-        canSupportAttachments: (id: number) => capabilityOfBlockId(id, 'canSupportAttachments'),
-        solidForCollision: (id: number) => !capabilityOfBlockId(id, 'passable'),
-        suffocates: (id: number) => capabilityOfBlockId(id, 'suffocates'),
-        validSpawnSurface: (id: number) => capabilityOfBlockId(id, 'validSpawnSurface'),
+        canSupportAttachments: (id: BlockId) => capabilityOfBlockId(id, 'canSupportAttachments'),
+        solidForCollision: (id: BlockId) => !capabilityOfBlockId(id, 'passable'),
+        suffocates: (id: BlockId) => capabilityOfBlockId(id, 'suffocates'),
+        validSpawnSurface: (id: BlockId) => capabilityOfBlockId(id, 'validSpawnSurface'),
       } as const
       const names = Object.keys(READINGS).filter(
         (name): name is keyof typeof READINGS => name in READINGS,

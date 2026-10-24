@@ -1,5 +1,7 @@
 /** Constructors and guards for current Java item attribute modifiers. */
-import { ResourceLocation } from '../text/identifiers.js'
+import { Result } from 'effect'
+import { snapshotInputRecord } from '../../input-snapshot.js'
+import { ResourceLocation, type ResourceLocation as ResourceLocationType } from '../text/identifiers.js'
 import {
   ATTRIBUTE_MODIFIER_OPERATIONS,
   ATTRIBUTE_MODIFIER_SLOTS,
@@ -15,91 +17,157 @@ import {
   isAttributeModifiersComponent,
 } from './item-attribute-modifiers-validation.js'
 import { AttributeModifierAmount } from '../time/quantities.js'
-import { textComponent } from '../text/text-component.js'
+import { textComponent, type TextComponentFailure } from '../text/text-component.js'
+import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
 
 export type AttributeModifierOptions = Readonly<{
-  readonly type: string
-  readonly id: string
-  readonly amount: number
+  readonly type: AttributeModifier['type']
+  readonly id: AttributeModifier['id']
+  readonly amount: AttributeModifier['amount']
   readonly operation: AttributeModifierOperation
   readonly slot?: AttributeModifierSlot
   readonly display?: AttributeModifierDisplay
 }>
 
+type AttributeModifierResult<A> = Result.Result<A, ItemValidationFailure | TextComponentFailure>
+
 const ATTRIBUTE_MODIFIER_OPERATION_SET: ReadonlySet<string> = new Set(ATTRIBUTE_MODIFIER_OPERATIONS)
 const ATTRIBUTE_MODIFIER_SLOT_SET: ReadonlySet<string> = new Set(ATTRIBUTE_MODIFIER_SLOTS)
 
-const validateOptionsObject = (value: unknown, name: string): void => {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new TypeError(`${name} must be a non-null object`)
+const isAttributeModifierOperation = (value: unknown): value is AttributeModifierOperation =>
+  typeof value === 'string' && ATTRIBUTE_MODIFIER_OPERATION_SET.has(value)
+
+const isAttributeModifierSlot = (value: unknown): value is AttributeModifierSlot =>
+  typeof value === 'string' && ATTRIBUTE_MODIFIER_SLOT_SET.has(value)
+
+const failure = (
+  field: string,
+  message: string,
+  value?: unknown,
+  reason: ItemValidationFailure['reason'] = 'invalid-value',
+  kind: ItemValidationFailure['kind'] = 'TypeError',
+): ItemValidationFailure => itemValidationFailure(field, message, reason, value, kind)
+
+const resourceLocationOf = (value: unknown, name: string): AttributeModifierResult<ResourceLocationType> => {
+  if (typeof value !== 'string') {
+    return Result.fail(failure(name, `${name} must be a valid resource location`, value, 'invalid-value', 'TypeError'))
   }
+  return Result.mapError(ResourceLocation.result(value), () =>
+    failure(name, `${name} must be a valid resource location`, value, 'invalid-value', 'TypeError'))
 }
 
-const validateResourceLocation = (value: unknown, name: string): string => {
-  if (typeof value !== 'string' || !ResourceLocation.is(value)) {
-    throw new TypeError(`${name} must be a valid resource location`)
+const snapshotOptions = (
+  value: unknown,
+): AttributeModifierResult<Readonly<Record<string, unknown>>> => {
+  const snapshot = snapshotInputRecord(value, ['type', 'id', 'amount', 'operation', 'slot', 'display'])
+  if (Result.isFailure(snapshot)) {
+    const invalidType = snapshot.failure.reason === 'invalid-container' || snapshot.failure.reason === 'unsupported-prototype'
+    return Result.fail(failure(
+      'options',
+      invalidType ? 'Attribute modifier options must be a non-null object' : 'Unable to inspect attribute modifier options',
+      value,
+      invalidType ? 'invalid-type' : 'hostile-input',
+    ))
   }
-  return value
-}
-
-const validateAmount = (value: unknown): number => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new TypeError('amount must be a finite number')
-  }
-  return value
-}
-
-const validateAttributeModifierOptions = (options: AttributeModifierOptions): void => {
-  validateOptionsObject(options, 'Attribute modifier options')
-  validateResourceLocation(options.type, 'type')
-  validateResourceLocation(options.id, 'id')
-  validateAmount(options.amount)
-  if (!ATTRIBUTE_MODIFIER_OPERATION_SET.has(options.operation)) {
-    throw new TypeError(`Unknown attribute modifier operation: ${String(options.operation)}`)
-  }
-  if (options.slot !== undefined && !ATTRIBUTE_MODIFIER_SLOT_SET.has(options.slot)) {
-    throw new TypeError(`Unknown attribute modifier slot: ${String(options.slot)}`)
-  }
-  if (options.display !== undefined && !isAttributeModifierDisplay(options.display)) {
-    throw new TypeError('display must be a valid attribute modifier display')
-  }
+  return Result.succeed(snapshot.success)
 }
 
 export const attributeModifierDisplay = (
-  display: AttributeModifierDisplay,
-): AttributeModifierDisplay => {
-  if (!isAttributeModifierDisplay(display)) {
-    throw new TypeError('Attribute modifier display must be valid')
+  display: unknown,
+): AttributeModifierResult<AttributeModifierDisplay> => {
+  const snapshot = snapshotInputRecord(display)
+  if (Result.isFailure(snapshot)) {
+    const hostile = snapshot.failure.reason === 'hostile-input'
+    return Result.fail(failure(
+      'display',
+      hostile ? 'Unable to inspect attribute modifier display' : 'Attribute modifier display must be valid',
+      display,
+      hostile ? 'hostile-input' : 'invalid-value',
+    ))
   }
-  if (display.type === 'override') {
-    return Object.freeze({
-      type: 'override',
-      value: textComponent(display.value),
-    })
+  const input = snapshot.success
+  const keys = Object.keys(input)
+  if (input['type'] === 'default' && keys.length === 1 && keys[0] === 'type') {
+    return Result.succeed(Object.freeze({ type: 'default' }))
   }
-  return Object.freeze({ type: display.type })
+  if (input['type'] === 'hidden' && keys.length === 1 && keys[0] === 'type') {
+    return Result.succeed(Object.freeze({ type: 'hidden' }))
+  }
+  if (
+    input['type'] !== 'override' ||
+    keys.length !== 2 ||
+    !Object.hasOwn(input, 'type') ||
+    !Object.hasOwn(input, 'value')
+  ) {
+    return Result.fail(failure('display', 'Attribute modifier display must be valid', display, 'invalid-value'))
+  }
+  const value = textComponent(input['value'])
+  if (Result.isFailure(value)) {
+    return Result.fail(failure(
+      'display',
+      'Attribute modifier display must be valid',
+      display,
+      value.failure.reason === 'hostile-input' ? 'hostile-input' : 'invalid-value',
+    ))
+  }
+  return Result.succeed(Object.freeze({ type: 'override', value: value.success }))
 }
 
-export const attributeModifier = (options: AttributeModifierOptions): AttributeModifier => {
-  validateAttributeModifierOptions(options)
-  const display = options.display === undefined ? undefined : attributeModifierDisplay(options.display)
-  const modifier = {
-    type: ResourceLocation(options.type),
-    id: ResourceLocation(options.id),
-    amount: AttributeModifierAmount(validateAmount(options.amount)),
-    operation: options.operation,
-    slot: options.slot ?? 'any',
+export const attributeModifier = (
+  options: AttributeModifierOptions,
+): AttributeModifierResult<AttributeModifier> => {
+  const parsed = snapshotOptions(options)
+  if (Result.isFailure(parsed)) return Result.fail(parsed.failure)
+  const input = parsed.success
+  const type = resourceLocationOf(input['type'], 'type')
+  if (Result.isFailure(type)) return Result.fail(type.failure)
+  const id = resourceLocationOf(input['id'], 'id')
+  if (Result.isFailure(id)) return Result.fail(id.failure)
+  const operation = input['operation']
+  if (!isAttributeModifierOperation(operation)) {
+    return Result.fail(failure('operation', `Unknown attribute modifier operation: ${String(operation)}`, operation))
   }
-  return Object.freeze(display === undefined ? modifier : { ...modifier, display })
+  const slot = input['slot']
+  if (slot !== undefined && !isAttributeModifierSlot(slot)) {
+    return Result.fail(failure('slot', `Unknown attribute modifier slot: ${String(slot)}`, slot))
+  }
+  const displayValue = input['display'] === undefined
+    ? Result.succeed(undefined)
+    : Result.mapError(attributeModifierDisplay(input['display']), (error) => error.reason === 'hostile-input'
+      ? error
+      : failure('display', 'display must be a valid attribute modifier display', input['display']))
+  return Result.gen(function* () {
+    const checkedDisplay = yield* displayValue
+    const resourceType = yield* type
+    const resourceId = yield* id
+    const amountValue = input['amount']
+    if (typeof amountValue !== 'number') {
+      return yield* Result.fail(failure('amount', 'amount must be a finite number', amountValue, 'invalid-type'))
+    }
+    const amount = yield* Result.mapError(AttributeModifierAmount.result(amountValue), () =>
+      failure('amount', 'amount must be a finite number', amountValue, 'invalid-type'))
+    const modifier = {
+      type: resourceType,
+      id: resourceId,
+      amount,
+      operation,
+      slot: slot ?? 'any',
+    }
+    return Object.freeze(checkedDisplay === undefined ? modifier : { ...modifier, display: checkedDisplay })
+  })
 }
 
 export const attributeModifiersComponent = (
   options: ReadonlyArray<AttributeModifierOptions> = [],
-): AttributeModifiersComponent => {
+): AttributeModifierResult<AttributeModifiersComponent> => {
   if (!Array.isArray(options)) {
-    throw new TypeError('Attribute modifiers must be an array')
+    return Result.fail(failure('options', 'Attribute modifiers must be an array', options, 'invalid-type'))
   }
-  return Object.freeze(options.map((modifier) => attributeModifier(modifier)))
+  return Result.gen(function* () {
+    const modifiers: AttributeModifier[] = []
+    for (const modifier of options) modifiers.push(yield* attributeModifier(modifier))
+    return Object.freeze(modifiers)
+  })
 }
 
 export {

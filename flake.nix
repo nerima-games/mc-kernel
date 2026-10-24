@@ -7,8 +7,9 @@
     #
     # flake.lock is pinned to rev 624af66541 (2026-07-26) rather than the channel
     # head: every revision from 2026-08-28 onward ships oxlint >=1.79.0, whose
-    # `no-redeclare` rule false-positives on the `type X = Brand.refined<X>(..)`
-    # branded-type idiom used throughout src/domain (proven by A/B testing
+    # `no-redeclare` rule false-positives on the Effect 4 branded scalar type
+    # and same-named constructor pair (`Brand.Brand<'X'>` and `Brand.make<X>(..)`)
+    # used throughout src/domain (proven by A/B testing
     # oxlint 1.75.0 vs 1.79.0 against the same source tree — 0 vs 59 warnings;
     # still present in 1.88). Re-check the rule before updating the pin.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

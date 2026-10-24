@@ -1,3 +1,4 @@
+import * as itemComponentsResult from '../src/domain/item/item-components'
 import {
   ITEM_COMPONENT_IDS,
   ITEM_RARITIES,
@@ -6,88 +7,361 @@ import {
   ITEM_TOOL_COMPONENTS,
   isItemComponents,
   itemComponentStackLimitOf,
-  itemComponents,
   itemToolComponentOf,
 } from '../src/domain/item/item-components'
-import { itemComponentsEqual } from '../src/domain/item/item-components-validation'
+import { itemComponentsEqual, itemComponentsSnapshot } from '../src/domain/item/item-components-validation'
+import * as itemComponentValuesResult from '../src/domain/item/item-component-values'
 import { isChargedProjectilesOptions } from '../src/domain/item/item-component-values'
 import {
-  consumableClearAllEffects,
   consumableComponentOf,
   foodComponentOf,
   useRemainderComponentOf,
 } from '../src/domain/item/consumable'
-import { useCooldownComponent } from '../src/domain/item/use-cooldown'
-import {
-  additionalTradeCostComponent,
-  bannerPatternsComponent,
-  baseColorComponent,
-  blockStateComponent,
-  beesComponent,
-  breakSoundComponent,
-  canBreakComponent,
-  canPlaceOnComponent,
-  containerLootComponent,
-  customDataComponent,
-  customModelDataComponent,
-  blockEntityDataComponent,
-  bucketEntityDataComponent,
-  debugStickStateComponent,
-  deathProtectionComponent,
-  dyeComponent,
-  dyedColorComponent,
-  entityDataComponent,
-  enchantableComponent,
-  equippableComponent,
-  fireworkExplosionComponent,
-  fireworksComponent,
-  gliderComponent,
-  hideAdditionalTooltipComponent,
-  instrumentComponent,
-  jukeboxPlayableComponent,
-  kineticWeaponComponent,
-  lockComponent,
-  lodestoneTrackerComponent,
-  mapColorComponent,
-  mapDecorationsComponent,
-  mapIdComponent,
-  noteBlockSoundComponent,
-  ominousBottleAmplifierComponent,
-  paintingVariantComponent,
-  potDecorationsComponent,
-  potionContentsComponent,
-  potionDurationScaleComponent,
-  piercingWeaponComponent,
-  profileComponent,
-  providesBannerPatternsComponent,
-  providesTrimMaterialComponent,
-  recipesComponent,
-  repairableComponent,
-  suspiciousStewComponent,
-  sulfurCubeContentComponent,
-  trimComponent,
-  tooltipDisplayComponent,
-  tooltipStyleComponent,
-  writableBookContentComponent,
-  writtenBookContentComponent,
-} from '../src/domain/item/item-component-values'
-import {
-  attackRangeComponent,
-  damageTypeComponent,
-  minimumAttackChargeComponent,
-  swingAnimationComponent,
-  useEffectsComponent,
-} from '../src/domain/item/item-combat'
-import { attributeModifier, attributeModifiersComponent } from '../src/domain/item/item-attribute-modifiers'
-import { blocksAttacksComponent, damageResistantComponent } from '../src/domain/item/item-defense'
-import { enchantmentsComponent, storedEnchantmentsComponent } from '../src/domain/item/item-enchantments'
-import { weaponComponent } from '../src/domain/item/weapon'
+import * as consumableResult from '../src/domain/item/consumable'
+import * as useCooldownResult from '../src/domain/item/use-cooldown'
+import * as itemCombatResult from '../src/domain/item/item-combat'
+import * as itemAttributeModifiersResult from '../src/domain/item/item-attribute-modifiers'
+import * as itemDefenseResult from '../src/domain/item/item-defense'
+import * as itemEnchantmentsResult from '../src/domain/item/item-enchantments'
+import * as weaponResult from '../src/domain/item/weapon'
 import { textComponent } from '../src/domain/text/text-component'
-import { ResourceLocation } from '../src/domain/text/identifiers'
-import { itemStack } from '../src/domain/item/item-stack'
+import { ResourceLocation, TagLocation, UUID } from '../src/domain/text/identifiers'
+import { StackCount } from '../src/domain/time/quantities'
+import * as Quantities from '../src/domain/time/quantities'
+import * as ItemPrimitive from '../src/domain/item/item-primitives'
+import { BlockAxis } from '../src/domain/coordinates/coordinate-primitives'
+import * as itemStackResult from '../src/domain/item/item-stack'
+import { Result } from 'effect'
+import { expectItemFailure, itemResultValue } from './item-result-assertions'
 import { describe, expect, it } from 'vitest'
 
+const itemComponentValue = <Args extends ReadonlyArray<unknown>, Value, Failure>(
+  construct: (...args: Args) => Result.Result<Value, Failure>,
+): ((...args: Args) => Value) => (...args) => itemResultValue(construct(...args))
+
+const itemComponents = itemComponentValue(itemComponentsResult.itemComponents)
+const itemStack = itemComponentValue(itemStackResult.itemStack)
+const useCooldownComponent = itemComponentValue(useCooldownResult.useCooldownComponent)
+const additionalTradeCostComponent = itemComponentValue(itemComponentValuesResult.additionalTradeCostComponent)
+const bannerPatternsComponent = itemComponentValue(itemComponentValuesResult.bannerPatternsComponent)
+const baseColorComponent = itemComponentValue(itemComponentValuesResult.baseColorComponent)
+const blockStateComponent = itemComponentValue(itemComponentValuesResult.blockStateComponent)
+const beesComponent = itemComponentValue(itemComponentValuesResult.beesComponent)
+const breakSoundComponent = itemComponentValue(itemComponentValuesResult.breakSoundComponent)
+const canBreakComponent = itemComponentValue(itemComponentValuesResult.canBreakComponent)
+const canPlaceOnComponent = itemComponentValue(itemComponentValuesResult.canPlaceOnComponent)
+const containerLootComponent = itemComponentValue(itemComponentValuesResult.containerLootComponent)
+const customDataComponent = itemComponentValue(itemComponentValuesResult.customDataComponent)
+const customModelDataComponent = itemComponentValue(itemComponentValuesResult.customModelDataComponent)
+const blockEntityDataComponent = itemComponentValue(itemComponentValuesResult.blockEntityDataComponent)
+const bucketEntityDataComponent = itemComponentValue(itemComponentValuesResult.bucketEntityDataComponent)
+const debugStickStateComponent = itemComponentValue(itemComponentValuesResult.debugStickStateComponent)
+const deathProtectionComponent = itemComponentValue(itemComponentValuesResult.deathProtectionComponent)
+const dyeComponent = itemComponentValue(itemComponentValuesResult.dyeComponent)
+const dyedColorComponent = itemComponentValue(itemComponentValuesResult.dyedColorComponent)
+const entityDataComponent = itemComponentValue(itemComponentValuesResult.entityDataComponent)
+const enchantableComponent = itemComponentValue(itemComponentValuesResult.enchantableComponent)
+const equippableComponent = itemComponentValue(itemComponentValuesResult.equippableComponent)
+const fireworkExplosionComponent = itemComponentValue(itemComponentValuesResult.fireworkExplosionComponent)
+const fireworksComponent = itemComponentValue(itemComponentValuesResult.fireworksComponent)
+const gliderComponent = itemComponentValue(itemComponentValuesResult.gliderComponent)
+const hideAdditionalTooltipComponent = itemComponentValue(itemComponentValuesResult.hideAdditionalTooltipComponent)
+const instrumentComponent = itemComponentValue(itemComponentValuesResult.instrumentComponent)
+const jukeboxPlayableComponent = itemComponentValue(itemComponentValuesResult.jukeboxPlayableComponent)
+const kineticWeaponComponent = itemComponentValue(itemComponentValuesResult.kineticWeaponComponent)
+const lockComponent = itemComponentValue(itemComponentValuesResult.lockComponent)
+const lodestoneTrackerComponent = itemComponentValue(itemComponentValuesResult.lodestoneTrackerComponent)
+const mapColorComponent = itemComponentValue(itemComponentValuesResult.mapColorComponent)
+const mapDecorationsComponent = itemComponentValue(itemComponentValuesResult.mapDecorationsComponent)
+const mapIdComponent = itemComponentValue(itemComponentValuesResult.mapIdComponent)
+const noteBlockSoundComponent = itemComponentValue(itemComponentValuesResult.noteBlockSoundComponent)
+const ominousBottleAmplifierComponent = itemComponentValue(itemComponentValuesResult.ominousBottleAmplifierComponent)
+const paintingVariantComponent = itemComponentValue(itemComponentValuesResult.paintingVariantComponent)
+const potDecorationsComponent = itemComponentValue(itemComponentValuesResult.potDecorationsComponent)
+const potionContentsComponent = itemComponentValue(itemComponentValuesResult.potionContentsComponent)
+const potionDurationScaleComponent = itemComponentValue(itemComponentValuesResult.potionDurationScaleComponent)
+const piercingWeaponComponent = itemComponentValue(itemComponentValuesResult.piercingWeaponComponent)
+const profileComponent = itemComponentValue(itemComponentValuesResult.profileComponent)
+const providesBannerPatternsComponent = itemComponentValue(itemComponentValuesResult.providesBannerPatternsComponent)
+const providesTrimMaterialComponent = itemComponentValue(itemComponentValuesResult.providesTrimMaterialComponent)
+const recipesComponent = itemComponentValue(itemComponentValuesResult.recipesComponent)
+const repairableComponent = itemComponentValue(itemComponentValuesResult.repairableComponent)
+const suspiciousStewComponent = itemComponentValue(itemComponentValuesResult.suspiciousStewComponent)
+const sulfurCubeContentComponent = itemComponentValue(itemComponentValuesResult.sulfurCubeContentComponent)
+const trimComponent = itemComponentValue(itemComponentValuesResult.trimComponent)
+const tooltipDisplayComponent = itemComponentValue(itemComponentValuesResult.tooltipDisplayComponent)
+const tooltipStyleComponent = itemComponentValue(itemComponentValuesResult.tooltipStyleComponent)
+const writableBookContentComponent = itemComponentValue(itemComponentValuesResult.writableBookContentComponent)
+const writtenBookContentComponent = itemComponentValue(itemComponentValuesResult.writtenBookContentComponent)
+const attackRangeComponent = itemComponentValue(itemCombatResult.attackRangeComponent)
+const damageTypeComponent = itemComponentValue(itemCombatResult.damageTypeComponent)
+const minimumAttackChargeComponent = itemComponentValue(itemCombatResult.minimumAttackChargeComponent)
+const swingAnimationComponent = itemComponentValue(itemCombatResult.swingAnimationComponent)
+const useEffectsComponent = itemComponentValue(itemCombatResult.useEffectsComponent)
+const attributeModifier = itemComponentValue(itemAttributeModifiersResult.attributeModifier)
+const attributeModifiersComponent = itemComponentValue(itemAttributeModifiersResult.attributeModifiersComponent)
+const blocksAttacksComponent = itemComponentValue(itemDefenseResult.blocksAttacksComponent)
+const damageResistantComponent = itemComponentValue(itemDefenseResult.damageResistantComponent)
+const enchantmentsComponent = itemComponentValue(itemEnchantmentsResult.enchantmentsComponent)
+const storedEnchantmentsComponent = itemComponentValue(itemEnchantmentsResult.storedEnchantmentsComponent)
+const weaponComponent = itemComponentValue(weaponResult.weaponComponent)
+const consumableClearAllEffects = consumableResult.consumableClearAllEffects
+
+const expectOptionsFailure = (
+  item: unknown,
+  options: unknown,
+  failure: Readonly<{
+    readonly kind: string
+    readonly reason: string
+    readonly field: string
+    readonly message: string
+    readonly value?: unknown
+  }>,
+) => expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [item, options]), {
+  _tag: 'ItemValidationFailure',
+  ...failure,
+})
+
+const expectMalformedOption = (options: unknown, field: string, message: string) => {
+  const value = Array.isArray(options)
+    ? options
+    : typeof options === 'object' && options !== null
+      ? Reflect.get(options, field)
+      : options
+  expectOptionsFailure('stone', options, {
+    kind: 'TypeError', reason: 'invalid-value', field, message, value,
+  })
+}
+
 describe('item components', () => {
+  it('snapshots nested values while preserving shared references', () => {
+    const shared = { value: 1 }
+    const sharedValues = [1, 2]
+    const source = {
+      ...itemComponents('stone'),
+      customData: { left: shared, right: shared, values: [1, 2], sharedValues, sharedValuesAgain: sharedValues },
+    }
+    const snapshot = itemResultValue(itemComponentsSnapshot(source))
+    const customData = snapshot.customData
+
+    expect(snapshot).not.toBe(source)
+    expect(customData).not.toBe(source.customData)
+    expect(customData?.['left']).toBe(customData?.['right'])
+    expect(customData?.['sharedValues']).toBe(customData?.['sharedValuesAgain'])
+    expect(customData?.['values']).not.toBe(source.customData.values)
+    expect(Object.isFrozen(customData)).toBe(true)
+    expect(Object.isFrozen(customData?.['left'])).toBe(true)
+    expect(Object.isFrozen(customData?.['values'])).toBe(true)
+  })
+
+  it('returns a tagged failure when component snapshots encounter hostile records', () => {
+    const hostile = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
+
+    expectItemFailure(itemComponentsSnapshot(hostile), {
+      _tag: 'ItemValidationFailure',
+      field: 'components',
+      reason: 'hostile-input',
+      message: 'Unable to snapshot item components',
+      value: hostile,
+    })
+  })
+
+  it('rejects component snapshots above the input size limit', () => {
+    const oversized = new Array(65_537)
+
+    expectItemFailure(itemComponentsSnapshot(oversized), {
+      _tag: 'ItemValidationFailure',
+      field: 'components',
+      reason: 'out-of-range',
+      message: 'Unable to snapshot item components',
+    })
+  })
+
+  it('snapshots kinetic weapon options before validation and construction', () => {
+    let cooldownReads = 0
+    const changingKineticWeapon = new Proxy({ contactCooldownTicks: 10 }, {
+      get: (target, key, receiver) => {
+        if (key === 'contactCooldownTicks') {
+          cooldownReads += 1
+          return cooldownReads === 1 ? 10 : -1
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    const result = itemResultValue(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { kineticWeapon: changingKineticWeapon },
+    ]))
+    expect(result).toMatchObject({ kineticWeapon: { contactCooldownTicks: 10 } })
+    expect(cooldownReads).toBe(1)
+
+    const hostileKineticWeapon = new Proxy({ contactCooldownTicks: 10 }, {
+      get: (target, key, receiver) => key === 'contactCooldownTicks'
+        ? (() => { throw new Error('hostile') })()
+        : Reflect.get(target, key, receiver),
+    })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { kineticWeapon: hostileKineticWeapon },
+    ]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'kineticWeapon.contactCooldownTicks',
+      message: 'Unable to inspect item component option kineticWeapon.contactCooldownTicks',
+      value: hostileKineticWeapon,
+    })
+  })
+
+  it('snapshots nested profile options before validation and construction', () => {
+    let nameReads = 0
+    const changingProfile = new Proxy({ name: ItemPrimitive.ProfileName('First') }, {
+      ownKeys: () => ['name'],
+      getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
+      get: (_target, key) => {
+        if (key === 'name') {
+          nameReads += 1
+          return nameReads === 1 ? ItemPrimitive.ProfileName('First') : 'invalid name'
+        }
+        return undefined
+      },
+    })
+    const result = itemComponents('stone', { profile: changingProfile })
+    expect(result.profile).toEqual({ name: 'First' })
+    expect(nameReads).toBe(1)
+
+    const hostileProfile = new Proxy({}, {
+      ownKeys: () => ['name'],
+      getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
+      get: () => { throw new Error('hostile') },
+    })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { profile: hostileProfile },
+    ]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'profile.name',
+      message: 'Unable to inspect item component option profile.name',
+    })
+  })
+
+  it('snapshots nested option graphs and returns failures for hostile inspection', () => {
+    let sharedReads = 0
+    const shared = { get value() { sharedReads += 1; return ItemPrimitive.ItemComponentNbtNumber(1) } }
+    const sharedResult = itemComponents('stone', { customData: { left: shared, right: shared } })
+    expect(sharedResult.customData?.['left']).toEqual({ value: ItemPrimitive.ItemComponentNbtNumber(1) })
+    expect(sharedReads).toBe(1)
+
+    const cyclicRecord: Record<string, unknown> = {}
+    cyclicRecord['self'] = cyclicRecord
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: cyclicRecord },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-value',
+      field: 'customData.self', message: 'Cyclic item component option customData.self is invalid',
+    })
+
+    const cyclicArray: unknown[] = []
+    cyclicArray.push(cyclicArray)
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: cyclicArray },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-value',
+      field: 'customData[0]', message: 'Cyclic item component option customData[0] is invalid',
+    })
+
+    const hostileArrayLength = new Proxy([], {
+      get: (target, key, receiver) => key === 'length'
+        ? (() => { throw new Error('hostile') })()
+        : Reflect.get(target, key, receiver),
+    })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: hostileArrayLength },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input',
+      field: 'customData', message: 'Unable to inspect item component option customData',
+    })
+
+    const hostileArrayIndex = new Proxy([1], {
+      get: (target, key, receiver) => key === '0'
+        ? (() => { throw new Error('hostile') })()
+        : Reflect.get(target, key, receiver),
+    })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: hostileArrayIndex },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input',
+      field: 'customData[0]', message: 'Unable to inspect item component option customData[0]',
+    })
+
+    const revoked = Proxy.revocable({}, {})
+    revoked.revoke()
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { profile: revoked.proxy },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input',
+      field: 'profile', message: 'Unable to inspect item component option profile',
+    })
+
+    const hostilePrototype = new Proxy({}, { getPrototypeOf: () => { throw new Error('hostile') } })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: hostilePrototype },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input',
+      field: 'customData', message: 'Unable to inspect item component option customData',
+    })
+
+    const hostileKeys = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: hostileKeys },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input',
+      field: 'customData', message: 'Unable to inspect item component option customData',
+    })
+
+    const customPrototypeValue = Object.assign(Object.create({ inherited: true }), { value: 1 })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: customPrototypeValue },
+    ]), {
+      _tag: 'ItemValidationFailure', reason: 'invalid-value', field: 'customData',
+    })
+
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { profile: 'not a profile' },
+    ]), {
+      _tag: 'ItemValidationFailure', reason: 'invalid-value', field: 'profile',
+    })
+  })
+
+  it('returns tagged failures when component options cannot be inspected', () => {
+    const hostileOptions = new Proxy({}, { get: () => { throw new Error('hostile') } })
+    expectOptionsFailure('stone', hostileOptions, {
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'options',
+      message: 'Unable to inspect item component options',
+    })
+
+    const revokedOptions = Proxy.revocable({}, {})
+    revokedOptions.revoke()
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', revokedOptions.proxy,
+    ]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'options',
+      message: 'Unable to inspect item component options',
+    })
+
+    const hostileCustomData = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
+    expectOptionsFailure('stone', { customData: hostileCustomData }, {
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'customData',
+      message: 'Unable to inspect item component option customData',
+    })
+  })
+
   it('rejects hostile component records without throwing', () => {
     const hostile = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
     expect(isItemComponents(hostile)).toBe(false)
@@ -111,11 +385,13 @@ describe('item components', () => {
     expect(isItemComponents({ ...itemComponents('stone'), chargedProjectiles: [{ item: 'stone', count: 1 }] })).toBe(true)
   })
   it('distinguishes nested arrays with different lengths', () => {
-    const left = itemComponents('stone', { customData: { values: [1] } })
-    const right = itemComponents('stone', { customData: { values: [1, 2] } })
+    const left = itemComponents('stone', { customData: customDataComponent({ values: [ItemPrimitive.ItemComponentNbtNumber(1)] }) })
+    const right = itemComponents('stone', { customData: customDataComponent({
+      values: [ItemPrimitive.ItemComponentNbtNumber(1), ItemPrimitive.ItemComponentNbtNumber(2)],
+    }) })
     expect(itemComponentsEqual(left, right)).toBe(false)
-    const equalLengthLeft = itemComponents('stone', { customData: { values: [1] } })
-    const equalLengthRight = itemComponents('stone', { customData: { values: [2] } })
+    const equalLengthLeft = itemComponents('stone', { customData: customDataComponent({ values: [ItemPrimitive.ItemComponentNbtNumber(1)] }) })
+    const equalLengthRight = itemComponents('stone', { customData: customDataComponent({ values: [ItemPrimitive.ItemComponentNbtNumber(2)] }) })
     expect(itemComponentsEqual(equalLengthLeft, equalLengthRight)).toBe(false)
     expect(isChargedProjectilesOptions([{ item: 'stone', count: 1, components: {} }])).toBe(false)
   })
@@ -307,35 +583,43 @@ describe('item components', () => {
   })
 
   it('resolves portable collection, book, trim, stew, and predicate components', () => {
-    const chargedProjectiles = [itemStack('arrow', 1)]
-    const bundleContents = [itemStack('stone', 1)]
-    const container = [{ slot: 2, item: itemStack('diamond', 1) }]
+    const chargedProjectiles = [itemStack('arrow', StackCount(1))]
+    const bundleContents = [itemStack('stone', StackCount(1))]
+    const container = [{ slot: ItemPrimitive.ContainerSlotIndex(2), item: itemStack('diamond', StackCount(1)) }]
     const mapDecorations = {
-      spawn: { type: 'player' as const, x: 1.5, z: -2.25, rotation: 3.5 },
+      spawn: {
+        type: 'player' as const,
+        x: ItemPrimitive.MapDecorationCoordinate(1),
+        z: ItemPrimitive.MapDecorationCoordinate(-2),
+        rotation: ItemPrimitive.MapDecorationRotation(3),
+      },
     }
     const writableBookContent = {
-      pages: ['Page one', { raw: 'Page two', filtered: 'Filtered page two' }],
+      pages: [ItemPrimitive.BookPageText('Page one'), {
+        raw: ItemPrimitive.BookPageText('Page two'),
+        filtered: ItemPrimitive.BookPageText('Filtered page two'),
+      }],
     }
     const writtenBookContent = {
-      pages: ['"Hello world!"'],
-      title: { raw: '"A delightful read"' },
-      author: 'Alex',
-      generation: 0,
+      pages: [ItemPrimitive.BookPageText('"Hello world!"')],
+      title: { raw: ItemPrimitive.BookPageText('"A delightful read"') },
+      author: ItemPrimitive.BookAuthor('Alex'),
+      generation: ItemPrimitive.BookGeneration(0),
       resolved: false,
     }
     const trim = {
-      pattern: 'minecraft:sentry',
-      material: 'minecraft:iron',
+      pattern: ResourceLocation('minecraft:sentry'),
+      material: ResourceLocation('minecraft:iron'),
     }
-    const suspiciousStew = [{ id: 'minecraft:night_vision' }]
-    const canBreak = [{ blocks: 'minecraft:dirt' }]
-    const canPlaceOn = { blocks: '#minecraft:grass' }
+    const suspiciousStew = [{ id: ResourceLocation('minecraft:night_vision') }]
+    const canBreak = [{ blocks: ResourceLocation('minecraft:dirt') }]
+    const canPlaceOn = { blocks: TagLocation('#minecraft:grass') }
 
     const value = itemComponents('stone', {
       chargedProjectiles,
       bundleContents,
       container,
-      mapColor: 0x123456,
+      mapColor: ItemPrimitive.RgbColor(0x123456),
       mapDecorations,
       writableBookContent,
       writtenBookContent,
@@ -349,7 +633,7 @@ describe('item components', () => {
     expect(value.chargedProjectiles).toEqual(chargedProjectiles)
     expect(value.bundleContents).toEqual(bundleContents)
     expect(value.container).toEqual(container)
-    expect(value.mapColor).toBe(mapColorComponent(0x123456))
+    expect(value.mapColor).toBe(mapColorComponent(ItemPrimitive.RgbColor(0x123456)))
     expect(value.mapDecorations).toEqual(mapDecorationsComponent(mapDecorations))
     expect(value.writableBookContent).toEqual(writableBookContentComponent(writableBookContent))
     expect(value.writtenBookContent).toEqual(writtenBookContentComponent(writtenBookContent))
@@ -400,132 +684,186 @@ describe('item components', () => {
   })
 
   it('accepts official option relationships', () => {
-    const cooldown = useCooldownComponent(0.5)
-    const weapon = weaponComponent({ itemDamagePerAttack: 2, disableBlockingForSeconds: 0.25 })
-    const kineticWeapon = kineticWeaponComponent({ contactCooldownTicks: 4, damageMultiplier: 2 })
+    const cooldown = useCooldownComponent(Quantities.CooldownSeconds(0.5))
+    const weapon = weaponComponent({
+      itemDamagePerAttack: Quantities.ItemDamage(2),
+      disableBlockingForSeconds: Quantities.WeaponDisableBlockingSeconds(0.25),
+    })
+    const kineticWeapon = kineticWeaponComponent({
+      contactCooldownTicks: ItemPrimitive.KineticDurationTicks(4),
+      damageMultiplier: ItemPrimitive.KineticDamageMultiplier(2),
+    })
     const piercingWeapon = piercingWeaponComponent({ dealsKnockback: false, dismounts: true })
     const tooltipDisplay = tooltipDisplayComponent({
       hideTooltip: true,
-      hiddenComponents: ['minecraft:food'],
+      hiddenComponents: [ResourceLocation('minecraft:food')],
     })
-    const potionDurationScale = potionDurationScaleComponent(1.5)
-    const breakSound = breakSoundComponent('minecraft:item.custom')
-    const providesBannerPatterns = providesBannerPatternsComponent(['minecraft:pattern'])
-    const providesTrimMaterial = providesTrimMaterialComponent('minecraft:trim')
+    const potionDurationScale = potionDurationScaleComponent(Quantities.PotionDurationScale(1.5))
+    const breakSound = breakSoundComponent(ResourceLocation('minecraft:item.custom'))
+    const providesBannerPatterns = providesBannerPatternsComponent([ResourceLocation('minecraft:pattern')])
+    const providesTrimMaterial = providesTrimMaterialComponent(ResourceLocation('minecraft:trim'))
     const dye = dyeComponent('red')
-    const additionalTradeCost = additionalTradeCostComponent(2)
-    const sulfurCubeContent = sulfurCubeContentComponent('minecraft:green_wool')
-    const useEffects = useEffectsComponent({ canSprint: true, speedMultiplier: 0.5 })
-    const minimumAttackCharge = minimumAttackChargeComponent(0.25)
-    const damageType = damageTypeComponent('minecraft:player_attack')
-    const swingAnimation = swingAnimationComponent({ type: 'stab', duration: 8 })
+    const additionalTradeCost = additionalTradeCostComponent(Quantities.AdditionalTradeCost(2))
+    const sulfurCubeContent = sulfurCubeContentComponent(ResourceLocation('minecraft:green_wool'))
+    const useEffects = useEffectsComponent({ canSprint: true, speedMultiplier: Quantities.UseSpeedMultiplier(0.5) })
+    const minimumAttackCharge = minimumAttackChargeComponent(Quantities.AttackCharge(0.25))
+    const damageType = damageTypeComponent(ResourceLocation('minecraft:player_attack'))
+    const swingAnimation = swingAnimationComponent({ type: 'stab', duration: Quantities.SwingAnimationDuration(8) })
     const attackRange = attackRangeComponent({
-      minReach: 1,
-      maxReach: 4,
-      minCreativeReach: 2,
-      maxCreativeReach: 6,
-      hitboxMargin: 0.4,
-      mobFactor: 1.25,
+      minReach: Quantities.AttackRangeDistance(1),
+      maxReach: Quantities.AttackRangeDistance(4),
+      minCreativeReach: Quantities.AttackRangeDistance(2),
+      maxCreativeReach: Quantities.AttackRangeDistance(6),
+      hitboxMargin: Quantities.AttackHitboxMargin(0.4),
+      mobFactor: Quantities.MobAttackRangeFactor(1.25),
     })
     const blocksAttacks = blocksAttacksComponent({
-      damageReductions: [{ type: 'minecraft:player_attack', base: 2, factor: 0.5 }],
-      itemDamage: { threshold: 0.5, base: 1, factor: 0.25 },
-      blockSound: 'minecraft:block.anvil.land',
-      disabledSound: 'minecraft:item.shield.block',
-      bypassedBy: '#minecraft:axes',
+      damageReductions: [{
+        type: ResourceLocation('minecraft:player_attack'),
+        base: Quantities.DamageReductionBase(2),
+        factor: Quantities.DamageReductionFactor(0.5),
+      }],
+      itemDamage: {
+        threshold: Quantities.ItemDamageThreshold(0.5),
+        base: Quantities.ItemDamageBase(1),
+        factor: Quantities.ItemDamageFactor(0.25),
+      },
+      blockSound: ResourceLocation('minecraft:block.anvil.land'),
+      disabledSound: ResourceLocation('minecraft:item.shield.block'),
+      bypassedBy: TagLocation('#minecraft:axes'),
     })
-    const damageResistant = damageResistantComponent(['minecraft:fire'])
+    const damageResistant = damageResistantComponent([ResourceLocation('minecraft:fire')])
     const attributeModifiers = attributeModifiersComponent([
       attributeModifier({
-        type: 'minecraft:generic.attack_damage',
-        id: 'minecraft:test_damage',
-        amount: 3,
+        type: ResourceLocation('minecraft:generic.attack_damage'),
+        id: ResourceLocation('minecraft:test_damage'),
+        amount: Quantities.AttributeModifierAmount(3),
         operation: 'add_value',
         slot: 'mainhand',
       }),
     ])
     const enchantments = enchantmentsComponent({ 'minecraft:sharpness': 5 })
     const storedEnchantments = storedEnchantmentsComponent({ 'minecraft:protection': 4 })
-    const customName = textComponent({ text: 'Custom name', color: 'gold' })
-    const itemName = textComponent('Custom item')
-    const lore = [textComponent({ text: 'Line 1' }), textComponent({ text: 'Line 2', italic: true })]
+    const customName = itemResultValue(textComponent({ text: 'Custom name', color: 'gold' }))
+    const itemName = itemResultValue(textComponent('Custom item'))
+    const lore = [
+      itemResultValue(textComponent({ text: 'Line 1' })),
+      itemResultValue(textComponent({ text: 'Line 2', italic: true })),
+    ]
     const itemModel = ResourceLocation('minecraft:test_model')
-    const customData = customDataComponent({ source: 'test', values: [1, true] })
+    const customData = customDataComponent({
+      source: ItemPrimitive.ItemComponentNbtString('test'),
+      values: [ItemPrimitive.ItemComponentNbtNumber(1), true],
+    })
+    const entityData = entityDataComponent({
+      id: ResourceLocation('minecraft:zombie'),
+      Health: ItemPrimitive.ItemComponentNbtNumber(20),
+      Pos: [1, 64, 2].map(ItemPrimitive.ItemComponentNbtNumber),
+    })
+    const bucketEntityData = bucketEntityDataComponent({ BucketVariant: ItemPrimitive.ItemComponentNbtNumber(1) })
+    const profile = profileComponent({
+      name: ItemPrimitive.ProfileName('Notch'),
+      id: UUID('123e4567-e89b-12d3-a456-426614174000'),
+      properties: [{
+        name: ItemPrimitive.ProfilePropertyName('textures'),
+        value: ItemPrimitive.ProfilePropertyValue('encoded'),
+        signature: ItemPrimitive.ProfilePropertySignature('signed'),
+      }],
+    })
+    const blockEntityData = blockEntityDataComponent({
+      id: ResourceLocation('minecraft:chest'),
+      CustomName: ItemPrimitive.ItemComponentNbtString('Chest'),
+    })
     const bees = beesComponent([
       {
-        entityData: { id: 'minecraft:bee' },
-        ticksInHive: 120,
-        minTicksInHive: 60,
+        entityData: {
+          [ItemPrimitive.ItemComponentNbtKey('id')]: ItemPrimitive.ItemComponentNbtString('minecraft:bee'),
+        },
+        ticksInHive: ItemPrimitive.BeeHiveTicks(120),
+        minTicksInHive: ItemPrimitive.BeeHiveTicks(60),
       },
     ])
     const potionContents = potionContentsComponent({
-      potion: 'minecraft:water',
-      customEffects: [{ id: 'minecraft:speed', duration: 200 }],
+      potion: ResourceLocation('minecraft:water'),
+      customEffects: [{
+        id: ResourceLocation('minecraft:speed'),
+        duration: ItemPrimitive.PotionEffectDurationTicks(200),
+      }],
     })
-    const dyedColor = dyedColorComponent([0.5, 1, 0.2])
-    const customModelData = {
-      floats: [0.5],
+    const dyedColor = dyedColorComponent([
+      ItemPrimitive.DyeColorChannel(0.5),
+      ItemPrimitive.DyeColorChannel(1),
+      ItemPrimitive.DyeColorChannel(0.2),
+    ])
+    const customModelData = customModelDataComponent({
+      floats: [ItemPrimitive.CustomModelDataFloat(0.5)],
       flags: [true],
-      strings: ['test_model'],
-      colors: [0xff00ff],
-    }
-    const mapId = mapIdComponent(42)
-    const blockState = blockStateComponent({ axis: 'y' })
-    const instrument = instrumentComponent('minecraft:ponder_goat_horn')
-    const noteBlockSound = noteBlockSoundComponent('minecraft:block.note_block.harp')
-    const recipes = recipesComponent(['minecraft:stick'])
-    const lock = lockComponent('secret')
-    const tooltipStyle = tooltipStyleComponent('minecraft:tooltip/default')
+      strings: [ItemPrimitive.CustomModelDataString('test_model')],
+      colors: [ItemPrimitive.RgbColor(0xff00ff)],
+    })
+    const mapId = mapIdComponent(Quantities.MapId(42))
+    const blockState = blockStateComponent({ axis: ItemPrimitive.BlockStatePropertyValue('y') })
+    const instrument = instrumentComponent(ResourceLocation('minecraft:ponder_goat_horn'))
+    const noteBlockSound = noteBlockSoundComponent(ResourceLocation('minecraft:block.note_block.harp'))
+    const recipes = recipesComponent([ResourceLocation('minecraft:stick')])
+    const lock = lockComponent(ItemPrimitive.ItemLock('secret'))
+    const tooltipStyle = tooltipStyleComponent(ResourceLocation('minecraft:tooltip/default'))
     const baseColor = baseColorComponent('red')
     const equippable = equippableComponent({
       slot: 'head',
-      equipSound: 'minecraft:item.armor.equip_diamond',
+      equipSound: ResourceLocation('minecraft:item.armor.equip_diamond'),
     })
     const glider = gliderComponent()
     const deathProtection = deathProtectionComponent({
       deathEffects: [consumableClearAllEffects()],
     })
-    const repairable = repairableComponent(['minecraft:diamond', 'minecraft:netherite_ingot'])
-    const enchantable = enchantableComponent(10)
-    const jukeboxPlayable = jukeboxPlayableComponent('minecraft:test_song')
-    const ominousBottleAmplifier = ominousBottleAmplifierComponent(2)
-    const paintingVariant = paintingVariantComponent('minecraft:kebab')
+    const repairableItems = [ResourceLocation('minecraft:diamond'), ResourceLocation('minecraft:netherite_ingot')]
+    const repairable = repairableComponent(repairableItems)
+    const enchantability = ItemPrimitive.Enchantability(10)
+    const enchantable = enchantableComponent(enchantability)
+    const jukeboxSong = ResourceLocation('minecraft:test_song')
+    const jukeboxPlayable = jukeboxPlayableComponent(jukeboxSong)
+    const ominousBottleAmplifier = ominousBottleAmplifierComponent(ItemPrimitive.OminousBottleAmplifier(2))
+    const paintingVariant = paintingVariantComponent(ResourceLocation('minecraft:kebab'))
     const lodestoneTracker = lodestoneTrackerComponent({
-      target: { pos: [1, 64, -2], dimension: 'minecraft:overworld' },
+      target: {
+        pos: [BlockAxis(1), BlockAxis(64), BlockAxis(-2)],
+        dimension: ResourceLocation('minecraft:overworld'),
+      },
       tracked: false,
     })
     const fireworkExplosion = fireworkExplosionComponent({
       shape: 'star',
-      colors: [0xff0000],
-      fadeColors: [0x00ff00],
+      colors: [ItemPrimitive.RgbColor(0xff0000)],
+      fadeColors: [ItemPrimitive.RgbColor(0x00ff00)],
       hasTrail: true,
       hasTwinkle: true,
     })
     const fireworks = fireworksComponent({
       explosions: [{ shape: 'burst', hasTrail: true }],
-      flightDuration: 3,
+      flightDuration: ItemPrimitive.FireworksFlightDuration(3),
     })
     const bannerPatterns = bannerPatternsComponent([
-      { pattern: 'minecraft:stripe', color: 'red' },
+      { pattern: ResourceLocation('minecraft:stripe'), color: 'red' },
     ])
     const potDecorations = potDecorationsComponent([
-      'minecraft:brick',
-      'minecraft:heart_pottery_sherd',
-      'minecraft:arms_up_pottery_sherd',
-      'minecraft:skull_pottery_sherd',
+      ResourceLocation('minecraft:brick'),
+      ResourceLocation('minecraft:heart_pottery_sherd'),
+      ResourceLocation('minecraft:arms_up_pottery_sherd'),
+      ResourceLocation('minecraft:skull_pottery_sherd'),
     ])
     const containerLoot = containerLootComponent({
-      lootTable: 'minecraft:chests/simple_dungeon',
-      seed: 42n,
+      lootTable: ResourceLocation('minecraft:chests/simple_dungeon'),
+      seed: ItemPrimitive.LootTableSeed(42n),
     })
-    const debugStickState = debugStickStateComponent({ 'minecraft:oak_log': 'axis' })
+    const debugStickState = debugStickStateComponent({ 'minecraft:oak_log': ItemPrimitive.BlockStatePropertyValue('axis') })
 
     expect(
       itemComponents('stone', {
-        maxStackSize: 1,
-        maxDamage: 10,
-        damage: 4,
-        repairCost: 4,
+        maxStackSize: Quantities.MaxStackSize(1),
+        maxDamage: Quantities.MaxDamage(10),
+        damage: Quantities.ItemDamage(4),
+        repairCost: Quantities.RepairCost(4),
         unbreakable: true,
         enchantmentGlintOverride: false,
         tooltipDisplay,
@@ -534,19 +872,15 @@ describe('item components', () => {
         lore,
         itemModel,
         customData,
-        entityData: { id: 'minecraft:zombie', Health: 20, Pos: [1, 64, 2] },
-        bucketEntityData: { BucketVariant: 1 },
-        profile: {
-          name: 'Notch',
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          properties: [{ name: 'textures', value: 'encoded', signature: 'signed' }],
-        },
-        blockEntityData: { id: 'minecraft:chest', CustomName: 'Chest' },
-        bees: [{ entityData: { id: 'minecraft:bee' }, ticksInHive: 120, minTicksInHive: 60 }],
-        potionContents: { potion: 'minecraft:water', customEffects: [{ id: 'minecraft:speed', duration: 200 }] },
+        entityData,
+        bucketEntityData,
+        profile,
+        blockEntityData,
+        bees,
+        potionContents,
         dyedColor,
         customModelData,
-        mapId: 42,
+        mapId,
         blockState,
         instrument,
         noteBlockSound,
@@ -554,38 +888,21 @@ describe('item components', () => {
         lock,
         tooltipStyle,
         baseColor,
-        equippable: { slot: 'head', equipSound: 'minecraft:item.armor.equip_diamond' },
+        equippable,
         glider: true,
         deathProtection: { deathEffects: [consumableClearAllEffects()] },
-        repairable: ['minecraft:diamond', 'minecraft:netherite_ingot'],
-        enchantable: 10,
-        jukeboxPlayable: 'minecraft:test_song',
-        ominousBottleAmplifier: 2,
-        paintingVariant: 'minecraft:kebab',
-        lodestoneTracker: {
-          target: { pos: [1, 64, -2], dimension: 'minecraft:overworld' },
-          tracked: false,
-        },
-        fireworkExplosion: {
-          shape: 'star',
-          colors: [0xff0000],
-          fadeColors: [0x00ff00],
-          hasTrail: true,
-          hasTwinkle: true,
-        },
-        fireworks: {
-          explosions: [{ shape: 'burst', hasTrail: true }],
-          flightDuration: 3,
-        },
-        bannerPatterns: [{ pattern: 'minecraft:stripe', color: 'red' }],
-        potDecorations: [
-          'minecraft:brick',
-          'minecraft:heart_pottery_sherd',
-          'minecraft:arms_up_pottery_sherd',
-          'minecraft:skull_pottery_sherd',
-        ],
-        containerLoot: { lootTable: 'minecraft:chests/simple_dungeon', seed: 42n },
-        debugStickState: { 'minecraft:oak_log': 'axis' },
+        repairable: repairableItems,
+        enchantable: enchantability,
+        jukeboxPlayable: jukeboxSong,
+        ominousBottleAmplifier,
+        paintingVariant,
+        lodestoneTracker,
+        fireworkExplosion,
+        fireworks,
+        bannerPatterns,
+        potDecorations,
+        containerLoot,
+        debugStickState,
         rarity: 'rare',
         useCooldown: cooldown,
         useEffects,
@@ -622,18 +939,14 @@ describe('item components', () => {
       lore,
         itemModel,
         customData,
-        entityData: entityDataComponent({ id: 'minecraft:zombie', Health: 20, Pos: [1, 64, 2] }),
-        bucketEntityData: bucketEntityDataComponent({ BucketVariant: 1 }),
-        profile: profileComponent({
-          name: 'Notch',
-          id: '123e4567-e89b-12d3-a456-426614174000',
-          properties: [{ name: 'textures', value: 'encoded', signature: 'signed' }],
-        }),
-        blockEntityData: blockEntityDataComponent({ id: 'minecraft:chest', CustomName: 'Chest' }),
+        entityData,
+        bucketEntityData,
+        profile,
+        blockEntityData,
         bees,
         potionContents,
         dyedColor,
-      customModelData: customModelDataComponent(customModelData),
+      customModelData,
       mapId,
       blockState,
       instrument,
@@ -687,96 +1000,134 @@ describe('item components', () => {
   })
 
   it('rejects invalid official relationships', () => {
-    expect(() => itemComponents('stone', { maxStackSize: 0 })).toThrow()
-    expect(() => itemComponents('stone', { maxStackSize: 100 })).toThrow()
-    expect(() => Reflect.apply(itemComponents, undefined, ['stone', { maxDamage: 0 }])).toThrow()
-    expect(() => itemComponents('stone', { maxDamage: 10 })).toThrow(RangeError)
-    expect(() => itemComponents('stone', { damage: 1 })).toThrow(RangeError)
-    expect(() => itemComponents('stone', { maxStackSize: 1, maxDamage: 10, damage: 11 })).toThrow(
-      RangeError,
-    )
-    expect(() => Reflect.apply(itemComponents, undefined, ['stone', { damage: -1 }])).toThrow()
-    expect(() => itemComponents('stone', { repairCost: -1 })).toThrow()
-    expect(() => itemComponents('diamond_sword', { maxStackSize: 2 })).toThrow(RangeError)
+    expectOptionsFailure('stone', { maxStackSize: 0 }, {
+      kind: 'RangeError', reason: 'out-of-range', field: 'maxStackSize',
+      message: 'MaxStackSize must be a safe integer in [1, 99], received 0', value: 0,
+    })
+    expectOptionsFailure('stone', { maxStackSize: 100 }, {
+      kind: 'RangeError', reason: 'out-of-range', field: 'maxStackSize',
+      message: 'MaxStackSize must be a safe integer in [1, 99], received 100', value: 100,
+    })
+    expectOptionsFailure('stone', { maxDamage: 0 }, {
+      kind: 'RangeError', reason: 'out-of-range', field: 'maxDamage',
+      message: 'MaxDamage must be a positive safe integer, received 0', value: 0,
+    })
+    expectOptionsFailure('stone', { maxDamage: 10 }, {
+      kind: 'RangeError', reason: 'out-of-range', field: 'maxDamage',
+      message: 'max_stack_size greater than 1 is incompatible with max_damage', value: 10,
+    })
+    expectOptionsFailure('stone', { damage: 1 }, {
+      kind: 'RangeError', reason: 'out-of-range', field: 'damage',
+      message: 'damage and max_damage must be present together', value: 1,
+    })
+    expectOptionsFailure('stone', { maxStackSize: 1, maxDamage: 10, damage: 11 }, {
+      kind: 'RangeError', reason: 'out-of-range', field: 'damage',
+      message: 'damage must be in [0, 10], received 11', value: 11,
+    })
+    expectOptionsFailure('stone', { damage: -1 }, {
+      kind: 'RangeError', reason: 'out-of-range', field: 'damage',
+      message: 'ItemDamage must be a non-negative safe integer, received -1', value: -1,
+    })
+    expectOptionsFailure('stone', { repairCost: -1 }, {
+      kind: 'RangeError', reason: 'out-of-range', field: 'repairCost',
+      message: 'RepairCost must be a non-negative safe integer, received -1', value: -1,
+    })
+    expectOptionsFailure('stone', { maxStackSize: 0 }, {
+      kind: 'RangeError', reason: 'out-of-range', field: 'maxStackSize',
+      message: 'MaxStackSize must be a safe integer in [1, 99], received 0', value: 0,
+    })
+    expectOptionsFailure('diamond_sword', { maxStackSize: 2 }, {
+      kind: 'RangeError', reason: 'out-of-range', field: 'maxDamage',
+      message: 'max_stack_size greater than 1 is incompatible with max_damage', value: 1561,
+    })
   })
 
   it('rejects malformed runtime options at the public boundary', () => {
-    const invoke = (item: unknown, options: unknown) =>
-      () => Reflect.apply(itemComponents, undefined, [item, options])
+    expectOptionsFailure('stone', null, {
+      kind: 'TypeError', reason: 'invalid-type', field: 'options',
+      message: 'Item component options must be a non-null object', value: null,
+    })
+    expectOptionsFailure('stone', [], {
+      kind: 'TypeError', reason: 'invalid-type', field: 'options',
+      message: 'Item component options must be a non-null object', value: [],
+    })
 
-    expect(invoke('stone', null)).toThrow(TypeError)
-    expect(invoke('stone', [])).toThrow(TypeError)
-    expect(invoke('stone', { unbreakable: false })).toThrow(TypeError)
-    expect(invoke('stone', { tooltipDisplay: {} })).toThrow(TypeError)
-    expect(invoke('stone', { customName: 1 })).toThrow(TypeError)
-    expect(invoke('stone', { itemName: null })).toThrow(TypeError)
-    expect(invoke('stone', { lore: Array.from({ length: 257 }, () => 'line') })).toThrow(TypeError)
-    expect(invoke('stone', { itemModel: 'INVALID!' })).toThrow(TypeError)
-    expect(invoke('stone', { customData: {} })).toThrow(TypeError)
-    expect(invoke('stone', { entityData: { Health: 20 } })).toThrow(TypeError)
-    expect(invoke('stone', { bucketEntityData: { value: Symbol() } })).toThrow(TypeError)
-    expect(invoke('stone', { profile: 'invalid name' })).toThrow(TypeError)
-    expect(invoke('stone', { profile: { name: 'invalid name' } })).toThrow(TypeError)
-    expect(
-      invoke('stone', { blockEntityData: { id: 'minecraft:chest', value: Symbol() } }),
-    ).toThrow(TypeError)
-    expect(invoke('stone', { bees: [{ entityData: {}, ticksInHive: -1, minTicksInHive: 0 }] })).toThrow(TypeError)
-    expect(invoke('stone', { potionContents: { customEffects: [{ id: 'INVALID!' }] } })).toThrow(TypeError)
-    expect(invoke('stone', { dyedColor: 0x1000000 })).toThrow(TypeError)
-    expect(invoke('stone', { customModelData: { floats: [Infinity] } })).toThrow(TypeError)
-    expect(invoke('stone', { mapId: -1 })).toThrow(TypeError)
-    expect(invoke('stone', { blockState: { axis: 1 } })).toThrow(TypeError)
-    expect(invoke('stone', { instrument: 'INVALID!' })).toThrow(TypeError)
-    expect(invoke('stone', { noteBlockSound: 'INVALID!' })).toThrow(TypeError)
-    expect(invoke('stone', { recipes: ['INVALID!'] })).toThrow(TypeError)
-    expect(invoke('stone', { lock: 1 })).toThrow(TypeError)
-    expect(invoke('stone', { tooltipStyle: 'INVALID!' })).toThrow(TypeError)
-    expect(invoke('stone', { baseColor: 'teal' })).toThrow(TypeError)
-    expect(invoke('stone', { equippable: { slot: 'invalid' } })).toThrow(TypeError)
-    expect(invoke('stone', { glider: false })).toThrow(TypeError)
-    expect(invoke('stone', { deathProtection: { deathEffects: [{}] } })).toThrow(TypeError)
-    expect(invoke('stone', { repairable: 'INVALID!' })).toThrow(TypeError)
-    expect(invoke('stone', { enchantable: 0 })).toThrow(TypeError)
-    expect(invoke('stone', { jukeboxPlayable: 'INVALID!' })).toThrow(TypeError)
-    expect(invoke('stone', { ominousBottleAmplifier: 5 })).toThrow(TypeError)
-    expect(invoke('stone', { paintingVariant: 'INVALID!' })).toThrow(TypeError)
-    expect(invoke('stone', { lodestoneTracker: { tracked: 'yes' } })).toThrow(TypeError)
-    expect(invoke('stone', { fireworkExplosion: { shape: 'invalid' } })).toThrow(TypeError)
-    expect(invoke('stone', { fireworks: { flightDuration: 256 } })).toThrow(TypeError)
-    expect(invoke('stone', { bannerPatterns: [{ pattern: 'INVALID!', color: 'red' }] })).toThrow(
-      TypeError,
-    )
-    expect(invoke('stone', { potDecorations: ['minecraft:brick'] })).toThrow(TypeError)
-    expect(invoke('stone', { containerLoot: { lootTable: 'INVALID!' } })).toThrow(TypeError)
-    expect(invoke('stone', { debugStickState: { INVALID: 'axis' } })).toThrow(TypeError)
-    expect(invoke('stone', { enchantmentGlintOverride: 'yes' })).toThrow(TypeError)
-    expect(invoke('stone', { rarity: 'mythic' })).toThrow(TypeError)
-    expect(invoke('stone', { food: {} })).toThrow(TypeError)
-    expect(invoke('stone', { consumable: {} })).toThrow(TypeError)
-    expect(invoke('stone', { useRemainder: {} })).toThrow(TypeError)
-    expect(invoke('stone', { useCooldown: {} })).toThrow(TypeError)
-    expect(invoke('stone', { useEffects: {} })).toThrow(TypeError)
-    expect(invoke('stone', { tool: {} })).toThrow(TypeError)
-    expect(invoke('stone', { weapon: {} })).toThrow(TypeError)
-    expect(invoke('stone', { kineticWeapon: { contactCooldownTicks: -1 } })).toThrow(TypeError)
-    expect(invoke('stone', { piercingWeapon: { dealsKnockback: 'yes' } })).toThrow(TypeError)
-    expect(invoke('stone', { attributeModifiers: {} })).toThrow(TypeError)
-    expect(invoke('stone', { enchantments: { 'not valid': 1 } })).toThrow(TypeError)
-    expect(invoke('stone', { storedEnchantments: { 'not valid': 1 } })).toThrow(TypeError)
-    expect(invoke('stone', { blocksAttacks: {} })).toThrow(TypeError)
-    expect(invoke('stone', { damageResistant: {} })).toThrow(TypeError)
-    expect(invoke('stone', { minimumAttackCharge: 2 })).toThrow(TypeError)
-    expect(invoke('stone', { damageType: 'INVALID!' })).toThrow(TypeError)
-    expect(invoke('stone', { swingAnimation: {} })).toThrow(TypeError)
-    expect(invoke('stone', { attackRange: {} })).toThrow(TypeError)
-    expect(invoke('stone', { potionDurationScale: -1 })).toThrow(TypeError)
-    expect(invoke('stone', { breakSound: 'INVALID!' })).toThrow(TypeError)
-    expect(invoke('stone', { providesBannerPatterns: ['INVALID!'] })).toThrow(TypeError)
-    expect(invoke('stone', { providesTrimMaterial: 'INVALID!' })).toThrow(TypeError)
-    expect(invoke('stone', { dye: 'teal' })).toThrow(TypeError)
-    expect(invoke('stone', { additionalTradeCost: 1.5 })).toThrow(TypeError)
-    expect(invoke('stone', { sulfurCubeContent: 'INVALID!' })).toThrow(TypeError)
-    expect(invoke('unobtainium', {})).toThrow(TypeError)
+    const invalidOptions = [
+      [{ unbreakable: false }, 'unbreakable', 'unbreakable is an empty component and can only be true'],
+      [{ tooltipDisplay: {} }, 'tooltipDisplay', 'tooltipDisplay must be a valid tooltip_display component'],
+      [{ customName: 1 }, 'customName', 'customName must be a valid text component'],
+      [{ itemName: null }, 'itemName', 'itemName must be a valid text component'],
+      [{ lore: Array.from({ length: 257 }, () => 'line') }, 'lore', 'lore must contain at most 256 valid text components'],
+      [{ itemModel: 'INVALID!' }, 'itemModel', 'itemModel must be a valid resource location'],
+      [{ customData: {} }, 'customData', 'customData must be a non-empty object containing NBT-compatible values'],
+      [{ entityData: { Health: 20 } }, 'entityData', 'entityData must be NBT data containing a valid id'],
+      [{ bucketEntityData: { value: Symbol() } }, 'bucketEntityData', 'bucketEntityData must contain NBT-compatible values'],
+      [{ profile: 'invalid name' }, 'profile', 'profile must be a valid player name or profile object'],
+      [{ profile: { name: 'invalid name' } }, 'profile', 'profile must be a valid player name or profile object'],
+      [{ blockEntityData: { id: 'minecraft:chest', value: Symbol() } }, 'blockEntityData', 'blockEntityData must be NBT data containing a valid id'],
+      [{ bees: [{ entityData: {}, ticksInHive: -1, minTicksInHive: 0 }] }, 'bees', 'bees must contain valid bee entries'],
+      [{ potionContents: { customEffects: [{ id: 'INVALID!' }] } }, 'potionContents', 'potionContents must be a valid potion contents value'],
+      [{ dyedColor: 0x1000000 }, 'dyedColor', 'dyedColor must be an RGB integer or three normalized color channels'],
+      [{ customModelData: { floats: [Infinity] } }, 'customModelData', 'customModelData must contain valid floats, flags, strings, or colors arrays'],
+      [{ mapId: -1 }, 'mapId', 'mapId must be a non-negative safe integer'],
+      [{ blockState: { axis: 1 } }, 'blockState', 'blockState must be a map of property names to strings'],
+      [{ instrument: 'INVALID!' }, 'instrument', 'instrument must be a valid resource location'],
+      [{ noteBlockSound: 'INVALID!' }, 'noteBlockSound', 'noteBlockSound must be a valid resource location'],
+      [{ recipes: ['INVALID!'] }, 'recipes', 'recipes must be a list of valid resource locations'],
+      [{ lock: 1 }, 'lock', 'lock must be a string'],
+      [{ tooltipStyle: 'INVALID!' }, 'tooltipStyle', 'tooltipStyle must be a valid resource location'],
+      [{ baseColor: 'teal' }, 'baseColor', 'baseColor must be a valid dye color'],
+      [{ equippable: { slot: 'invalid' } }, 'equippable', 'equippable must be a valid equippable component'],
+      [{ glider: false }, 'glider', 'glider is an empty component and can only be true'],
+      [{ deathProtection: { deathEffects: [{}] } }, 'deathProtection', 'deathProtection must be a valid death_protection component'],
+      [{ repairable: 'INVALID!' }, 'repairable', 'repairable must contain valid item ids or an item tag'],
+      [{ enchantable: 0 }, 'enchantable', 'enchantable must be a positive safe integer'],
+      [{ jukeboxPlayable: 'INVALID!' }, 'jukeboxPlayable', 'jukeboxPlayable must be a valid resource location'],
+      [{ ominousBottleAmplifier: 5 }, 'ominousBottleAmplifier', 'ominousBottleAmplifier must be an integer from 0 through 4'],
+      [{ paintingVariant: 'INVALID!' }, 'paintingVariant', 'paintingVariant must be a valid resource location'],
+      [{ lodestoneTracker: { tracked: 'yes' } }, 'lodestoneTracker', 'lodestoneTracker must be a valid lodestone_tracker component'],
+      [{ fireworkExplosion: { shape: 'invalid' } }, 'fireworkExplosion', 'fireworkExplosion must be a valid firework_explosion component'],
+      [{ fireworks: { flightDuration: 256 } }, 'fireworks', 'fireworks must be a valid fireworks component'],
+      [{ bannerPatterns: [{ pattern: 'INVALID!', color: 'red' }] }, 'bannerPatterns', 'bannerPatterns must be a valid banner_patterns component'],
+      [{ potDecorations: ['minecraft:brick'] }, 'potDecorations', 'potDecorations must contain four valid item ids'],
+      [{ containerLoot: { lootTable: 'INVALID!' } }, 'containerLoot', 'containerLoot must be a valid container_loot component'],
+      [{ debugStickState: { INVALID: 'axis' } }, 'debugStickState', 'debugStickState must map block ids to property names'],
+      [{ enchantmentGlintOverride: 'yes' }, 'enchantmentGlintOverride', 'enchantmentGlintOverride must be a boolean'],
+      [{ rarity: 'mythic' }, 'rarity', 'Unknown item rarity: mythic'],
+      [{ food: {} }, 'food', 'food must be a valid food component'],
+      [{ consumable: {} }, 'consumable', 'consumable must be a valid consumable component'],
+      [{ useRemainder: {} }, 'useRemainder', 'useRemainder must be a valid use_remainder component'],
+      [{ useCooldown: {} }, 'useCooldown', 'useCooldown must be a valid use_cooldown component'],
+      [{ useEffects: {} }, 'useEffects', 'useEffects must be a valid use_effects component'],
+      [{ tool: {} }, 'tool', 'tool must be a valid tool component'],
+      [{ weapon: {} }, 'weapon', 'weapon must be a valid weapon component'],
+      [{ kineticWeapon: { contactCooldownTicks: -1 } }, 'kineticWeapon', 'kineticWeapon must be a valid kinetic_weapon component'],
+      [{ piercingWeapon: { dealsKnockback: 'yes' } }, 'piercingWeapon', 'piercingWeapon must be a valid piercing_weapon component'],
+      [{ attributeModifiers: {} }, 'attributeModifiers', 'attributeModifiers must be a valid attribute_modifiers component'],
+      [{ enchantments: { 'not valid': 1 } }, 'enchantments', 'enchantments must be a valid enchantments component'],
+      [{ storedEnchantments: { 'not valid': 1 } }, 'storedEnchantments', 'storedEnchantments must be a valid stored_enchantments component'],
+      [{ blocksAttacks: {} }, 'blocksAttacks', 'blocksAttacks must be a valid blocks_attacks component'],
+      [{ damageResistant: {} }, 'damageResistant', 'damageResistant must be a valid damage_resistant component'],
+      [{ minimumAttackCharge: 2 }, 'minimumAttackCharge', 'minimumAttackCharge must be a valid minimum_attack_charge component'],
+      [{ damageType: 'INVALID!' }, 'damageType', 'damageType must be a valid damage_type component'],
+      [{ swingAnimation: {} }, 'swingAnimation', 'swingAnimation must be a valid swing_animation component'],
+      [{ attackRange: {} }, 'attackRange', 'attackRange must be a valid attack_range component'],
+      [{ potionDurationScale: -1 }, 'potionDurationScale', 'potionDurationScale must be a valid potion_duration_scale component'],
+      [{ breakSound: 'INVALID!' }, 'breakSound', 'breakSound must be a valid break_sound component'],
+      [{ providesBannerPatterns: ['INVALID!'] }, 'providesBannerPatterns', 'providesBannerPatterns must be a valid provides_banner_patterns component'],
+      [{ providesTrimMaterial: 'INVALID!' }, 'providesTrimMaterial', 'providesTrimMaterial must be a valid provides_trim_material component'],
+      [{ dye: 'teal' }, 'dye', 'dye must be a valid dye component'],
+      [{ additionalTradeCost: 1.5 }, 'additionalTradeCost', 'additionalTradeCost must be a valid additional_trade_cost component'],
+      [{ sulfurCubeContent: 'INVALID!' }, 'sulfurCubeContent', 'sulfurCubeContent must be a valid sulfur_cube_content component'],
+    ] as const
+
+    for (const [options, field, message] of invalidOptions) {
+      expectMalformedOption(options, field, message)
+    }
+    expectOptionsFailure('unobtainium', {}, {
+      kind: 'TypeError', reason: 'invalid-value', field: 'item',
+      message: 'Unknown item type: unobtainium', value: 'unobtainium',
+    })
   })
 
   it('guards resolved component shapes', () => {
@@ -841,17 +1192,17 @@ describe('item components', () => {
     expect(isItemComponents({ ...valid, kineticWeapon: {} })).toBe(false)
     expect(isItemComponents({ ...valid, piercingWeapon: {} })).toBe(false)
     const nested = itemComponents('stone', {
-      chargedProjectiles: [itemStack('arrow', 1)],
-      bundleContents: [itemStack('stone', 1)],
-      container: [{ slot: 0, item: itemStack('stone', 1) }],
+      chargedProjectiles: [itemStack('arrow', StackCount(1))],
+      bundleContents: [itemStack('stone', StackCount(1))],
+      container: [{ slot: ItemPrimitive.ContainerSlotIndex(0), item: itemStack('stone', StackCount(1)) }],
     })
     expect(isItemComponents(nested)).toBe(true)
     expect(
       isItemComponents({
         ...nested,
         chargedProjectiles: [
-          itemStack('arrow', 1, {
-            components: itemComponents('arrow', { maxStackSize: 2 }),
+          itemStack('arrow', StackCount(1), {
+            components: itemComponents('arrow', { maxStackSize: Quantities.MaxStackSize(2) }),
           }),
         ],
       }),
@@ -862,7 +1213,7 @@ describe('item components', () => {
     expect(isItemComponents({ ...nested, chargedProjectiles: [null] })).toBe(false)
     expect(isItemComponents({ ...nested, chargedProjectiles: [{ item: 'stone', count: 0 }] })).toBe(false)
     expect(isItemComponents({ ...nested, bundleContents: [{ item: 'unknown', count: 1 }] })).toBe(false)
-    expect(isItemComponents({ ...nested, container: [{ slot: -1, item: itemStack('stone', 1) }] })).toBe(false)
+    expect(isItemComponents({ ...nested, container: [{ slot: -1, item: itemStack('stone', StackCount(1)) }] })).toBe(false)
     expect(isItemComponents({ ...valid, attributeModifiers: {} })).toBe(false)
     expect(isItemComponents({ ...valid, enchantments: [] })).toBe(false)
     expect(isItemComponents({ ...valid, storedEnchantments: [] })).toBe(false)

@@ -36,8 +36,11 @@ export type ClockService = {
   readonly wallClockEpochMillis: Effect.Effect<EpochMillis>
 }
 
-const ClockPortBase: Context.TagClass<ClockPort, '@nerima-games/mc-kernel/ClockPort', ClockService> =
-  Context.Tag('@nerima-games/mc-kernel/ClockPort')<ClockPort, ClockService>()
+const ClockPortBase: Context.ServiceClass<
+  ClockPort,
+  '@nerima-games/mc-kernel/ClockPort',
+  ClockService
+> = Context.Service<ClockPort, ClockService>()('@nerima-games/mc-kernel/ClockPort')
 
 export class ClockPort extends ClockPortBase {}
 

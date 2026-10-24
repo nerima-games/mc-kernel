@@ -1,124 +1,290 @@
-import { maxStackCountOfItem, type ItemStackLimit } from "./item-registry.js";
-import { itemComponents } from "./item-components.js";
-import { isItemComponents, itemComponentsEqual, itemComponentsSnapshot, type ItemComponents } from "./item-components-validation.js";
+import { Effect, Result } from 'effect'
+import { snapshotInputRecord } from '../../input-snapshot.js'
+import { itemComponentStackLimitOf, type ItemStackLimit } from './item-components-data.js'
+import { itemComponents } from './item-components.js'
+import { isItemComponents, itemComponentsEqual, itemComponentsSnapshot, type ItemComponents } from './item-components-validation.js'
 import {
   applyItemComponentPatch,
-  itemComponentPatchFromUnknown,
+  decodeItemComponentPatch,
   type ItemComponentPatch,
-} from "./item-component-patch.js";
-import { isItemType, type ItemType } from "./item-type.js";
-import { StackCount, type StackCount as StackCountValue, type TransferQuantity as TransferQuantityValue } from "../time/quantities.js";
+  type ItemComponentPatchDecodeError,
+} from './item-component-patch.js'
+import { isItemType, type ItemType } from './item-type.js'
+import {
+  StackCount,
+  TransferQuantity,
+  type MaxStackSize,
+  type StackCount as StackCountValue,
+  type TransferQuantity as TransferQuantityValue,
+} from '../time/quantities.js'
+import type { TextComponentFailure } from '../text/text-component.js'
+import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
 
 export type ItemStack = Readonly<{
-  readonly item: ItemType;
-  readonly count: StackCountValue;
-  readonly components: ItemComponents;
-}>;
+  readonly item: ItemType
+  readonly count: StackCountValue
+  readonly components: ItemComponents
+}>
 
 type RecordValue = Readonly<{
-  readonly item?: unknown;
-  readonly count?: unknown;
-  readonly components?: unknown;
-  readonly componentPatch?: unknown;
-}>;
+  readonly item?: unknown
+  readonly count?: unknown
+  readonly components?: unknown
+  readonly componentPatch?: unknown
+}>
 
 const isRecord = (value: unknown): value is RecordValue =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+  typeof value === 'object' && value !== null && !Array.isArray(value)
 
-export type ItemSlot = ItemStack | undefined;
-export type Slot = ItemSlot;
+export type ItemSlot = ItemStack | undefined
+export type Slot = ItemSlot
 
 export type ItemStackOptions = Readonly<{
-  readonly components?: ItemComponents | undefined;
-  readonly componentPatch?: ItemComponentPatch | undefined;
-}>;
+  readonly components?: ItemComponents | undefined
+  readonly componentPatch?: ItemComponentPatch | undefined
+}>
 
-type StackProperties = Readonly<{ readonly item: ItemType; readonly components?: ItemComponents }>;
+export type ItemStackFailure = ItemValidationFailure | ItemComponentPatchDecodeError | TextComponentFailure
 
-export const maxStackCountForItem = (item: ItemType): ItemStackLimit => maxStackCountOfItem(item);
-export const maxStackCountForStack = (stack: StackProperties): number => stack.components?.maxStackSize ?? maxStackCountForItem(stack.item);
+type StackProperties = Readonly<{ readonly item: ItemType; readonly components?: ItemComponents }>
 
-const stackOptionsFromUnknown = (value: unknown): ItemStackOptions => {
-  if (!isRecord(value)) throw new TypeError("Item stack options must be a non-null object");
-  const components = value.components;
-  if (components !== undefined && !isItemComponents(components)) {
-    throw new TypeError("Item stack components must be a resolved item component object");
+export const maxStackCountForItem = (item: ItemType): ItemStackLimit => itemComponentStackLimitOf(item)
+export const maxStackCountForStack = (stack: StackProperties): ItemStackLimit | MaxStackSize =>
+  stack.components?.maxStackSize ?? maxStackCountForItem(stack.item)
+
+const failure = (
+  field: string,
+  message: string,
+  reason: ItemValidationFailure['reason'] = 'invalid-value',
+  value?: unknown,
+): ItemValidationFailure => itemValidationFailure(field, message, reason, value)
+
+const itemStackSnapshot = (
+  value: unknown,
+  invalidFailure: ItemValidationFailure,
+): Result.Result<ItemStack, ItemStackFailure> => {
+  const record = snapshotInputRecord(value, ['item', 'count', 'components'], ['item', 'count', 'components'])
+  if (Result.isFailure(record)) {
+    if (record.failure.reason === 'hostile-input') {
+      const field = record.failure.path ?? 'stack'
+      const message = field === 'stack' ? 'Unable to inspect item stack' : `Unable to inspect item stack ${field}`
+      return Result.fail(failure(field, message, 'hostile-input', value))
+    }
+    return Result.fail(invalidFailure)
   }
-  const componentPatch = value.componentPatch;
-  return {
-    ...(components === undefined ? {} : { components }),
-    ...(componentPatch === undefined ? {} : { componentPatch: itemComponentPatchFromUnknown(componentPatch) }),
-  };
-};
-
-const itemStackOf = (item: ItemType, count: number, components: ItemComponents): ItemStack =>
-  Object.freeze({ item, count: StackCount(count), components: itemComponentsSnapshot(components) });
-
-export const itemStack = (item: ItemType, count: number, options: ItemStackOptions = {}): ItemStack => {
-  if (!isItemType(item)) throw new TypeError(`Unknown item type: ${String(item)}`);
-  const { components: suppliedComponents, componentPatch } = stackOptionsFromUnknown(options);
-  const base = suppliedComponents === undefined ? itemComponents(item) : itemComponentsSnapshot(suppliedComponents);
-  const components = componentPatch === undefined ? base : applyItemComponentPatch(base, componentPatch);
-  const maxStackSize = maxStackCountForStack({ item, components });
-  if (!Number.isSafeInteger(count) || count < 1 || count > maxStackSize) {
-    throw new RangeError(`Item stack count for ${item} must be an integer in [1, ${maxStackSize}], received ${String(count)}`);
+  if (!Object.hasOwn(record.success, 'item') || !Object.hasOwn(record.success, 'count') || !Object.hasOwn(record.success, 'components')) {
+    return Result.fail(invalidFailure)
   }
-  return itemStackOf(item, count, components);
-};
 
-export const itemStackFromUnknown = (item: unknown, count: unknown, options: unknown = {}): ItemStack => {
-  if (!isItemType(item)) throw new TypeError(`Unknown item type: ${String(item)}`);
-  if (typeof count !== "number") throw new TypeError(`Item stack count must be a number, received ${String(count)}`);
-  return itemStack(item, count, stackOptionsFromUnknown(options));
-};
+  return Result.gen(function* () {
+    const item = record.success['item']
+    const count = record.success['count']
+    const componentsValue = record.success['components']
+    if (!isItemType(item) || typeof count !== 'number') {
+      return yield* Result.fail(invalidFailure)
+    }
+    const componentsSnapshot = itemComponentsSnapshot(componentsValue, 'item stack')
+    if (Result.isFailure(componentsSnapshot) && componentsSnapshot.failure.reason === 'invalid-type') {
+      return yield* Result.fail(invalidFailure)
+    }
+    const components = yield* componentsSnapshot
+    const stackCount = yield* Result.mapError(StackCount.result(count), () => invalidFailure)
+    if (stackCount > components.maxStackSize) return yield* Result.fail(invalidFailure)
+    return Object.freeze({ item, count: stackCount, components })
+  })
+}
+
+const stackOptionsFromUnknown = (
+  value: unknown,
+): Result.Result<ItemStackOptions, ItemStackFailure> => {
+  const record = snapshotInputRecord(value, ['components', 'componentPatch'])
+  if (Result.isFailure(record)) {
+    const invalidType = record.failure.reason === 'invalid-container' || record.failure.reason === 'unsupported-prototype'
+    const field = record.failure.path ?? 'options'
+    return Result.fail(failure(
+      invalidType ? 'options' : field,
+      invalidType ? 'Item stack options must be a non-null object' : `Unable to inspect item stack ${field}`,
+      invalidType ? 'invalid-type' : 'hostile-input',
+      record.failure.value,
+    ))
+  }
+  return Result.gen(function* () {
+    const componentsValue = record.success['components']
+    const components = componentsValue === undefined
+      ? undefined
+      : yield* itemComponentsSnapshot(componentsValue, 'item stack')
+    const patchValue = record.success['componentPatch']
+    const componentPatch = patchValue === undefined
+      ? undefined
+      : yield* decodeItemComponentPatch(patchValue)
+    return {
+      ...(components === undefined ? {} : { components }),
+      ...(componentPatch === undefined ? {} : { componentPatch }),
+    }
+  })
+}
+
+const stackValueOf = (
+  item: ItemType,
+  count: number,
+  components: ItemComponents,
+): Result.Result<ItemStack, ItemStackFailure> => {
+  const maxStackSize = components.maxStackSize
+  return Result.gen(function* () {
+    const stackCount = yield* Result.mapError(
+      StackCount.result(count),
+      () => failure('count', `Item stack count for ${item} must be an integer in [1, ${maxStackSize}], received ${String(count)}`, 'out-of-range', count),
+    )
+    if (stackCount > maxStackSize) {
+      return yield* Result.fail(failure(
+        'count',
+        `Item stack count for ${item} must be an integer in [1, ${maxStackSize}], received ${String(count)}`,
+        'out-of-range',
+        count,
+      ))
+    }
+    const snapshot = yield* itemComponentsSnapshot(components)
+    return Object.freeze({ item, count: stackCount, components: snapshot })
+  })
+}
+
+const itemStackFromValues = (
+  item: ItemType,
+  count: number,
+  options: unknown,
+): Result.Result<ItemStack, ItemStackFailure> => Result.gen(function* () {
+  const parsedOptions = yield* stackOptionsFromUnknown(options)
+  const base = parsedOptions.components === undefined
+    ? yield* itemComponents(item)
+    : parsedOptions.components
+  const components = parsedOptions.componentPatch === undefined
+    ? base
+    : yield* applyItemComponentPatch(base, parsedOptions.componentPatch)
+  return yield* stackValueOf(item, count, components)
+})
+
+export const itemStack = (
+  item: ItemType,
+  count: StackCountValue,
+  options: ItemStackOptions = {},
+): Result.Result<ItemStack, ItemStackFailure> => {
+  if (!isItemType(item)) {
+    return Result.fail(failure('item', `Unknown item type: ${String(item)}`, 'invalid-value', item))
+  }
+  return itemStackFromValues(item, Number(count), options)
+}
+
+export const itemStackFromUnknown = (
+  item: unknown,
+  count: unknown,
+  options: unknown = {},
+): Result.Result<ItemStack, ItemStackFailure> => {
+  if (!isItemType(item)) {
+    return Result.fail(failure('item', `Unknown item type: ${String(item)}`, 'invalid-value', item))
+  }
+  if (typeof count !== 'number') {
+    return Result.fail(failure('count', `Item stack count must be a number, received ${String(count)}`, 'invalid-type', count))
+  }
+  return itemStackFromValues(item, count, options)
+}
 
 export const isItemStack = (value: unknown): value is ItemStack => {
-  try {
-    if (!isRecord(value)) return false;
-    const keys = Object.keys(value);
-    if (!keys.every((key) => key === "item" || key === "count" || key === "components")) return false;
-    if (!Object.hasOwn(value, "item") || !Object.hasOwn(value, "count") || !Object.hasOwn(value, "components")) return false;
-    if (!isItemType(value.item) || !isItemComponents(value.components)) return false;
-    const count = value.count;
-    return typeof count === "number" && Number.isSafeInteger(count) && count >= 1 && count <= value.components.maxStackSize;
-  } catch {
-    return false;
+  const checked = Effect.runSync(Effect.result(Effect.try({
+    try: () => {
+      if (!isRecord(value)) return false
+      const keys = Object.keys(value)
+      if (!keys.every((key) => key === 'item' || key === 'count' || key === 'components')) return false
+      if (!Object.hasOwn(value, 'item') || !Object.hasOwn(value, 'count') || !Object.hasOwn(value, 'components')) return false
+      const item = Reflect.get(value, 'item')
+      const components = Reflect.get(value, 'components')
+      const count = Reflect.get(value, 'count')
+      return isItemType(item) && isItemComponents(components) &&
+        typeof count === 'number' && Number.isSafeInteger(count) && count >= 1 && count <= components.maxStackSize
+    },
+    catch: () => failure('stack', 'Unable to inspect item stack', 'hostile-input', value),
+  })))
+  return Result.isSuccess(checked) && checked.success
+}
+
+export const itemStackWithCount = (
+  stack: ItemStack,
+  count: StackCountValue,
+): Result.Result<ItemStack, ItemStackFailure> => {
+  const snapshot = itemStackSnapshot(stack, failure('stack', 'Stack must be an ItemStack', 'invalid-type', stack))
+  if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
+  return stackValueOf(snapshot.success.item, Number(count), snapshot.success.components)
+}
+
+export const transmuteItemStack = (
+  source: ItemStack,
+  result: ItemStack,
+  count?: StackCountValue,
+): Result.Result<ItemStack, ItemStackFailure> => {
+  const invalid = failure('stack', 'Transmute source and result must be ItemStacks', 'invalid-type')
+  const sourceSnapshot = itemStackSnapshot(source, invalid)
+  if (Result.isFailure(sourceSnapshot)) return Result.fail(sourceSnapshot.failure)
+  const resultSnapshot = itemStackSnapshot(result, invalid)
+  if (Result.isFailure(resultSnapshot)) return Result.fail(resultSnapshot.failure)
+  return stackValueOf(resultSnapshot.success.item, Number(count ?? resultSnapshot.success.count), resultSnapshot.success.components)
+}
+
+export const itemStackEqualsIgnoringCount = (left: ItemStack, right: ItemStack): boolean => {
+  const invalid = failure('stack', 'Stacks must be ItemStacks', 'invalid-type')
+  const leftSnapshot = itemStackSnapshot(left, invalid)
+  if (Result.isFailure(leftSnapshot)) return false
+  const rightSnapshot = itemStackSnapshot(right, invalid)
+  if (Result.isFailure(rightSnapshot)) return false
+  return leftSnapshot.success.item === rightSnapshot.success.item &&
+    itemComponentsEqual(leftSnapshot.success.components, rightSnapshot.success.components)
+}
+
+export const itemStacksCanMerge = (left: ItemStack, right: ItemStack): boolean => itemStackEqualsIgnoringCount(left, right)
+
+export const splitItemStack = (
+  stack: ItemStack,
+  amount: TransferQuantityValue,
+): Result.Result<{ readonly taken: ItemStack; readonly remainder: ItemSlot }, ItemStackFailure> => {
+  const snapshot = itemStackSnapshot(stack, failure('stack', 'Stack must be an ItemStack', 'invalid-type', stack))
+  if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
+  const input = snapshot.success
+  const checkedAmount = Result.mapError(
+    TransferQuantity.result(Number(amount)),
+    () => failure('amount', `Split amount must be an integer in [1, ${input.count}]`, 'out-of-range', amount),
+  )
+  if (Result.isFailure(checkedAmount)) return Result.fail(checkedAmount.failure)
+  if (Number(checkedAmount.success) > Number(input.count)) {
+    return Result.fail(failure('amount', `Split amount must be an integer in [1, ${input.count}]`, 'out-of-range', amount))
   }
-};
+  return Result.gen(function* () {
+    const taken = yield* stackValueOf(input.item, Number(checkedAmount.success), input.components)
+    const remainder = Number(checkedAmount.success) === Number(input.count)
+      ? undefined
+      : yield* stackValueOf(input.item, Number(input.count) - Number(checkedAmount.success), input.components)
+    return { taken, remainder }
+  })
+}
 
-export const itemStackWithCount = (stack: ItemStack, count: number): ItemStack => {
-  if (!isItemStack(stack)) throw new TypeError("Stack must be an ItemStack");
-  return itemStack(stack.item, count, { components: stack.components });
-};
-
-export const transmuteItemStack = (source: ItemStack, result: ItemStack, count: number = result.count): ItemStack => {
-  if (!isItemStack(source) || !isItemStack(result)) throw new TypeError("Transmute source and result must be ItemStacks");
-  return itemStack(result.item, count, { components: result.components });
-};
-
-export const itemStackEqualsIgnoringCount = (left: ItemStack, right: ItemStack): boolean =>
-  isItemStack(left) && isItemStack(right) && left.item === right.item && itemComponentsEqual(left.components, right.components);
-
-export const itemStacksCanMerge = (left: ItemStack, right: ItemStack): boolean => itemStackEqualsIgnoringCount(left, right);
-
-export const splitItemStack = (stack: ItemStack, amount: TransferQuantityValue): { readonly taken: ItemStack; readonly remainder: ItemSlot } => {
-  if (!isItemStack(stack)) throw new TypeError("Stack must be an ItemStack");
-  if (!Number.isSafeInteger(amount) || Number(amount) < 1 || Number(amount) > Number(stack.count)) {
-    throw new RangeError(`Split amount must be an integer in [1, ${stack.count}]`);
+export const mergeItemStacks = (
+  left: ItemStack,
+  right: ItemStack,
+): Result.Result<{ readonly merged: ItemStack; readonly remainder: ItemSlot }, ItemStackFailure> => {
+  const invalid = failure('stack', 'Stacks must be ItemStacks', 'invalid-type')
+  const leftSnapshot = itemStackSnapshot(left, invalid)
+  if (Result.isFailure(leftSnapshot)) return Result.fail(leftSnapshot.failure)
+  const rightSnapshot = itemStackSnapshot(right, invalid)
+  if (Result.isFailure(rightSnapshot)) return Result.fail(rightSnapshot.failure)
+  const leftValue = leftSnapshot.success
+  const rightValue = rightSnapshot.success
+  if (!itemStackEqualsIgnoringCount(leftValue, rightValue)) {
+    return Result.fail(failure('stack', 'IncompatibleStacks', 'invalid-value'))
   }
-  return {
-    taken: itemStackWithCount(stack, amount),
-    remainder: Number(amount) === Number(stack.count) ? undefined : itemStackWithCount(stack, Number(stack.count) - Number(amount)),
-  };
-};
-
-export const mergeItemStacks = (left: ItemStack, right: ItemStack): { readonly merged: ItemStack; readonly remainder: ItemSlot } => {
-  if (!isItemStack(left) || !isItemStack(right)) throw new TypeError("Stacks must be ItemStacks");
-  if (!itemStackEqualsIgnoringCount(left, right)) throw new TypeError("IncompatibleStacks");
-  const capacity = maxStackCountForStack(left);
-  const total = left.count + right.count;
-  return {
-    merged: itemStackWithCount(left, Math.min(capacity, total)),
-    remainder: total > capacity ? itemStackWithCount(right, total - capacity) : undefined,
-  };
-};
+  const capacity = maxStackCountForStack(leftValue)
+  const total = leftValue.count + rightValue.count
+  return Result.gen(function* () {
+    const merged = yield* stackValueOf(leftValue.item, Math.min(capacity, total), leftValue.components)
+    const remainder = total > capacity
+      ? yield* stackValueOf(rightValue.item, total - capacity, rightValue.components)
+      : undefined
+    return { merged, remainder }
+  })
+}

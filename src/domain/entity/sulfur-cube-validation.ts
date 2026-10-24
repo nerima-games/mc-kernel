@@ -1,6 +1,16 @@
-import { ResourceLocation, TagLocation } from '../text/identifiers.js'
+import { NamespacedResourceLocation, ResourceLocation, TagLocation } from '../text/identifiers.js'
+import type {
+  NamespacedResourceLocation as NamespacedResourceLocationValue,
+  ResourceLocation as ResourceLocationValue,
+} from '../text/identifiers.js'
+import { AttributeModifierAmount, PositiveTickCount } from '../time/quantities.js'
 import {
   SULFUR_CUBE_ATTRIBUTE_MODIFIER_OPERATIONS,
+  SulfurCubeContactDamageAmount,
+  SulfurCubeExplosionPower,
+  SulfurCubeKnockbackPower,
+  SulfurCubePushSoundCooldown,
+  SulfurCubePushSoundImpulseThreshold,
   type SulfurCubeArchetype,
   type SulfurCubeArchetypeOptions,
   type SulfurCubeAttributeModifier,
@@ -14,7 +24,6 @@ import {
   type SulfurCubeSoundSettings,
   type SulfurCubeSoundSettingsOptions,
 } from './sulfur-cube-data.js'
-import { AttributeModifierAmount } from '../time/quantities.js'
 
 type RecordValue = Record<string, unknown>
 
@@ -41,17 +50,11 @@ const hasOnlyKeys = (
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value)
 
-const isPositiveSafeInteger = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isSafeInteger(value) && value > 0
-
-const isNonNegativeSafeInteger = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
-
-const isResourceLocation = (value: unknown): value is string =>
+const isResourceLocation = (value: unknown): value is ResourceLocationValue =>
   typeof value === 'string' && ResourceLocation.is(value)
 
-const isNamespacedResourceLocation = (value: unknown): boolean =>
-  isResourceLocation(value) && value.includes(':')
+const isNamespacedResourceLocation = (value: unknown): value is NamespacedResourceLocationValue =>
+  typeof value === 'string' && NamespacedResourceLocation.is(value)
 
 const SULFUR_CUBE_ATTRIBUTE_MODIFIER_OPERATION_SET = new Set<string>(
   SULFUR_CUBE_ATTRIBUTE_MODIFIER_OPERATIONS,
@@ -63,15 +66,17 @@ const isSulfurCubeAttributeModifierOperation = (value: unknown): boolean =>
 const isExplosionOptions = (value: unknown): value is SulfurCubeExplosionOptions =>
   isRecord(value) &&
   hasOnlyKeys(value, ['fuse', 'power', 'causesFire']) &&
-  isPositiveSafeInteger(value['fuse']) &&
-  isNonNegativeSafeInteger(value['power']) &&
+  typeof value['fuse'] === 'number' &&
+  PositiveTickCount.is(value['fuse']) &&
+  typeof value['power'] === 'number' &&
+  SulfurCubeExplosionPower.is(value['power']) &&
   typeof value['causesFire'] === 'boolean'
 
 const isContactDamageOptions = (value: unknown): value is SulfurCubeContactDamageOptions =>
   isRecord(value) &&
   hasOnlyKeys(value, ['amount', 'damageType', 'attributeToSource']) &&
-  isFiniteNumber(value['amount']) &&
-  value['amount'] >= 0 &&
+  typeof value['amount'] === 'number' &&
+  SulfurCubeContactDamageAmount.is(value['amount']) &&
   isResourceLocation(value['damageType']) &&
   typeof value['attributeToSource'] === 'boolean'
 
@@ -91,8 +96,10 @@ const isKnockbackModifiersOptions = (
 ): value is SulfurCubeKnockbackModifiersOptions =>
   isRecord(value) &&
   hasOnlyKeys(value, ['horizontalPower', 'verticalPower']) &&
-  isFiniteNumber(value['horizontalPower']) &&
-  isFiniteNumber(value['verticalPower'])
+  typeof value['horizontalPower'] === 'number' &&
+  SulfurCubeKnockbackPower.is(value['horizontalPower']) &&
+  typeof value['verticalPower'] === 'number' &&
+  SulfurCubeKnockbackPower.is(value['verticalPower'])
 
 const isSoundSettingsOptions = (value: unknown): value is SulfurCubeSoundSettingsOptions =>
   isRecord(value) &&
@@ -104,8 +111,10 @@ const isSoundSettingsOptions = (value: unknown): value is SulfurCubeSoundSetting
   ]) &&
   isResourceLocation(value['hitSound']) &&
   isResourceLocation(value['pushSound']) &&
-  isFiniteNumber(value['pushSoundImpulseThreshold']) &&
-  isFiniteNumber(value['pushSoundCooldown'])
+  typeof value['pushSoundImpulseThreshold'] === 'number' &&
+  SulfurCubePushSoundImpulseThreshold.is(value['pushSoundImpulseThreshold']) &&
+  typeof value['pushSoundCooldown'] === 'number' &&
+  SulfurCubePushSoundCooldown.is(value['pushSoundCooldown'])
 
 const isOptionalExplosion = (value: RecordValue): boolean =>
   !Object.hasOwn(value, 'explosion') ||
@@ -151,8 +160,8 @@ const isExplosion = (value: unknown): value is SulfurCubeExplosion =>
 const isContactDamage = (value: unknown): value is SulfurCubeContactDamage =>
   isRecord(value) &&
   hasOnlyKeys(value, ['amount', 'damageType', 'attributeToSource']) &&
-  isFiniteNumber(value['amount']) &&
-  value['amount'] >= 0 &&
+  typeof value['amount'] === 'number' &&
+  SulfurCubeContactDamageAmount.is(value['amount']) &&
   typeof value['damageType'] === 'string' &&
   ResourceLocation.is(value['damageType']) &&
   typeof value['attributeToSource'] === 'boolean'
@@ -161,10 +170,9 @@ const isAttributeModifier = (value: unknown): value is SulfurCubeAttributeModifi
   isRecord(value) &&
   hasOnlyKeys(value, ['attribute', 'id', 'amount', 'operation']) &&
   typeof value['attribute'] === 'string' &&
-  ResourceLocation.is(value['attribute']) &&
+  NamespacedResourceLocation.is(value['attribute']) &&
   typeof value['id'] === 'string' &&
-  ResourceLocation.is(value['id']) &&
-  value['id'].includes(':') &&
+  NamespacedResourceLocation.is(value['id']) &&
   typeof value['amount'] === 'number' &&
   AttributeModifierAmount.is(value['amount']) &&
   isSulfurCubeAttributeModifierOperation(value['operation'])
@@ -184,8 +192,10 @@ const isSoundSettings = (value: unknown): value is SulfurCubeSoundSettings =>
   ResourceLocation.is(value['hitSound']) &&
   typeof value['pushSound'] === 'string' &&
   ResourceLocation.is(value['pushSound']) &&
-  isFiniteNumber(value['pushSoundImpulseThreshold']) &&
-  isFiniteNumber(value['pushSoundCooldown'])
+  typeof value['pushSoundImpulseThreshold'] === 'number' &&
+  SulfurCubePushSoundImpulseThreshold.is(value['pushSoundImpulseThreshold']) &&
+  typeof value['pushSoundCooldown'] === 'number' &&
+  SulfurCubePushSoundCooldown.is(value['pushSoundCooldown'])
 
 export const isSulfurCubeArchetype = (value: unknown): value is SulfurCubeArchetype => {
   if (

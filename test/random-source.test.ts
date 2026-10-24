@@ -1,29 +1,53 @@
 import { describe, expect, it } from 'vitest'
-import { fixedRandomSource, seededRandomSource } from '../src/domain/world/random-source'
+import {
+  RandomFraction,
+  RandomInt,
+  RandomIntBound,
+  RandomSeed,
+  fixedRandomSource,
+  seededRandomSource,
+  type RandomFraction as RandomFractionType,
+  type RandomInt as RandomIntType,
+} from '../src/domain/world/random-source'
+import { Result } from 'effect'
+import { resultFailure, resultValue } from './block-result-helpers.js'
+
+describe('random scalar brands', () => {
+  it('validates seed, bound, integer, and fraction values through Results', () => {
+    expect(resultValue(RandomSeed.result(-Number.MAX_SAFE_INTEGER))).toBe(-Number.MAX_SAFE_INTEGER)
+    expect(resultValue(RandomIntBound.result(Number.MAX_SAFE_INTEGER))).toBe(Number.MAX_SAFE_INTEGER)
+    expect(resultValue(RandomInt.result(0))).toBe(0)
+    expect(resultValue(RandomFraction.result(0.5))).toBe(0.5)
+    expect(Result.isFailure(RandomSeed.result(1.5))).toBe(true)
+    expect(Result.isFailure(RandomIntBound.result(0))).toBe(true)
+    expect(Result.isFailure(RandomInt.result(-1))).toBe(true)
+    expect(Result.isFailure(RandomFraction.result(1))).toBe(true)
+  })
+})
 
 describe('seededRandomSource', () => {
   it('produces the same value sequence for the same seed', () => {
-    const first = seededRandomSource(42)
-    const second = seededRandomSource(42)
+    const first = resultValue(seededRandomSource(42))
+    const second = resultValue(seededRandomSource(42))
 
-    const firstValues = [first.nextInt(100), first.nextFloat(), first.nextInt(6), first.nextFloat()]
-    const secondValues = [second.nextInt(100), second.nextFloat(), second.nextInt(6), second.nextFloat()]
+    const firstValues = [resultValue(first.nextInt(100)), resultValue(first.nextFloat()), resultValue(first.nextInt(6)), resultValue(first.nextFloat())]
+    const secondValues = [resultValue(second.nextInt(100)), resultValue(second.nextFloat()), resultValue(second.nextInt(6)), resultValue(second.nextFloat())]
 
     expect(secondValues).toStrictEqual(firstValues)
   })
 
   it('produces different sequences for different seeds', () => {
-    const a = seededRandomSource(1)
-    const b = seededRandomSource(2)
+    const a = resultValue(seededRandomSource(1))
+    const b = resultValue(seededRandomSource(2))
 
-    expect(a.nextFloat()).not.toBe(b.nextFloat())
+    expect(resultValue(a.nextFloat())).not.toBe(resultValue(b.nextFloat()))
   })
 
   it('keeps nextInt within [0, bound)', () => {
-    const random = seededRandomSource(7)
+    const random = resultValue(seededRandomSource(7))
 
     for (let call = 0; call < 50; call += 1) {
-      const value = random.nextInt(10)
+      const value = resultValue(random.nextInt(10))
       expect(Number.isInteger(value)).toBe(true)
       expect(value).toBeGreaterThanOrEqual(0)
       expect(value).toBeLessThan(10)
@@ -31,81 +55,239 @@ describe('seededRandomSource', () => {
   })
 
   it('keeps nextFloat within [0, 1)', () => {
-    const random = seededRandomSource(7)
+    const random = resultValue(seededRandomSource(7))
 
     for (let call = 0; call < 50; call += 1) {
-      const value = random.nextFloat()
+      const value = resultValue(random.nextFloat())
       expect(value).toBeGreaterThanOrEqual(0)
       expect(value).toBeLessThan(1)
     }
   })
 
   it('normalizes a seed that reduces to zero to the same state as seed 1', () => {
-    const fromZero = seededRandomSource(0)
-    const fromModulus = seededRandomSource(2147483647)
-    const expected = seededRandomSource(1).nextFloat()
+    const fromZero = resultValue(seededRandomSource(0))
+    const fromModulus = resultValue(seededRandomSource(2147483647))
+    const expected = resultValue(resultValue(seededRandomSource(1)).nextFloat())
 
-    expect(fromZero.nextFloat()).toBe(expected)
-    expect(fromModulus.nextFloat()).toBe(expected)
+    expect(resultValue(fromZero.nextFloat())).toBe(expected)
+    expect(resultValue(fromModulus.nextFloat())).toBe(expected)
   })
 
   it('normalizes a negative seed by wrapping into the positive range', () => {
-    const fromNegative = seededRandomSource(-2147483647)
-    const fromWrapped = seededRandomSource(2147483647 - 2147483647)
+    const fromNegative = resultValue(seededRandomSource(-2147483647))
+    const fromWrapped = resultValue(seededRandomSource(2147483647 - 2147483647))
 
-    expect(fromNegative.nextFloat()).toBe(fromWrapped.nextFloat())
+    expect(resultValue(fromNegative.nextFloat())).toBe(resultValue(fromWrapped.nextFloat()))
   })
 
   it('rejects a non-safe-integer seed', () => {
-    expect(() => seededRandomSource(1.5)).toThrow(TypeError)
-    expect(() => seededRandomSource(Number.NaN)).toThrow(/RandomSource seed must be a safe integer/)
+    const fractional = resultFailure(seededRandomSource(1.5))
+    const nonFinite = resultFailure(seededRandomSource(Number.NaN))
+    expect(fractional._tag).toBe('RandomSourceFailure')
+    expect(fractional.reason).toBe('invalid-seed')
+    expect(fractional.message).toMatch(/safe integer/)
+    expect(nonFinite._tag).toBe('RandomSourceFailure')
+    expect(nonFinite.reason).toBe('invalid-seed')
+    expect(nonFinite.message).toMatch(/safe integer/)
   })
 
   it('rejects a non-integer bound', () => {
-    const random = seededRandomSource(3)
-    expect(() => random.nextInt(1.5)).toThrow(RangeError)
+    const random = resultValue(seededRandomSource(3))
+    const failure = resultFailure(random.nextInt(1.5))
+    expect(failure._tag).toBe('RandomSourceFailure')
+    expect(failure.reason).toBe('invalid-bound')
+    expect(failure.message).toMatch(/positive safe integer/)
   })
 
   it('rejects a non-positive bound', () => {
-    const random = seededRandomSource(3)
-    expect(() => random.nextInt(0)).toThrow(/RandomSource bound must be a positive integer/)
-    expect(() => random.nextInt(-1)).toThrow(RangeError)
+    const random = resultValue(seededRandomSource(3))
+    const zero = resultFailure(random.nextInt(0))
+    const negative = resultFailure(random.nextInt(-1))
+    expect(zero._tag).toBe('RandomSourceFailure')
+    expect(zero.reason).toBe('invalid-bound')
+    expect(zero.message).toMatch(/positive safe integer/)
+    expect(negative._tag).toBe('RandomSourceFailure')
+    expect(negative.reason).toBe('invalid-bound')
   })
 })
 
 describe('fixedRandomSource', () => {
   it('replays the scripted ints and floats in order', () => {
-    const random = fixedRandomSource({ nextInts: [3, 1, 4], nextFloats: [0.1, 0.9] })
+    const random = resultValue(fixedRandomSource({
+      nextInts: [3, 1, 4].map((value) => resultValue(RandomInt.result(value))),
+      nextFloats: [0.1, 0.9].map((value) => resultValue(RandomFraction.result(value))),
+    }))
 
-    expect(random.nextInt(10)).toBe(3)
-    expect(random.nextFloat()).toBe(0.1)
-    expect(random.nextInt(10)).toBe(1)
-    expect(random.nextFloat()).toBe(0.9)
-    expect(random.nextInt(10)).toBe(4)
+    expect(resultValue(random.nextInt(10))).toBe(3)
+    expect(resultValue(random.nextFloat())).toBe(0.1)
+    expect(resultValue(random.nextInt(10))).toBe(1)
+    expect(resultValue(random.nextFloat())).toBe(0.9)
+    expect(resultValue(random.nextInt(10))).toBe(4)
   })
 
   it('rejects a non-integer or non-positive bound before consuming the script', () => {
-    const random = fixedRandomSource({ nextInts: [5] })
-    expect(() => random.nextInt(1.5)).toThrow(RangeError)
-    expect(() => random.nextInt(0)).toThrow(RangeError)
-    expect(random.nextInt(10)).toBe(5)
+    const random = resultValue(fixedRandomSource({ nextInts: [resultValue(RandomInt.result(5))] }))
+    expect(resultFailure(random.nextInt(1.5)).reason).toBe('invalid-bound')
+    expect(resultFailure(random.nextInt(0)).reason).toBe('invalid-bound')
+    expect(resultValue(random.nextInt(10))).toBe(5)
   })
 
-  it('throws once the scripted int sequence is exhausted', () => {
-    const random = fixedRandomSource({ nextInts: [9] })
-    expect(random.nextInt(10)).toBe(9)
-    expect(() => random.nextInt(10)).toThrow(/fixedRandomSource nextInt sequence exhausted/)
+  it('returns a failure once the scripted int sequence is exhausted', () => {
+    const random = resultValue(fixedRandomSource({ nextInts: [resultValue(RandomInt.result(9))] }))
+    expect(resultValue(random.nextInt(10))).toBe(9)
+    const failure = resultFailure(random.nextInt(10))
+    expect(failure._tag).toBe('RandomSourceFailure')
+    expect(failure.reason).toBe('sequence-exhausted')
+    expect(failure.message).toMatch(/fixedRandomSource nextInt sequence exhausted/)
   })
 
-  it('throws once the scripted float sequence is exhausted', () => {
-    const random = fixedRandomSource({ nextFloats: [0.5] })
-    expect(random.nextFloat()).toBe(0.5)
-    expect(() => random.nextFloat()).toThrow(/fixedRandomSource nextFloat sequence exhausted/)
+  it('returns a failure once the scripted float sequence is exhausted', () => {
+    const random = resultValue(fixedRandomSource({ nextFloats: [resultValue(RandomFraction.result(0.5))] }))
+    expect(resultValue(random.nextFloat())).toBe(0.5)
+    const failure = resultFailure(random.nextFloat())
+    expect(failure._tag).toBe('RandomSourceFailure')
+    expect(failure.reason).toBe('sequence-exhausted')
+    expect(failure.message).toMatch(/fixedRandomSource nextFloat sequence exhausted/)
   })
 
-  it('throws immediately when no script is supplied for a channel', () => {
-    const random = fixedRandomSource({})
-    expect(() => random.nextInt(10)).toThrow(RangeError)
-    expect(() => random.nextFloat()).toThrow(RangeError)
+  it('returns a failure immediately when no script is supplied for a channel', () => {
+    const random = resultValue(fixedRandomSource({}))
+    expect(resultFailure(random.nextInt(10)).reason).toBe('sequence-exhausted')
+    expect(resultFailure(random.nextFloat()).reason).toBe('sequence-exhausted')
+  })
+
+  it('rejects malformed scripts with a tagged failure', () => {
+    expect(Reflect.apply(fixedRandomSource, undefined, [{ nextInts: 'not-an-array' }])).toMatchObject({
+      _tag: 'Failure',
+      failure: {
+        _tag: 'RandomSourceFailure',
+        reason: 'invalid-script',
+        message: expect.stringMatching(/optional int and float arrays/),
+      },
+    })
+    expect(resultFailure(Reflect.apply(fixedRandomSource, undefined, [{ nextInts: ['not-an-integer'] }]))).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script integer values must be numbers',
+    })
+    expect(resultFailure(Reflect.apply(fixedRandomSource, undefined, [{ nextInts: [-1] }]))).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script contains an invalid integer: RandomInt must be a non-negative safe integer',
+    })
+    expect(resultFailure(Reflect.apply(fixedRandomSource, undefined, [{ nextFloats: ['not-a-fraction'] }]))).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script fraction values must be numbers',
+    })
+    expect(resultFailure(Reflect.apply(fixedRandomSource, undefined, [{ nextFloats: [1] }]))).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script contains an invalid fraction: RandomFraction must be in [0, 1)',
+    })
+  })
+
+  it('rejects invalid script containers and unreadable sequence lengths', () => {
+    const nonObject = resultFailure(Reflect.apply(fixedRandomSource, undefined, [null]))
+    expect(nonObject).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script must contain optional int and float arrays',
+    })
+
+    const invalidFloatSequence = resultFailure(Reflect.apply(fixedRandomSource, undefined, [{
+      nextFloats: 'not-an-array',
+    }]))
+    expect(invalidFloatSequence).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script must contain optional int and float arrays',
+    })
+
+    const unreadableLength = new Proxy<ReadonlyArray<RandomIntType>>([], {
+      get(target, key, receiver) {
+        if (key === 'length') return Number.NaN
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    const invalidLength = resultFailure(fixedRandomSource({ nextInts: unreadableLength }))
+    expect(invalidLength).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script contains an unreadable sequence',
+    })
+  })
+
+  it('snapshots script fields and elements once and rejects throwing reads', () => {
+    let intScriptReads = 0
+    let floatScriptReads = 0
+    let intElementReads = 0
+    let floatElementReads = 0
+    const ints = new Proxy<ReadonlyArray<RandomIntType>>(
+      [resultValue(RandomInt.result(2))],
+      {
+      get(target, key, receiver) {
+        if (key === '0') {
+          intElementReads += 1
+          return intElementReads === 1 ? 2 : -1
+        }
+        return Reflect.get(target, key, receiver)
+      },
+      },
+    )
+    const floats = new Proxy<ReadonlyArray<RandomFractionType>>(
+      [resultValue(RandomFraction.result(0.25))],
+      {
+      get(target, key, receiver) {
+        if (key === '0') {
+          floatElementReads += 1
+          return floatElementReads === 1 ? 0.25 : 1
+        }
+        return Reflect.get(target, key, receiver)
+      },
+      },
+    )
+    const script = new Proxy({ nextInts: ints, nextFloats: floats }, {
+      get(target, key, receiver) {
+        if (key === 'nextInts') {
+          intScriptReads += 1
+          return intScriptReads === 1 ? ints : [-1]
+        }
+        if (key === 'nextFloats') {
+          floatScriptReads += 1
+          return floatScriptReads === 1 ? floats : [1]
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    const random = resultValue(fixedRandomSource(script))
+
+    expect(resultValue(random.nextInt(10))).toBe(2)
+    expect(resultValue(random.nextFloat())).toBe(0.25)
+    expect({ intScriptReads, floatScriptReads, intElementReads, floatElementReads }).toStrictEqual({
+      intScriptReads: 1,
+      floatScriptReads: 1,
+      intElementReads: 1,
+      floatElementReads: 1,
+    })
+
+    const throwingScript = new Proxy({ nextInts: [] }, {
+      get(target, key, receiver) {
+        if (key === 'nextInts') throw new Error('hostile getter')
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    expect(resultFailure(fixedRandomSource(throwingScript)).reason).toBe('invalid-script')
+
+    const throwingInts = new Proxy<ReadonlyArray<RandomIntType>>(
+      [resultValue(RandomInt.result(1))],
+      {
+      get(target, key, receiver) {
+        if (key === '0') throw new Error('hostile array element')
+        return Reflect.get(target, key, receiver)
+      },
+      },
+    )
+    expect(resultFailure(fixedRandomSource({ nextInts: throwingInts })).reason).toBe('invalid-script')
   })
 })

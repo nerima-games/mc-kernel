@@ -1,8 +1,7 @@
 /* eslint-disable max-statements, no-magic-numbers -- Component validation is covered at its untrusted-data boundary. */
+import * as toolComponentResult from '../src/domain/item/tool-component'
 import {
-  compileToolComponent,
   isToolComponent,
-  resolveToolMiningProperties,
   type ToolBlockMembershipLike,
   type ToolBlockTag,
   type ToolBlockTagMembershipsLike,
@@ -13,10 +12,26 @@ import {
 import type { BlockType } from '../src/domain/block/block-type'
 import { describe, expect, it } from 'vitest'
 import { Effect } from 'effect'
+import { ToolDurabilityDamage, ToolMiningSpeed } from '../src/domain/item/item-primitives'
+import { expectItemFailure, itemResultValue } from './item-result-assertions'
+import { MAX_GENERIC_INPUT_ARRAY_LENGTH } from '../src/input-snapshot'
+
+const compileToolComponent = (...args: Parameters<typeof toolComponentResult.compileToolComponent>) =>
+  itemResultValue(toolComponentResult.compileToolComponent(...args))
+const resolveToolMiningProperties = (...args: Parameters<typeof toolComponentResult.resolveToolMiningProperties>) =>
+  itemResultValue(toolComponentResult.resolveToolMiningProperties(...args))
+const expectToolFailure = (
+  result: ReturnType<typeof toolComponentResult.resolveToolMiningProperties>,
+  kind: string,
+  reason: string,
+  field: string,
+  message: string,
+  value: unknown,
+) => expectItemFailure(result, { _tag: 'ItemValidationFailure', kind, reason, field, message, value })
 
 const COMPONENT_WITH_DEFAULTS: ToolComponent = {
   rules: [],
-  damagePerBlock: 1,
+  damagePerBlock: ToolDurabilityDamage(1),
 }
 
 describe('minecraft:tool component', () => {
@@ -26,15 +41,29 @@ describe('minecraft:tool component', () => {
     expect(isToolComponent(undefined)).toBe(false)
   })
 
+  it('reports non-numeric mining speeds and missing durability input', () => {
+    expectToolFailure(Reflect.apply(toolComponentResult.compileToolComponent, undefined, [{
+      rules: [{ blocks: 'stone', speed: 'fast' }],
+      damagePerBlock: 1,
+    }]), 'RangeError', 'out-of-range', 'tool rule 0 speed', 'tool rule 0 speed must be a finite number greater than or equal to zero', 'fast')
+    expectToolFailure(Reflect.apply(toolComponentResult.compileToolComponent, undefined, [{
+      rules: [],
+      defaultMiningSpeed: 'fast',
+      damagePerBlock: 1,
+    }]), 'RangeError', 'out-of-range', 'defaultMiningSpeed', 'tool component defaultMiningSpeed must be a finite number greater than or equal to zero', 'fast')
+    expectToolFailure(Reflect.apply(toolComponentResult.compileToolComponent, undefined, [{ rules: [] }]), 'RangeError', 'out-of-range',
+      'damagePerBlock', 'tool component damagePerBlock must be a non-negative integer', undefined)
+  })
+
   it('resolves a single block, a block list, and a block tag', () =>
     Effect.runPromise(Effect.sync(() => {
       const component: ToolComponent = {
         rules: [
-          { blocks: 'stone', speed: 2 },
-          { blocks: '#minecraft:mineable/pickaxe', speed: 5, correctForDrops: true },
-          { blocks: ['grass_block'], speed: 7 },
+          { blocks: 'stone', speed: ToolMiningSpeed(2) },
+          { blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(5), correctForDrops: true },
+          { blocks: ['grass_block'], speed: ToolMiningSpeed(7) },
         ],
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
       }
       const context: ToolResolutionContext = {
         blockTags: new Map([
@@ -46,7 +75,7 @@ describe('minecraft:tool component', () => {
       expect(resolveToolMiningProperties(component, 'dirt', context)).toStrictEqual({
         miningSpeed: 5,
         correctForDrops: true,
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
         canDestroyBlocksInCreative: true,
       })
       expect(resolveToolMiningProperties(component, 'grass_block', context).miningSpeed).toBe(7)
@@ -57,11 +86,11 @@ describe('minecraft:tool component', () => {
   it('compiles an immutable component snapshot for repeated resolution', () =>
     Effect.runPromise(Effect.sync(() => {
       const rules: ToolRule[] = [
-        { blocks: 'stone', speed: 2 },
-        { blocks: '#minecraft:mineable/pickaxe', speed: 5, correctForDrops: true },
+        { blocks: 'stone', speed: ToolMiningSpeed(2) },
+        { blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(5), correctForDrops: true },
         { blocks: 'grass_block' },
       ]
-      const component: ToolComponent = { rules, damagePerBlock: 1 }
+      const component: ToolComponent = { rules, damagePerBlock: ToolDurabilityDamage(1) }
       const context: ToolResolutionContext = {
         blockTags: new Map([
           ['#minecraft:mineable/pickaxe', new Set<BlockType>(['dirt'])],
@@ -69,30 +98,29 @@ describe('minecraft:tool component', () => {
       }
       const compiled = compileToolComponent(component)
 
-      rules[0] = { blocks: 'dirt', speed: 8 }
+      rules[0] = { blocks: 'dirt', speed: ToolMiningSpeed(8) }
 
       expect(Object.isFrozen(compiled)).toBe(true)
       expect(Object.isFrozen(compiled.rules)).toBe(true)
-      expect(() => resolveToolMiningProperties(compiled, 'stone')).toThrow(
-        'tool resolution context with blockTags is required for tag rules',
-      )
+      expectToolFailure(toolComponentResult.resolveToolMiningProperties(compiled, 'stone'), 'TypeError', 'invalid-type',
+        'context', 'tool resolution context with blockTags is required for tag rules', undefined)
       expect(resolveToolMiningProperties(compiled, 'stone', context)).toStrictEqual({
         miningSpeed: 2,
         correctForDrops: false,
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
         canDestroyBlocksInCreative: true,
       })
       expect(resolveToolMiningProperties(compiled, 'dirt', context)).toStrictEqual({
         miningSpeed: 5,
         correctForDrops: true,
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
         canDestroyBlocksInCreative: true,
       })
       expect(resolveToolMiningProperties(compiled, 'grass_block', context).miningSpeed).toBe(1)
       expect(resolveToolMiningProperties(compiled, 'grass_block', { blockTags: new Map() }).miningSpeed).toBe(1)
       expect(
         resolveToolMiningProperties(
-          compileToolComponent({ rules: [{ blocks: 'grass_block' }], damagePerBlock: 0 }),
+          compileToolComponent({ rules: [{ blocks: 'grass_block' }], damagePerBlock: ToolDurabilityDamage(0) }),
           'grass_block',
         ),
       ).toStrictEqual({
@@ -114,19 +142,19 @@ describe('minecraft:tool component', () => {
       }
       const tagFirst = compileToolComponent({
         rules: [
-          { blocks: '#minecraft:mineable/pickaxe', speed: 7 },
-          { blocks: 'stone', speed: 11 },
-          { blocks: '#minecraft:mineable/pickaxe', speed: 13 },
+          { blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(7) },
+          { blocks: 'stone', speed: ToolMiningSpeed(11) },
+          { blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(13) },
         ],
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
       })
       const directFirst = compileToolComponent({
         rules: [
-          { blocks: 'stone', speed: 11 },
-          { blocks: '#minecraft:mineable/pickaxe', speed: 7 },
-          { blocks: 'stone', speed: 17 },
+          { blocks: 'stone', speed: ToolMiningSpeed(11) },
+          { blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(7) },
+          { blocks: 'stone', speed: ToolMiningSpeed(17) },
         ],
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
       })
 
       expect(resolveToolMiningProperties(tagFirst, 'stone', context).miningSpeed).toBe(7)
@@ -137,17 +165,16 @@ describe('minecraft:tool component', () => {
   it('requires explicit tag memberships and treats an empty registry as no match', () =>
     Effect.runPromise(Effect.sync(() => {
       const component: ToolComponent = {
-        rules: [{ blocks: '#minecraft:mineable/pickaxe', speed: 5 }],
-        damagePerBlock: 1,
+        rules: [{ blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(5) }],
+        damagePerBlock: ToolDurabilityDamage(1),
       }
 
-      expect(() => resolveToolMiningProperties(component, 'stone')).toThrow(
-        'tool resolution context with blockTags is required for tag rules',
-      )
+      expectToolFailure(toolComponentResult.resolveToolMiningProperties(component, 'stone'), 'TypeError', 'invalid-type',
+        'context', 'tool resolution context with blockTags is required for tag rules', undefined)
       expect(resolveToolMiningProperties(component, 'stone', { blockTags: new Map() })).toStrictEqual({
         miningSpeed: 1,
         correctForDrops: false,
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
         canDestroyBlocksInCreative: true,
       })
     })),
@@ -157,12 +184,12 @@ describe('minecraft:tool component', () => {
     Effect.runPromise(Effect.sync(() => {
       const component: ToolComponent = {
         rules: [
-          { blocks: ['stone'], speed: 6, correctForDrops: true },
-          { blocks: ['stone'], speed: 12, correctForDrops: false },
+          { blocks: ['stone'], speed: ToolMiningSpeed(6), correctForDrops: true },
+          { blocks: ['stone'], speed: ToolMiningSpeed(12), correctForDrops: false },
           { blocks: ['dirt'], correctForDrops: false },
         ],
-        defaultMiningSpeed: 3,
-        damagePerBlock: 2,
+        defaultMiningSpeed: ToolMiningSpeed(3),
+        damagePerBlock: ToolDurabilityDamage(2),
         canDestroyBlocksInCreative: false,
       }
 
@@ -190,9 +217,9 @@ describe('minecraft:tool component', () => {
   it('accepts zero mining speeds from the Java float contract', () =>
     Effect.runPromise(Effect.sync(() => {
       const component: ToolComponent = {
-        rules: [{ blocks: 'stone', speed: 0, correctForDrops: true }],
-        defaultMiningSpeed: 0,
-        damagePerBlock: 0,
+        rules: [{ blocks: 'stone', speed: ToolMiningSpeed(0), correctForDrops: true }],
+        defaultMiningSpeed: ToolMiningSpeed(0),
+        damagePerBlock: ToolDurabilityDamage(0),
       }
 
       expect(resolveToolMiningProperties(component, 'stone')).toStrictEqual({
@@ -228,8 +255,8 @@ describe('minecraft:tool component', () => {
         },
       }
       const component: ToolComponent = {
-        rules: [{ blocks: '#minecraft:mineable/pickaxe', speed: 5 }],
-        damagePerBlock: 1,
+        rules: [{ blocks: '#minecraft:mineable/pickaxe', speed: ToolMiningSpeed(5) }],
+        damagePerBlock: ToolDurabilityDamage(1),
       }
 
       expect(
@@ -253,7 +280,7 @@ describe('minecraft:tool component', () => {
       })
       expect(
         resolveToolMiningProperties(
-          { rules: [{ blocks: ['stone'], speed: 4 }], damagePerBlock: 0 },
+          { rules: [{ blocks: ['stone'], speed: ToolMiningSpeed(4) }], damagePerBlock: ToolDurabilityDamage(0) },
           'stone',
         ),
       ).toStrictEqual({
@@ -264,7 +291,7 @@ describe('minecraft:tool component', () => {
       })
       expect(
         resolveToolMiningProperties(
-          { rules: [{ blocks: ['stone'], correctForDrops: true }], damagePerBlock: 1 },
+          { rules: [{ blocks: ['stone'], correctForDrops: true }], damagePerBlock: ToolDurabilityDamage(1) },
           'stone',
         ),
       ).toStrictEqual({
@@ -279,73 +306,67 @@ describe('minecraft:tool component', () => {
   it('rejects invalid component data before resolving a block', () =>
     Effect.runPromise(Effect.sync(() => {
       const resolve = (component: unknown, block: unknown = 'stone') =>
-        Reflect.apply(resolveToolMiningProperties, undefined, [component, block])
+        Reflect.apply(toolComponentResult.resolveToolMiningProperties, undefined, [component, block])
 
-      expect(() => resolve(null)).toThrow('tool component must be an object')
-      expect(() => resolve([])).toThrow('tool component must be an object')
-      expect(() => resolve('tool')).toThrow('tool component must be an object')
-      expect(() => resolve({ rules: undefined, damagePerBlock: 1 })).toThrow(
-        'tool component rules must be an array',
-      )
-      expect(() => resolve({ rules: [], defaultMiningSpeed: -1, damagePerBlock: 1 })).toThrow(
-        'defaultMiningSpeed must be a finite number greater than or equal to zero',
-      )
-      expect(() => resolve({ rules: [], defaultMiningSpeed: Number.NaN, damagePerBlock: 1 })).toThrow(
-        'defaultMiningSpeed must be a finite number greater than or equal to zero',
-      )
-      expect(() => resolve({ rules: [], damagePerBlock: -1 })).toThrow(
-        'damagePerBlock must be a non-negative integer',
-      )
-      expect(() => resolve({ rules: [], damagePerBlock: 0.5 })).toThrow(
-        'damagePerBlock must be a non-negative integer',
-      )
-      expect(() => resolve({ rules: [], damagePerBlock: 1, canDestroyBlocksInCreative: 'yes' })).toThrow(
-        'canDestroyBlocksInCreative must be a boolean',
-      )
-      expect(() => resolve({ rules: [], damagePerBlock: 1, futureField: true })).toThrow(
-        'unknown tool component field futureField',
-      )
-      expect(() => resolve({ rules: [{ blocks: undefined }], damagePerBlock: 1 })).toThrow(
-        'must contain at least one block',
-      )
-      expect(() => resolve({ rules: [null], damagePerBlock: 1 })).toThrow('tool rule 0 must be an object')
-      expect(() => resolve({ rules: [[]], damagePerBlock: 1 })).toThrow('tool rule 0 must be an object')
-      expect(() => resolve({ rules: [{ blocks: ['stone'], futureField: true }], damagePerBlock: 1 })).toThrow(
-        'unknown tool rule 0 field futureField',
-      )
-      expect(() => resolve({ rules: [{ blocks: [] }], damagePerBlock: 1 })).toThrow(
-        'must contain at least one block',
-      )
-      expect(() => resolve({ rules: [{ blocks: ['unobtainium'] }], damagePerBlock: 1 })).toThrow(
-        'contains an unknown block or block tag',
-      )
-      expect(() => resolve({ rules: [{ blocks: 'unobtainium' }], damagePerBlock: 1 })).toThrow(
-        'must contain a block or block tag',
-      )
-      expect(() => resolve({ rules: [{ blocks: ['#'] }], damagePerBlock: 1 })).toThrow(
-        'contains an unknown block or block tag',
-      )
-      expect(() => resolve({ rules: [{ blocks: ['#minecraft:mineable pickaxe'] }], damagePerBlock: 1 })).toThrow(
-        'contains an unknown block or block tag',
-      )
-      expect(() => resolve({ rules: [{ blocks: '#minecraft:mineable/pickaxe' }], damagePerBlock: 1 })).toThrow(
-        'tool resolution context with blockTags is required for tag rules',
-      )
-      expect(() => resolve({ rules: [{ blocks: ['stone'], speed: -1 }], damagePerBlock: 1 })).toThrow(
-        'speed must be a finite number greater than or equal to zero',
-      )
-      expect(() => resolve({ rules: [{ blocks: ['stone'], speed: Number.NaN }], damagePerBlock: 1 })).toThrow(
-        'speed must be a finite number greater than or equal to zero',
-      )
-      expect(() => resolve({ rules: [{ blocks: ['stone'], correctForDrops: 'yes' }], damagePerBlock: 1 })).toThrow(
-        'correctForDrops must be a boolean',
-      )
-      expect(() => resolve({ rules: [], damagePerBlock: Number.NaN })).toThrow(
-        'damagePerBlock must be a non-negative integer',
-      )
-      expect(() => resolve(COMPONENT_WITH_DEFAULTS, 'unobtainium')).toThrow(
-        'block must be a known block type',
-      )
+      for (const component of [null, [], 'tool']) {
+        expectToolFailure(resolve(component), 'TypeError', 'invalid-type', 'tool component', 'tool component must be an object', component)
+      }
+      expectToolFailure(resolve({ rules: undefined, damagePerBlock: 1 }), 'TypeError', 'invalid-type', 'rules',
+        'tool component rules must be an array', undefined)
+      for (const speed of [-1, Number.NaN]) {
+        expectToolFailure(resolve({ rules: [], defaultMiningSpeed: speed, damagePerBlock: 1 }), 'RangeError', 'out-of-range',
+          'defaultMiningSpeed', 'tool component defaultMiningSpeed must be a finite number greater than or equal to zero', speed)
+      }
+
+      const oversizedRules = new Array(MAX_GENERIC_INPUT_ARRAY_LENGTH + 1)
+      expectToolFailure(Reflect.apply(toolComponentResult.compileToolComponent, undefined, [{
+        rules: oversizedRules,
+        damagePerBlock: 1,
+      }]), 'RangeError', 'out-of-range', 'tool component rules', 'tool component rules exceeds the maximum length', oversizedRules)
+
+      const hostileRules = new Proxy([], {
+        get: (target, key, receiver) => key === 'length'
+          ? (() => { throw new Error('hostile') })()
+          : Reflect.get(target, key, receiver),
+      })
+      expectToolFailure(Reflect.apply(toolComponentResult.compileToolComponent, undefined, [{
+        rules: hostileRules,
+        damagePerBlock: 1,
+      }]), 'TypeError', 'hostile-input', 'tool component rules', 'Unable to inspect tool component rules', hostileRules)
+      for (const damagePerBlock of [-1, 0.5, Number.NaN]) {
+        expectToolFailure(resolve({ rules: [], damagePerBlock }), 'RangeError', 'out-of-range', 'damagePerBlock',
+          'tool component damagePerBlock must be a non-negative integer', damagePerBlock)
+      }
+      expectToolFailure(resolve({ rules: [], damagePerBlock: 1, canDestroyBlocksInCreative: 'yes' }), 'TypeError', 'invalid-type',
+        'canDestroyBlocksInCreative', 'tool component canDestroyBlocksInCreative must be a boolean', 'yes')
+      expectToolFailure(resolve({ rules: [], damagePerBlock: 1, futureField: true }), 'TypeError', 'invalid-value',
+        'tool component', 'unknown tool component futureField', 'futureField')
+      expectToolFailure(resolve({ rules: [{ blocks: undefined }], damagePerBlock: 1 }), 'RangeError', 'out-of-range',
+        'tool rule 0', 'tool rule 0 must contain at least one block', undefined)
+      for (const rule of [null, []]) {
+        expectToolFailure(resolve({ rules: [rule], damagePerBlock: 1 }), 'TypeError', 'invalid-type', 'tool rule 0',
+          'tool rule 0 must be an object', rule)
+      }
+      expectToolFailure(resolve({ rules: [{ blocks: ['stone'], futureField: true }], damagePerBlock: 1 }), 'TypeError', 'invalid-value',
+        'tool rule 0', 'unknown tool rule 0 futureField', 'futureField')
+      expectToolFailure(resolve({ rules: [{ blocks: [] }], damagePerBlock: 1 }), 'RangeError', 'out-of-range',
+        'tool rule 0', 'tool rule 0 must contain at least one block', [])
+      for (const block of ['unobtainium', '#', '#minecraft:mineable pickaxe']) {
+        expectToolFailure(resolve({ rules: [{ blocks: [block] }], damagePerBlock: 1 }), 'RangeError', 'out-of-range',
+          'tool rule 0', 'tool rule 0 contains an unknown block or block tag', block)
+      }
+      expectToolFailure(resolve({ rules: [{ blocks: 'unobtainium' }], damagePerBlock: 1 }), 'RangeError', 'out-of-range',
+        'tool rule 0', 'tool rule 0 must contain a block or block tag', 'unobtainium')
+      expectToolFailure(resolve({ rules: [{ blocks: '#minecraft:mineable/pickaxe' }], damagePerBlock: 1 }), 'TypeError', 'invalid-type',
+        'context', 'tool resolution context with blockTags is required for tag rules', undefined)
+      for (const speed of [-1, Number.NaN]) {
+        expectToolFailure(resolve({ rules: [{ blocks: ['stone'], speed }], damagePerBlock: 1 }), 'RangeError', 'out-of-range',
+          'tool rule 0 speed', 'tool rule 0 speed must be a finite number greater than or equal to zero', speed)
+      }
+      expectToolFailure(resolve({ rules: [{ blocks: ['stone'], correctForDrops: 'yes' }], damagePerBlock: 1 }), 'TypeError', 'invalid-type',
+        'tool rule 0', 'tool rule 0 correctForDrops must be a boolean', 'yes')
+      expectToolFailure(Reflect.apply(toolComponentResult.resolveToolMiningProperties, undefined, [COMPONENT_WITH_DEFAULTS, 'unobtainium']), 'RangeError', 'out-of-range',
+        'block', 'block must be a known block type', 'unobtainium')
     })),
   )
 
@@ -353,33 +374,82 @@ describe('minecraft:tool component', () => {
     Effect.runPromise(Effect.sync(() => {
       const component: ToolComponent = {
         rules: [{ blocks: 'stone' }],
-        damagePerBlock: 1,
+        damagePerBlock: ToolDurabilityDamage(1),
       }
       const resolve = (context: unknown) =>
-        Reflect.apply(resolveToolMiningProperties, undefined, [component, 'stone', context])
+        Reflect.apply(toolComponentResult.resolveToolMiningProperties, undefined, [component, 'stone', context])
 
-      expect(() => resolve(null)).toThrow('tool resolution context must be an object')
-      expect(() => resolve({ blockTags: [] })).toThrow(
-        'tool resolution blockTags must be a Map or Map-like iterable',
-      )
-      expect(() => resolve({ blockTags: null })).toThrow(
-        'tool resolution blockTags must be a Map or Map-like iterable',
-      )
-      expect(() => resolve({ blockTags: new Map([['mineable', new Set<BlockType>(['stone'])]]) })).toThrow(
-        'contains an invalid tag mineable',
-      )
-      expect(() => resolve({ blockTags: new Map([['#mineable', ['stone']]]) })).toThrow(
-        'must contain a Set or Set-like iterable',
-      )
-      expect(() => resolve({ blockTags: new Map([['#mineable', null]]) })).toThrow(
-        'must contain a Set or Set-like iterable',
-      )
-      expect(() => resolve({ blockTags: new Map([['#mineable', new Set(['unobtainium'])]]) })).toThrow(
-        'contains an unknown block type',
-      )
-      expect(() => resolve({ futureField: true, blockTags: new Map() })).toThrow(
-        'unknown tool resolution context field futureField',
-      )
+      expectToolFailure(resolve(null), 'TypeError', 'invalid-type', 'tool resolution context',
+        'tool resolution context must be an object', null)
+      for (const blockTags of [[], null]) {
+        expectToolFailure(resolve({ blockTags }), 'TypeError', 'invalid-type', 'blockTags',
+          'tool resolution blockTags must be a Map or Map-like iterable', blockTags)
+      }
+      expectToolFailure(resolve({ blockTags: new Map([['mineable', new Set<BlockType>(['stone'])]]) }), 'RangeError', 'out-of-range',
+        'blockTags', 'tool resolution blockTags contains an invalid tag mineable', 'mineable')
+      expectToolFailure(resolve({ blockTags: new Map([['#mineable', ['stone']]]) }), 'TypeError', 'invalid-type',
+        'blockTags.#mineable', 'tool resolution blockTags #mineable must contain a Set or Set-like iterable', ['stone'])
+      expectToolFailure(resolve({ blockTags: new Map([['#mineable', null]]) }), 'TypeError', 'invalid-type',
+        'blockTags.#mineable', 'tool resolution blockTags #mineable must contain a Set or Set-like iterable', null)
+      expectToolFailure(resolve({ blockTags: new Map([['#mineable', new Set(['unobtainium'])]]) }), 'RangeError', 'out-of-range',
+        'blockTags.#mineable', 'tool resolution blockTags #mineable contains an unknown block type', 'unobtainium')
+      expectToolFailure(resolve({ futureField: true, blockTags: new Map() }), 'TypeError', 'invalid-value',
+        'tool resolution context', 'unknown tool resolution context futureField', 'futureField')
+    })),
+  )
+
+  it('accepts null-prototype records and captures hostile reflection', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const component = Object.assign(Object.create(null), {
+        rules: [Object.assign(Object.create(null), { blocks: 'stone', speed: 4 })],
+        damagePerBlock: 1,
+      })
+      expect(resolveToolMiningProperties(component, 'stone').miningSpeed).toBe(4)
+
+      const hostile = new Proxy({}, { getPrototypeOf: () => { throw new Error('hostile') } })
+      expectItemFailure(Reflect.apply(toolComponentResult.resolveToolMiningProperties, undefined, [hostile, 'stone']), {
+        _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input',
+        field: 'tool component', message: 'Unable to inspect tool component',
+      })
+
+      const nonPlain = new Date(0)
+      expectItemFailure(Reflect.apply(toolComponentResult.compileToolComponent, undefined, [nonPlain]), {
+        _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-type',
+        field: 'tool component', message: 'tool component must be an object', value: nonPlain,
+      })
+    })),
+  )
+
+  it('rejects malformed Map-like entries and iterables at the tag boundary', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const component: ToolComponent = { rules: [{ blocks: 'stone' }], damagePerBlock: ToolDurabilityDamage(1) }
+      const resolve = (context: unknown) =>
+        Reflect.apply(toolComponentResult.resolveToolMiningProperties, undefined, [component, 'stone', context])
+      const malformedEntries = {
+        get: () => undefined,
+        *[Symbol.iterator]() {
+          yield null
+        },
+      }
+      expectToolFailure(resolve({ blockTags: malformedEntries }), 'TypeError', 'invalid-type', 'blockTags',
+        'tool resolution blockTags entries must be key/value pairs', null)
+
+      const falseIterable = new Proxy({}, {
+        get: (_target, key) => key === Symbol.iterator
+          ? function* () { yield 'stone' }
+          : key === 'has' ? () => true : undefined,
+        has: (_target, key) => key !== Symbol.iterator,
+      })
+      expectToolFailure(resolve({ blockTags: new Map([['#mineable', falseIterable]]) }), 'TypeError', 'invalid-type',
+        'blockTags.#mineable', 'tool resolution blockTags #mineable must contain a Set or Set-like iterable', falseIterable)
+
+      const hostileMap = new Proxy({ [Symbol.iterator]: function* () { yield undefined } }, {
+        get: (target, key, receiver) => key === 'get'
+          ? (() => { throw new Error('hostile') })()
+          : Reflect.get(target, key, receiver),
+      })
+      expectToolFailure(resolve({ blockTags: hostileMap }), 'TypeError', 'hostile-input',
+        'tool resolution blockTags', 'Unable to inspect tool resolution blockTags', hostileMap)
     })),
   )
 })

@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import { resultFailure, resultValue } from './block-result-helpers.js'
 import {
   BIOME_PROPERTY_DEFAULTS,
   BIOME_PROPERTY_OVERRIDES,
   BIOME_TYPES,
+  BiomeDownfall,
+  BiomeTemperature,
+  BiomeTint,
   SNOW_TEMPERATURE_THRESHOLD,
   derivePrecipitationKind,
   isBiomeType,
@@ -13,8 +17,8 @@ import {
 } from '../src/domain/world/biome'
 
 const TEMPERATURE_STEP = 0.01
-const BELOW_THRESHOLD_TEMPERATURE = SNOW_TEMPERATURE_THRESHOLD - TEMPERATURE_STEP
-const ABOVE_THRESHOLD_TEMPERATURE = SNOW_TEMPERATURE_THRESHOLD + TEMPERATURE_STEP
+const BELOW_THRESHOLD_TEMPERATURE = BiomeTemperature(SNOW_TEMPERATURE_THRESHOLD - TEMPERATURE_STEP)
+const ABOVE_THRESHOLD_TEMPERATURE = BiomeTemperature(SNOW_TEMPERATURE_THRESHOLD + TEMPERATURE_STEP)
 
 const KNOWN_BIOME: BiomeType = 'plains'
 const UNKNOWN_BIOME_NAME = 'not_a_biome'
@@ -284,7 +288,7 @@ describe('resolved properties against the fetched upstream fixture (independent 
       const resolved = propertiesOfBiomeType(biome)
       expect(resolved.temperature).toBe(temperature)
       expect(resolved.downfall).toBe(downfall)
-      expect(resolved.precipitation).toBe(hasPrecipitation ? derivePrecipitationKind(temperature) : 'none')
+      expect(resolved.precipitation).toBe(hasPrecipitation ? derivePrecipitationKind(BiomeTemperature(temperature)) : 'none')
     },
   )
 
@@ -305,6 +309,25 @@ describe('resolved properties against the fetched upstream fixture (independent 
       expect(propertiesOfBiomeType(biome).foliageTint).toBe(foliage ?? BIOME_PROPERTY_DEFAULTS.foliageTint)
     },
   )
+})
+
+describe('biome climate and tint brands', () => {
+  it('accepts the table boundary values and rejects values outside each unit range', () => {
+    expect(BiomeTemperature(-0.7)).toBe(-0.7)
+    expect(BiomeTemperature(2)).toBe(2)
+    expect(() => BiomeTemperature(-0.71)).toThrow()
+    expect(() => BiomeTemperature(2.01)).toThrow()
+    expect(BiomeTemperature(0)).toBe(0)
+    expect(BiomeDownfall(0)).toBe(0)
+    expect(BiomeDownfall(1)).toBe(1)
+    expect(() => BiomeDownfall(-0.01)).toThrow()
+    expect(() => BiomeDownfall(1.01)).toThrow()
+    expect(BiomeTint(0)).toBe(0)
+    expect(BiomeTint(0xffffff)).toBe(0xffffff)
+    expect(() => BiomeTint(-1)).toThrow()
+    expect(() => BiomeTint(0x1000000)).toThrow()
+    expect(() => BiomeTint(1.5)).toThrow()
+  })
 })
 
 describe('isBiomeType', () => {
@@ -329,15 +352,20 @@ describe('isBiomeType', () => {
 describe('propertiesOfBiome (the unknown-input boundary)', () => {
   it('resolves a valid, untyped biome name the same way as the typed accessor', () => {
     const value: unknown = KNOWN_BIOME
-    expect(propertiesOfBiome(value)).toStrictEqual(propertiesOfBiomeType(KNOWN_BIOME))
+    expect(resultValue(propertiesOfBiome(value))).toStrictEqual(propertiesOfBiomeType(KNOWN_BIOME))
   })
 
-  it('throws a TypeError naming the rejected value for an unknown biome', () => {
-    expect(() => propertiesOfBiome(UNKNOWN_BIOME_NAME)).toThrow(TypeError)
-    expect(() => propertiesOfBiome(UNKNOWN_BIOME_NAME)).toThrow(UNKNOWN_BIOME_NAME)
+  it('returns a tagged failure naming the rejected value for an unknown biome', () => {
+    const failure = resultFailure(propertiesOfBiome(UNKNOWN_BIOME_NAME))
+    expect(failure._tag).toBe('BiomeValidationFailure')
+    expect(failure.reason).toBe('unknown-biome')
+    expect(failure.message).toContain(UNKNOWN_BIOME_NAME)
   })
 
-  it('throws for non-string input', () => {
-    expect(() => propertiesOfBiome(NON_STRING_BIOME)).toThrow(TypeError)
+  it('returns a tagged failure for non-string input', () => {
+    const failure = resultFailure(propertiesOfBiome(NON_STRING_BIOME))
+    expect(failure._tag).toBe('BiomeValidationFailure')
+    expect(failure.reason).toBe('unknown-biome')
+    expect(failure.message).toContain(String(NON_STRING_BIOME))
   })
 })

@@ -1,4 +1,5 @@
 /** Constructors and pure rules for current Java entity attributes. */
+import { Brand, Result } from 'effect'
 import {
   ENTITY_ATTRIBUTE_DEFINITIONS,
   type EntityAttributeName,
@@ -8,15 +9,13 @@ import {
 } from './entity-attributes-data.js'
 import { isEntityAttributeOptions, isEntityAttributes } from './entity-attributes-validation.js'
 import { Bounciness, EntityPhysicsModifier, EntityVisibilityDistance, KnockbackResistance } from '../time/quantities.js'
+import { snapshotInputRecord } from '../../input-snapshot.js'
 
 const valueOrDefault = (value: number | undefined, defaultValue: number): number =>
   value === undefined ? defaultValue : value
 
-export const entityAttributes = (options: EntityAttributeOptions = {}): EntityAttributes => {
-  if (!isEntityAttributeOptions(options)) {
-    throw new TypeError('Entity attribute options must be a plain object with valid values')
-  }
-  return Object.freeze({
+const entityAttributesFromOptions = (options: EntityAttributeOptions): EntityAttributes =>
+  Object.freeze({
     bounciness: Bounciness(
       valueOrDefault(options.bounciness, ENTITY_ATTRIBUTE_DEFINITIONS.bounciness.defaultValue),
     ),
@@ -36,18 +35,69 @@ export const entityAttributes = (options: EntityAttributeOptions = {}): EntityAt
       valueOrDefault(options.knockbackResistance, ENTITY_ATTRIBUTE_DEFINITIONS.knockbackResistance.defaultValue),
     ),
   })
+
+const entityAttributesFailure = (value: unknown): EntityAttributesFailure => ({
+  _tag: 'InvalidEntityAttributeOptions',
+  value,
+})
+
+const entityAttributesFromValidatedOptions = (
+  options: EntityAttributeOptions,
+): Result.Result<EntityAttributes, EntityAttributesFailure> =>
+  Result.gen(function* () {
+    const bounciness = yield* Bounciness.result(valueOrDefault(options.bounciness, ENTITY_ATTRIBUTE_DEFINITIONS.bounciness.defaultValue))
+    const frictionModifier = yield* EntityPhysicsModifier.result(valueOrDefault(options.frictionModifier, ENTITY_ATTRIBUTE_DEFINITIONS.frictionModifier.defaultValue))
+    const airDragModifier = yield* EntityPhysicsModifier.result(valueOrDefault(options.airDragModifier, ENTITY_ATTRIBUTE_DEFINITIONS.airDragModifier.defaultValue))
+    const nameTagDistance = yield* EntityVisibilityDistance.result(valueOrDefault(options.nameTagDistance, ENTITY_ATTRIBUTE_DEFINITIONS.nameTagDistance.defaultValue))
+    const belowNameDistance = yield* EntityVisibilityDistance.result(valueOrDefault(options.belowNameDistance, ENTITY_ATTRIBUTE_DEFINITIONS.belowNameDistance.defaultValue))
+    const knockbackResistance = yield* KnockbackResistance.result(valueOrDefault(options.knockbackResistance, ENTITY_ATTRIBUTE_DEFINITIONS.knockbackResistance.defaultValue))
+    return Object.freeze({
+      bounciness,
+      frictionModifier,
+      airDragModifier,
+      nameTagDistance,
+      belowNameDistance,
+      knockbackResistance,
+    })
+  })
+
+export type EntityAttributesFailure = Readonly<{
+  readonly _tag: 'InvalidEntityAttributeOptions'
+  readonly value: unknown
+}> | Brand.BrandError
+
+export const entityAttributes = (
+  options: EntityAttributeOptions = {},
+): Result.Result<EntityAttributes, EntityAttributesFailure> => {
+  const snapshot = snapshotInputRecord(options)
+  if (Result.isFailure(snapshot)) return Result.fail(entityAttributesFailure(options))
+  const normalized: unknown = snapshot.success
+  return isEntityAttributeOptions(normalized)
+    ? entityAttributesFromValidatedOptions(normalized)
+    : Result.fail(entityAttributesFailure(options))
 }
 
-export const DEFAULT_ENTITY_ATTRIBUTES: EntityAttributes = entityAttributes()
+export const DEFAULT_ENTITY_ATTRIBUTES: EntityAttributes = entityAttributesFromOptions({})
 
-export const entityAttributeDefinitionOf = (name: EntityAttributeName): EntityAttributeDefinition =>
+export const entityAttributeDefinitionOf = (
+  name: EntityAttributeName,
+): EntityAttributeDefinition =>
   ENTITY_ATTRIBUTE_DEFINITIONS[name]
 
-export const effectiveBounciness = (block: number, entity: number): Bounciness => {
+export type EffectiveBouncinessFailure = Readonly<{
+  readonly _tag: 'InvalidBounciness'
+  readonly block: number
+  readonly entity: number
+}>
+
+export const effectiveBounciness = (
+  block: Bounciness,
+  entity: Bounciness,
+): Result.Result<Bounciness, EffectiveBouncinessFailure> => {
   if (!Bounciness.is(block) || !Bounciness.is(entity)) {
-    throw new TypeError('Block and entity bounciness must be finite numbers in [0, 1]')
+    return Result.fail({ _tag: 'InvalidBounciness', block, entity })
   }
-  return Bounciness(Math.max(block, entity))
+  return Result.succeed(Bounciness(Math.max(block, entity)))
 }
 
 export { isEntityAttributeOptions, isEntityAttributes }
