@@ -8,7 +8,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, relative, resolve } from "node:path";
+import { basename, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const root = resolve(import.meta.dirname, "..");
@@ -121,6 +121,17 @@ const sourceDomainEntryPoints = (
     }),
   )
 ).flat();
+const sourceDomainFacadeEntryPoints = (
+  await readdir(join(root, "src", "domain"), {
+    recursive: true,
+    encoding: "utf8",
+  })
+)
+  .map((entry) => basename(entry).match(/^_(.+)\.ts$/)?.[1])
+  .filter((entryPoint) => entryPoint !== undefined);
+const uniqueSourceDomainFacadeEntryPoints = new Set(
+  sourceDomainFacadeEntryPoints,
+);
 
 const declaredDomainEntryPoints = exportEntries
   .map(([subpath]) => subpath.match(/^\.\/domain\/(.+)$/)?.[1])
@@ -133,17 +144,20 @@ if (
 const missingDomainEntryPoints = sourceDomainEntryPoints.filter(
   (entryPoint) => !declaredDomainEntryPoints.includes(entryPoint),
 );
-const extraDomainEntryPoints = declaredDomainEntryPoints.filter(
-  (entryPoint) => !sourceDomainEntryPoints.includes(entryPoint),
+const unsupportedDomainEntryPoints = declaredDomainEntryPoints.filter(
+  (entryPoint) => !uniqueSourceDomainFacadeEntryPoints.has(entryPoint),
 );
-if (missingDomainEntryPoints.length > 0 || extraDomainEntryPoints.length > 0) {
+if (
+  missingDomainEntryPoints.length > 0 ||
+  unsupportedDomainEntryPoints.length > 0
+) {
   throw new Error(
     [
       missingDomainEntryPoints.length > 0
         ? `missing ${missingDomainEntryPoints.join(", ")}`
         : undefined,
-      extraDomainEntryPoints.length > 0
-        ? `extra ${extraDomainEntryPoints.join(", ")}`
+      unsupportedDomainEntryPoints.length > 0
+        ? `unsupported ${unsupportedDomainEntryPoints.join(", ")}`
         : undefined,
     ]
       .filter((message) => message !== undefined)
@@ -151,7 +165,7 @@ if (missingDomainEntryPoints.length > 0 || extraDomainEntryPoints.length > 0) {
   );
 }
 
-for (const entryPoint of sourceDomainEntryPoints) {
+for (const entryPoint of declaredDomainEntryPoints) {
   const subpath = `./domain/${entryPoint}`;
   const target = manifest.exports[subpath];
   const expectedTargets = {
