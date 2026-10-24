@@ -35,6 +35,13 @@ describe('supported vanilla enchantment data', () => {
   it('stores official item and book cost multipliers', () => {
     expect(VANILLA_ENCHANTMENT_COSTS.mending).toStrictEqual({ item: 4, book: 2 })
     expect(VANILLA_ENCHANTMENT_COSTS.silk_touch).toStrictEqual({ item: 8, book: 4 })
+    for (const { item, book } of Object.values(VANILLA_ENCHANTMENT_COSTS)) {
+      for (const cost of [item, book]) {
+        expect(Number.isSafeInteger(cost)).toBe(true)
+        expect(cost).toBeGreaterThanOrEqual(0)
+        expect(cost).toBeLessThanOrEqual(99)
+      }
+    }
   })
 
   it('keeps rule ids, level caps, targets, and conflicts in static data', () => {

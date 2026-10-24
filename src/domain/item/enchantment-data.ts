@@ -5,12 +5,8 @@ import { EnchantmentLevel } from '../time/quantities.js'
 
 type AnvilRuleMaterialCost = number & Brand.Brand<'AnvilRuleMaterialCost'>
 
-const AnvilRuleMaterialCost: Brand.Constructor<AnvilRuleMaterialCost> = Brand.make<AnvilRuleMaterialCost>(
-  (value) =>
-    Number.isSafeInteger(value) && value >= 0 && value <= 99
-      ? true
-      : `AnvilRuleMaterialCost must be an integer in [0, 99], received ${String(value)}`,
-)
+const AnvilRuleMaterialCost: Brand.Constructor<AnvilRuleMaterialCost> =
+  Brand.nominal<AnvilRuleMaterialCost>()
 
 export const SUPPORTED_VANILLA_ENCHANTMENT_IDS: typeof VANILLA_26_3_ENCHANTMENT_IDS = VANILLA_26_3_ENCHANTMENT_IDS
 /*
