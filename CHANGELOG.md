@@ -1,5 +1,25 @@
 # @nerima-games/mc-kernel
 
+## 0.9.0
+
+### Minor Changes
+
+- Upgrade the runtime dependency `effect` to 4.0.5.
+  
+  Public functions that returned `Either` now return Effect `Result` values. Branded constructors use `Brand.make`, and `ClockPort` uses `Context.Service`. For APIs whose only change is the Effect 4 migration, exported symbol names and validation behavior remain unchanged.
+  
+  See `docs/consumer-migration.md` for the affected symbols and migration steps.
+
+- Public signatures now use roughly 70 branded scalar types where parameters, return values, and fields were previously represented by raw `number` or `string` types. Downstream consumers must construct values with the exported brand constructors and validate untrusted input with `.option` or `.result`, handling invalid values explicitly.
+  
+  Compare your 0.8 call sites with the current branded signatures in the [public API reference](../docs/public-api.md). For construction and untrusted-input handling, see [BrandのコンストラクタAPIを変更する](../docs/consumer-migration.md#brandのコンストラクタapiを変更する) and [時間と座標のbrand型に移行する](../docs/consumer-migration.md#時間と座標のbrand型に移行する) in `docs/consumer-migration.md`.
+
+- Except for branded value constructors, builders and decoders across the block, coordinates, entity, item, recipe, text, and world APIs that previously threw for invalid input now return Effect `Result` failures. Callers of these APIs must check `Result.isFailure` and handle or propagate `.failure`. Boolean guards such as `isBlockFace` and `isJsonValue` remain boolean predicates. Separately, the item-component patch decoder is renamed from `itemComponentPatchFromUnknown` and `itemComponentPatchFromUnknownEither` to `decodeItemComponentPatch`, and the merge API is renamed from `mergeItemComponentPatchesEither` to `mergeItemComponentPatches`.
+  
+  See the [public API reference](../docs/public-api.md) for the affected signatures and [Effect 4のResultへ移行する](../docs/consumer-migration.md#effect-4のresultへ移行する) in `docs/consumer-migration.md` for failure handling and the item-component patch renames.
+
+- Remove runtime simulation and gameplay exports from the kernel. `docs/consumer-migration.md` maps each removed 0.8 declaration to its owner and states when consumers must keep the 0.8 pin.
+
 ## 0.8.0
 
 ### Minor Changes
