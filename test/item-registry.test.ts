@@ -699,6 +699,33 @@ describe('item registry', () => {
       _tag: 'ItemValidationFailure', field: 'bytes', reason: 'out-of-range',
       message: 'ItemIdBytes must contain exactly two bytes', value: 2,
     })
+
+    const unreadableSnapshot = new Proxy({ length: 2, 1: itemIdOf('stone') }, {
+      get: (target, property, receiver) => {
+        if (property === '0') throw new Error('hostile snapshot')
+        return Reflect.get(target, property, receiver)
+      },
+    })
+    expectItemFailure(Reflect.apply(ItemIdBytes, undefined, [{ slice: () => unreadableSnapshot }]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input', field: 'bytes',
+      message: 'Unable to read ItemIdBytes input',
+    })
+
+    const invalidBytePairs: ReadonlyArray<readonly [unknown, unknown]> = [
+      ['0', itemIdOf('stone')],
+      [-1, itemIdOf('stone')],
+      [0x100, itemIdOf('stone')],
+      [0, '1'],
+      [0, -1],
+      [0, 0x100],
+    ]
+    for (const [highByte, lowByte] of invalidBytePairs) {
+      const snapshot = { length: 2, 0: highByte, 1: lowByte }
+      expectItemFailure(Reflect.apply(ItemIdBytes, undefined, [{ slice: () => snapshot }]), {
+        _tag: 'ItemValidationFailure', kind: 'RangeError', reason: 'out-of-range', field: 'bytes',
+        message: 'ItemIdBytes entries must be unsigned 8-bit integers', value: [highByte, lowByte],
+      })
+    }
   })
 
   it('recognises known and unknown uint16 item ids', () =>

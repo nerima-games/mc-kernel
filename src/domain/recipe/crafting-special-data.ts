@@ -223,17 +223,7 @@ const assertAllowedGenerations = (
     );
   }
   const [minimum, maximum] = snapshot;
-  if (
-    typeof minimum !== "number" ||
-    typeof maximum !== "number" ||
-    !Number.isInteger(minimum) ||
-    !Number.isInteger(maximum) ||
-    minimum < 0 ||
-    minimum > 2 ||
-    maximum < 0 ||
-    maximum > 2 ||
-    minimum > maximum
-  ) {
+  if (typeof minimum !== "number" || typeof maximum !== "number") {
     return recipeRangeFailure(
       "Allowed book generations must be an ordered range from 0 to 2",
     );
@@ -244,6 +234,11 @@ const assertAllowedGenerations = (
     Result.isFailure(checkedMinimum) ||
     Result.isFailure(checkedMaximum)
   ) {
+    return recipeRangeFailure(
+      "Allowed book generations must be an ordered range from 0 to 2",
+    );
+  }
+  if (minimum > 2 || maximum > 2 || minimum > maximum) {
     return recipeRangeFailure(
       "Allowed book generations must be an ordered range from 0 to 2",
     );
@@ -305,6 +300,10 @@ const snapshotTags = (
 const isTags = (value: unknown): value is readonly RecipeStationTag[] =>
   Array.isArray(value) &&
   value.every((tag) => typeof tag === "string" && ResourceLocation.is(tag));
+
+const isStringTags = (value: unknown): value is readonly string[] =>
+  Array.isArray(value) &&
+  value.every((tag) => typeof tag === "string");
 
 const RECIPE_CATEGORIES: readonly RecipeCategory[] = [
   "building",
@@ -372,7 +371,7 @@ const assertRecipeTags = (
   const tags = value === undefined ? [CRAFTING_SPECIAL_STATION_TAG] : value;
   const snapshot = snapshotTags(tags);
   if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure);
-  if (!isTags(snapshot.success)) {
+  if (!isStringTags(snapshot.success)) {
     return recipeTypeFailure(
       "Crafting special recipe tags must be resource locations",
     );

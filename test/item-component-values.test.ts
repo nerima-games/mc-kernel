@@ -1657,5 +1657,22 @@ describe('item component values', () => {
       success: [0, 0.5, 1],
     })
     expect(colorReads).toBe(1)
+
+    const unreadableColor = new Proxy([0, 0.5, 1], {
+      get: (target, property, receiver) => {
+        if (property === '0') throw new Error('hostile color')
+        return Reflect.get(target, property, receiver)
+      },
+    })
+    expectItemFailure(
+      Reflect.apply(itemComponentValuesResult.dyedColorComponent, undefined, [unreadableColor]),
+      {
+        _tag: 'ItemValidationFailure',
+        kind: 'TypeError',
+        reason: 'hostile-input',
+        field: 'dyed_color[0]',
+        message: 'Unable to inspect dyed_color[0]',
+      },
+    )
   })
 })

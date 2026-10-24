@@ -175,6 +175,7 @@ describe("crafting special recipe data", () => {
       [{ showNotification: 1 }, "RecipeTypeFailure"],
       [{ tags: null }, "RecipeTypeFailure"],
       [{ tags: [""] }, "RecipeTypeFailure"],
+      [{ tags: [42] }, "RecipeTypeFailure"],
     ] as const) {
       recipeFailure(
         Reflect.apply(craftingDyeRecipe, undefined, [
@@ -342,13 +343,33 @@ describe("crafting special recipe data", () => {
     });
     expect(generationReads).toBe(1);
 
+    const unreadableGenerations = new Proxy([0, 1], {
+      get: (target, property, receiver) => {
+        if (property === "0") throw new Error("hostile generations");
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    recipeFailure(
+      Reflect.apply(craftingBookCloningRecipe, undefined, [
+        ResourceLocation("minecraft:unreadable_generations"),
+        exactly("written_book"),
+        exactly("paper"),
+        itemStack("written_book", StackCount(1)),
+        unreadableGenerations,
+      ]),
+      "RecipeTypeFailure",
+    );
+
     for (const generations of [
       "0,1",
       [0],
+      ["0", 1],
+      [0, "1"],
       [0.5, 1],
       [0, 1.5],
       [-1, 1],
       [3, 3],
+      [0, 3],
       [0, 4],
       [2, 1],
     ]) {
@@ -386,6 +407,23 @@ describe("crafting special recipe data", () => {
       success: { tags: ["minecraft:crafting_table"] },
     });
     expect(tagReads).toBe(1);
+
+    const unreadableTags = new Proxy(["minecraft:crafting_table"], {
+      get: (target, property, receiver) => {
+        if (property === "0") throw new Error("hostile tags");
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    recipeFailure(
+      Reflect.apply(craftingDyeRecipe, undefined, [
+        ResourceLocation("minecraft:unreadable_tags"),
+        exactly("leather"),
+        exactly("redstone_dust"),
+        itemStack("leather", 1),
+        { tags: unreadableTags },
+      ]),
+      "RecipeTypeFailure",
+    );
 
     recipeFailure(
       Reflect.apply(craftingFireworkStarRecipe, undefined, [
