@@ -72,6 +72,26 @@ describe("JSON values", () => {
     }
   });
 
+  it("returns a hostile-input failure for proxies that throw during inspection", () => {
+    const hostile = new Proxy({}, {
+      ownKeys: () => {
+        throw new Error("blocked keys");
+      },
+    });
+
+    expect(isJsonValue(hostile)).toBe(false);
+    const result = jsonValueFromUnknown(hostile);
+    expect(Result.isFailure(result)).toBe(true);
+    if (Result.isFailure(result)) {
+      expect(result.failure).toMatchObject({
+        _tag: "JsonValueFailure",
+        reason: "hostile-input",
+        message: "Unable to inspect JSON value",
+      });
+      expect(result.failure.value).toBe(hostile);
+    }
+  });
+
   it("compares JSON values structurally", () => {
     expect(jsonValuesEqual(null, null)).toBe(true);
     expect(jsonValuesEqual(true, true)).toBe(true);

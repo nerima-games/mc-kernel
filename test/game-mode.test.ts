@@ -200,7 +200,7 @@ describe('resolveGameModeProperties', () => {
   })
 
   it('returns tagged failures for unrecognised values', () => {
-    for (const value of [UNKNOWN_MODE_NAME, NON_STRING_VALUE]) {
+    for (const value of [UNKNOWN_MODE_NAME, NON_STRING_VALUE, undefined]) {
       const result = resolveGameModeProperties(value)
       expect(Result.isFailure(result)).toBe(true)
       if (Result.isFailure(result)) {
@@ -210,6 +210,7 @@ describe('resolveGameModeProperties', () => {
           reason: 'unknown-game-mode',
           field: 'gameMode',
         })
+        if (value === undefined) expect(Object.hasOwn(result.failure, 'value')).toBe(false)
       }
     }
   })

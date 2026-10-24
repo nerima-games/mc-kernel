@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { Result } from 'effect'
 import { BlockBlastResistance } from '../src/domain/block/block-properties'
 import { blockIdOf } from '../src/domain/block/block-registry'
 import { BlockId } from '../src/domain/block/block-registry-types'
@@ -11,6 +12,17 @@ import {
   resistsExplosion,
 } from '../src/domain/entity/explosion'
 import { optionValue, resultValue } from './block-result-helpers.js'
+
+const expectBrandFailure = <A>(result: Result.Result<A, unknown>, message: string) => {
+  expect(Result.isFailure(result)).toBe(true)
+  if (Result.isFailure(result)) {
+    expect(result.failure).toMatchObject({
+      _tag: 'BrandError',
+      name: 'BrandError',
+    })
+    expect(result.failure).toHaveProperty('message', message)
+  }
+}
 
 const TNT_POWER = 4
 const CHARGED_CREEPER_POWER = 6
@@ -49,9 +61,9 @@ describe('resistsExplosion', () => {
   it('validates explosion quantities at their inclusive and exclusive boundaries', () => {
     expect(ExplosionRadius(0)).toBe(0)
     expect(ExplosionRadius(Number.MAX_VALUE)).toBe(Number.MAX_VALUE)
-    expect(() => ExplosionRadius(-Number.EPSILON)).toThrow()
-    expect(() => ExplosionRadius(Number.POSITIVE_INFINITY)).toThrow()
-    expect(() => ExplosionRadius(Number.NaN)).toThrow()
+    expectBrandFailure(ExplosionRadius.result(-Number.EPSILON), 'ExplosionRadius must be finite and non-negative, received -2.220446049250313e-16')
+    expectBrandFailure(ExplosionRadius.result(Number.POSITIVE_INFINITY), 'ExplosionRadius must be finite and non-negative, received Infinity')
+    expectBrandFailure(ExplosionRadius.result(Number.NaN), 'ExplosionRadius must be finite and non-negative, received NaN')
 
     const boundaryValues = [0, Number.MAX_SAFE_INTEGER]
     for (const value of boundaryValues) {
@@ -59,14 +71,17 @@ describe('resistsExplosion', () => {
       expect(ExplosionRayStepCount(value)).toBe(value)
       expect(ExplosionEntityCount(value)).toBe(value)
     }
-    expect(() => ExplosionBlockCount(-1)).toThrow()
-    expect(() => ExplosionRayStepCount(1.5)).toThrow()
-    expect(() => ExplosionEntityCount(Number.MAX_SAFE_INTEGER + 1)).toThrow()
+    expectBrandFailure(ExplosionBlockCount.result(-1), 'ExplosionBlockCount must be a non-negative safe integer, received -1')
+    expectBrandFailure(ExplosionRayStepCount.result(1.5), 'ExplosionRayStepCount must be a non-negative safe integer, received 1.5')
+    expectBrandFailure(
+      ExplosionEntityCount.result(Number.MAX_SAFE_INTEGER + 1),
+      `ExplosionEntityCount must be a non-negative safe integer, received ${Number.MAX_SAFE_INTEGER + 1}`,
+    )
 
     expect(ExplosionExposure(0)).toBe(0)
     expect(ExplosionExposure(1)).toBe(1)
-    expect(() => ExplosionExposure(-Number.EPSILON)).toThrow()
-    expect(() => ExplosionExposure(1 + Number.EPSILON)).toThrow()
-    expect(() => ExplosionExposure(Number.NaN)).toThrow()
+    expectBrandFailure(ExplosionExposure.result(-Number.EPSILON), 'ExplosionExposure must be finite and in [0, 1], received -2.220446049250313e-16')
+    expectBrandFailure(ExplosionExposure.result(1 + Number.EPSILON), `ExplosionExposure must be finite and in [0, 1], received ${1 + Number.EPSILON}`)
+    expectBrandFailure(ExplosionExposure.result(Number.NaN), 'ExplosionExposure must be finite and in [0, 1], received NaN')
   })
 })

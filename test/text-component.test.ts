@@ -59,4 +59,48 @@ describe('text components', () => {
       }
     }
   })
+
+  it('returns failure results when host objects change during inspection', () => {
+    const hostileRead = new Proxy({}, {
+      ownKeys() {
+        throw new Error('keys are unavailable')
+      },
+    })
+    expect(isTextComponent(hostileRead)).toBe(false)
+
+    let ownKeyReads = 0
+    const changesDuringCopy = new Proxy({ text: 'valid' }, {
+      ownKeys(target) {
+        ownKeyReads += 1
+        if (ownKeyReads === 2) throw new Error('keys changed during copy')
+        return Reflect.ownKeys(target)
+      },
+    })
+    const result = textComponent(changesDuringCopy)
+
+    expect(ownKeyReads).toBe(2)
+    expect(Result.isFailure(result)).toBe(true)
+    if (Result.isFailure(result)) {
+      expect(result.failure).toMatchObject({
+        _tag: 'TextComponentFailure',
+        kind: 'TypeError',
+        reason: 'hostile-input',
+        message: 'Unable to inspect text component',
+      })
+    }
+  })
+
+  it('omits an undefined input from the invalid-value failure details', () => {
+    const result = textComponent(undefined)
+
+    expect(Result.isFailure(result)).toBe(true)
+    if (Result.isFailure(result)) {
+      expect(result.failure).toEqual({
+        _tag: 'TextComponentFailure',
+        kind: 'TypeError',
+        reason: 'invalid-value',
+        message: 'Text component must be a JSON text component',
+      })
+    }
+  })
 })

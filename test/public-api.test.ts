@@ -1749,23 +1749,23 @@ describe("public API surface", () => {
       Effect.sync(() => {
         const unknownId = blockRegistry.BlockId(blockRegistry.BLOCK_ID_MAX);
 
-        expect(blockRegistry.isKnownBlockId(unknownId)).toBe(false);
-        expect(blockRegistry.dropOfBlockId(unknownId)).toBeUndefined();
-        expect(blockRegistry.opacityOfBlockId(unknownId)).toBe(
+        expect(resultValue(blockRegistry.isKnownBlockId(unknownId))).toBe(false);
+        expect(resultValue(blockRegistry.dropOfBlockId(unknownId))).toBeUndefined();
+        expect(resultValue(blockRegistry.opacityOfBlockId(unknownId))).toBe(
           BLOCK_PROPERTY_DEFAULTS.opacity,
         );
-        expect(blockRegistry.lightEmissionOfBlockId(unknownId)).toBe(
+        expect(resultValue(blockRegistry.lightEmissionOfBlockId(unknownId))).toBe(
           BLOCK_PROPERTY_DEFAULTS.lightEmission,
         );
-        expect(blockRegistry.supportRuleOfBlockId(unknownId)).toEqual(
+        expect(resultValue(blockRegistry.supportRuleOfBlockId(unknownId))).toEqual(
           BLOCK_PROPERTY_DEFAULTS.supportRule,
         );
-        expect(blockRegistry.isSupportSensitiveBlockId(unknownId)).toBe(false);
+        expect(resultValue(blockRegistry.isSupportSensitiveBlockId(unknownId))).toBe(false);
         expect(
-          blockRegistry.canBlockStaySupported(
+          resultValue(blockRegistry.canBlockStaySupported(
             unknownId,
             blockRegistry.AIR_BLOCK_ID,
-          ),
+          )),
         ).toBe(true);
       }),
     ));
