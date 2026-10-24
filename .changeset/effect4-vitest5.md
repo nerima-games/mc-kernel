@@ -2,6 +2,8 @@
 "@nerima-games/mc-kernel": minor
 ---
 
-Upgrade `effect` and `@effect/vitest` to 4.0.5 and Vitest to 5.0.5. Add `fast-check` as a direct test dependency.
+Upgrade the runtime dependency `effect` to 4.0.5.
 
-Public functions that returned `Either` now return Effect `Result` values. Branded constructors use `Brand.make`, and `ClockPort` uses `Context.Service`. Exported symbol names and validation behavior remain unchanged for APIs migrated to Effect 4.
+Public functions that returned `Either` now return Effect `Result` values. Branded constructors use `Brand.make`, and `ClockPort` uses `Context.Service`. For APIs whose only change is the Effect 4 migration, exported symbol names and validation behavior remain unchanged.
+
+See `docs/consumer-migration.md` for the affected symbols and migration steps.
