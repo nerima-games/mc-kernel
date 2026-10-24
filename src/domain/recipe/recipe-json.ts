@@ -518,12 +518,12 @@ const decodeRecipeId = (
   if (typeof value !== "string") {
     return recipeTypeFailure(`Recipe id must be namespaced, received ${value}`);
   }
-  const namespaced = NamespacedResourceLocation.result(value);
-  if (Result.isFailure(namespaced)) {
+  const recipeId = RecipeId.result(value);
+  if (Result.isFailure(recipeId)) {
     return recipeTypeFailure(`Recipe id must be namespaced, received ${value}`);
   }
-  const recipeId = RecipeId.result(namespaced.success);
-  if (Result.isFailure(recipeId)) {
+  const namespaced = NamespacedResourceLocation.result(value);
+  if (Result.isFailure(namespaced)) {
     return recipeTypeFailure(`Recipe id must be namespaced, received ${value}`);
   }
   return Result.succeed(recipeId.success);

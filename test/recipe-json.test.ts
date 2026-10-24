@@ -750,6 +750,15 @@ describe("current Java portable recipe JSON", () => {
         message: "Recipe id must be namespaced, received not-namespaced",
       },
     );
+    recipeFailure(
+      craftingRecipeFromUnknown("invalid id", {}),
+      "RecipeTypeFailure",
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Recipe id must be namespaced, received invalid id",
+      },
+    );
   });
 });
 
