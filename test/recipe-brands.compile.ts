@@ -1,3 +1,4 @@
+import { Result } from "effect";
 import { itemStack } from "../src/domain/item/item-stack";
 import {
   RecipeGridDimension,
@@ -20,14 +21,19 @@ import { craftingRecipeFromUnknown } from "../src/domain/recipe/recipe-json";
 import { NamespacedResourceLocation } from "../src/domain/text/identifiers";
 import { PositiveTickCount, StackCount } from "../src/domain/time/quantities";
 
-const ingredient = exactly("stone", RecipeIngredientCount(1));
-const grid = craftGrid(RecipeGridDimension(1), RecipeGridDimension(1), ["stone"]);
+const success = <A, E>(result: Result.Result<A, E>): A => {
+  if (Result.isSuccess(result)) return result.success;
+  throw new Error(`Expected a valid compile fixture, received ${JSON.stringify(result.failure)}`);
+};
+
+const ingredient = success(exactly("stone", RecipeIngredientCount(1)));
+const grid = success(craftGrid(RecipeGridDimension(1), RecipeGridDimension(1), ["stone"]));
 const cell = cellAt(grid, RecipeGridIndex(0), RecipeGridIndex(0));
 const shaped = shapedRecipe(
   RecipeId("minecraft:one_stone"),
   [RecipePatternRow("S")],
   { [RecipePatternSymbol("S")]: ingredient },
-  itemStack("stick", StackCount(1)),
+  success(itemStack("stick", StackCount(1))),
   {
     priority: RecipePriority(0),
     group: RecipeGroup("stones"),
@@ -38,7 +44,7 @@ const cooking = cookingRecipe(
   RecipeId("minecraft:smelt_stone"),
   "furnace",
   "stone",
-  itemStack("stone", StackCount(1)),
+  success(itemStack("stone", StackCount(1))),
   PositiveTickCount(1),
   RecipeExperience(0),
 );

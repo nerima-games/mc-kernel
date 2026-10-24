@@ -31,6 +31,14 @@ const recipeFailure = (
   if (Result.isFailure(result)) expect(result.failure._tag).toBe(tag);
 };
 
+const expectRecipeFailure = (
+  result: Result.Result<unknown, RecipeFailure>,
+  expected: RecipeFailure,
+): void => {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) expect(result.failure).toEqual(expected);
+};
+
 describe("transmute recipe data", () => {
   it("validates material ranges and constructs recipes", () => {
     expect(TRANSMUTE_MAX_MATERIAL_SLOTS).toBe(8);
@@ -90,6 +98,14 @@ describe("transmute recipe data", () => {
 
   it("rejects invalid constructor fields and unsafe result counts", () => {
     const output = itemStack("sand", 1);
+    expectRecipeFailure(
+      Reflect.apply(transmuteRecipe, undefined, [null, "stone", "dirt", output]),
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Transmute recipe id must be a resource location",
+      },
+    );
     recipeFailure(Reflect.apply(transmuteRecipe, undefined, [" ", "stone", "dirt", output]), "RecipeTypeFailure");
     recipeFailure(Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", null, "dirt", output]), "RecipeTypeFailure");
     recipeFailure(Reflect.apply(transmuteRecipe, undefined, ["minecraft:bad", "stone", null, output]), "RecipeTypeFailure");
@@ -126,6 +142,45 @@ describe("transmute recipe data", () => {
         },
       },
     ), "RecipeRangeFailure");
+  });
+
+  it("rejects unknown output items and counts outside the result stack range", () => {
+    const unknownOutput = Reflect.apply(transmuteRecipeForItem, undefined, [
+      "minecraft:unknown_output",
+      "stone",
+      "dirt",
+      "not_an_item",
+      1,
+    ]);
+    expect(Result.isFailure(unknownOutput)).toBe(true);
+    if (Result.isFailure(unknownOutput)) {
+      expect(unknownOutput.failure).toMatchObject({
+        _tag: "RecipeTypeFailure",
+        message: "Unknown item type: not_an_item",
+      });
+    }
+
+    const invalidCounts: ReadonlyArray<readonly [string, number, number]> = [
+      ["sand", 0, 64],
+      ["sand", 1.5, 64],
+      ["diamond_sword", 2, 1],
+    ];
+    for (const [output, count, maxCount] of invalidCounts) {
+      const invalidCount = Reflect.apply(transmuteRecipeForItem, undefined, [
+        "minecraft:invalid_output_count",
+        "stone",
+        "dirt",
+        output,
+        count,
+      ]);
+      expect(Result.isFailure(invalidCount)).toBe(true);
+      if (Result.isFailure(invalidCount)) {
+        expect(invalidCount.failure).toMatchObject({
+          _tag: "RecipeRangeFailure",
+          message: `Item stack count for ${output} must be an integer in [1, ${maxCount}], received ${count}`,
+        });
+      }
+    }
   });
 
   it("guards recipe records and rejects invalid metadata", () => {

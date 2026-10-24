@@ -45,6 +45,15 @@ type CraftingSpecialRecipeFields = {
   readonly tags: readonly RecipeStationTag[];
 };
 
+type RecipeOptionsInput = Readonly<{
+  readonly id?: unknown;
+  readonly category?: unknown;
+  readonly group?: unknown;
+  readonly priority?: unknown;
+  readonly showNotification?: unknown;
+  readonly tags?: unknown;
+}>;
+
 export type CraftingDyeRecipe = CraftingSpecialRecipeFields & {
   readonly _tag: "CraftingDye";
   readonly target: CraftingIngredient;
@@ -171,12 +180,6 @@ const recipeTypeFailureValue = (message: string): RecipeFailure => ({
   message,
 });
 
-const recipeRangeFailureValue = (message: string): RecipeFailure => ({
-  _tag: "RecipeRangeFailure",
-  name: "RangeError",
-  message,
-});
-
 const isRecord = (value: unknown): value is RecordValue =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -221,17 +224,10 @@ const assertAllowedGenerations = (
       "Allowed book generations must be an ordered range from 0 to 2",
     );
   }
-  return Result.gen(function* () {
-    const min = yield* Result.mapError(
-      BookGeneration.result(generations[0]),
-      () => recipeRangeFailureValue("Allowed book generations must be an ordered range from 0 to 2"),
-    );
-    const max = yield* Result.mapError(
-      BookGeneration.result(generations[1]),
-      () => recipeRangeFailureValue("Allowed book generations must be an ordered range from 0 to 2"),
-    );
-    return [min, max] as const;
-  });
+  return Result.succeed([
+    BookGeneration(generations[0]),
+    BookGeneration(generations[1]),
+  ] as const);
 };
 
 const isFireworkExplosionShape = (
@@ -299,10 +295,7 @@ const assertGroup = (
   }
   return value === undefined
     ? Result.succeed(undefined)
-    : Result.mapError(
-        RecipeGroup.result(value),
-        () => recipeTypeFailureValue("Crafting special recipe group must be a string"),
-      );
+    : Result.succeed(RecipeGroup(value));
 };
 
 // `?? default` would swallow an explicit null, so only an absent field
@@ -316,12 +309,7 @@ const assertPriority = (
       `Crafting special recipe priority must be a non-negative safe integer, received ${String(value)}`,
     );
   }
-  return Result.mapError(
-    RecipePriority.result(priority),
-    () => recipeRangeFailureValue(
-      `Crafting special recipe priority must be a non-negative safe integer, received ${String(value)}`,
-    ),
-  );
+  return Result.succeed(RecipePriority(priority));
 };
 
 const assertShowNotification = (
@@ -344,20 +332,11 @@ const assertRecipeTags = (
       "Crafting special recipe tags must be resource locations",
     );
   }
-  return Result.all(
-    tags.map((tag) =>
-      Result.mapError(
-        RecipeStationTag.result(tag),
-        () => recipeTypeFailureValue(
-          "Crafting special recipe tags must be resource locations",
-        ),
-      ),
-    ),
-  );
+  return Result.succeed(tags.map((tag) => RecipeStationTag(tag)));
 };
 
 const normalizeOptions = (
-  options: CraftingSpecialRecipeOptions & { readonly id: RecipeId },
+  options: RecipeOptionsInput,
 ): Result.Result<CraftingSpecialRecipeFields, RecipeFailure> =>
   Result.gen(function* () {
     const category = yield* assertCategory(options.category);
@@ -384,7 +363,7 @@ type RecipeOptionsWithId = CraftingSpecialRecipeOptions & {
 const withRecipeId = (
   options: Omit<CraftingSpecialRecipeOptions, "id"> | undefined,
   id: RecipeId,
-): Result.Result<RecipeOptionsWithId, RecipeFailure> => {
+): Result.Result<RecipeOptionsInput, RecipeFailure> => {
   if (options !== undefined && !isRecord(options)) {
     return recipeTypeFailure(
       "Crafting special recipe options must be an object when provided",
@@ -396,18 +375,17 @@ const withRecipeId = (
 const normalizeRecipeOptions = (
   idOrOptions: RecipeId | RecipeOptionsWithId,
   options: Omit<CraftingSpecialRecipeOptions, "id"> | undefined,
-): Result.Result<CraftingSpecialRecipeFields, RecipeFailure> =>
-  Result.gen(function* () {
-    const recipeOptions =
-      typeof idOrOptions === "string"
-        ? yield* withRecipeId(options, idOrOptions)
-        : isRecord(idOrOptions)
-          ? idOrOptions
-          : yield* recipeTypeFailure(
-              "Crafting special recipe options must be an object when provided",
-            );
-    return yield* normalizeOptions(recipeOptions);
-  });
+): Result.Result<CraftingSpecialRecipeFields, RecipeFailure> => {
+  const recipeOptions: Result.Result<RecipeOptionsInput, RecipeFailure> =
+    typeof idOrOptions === "string"
+      ? withRecipeId(options, idOrOptions)
+      : isRecord(idOrOptions)
+        ? Result.succeed(idOrOptions)
+        : recipeTypeFailure(
+            "Crafting special recipe options must be an object when provided",
+          );
+  return Result.flatMap(recipeOptions, normalizeOptions);
+};
 
 export function craftingDyeRecipe(
   id: RecipeId,

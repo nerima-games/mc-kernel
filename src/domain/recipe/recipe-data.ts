@@ -1,11 +1,10 @@
 import { Brand, Result } from "effect";
 import {
   isItemStack,
-  itemStack,
+  itemStackFromUnknown,
   type ItemStack,
   type Slot,
 } from "../item/item-stack.js";
-import { StackCount } from "../time/quantities.js";
 import { isItemType, type ItemType } from "../item/item-type.js";
 import {
   ResourceLocation,
@@ -514,9 +513,7 @@ const normalizeGroup = (
   if (typeof group !== "string") {
     return recipeTypeFailure("Recipe group must be a string");
   }
-  return Result.mapError(RecipeGroup.result(group), () =>
-    recipeTypeFailureValue("Recipe group must be a string"),
-  );
+  return Result.succeed(RecipeGroup(group));
 };
 
 const normalizeShowNotification = (
@@ -619,13 +616,7 @@ const normalizePatternRows = (
           "Shaped recipe keys must use one non-space character",
         );
       }
-      const symbol = yield* Result.mapError(
-        RecipePatternSymbol.result(character),
-        () =>
-          recipeTypeFailureValue(
-            "Shaped recipe keys must use one non-space character",
-          ),
-      );
+      const symbol = RecipePatternSymbol(character);
       ingredients.set(
         symbol,
         yield* normalizeCraftingIngredient(ingredient),
@@ -641,13 +632,7 @@ const normalizePatternRows = (
           rawCells.push(undefined);
           continue;
         }
-        const symbol = yield* Result.mapError(
-          RecipePatternSymbol.result(character),
-          () =>
-            recipeTypeFailureValue(
-              `Shaped recipe pattern references unknown key: ${character}`,
-            ),
-        );
+        const symbol = RecipePatternSymbol(character);
         const ingredient = ingredients.get(symbol);
         if (ingredient === undefined) {
           return yield* recipeTypeFailure(
@@ -681,14 +666,8 @@ const normalizePatternRows = (
       return rawCells[y * rawWidth + x];
     });
 
-    const patternWidth = yield* Result.mapError(
-      RecipeGridDimension.result(width),
-      () => recipeRangeFailureValue(`Recipe pattern width is invalid: ${width}`),
-    );
-    const patternHeight = yield* Result.mapError(
-      RecipeGridDimension.result(height),
-      () => recipeRangeFailureValue(`Recipe pattern height is invalid: ${height}`),
-    );
+    const patternWidth = RecipeGridDimension(width);
+    const patternHeight = RecipeGridDimension(height);
     return { width: patternWidth, height: patternHeight, cells };
   });
 
@@ -791,7 +770,7 @@ const normalizeGridItem = (
     return Result.succeed(value);
   }
   if (isItemType(value)) {
-    return Result.mapError(itemStack(value, 1), recipeItemFailure);
+    return Result.mapError(itemStackFromUnknown(value, 1), recipeItemFailure);
   }
   return recipeTypeFailure(
     "Craft grid cells must be item types, valid item stacks, or undefined",
@@ -846,6 +825,12 @@ const staticIngredient = (value: IngredientInput): Ingredient => {
     : { _tag: "Exact", item: value, count: RecipeIngredientCount(1) };
 };
 
+function isIngredientInputList(
+  value: CraftingIngredientInput,
+): value is ReadonlyArray<IngredientInput> {
+  return Array.isArray(value);
+}
+
 const staticCraftingIngredient = (
   value: CraftingIngredientInput,
 ): CraftingIngredient => {
@@ -861,10 +846,6 @@ const staticCraftingIngredient = (
   }
   return staticIngredient(value);
 };
-
-const isIngredientInputList = (
-  value: CraftingIngredientInput,
-): value is ReadonlyArray<IngredientInput> => Array.isArray(value);
 
 const staticOptions = (options: RecipeOptions | undefined) => ({
   assumeSymmetry: options?.assumeSymmetry ?? false,

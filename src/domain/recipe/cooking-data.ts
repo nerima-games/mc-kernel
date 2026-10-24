@@ -194,10 +194,7 @@ const normalizeOptions = (
     const normalizedGroup =
       group === undefined
         ? undefined
-        : yield* Result.mapError(
-            RecipeGroup.result(group),
-            () => recipeTypeFailureValue("Cooking recipe group must be a string"),
-          );
+        : RecipeGroup(group);
     const priorityValue = options.priority ?? 0;
     if (typeof priorityValue !== "number") {
       return yield* recipeRangeFailure(

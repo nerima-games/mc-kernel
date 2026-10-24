@@ -28,12 +28,6 @@ const recipeTypeFailureValue = (message: string): RecipeFailure => ({
   message,
 });
 
-const recipeRangeFailureValue = (message: string): RecipeFailure => ({
-  _tag: "RecipeRangeFailure",
-  name: "RangeError",
-  message,
-});
-
 export const STONECUTTING_STATION_TAG: RecipeStationTagValue =
   RecipeStationTag("stonecutter");
 
@@ -84,12 +78,7 @@ const assertPriority = (
       `Stonecutting recipe priority must be a non-negative safe integer, received ${String(value)}`,
     );
   }
-  return Result.mapError(
-    RecipePriority.result(value),
-    () => recipeRangeFailureValue(
-      `Stonecutting recipe priority must be a non-negative safe integer, received ${String(value)}`,
-    ),
-  );
+  return Result.succeed(RecipePriority(value));
 };
 
 const isUncheckedIngredientInput = (
@@ -149,14 +138,7 @@ const normalizeOptions = (
 > =>
   Result.gen(function* () {
     if (options === undefined) {
-      return {
-        priority: yield* Result.mapError(
-          RecipePriority.result(0),
-          () => recipeRangeFailureValue(
-            "Stonecutting recipe priority must be a non-negative safe integer, received 0",
-          ),
-        ),
-      };
+      return { priority: RecipePriority(0) };
     }
     if (!isRecord(options)) {
       return yield* recipeTypeFailure("Stonecutting recipe options must be an object");

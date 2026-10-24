@@ -29,12 +29,6 @@ const recipeTypeFailureValue = (message: string): RecipeFailure => ({
   message,
 });
 
-const recipeRangeFailureValue = (message: string): RecipeFailure => ({
-  _tag: "RecipeRangeFailure",
-  name: "RangeError",
-  message,
-});
-
 export const SMITHING_STATION_TAG: RecipeStationTag =
   RecipeStationTag("smithing_table");
 export const SMITHING_TRIM_TEMPLATE_TAG: RecipeItemTag =
@@ -128,12 +122,7 @@ const normalizeOptions = (
         "Smithing recipe show notification must be a boolean",
       );
     }
-    const brandedPriority = yield* Result.mapError(
-      RecipePriority.result(priority),
-      () => recipeRangeFailureValue(
-        `Smithing recipe priority must be a non-negative safe integer, received ${String(priority)}`,
-      ),
-    );
+    const brandedPriority = RecipePriority(priority);
     return {
       priority: brandedPriority,
       ...(showNotification === undefined ? {} : { showNotification }),

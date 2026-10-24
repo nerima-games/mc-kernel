@@ -22,6 +22,14 @@ const recipeFailure = (
   expect(Result.isFailure(result)).toBe(true);
   if (Result.isFailure(result)) expect(result.failure._tag).toBe(tag);
 };
+
+const expectRecipeFailure = (
+  result: Result.Result<unknown, RecipeFailure>,
+  expected: RecipeFailure,
+): void => {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) expect(result.failure).toEqual(expected);
+};
 import {
   SMITHING_STATION_TAG,
   SMITHING_TRIM_MATERIAL_TAG,
@@ -78,6 +86,14 @@ describe("smithing recipe data", () => {
   it("rejects malformed identifiers, ingredients, outputs, and options", () => {
     const output = itemStack("netherite_sword", StackCount(1));
     const ingredients = [SMITHING_TRIM_TEMPLATE_TAG, "diamond_sword", "netherite_ingot"] as const;
+    expectRecipeFailure(
+      Reflect.apply(smithingTransformRecipe, undefined, [null, ...ingredients, output]),
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Smithing recipe id must be a resource location",
+      },
+    );
     recipeFailure(Reflect.apply(smithingTransformRecipe, undefined, [" ", ...ingredients, output]), "RecipeTypeFailure");
     recipeFailure(Reflect.apply(smithingTransformRecipe, undefined, ["minecraft:bad", null, ...ingredients.slice(1), output]), "RecipeTypeFailure");
     recipeFailure(Reflect.apply(smithingTransformRecipe, undefined, ["minecraft:bad", ...ingredients, {}]), "RecipeTypeFailure");
@@ -100,5 +116,17 @@ describe("smithing recipe data", () => {
         options,
       ]), tag);
     }
+    expectRecipeFailure(
+      Reflect.apply(smithingTrimRecipe, undefined, [
+        "minecraft:bad_tags",
+        ...ingredients,
+        { tags: [1] },
+      ]),
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Smithing recipe station tags must be resource locations",
+      },
+    );
   });
 });

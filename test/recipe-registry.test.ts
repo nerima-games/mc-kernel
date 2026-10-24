@@ -13,16 +13,19 @@ import {
   selectRecipes,
 } from "../src/domain/recipe/recipe-registry";
 
+const namespacedResourceLocation = (value: string) =>
+  resultValue(NamespacedResourceLocation.result(value));
+
 const recipeLayerFromRaw = (options: {
   readonly pack: string;
   readonly format: number;
   readonly priority: number;
   readonly entries: ReadonlyArray<Readonly<{ readonly id: string; readonly value: unknown }>>;
 }) => recipeDataPackLayer({
-  pack: NamespacedResourceLocation(options.pack),
-  format: DataPackFormat(options.format),
-  priority: DataPackPriority(options.priority),
-  entries: options.entries.map(({ id, value }) => ({ id: NamespacedResourceLocation(id), value })),
+  pack: namespacedResourceLocation(options.pack),
+  format: resultValue(DataPackFormat(options.format)),
+  priority: resultValue(DataPackPriority(options.priority)),
+  entries: options.entries.map(({ id, value }) => ({ id: namespacedResourceLocation(id), value })),
 });
 
 const genericLayerFromRaw = (options: {
@@ -31,10 +34,10 @@ const genericLayerFromRaw = (options: {
   readonly priority: number;
   readonly entries: ReadonlyArray<Readonly<{ readonly id: string; readonly value: unknown }>>;
 }) => dataPackLayer({
-  pack: NamespacedResourceLocation(options.pack),
-  format: DataPackFormat(options.format),
-  priority: DataPackPriority(options.priority),
-  entries: options.entries.map(({ id, value }) => ({ id: NamespacedResourceLocation(id), value })),
+  pack: namespacedResourceLocation(options.pack),
+  format: resultValue(DataPackFormat(options.format)),
+  priority: resultValue(DataPackPriority(options.priority)),
+  entries: options.entries.map(({ id, value }) => ({ id: namespacedResourceLocation(id), value })),
 });
 
 const craftingDocument = {
@@ -53,13 +56,13 @@ const cookingDocument = {
 
 describe("recipe registry", () => {
   it("decodes layers and applies exact-format priority overrides", () => {
-    const base = resultValue(recipeDataPackLayer({
+    const base = resultValue(recipeLayerFromRaw({
       pack: "example:base",
       format: 107.1,
       priority: 0,
       entries: [{ id: "example:shared", value: craftingDocument }],
     }));
-    const override = resultValue(recipeDataPackLayer({
+    const override = resultValue(recipeLayerFromRaw({
       pack: "example:override",
       format: 107.1,
       priority: 1,
@@ -70,11 +73,11 @@ describe("recipe registry", () => {
       [base, override],
       resultValue(DataPackFormat(107.1)),
     );
-    const recipe = selected.get(NamespacedResourceLocation("example:shared"));
+    const recipe = selected.get(namespacedResourceLocation("example:shared"));
 
     expect(recipe?._tag).toBe("Cooking");
     expect(
-      recipeDataPackPath(NamespacedResourceLocation("example:shared")),
+      recipeDataPackPath(namespacedResourceLocation("example:shared")),
     ).toBe("data/example/recipe/shared.json");
   });
 
@@ -88,7 +91,7 @@ describe("recipe registry", () => {
     const layer = resultValue(recipeDataPackLayerFromUnknown(validLayer));
 
     expect(layer.entries[0]?.id).toBe(
-      NamespacedResourceLocation("example:json"),
+      namespacedResourceLocation("example:json"),
     );
     expect(layer.entries[0]?.value._tag).toBe("Shapeless");
     const failure = resultFailure(recipeDataPackLayerFromUnknown({
@@ -105,7 +108,7 @@ describe("recipe registry", () => {
   });
 
   it("keeps the generic data-pack layer compatible with recipe layer values", () => {
-    const layer = resultValue(dataPackLayer({
+    const layer = resultValue(genericLayerFromRaw({
       pack: "example:generic",
       format: 107.1,
       priority: 0,

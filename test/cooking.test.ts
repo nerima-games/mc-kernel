@@ -81,6 +81,20 @@ describe("cooking recipe data", () => {
       showNotification: true,
     });
 
+    const defaultOptionsRecipe = success(cookingRecipe(
+      RecipeId("minecraft:default_options"),
+      "furnace",
+      "stone",
+      itemStack("stone", 1),
+      PositiveTickCount(1),
+      RecipeExperience(0),
+      {},
+    ));
+    expect(defaultOptionsRecipe.priority).toBe(0);
+    expect(defaultOptionsRecipe).not.toHaveProperty("category");
+    expect(defaultOptionsRecipe).not.toHaveProperty("group");
+    expect(defaultOptionsRecipe).not.toHaveProperty("showNotification");
+
     expect(success(cookingRecipeForItem(
       RecipeId("minecraft:smoke_beef"),
       "smoker",
@@ -114,6 +128,10 @@ describe("cooking recipe data", () => {
       typeFailure("Cooking recipe id must be a resource location"),
     );
     expectFailure(
+      Reflect.apply(cookingRecipe, undefined, [null, "furnace", "raw_iron", output, 200, 0]),
+      typeFailure("Cooking recipe id must be a resource location"),
+    );
+    expectFailure(
       Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "campfire_bad", "raw_iron", output, 200, 0]),
       typeFailure("Unknown cooking station: campfire_bad"),
     );
@@ -134,12 +152,20 @@ describe("cooking recipe data", () => {
       rangeFailure("Cooking time must be a positive safe integer, received 1.5"),
     );
     expectFailure(
+      Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, "200", 0]),
+      rangeFailure("Cooking time must be a positive safe integer, received 200"),
+    );
+    expectFailure(
       Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, -0.1]),
       rangeFailure("Cooking experience must be a finite non-negative number, received -0.1"),
     );
     expectFailure(
       Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, Number.POSITIVE_INFINITY]),
       rangeFailure("Cooking experience must be a finite non-negative number, received Infinity"),
+    );
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, "0"]),
+      rangeFailure("Cooking experience must be a finite non-negative number, received 0"),
     );
     expectFailure(
       Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, 0, null]),
@@ -150,6 +176,7 @@ describe("cooking recipe data", () => {
       [{ group: 1 }, typeFailure("Cooking recipe group must be a string")],
       [{ priority: -1 }, rangeFailure("Cooking recipe priority must be a non-negative safe integer, received -1")],
       [{ priority: 1.5 }, rangeFailure("Cooking recipe priority must be a non-negative safe integer, received 1.5")],
+      [{ priority: "1" }, rangeFailure("Cooking recipe priority must be a non-negative safe integer, received 1")],
       [{ showNotification: 1 }, typeFailure("Cooking recipe show notification must be a boolean")],
     ] as const) {
       expectFailure(
@@ -163,6 +190,43 @@ describe("cooking recipe data", () => {
           options,
         ]),
         expected,
+      );
+    }
+  });
+
+  it("rejects unknown output items and counts outside the result stack range", () => {
+    const unknownOutput = Reflect.apply(cookingRecipeForItem, undefined, [
+      "minecraft:unknown_output",
+      "furnace",
+      "raw_iron",
+      "not_an_item",
+      1,
+      200,
+      0,
+    ]);
+    expectFailure(
+      unknownOutput,
+      typeFailure("Unknown item type: not_an_item"),
+    );
+
+    for (const [output, count] of [
+      ["iron_ingot", 0],
+      ["iron_ingot", 1.5],
+      ["diamond_sword", 2],
+    ]) {
+      expectFailure(
+        Reflect.apply(cookingRecipeForItem, undefined, [
+          "minecraft:invalid_output_count",
+          "furnace",
+          "raw_iron",
+          output,
+          count,
+          200,
+          0,
+        ]),
+        rangeFailure(
+          `Item stack count for ${output} must be an integer in [1, ${output === "diamond_sword" ? 1 : 64}], received ${count}`,
+        ),
       );
     }
   });

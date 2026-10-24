@@ -151,20 +151,9 @@ const assertMaterialCount = (
       `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}], received ${String(value)}`,
     );
   }
-  return Result.gen(function* () {
-    const min = yield* Result.mapError(
-      TransmuteMaterialSlotCount.result(value.min),
-      () => recipeRangeFailureValue(
-        `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}], received ${String(value)}`,
-      ),
-    );
-    const max = yield* Result.mapError(
-      TransmuteMaterialSlotCount.result(value.max),
-      () => recipeRangeFailureValue(
-        `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}], received ${String(value)}`,
-      ),
-    );
-    return { min, max };
+  return Result.succeed({
+    min: TransmuteMaterialSlotCount(value.min),
+    max: TransmuteMaterialSlotCount(value.max),
   });
 };
 
@@ -201,10 +190,7 @@ const assertGroup = (
   }
   return value === undefined
     ? Result.succeed(undefined)
-    : Result.mapError(
-        RecipeGroup.result(value),
-        () => recipeTypeFailureValue("Transmute recipe group must be a string"),
-      );
+    : Result.succeed(RecipeGroup(value));
 };
 
 const assertPriority = (
@@ -216,12 +202,7 @@ const assertPriority = (
       `Transmute recipe priority must be a non-negative safe integer, received ${String(priority)}`,
     );
   }
-  return Result.mapError(
-    RecipePriority.result(priority),
-    () => recipeRangeFailureValue(
-      `Transmute recipe priority must be a non-negative safe integer, received ${String(value)}`,
-    ),
-  );
+  return Result.succeed(RecipePriority(priority));
 };
 
 const assertShowNotification = (

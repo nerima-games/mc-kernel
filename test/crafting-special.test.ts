@@ -50,6 +50,14 @@ const recipeFailure = (
   if (Result.isFailure(result)) expect(result.failure._tag).toBe(tag);
 };
 
+const expectRecipeFailure = (
+  result: Result.Result<unknown, RecipeFailure>,
+  expected: RecipeFailure,
+): void => {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) expect(result.failure).toEqual(expected);
+};
+
 const exactly = (...args: Parameters<typeof exactlyResult>) =>
   recipeSuccess(exactlyResult(...args));
 
@@ -58,7 +66,7 @@ const dyeRecipe = recipeSuccess(craftingDyeRecipe(
   exactly("leather"),
   exactly("redstone_dust"),
   itemStack("leather", 1),
-  { priority: 1 },
+  { priority: recipeSuccess(RecipePriority.result(1)) },
 ));
 
 const imbueRecipe = recipeSuccess(craftingImbueRecipe(
@@ -124,6 +132,32 @@ describe("crafting special recipe data", () => {
       ]),
       "RecipeTypeFailure",
     );
+    expectRecipeFailure(
+      Reflect.apply(craftingDyeRecipe, undefined, [
+        { id: null },
+        exactly("leather"),
+        exactly("redstone_dust"),
+        itemStack("leather", 1),
+      ]),
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Crafting special recipe id must be a resource location",
+      },
+    );
+    expectRecipeFailure(
+      Reflect.apply(craftingDyeRecipe, undefined, [
+        ResourceLocation("minecraft:bad_ingredient"),
+        null,
+        exactly("redstone_dust"),
+        itemStack("leather", 1),
+      ]),
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Recipe ingredient must be an item type, item tag, or ingredient object",
+      },
+    );
     recipeFailure(
       Reflect.apply(craftingDyeRecipe, undefined, [
         "minecraft:bad",
@@ -163,6 +197,50 @@ describe("crafting special recipe data", () => {
       ]),
       "RecipeTypeFailure",
     );
+    const invalidIdOrOptions = Reflect.apply(craftingDyeRecipe, undefined, [
+      null,
+      exactly("leather"),
+      exactly("redstone_dust"),
+      itemStack("leather", 1),
+    ]);
+    expect(Result.isFailure(invalidIdOrOptions)).toBe(true);
+    if (Result.isFailure(invalidIdOrOptions)) {
+      expect(invalidIdOrOptions.failure).toMatchObject({
+        _tag: "RecipeTypeFailure",
+        message: "Crafting special recipe options must be an object when provided",
+      });
+    }
+
+    const invalidShapes = Reflect.apply(craftingFireworkStarRecipe, undefined, [
+      "minecraft:bad_shapes",
+      exactly("diamond"),
+      exactly("glowstone_dust"),
+      exactly("gunpowder"),
+      exactly("red_dye"),
+      null,
+      itemStack("firework_star", 1),
+    ]);
+    expect(Result.isFailure(invalidShapes)).toBe(true);
+    if (Result.isFailure(invalidShapes)) {
+      expect(invalidShapes.failure).toMatchObject({
+        _tag: "RecipeTypeFailure",
+        message: "Firework star shapes must be an object",
+      });
+    }
+
+    const invalidShapeIngredient = Reflect.apply(craftingFireworkStarRecipe, undefined, [
+      "minecraft:bad_shape_ingredient",
+      exactly("diamond"),
+      exactly("glowstone_dust"),
+      exactly("gunpowder"),
+      exactly("red_dye"),
+      { small_ball: null },
+      itemStack("firework_star", 1),
+    ]);
+    expect(Result.isFailure(invalidShapeIngredient)).toBe(true);
+    expect(invalidShapeIngredient).toMatchObject({
+      failure: { _tag: "RecipeTypeFailure" },
+    });
   });
 
   it("normalizes recipe metadata from either argument shape", () => {
@@ -178,6 +256,7 @@ describe("crafting special recipe data", () => {
         showNotification: false,
       },
     ));
+    expect(isCraftingDyeRecipe(fromId)).toBe(true);
     const fromOptions = recipeSuccess(craftingDyeRecipe(
       {
         id: ResourceLocation("minecraft:described_dye"),
@@ -237,6 +316,7 @@ describe("crafting special recipe data", () => {
       )).allowedGenerations,
     ).toEqual([2, 2]);
     for (const generations of [
+      "0,1",
       [0],
       [0.5, 1],
       [0, 1.5],

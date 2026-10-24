@@ -25,6 +25,9 @@ const success = <A, E>(result: Result.Result<A, E>): A => {
 };
 const itemStack = (item: Parameters<typeof itemStackResult>[0], count: number) =>
   success(itemStackResult(item, success(StackCount.result(count))));
+const recipeId = (value: string) => success(RecipeId.result(value));
+const tagLocation = (value: string) => success(TagLocation.result(value));
+const recipePriority = (value: number) => success(RecipePriority.result(value));
 const expectFailure = (
   result: Result.Result<unknown, RecipeFailure>,
   expected: RecipeFailure,
@@ -39,7 +42,7 @@ describe("stonecutting recipe data", () => {
   it("constructs exact, tagged, and alternative ingredient recipes", () => {
     expect(STONECUTTING_STATION_TAG).toBe("stonecutter");
     expect(success(stonecuttingRecipe(
-      RecipeId("minecraft:cut_stone"),
+      recipeId("minecraft:cut_stone"),
       "stone",
       itemStack("stone_slab", 2),
     ))).toMatchObject({
@@ -50,22 +53,22 @@ describe("stonecutting recipe data", () => {
     });
 
     expect(success(stonecuttingRecipe(
-      RecipeId("minecraft:cut_planks"),
-      TagLocation("#minecraft:planks"),
+      recipeId("minecraft:cut_planks"),
+      tagLocation("#minecraft:planks"),
       itemStack("stick", 1),
-      { priority: RecipePriority(2), showNotification: false },
+      { priority: recipePriority(2), showNotification: false },
     ))).toMatchObject({
-      ingredient: success(tagged("#minecraft:planks")),
+      ingredient: success(tagged(tagLocation("#minecraft:planks"))),
       priority: 2,
       showNotification: false,
     });
     expect(success(stonecuttingRecipe(
-      RecipeId("minecraft:cut_alternatives"),
+      recipeId("minecraft:cut_alternatives"),
       ["stone", "diorite"],
       itemStack("stone_slab", 2),
     )).ingredient).toEqual(success(anyOf(["stone", "diorite"])));
     expect(success(stonecuttingRecipe(
-      RecipeId("minecraft:cut_structured_alternatives"),
+      recipeId("minecraft:cut_structured_alternatives"),
       success(anyOf(["stone", "diorite"])),
       itemStack("stone_slab", 2),
     )).ingredient).toEqual(success(anyOf(["stone", "diorite"])));
@@ -77,7 +80,11 @@ describe("stonecutting recipe data", () => {
 
   it("returns tagged failures for invalid ingredients, outputs, identifiers, and options", () => {
     const output = itemStack("stone_slab", 2);
-    expectFailure(Reflect.apply(stonecuttingRecipe, undefined, [" ", "stone", output]), typeFailure("Stonecutting recipe id must be a non-empty string"));
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, [null, "stone", output]),
+      typeFailure("Stonecutting recipe id must be a resource location"),
+    );
+    expectFailure(Reflect.apply(stonecuttingRecipe, undefined, [" ", "stone", output]), typeFailure("Stonecutting recipe id must be a resource location"));
     for (const ingredient of [
       "unknown",
       {},
@@ -94,7 +101,7 @@ describe("stonecutting recipe data", () => {
     }
     expectFailure(
       Reflect.apply(stonecuttingRecipe, undefined, ["minecraft:bad", ["stone", "invalid"], output]),
-      typeFailure("Recipe item tag must start with # and contain a name, received invalid"),
+      typeFailure("Stonecutting ingredient has an invalid shape"),
     );
     expectFailure(
       Reflect.apply(stonecuttingRecipe, undefined, ["minecraft:bad", "stone", {}]),
@@ -105,11 +112,11 @@ describe("stonecutting recipe data", () => {
       typeFailure("Stonecutting recipe options must be an object"),
     );
     expectFailure(
-      Reflect.apply(stonecuttingRecipe, undefined, [RecipeId("minecraft:bad"), "stone", output, { priority: -1 }]),
+      Reflect.apply(stonecuttingRecipe, undefined, [recipeId("minecraft:bad"), "stone", output, { priority: -1 }]),
       rangeFailure("Stonecutting recipe priority must be a non-negative safe integer, received -1"),
     );
     expectFailure(
-      Reflect.apply(stonecuttingRecipe, undefined, [RecipeId("minecraft:bad"), "stone", output, { priority: 1.5 }]),
+      Reflect.apply(stonecuttingRecipe, undefined, [recipeId("minecraft:bad"), "stone", output, { priority: 1.5 }]),
       rangeFailure("Stonecutting recipe priority must be a non-negative safe integer, received 1.5"),
     );
     expectFailure(

@@ -34,7 +34,9 @@ import {
 } from "./crafting-special-data.js";
 import { NamespacedResourceLocation, TagLocation } from "../text/identifiers.js";
 import { isItemType, type ItemType } from "../item/item-type.js";
-import { itemStack, type ItemStack } from "../item/item-stack.js";
+import { itemStackFromUnknown, type ItemStack } from "../item/item-stack.js";
+import { BookGeneration } from "../item/item-primitives.js";
+import { PositiveTickCount } from "../time/quantities.js";
 import {
   decodeItemComponentPatch,
   type ItemComponentPatch,
@@ -42,6 +44,7 @@ import {
 import {
   anyOf,
   RecipeGroup,
+  RecipeExperience,
   RecipeId,
   RecipePatternRow,
   RecipePatternSymbol,
@@ -135,10 +138,7 @@ const itemTagOf = (
       `Recipe item tag must be namespaced, received ${value}`,
     );
   }
-  const tag = TagLocation.result(`#${namespacedLocation.success}`);
-  return Result.isFailure(tag)
-    ? recipeTypeFailure(`Recipe item tag must be namespaced, received ${value}`)
-    : Result.succeed(tag.success);
+  return Result.succeed(TagLocation(`#${namespacedLocation.success}`));
 };
 
 const decodeIngredient = (
@@ -224,13 +224,11 @@ const decodeIngredients = (
   return Result.all(value.map(decodeIngredient));
 };
 
-const decodeResultItem = (value: unknown): RecipeResult<ItemType> => {
+const decodeResultItem = (value: string | UnknownRecord): RecipeResult<ItemType> => {
   if (typeof value === "string") {
     return minecraftItemOf(value, true);
   }
-  return isRecord(value)
-    ? minecraftItemOf(value["id"], true)
-    : recipeTypeFailure("Recipe result must be an item id or item stack object");
+  return minecraftItemOf(value["id"], true);
 };
 
 const decodePatchedComponents = (
@@ -265,7 +263,7 @@ const decodeResult = (value: unknown): RecipeResult<ItemStack> =>
         ? undefined
         : yield* decodePatchedComponents(value["components"]);
     return yield* Result.mapError(
-      itemStack(item, count, {
+      itemStackFromUnknown(item, count, {
         ...(componentPatch === undefined ? {} : { componentPatch }),
       }),
       recipeItemFailure,
@@ -292,25 +290,25 @@ type CommonRecipeOptions = Readonly<{
   readonly showNotification?: boolean;
 }>;
 
+const decodeRecipeGroup = (value: unknown): RecipeResult<RecipeGroup> => {
+  if (typeof value !== "string") {
+    return recipeTypeFailure("Recipe group must be a string");
+  }
+  return Result.succeed(RecipeGroup(value));
+};
+
 const decodeCommonOptions = (
   value: UnknownRecord,
 ): RecipeResult<CommonRecipeOptions> =>
   Result.gen(function* () {
     let category: RecipeCategory | undefined;
-    let group: string | undefined;
+    let group: RecipeGroup | undefined;
     let showNotification: boolean | undefined;
     if (Object.hasOwn(value, "category")) {
       category = yield* decodeCategory(value["category"]);
     }
     if (Object.hasOwn(value, "group")) {
-      if (typeof value["group"] !== "string") {
-        return yield* recipeTypeFailure("Recipe group must be a string");
-      }
-      const checkedGroup = RecipeGroup.result(value["group"]);
-      if (Result.isFailure(checkedGroup)) {
-        return yield* recipeTypeFailure("Recipe group must be a string");
-      }
-      group = checkedGroup.success;
+      group = yield* decodeRecipeGroup(value["group"]);
     }
     if (Object.hasOwn(value, "show_notification")) {
       if (typeof value["show_notification"] !== "boolean") {
@@ -332,13 +330,7 @@ const decodeCraftingOptions = (
 ): RecipeResult<RecipeOptions> =>
   Result.gen(function* () {
     const options = yield* decodeCommonOptions(value);
-    const tag = RecipeStationTag.result("crafting_table");
-    if (Result.isFailure(tag)) {
-      return yield* recipeTypeFailure(
-        "Recipe station tags must be resource locations",
-      );
-    }
-    return { tags: [tag.success], ...options };
+    return { tags: [RecipeStationTag("crafting_table")], ...options };
   });
 
 type NotificationRecipeOptions = Readonly<{
@@ -379,6 +371,30 @@ const decodeNumber = (value: unknown, field: string): RecipeResult<number> =>
     ? Result.succeed(value)
     : recipeTypeFailure(`Recipe ${field} must be a number`);
 
+const decodePositiveTickCount = (
+  value: unknown,
+): RecipeResult<PositiveTickCount> =>
+  Result.flatMap(decodeNumber(value, "cookingtime"), (ticks) => {
+    const checkedTicks = PositiveTickCount.result(ticks);
+    return Result.isFailure(checkedTicks)
+      ? recipeRangeFailure(
+          `Cooking time must be a positive safe integer, received ${String(ticks)}`,
+        )
+      : Result.succeed(checkedTicks.success);
+  });
+
+const decodeRecipeExperience = (
+  value: unknown,
+): RecipeResult<RecipeExperience> =>
+  Result.flatMap(decodeNumber(value, "experience"), (experience) => {
+    const checkedExperience = RecipeExperience.result(experience);
+    return Result.isFailure(checkedExperience)
+      ? recipeRangeFailure(
+          `Cooking experience must be a finite non-negative number, received ${String(experience)}`,
+        )
+      : Result.succeed(checkedExperience.success);
+  });
+
 const decodeMaterialCount = (
   value: unknown,
 ): RecipeResult<TransmuteMaterialCount> => {
@@ -401,7 +417,21 @@ const decodeMaterialCount = (
   ) {
     return recipeTypeFailure("Transmute material_count bounds must be integers");
   }
-  return Result.succeed({ min, max });
+  return Result.gen(function* () {
+    const checkedMin = TransmuteMaterialSlotCount.result(min);
+    if (Result.isFailure(checkedMin)) {
+      return yield* recipeRangeFailure(
+        "Transmute material_count bounds must be between 1 and 8",
+      );
+    }
+    const checkedMax = TransmuteMaterialSlotCount.result(max);
+    if (Result.isFailure(checkedMax)) {
+      return yield* recipeRangeFailure(
+        "Transmute material_count bounds must be between 1 and 8",
+      );
+    }
+    return { min: checkedMin.success, max: checkedMax.success };
+  });
 };
 
 const decodeIntegerRange = (
@@ -422,7 +452,13 @@ const decodeIntegerRange = (
     typeof min !== "number" ||
     !Number.isSafeInteger(min) ||
     typeof max !== "number" ||
-    !Number.isSafeInteger(max) ||
+    !Number.isSafeInteger(max)
+  ) {
+    return recipeTypeFailure(
+      `${field} must contain safe integer min and max values`,
+    );
+  }
+  if (
     min < 0 ||
     max < 0 ||
     min > maximum ||
@@ -438,8 +474,15 @@ const decodeIntegerRange = (
 
 const decodeAllowedGenerations = (
   value: unknown,
-): RecipeResult<readonly [number, number]> =>
-  decodeIntegerRange(value, "Book cloning allowed_generations", 2);
+): RecipeResult<readonly [BookGeneration, BookGeneration]> =>
+  Result.gen(function* () {
+    const [min, max] = yield* decodeIntegerRange(
+      value,
+      "Book cloning allowed_generations",
+      2,
+    );
+    return [BookGeneration(min), BookGeneration(max)] as const;
+  });
 
 const isFireworkExplosionShape = (
   value: string,
@@ -479,10 +522,7 @@ const decodeRecipeId = (
   if (Result.isFailure(namespaced)) {
     return recipeTypeFailure(`Recipe id must be namespaced, received ${value}`);
   }
-  const recipeId = RecipeId.result(namespaced.success);
-  return Result.isFailure(recipeId)
-    ? recipeTypeFailure(`Recipe id must be namespaced, received ${value}`)
-    : Result.succeed(recipeId.success);
+  return Result.succeed(RecipeId(namespaced.success));
 };
 
 const decodeRecordWithType = (
@@ -614,8 +654,8 @@ export const cookingRecipeFromUnknown = (
       station,
       yield* decodeIngredient(record["ingredient"]),
       yield* decodeResult(record["result"]),
-      yield* decodeNumber(record["cookingtime"], "cookingtime"),
-      yield* decodeNumber(record["experience"], "experience"),
+      yield* decodePositiveTickCount(record["cookingtime"]),
+      yield* decodeRecipeExperience(record["experience"]),
       yield* decodeCommonOptions(record),
     );
   });
@@ -700,7 +740,7 @@ export const craftingDyeRecipeFromUnknown = (
       yield* decodeResult(record["result"]),
       {
         category: options.category ?? "misc",
-        group: options.group ?? "",
+        group: options.group ?? (yield* decodeRecipeGroup("")),
         showNotification: options.showNotification ?? true,
       },
     );
@@ -729,7 +769,7 @@ export const craftingImbueRecipeFromUnknown = (
       yield* decodeResult(record["result"]),
       {
         category: options.category ?? "misc",
-        group: options.group ?? "",
+        group: options.group ?? (yield* decodeRecipeGroup("")),
         showNotification: options.showNotification ?? true,
       },
     );
@@ -1114,15 +1154,9 @@ export const recipeDataPath = (
 ): RecipeResult<DataPackResourcePath> =>
   Result.gen(function* () {
     const recipeId = yield* decodeRecipeId(id);
-    const namespacedRecipeId = NamespacedResourceLocation.result(recipeId);
-    if (Result.isFailure(namespacedRecipeId)) {
-      return yield* recipeTypeFailure(
-        `Recipe id must be namespaced, received ${recipeId}`,
-      );
-    }
     return dataPackResourcePath(
       NamespacedResourceLocation("minecraft:recipe"),
-      namespacedRecipeId.success,
+      NamespacedResourceLocation(recipeId),
     );
   });
 

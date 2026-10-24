@@ -9,12 +9,12 @@ import {
   MAX_RECIPE_SIDE,
   RecipeGridDimension,
   RecipeGridIndex,
+  RecipeCompletionCount,
   RecipeGroup,
   RecipeId,
   RecipeIngredientCount,
   RecipePatternRow,
   RecipePatternSymbol,
-  type RecipePatternKeyMap,
   RecipePriority,
   RecipeStationTag,
   VANILLA_CRAFTING_RECIPES,
@@ -28,6 +28,8 @@ import {
   shapedRecipe,
   tagged,
 } from "../src/domain/recipe/recipe";
+import { staticShapedRecipe, staticShapelessRecipe } from "../src/domain/recipe/recipe-data";
+import { recipeExternalFailure } from "../src/domain/recipe/recipe-error";
 import type {
   ItemTagMemberships,
   RecipeFailure,
@@ -42,7 +44,42 @@ const expectRecipeSuccess = <A, E>(result: Result.Result<A, E>): A => {
 };
 
 const itemStack = (item: Parameters<typeof itemStackResult>[0], count: number) =>
-  expectRecipeSuccess(itemStackResult(item, count));
+  expectRecipeSuccess(
+    itemStackResult(item, expectRecipeSuccess(StackCount.result(count))),
+  );
+
+const recipeId = (value: string) => expectRecipeSuccess(RecipeId.result(value));
+const recipeIngredientCount = (value: number) =>
+  expectRecipeSuccess(RecipeIngredientCount.result(value));
+const recipePatternRow = (value: string) =>
+  expectRecipeSuccess(RecipePatternRow.result(value));
+const recipePatternSymbol = (value: string) =>
+  expectRecipeSuccess(RecipePatternSymbol.result(value));
+const recipeGroup = (value: string) =>
+  expectRecipeSuccess(RecipeGroup.result(value));
+const recipePriority = (value: number) =>
+  expectRecipeSuccess(RecipePriority.result(value));
+const recipeStationTag = (value: string) =>
+  expectRecipeSuccess(RecipeStationTag.result(value));
+const itemTag = (value: string) => expectRecipeSuccess(TagLocation.result(value));
+const gridDimension = (value: number) =>
+  expectRecipeSuccess(RecipeGridDimension.result(value));
+const gridIndex = (value: number) =>
+  expectRecipeSuccess(RecipeGridIndex.result(value));
+
+const expectBrandFailure = <A>(
+  result: Result.Result<A, unknown>,
+  message: string,
+): void => {
+  expect(Result.isFailure(result)).toBe(true);
+  if (Result.isFailure(result)) {
+    expect(result.failure).toMatchObject({
+      _tag: "BrandError",
+      name: "BrandError",
+      message,
+    });
+  }
+};
 
 const expectRecipeFailure = (
   result: Result.Result<unknown, RecipeFailure>,
@@ -67,14 +104,113 @@ const rangeFailure = (message: string): RecipeFailure => ({
 });
 
 const itemTags: ItemTagMemberships = new Map([
-  [expectRecipeSuccess(tagged("#minecraft:planks")).tag, new Set<ItemType>(["oak_planks"])],
-  [expectRecipeSuccess(tagged("#minecraft:both")).tag, new Set<ItemType>(["oak_planks", "stone"])],
+  [expectRecipeSuccess(tagged(itemTag("#minecraft:planks"))).tag, new Set<ItemType>(["oak_planks"])],
+  [expectRecipeSuccess(tagged(itemTag("#minecraft:both"))).tag, new Set<ItemType>(["oak_planks", "stone"])],
 ]);
 
 describe("recipe data", () => {
+  it("rejects invalid scalar recipe brands", () => {
+    expect(RecipeCompletionCount(0)).toBe(0);
+    expectBrandFailure(
+      RecipeGridIndex.result(3),
+      "RecipeGridIndex must be an integer in [0, 2], received 3",
+    );
+    expectBrandFailure(
+      Reflect.apply(RecipeGroup.result, undefined, [1]),
+      "RecipeGroup must be a string",
+    );
+    expectBrandFailure(
+      RecipeCompletionCount.result(-1),
+      "RecipeCompletionCount must be a non-negative safe integer, received -1",
+    );
+  });
+
+  it("normalizes static recipe ingredients and optional metadata", () => {
+    const direct = expectRecipeSuccess(exactly("stone", recipeIngredientCount(2)));
+    const alternatives = expectRecipeSuccess(anyOf(["stone", "dirt"]));
+    const output = itemStack("stick", 1);
+    const shaped = staticShapedRecipe(
+      "minecraft:static_shaped",
+      [" S "],
+      { S: direct },
+      output,
+      {
+        assumeSymmetry: true,
+        category: "equipment",
+        group: recipeGroup("static"),
+        priority: recipePriority(2),
+        showNotification: false,
+        tags: [recipeStationTag("crafting_table")],
+      },
+    );
+    expect(shaped.pattern).toEqual({ width: 1, height: 1, cells: [direct] });
+    expect(shaped).toMatchObject({
+      assumeSymmetry: true,
+      category: "equipment",
+      group: "static",
+      priority: 2,
+      showNotification: false,
+      tags: ["crafting_table"],
+    });
+
+    const shapeless = staticShapelessRecipe(
+      "minecraft:static_shapeless",
+      [["stone", "dirt"], alternatives, itemTag("#minecraft:planks"), direct],
+      output,
+    );
+    expect(shapeless.ingredients).toEqual([
+      {
+        _tag: "AnyOf",
+        count: 1,
+        options: [
+          { _tag: "Exact", item: "stone", count: 1 },
+          { _tag: "Exact", item: "dirt", count: 1 },
+        ],
+      },
+      alternatives,
+      { _tag: "ItemTag", tag: "#minecraft:planks", count: 1 },
+      direct,
+    ]);
+    expect(shapeless).toMatchObject({
+      assumeSymmetry: false,
+      priority: 0,
+      tags: [],
+    });
+  });
+
+  it("retains external recipe failure details with or without a component key", () => {
+    const withoutComponentKey = recipeExternalFailure(
+      "SyntaxError",
+      "invalid recipe document",
+    );
+    expect(Result.isFailure(withoutComponentKey)).toBe(true);
+    if (Result.isFailure(withoutComponentKey)) {
+      expect(withoutComponentKey.failure).toEqual({
+        _tag: "RecipeExternalFailure",
+        name: "SyntaxError",
+        message: "invalid recipe document",
+      });
+    }
+
+    const withComponentKey = recipeExternalFailure(
+      "SyntaxError",
+      "invalid item component",
+      "minecraft:custom_name",
+    );
+    expect(Result.isFailure(withComponentKey)).toBe(true);
+    if (Result.isFailure(withComponentKey)) {
+      expect(withComponentKey.failure).toEqual({
+        _tag: "RecipeExternalFailure",
+        name: "SyntaxError",
+        message: "invalid item component",
+        componentKey: "minecraft:custom_name",
+      });
+    }
+  });
+
   it("constructs and matches exact and tagged ingredients", () => {
-    const exact = expectRecipeSuccess(exactly("stone", 2));
-    const tag = expectRecipeSuccess(tagged("#minecraft:planks", 2));
+    const exact = expectRecipeSuccess(exactly("stone", recipeIngredientCount(2)));
+    const tag = expectRecipeSuccess(tagged(itemTag("#minecraft:planks"), recipeIngredientCount(2)));
     const alternatives = expectRecipeSuccess(anyOf(["stone", "dirt"]));
 
     expect(exact).toEqual({ _tag: "Exact", item: "stone", count: 2 });
@@ -88,7 +224,7 @@ describe("recipe data", () => {
       item: "stone",
       count: 1,
     });
-    expect(expectRecipeSuccess(tagged("#minecraft:planks"))).toEqual({
+    expect(expectRecipeSuccess(tagged(itemTag("#minecraft:planks")))).toEqual({
       _tag: "ItemTag",
       tag: "#minecraft:planks",
       count: 1,
@@ -118,16 +254,20 @@ describe("recipe data", () => {
       typeFailure("Unknown exact ingredient item: unknown"),
     );
     expectRecipeFailure(
-      exactly("stone", 0),
+      Reflect.apply(exactly, undefined, ["stone", 0]),
       rangeFailure("Ingredient count must be a safe integer in [1, 64], received 0"),
     );
     expectRecipeFailure(
-      exactly("stone", 65),
+      Reflect.apply(exactly, undefined, ["stone", 65]),
       rangeFailure("Ingredient count must be a safe integer in [1, 64], received 65"),
     );
     expectRecipeFailure(
-      exactly("stone", 1.5),
+      Reflect.apply(exactly, undefined, ["stone", 1.5]),
       rangeFailure("Ingredient count must be a safe integer in [1, 64], received 1.5"),
+    );
+    expectRecipeFailure(
+      Reflect.apply(exactly, undefined, ["stone", "2"]),
+      rangeFailure("Ingredient count must be a safe integer in [1, 64], received 2"),
     );
     expectRecipeFailure(
       Reflect.apply(tagged, undefined, ["planks"]),
@@ -147,21 +287,24 @@ describe("recipe data", () => {
     );
     expectRecipeFailure(
       Reflect.apply(ingredientMatches, undefined, [{ _tag: "Unknown" }, "stone"]),
-      typeFailure("Recipe ingredient must be an item type, item tag, or ingredient object"),
+      typeFailure("Recipe ingredient object has an invalid shape"),
     );
   });
 
   it("normalizes shaped patterns, options, and ingredient objects", () => {
     const recipe = expectRecipeSuccess(shapedRecipe(
-      "minecraft:column",
-      ["  E", "T "],
+      recipeId("minecraft:column"),
+      [recipePatternRow("  E"), recipePatternRow("T ")],
       {
-        assumeSymmetry: true,
-        priority: RecipePriority(2),
-        tags: [RecipeStationTag("crafting_table")],
+        [recipePatternSymbol("E")]: expectRecipeSuccess(exactly("stone", recipeIngredientCount(2))),
+        [recipePatternSymbol("T")]: expectRecipeSuccess(tagged(itemTag("#minecraft:planks"))),
       },
       itemStack("crafting_table", 1),
-      { assumeSymmetry: true, priority: 2, tags: ["crafting_table"] },
+      {
+        assumeSymmetry: true,
+        priority: recipePriority(2),
+        tags: [recipeStationTag("crafting_table")],
+      },
     ));
 
     expect(recipe._tag).toBe("Shaped");
@@ -171,8 +314,8 @@ describe("recipe data", () => {
       cells: [
         undefined,
         undefined,
-        expectRecipeSuccess(exactly("stone", 2)),
-        expectRecipeSuccess(tagged("#minecraft:planks")),
+        expectRecipeSuccess(exactly("stone", recipeIngredientCount(2))),
+        expectRecipeSuccess(tagged(itemTag("#minecraft:planks"))),
         undefined,
         undefined,
       ],
@@ -182,11 +325,11 @@ describe("recipe data", () => {
     expect(recipe.tags).toEqual(["crafting_table"]);
 
     const alternativeRecipe = expectRecipeSuccess(shapedRecipe(
-      "minecraft:alternative",
-      ["A"],
-      { A: ["stone", "dirt"] },
+      recipeId("minecraft:alternative"),
+      [recipePatternRow("A")],
+      { [recipePatternSymbol("A")]: ["stone", "dirt"] },
       itemStack("stick", 1),
-      { category: "misc", group: "alternatives", showNotification: true },
+      { category: "misc", group: recipeGroup("alternatives"), showNotification: true },
     ));
     expect(alternativeRecipe.pattern.cells).toEqual([
       expectRecipeSuccess(anyOf(["stone", "dirt"])),
@@ -196,9 +339,9 @@ describe("recipe data", () => {
     expect(alternativeRecipe.showNotification).toBe(true);
 
     const defaultRecipe = expectRecipeSuccess(shapedRecipe(
-      "minecraft:default",
-      ["S", ""],
-      { S: "stone" },
+      recipeId("minecraft:default"),
+      [recipePatternRow("S"), recipePatternRow("")],
+      { [recipePatternSymbol("S")]: "stone" },
       itemStack("stick", 1),
     ));
     expect(defaultRecipe.assumeSymmetry).toBe(false);
@@ -209,19 +352,23 @@ describe("recipe data", () => {
     });
     expect(MAX_RECIPE_SIDE).toBe(3);
     expectRecipeFailure(
-      shapedRecipe(" ", ["S"], { S: "stone" }, itemStack("stick", 1)),
-      typeFailure("Recipe id must be a non-empty string"),
+      Reflect.apply(shapedRecipe, undefined, [" ", ["S"], { S: "stone" }, itemStack("stick", 1)]),
+      typeFailure("Recipe id must be a resource location"),
     );
     expectRecipeFailure(
-      shapedRecipe("minecraft:bad", [], { S: "stone" }, itemStack("stick", 1)),
+      Reflect.apply(shapedRecipe, undefined, [null, [recipePatternRow("S")], { [recipePatternSymbol("S")]: "stone" }, itemStack("stick", 1)]),
+      typeFailure("Recipe id must be a resource location"),
+    );
+    expectRecipeFailure(
+      Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", [], { S: "stone" }, itemStack("stick", 1)]),
       rangeFailure("Shaped recipe rows must contain 1 to 3 rows"),
     );
     expectRecipeFailure(
-      shapedRecipe("minecraft:bad", ["S", "S", "S", "S"], { S: "stone" }, itemStack("stick", 1)),
+      Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", ["S", "S", "S", "S"], { S: "stone" }, itemStack("stick", 1)]),
       rangeFailure("Shaped recipe rows must contain 1 to 3 rows"),
     );
     expectRecipeFailure(
-      shapedRecipe("minecraft:bad", ["SSSS"], { S: "stone" }, itemStack("stick", 1)),
+      Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", ["SSSS"], { S: "stone" }, itemStack("stick", 1)]),
       rangeFailure("Shaped recipe rows must be strings no wider than 3 characters"),
     );
     expectRecipeFailure(
@@ -237,19 +384,19 @@ describe("recipe data", () => {
       typeFailure("Shaped recipe key must be an object"),
     );
     expectRecipeFailure(
-      shapedRecipe("minecraft:bad", ["S"], { AB: "stone" }, itemStack("stick", 1)),
+      Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", ["S"], { AB: "stone" }, itemStack("stick", 1)]),
       typeFailure("Shaped recipe keys must use one non-space character"),
     );
     expectRecipeFailure(
-      shapedRecipe("minecraft:bad", ["S"], { " ": "stone" }, itemStack("stick", 1)),
+      Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", ["S"], { " ": "stone" }, itemStack("stick", 1)]),
       typeFailure("Shaped recipe keys must use one non-space character"),
     );
     expectRecipeFailure(
-      shapedRecipe("minecraft:bad", ["X"], { S: "stone" }, itemStack("stick", 1)),
+      Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", ["X"], { S: "stone" }, itemStack("stick", 1)]),
       typeFailure("Shaped recipe pattern references unknown key: X"),
     );
     expectRecipeFailure(
-      shapedRecipe("minecraft:bad", ["   "], {}, itemStack("stick", 1)),
+      Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", ["   "], {}, itemStack("stick", 1)]),
       rangeFailure("Shaped recipe pattern must contain at least one ingredient"),
     );
     expectRecipeFailure(
@@ -269,24 +416,28 @@ describe("recipe data", () => {
       typeFailure("Recipe symmetry must be a boolean"),
     );
     expectRecipeFailure(
-      shapedRecipe("minecraft:bad", ["S"], { S: "stone" }, itemStack("stick", 1), { priority: -1 }),
+      Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", ["S"], { S: "stone" }, itemStack("stick", 1), { priority: -1 }]),
       rangeFailure("Recipe priority must be a non-negative safe integer, received -1"),
     );
     expectRecipeFailure(
-      shapedRecipe("minecraft:bad", ["S"], { S: "stone" }, itemStack("stick", 1), { priority: 1.5 }),
+      Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", ["S"], { S: "stone" }, itemStack("stick", 1), { priority: 1.5 }]),
       rangeFailure("Recipe priority must be a non-negative safe integer, received 1.5"),
+    );
+    expectRecipeFailure(
+      Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", ["S"], { S: "stone" }, itemStack("stick", 1), { priority: "1" }]),
+      rangeFailure("Recipe priority must be a non-negative safe integer, received 1"),
     );
     expectRecipeFailure(
       Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", ["S"], { S: "stone" }, itemStack("stick", 1), { tags: "crafting_table" }]),
       typeFailure("Recipe station tags must be an array"),
     );
     expectRecipeFailure(
-      shapedRecipe("minecraft:bad", ["S"], { S: "stone" }, itemStack("stick", 1), { tags: [""] }),
-      typeFailure("Recipe station tags must be non-empty strings"),
+      Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", ["S"], { S: "stone" }, itemStack("stick", 1), { tags: [""] }]),
+      typeFailure("Recipe station tags must be resource locations"),
     );
     expectRecipeFailure(
       Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", ["S"], { S: "stone" }, itemStack("stick", 1), { tags: [1] }]),
-      typeFailure("Recipe station tags must be non-empty strings"),
+      typeFailure("Recipe station tags must be resource locations"),
     );
     expectRecipeFailure(
       Reflect.apply(shapedRecipe, undefined, ["minecraft:bad", ["S"], { S: "stone" }, itemStack("stick", 1), { category: "invalid" }]),
@@ -304,22 +455,22 @@ describe("recipe data", () => {
 
   it("constructs shapeless recipes and rejects invalid ingredients", () => {
     const recipe = expectRecipeSuccess(shapelessRecipe(
-      "minecraft:mix",
-      ["stone", "#minecraft:planks", { _tag: "Exact", item: "dirt", count: 2 }],
+      recipeId("minecraft:mix"),
+      ["stone", itemTag("#minecraft:planks"), expectRecipeSuccess(exactly("dirt", recipeIngredientCount(2)))],
       itemStack("stick", 1),
-      { priority: 1, tags: ["crafting_table"] },
+      { priority: recipePriority(1), tags: [recipeStationTag("crafting_table")] },
     ));
 
     expect(recipe._tag).toBe("Shapeless");
     expect(recipe.ingredients).toEqual([
       expectRecipeSuccess(exactly("stone")),
-      expectRecipeSuccess(tagged("#minecraft:planks")),
-      expectRecipeSuccess(exactly("dirt", 2)),
+      expectRecipeSuccess(tagged(itemTag("#minecraft:planks"))),
+      expectRecipeSuccess(exactly("dirt", recipeIngredientCount(2))),
     ]);
     expect(recipe.priority).toBe(1);
     expect(recipe.tags).toEqual(["crafting_table"]);
     expectRecipeFailure(
-      shapelessRecipe("minecraft:bad", [], itemStack("stick", 1)),
+      Reflect.apply(shapelessRecipe, undefined, ["minecraft:bad", [], itemStack("stick", 1)]),
       rangeFailure("Shapeless recipes must contain at least one ingredient"),
     );
     expectRecipeFailure(
@@ -350,33 +501,37 @@ describe("recipe data", () => {
 
   it("normalizes craft grids and exposes safe cell lookup", () => {
     const stack = itemStack("dirt", 2);
-    const grid = expectRecipeSuccess(craftGrid(2, 2, ["stone", stack, undefined]));
+    const grid = expectRecipeSuccess(craftGrid(
+      gridDimension(2),
+      gridDimension(2),
+      ["stone", stack, undefined],
+    ));
 
     expect(grid).toEqual({
       width: 2,
       height: 2,
-      cells: [itemStack("stone", StackCount(1)), stack, undefined, undefined],
+      cells: [itemStack("stone", 1), stack, undefined, undefined],
     });
-    expect(cellAt(grid, 0, 0)).toEqual(itemStack("stone", 1));
-    expect(cellAt(grid, 1, 0)).toEqual(stack);
-    expect(cellAt(grid, -1, 0)).toBeUndefined();
-    expect(cellAt(grid, 0, 2)).toBeUndefined();
-    expect(cellAt(grid, 0.5, 0)).toBeUndefined();
-    expect(expectRecipeSuccess(craftGrid(0, 0, []))).toEqual({ width: 0, height: 0, cells: [] });
+    expect(cellAt(grid, gridIndex(0), gridIndex(0))).toEqual(itemStack("stone", 1));
+    expect(cellAt(grid, gridIndex(1), gridIndex(0))).toEqual(stack);
+    expect(Reflect.apply(cellAt, undefined, [grid, -1, 0])).toBeUndefined();
+    expect(cellAt(grid, gridIndex(0), gridIndex(2))).toBeUndefined();
+    expect(Reflect.apply(cellAt, undefined, [grid, 0.5, 0])).toBeUndefined();
+    expect(expectRecipeSuccess(craftGrid(gridDimension(0), gridDimension(0), []))).toEqual({ width: 0, height: 0, cells: [] });
     expectRecipeFailure(
-      craftGrid(-1, 1, []),
+      Reflect.apply(craftGrid, undefined, [-1, 1, []]),
       rangeFailure("Craft grid dimensions must be safe integers in [0, 3]"),
     );
     expectRecipeFailure(
-      craftGrid(1, MAX_RECIPE_SIDE + 1, []),
+      Reflect.apply(craftGrid, undefined, [1, MAX_RECIPE_SIDE + 1, []]),
       rangeFailure("Craft grid dimensions must be safe integers in [0, 3]"),
     );
     expectRecipeFailure(
-      craftGrid(1.5, 1, []),
+      Reflect.apply(craftGrid, undefined, [1.5, 1, []]),
       rangeFailure("Craft grid dimensions must be safe integers in [0, 3]"),
     );
     expectRecipeFailure(
-      craftGrid(1, 1, [itemStack("stone", 1), itemStack("dirt", 1)]),
+      craftGrid(gridDimension(1), gridDimension(1), [itemStack("stone", 1), itemStack("dirt", 1)]),
       rangeFailure("Craft grid contains more cells than its dimensions allow"),
     );
     expectRecipeFailure(
@@ -396,7 +551,7 @@ describe("vanilla recipe data", () => {
     expect(VANILLA_CRAFTING_RECIPES.length).toBeGreaterThan(70);
     expect(
       VANILLA_CRAFTING_RECIPES.every((recipe) =>
-        recipe.tags.includes(RecipeStationTag("crafting_table")),
+        recipe.tags.includes(recipeStationTag("crafting_table")),
       ),
     ).toBe(true);
   });
