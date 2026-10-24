@@ -1,4 +1,5 @@
 import * as kernel from "../src/index";
+import * as blockDomainModule from "../src/domain/block/index";
 import * as blockRegistry from "../src/domain/block/block-registry";
 import { BLOCK_TYPES, isBlockType } from "../src/domain/block/block-type";
 import { BLOCK_PROPERTY_DEFAULTS } from "../src/domain/block/block-properties";
@@ -131,6 +132,172 @@ describe("BlockType", () => {
 });
 
 describe("public API surface", () => {
+  it("pins the exact runtime exports from the block barrel", () =>
+    Effect.runPromise(
+      Effect.sync(() => {
+        expect(Object.keys(blockDomainModule).sort()).toEqual([
+          "AIR_BLOCK_ID",
+          "AUDITED_CAPABILITY_NAMES",
+          "BARE_HANDED",
+          "BARREL_SLOT_COUNT",
+          "BLOCK_CAPABILITY_DEFAULTS",
+          "BLOCK_CAPABILITY_FLAGS",
+          "BLOCK_IDS",
+          "BLOCK_ID_MAX",
+          "BLOCK_OPACITIES",
+          "BLOCK_PROPERTY_DEFAULTS",
+          "BLOCK_PROPERTY_NAMES",
+          "BLOCK_REGISTRY",
+          "BLOCK_TYPES",
+          "BYTES_PER_ELEMENT",
+          "BlockBlastResistance",
+          "BlockContactDamage",
+          "BlockExperiencePoints",
+          "BlockFriction",
+          "BlockHardness",
+          "BlockId",
+          "BlockMovementDrag",
+          "BlockState",
+          "BlockStateByteOffset",
+          "BlockStateIndex",
+          "BlockStateLength",
+          "CHEST_SLOT_COUNT",
+          "COLLISION_SHAPES",
+          "ContainerSlotCount",
+          "DEFAULT_BLOCK_DROP",
+          "DEFAULT_HARVEST_TOOL",
+          "DISPENSER_SLOT_COUNT",
+          "DOWNSTREAM_CAPABILITIES",
+          "DROPPER_SLOT_COUNT",
+          "FLOWING_FLUID_LEVEL",
+          "FLUID_BLOCK_IDS",
+          "FLUID_KINDS",
+          "FLUID_LEVEL_MAX",
+          "FLUID_LEVEL_MIN",
+          "FLUID_LEVEL_STEP",
+          "FLUID_MIX_BLOCK_IDS",
+          "FOOTSTEP_MATERIALS",
+          "HARVEST_TIERS",
+          "HARVEST_TOOL_CATEGORIES",
+          "HOPPER_SLOT_COUNT",
+          "LARGE_CHEST_SLOT_COUNT",
+          "LIGHT_LEVEL_MAX",
+          "LIGHT_LEVEL_MIN",
+          "LIGHT_VOLUME_CODEC_VERSION",
+          "LIGHT_VOLUME_HEADER_BYTES",
+          "LightChannel",
+          "LightChannelByteOffset",
+          "LightChannelIndex",
+          "LightChannelLength",
+          "LightLevel",
+          "LightLevelCandidate",
+          "LightVolumeHeight",
+          "NEEDS_ANY_SUPPORT",
+          "NEEDS_NO_SUPPORT",
+          "NON_PLACEABLE_ITEM_TYPES",
+          "PLACEABLE_ITEM_TYPES",
+          "RAIL_KINDS",
+          "REDSTONE_BLOCK_IDS",
+          "REDSTONE_POWER_MAX",
+          "REDSTONE_POWER_MIN",
+          "REDSTONE_POWER_STEP",
+          "RENDER_KINDS",
+          "SHULKER_BOX_SLOT_COUNT",
+          "SOURCE_FLUID_LEVEL",
+          "STORAGE_CONTAINER_CAPACITIES",
+          "STORAGE_CONTAINER_KINDS",
+          "TRUE_BY_DEFAULT_CAPABILITY_FLAGS",
+          "UNBREAKABLE_HARDNESS",
+          "UNITEMISED_BLOCK_TYPES",
+          "UNREGISTERED_BLOCK_TYPES",
+          "blockCapabilitiesOf",
+          "blockIdOf",
+          "blockIdOfFluidKind",
+          "blockIdsWithCapability",
+          "blockIdsWithOpacity",
+          "blockLightAt",
+          "blockOfPlaceableItem",
+          "blockPropertiesOf",
+          "blockState",
+          "blockTypeOfId",
+          "canBlockStaySupported",
+          "capabilitiesOfBlockId",
+          "capabilityOf",
+          "capabilityOfBlockId",
+          "clampLightLevel",
+          "decodeLightVolume",
+          "dropOfBlockId",
+          "encodeLightVolume",
+          "fluidKindOfBlockId",
+          "isBlockEntity",
+          "isBlockEntityPosition",
+          "isBlockType",
+          "isBrewingState",
+          "isEmpty",
+          "isFurnaceState",
+          "isKnownBlockId",
+          "isLightLevel",
+          "isPlaceableItem",
+          "isStorageContainer",
+          "isSupportSensitive",
+          "isSupportSensitiveBlockId",
+          "itemOfBlock",
+          "lightChannel",
+          "lightEmissionOfBlockId",
+          "lightVolume",
+          "lightVolumeCellCount",
+          "lightVolumeIndexOf",
+          "needsOneOf",
+          "opacityOfBlockId",
+          "propertyOf",
+          "propertyOfBlockId",
+          "resolveBlock",
+          "resolveBlockCapabilities",
+          "resolveBlockProperties",
+          "resolveDrop",
+          "resolveDropItem",
+          "resolvedBlockOfId",
+          "satisfiesHarvestTier",
+          "satisfiesSupportRule",
+          "skyLightAt",
+          "supportRuleOfBlockId",
+          "transmitsLight",
+        ]);
+
+        type BlockDataTypesFromBarrel = {
+          readonly blockEntity: import("../src/domain/block/index").BlockEntity;
+          readonly blockEntityTag: import("../src/domain/block/index").BlockEntityTag;
+          readonly containerSlotCount: import("../src/domain/block/index").ContainerSlotCount;
+          readonly storageContainer: import("../src/domain/block/index").StorageContainer;
+          readonly storageContainerKind: import("../src/domain/block/index").StorageContainerKind;
+          readonly flowingFluidKind: import("../src/domain/block/index").FlowingFluidKind;
+          readonly lightChannel: import("../src/domain/block/index").LightChannel;
+          readonly lightChannelByteOffset: import("../src/domain/block/index").LightChannelByteOffset;
+          readonly lightChannelIndex: import("../src/domain/block/index").LightChannelIndex;
+          readonly lightChannelLength: import("../src/domain/block/index").LightChannelLength;
+          readonly lightVolumeHeight: import("../src/domain/block/index").LightVolumeHeight;
+          readonly lightVolume: import("../src/domain/block/index").LightVolume;
+          readonly lightVolumeFailure: import("../src/domain/block/index").LightVolumeFailure;
+        };
+        type BlockDataTypesFromSources = {
+          readonly blockEntity: import("../src/domain/block/block-entity-data").BlockEntity;
+          readonly blockEntityTag: import("../src/domain/block/block-entity-data").BlockEntityTag;
+          readonly containerSlotCount: import("../src/domain/block/block-entity-data").ContainerSlotCount;
+          readonly storageContainer: import("../src/domain/block/block-entity-data").StorageContainer;
+          readonly storageContainerKind: import("../src/domain/block/block-entity-data").StorageContainerKind;
+          readonly flowingFluidKind: import("../src/domain/block/fluid-data").FlowingFluidKind;
+          readonly lightChannel: import("../src/domain/block/light-data").LightChannel;
+          readonly lightChannelByteOffset: import("../src/domain/block/light-data").LightChannelByteOffset;
+          readonly lightChannelIndex: import("../src/domain/block/light-data").LightChannelIndex;
+          readonly lightChannelLength: import("../src/domain/block/light-data").LightChannelLength;
+          readonly lightVolumeHeight: import("../src/domain/block/light-data").LightVolumeHeight;
+          readonly lightVolume: import("../src/domain/block/light-data").LightVolume;
+          readonly lightVolumeFailure: import("../src/domain/block/light-data").LightVolumeFailure;
+        };
+        expectTypeOf<BlockDataTypesFromBarrel>().toEqualTypeOf<BlockDataTypesFromSources>();
+      }),
+    ));
+
   // The barrel is what all 15 other repositories import. A re-export dropped
   // Here is invisible to every other test in this repository but breaks the
   // Whole organisation, so it is pinned explicitly.
