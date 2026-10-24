@@ -7,8 +7,8 @@
 | 移動する実行時処理 | 実装の所有元（ソースパス） |
 | --- | --- |
 | クラフト、調理、醸造、製錬、鍛造、石切り、インベントリ、ホットバー | `mc-sim:src/domain/` |
-| Equipment, anvil state, grindstone | `mc-sim:src/domain/` |
-| Enchantment offer generation and state | `mc-sim:src/domain/` |
+| 装備、金床状態、砥石 | `mc-sim:src/domain/` |
+| エンチャント候補の生成と状態 | `mc-sim:src/domain/` |
 | Enchantment application | `mx-gameplay:src/domain/` |
 | エンティティ操作、vitals、wither、爆発、TNT、BlockWorld、作物、ゲームルール、統計、時刻、天候状態、乗り物状態 | `mc-sim:src/domain/` |
 | Java・Bedrockの採掘時間とブロック破壊速度 | `mx-gameplay:src/domain/interactions/` |
@@ -27,197 +27,197 @@
 
 Anvil snapshot v1.0.0 は閉じた wire format である。decode時は最上位と入れ子のすべてのobjectで未知のfieldを拒否し、無視して読み込まない。codecは `mc-sim` が所有する。
 
-## Removed exports and migration status
+## 削除されたexportと移行状況
 
-The declarations below were exported by 0.8 and are no longer available from their former kernel owners. Use the listed owner when its API is available. While that API is unpublished, keep `@nerima-games/mc-kernel` pinned to 0.8 if the consumer depends on the declaration. A name reused by a different 0.9 declaration is qualified by its former module.
+次の宣言は0.8で公開されていましたが、0.9では以前のkernel moduleから削除されています。移行先のAPIが公開されたら、そちらを使ってください。移行先が未公開で、その宣言に依存する場合は、`@nerima-games/mc-kernel`を0.8に固定してください。0.9で同じ名前の別宣言がある場合は、旧module名を併記します。
 
-| Removed 0.8 export or declaration | Migration owner | Keep 0.8 pin until owner API is public? |
+| 削除された0.8のexportまたは宣言 | 移行先 | 移行先APIが公開されるまで0.8に固定するか |
 | --- | --- | --- |
-| `matchRecipe` | `mc-sim` | Yes. |
-| `matchRecipeWithAssignments` | `mc-sim` | Yes. |
-| `matchesRecipe` | `mc-sim` | Yes. |
-| `matchesShaped` | `mc-sim` | Yes. |
-| `matchesShapeless` | `mc-sim` | Yes. |
-| `conflictsIn` | `mc-sim` | Yes. |
-| `addBrewingFuel` | `mc-sim` | Yes. |
-| `advanceBrewing` | `mc-sim` | Yes. |
-| `advanceFurnace` | `mc-sim` | Yes. |
-| `applyCooking` | `mc-sim` | Yes. |
-| `applyCraftingDye` | `mc-sim` | Yes. |
-| `applyCraftingImbue` | `mc-sim` | Yes. |
-| `applyCraftingSpecial` | `mc-sim` | Yes. |
-| `applySmithing` | `mc-sim` | Yes. |
-| `applyStonecutting` | `mc-sim` | Yes. |
-| `applyTransmute` | `mc-sim` | Yes. |
-| `brewingState` | `mc-sim` | Yes. |
-| `craftFromGrid` | `mc-sim` | Yes. |
-| `emptyBrewingState` | `mc-sim` | Yes. |
-| `emptyFurnaceState` | `mc-sim` | Yes. |
-| `furnaceState` | `mc-sim` | Yes. |
-| `cookingRecipe` | `mc-sim` | Yes. |
-| `cookingRecipeForItem` | `mc-sim` | Yes. |
-| `isCookingRecipe` | `mc-sim` | Yes. |
-| `matchBrewingRecipe` | `mc-sim` | Yes. |
-| `matchCookingRecipe` | `mc-sim` | Yes. |
-| `matchCookingRecipes` | `mc-sim` | Yes. |
-| `matchesCookingRecipe` | `mc-sim` | Yes. |
-| `matchCraftingDyeRecipe` | `mc-sim` | Yes. |
-| `matchCraftingDyeRecipes` | `mc-sim` | Yes. |
-| `matchCraftingImbueRecipe` | `mc-sim` | Yes. |
-| `matchCraftingImbueRecipes` | `mc-sim` | Yes. |
-| `matchCraftingSpecialRecipe` | `mc-sim` | Yes. |
-| `matchCraftingSpecialRecipes` | `mc-sim` | Yes. |
-| `matchesCraftingDyeRecipe` | `mc-sim` | Yes. |
-| `matchesCraftingImbueRecipe` | `mc-sim` | Yes. |
-| `matchSmeltingRecipe` | `mc-sim` | Yes. |
-| `matchSmithingRecipe` | `mc-sim` | Yes. |
-| `matchesSmithingRecipe` | `mc-sim` | Yes. |
-| `smithingInput` | `mc-sim` | Yes. |
-| `SMITHING_STATION_TAG` | `mc-sim` | Yes. |
-| `SMITHING_TRIM_MATERIAL_TAG` | `mc-sim` | Yes. |
-| `SMITHING_TRIM_TEMPLATE_TAG` | `mc-sim` | Yes. |
-| `SMITHING_TRIMMABLE_ARMOR_TAG` | `mc-sim` | Yes. |
-| `VANILLA_SMITHING_RECIPES` | `mc-sim` | Yes. |
-| `smithingTransformRecipe` | `mc-sim` | Yes. |
-| `smithingTrimRecipe` | `mc-sim` | Yes. |
-| `SmithingInput` | `mc-sim` | Yes. |
-| `SmithingInputInput` | `mc-sim` | Yes. |
-| `matchStonecuttingRecipe` | `mc-sim` | Yes. |
-| `matchStonecuttingRecipes` | `mc-sim` | Yes. |
-| `STONECUTTING_STATION_TAG` | `mc-sim` | Yes. |
-| `stonecuttingRecipe` | `mc-sim` | Yes. |
-| `VANILLA_STONECUTTING_RECIPES` | `mc-sim` | Yes. |
-| `matchTransmuteRecipe` | `mc-sim` | Yes. |
-| `matchTransmuteRecipes` | `mc-sim` | Yes. |
-| `matchesTransmuteRecipe` | `mc-sim` | Yes. |
-| `mixCraftingDyeColor` | `mc-sim` | Yes. |
-| `isTransmuteMaterialCount` | `mc-sim` | Yes. |
-| `isTransmuteRecipe` | `mc-sim` | Yes. |
-| `transmuteRecipe` | `mc-sim` | Yes. |
-| `transmuteRecipeForItem` | `mc-sim` | Yes. |
-| `TRANSMUTE_MAX_MATERIAL_SLOTS` | `mc-sim` | Yes. |
-| `applySettings` | `mc-sim` | Yes. |
-| `isGraphicsQuality` | `mc-sim` | Yes. |
-| `keyBindingFor` | `mc-sim` | Yes. |
-| `isValidSettings` | `mc-sim` | Yes. |
-| `counterOf` | `mc-sim` | Yes. |
-| `isUnlocked` | `mc-sim` | Yes. |
-| `isValidStatistics` | `mc-sim` | Yes. |
-| `normaliseStatistics` | `mc-sim` | Yes. |
-| `record` | `mc-sim` | Yes. |
-| `unlock` | `mc-sim` | Yes. |
-| `Statistics` | `mc-sim` | Yes. |
-| `StatisticKey` | `mc-sim` | Yes. |
-| `AchievementId` (statistics) | `mc-sim` | Yes. |
-| `EMPTY_STATISTICS` | `mc-sim` | Yes. |
-| `CookingApplyResult` | `mc-sim` | Yes. |
-| `CookingMatch` | `mc-sim` | Yes. |
-| `CookingRecipe` | `mc-sim` | Yes. |
-| `CookingRecipeOptions` | `mc-sim` | Yes. |
-| `CookingRecipeTable` | `mc-sim` | Yes. |
-| `CraftOutcome` | `mc-sim` | Yes. |
-| `CraftResult` | `mc-sim` | Yes. |
-| `MissingIngredient` | `mc-sim` | Yes. |
-| `RecipeConflict` | `mc-sim` | Yes. |
-| `RecipeConflictReason` | `mc-sim` | Yes. |
-| `RecipeIngredientAssignment` | `mc-sim` | Yes. |
-| `RecipeMatch` | `mc-sim` | Yes. |
-| `RecipeMatchWithAssignments` | `mc-sim` | Yes. |
-| `CraftingDyeMatch` | `mc-sim` | Yes. |
-| `CraftingImbueMatch` | `mc-sim` | Yes. |
-| `CraftingBannerDuplicateMatch` | `mc-sim` | Yes. |
-| `CraftingBookCloningMatch` | `mc-sim` | Yes. |
-| `CraftingDecoratedPotMatch` | `mc-sim` | Yes. |
-| `CraftingFireworkRocketMatch` | `mc-sim` | Yes. |
-| `CraftingFireworkStarFadeMatch` | `mc-sim` | Yes. |
-| `CraftingFireworkStarMatch` | `mc-sim` | Yes. |
-| `CraftingMapExtendingMatch` | `mc-sim` | Yes. |
-| `CraftingShieldDecorationMatch` | `mc-sim` | Yes. |
-| `CraftingSpecialMatch` | `mc-sim` | Yes. |
-| `CraftingDyeApplyResult` | `mc-sim` | Yes. |
-| `CraftingImbueApplyResult` | `mc-sim` | Yes. |
-| `CraftingBannerDuplicateApplyResult` | `mc-sim` | Yes. |
-| `CraftingBookCloningApplyResult` | `mc-sim` | Yes. |
-| `CraftingDecoratedPotApplyResult` | `mc-sim` | Yes. |
-| `CraftingFireworkRocketApplyResult` | `mc-sim` | Yes. |
-| `CraftingFireworkStarFadeApplyResult` | `mc-sim` | Yes. |
-| `CraftingFireworkStarApplyResult` | `mc-sim` | Yes. |
-| `CraftingMapExtendingApplyResult` | `mc-sim` | Yes. |
-| `CraftingShieldDecorationApplyResult` | `mc-sim` | Yes. |
-| `CraftingSpecialApplyResult` | `mc-sim` | Yes. |
-| `SmithingOperation` | `mc-sim` | Yes. |
-| `SmithingRecipe` | `mc-sim` | Yes. |
-| `SmithingRecipeOptions` | `mc-sim` | Yes. |
-| `SmithingRecipeTable` | `mc-sim` | Yes. |
-| `SmithingTransformRecipe` | `mc-sim` | Yes. |
-| `SmithingTrimRecipe` | `mc-sim` | Yes. |
-| `StonecuttingApplyResult` | `mc-sim` | Yes. |
-| `StonecuttingMatch` | `mc-sim` | Yes. |
-| `StonecuttingRecipe` | `mc-sim` | Yes. |
-| `StonecuttingRecipeOptions` | `mc-sim` | Yes. |
-| `StonecuttingRecipeTable` | `mc-sim` | Yes. |
-| `TransmuteApplyResult` | `mc-sim` | Yes. |
-| `TransmuteInput` | `mc-sim` | Yes. |
-| `TransmuteMatch` | `mc-sim` | Yes. |
-| `TransmuteMaterialCount` | `mc-sim` | Yes. |
-| `TransmuteRecipe` | `mc-sim` | Yes. |
-| `TransmuteRecipeOptions` | `mc-sim` | Yes. |
-| `TransmuteRecipeTable` | `mc-sim` | Yes. |
-| `AnvilCustomName` | `mc-sim` | Yes, if using Anvil state or snapshot types. |
-| `AnvilEnchantmentId` | `mc-sim` | Yes, if using Anvil state or snapshot types. |
-| `AnvilMaterialCost` | `mc-sim` | Yes, if using Anvil state or snapshot types. |
+| `matchRecipe` | `mc-sim` | はい。 |
+| `matchRecipeWithAssignments` | `mc-sim` | はい。 |
+| `matchesRecipe` | `mc-sim` | はい。 |
+| `matchesShaped` | `mc-sim` | はい。 |
+| `matchesShapeless` | `mc-sim` | はい。 |
+| `conflictsIn` | `mc-sim` | はい。 |
+| `addBrewingFuel` | `mc-sim` | はい。 |
+| `advanceBrewing` | `mc-sim` | はい。 |
+| `advanceFurnace` | `mc-sim` | はい。 |
+| `applyCooking` | `mc-sim` | はい。 |
+| `applyCraftingDye` | `mc-sim` | はい。 |
+| `applyCraftingImbue` | `mc-sim` | はい。 |
+| `applyCraftingSpecial` | `mc-sim` | はい。 |
+| `applySmithing` | `mc-sim` | はい。 |
+| `applyStonecutting` | `mc-sim` | はい。 |
+| `applyTransmute` | `mc-sim` | はい。 |
+| `brewingState` | `mc-sim` | はい。 |
+| `craftFromGrid` | `mc-sim` | はい。 |
+| `emptyBrewingState` | `mc-sim` | はい。 |
+| `emptyFurnaceState` | `mc-sim` | はい。 |
+| `furnaceState` | `mc-sim` | はい。 |
+| `cookingRecipe` | `mc-sim` | はい。 |
+| `cookingRecipeForItem` | `mc-sim` | はい。 |
+| `isCookingRecipe` | `mc-sim` | はい。 |
+| `matchBrewingRecipe` | `mc-sim` | はい。 |
+| `matchCookingRecipe` | `mc-sim` | はい。 |
+| `matchCookingRecipes` | `mc-sim` | はい。 |
+| `matchesCookingRecipe` | `mc-sim` | はい。 |
+| `matchCraftingDyeRecipe` | `mc-sim` | はい。 |
+| `matchCraftingDyeRecipes` | `mc-sim` | はい。 |
+| `matchCraftingImbueRecipe` | `mc-sim` | はい。 |
+| `matchCraftingImbueRecipes` | `mc-sim` | はい。 |
+| `matchCraftingSpecialRecipe` | `mc-sim` | はい。 |
+| `matchCraftingSpecialRecipes` | `mc-sim` | はい。 |
+| `matchesCraftingDyeRecipe` | `mc-sim` | はい。 |
+| `matchesCraftingImbueRecipe` | `mc-sim` | はい。 |
+| `matchSmeltingRecipe` | `mc-sim` | はい。 |
+| `matchSmithingRecipe` | `mc-sim` | はい。 |
+| `matchesSmithingRecipe` | `mc-sim` | はい。 |
+| `smithingInput` | `mc-sim` | はい。 |
+| `SMITHING_STATION_TAG` | `mc-sim` | はい。 |
+| `SMITHING_TRIM_MATERIAL_TAG` | `mc-sim` | はい。 |
+| `SMITHING_TRIM_TEMPLATE_TAG` | `mc-sim` | はい。 |
+| `SMITHING_TRIMMABLE_ARMOR_TAG` | `mc-sim` | はい。 |
+| `VANILLA_SMITHING_RECIPES` | `mc-sim` | はい。 |
+| `smithingTransformRecipe` | `mc-sim` | はい。 |
+| `smithingTrimRecipe` | `mc-sim` | はい。 |
+| `SmithingInput` | `mc-sim` | はい。 |
+| `SmithingInputInput` | `mc-sim` | はい。 |
+| `matchStonecuttingRecipe` | `mc-sim` | はい。 |
+| `matchStonecuttingRecipes` | `mc-sim` | はい。 |
+| `STONECUTTING_STATION_TAG` | `mc-sim` | はい。 |
+| `stonecuttingRecipe` | `mc-sim` | はい。 |
+| `VANILLA_STONECUTTING_RECIPES` | `mc-sim` | はい。 |
+| `matchTransmuteRecipe` | `mc-sim` | はい。 |
+| `matchTransmuteRecipes` | `mc-sim` | はい。 |
+| `matchesTransmuteRecipe` | `mc-sim` | はい。 |
+| `mixCraftingDyeColor` | `mc-sim` | はい。 |
+| `isTransmuteMaterialCount` | `mc-sim` | はい。 |
+| `isTransmuteRecipe` | `mc-sim` | はい。 |
+| `transmuteRecipe` | `mc-sim` | はい。 |
+| `transmuteRecipeForItem` | `mc-sim` | はい。 |
+| `TRANSMUTE_MAX_MATERIAL_SLOTS` | `mc-sim` | はい。 |
+| `applySettings` | `mc-sim` | はい。 |
+| `isGraphicsQuality` | `mc-sim` | はい。 |
+| `keyBindingFor` | `mc-sim` | はい。 |
+| `isValidSettings` | `mc-sim` | はい。 |
+| `counterOf` | `mc-sim` | はい。 |
+| `isUnlocked` | `mc-sim` | はい。 |
+| `isValidStatistics` | `mc-sim` | はい。 |
+| `normaliseStatistics` | `mc-sim` | はい。 |
+| `record` | `mc-sim` | はい。 |
+| `unlock` | `mc-sim` | はい。 |
+| `Statistics` | `mc-sim` | はい。 |
+| `StatisticKey` | `mc-sim` | はい。 |
+| `AchievementId` (statistics) | `mc-sim` | はい。 |
+| `EMPTY_STATISTICS` | `mc-sim` | はい。 |
+| `CookingApplyResult` | `mc-sim` | はい。 |
+| `CookingMatch` | `mc-sim` | はい。 |
+| `CookingRecipe` | `mc-sim` | はい。 |
+| `CookingRecipeOptions` | `mc-sim` | はい。 |
+| `CookingRecipeTable` | `mc-sim` | はい。 |
+| `CraftOutcome` | `mc-sim` | はい。 |
+| `CraftResult` | `mc-sim` | はい。 |
+| `MissingIngredient` | `mc-sim` | はい。 |
+| `RecipeConflict` | `mc-sim` | はい。 |
+| `RecipeConflictReason` | `mc-sim` | はい。 |
+| `RecipeIngredientAssignment` | `mc-sim` | はい。 |
+| `RecipeMatch` | `mc-sim` | はい。 |
+| `RecipeMatchWithAssignments` | `mc-sim` | はい。 |
+| `CraftingDyeMatch` | `mc-sim` | はい。 |
+| `CraftingImbueMatch` | `mc-sim` | はい。 |
+| `CraftingBannerDuplicateMatch` | `mc-sim` | はい。 |
+| `CraftingBookCloningMatch` | `mc-sim` | はい。 |
+| `CraftingDecoratedPotMatch` | `mc-sim` | はい。 |
+| `CraftingFireworkRocketMatch` | `mc-sim` | はい。 |
+| `CraftingFireworkStarFadeMatch` | `mc-sim` | はい。 |
+| `CraftingFireworkStarMatch` | `mc-sim` | はい。 |
+| `CraftingMapExtendingMatch` | `mc-sim` | はい。 |
+| `CraftingShieldDecorationMatch` | `mc-sim` | はい。 |
+| `CraftingSpecialMatch` | `mc-sim` | はい。 |
+| `CraftingDyeApplyResult` | `mc-sim` | はい。 |
+| `CraftingImbueApplyResult` | `mc-sim` | はい。 |
+| `CraftingBannerDuplicateApplyResult` | `mc-sim` | はい。 |
+| `CraftingBookCloningApplyResult` | `mc-sim` | はい。 |
+| `CraftingDecoratedPotApplyResult` | `mc-sim` | はい。 |
+| `CraftingFireworkRocketApplyResult` | `mc-sim` | はい。 |
+| `CraftingFireworkStarFadeApplyResult` | `mc-sim` | はい。 |
+| `CraftingFireworkStarApplyResult` | `mc-sim` | はい。 |
+| `CraftingMapExtendingApplyResult` | `mc-sim` | はい。 |
+| `CraftingShieldDecorationApplyResult` | `mc-sim` | はい。 |
+| `CraftingSpecialApplyResult` | `mc-sim` | はい。 |
+| `SmithingOperation` | `mc-sim` | はい。 |
+| `SmithingRecipe` | `mc-sim` | はい。 |
+| `SmithingRecipeOptions` | `mc-sim` | はい。 |
+| `SmithingRecipeTable` | `mc-sim` | はい。 |
+| `SmithingTransformRecipe` | `mc-sim` | はい。 |
+| `SmithingTrimRecipe` | `mc-sim` | はい。 |
+| `StonecuttingApplyResult` | `mc-sim` | はい。 |
+| `StonecuttingMatch` | `mc-sim` | はい。 |
+| `StonecuttingRecipe` | `mc-sim` | はい。 |
+| `StonecuttingRecipeOptions` | `mc-sim` | はい。 |
+| `StonecuttingRecipeTable` | `mc-sim` | はい。 |
+| `TransmuteApplyResult` | `mc-sim` | はい。 |
+| `TransmuteInput` | `mc-sim` | はい。 |
+| `TransmuteMatch` | `mc-sim` | はい。 |
+| `TransmuteMaterialCount` | `mc-sim` | はい。 |
+| `TransmuteRecipe` | `mc-sim` | はい。 |
+| `TransmuteRecipeOptions` | `mc-sim` | はい。 |
+| `TransmuteRecipeTable` | `mc-sim` | はい。 |
+| `AnvilCustomName` | `mc-sim` | はい（金床のstate型またはsnapshot型を使う場合）。 |
+| `AnvilEnchantmentId` | `mc-sim` | はい（金床のstate型またはsnapshot型を使う場合）。 |
+| `AnvilMaterialCost` | `mc-sim` | はい（金床のstate型またはsnapshot型を使う場合）。 |
 
-`AchievementId` (statistics) refers to the 0.8 statistics identifier. The 0.9 root `AchievementId` from `domain-event` is a different declaration.
+表の`AchievementId`（statistics）は、0.8で統計に使われた識別子です。0.9のrootから公開される`domain-event`の`AchievementId`は別の宣言です。
 
-### Additional removed exports by destination
+### 移行先ごとの追加削除export一覧
 
-Each code name below is a separate removed 0.8 export. The owner and pin decision in its subsection apply to every name listed there.
+次に挙げるコード名は、それぞれ0.8で削除された別個のexportです。各節の移行先と0.8に固定するかどうかは、その節に並ぶすべての名前に適用されます。
 
 #### `mc-sim`
 
-Keep the 0.8 pin until the corresponding `mc-sim` API is public.
+対応する`mc-sim`のAPIが公開されるまで、`mc-kernel`は0.8に固定してください。
 
-- Weather: `WeatherState`, `INITIAL_WEATHER_STATE`, `isValidWeatherState`, `normaliseWeatherState`.
-- Block interaction and world access: `BlockBreakDecision`, `BlockPlacementDecision`, `PlaceableBlock`, `breakBlock`, `canReplaceBlock`, `placeBlock`, `placeableBlockFromItem`, `BlockWorld`, `BlockReader`, `BlockSource`, `emptyBlockWorld`, `blockAt`, `blockReaderOf`, `readBlockAt`, `setBlockAt`, `BlockEntities`, `emptyBlockEntities`, `blockEntityAt`, `setBlockEntity`, `clearBlockEntity`, `BEDROCK_HARDNESS`, `REFERENCE_UNBREAKABLE_HARDNESS`.
-- Crops: `CropLocation`, `CropState`, `CropSnapshot`, `CropValidationError`, `CropValidationResult`, `isCropType`, `cropDefinitionFor`, `maturitySecsFor`, `canPlantCrop`, `isMatureCrop`, `matureYieldsFor`, `advanceCrop`, `advanceCropByBoneMeal`, `cropLocationKey`, `validateCropSnapshot`, `BONE_MEAL_GROWTH_SECS`, `CROP_REGISTRY`, `CROP_TYPES`, `NETHER_WART_MATURITY_SECS`, `POTATO_MATURITY_SECS`, `WHEAT_MATURITY_SECS`, `CropDefinition`, `CropType`.
-- Anvil state, snapshots, plans, and compilation: `ANVIL_SNAPSHOT_VERSION`, `ANVIL_MAX_CUSTOM_NAME_LENGTH`, `AnvilDurability`, `AnvilEnchantment`, `AnvilItemPayload`, `CanonicalAnvilItemPayload`, `AnvilInputStack`, `AnvilState`, `CanonicalAnvilState`, `AnvilEnchantmentRule`, `AnvilRepairMaterialRule`, `AnvilRuleSet`, `AnvilRuleInput`, `AnvilValidationIssue`, `AnvilSnapshot`, `AnvilSnapshotString`, `AnvilSnapshotResult`, `AnvilSnapshotEncodingResult`, `AnvilRejectionReason`, `AnvilPlan`, `AnvilApplyResult`, `isAnvilEnchantmentId`, `isAnvilCustomName`, `decodeAnvilSnapshot`, `decodeAnvilSnapshotString`, `encodeAnvilSnapshot`, `isAnvilSnapshotString`, `snapshotAnvilState`, `compileAnvilRuleSet`, `nextAnvilRepairCost`, `AnvilRuleSetCompilation`, `CompiledAnvilEnchantmentRule`, `CompiledAnvilRuleSet`, `planAnvil`, `applyAnvil`.
-- Equipment and durability: `isEquippableItemType`, `equipmentDefinitionFor`, `isDamageableItemType`, `Durability`, `EquipmentItem`, `ValidEquipmentItem`, `EquipmentSlots`, `Equipment`, `EquipmentValidationError`, `EquipmentValidationResult`, `EquipmentOutcome`, `DamageEquipmentResult`, `isEquipmentSlot`, `isDurability`, `isValidDurabilityForItem`, `isEquipmentItem`, `isEquipmentItemForSlot`, `durabilityForItem`, `durability`, `equipmentItem`, `emptyEquipment`, `equippedAt`, `equip`, `unequip`, `swapEquipment`, `damageEquipment`, `validateEquipmentSnapshot`.
-- Enchantment state and offers: `isSupportedVanillaEnchantmentId`, `enchantmentRuleFor`, `enchantmentAppliesTo`, `enchantmentsConflict`, `planVanillaAnvil`, `applyVanillaAnvil`, `EnchantmentTableRandom`, `EnchantmentTableOffer`, `EnchantmentTableOffers`, `EnchantmentTableSlot`, `CalculateEnchantmentTableLevelCostInput`, `GenerateEnchantmentOffersInput`, `enchantmentTableCostAtLevel`, `calculateEnchantmentTableLevelCost`, `generateEnchantmentTableOffers`, `enchantmentTableOutputItemOf`, `ENCHANTMENT_TABLE_BOOK`, `ENCHANTMENT_TABLE_MAX_BOOKSHELVES`, `ENCHANTMENT_TABLE_SLOT_COUNT`, `EnchantmentTableItem`, `EnchantmentTableCost`, `VanillaEnchantmentTableRule`, `VANILLA_ENCHANTMENT_TABLE_RULES`, `ENCHANTMENT_TABLE_ITEM_ENMERCHANTABILITY`, `EnchantmentTableRuleId`, `isEnchantmentTableRuleId`, `enchantmentTableRuleFor`, `itemEnchantabilityOf`.
-- Grindstone: `GrindstoneInput`, `GrindstoneOutput`, `GrindstoneFailureReason`, `GrindstonePlan`, `grindstoneExperienceFor`, `planGrindstone`, `GRINDSTONE_CURSE_ENCHANTMENT_IDS`, `GRINDSTONE_DURABILITY_BONUS_PERCENT`, `GRINDSTONE_REPAIR_COST_MAX`.
-- Inventory, hotbar, and entity roster: `emptyInventory`, `slotAt`, `countOf`, `isInventoryEmpty`, `AddOutcome`, `addItemStack`, `addItem`, `RemoveOutcome`, `RemoveAtResult`, `RemoveAtOutcome`, `removeItemAt`, `removeItem`, `NormaliseOutcome`, `normaliseInventory`, `isHotbarIndex`, `clampHotbarIndex`, `cycleHotbarIndex`, `hotbarSlotIndex`, `emptyRoster`, `spawnEntity`, `despawnEntity`, `findEntity`, `countOfKind`, `UNCHANGED`, `DESPAWNED`, `changed`, `sweepRoster`, `normaliseRoster`, `INVENTORY_SLOT_COUNT`, `Inventory`, `HOTBAR_SIZE`, `HOTBAR_START`.
-- Explosions and primed TNT: `planExplosion`, `applyExplosionPlan`, `primeTnt`, `planPrimedTnt`, `applyPrimedTntPlan`, `DEFAULT_TNT_FUSE_SECS`, `MAX_TNT_FUSE_ADVANCE_SECS`, `PrimedTntCommit`, `PrimedTntMutation`, `PrimedTntPlan`, `PrimedTntRequest`, `PrimedTntState`.
-- Experience, vitals, and hunger: `experienceCostOfLevel`, `totalExperienceAtLevel`, `levelForTotalExperience`, `experienceLevel`, `experienceProgress`, `addExperience`, `isDead`, `applyDamage`, `heal`, `FoodTickSignal`, `addExhaustion`, `eat`, `advanceFoodTimer`, `respawn`, `DEFAULT_MAX_HEALTH_POINTS`, `DEFAULT_MAX_HUNGER_POINTS`, `SPAWN_SATURATION`, `EXHAUSTION_PER_POINT`, `MAX_EXHAUSTION`, `FOOD_TICK_SECS`, `REGEN_HUNGER_THRESHOLD`, `EXHAUSTION_PER_REGEN`, `DamageCause`, `Damage`, `Vitals`, `VitalsView`, `SPAWN_VITALS`, `isValidVitals`, `normaliseVitals`, `vitalsView`.
-- Vehicle and wither state: `validateVehicleSnapshot`, `emptyVehicleSnapshot`, `createWither`, `stepWither`, `damageWither`, `witherSkullProjectile`, `matchWitherSummon`, `serializeWither`, `restoreWither`, `WITHER_ARMOUR_THRESHOLD`, `WITHER_FOLLOW_ACCELERATION`, `WITHER_MAX_HEALTH`, `WITHER_MAX_SPEED`, `WITHER_REGEN_PER_SEC`, `WITHER_SPAWN_CHARGE_SECS`, `BlockCell`, `WitherDamageKind`, `WitherDamageResult`, `WitherDeathDescriptor`, `WitherPhase`, `WitherSkullProjectileDescriptor`, `WitherSkullVariant`, `WitherSnapshot`, `WitherState`, `WitherStep`, `WitherSummonMatch`, `WitherSummonMaterial`.
-- Time, game rules, and camera pose: `TICKS_PER_SECOND`, `MIN_DAY_LENGTH_SECS`, `MAX_DAY_LENGTH_SECS`, `MAX_TIME_FRACTION`, `MOON_PHASE_COUNT`, `TimeState`, `INITIAL_TIME_STATE`, `DEFAULT_DAY_LENGTH_SECS`, `clampDayLengthSecs`, `clampFraction`, `isValidTimeState`, `normaliseTimeState`, `timeOfDay`, `dayLengthSecs`, `moonPhase`, `isNight`, `advance`, `setDayLength`, `setTimeOfDay`, `setDayLengthThenTimeOfDay`, `normaliseGameRules`, `applyGameRules`, `isValidGameRules`, `DEFAULT_GAME_RULES`, `GAME_RULE_BOOLEAN_NAMES`, `GAME_RULE_INTEGER_NAMES`, `MAX_ENTITY_CRAMMING_MAX`, `MAX_ENTITY_CRAMMING_MIN`, `PLAYERS_SLEEPING_PERCENTAGE_MAX`, `PLAYERS_SLEEPING_PERCENTAGE_MIN`, `RANDOM_TICK_SPEED_MAX`, `RANDOM_TICK_SPEED_MIN`, `SPAWN_RADIUS_MAX`, `SPAWN_RADIUS_MIN`, `GameRuleBooleanName`, `GameRuleIntegerName`, `GameRules`, `PITCH_EPSILON`, `PITCH_MAX_RADIANS`, `PITCH_MIN_RADIANS`, `EYE_LEVEL_OFFSET`, `INITIAL_PLAYER_POSE`, `clampPitch`, `applyLook`, `withFeetPosition`, `cameraPoseOf`, `CameraOrientation`, `forwardVector`, `PlayerPose`.
+- 天候： `WeatherState`, `INITIAL_WEATHER_STATE`, `isValidWeatherState`, `normaliseWeatherState`.
+- ブロック操作とワールド参照： `BlockBreakDecision`, `BlockPlacementDecision`, `PlaceableBlock`, `breakBlock`, `canReplaceBlock`, `placeBlock`, `placeableBlockFromItem`, `BlockWorld`, `BlockReader`, `BlockSource`, `emptyBlockWorld`, `blockAt`, `blockReaderOf`, `readBlockAt`, `setBlockAt`, `BlockEntities`, `emptyBlockEntities`, `blockEntityAt`, `setBlockEntity`, `clearBlockEntity`, `BEDROCK_HARDNESS`, `REFERENCE_UNBREAKABLE_HARDNESS`.
+- 作物： `CropLocation`, `CropState`, `CropSnapshot`, `CropValidationError`, `CropValidationResult`, `isCropType`, `cropDefinitionFor`, `maturitySecsFor`, `canPlantCrop`, `isMatureCrop`, `matureYieldsFor`, `advanceCrop`, `advanceCropByBoneMeal`, `cropLocationKey`, `validateCropSnapshot`, `BONE_MEAL_GROWTH_SECS`, `CROP_REGISTRY`, `CROP_TYPES`, `NETHER_WART_MATURITY_SECS`, `POTATO_MATURITY_SECS`, `WHEAT_MATURITY_SECS`, `CropDefinition`, `CropType`.
+- 金床の状態、スナップショット、計画、ルールセットのコンパイル： `ANVIL_SNAPSHOT_VERSION`, `ANVIL_MAX_CUSTOM_NAME_LENGTH`, `AnvilDurability`, `AnvilEnchantment`, `AnvilItemPayload`, `CanonicalAnvilItemPayload`, `AnvilInputStack`, `AnvilState`, `CanonicalAnvilState`, `AnvilEnchantmentRule`, `AnvilRepairMaterialRule`, `AnvilRuleSet`, `AnvilRuleInput`, `AnvilValidationIssue`, `AnvilSnapshot`, `AnvilSnapshotString`, `AnvilSnapshotResult`, `AnvilSnapshotEncodingResult`, `AnvilRejectionReason`, `AnvilPlan`, `AnvilApplyResult`, `isAnvilEnchantmentId`, `isAnvilCustomName`, `decodeAnvilSnapshot`, `decodeAnvilSnapshotString`, `encodeAnvilSnapshot`, `isAnvilSnapshotString`, `snapshotAnvilState`, `compileAnvilRuleSet`, `nextAnvilRepairCost`, `AnvilRuleSetCompilation`, `CompiledAnvilEnchantmentRule`, `CompiledAnvilRuleSet`, `planAnvil`, `applyAnvil`.
+- 装備と耐久値： `isEquippableItemType`, `equipmentDefinitionFor`, `isDamageableItemType`, `Durability`, `EquipmentItem`, `ValidEquipmentItem`, `EquipmentSlots`, `Equipment`, `EquipmentValidationError`, `EquipmentValidationResult`, `EquipmentOutcome`, `DamageEquipmentResult`, `isEquipmentSlot`, `isDurability`, `isValidDurabilityForItem`, `isEquipmentItem`, `isEquipmentItemForSlot`, `durabilityForItem`, `durability`, `equipmentItem`, `emptyEquipment`, `equippedAt`, `equip`, `unequip`, `swapEquipment`, `damageEquipment`, `validateEquipmentSnapshot`.
+- エンチャントの状態と候補： `isSupportedVanillaEnchantmentId`, `enchantmentRuleFor`, `enchantmentAppliesTo`, `enchantmentsConflict`, `planVanillaAnvil`, `applyVanillaAnvil`, `EnchantmentTableRandom`, `EnchantmentTableOffer`, `EnchantmentTableOffers`, `EnchantmentTableSlot`, `CalculateEnchantmentTableLevelCostInput`, `GenerateEnchantmentOffersInput`, `enchantmentTableCostAtLevel`, `calculateEnchantmentTableLevelCost`, `generateEnchantmentTableOffers`, `enchantmentTableOutputItemOf`, `ENCHANTMENT_TABLE_BOOK`, `ENCHANTMENT_TABLE_MAX_BOOKSHELVES`, `ENCHANTMENT_TABLE_SLOT_COUNT`, `EnchantmentTableItem`, `EnchantmentTableCost`, `VanillaEnchantmentTableRule`, `VANILLA_ENCHANTMENT_TABLE_RULES`, `ENCHANTMENT_TABLE_ITEM_ENMERCHANTABILITY`, `EnchantmentTableRuleId`, `isEnchantmentTableRuleId`, `enchantmentTableRuleFor`, `itemEnchantabilityOf`.
+- 砥石： `GrindstoneInput`, `GrindstoneOutput`, `GrindstoneFailureReason`, `GrindstonePlan`, `grindstoneExperienceFor`, `planGrindstone`, `GRINDSTONE_CURSE_ENCHANTMENT_IDS`, `GRINDSTONE_DURABILITY_BONUS_PERCENT`, `GRINDSTONE_REPAIR_COST_MAX`.
+- インベントリ、ホットバー、エンティティ一覧： `emptyInventory`, `slotAt`, `countOf`, `isInventoryEmpty`, `AddOutcome`, `addItemStack`, `addItem`, `RemoveOutcome`, `RemoveAtResult`, `RemoveAtOutcome`, `removeItemAt`, `removeItem`, `NormaliseOutcome`, `normaliseInventory`, `isHotbarIndex`, `clampHotbarIndex`, `cycleHotbarIndex`, `hotbarSlotIndex`, `emptyRoster`, `spawnEntity`, `despawnEntity`, `findEntity`, `countOfKind`, `UNCHANGED`, `DESPAWNED`, `changed`, `sweepRoster`, `normaliseRoster`, `INVENTORY_SLOT_COUNT`, `Inventory`, `HOTBAR_SIZE`, `HOTBAR_START`.
+- 爆発と起爆済みTNT： `planExplosion`, `applyExplosionPlan`, `primeTnt`, `planPrimedTnt`, `applyPrimedTntPlan`, `DEFAULT_TNT_FUSE_SECS`, `MAX_TNT_FUSE_ADVANCE_SECS`, `PrimedTntCommit`, `PrimedTntMutation`, `PrimedTntPlan`, `PrimedTntRequest`, `PrimedTntState`.
+- 経験値、体力、空腹度： `experienceCostOfLevel`, `totalExperienceAtLevel`, `levelForTotalExperience`, `experienceLevel`, `experienceProgress`, `addExperience`, `isDead`, `applyDamage`, `heal`, `FoodTickSignal`, `addExhaustion`, `eat`, `advanceFoodTimer`, `respawn`, `DEFAULT_MAX_HEALTH_POINTS`, `DEFAULT_MAX_HUNGER_POINTS`, `SPAWN_SATURATION`, `EXHAUSTION_PER_POINT`, `MAX_EXHAUSTION`, `FOOD_TICK_SECS`, `REGEN_HUNGER_THRESHOLD`, `EXHAUSTION_PER_REGEN`, `DamageCause`, `Damage`, `Vitals`, `VitalsView`, `SPAWN_VITALS`, `isValidVitals`, `normaliseVitals`, `vitalsView`.
+- 乗り物とウィザーの状態： `validateVehicleSnapshot`, `emptyVehicleSnapshot`, `createWither`, `stepWither`, `damageWither`, `witherSkullProjectile`, `matchWitherSummon`, `serializeWither`, `restoreWither`, `WITHER_ARMOUR_THRESHOLD`, `WITHER_FOLLOW_ACCELERATION`, `WITHER_MAX_HEALTH`, `WITHER_MAX_SPEED`, `WITHER_REGEN_PER_SEC`, `WITHER_SPAWN_CHARGE_SECS`, `BlockCell`, `WitherDamageKind`, `WitherDamageResult`, `WitherDeathDescriptor`, `WitherPhase`, `WitherSkullProjectileDescriptor`, `WitherSkullVariant`, `WitherSnapshot`, `WitherState`, `WitherStep`, `WitherSummonMatch`, `WitherSummonMaterial`.
+- 時刻、ゲームルール、カメラ姿勢： `TICKS_PER_SECOND`, `MIN_DAY_LENGTH_SECS`, `MAX_DAY_LENGTH_SECS`, `MAX_TIME_FRACTION`, `MOON_PHASE_COUNT`, `TimeState`, `INITIAL_TIME_STATE`, `DEFAULT_DAY_LENGTH_SECS`, `clampDayLengthSecs`, `clampFraction`, `isValidTimeState`, `normaliseTimeState`, `timeOfDay`, `dayLengthSecs`, `moonPhase`, `isNight`, `advance`, `setDayLength`, `setTimeOfDay`, `setDayLengthThenTimeOfDay`, `normaliseGameRules`, `applyGameRules`, `isValidGameRules`, `DEFAULT_GAME_RULES`, `GAME_RULE_BOOLEAN_NAMES`, `GAME_RULE_INTEGER_NAMES`, `MAX_ENTITY_CRAMMING_MAX`, `MAX_ENTITY_CRAMMING_MIN`, `PLAYERS_SLEEPING_PERCENTAGE_MAX`, `PLAYERS_SLEEPING_PERCENTAGE_MIN`, `RANDOM_TICK_SPEED_MAX`, `RANDOM_TICK_SPEED_MIN`, `SPAWN_RADIUS_MAX`, `SPAWN_RADIUS_MIN`, `GameRuleBooleanName`, `GameRuleIntegerName`, `GameRules`, `PITCH_EPSILON`, `PITCH_MAX_RADIANS`, `PITCH_MIN_RADIANS`, `EYE_LEVEL_OFFSET`, `INITIAL_PLAYER_POSE`, `clampPitch`, `applyLook`, `withFeetPosition`, `cameraPoseOf`, `CameraOrientation`, `forwardVector`, `PlayerPose`.
 
 #### `mx-gameplay`
 
-Keep the 0.8 pin until the corresponding `mx-gameplay` API is public.
+対応する`mx-gameplay`のAPIが公開されるまで、`mc-kernel`は0.8に固定してください。
 
-- Mining and Bedrock item/block components: `BreakTicksInput`, `miningSpeedOf`, `computeBreakTicks`, `blockHardnessOf`, `validateBedrockDiggerComponent`, `validateBedrockDestructibleByMining`, `resolveBedrockDiggerSpeed`, `bedrockDiggerUsesEfficiency`, `resolveBedrockDestructionSeconds`, `resolveBedrockItemSpecificDestroySpeed`, `DEFAULT_MINING_SPEED`, `TOOL_BREAK_SPEED`, `BEDROCK_DIGGER_MIN_FORMAT_VERSION`, `BEDROCK_DESTRUCTIBLE_BY_MINING_MIN_FORMAT_VERSION`, `DEFAULT_BEDROCK_SECONDS_TO_DESTROY`, `BedrockTagQueryOperator`, `BedrockBlockStateValue`, `BedrockBlockStates`, `BedrockBlockDescriptor`, `BedrockBlock`, `BedrockDiggerDestroySpeed`, `BedrockDiggerComponent`, `BedrockItemDescriptor`, `BedrockItem`, `BedrockItemSpecificSpeed`, `BedrockDestructibleByMining`, `ParsedBedrockTagQuery`, `parseBedrockTagQuery`, `validateBedrockBlockDescriptor`, `validateBedrockItemDescriptor`, `bedrockTagQueryMatches`, `bedrockBlockDescriptorMatches`, `bedrockItemDescriptorMatches`, `validateBedrockBlockStates`, `validateBedrockDiggerSpeed`, `validateBedrockDestroySpeed`.
-- Fluid updates and food consumption: `FluidLevel`, `fluidLevel`, `FluidCell`, `FluidState`, `emptyFluidState`, `fluidCellAt`, `setFluidCell`, `clearFluidCell`, `scheduleFluidAt`, `unscheduleFluidAt`, `FluidChange`, `FluidUpdate`, `fluidStateFromWorld`, `canFluidReplace`, `updateFluids`, `FoodConsumeResult`, `canEatFood`, `foodRemainderOf`, `consumeFood`.
+- 採掘とBedrockのアイテム／ブロックcomponent： `BreakTicksInput`, `miningSpeedOf`, `computeBreakTicks`, `blockHardnessOf`, `validateBedrockDiggerComponent`, `validateBedrockDestructibleByMining`, `resolveBedrockDiggerSpeed`, `bedrockDiggerUsesEfficiency`, `resolveBedrockDestructionSeconds`, `resolveBedrockItemSpecificDestroySpeed`, `DEFAULT_MINING_SPEED`, `TOOL_BREAK_SPEED`, `BEDROCK_DIGGER_MIN_FORMAT_VERSION`, `BEDROCK_DESTRUCTIBLE_BY_MINING_MIN_FORMAT_VERSION`, `DEFAULT_BEDROCK_SECONDS_TO_DESTROY`, `BedrockTagQueryOperator`, `BedrockBlockStateValue`, `BedrockBlockStates`, `BedrockBlockDescriptor`, `BedrockBlock`, `BedrockDiggerDestroySpeed`, `BedrockDiggerComponent`, `BedrockItemDescriptor`, `BedrockItem`, `BedrockItemSpecificSpeed`, `BedrockDestructibleByMining`, `ParsedBedrockTagQuery`, `parseBedrockTagQuery`, `validateBedrockBlockDescriptor`, `validateBedrockItemDescriptor`, `bedrockTagQueryMatches`, `bedrockBlockDescriptorMatches`, `bedrockItemDescriptorMatches`, `validateBedrockBlockStates`, `validateBedrockDiggerSpeed`, `validateBedrockDestroySpeed`.
+- 流体更新と食料摂取： `FluidLevel`, `fluidLevel`, `FluidCell`, `FluidState`, `emptyFluidState`, `fluidCellAt`, `setFluidCell`, `clearFluidCell`, `scheduleFluidAt`, `unscheduleFluidAt`, `FluidChange`, `FluidUpdate`, `fluidStateFromWorld`, `canFluidReplace`, `updateFluids`, `FoodConsumeResult`, `canEatFood`, `foodRemainderOf`, `consumeFood`.
 
 #### `mx-redstone`
 
-Keep the 0.8 pin until the corresponding `mx-redstone` API is public.
+対応する`mx-redstone`のAPIが公開されるまで、`mc-kernel`は0.8に固定してください。
 
 `HorizontalRedstoneFace`, `REDSTONE_REPEATER_DELAY_MIN_TICKS`, `REDSTONE_REPEATER_DELAY_MAX_TICKS`, `RepeaterDelayTicks`, `repeaterDelayTicks`, `RedstoneRepeater`, `RedstoneComparatorMode`, `RedstoneComparator`, `RedstoneObserver`, `RedstoneDevice`, `redstoneRepeater`, `redstoneComparator`, `redstoneObserver`, `collectRedstoneLayout`, `sourcePowerAt`, `deviceOutputFace`, `deviceOutputAtTarget`, `poweredWiresFrom`, `signalPowerAt`, `wirePowerChanges`, `blockIsWire`, `RedstonePower`, `redstonePower`, `RedstoneRepeaterTimer`, `RedstoneDeviceStateUpdate`, `RedstoneState`, `emptyRedstoneState`, `redstoneInputAt`, `redstonePowerAt`, `redstoneDevicePowerAt`, `redstoneDeviceAt`, `setRedstoneInput`, `clearRedstoneInput`, `setRedstoneDevice`, `clearRedstoneDevice`, `withRedstoneWirePowers`, `withRedstoneDeviceState`, `RedstoneChange`, `RedstoneUpdate`, `updateRedstone`, `DevicePowerContext`, `PendingWire`, `RedstoneDevicePlacement`, `RedstoneLayout`, `WirePropagation`, `WireQueue`.
 
 #### `mc-worldgen`
 
-Keep the 0.8 pin until the corresponding `mc-worldgen` API is public.
+対応する`mc-worldgen`のAPIが公開されるまで、`mc-kernel`は0.8に固定してください。
 
 `LightCellInput`, `LightVolumeSource`, `LightSeed`, `LightBoundarySeeds`, `updateLight`, `detectNetherPortal`, `generatePortalLayout`.
 
 #### `mc-physics`
 
-No 0.8 pin is needed when the consumer can use the current public `mc-physics` root API. `ProjectileEntity`, `ProjectileWorld`, `ProjectileHit`, and `ProjectileStep` keep their names. `Arrow` maps to `Projectile`, `ArrowLaunch` to `ProjectileLaunch`, `ARROW_GRAVITY`, `ARROW_AIR_DRAG`, `ARROW_WATER_DRAG`, `ARROW_MAX_LIFETIME_SECONDS`, and `ARROW_SHOOTER_GRACE_SECONDS` to `ARROW_PROFILE`, `launchArrow` to `launchProjectile`, and `stepArrow` to `stepProjectile`.
+現行の`mc-physics`公開root APIを使える場合、0.8への固定は不要です。`ProjectileEntity`、`ProjectileWorld`、`ProjectileHit`、`ProjectileStep`の名前は変わりません。`Arrow`は`Projectile`に、`ArrowLaunch`は`ProjectileLaunch`に対応します。`ARROW_GRAVITY`、`ARROW_AIR_DRAG`、`ARROW_WATER_DRAG`、`ARROW_MAX_LIFETIME_SECONDS`、`ARROW_SHOOTER_GRACE_SECONDS`は`ARROW_PROFILE`にまとまり、`launchArrow`は`launchProjectile`に、`stepArrow`は`stepProjectile`に対応します。
 
 #### `mc-kernel`
 
-No 0.8 pin is needed when the consumer uses the current 0.9 replacements: `itemComponentPatchFromUnknown` and `itemComponentPatchFromUnknownEither` map to `decodeItemComponentPatch`; `mergeItemComponentPatchesEither` maps to `mergeItemComponentPatches`.
+現行の0.9 APIで置き換えられる場合、0.8への固定は不要です。`itemComponentPatchFromUnknown`と`itemComponentPatchFromUnknownEither`は`decodeItemComponentPatch`に、`mergeItemComponentPatchesEither`は`mergeItemComponentPatches`に置き換えます。
 
-The `GraphicsQuality`, `Settings`, settings normalization, and key-binding update APIs remain public. Static enchantment rule data also remains in the kernel; runtime offer generation and offer state belong to `mc-sim`, while applying enchantments belongs to `mx-gameplay`.
+`GraphicsQuality`、`Settings`、設定の正規化API、キー割り当ての更新APIは引き続き公開されています。静的なエンチャント規則データもkernelに残ります。候補の生成と状態管理は`mc-sim`が担当し、エンチャントの適用は`mx-gameplay`が担当します。
 
 ## kernelに残る型・静的データを使う
 

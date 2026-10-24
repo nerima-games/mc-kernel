@@ -499,10 +499,9 @@ type ItemComponentPatchConflict = Readonly<{ readonly _tag: 'ItemComponentPatchC
 const ItemComponentPatchConflictError: (args: Readonly<{ readonly componentKey: string }>) => Result.Result<ItemComponentPatchConflict, ItemComponentPatchDecodeError>;
 ```
 
-`itemStack` accepts the branded `StackCount`; `itemStackFromUnknown` validates untrusted item, count, and options values.
-Both return `ItemStackFailure` for invalid data. `decodeItemComponentPatch` and `mergeItemComponentPatches`
-return `ItemComponentPatchDecodeError` values for invalid patches or set/remove conflicts. `ItemComponentPatchConflictError` is a
-Result-returning factory whose success value contains a branded `NamespacedResourceLocation`.
+`itemStack`はbrand型の`StackCount`を受け取り、`itemStackFromUnknown`は未信頼のitem、count、optionsを検証します。
+どちらもデータが無効な場合は`ItemStackFailure`を返します。`decodeItemComponentPatch`と`mergeItemComponentPatches`は、patchが無効な場合やset/removeが競合する場合に`ItemComponentPatchDecodeError`を返します。
+`ItemComponentPatchConflictError`は`Result`を返すfactoryで、成功値にはbrand型の`NamespacedResourceLocation`が含まれます。
 
 
 
@@ -640,9 +639,8 @@ root のほか `@nerima-games/mc-kernel/domain/json-value`、`domain/item-compon
 stack/components は [Minecraft Snapshot 24w10a](https://www.minecraft.net/pt-pt/article/minecraft-snapshot-24w10a) の item stack component 変更を、stonecutting / smithing /
 transmute の現在の JSON schema は [Minecraft Java Edition 26.1](https://www.minecraft.net/en-us/article/minecraft-java-edition-26-1) を参照する。
 
-`mergeItemComponentPatches` validates both patches at the boundary and returns `ItemComponentPatchDecodeError`
-for invalid input, hostile input, or set/remove conflicts. Its success value is `undefined` only when both inputs
-are `undefined`.
+`mergeItemComponentPatches`は境界で両方のpatchを検証します。入力が無効または敵対的な場合や、set/removeが競合する場合は`ItemComponentPatchDecodeError`を返します。
+成功値が`undefined`になるのは、両方の入力が`undefined`の場合だけです。
 
 ### 3-ter-4. special recipe（crafting-special）
 
@@ -1510,7 +1508,7 @@ type VehicleSnapshot = Readonly<{
 
 `VehicleId`と`OccupantId`のconstructorは空文字列と空白だけの文字列を受け付けない。
 
-## 5-quinquies-bis. Chunk read/edit vocabulary
+## 5-quinquies-bis. chunkの読み取りと編集
 
 `BlockRead` は loaded air、unloaded chunk、out-of-world position を判別可能なまま表現する。`ReadView` は epoch、chunk、block/light revision と section accessor を持ち、構築時に block ID と section 長を検証して入力配列をコピーする。後から呼び出し側が入力配列を変更しても view には反映されない。section accessor は mutable typed-array API を公開せず、`snapshot()` を呼んだ場合だけさらに別の `Uint16Array` を作るため、meshing の per-cell read では配列コピーを発生させない。
 この節の `BlockEdit`、`blockEdit`、`BlockWriteBatch` は `domain/world-read-write` subpath の `{ position, blockId }` 契約であり、root からも利用できる。
@@ -1799,7 +1797,7 @@ const encodeLightVolume: (volume: LightVolume) => Result.Result<Uint8Array, Ligh
 const decodeLightVolume: (encoded: Uint8Array) => Result.Result<LightVolume, LightVolumeFailure>;
 ```
 
-**The light volume has a separate codec and `MCLT` magic; `chunk.ts` does not encode it.**
+**light volumeにはmagic値`MCLT`を使う専用codecがあります。`chunk.ts`はlight volumeをencodeしません。**
 
 ## 5-nonies. Heightmap（heightmap）
 
