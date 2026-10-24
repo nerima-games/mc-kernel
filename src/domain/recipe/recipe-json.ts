@@ -88,7 +88,47 @@ type UnknownRecord = Readonly<Record<string, unknown>>;
 type RecipeResult<A> = Result.Result<A, RecipeFailure>;
 
 const isRecord = (value: unknown): value is UnknownRecord =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+  (() => {
+    try {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    } catch {
+      return false;
+    }
+  })();
+
+const snapshotRecord = (value: unknown): UnknownRecord | undefined => {
+  try {
+    if (!isRecord(value)) {
+      return undefined;
+    }
+    return Object.fromEntries(Object.entries(value));
+  } catch {
+    return undefined;
+  }
+};
+
+const snapshotArray = (value: unknown): ReadonlyArray<unknown> | undefined => {
+  try {
+    if (!Array.isArray(value)) return undefined;
+    const length = value.length;
+    if (!Number.isSafeInteger(length) || length < 0) return undefined;
+    const snapshot: unknown[] = [];
+    for (let index = 0; index < length; index += 1) snapshot.push(value[index]);
+    return Object.freeze(snapshot);
+  } catch {
+    return undefined;
+  }
+};
+
+const snapshotEntries = (
+  value: unknown,
+): ReadonlyArray<readonly [string, unknown]> | undefined => {
+  try {
+    return isRecord(value) ? Object.entries(value) : undefined;
+  } catch {
+    return undefined;
+  }
+};
 
 const hasOnlyKeys = (
   value: UnknownRecord,
@@ -138,7 +178,10 @@ const itemTagOf = (
       `Recipe item tag must be namespaced, received ${value}`,
     );
   }
-  return Result.succeed(TagLocation(`#${namespacedLocation.success}`));
+  const tag = TagLocation.result(`#${namespacedLocation.success}`);
+  return Result.isFailure(tag)
+    ? recipeTypeFailure("Recipe item tag must be namespaced")
+    : Result.succeed(tag.success);
 };
 
 const decodeIngredient = (
@@ -151,14 +194,15 @@ const decodeIngredient = (
       }
       return yield* minecraftItemOf(value, false);
     }
-    if (Array.isArray(value)) {
-      if (value.length === 0) {
+    const alternatives = snapshotArray(value);
+    if (alternatives !== undefined) {
+      if (alternatives.length === 0) {
         return yield* recipeRangeFailure(
           "Recipe ingredient alternatives must not be empty",
         );
       }
       const items: Array<ItemType> = [];
-      for (const alternative of value) {
+      for (const alternative of alternatives) {
         if (typeof alternative !== "string" || alternative.startsWith("#")) {
           return yield* recipeTypeFailure(
             "Recipe ingredient alternatives must contain item ids, not tags",
@@ -176,11 +220,12 @@ const decodeIngredient = (
 const decodePattern = (
   value: unknown,
 ): RecipeResult<ReadonlyArray<RecipePatternRow>> => {
-  if (!Array.isArray(value)) {
+  const rows = snapshotArray(value);
+  if (rows === undefined) {
     return recipeTypeFailure("Shaped recipe pattern must be an array");
   }
   const pattern: Array<RecipePatternRow> = [];
-  for (const row of value) {
+  for (const row of rows) {
     if (typeof row !== "string") {
       return recipeTypeFailure("Shaped recipe pattern rows must be strings");
     }
@@ -199,11 +244,12 @@ const decodeKey = (
   value: unknown,
 ): RecipeResult<RecipePatternKeyMap> =>
   Result.gen(function* () {
-    if (!isRecord(value)) {
+    const entries = snapshotEntries(value);
+    if (entries === undefined) {
       return yield* recipeTypeFailure("Shaped recipe key must be an object");
     }
     const key: Record<RecipePatternSymbol, CraftingIngredientInput> = {};
-    for (const [character, ingredient] of Object.entries(value)) {
+    for (const [character, ingredient] of entries) {
       const symbol = RecipePatternSymbol.result(character);
       if (Result.isFailure(symbol)) {
         return yield* recipeTypeFailure(
@@ -218,10 +264,11 @@ const decodeKey = (
 const decodeIngredients = (
   value: unknown,
 ): RecipeResult<ReadonlyArray<CraftingIngredientInput>> => {
-  if (!Array.isArray(value)) {
+  const ingredients = snapshotArray(value);
+  if (ingredients === undefined) {
     return recipeTypeFailure("Shapeless recipe ingredients must be an array");
   }
-  return Result.all(value.map(decodeIngredient));
+  return Result.all(ingredients.map(decodeIngredient));
 };
 
 const decodeResultItem = (value: string | UnknownRecord): RecipeResult<ItemType> => {
@@ -238,30 +285,32 @@ const decodePatchedComponents = (
 
 const decodeResult = (value: unknown): RecipeResult<ItemStack> =>
   Result.gen(function* () {
-    if (typeof value !== "string" && !isRecord(value)) {
+    const record = typeof value === "string" ? undefined : snapshotRecord(value);
+    const resultItem = typeof value === "string" ? value : record;
+    if (resultItem === undefined) {
       return yield* recipeTypeFailure(
         "Recipe result must be an item id or item stack object",
       );
     }
     if (
-      isRecord(value) &&
-      (!hasOnlyKeys(value, ["id", "count", "components"]) ||
-        !hasAllKeys(value, ["id"]))
+      record !== undefined &&
+      (!hasOnlyKeys(record, ["id", "count", "components"]) ||
+        !hasAllKeys(record, ["id"]))
     ) {
       return yield* recipeTypeFailure("Recipe result object has an invalid shape");
     }
-    const item = yield* decodeResultItem(value);
+    const item = yield* decodeResultItem(resultItem);
     const count =
-      typeof value === "string" || !Object.hasOwn(value, "count")
+      record === undefined || !Object.hasOwn(record, "count")
         ? 1
-        : value["count"];
+        : record["count"];
     if (typeof count !== "number") {
       return yield* recipeTypeFailure("Recipe result count must be a number");
     }
     const componentPatch =
-      typeof value === "string" || !Object.hasOwn(value, "components")
+      record === undefined || !Object.hasOwn(record, "components")
         ? undefined
-        : yield* decodePatchedComponents(value["components"]);
+        : yield* decodePatchedComponents(record["components"]);
     return yield* Result.mapError(
       itemStackFromUnknown(item, count, {
         ...(componentPatch === undefined ? {} : { componentPatch }),
@@ -294,7 +343,13 @@ const decodeRecipeGroup = (value: unknown): RecipeResult<RecipeGroup> => {
   if (typeof value !== "string") {
     return recipeTypeFailure("Recipe group must be a string");
   }
-  return Result.succeed(RecipeGroup(value));
+  return Result.mapError(RecipeGroup.result(value), () =>
+    ({
+      _tag: "RecipeTypeFailure",
+      name: "TypeError",
+      message: "Recipe group must be a string",
+    } satisfies RecipeFailure),
+  );
 };
 
 const decodeCommonOptions = (
@@ -330,7 +385,13 @@ const decodeCraftingOptions = (
 ): RecipeResult<RecipeOptions> =>
   Result.gen(function* () {
     const options = yield* decodeCommonOptions(value);
-    return { tags: [RecipeStationTag("crafting_table")], ...options };
+    const stationTag = RecipeStationTag.result("crafting_table");
+    if (Result.isFailure(stationTag)) {
+      return yield* recipeTypeFailure(
+        "Recipe station tags must be resource locations",
+      );
+    }
+    return { tags: [stationTag.success], ...options };
   });
 
 type NotificationRecipeOptions = Readonly<{
@@ -398,17 +459,18 @@ const decodeRecipeExperience = (
 const decodeMaterialCount = (
   value: unknown,
 ): RecipeResult<TransmuteMaterialCount> => {
+  const record = snapshotRecord(value);
   if (
-    !isRecord(value) ||
-    !hasOnlyKeys(value, ["min", "max"]) ||
-    !hasAllKeys(value, ["min", "max"])
+    record === undefined ||
+    !hasOnlyKeys(record, ["min", "max"]) ||
+    !hasAllKeys(record, ["min", "max"])
   ) {
     return recipeTypeFailure(
       "Transmute material_count must be an object with min and max",
     );
   }
-  const min = value["min"];
-  const max = value["max"];
+  const min = record["min"];
+  const max = record["max"];
   if (
     typeof min !== "number" ||
     !Number.isSafeInteger(min) ||
@@ -439,15 +501,16 @@ const decodeIntegerRange = (
   field: string,
   maximum: number,
 ): RecipeResult<readonly [number, number]> => {
+  const record = snapshotRecord(value);
   if (
-    !isRecord(value) ||
-    !hasOnlyKeys(value, ["min", "max"]) ||
-    !hasAllKeys(value, ["min", "max"])
+    record === undefined ||
+    !hasOnlyKeys(record, ["min", "max"]) ||
+    !hasAllKeys(record, ["min", "max"])
   ) {
     return recipeTypeFailure(`${field} must be an object with min and max`);
   }
-  const min = value["min"];
-  const max = value["max"];
+  const min = record["min"];
+  const max = record["max"];
   if (
     typeof min !== "number" ||
     !Number.isSafeInteger(min) ||
@@ -481,7 +544,14 @@ const decodeAllowedGenerations = (
       "Book cloning allowed_generations",
       2,
     );
-    return [BookGeneration(min), BookGeneration(max)] as const;
+    const checkedMin = BookGeneration.result(min);
+    const checkedMax = BookGeneration.result(max);
+    if (Result.isFailure(checkedMin) || Result.isFailure(checkedMax)) {
+      return yield* recipeRangeFailure(
+        "Book cloning allowed_generations must be between 0 and 2",
+      );
+    }
+    return [checkedMin.success, checkedMax.success] as const;
   });
 
 const isFireworkExplosionShape = (
@@ -495,13 +565,14 @@ const decodeShapeIngredients = (
   Readonly<Partial<Record<FireworkExplosionShape, CraftingIngredientInput>>>
 > =>
   Result.gen(function* () {
-    if (!isRecord(value)) {
+    const entries = snapshotEntries(value);
+    if (entries === undefined) {
       return yield* recipeTypeFailure("Firework star shapes must be an object");
     }
     const shapes: Partial<
       Record<FireworkExplosionShape, CraftingIngredientInput>
     > = {};
-    for (const [shape, ingredient] of Object.entries(value)) {
+    for (const [shape, ingredient] of entries) {
       if (!isFireworkExplosionShape(shape)) {
         return yield* recipeTypeFailure(
           `Unsupported firework explosion shape: ${shape}`,
@@ -533,10 +604,12 @@ const decodeRecordWithType = (
   value: unknown,
   label: string,
 ): RecipeResult<UnknownRecord & { readonly type: string }> => {
-  if (!isRecord(value) || typeof value["type"] !== "string") {
+  const record = snapshotRecord(value);
+  const type = record?.["type"];
+  if (record === undefined || typeof type !== "string") {
     return recipeTypeFailure(`${label} must contain a string type`);
   }
-  return Result.succeed({ ...value, type: value["type"] });
+  return Result.succeed({ ...record, type });
 };
 
 const decodeTypedDocument = (
@@ -553,13 +626,14 @@ const decodeTypedDocument = (
 }> =>
   Result.gen(function* () {
     const recipeId = yield* decodeRecipeId(id);
-    if (!isRecord(value) || value["type"] !== type) {
+    const record = snapshotRecord(value);
+    if (record === undefined || record["type"] !== type) {
       return yield* recipeTypeFailure(typeMessage);
     }
-    if (!hasOnlyKeys(value, keys) || !hasAllKeys(value, required)) {
+    if (!hasOnlyKeys(record, keys) || !hasAllKeys(record, required)) {
       return yield* recipeTypeFailure(shapeMessage);
     }
-    return { id: recipeId, value };
+    return { id: recipeId, value: record };
   });
 
 /** Decodes a current Java crafting recipe document at the JSON boundary. */
@@ -1158,9 +1232,17 @@ export const recipeDataPath = (
 ): Result.Result<DataPackResourcePath, RecipeFailure | DataPackRegistryFailure> =>
   Result.gen(function* () {
     const recipeId = yield* decodeRecipeId(id);
+    const recipeDirectory = NamespacedResourceLocation.result("minecraft:recipe");
+    const namespacedRecipeId = NamespacedResourceLocation.result(recipeId);
+    if (
+      Result.isFailure(recipeDirectory) ||
+      Result.isFailure(namespacedRecipeId)
+    ) {
+      return yield* recipeTypeFailure("Recipe id must be namespaced");
+    }
     return yield* dataPackResourcePath(
-      NamespacedResourceLocation("minecraft:recipe"),
-      NamespacedResourceLocation(recipeId),
+      recipeDirectory.success,
+      namespacedRecipeId.success,
     );
   });
 

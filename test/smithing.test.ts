@@ -41,6 +41,49 @@ import {
 } from "../src/domain/recipe/smithing-data";
 
 describe("smithing recipe data", () => {
+  it("normalizes ingredient snapshots once and reports options getter failures", () => {
+    let countReads = 0;
+    const template = new Proxy(
+      { _tag: "Exact", item: "netherite_upgrade_smithing_template", count: 1 },
+      {
+        get(target, property, receiver) {
+          if (property === "count") {
+            countReads += 1;
+            return countReads === 1 ? 1 : 0;
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    );
+    const result = Reflect.apply(smithingTrimRecipe, undefined, [
+      RecipeId("minecraft:snapshot_ingredient"),
+      template,
+      SMITHING_TRIMMABLE_ARMOR_TAG,
+      SMITHING_TRIM_MATERIAL_TAG,
+    ]);
+    expect(Result.isSuccess(result)).toBe(true);
+    expect(countReads).toBe(1);
+
+    const options = new Proxy({}, {
+      get(_target, property) {
+        if (property === "priority") throw new Error("hostile getter");
+        return undefined;
+      },
+    });
+    const unreadable = Reflect.apply(smithingTrimRecipe, undefined, [
+      RecipeId("minecraft:unreadable_options"),
+      SMITHING_TRIM_TEMPLATE_TAG,
+      SMITHING_TRIMMABLE_ARMOR_TAG,
+      SMITHING_TRIM_MATERIAL_TAG,
+      options,
+    ]);
+    expectRecipeFailure(unreadable, {
+      _tag: "RecipeTypeFailure",
+      name: "TypeError",
+      message: "Smithing recipe options must be an object",
+    });
+  });
+
   it("constructs transform and trim recipes with station metadata", () => {
     expect(SMITHING_STATION_TAG).toBe("smithing_table");
     expect(SMITHING_TRIM_TEMPLATE_TAG).toBe("#minecraft:trim_templates");

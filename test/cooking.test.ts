@@ -47,6 +47,54 @@ const rangeFailure = (message: string): RecipeFailure => ({
 });
 
 describe("cooking recipe data", () => {
+  it("normalizes an ingredient snapshot without a guard reread", () => {
+    let countReads = 0;
+    const ingredient = new Proxy(
+      { _tag: "Exact", item: "raw_iron", count: 1 },
+      {
+        get(target, property, receiver) {
+          if (property === "count") {
+            countReads += 1;
+            return countReads === 1 ? 1 : 0;
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    );
+    const result = Reflect.apply(cookingRecipe, undefined, [
+      RecipeId("minecraft:snapshot_ingredient"),
+      "furnace",
+      ingredient,
+      itemStack("iron_ingot", 1),
+      PositiveTickCount(200),
+      RecipeExperience(0.7),
+    ]);
+    expect(Result.isSuccess(result)).toBe(true);
+    expect(countReads).toBe(1);
+  });
+
+  it("returns an options inspection failure when a getter throws", () => {
+    const options = new Proxy({}, {
+      get(_target, property) {
+        if (property === "priority") throw new Error("hostile getter");
+        return undefined;
+      },
+    });
+    const result = Reflect.apply(cookingRecipe, undefined, [
+      RecipeId("minecraft:unreadable_options"),
+      "furnace",
+      "raw_iron",
+      itemStack("iron_ingot", 1),
+      PositiveTickCount(200),
+      RecipeExperience(0.7),
+      options,
+    ]);
+    expectFailure(
+      result,
+      typeFailure("Cooking recipe options must be an object"),
+    );
+  });
+
   it("constructs cooking recipes for each station and normalizes metadata", () => {
     expect(COOKING_STATIONS).toEqual([
       "furnace",

@@ -40,6 +40,53 @@ const expectRecipeFailure = (
 };
 
 describe("transmute recipe data", () => {
+  it("snapshots material bounds once and returns option getter failures", () => {
+    let minReads = 0;
+    let maxReads = 0;
+    const materialCount = new Proxy({}, {
+      get(_target, property) {
+        if (property === "min") {
+          minReads += 1;
+          return minReads === 1 ? 2 : 9;
+        }
+        if (property === "max") {
+          maxReads += 1;
+          return maxReads === 1 ? 3 : 0;
+        }
+        return undefined;
+      },
+    });
+    const result = Reflect.apply(transmuteRecipe, undefined, [
+      RecipeId("minecraft:snapshot_material_count"),
+      "stone",
+      "dirt",
+      itemStack("sand", 1),
+      { materialCount },
+    ]);
+    expect(Result.isSuccess(result)).toBe(true);
+    expect(minReads).toBe(1);
+    expect(maxReads).toBe(1);
+
+    const options = new Proxy({}, {
+      get(_target, property) {
+        if (property === "priority") throw new Error("hostile getter");
+        return undefined;
+      },
+    });
+    const unreadable = Reflect.apply(transmuteRecipe, undefined, [
+      RecipeId("minecraft:unreadable_options"),
+      "stone",
+      "dirt",
+      itemStack("sand", 1),
+      options,
+    ]);
+    expectRecipeFailure(unreadable, {
+      _tag: "RecipeTypeFailure",
+      name: "TypeError",
+      message: "Transmute recipe options must be an object",
+    });
+  });
+
   it("validates material ranges and constructs recipes", () => {
     expect(TRANSMUTE_MAX_MATERIAL_SLOTS).toBe(8);
     expect(isTransmuteMaterialCount({ min: 1, max: 1 })).toBe(true);

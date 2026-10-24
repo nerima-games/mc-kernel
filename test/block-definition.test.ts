@@ -159,6 +159,72 @@ describe('resolveBlock', () => {
       })
     })),
   )
+
+  it('snapshots definition fields once and turns throwing getters into a failure', () =>
+    Effect.runPromise(Effect.sync(() => {
+      let typeReads = 0
+      let capabilitiesReads = 0
+      let propertiesReads = 0
+      const definition = new Proxy({
+        type: 'stone',
+        capabilities: { passable: true },
+        properties: { hardness: 3 },
+      }, {
+        get(target, key, receiver) {
+          if (key === 'type') {
+            typeReads += 1
+            return typeReads === 1 ? 'stone' : 'not-a-block'
+          }
+          if (key === 'capabilities') {
+            capabilitiesReads += 1
+            return capabilitiesReads === 1 ? { passable: true } : null
+          }
+          if (key === 'properties') {
+            propertiesReads += 1
+            return propertiesReads === 1 ? { hardness: 3 } : null
+          }
+          return Reflect.get(target, key, receiver)
+        },
+      })
+
+      const resolved = resultValue(Reflect.apply(resolveBlockResult, undefined, [definition]))
+      expect(resolved).toMatchObject({
+        capabilities: { passable: true },
+        properties: { hardness: 3 },
+        type: 'stone',
+      })
+      expect({ typeReads, capabilitiesReads, propertiesReads }).toStrictEqual({
+        typeReads: 1,
+        capabilitiesReads: 1,
+        propertiesReads: 1,
+      })
+
+      const throwing = new Proxy({ type: 'stone' }, {
+        get(target, key, receiver) {
+          if (key === 'type') throw new Error('hostile getter')
+          return Reflect.get(target, key, receiver)
+        },
+      })
+      expect(resultFailure(Reflect.apply(resolveBlockResult, undefined, [throwing]))).toMatchObject({
+        _tag: 'BlockDefinitionFailure',
+        reason: 'invalid-shape',
+      })
+
+      const throwingCapabilities = new Proxy({ passable: true }, {
+        get(target, key, receiver) {
+          if (key === 'passable') throw new Error('hostile capability getter')
+          return Reflect.get(target, key, receiver)
+        },
+      })
+      expect(resultFailure(Reflect.apply(resolveBlockResult, undefined, [{
+        type: 'stone',
+        capabilities: throwingCapabilities,
+      }]))).toMatchObject({
+        _tag: 'BlockCapabilityFailure',
+        reason: 'not-boolean',
+      })
+    })),
+  )
 })
 
 describe('the implemented / downstream capability ledger', () => {

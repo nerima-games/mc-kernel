@@ -269,6 +269,64 @@ describe('item defense components', () => {
     ))
   })
 
+  it('validates and constructs one snapshot of nested defense options', () => {
+    let delayReads = 0
+    const changingOptions = new Proxy({ blockDelaySeconds: 0 }, {
+      get: (target, key, receiver) => {
+        if (key === 'blockDelaySeconds') {
+          delayReads += 1
+          return delayReads === 1 ? 0 : Number.NaN
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    expect(itemResultValue(invokeBlocksAttacks(changingOptions))).toMatchObject({ blockDelaySeconds: 0 })
+    expect(delayReads).toBe(1)
+
+    let baseReads = 0
+    const changingReduction = new Proxy({ base: 0, factor: 0 }, {
+      get: (target, key, receiver) => {
+        if (key === 'base') {
+          baseReads += 1
+          return baseReads === 1 ? 0 : Number.NaN
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    const withReduction = itemResultValue(invokeBlocksAttacks({ damageReductions: [changingReduction] }))
+    expect(withReduction).toMatchObject({ damageReductions: [{ base: 0 }] })
+    expect(baseReads).toBe(1)
+
+    const hostileOptions = new Proxy({ blockDelaySeconds: 0 }, {
+      get: (target, key, receiver) => key === 'blockDelaySeconds'
+        ? (() => { throw new Error('hostile') })()
+        : Reflect.get(target, key, receiver),
+    })
+    expectItemFailure(invokeBlocksAttacks(hostileOptions), validation(
+      'TypeError', 'hostile-input', 'blockDelaySeconds', 'Unable to inspect blockDelaySeconds', hostileOptions,
+    ))
+
+    const revokedOptions = Proxy.revocable({}, {})
+    revokedOptions.revoke()
+    expectItemFailure(invokeBlocksAttacks(revokedOptions.proxy), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'blocksAttacks options',
+      message: 'Unable to inspect blocksAttacks options',
+    })
+
+    const hostileReduction = new Proxy({ base: 0, factor: 0 }, {
+      get: (target, key, receiver) => key === 'factor'
+        ? (() => { throw new Error('hostile') })()
+        : Reflect.get(target, key, receiver),
+    })
+    expectItemFailure(invokeBlocksAttacks({ damageReductions: [hostileReduction] }), validation(
+      'TypeError', 'hostile-input', 'damageReductions[0].factor',
+      'Unable to inspect damageReductions[0].factor', hostileReduction,
+    ))
+  })
+
   it('guards exact component shapes and value ranges', () => {
     const valid = blocksAttacksComponent({
       damageReductions: [{

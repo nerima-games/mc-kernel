@@ -1,20 +1,18 @@
 import { Result } from "effect";
 import {
   craftingIngredient,
-  isRecipeItemTag,
   RecipeIngredientCount,
   RecipeId,
   RecipePriority,
   RecipeStationTag,
   type CraftingIngredient,
   type CraftingIngredientInput,
-  type IngredientInput,
   type RecipePriority as RecipePriorityValue,
   type RecipeStationTag as RecipeStationTagValue,
 } from "./recipe-data.js";
 import { isItemStack, type ItemStack } from "../item/item-stack.js";
 import { itemStackForCanonicalItem } from "../item/item-stack-canonical.js";
-import { isItemType, type ItemType } from "../item/item-type.js";
+import type { ItemType } from "../item/item-type.js";
 import { StackCount } from "../time/quantities.js";
 import {
   recipeRangeFailure,
@@ -25,6 +23,12 @@ import {
 const recipeTypeFailureValue = (message: string): RecipeFailure => ({
   _tag: "RecipeTypeFailure",
   name: "TypeError",
+  message,
+});
+
+const recipeRangeFailureValue = (message: string): RecipeFailure => ({
+  _tag: "RecipeRangeFailure",
+  name: "RangeError",
   message,
 });
 
@@ -58,7 +62,31 @@ type RecordValue = {
 };
 
 const isRecord = (value: unknown): value is RecordValue =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+  (() => {
+    try {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    } catch {
+      return false;
+    }
+  })();
+
+const snapshotRecord = (
+  value: unknown,
+  fields: ReadonlyArray<keyof RecordValue>,
+): RecordValue | undefined => {
+  try {
+    if (!isRecord(value)) {
+      return undefined;
+    }
+    const snapshot: Record<string, unknown> = {};
+    for (const field of fields) {
+      snapshot[field] = Reflect.get(value, field);
+    }
+    return snapshot;
+  } catch {
+    return undefined;
+  }
+};
 
 const assertRecipeId = (
   id: unknown,
@@ -73,61 +101,28 @@ const assertRecipeId = (
 const assertPriority = (
   value: unknown,
 ): Result.Result<RecipePriorityValue, RecipeFailure> => {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+  if (typeof value !== "number") {
     return recipeRangeFailure(
-      `Stonecutting recipe priority must be a non-negative safe integer, received ${String(value)}`,
+      "Stonecutting recipe priority must be a non-negative safe integer",
     );
   }
-  return Result.succeed(RecipePriority(value));
-};
-
-const isUncheckedIngredientInput = (
-  value: unknown,
-): value is IngredientInput => {
-  if (typeof value === "string") {
-    return isItemType(value) || isRecipeItemTag(value);
+  const message = `Stonecutting recipe priority must be a non-negative safe integer, received ${value}`;
+  if (!Number.isSafeInteger(value) || value < 0) {
+    return recipeRangeFailure(message);
   }
-  if (
-    !isRecord(value) ||
-    typeof value.count !== "number" ||
-    !RecipeIngredientCount.is(value.count)
-  ) {
-    return false;
-  }
-  if (value._tag === "Exact") {
-    return isItemType(value.item);
-  }
-  return value._tag === "ItemTag" && isRecipeItemTag(value.tag);
-};
-
-const isUncheckedCraftingIngredientInput = (
-  value: unknown,
-): value is CraftingIngredientInput => {
-  if (Array.isArray(value)) {
-    return value.length > 0 && value.every(isUncheckedIngredientInput);
-  }
-  if (
-    isRecord(value) &&
-    value._tag === "AnyOf" &&
-    Array.isArray(value.options) &&
-    typeof value.count === "number" &&
-    RecipeIngredientCount.is(value.count)
-  ) {
-    return (
-      value.options.length > 0 &&
-      value.options.every(isUncheckedIngredientInput)
-    );
-  }
-  return isUncheckedIngredientInput(value);
+  return Result.mapError(
+    RecipePriority.result(value),
+    () => recipeRangeFailureValue(message),
+  );
 };
 
 const normalizeIngredient = (
   value: unknown,
 ): Result.Result<CraftingIngredient, RecipeFailure> => {
-  if (!isUncheckedCraftingIngredientInput(value)) {
-    return recipeTypeFailure("Stonecutting ingredient has an invalid shape");
-  }
-  return craftingIngredient(value);
+  const normalized = craftingIngredient(value);
+  return Result.isFailure(normalized)
+    ? recipeTypeFailure("Stonecutting ingredient has an invalid shape")
+    : normalized;
 };
 
 const normalizeOptions = (
@@ -140,17 +135,18 @@ const normalizeOptions = (
     if (options === undefined) {
       return { priority: RecipePriority(0) };
     }
-    if (!isRecord(options)) {
+    const record = snapshotRecord(options, ["priority", "showNotification"]);
+    if (record === undefined) {
       return yield* recipeTypeFailure("Stonecutting recipe options must be an object");
     }
-    const showNotification = options.showNotification;
+    const showNotification = record.showNotification;
     if (showNotification !== undefined && typeof showNotification !== "boolean") {
       return yield* recipeTypeFailure(
         "Stonecutting recipe show notification must be a boolean",
       );
     }
     return {
-      priority: yield* assertPriority(options.priority ?? 0),
+      priority: yield* assertPriority(record.priority ?? 0),
       ...(showNotification === undefined ? {} : { showNotification }),
     };
   });

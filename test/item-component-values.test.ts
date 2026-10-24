@@ -1675,4 +1675,42 @@ describe('item component values', () => {
       },
     )
   })
+
+  it('validates and brands one snapshot of kinetic weapon options', () => {
+    let cooldownReads = 0
+    const changingOptions = new Proxy({ contactCooldownTicks: 12 }, {
+      get: (target, property, receiver) => {
+        if (property === 'contactCooldownTicks') {
+          cooldownReads += 1
+          return cooldownReads === 1 ? 12 : -1
+        }
+        return Reflect.get(target, property, receiver)
+      },
+    })
+    const component = itemResultValue(Reflect.apply(
+      itemComponentValuesResult.kineticWeaponComponent,
+      undefined,
+      [changingOptions],
+    ))
+    expect(component).toMatchObject({ contactCooldownTicks: 12 })
+    expect(cooldownReads).toBe(1)
+
+    const hostileOptions = new Proxy({ contactCooldownTicks: 12 }, {
+      get: (target, property, receiver) => property === 'contactCooldownTicks'
+        ? (() => { throw new Error('hostile') })()
+        : Reflect.get(target, property, receiver),
+    })
+    expectItemFailure(Reflect.apply(
+      itemComponentValuesResult.kineticWeaponComponent,
+      undefined,
+      [hostileOptions],
+    ), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'kinetic_weapon.contactCooldownTicks',
+      message: 'Unable to inspect kinetic_weapon.contactCooldownTicks',
+      value: hostileOptions,
+    })
+  })
 })

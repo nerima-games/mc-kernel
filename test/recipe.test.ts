@@ -28,11 +28,16 @@ import {
   shapedRecipe,
   tagged,
 } from "../src/domain/recipe/recipe";
-import { staticShapedRecipe, staticShapelessRecipe } from "../src/domain/recipe/recipe-data";
+import {
+  craftingIngredient,
+  staticShapedRecipe,
+  staticShapelessRecipe,
+} from "../src/domain/recipe/recipe-data";
 import { recipeExternalFailure } from "../src/domain/recipe/recipe-error";
 import type {
   ItemTagMemberships,
   RecipeFailure,
+  RecipeOptions,
 } from "../src/domain/recipe/recipe";
 
 const expectRecipeSuccess = <A, E>(result: Result.Result<A, E>): A => {
@@ -109,6 +114,84 @@ const itemTags: ItemTagMemberships = new Map([
 ]);
 
 describe("recipe data", () => {
+  it("snapshots ingredient records, alternatives, and options before validation", () => {
+    let countReads = 0;
+    const ingredient = new Proxy(
+      { _tag: "Exact", item: "stone", count: 1 },
+      {
+        get(target, property, receiver) {
+          if (property === "count") {
+            countReads += 1;
+            return countReads === 1 ? 1 : 0;
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    );
+    const normalizedIngredient = craftingIngredient(ingredient);
+    expect(Result.isSuccess(normalizedIngredient)).toBe(true);
+    if (Result.isSuccess(normalizedIngredient)) {
+      expect(normalizedIngredient.success).toEqual({
+        _tag: "Exact",
+        item: "stone",
+        count: 1,
+      });
+    }
+    expect(countReads).toBe(1);
+
+    let lengthReads = 0;
+    const alternatives = new Proxy(["stone"], {
+      get(target, property, receiver) {
+        if (property === "length") {
+          lengthReads += 1;
+          return lengthReads === 1 ? 1 : 0;
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const normalizedAlternatives = craftingIngredient(alternatives);
+    expect(Result.isSuccess(normalizedAlternatives)).toBe(true);
+    if (Result.isSuccess(normalizedAlternatives)) {
+      expect(normalizedAlternatives.success).toMatchObject({
+        _tag: "AnyOf",
+        count: 1,
+        options: [{ _tag: "Exact", item: "stone", count: 1 }],
+      });
+    }
+    expect(lengthReads).toBe(1);
+
+    let priorityReads = 0;
+    const options: RecipeOptions = { priority: recipePriority(2) };
+    Object.defineProperty(options, "priority", {
+      enumerable: true,
+      get() {
+        priorityReads += 1;
+        return priorityReads === 1 ? 2 : -1;
+      },
+    });
+    const recipe = shapelessRecipe(
+      recipeId("minecraft:snapshot_options"),
+      ["stone"],
+      itemStack("stick", 1),
+      options,
+    );
+    expect(Result.isSuccess(recipe)).toBe(true);
+    if (Result.isSuccess(recipe)) {
+      expect(recipe.success.priority).toBe(2);
+    }
+    expect(priorityReads).toBe(1);
+
+    const unreadableIngredient = new Proxy({}, {
+      get() {
+        throw new Error("hostile getter");
+      },
+    });
+    expectRecipeFailure(
+      craftingIngredient(unreadableIngredient),
+      typeFailure("Recipe ingredient must be an item type, item tag, or ingredient object"),
+    );
+  });
+
   it("rejects invalid scalar recipe brands", () => {
     expect(RecipeCompletionCount(0)).toBe(0);
     expectBrandFailure(

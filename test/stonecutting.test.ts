@@ -39,6 +39,45 @@ const typeFailure = (message: string): RecipeFailure => ({ _tag: "RecipeTypeFail
 const rangeFailure = (message: string): RecipeFailure => ({ _tag: "RecipeRangeFailure", name: "RangeError", message });
 
 describe("stonecutting recipe data", () => {
+  it("normalizes ingredient snapshots once and contains option getter failures", () => {
+    let countReads = 0;
+    const ingredient = new Proxy(
+      { _tag: "Exact", item: "stone", count: 1 },
+      {
+        get(target, property, receiver) {
+          if (property === "count") {
+            countReads += 1;
+            return countReads === 1 ? 1 : 0;
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    );
+    const result = Reflect.apply(stonecuttingRecipe, undefined, [
+      recipeId("minecraft:snapshot_ingredient"),
+      ingredient,
+      itemStack("stone_slab", 1),
+    ]);
+    expect(Result.isSuccess(result)).toBe(true);
+    expect(countReads).toBe(1);
+
+    const options = new Proxy({}, {
+      get(_target, property) {
+        if (property === "priority") throw new Error("hostile getter");
+        return undefined;
+      },
+    });
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, [
+        recipeId("minecraft:unreadable_options"),
+        "stone",
+        itemStack("stone_slab", 1),
+        options,
+      ]),
+      typeFailure("Stonecutting recipe options must be an object"),
+    );
+  });
+
   it("constructs exact, tagged, and alternative ingredient recipes", () => {
     expect(STONECUTTING_STATION_TAG).toBe("stonecutter");
     expect(success(stonecuttingRecipe(

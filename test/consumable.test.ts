@@ -263,6 +263,44 @@ describe('consumable item components', () => {
     }
   })
 
+  it('validates and constructs one snapshot of consumable options', () => {
+    let reads = 0
+    const changingOptions = new Proxy({}, {
+      get: (_target, key) => {
+        if (key !== 'consumeSeconds') return undefined
+        reads += 1
+        return reads === 1 ? ConsumeSeconds(2) : Number.NaN
+      },
+    })
+    expect(itemResultValue(Reflect.apply(consumableResult.consumableComponent, undefined, [changingOptions]))).toEqual({
+      ...DEFAULT_CONSUMABLE_COMPONENT,
+      consumeSeconds: 2,
+    })
+    expect(reads).toBe(1)
+
+    const hostileOptions = new Proxy({}, {
+      get: (_target, key) => key === 'sound' ? (() => { throw new Error('hostile') })() : undefined,
+    })
+    expectItemFailure(Reflect.apply(consumableResult.consumableComponent, undefined, [hostileOptions]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'options',
+      message: 'Unable to inspect consumable component options',
+      value: hostileOptions,
+    })
+
+    const revokedOptions = Proxy.revocable({}, {})
+    revokedOptions.revoke()
+    expectItemFailure(Reflect.apply(consumableResult.consumableComponent, undefined, [revokedOptions.proxy]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'options',
+      message: 'Unable to inspect consumable component options',
+    })
+  })
+
   it('projects status effects with namespaced ids and probabilities', () => {
     expect(consumableComponentOf('pufferfish')?.onConsumeEffects).toEqual([
       {

@@ -63,16 +63,43 @@ const failure = (
   value?: unknown,
 ): ItemValidationFailure => itemValidationFailure(field, message, reason, value)
 
-const validateOptionsObject = (value: unknown, name: string): Result.Result<void, ItemValidationFailure> => {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+const validateOptionsObject = (value: unknown, name: string): Result.Result<object, ItemValidationFailure> => {
+  if (typeof value !== 'object' || value === null) {
     return Result.fail(failure('options', `${name} must be a non-null object`, 'invalid-type', value))
   }
-  return Result.succeed(undefined)
+  try {
+    return Array.isArray(value)
+      ? Result.fail(failure('options', `${name} must be a non-null object`, 'invalid-type', value))
+      : Result.succeed(value)
+  } catch {
+    return Result.fail(failure('options', `Unable to inspect ${name}`, 'hostile-input', value))
+  }
+}
+
+const snapshotOptions = <T extends object>(
+  value: unknown,
+  name: string,
+  fields: ReadonlyArray<keyof T>,
+): Result.Result<Readonly<Partial<T>>, ItemValidationFailure> => {
+  const validObject = validateOptionsObject(value, `${name} options`)
+  if (Result.isFailure(validObject)) return Result.fail(validObject.failure)
+
+  try {
+    const input = validObject.success
+    const snapshot: Partial<T> = {}
+    for (const field of fields) {
+      const entry = Reflect.get(input, field)
+      if (entry !== undefined) Object.defineProperty(snapshot, field, { enumerable: true, value: entry })
+    }
+    return Result.succeed(Object.freeze(snapshot))
+  } catch {
+    return Result.fail(failure('options', `Unable to inspect ${name} options`, 'hostile-input', value))
+  }
 }
 
 const validateUseEffectsOptions = (options: UseEffectsOptions): Result.Result<void, ItemValidationFailure> => {
   const validObject = validateOptionsObject(options, 'Use effects options')
-  if (Result.isFailure(validObject)) return validObject
+  if (Result.isFailure(validObject)) return Result.fail(validObject.failure)
   if (options.canSprint !== undefined && typeof options.canSprint !== 'boolean') {
     return Result.fail(failure('canSprint', 'canSprint must be a boolean', 'invalid-type', options.canSprint))
   }
@@ -84,7 +111,7 @@ const validateUseEffectsOptions = (options: UseEffectsOptions): Result.Result<vo
 
 const validateSwingAnimationOptions = (options: SwingAnimationOptions): Result.Result<void, ItemValidationFailure> => {
   const validObject = validateOptionsObject(options, 'Swing animation options')
-  if (Result.isFailure(validObject)) return validObject
+  if (Result.isFailure(validObject)) return Result.fail(validObject.failure)
   if (options.type !== undefined && !SWING_ANIMATION_TYPES.includes(options.type)) {
     return Result.fail(failure('type', `Unknown swing animation type: ${String(options.type)}`, 'invalid-value', options.type))
   }
@@ -96,7 +123,7 @@ const validateSwingAnimationOptions = (options: SwingAnimationOptions): Result.R
 
 const validateAttackRangeOptions = (options: AttackRangeOptions): Result.Result<void, ItemValidationFailure> => {
   const validObject = validateOptionsObject(options, 'Attack range options')
-  if (Result.isFailure(validObject)) return validObject
+  if (Result.isFailure(validObject)) return Result.fail(validObject.failure)
   if (options.minReach !== undefined && !AttackRangeDistance.is(options.minReach)) {
     return Result.fail(failure('minReach', 'minReach must be a finite number in [0, 64]', 'out-of-range', options.minReach))
   }
@@ -120,12 +147,15 @@ const validateAttackRangeOptions = (options: AttackRangeOptions): Result.Result<
 
 export const useEffectsComponent = (
   options: UseEffectsOptions = {},
-): Result.Result<UseEffectsComponent, ItemValidationFailure> =>
-  Result.flatMap(validateUseEffectsOptions(options), () =>
+): Result.Result<UseEffectsComponent, ItemValidationFailure> => Result.flatMap(
+  snapshotOptions<UseEffectsOptions>(options, 'Use effects', ['canSprint', 'speedMultiplier']),
+  (snapshot) => Result.flatMap(validateUseEffectsOptions(snapshot), () =>
     Result.mapError(
-      UseSpeedMultiplier.result(options.speedMultiplier ?? 0.2),
-      () => failure('speedMultiplier', 'speedMultiplier must be a finite number in [0, 1]', 'out-of-range', options.speedMultiplier),
-    ).pipe(Result.map((speedMultiplier) => Object.freeze({ canSprint: options.canSprint ?? false, speedMultiplier }))))
+      UseSpeedMultiplier.result(snapshot.speedMultiplier ?? 0.2),
+      () => failure('speedMultiplier', 'speedMultiplier must be a finite number in [0, 1]', 'out-of-range', snapshot.speedMultiplier),
+    ).pipe(Result.map((speedMultiplier) => Object.freeze({ canSprint: snapshot.canSprint ?? false, speedMultiplier }))),
+  ),
+)
 
 export const minimumAttackChargeComponent = (
   value: number,
@@ -145,21 +175,27 @@ export const damageTypeComponent = (value: string): Result.Result<DamageTypeComp
 
 export const swingAnimationComponent = (
   options: SwingAnimationOptions = {},
-): Result.Result<SwingAnimationComponent, ItemValidationFailure> =>
-  Result.flatMap(validateSwingAnimationOptions(options), () => Result.mapError(
-    SwingAnimationDuration.result(options.duration ?? 6),
-    () => failure('duration', 'duration must be a non-negative safe integer', 'out-of-range', options.duration),
-  ).pipe(Result.map((duration) => Object.freeze({ type: options.type ?? 'whack', duration }))))
+): Result.Result<SwingAnimationComponent, ItemValidationFailure> => Result.flatMap(
+  snapshotOptions<SwingAnimationOptions>(options, 'Swing animation', ['type', 'duration']),
+  (snapshot) => Result.flatMap(validateSwingAnimationOptions(snapshot), () => Result.mapError(
+    SwingAnimationDuration.result(snapshot.duration ?? 6),
+    () => failure('duration', 'duration must be a non-negative safe integer', 'out-of-range', snapshot.duration),
+  ).pipe(Result.map((duration) => Object.freeze({ type: snapshot.type ?? 'whack', duration })))),
+)
 
 export const attackRangeComponent = (
   options: AttackRangeOptions = {},
-): Result.Result<AttackRangeComponent, ItemValidationFailure> =>
-  Result.flatMap(validateAttackRangeOptions(options), () => Result.gen(function* () {
-    const minReach = yield* Result.mapError(AttackRangeDistance.result(options.minReach ?? 0), () => failure('minReach', 'minReach must be a finite number in [0, 64]', 'out-of-range', options.minReach))
-    const maxReach = yield* Result.mapError(AttackRangeDistance.result(options.maxReach ?? 3), () => failure('maxReach', 'maxReach must be a finite number in [0, 64]', 'out-of-range', options.maxReach))
-    const minCreativeReach = yield* Result.mapError(AttackRangeDistance.result(options.minCreativeReach ?? 0), () => failure('minCreativeReach', 'minCreativeReach must be a finite number in [0, 64]', 'out-of-range', options.minCreativeReach))
-    const maxCreativeReach = yield* Result.mapError(AttackRangeDistance.result(options.maxCreativeReach ?? 5), () => failure('maxCreativeReach', 'maxCreativeReach must be a finite number in [0, 64]', 'out-of-range', options.maxCreativeReach))
-    const hitboxMargin = yield* Result.mapError(AttackHitboxMargin.result(options.hitboxMargin ?? 0.3), () => failure('hitboxMargin', 'hitboxMargin must be a finite number in [0, 1]', 'out-of-range', options.hitboxMargin))
-    const mobFactor = yield* Result.mapError(MobAttackRangeFactor.result(options.mobFactor ?? 1), () => failure('mobFactor', 'mobFactor must be a finite number in [0, 2]', 'out-of-range', options.mobFactor))
+): Result.Result<AttackRangeComponent, ItemValidationFailure> => Result.flatMap(
+  snapshotOptions<AttackRangeOptions>(options, 'Attack range', [
+    'minReach', 'maxReach', 'minCreativeReach', 'maxCreativeReach', 'hitboxMargin', 'mobFactor',
+  ]),
+  (snapshot) => Result.flatMap(validateAttackRangeOptions(snapshot), () => Result.gen(function* () {
+    const minReach = yield* Result.mapError(AttackRangeDistance.result(snapshot.minReach ?? 0), () => failure('minReach', 'minReach must be a finite number in [0, 64]', 'out-of-range', snapshot.minReach))
+    const maxReach = yield* Result.mapError(AttackRangeDistance.result(snapshot.maxReach ?? 3), () => failure('maxReach', 'maxReach must be a finite number in [0, 64]', 'out-of-range', snapshot.maxReach))
+    const minCreativeReach = yield* Result.mapError(AttackRangeDistance.result(snapshot.minCreativeReach ?? 0), () => failure('minCreativeReach', 'minCreativeReach must be a finite number in [0, 64]', 'out-of-range', snapshot.minCreativeReach))
+    const maxCreativeReach = yield* Result.mapError(AttackRangeDistance.result(snapshot.maxCreativeReach ?? 5), () => failure('maxCreativeReach', 'maxCreativeReach must be a finite number in [0, 64]', 'out-of-range', snapshot.maxCreativeReach))
+    const hitboxMargin = yield* Result.mapError(AttackHitboxMargin.result(snapshot.hitboxMargin ?? 0.3), () => failure('hitboxMargin', 'hitboxMargin must be a finite number in [0, 1]', 'out-of-range', snapshot.hitboxMargin))
+    const mobFactor = yield* Result.mapError(MobAttackRangeFactor.result(snapshot.mobFactor ?? 1), () => failure('mobFactor', 'mobFactor must be a finite number in [0, 2]', 'out-of-range', snapshot.mobFactor))
     return Object.freeze({ minReach, maxReach, minCreativeReach, maxCreativeReach, hitboxMargin, mobFactor })
-  }))
+  })),
+)

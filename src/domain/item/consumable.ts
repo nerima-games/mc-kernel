@@ -128,21 +128,43 @@ export const consumablePlaySound = (sound: ResourceLocation): ConsumablePlaySoun
   sound,
 })
 
+const snapshotConsumableOptions = (value: unknown): Result.Result<ConsumableComponentOptions, ItemValidationFailure> => {
+  if (typeof value !== 'object' || value === null) {
+    return Result.fail(itemValidationFailure('options', 'Consumable component options must be a non-null object', 'invalid-type', value))
+  }
+  try {
+    if (Array.isArray(value)) {
+      return Result.fail(itemValidationFailure('options', 'Consumable component options must be a non-null object', 'invalid-type', value))
+    }
+    const snapshot: ConsumableComponentOptions = {}
+    for (const field of ['consumeSeconds', 'animation', 'sound', 'hasConsumeParticles', 'onConsumeEffects'] as const) {
+      const entry = Reflect.get(value, field)
+      if (entry !== undefined) Object.defineProperty(snapshot, field, { enumerable: true, value: entry })
+    }
+    return Result.succeed(Object.freeze(snapshot))
+  } catch {
+    return Result.fail(itemValidationFailure('options', 'Unable to inspect consumable component options', 'hostile-input', value))
+  }
+}
+
 export const consumableComponent = (
   options: ConsumableComponentOptions = {},
 ): Result.Result<ConsumableComponent, ItemValidationFailure> => {
-  const consumeSeconds = options.consumeSeconds === undefined
+  const snapshot = snapshotConsumableOptions(options)
+  if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
+  const input = snapshot.success
+  const consumeSeconds = input.consumeSeconds === undefined
     ? Result.succeed(DEFAULT_CONSUMABLE_COMPONENT.consumeSeconds)
     : Result.mapError(
-      ConsumeSeconds.result(options.consumeSeconds),
-      () => itemValidationFailure('consumeSeconds', 'consumeSeconds must be finite and non-negative', 'out-of-range', options.consumeSeconds),
+      ConsumeSeconds.result(input.consumeSeconds),
+      () => itemValidationFailure('consumeSeconds', 'consumeSeconds must be finite and non-negative', 'out-of-range', input.consumeSeconds),
     )
   return Result.map(consumeSeconds, (checkedConsumeSeconds) => ({
     consumeSeconds: checkedConsumeSeconds,
-    animation: options.animation ?? DEFAULT_CONSUMABLE_COMPONENT.animation,
-    sound: options.sound ?? DEFAULT_CONSUMABLE_COMPONENT.sound,
-    hasConsumeParticles: options.hasConsumeParticles ?? DEFAULT_CONSUMABLE_COMPONENT.hasConsumeParticles,
-    onConsumeEffects: options.onConsumeEffects ?? DEFAULT_CONSUMABLE_COMPONENT.onConsumeEffects,
+    animation: input.animation ?? DEFAULT_CONSUMABLE_COMPONENT.animation,
+    sound: input.sound ?? DEFAULT_CONSUMABLE_COMPONENT.sound,
+    hasConsumeParticles: input.hasConsumeParticles ?? DEFAULT_CONSUMABLE_COMPONENT.hasConsumeParticles,
+    onConsumeEffects: input.onConsumeEffects ?? DEFAULT_CONSUMABLE_COMPONENT.onConsumeEffects,
   }))
 }
 

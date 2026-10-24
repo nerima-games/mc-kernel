@@ -389,6 +389,47 @@ describe('light level branding', () => {
     })),
   )
 
+  it('snapshots support-rule fields and blocks, and reports throwing getters', () =>
+    Effect.runPromise(Effect.sync(() => {
+      let kindReads = 0
+      let blockReads = 0
+      const blocks = new Proxy(['stone'], {
+        get(target, key, receiver) {
+          if (key === '0') {
+            blockReads += 1
+            return blockReads === 1 ? 'stone' : 'not-a-block'
+          }
+          return Reflect.get(target, key, receiver)
+        },
+      })
+      const supportRule = new Proxy({ kind: 'oneOf', blocks }, {
+        get(target, key, receiver) {
+          if (key === 'kind') {
+            kindReads += 1
+            return kindReads === 1 ? 'oneOf' : 'none'
+          }
+          return Reflect.get(target, key, receiver)
+        },
+      })
+
+      const properties = resultValue(normalizeBlockPropertyOverrides({ supportRule }))
+      expect(properties.supportRule).toStrictEqual({ kind: 'oneOf', blocks: ['stone'] })
+      expect({ kindReads, blockReads }).toStrictEqual({ kindReads: 1, blockReads: 1 })
+
+      const throwingBlocks = new Proxy(['stone'], {
+        get(target, key, receiver) {
+          if (key === '0') throw new Error('hostile array element')
+          return Reflect.get(target, key, receiver)
+        },
+      })
+      expectPropertyFailure(
+        normalizeBlockPropertyOverrides({ supportRule: { kind: 'oneOf', blocks: throwingBlocks } }),
+        'type',
+        'block property supportRule must be readable',
+      )
+    })),
+  )
+
   it('exposes the public light-level constructor', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(LightLevel(3)).toBe(3)

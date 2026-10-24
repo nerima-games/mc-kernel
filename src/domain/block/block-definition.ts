@@ -102,22 +102,47 @@ const validateKnownDefinitionKeys = (
 function validateBlockDefinition(
   definition: BlockDefinition,
 ): Result.Result<BlockDefinition, BlockDefinitionFailure> {
-  if (!isRecord(definition)) {
-    return failure('invalid-shape', 'block definition must be an object')
-  }
-  const knownKeys = validateKnownDefinitionKeys(definition)
-  if (Result.isFailure(knownKeys)) return Result.fail(knownKeys.failure)
+  try {
+    if (!isRecord(definition)) {
+      return failure('invalid-shape', 'block definition must be an object')
+    }
+    const knownKeys = validateKnownDefinitionKeys(definition)
+    if (Result.isFailure(knownKeys)) return Result.fail(knownKeys.failure)
 
-  if (!isBlockType(definition['type'])) {
-    return failure('invalid-shape', 'BlockDefinition.type must be a registered BlockType')
+    const type = definition['type']
+    const capabilities = definition['capabilities']
+    const properties = definition['properties']
+    if (!isBlockType(type)) {
+      return failure('invalid-shape', 'BlockDefinition.type must be a registered BlockType')
+    }
+    if (capabilities !== undefined && !isRecord(capabilities)) {
+      return failure('invalid-shape', 'BlockDefinition.capabilities must be an object')
+    }
+    if (properties !== undefined && !isRecord(properties)) {
+      return failure('invalid-shape', 'BlockDefinition.properties must be an object')
+    }
+    return Result.succeed({
+      type,
+      ...(capabilities === undefined ? {} : { capabilities }),
+      ...(properties === undefined ? {} : { properties }),
+    })
+  } catch {
+    return failure('invalid-shape', 'block definition fields must be readable')
   }
-  if (definition['capabilities'] !== undefined && !isRecord(definition['capabilities'])) {
-    return failure('invalid-shape', 'BlockDefinition.capabilities must be an object')
+}
+
+const resolveCapabilities = (
+  overrides: BlockCapabilityOverrides,
+): Result.Result<BlockCapabilities, BlockCapabilityFailure> => {
+  try {
+    return resolveBlockCapabilities(overrides)
+  } catch {
+    return Result.fail({
+      _tag: 'BlockCapabilityFailure',
+      reason: 'not-boolean',
+      message: 'block capability fields must be readable as booleans',
+    })
   }
-  if (definition['properties'] !== undefined && !isRecord(definition['properties'])) {
-    return failure('invalid-shape', 'BlockDefinition.properties must be an object')
-  }
-  return Result.succeed(definition)
 }
 
 /** Resolve a definition's capability flags, defaulting an absent field to the defaults. */
@@ -125,7 +150,7 @@ export const blockCapabilitiesOf = (
   definition: BlockDefinition,
 ): Result.Result<BlockCapabilities, BlockDefinitionFailure | BlockCapabilityFailure> =>
   Result.flatMap(validateBlockDefinition(definition), (validated) =>
-    resolveBlockCapabilities(validated.capabilities ?? {}),
+    resolveCapabilities(validated.capabilities ?? {}),
   )
 
 /** Resolve a definition's typed properties, defaulting an absent field to the defaults. */
@@ -145,7 +170,7 @@ export const resolveBlock = (
 > =>
   Result.gen(function* () {
     const validated = yield* validateBlockDefinition(definition)
-    const capabilities = yield* resolveBlockCapabilities(validated.capabilities ?? {})
+    const capabilities = yield* resolveCapabilities(validated.capabilities ?? {})
     const properties = yield* resolveBlockProperties(validated.properties ?? {})
     return { capabilities, properties, type: validated.type }
   })

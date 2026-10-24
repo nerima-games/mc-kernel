@@ -6,6 +6,8 @@ import {
   RandomSeed,
   fixedRandomSource,
   seededRandomSource,
+  type RandomFraction as RandomFractionType,
+  type RandomInt as RandomIntType,
 } from '../src/domain/world/random-source'
 import { Result } from 'effect'
 import { resultFailure, resultValue } from './block-result-helpers.js'
@@ -183,5 +185,78 @@ describe('fixedRandomSource', () => {
       reason: 'invalid-script',
       message: 'RandomSource script contains an invalid fraction: RandomFraction must be in [0, 1)',
     })
+  })
+
+  it('snapshots script fields and elements once and rejects throwing reads', () => {
+    let intScriptReads = 0
+    let floatScriptReads = 0
+    let intElementReads = 0
+    let floatElementReads = 0
+    const ints = new Proxy<ReadonlyArray<RandomIntType>>(
+      [resultValue(RandomInt.result(2))],
+      {
+      get(target, key, receiver) {
+        if (key === '0') {
+          intElementReads += 1
+          return intElementReads === 1 ? 2 : -1
+        }
+        return Reflect.get(target, key, receiver)
+      },
+      },
+    )
+    const floats = new Proxy<ReadonlyArray<RandomFractionType>>(
+      [resultValue(RandomFraction.result(0.25))],
+      {
+      get(target, key, receiver) {
+        if (key === '0') {
+          floatElementReads += 1
+          return floatElementReads === 1 ? 0.25 : 1
+        }
+        return Reflect.get(target, key, receiver)
+      },
+      },
+    )
+    const script = new Proxy({ nextInts: ints, nextFloats: floats }, {
+      get(target, key, receiver) {
+        if (key === 'nextInts') {
+          intScriptReads += 1
+          return intScriptReads === 1 ? ints : [-1]
+        }
+        if (key === 'nextFloats') {
+          floatScriptReads += 1
+          return floatScriptReads === 1 ? floats : [1]
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    const random = resultValue(fixedRandomSource(script))
+
+    expect(resultValue(random.nextInt(10))).toBe(2)
+    expect(resultValue(random.nextFloat())).toBe(0.25)
+    expect({ intScriptReads, floatScriptReads, intElementReads, floatElementReads }).toStrictEqual({
+      intScriptReads: 1,
+      floatScriptReads: 1,
+      intElementReads: 1,
+      floatElementReads: 1,
+    })
+
+    const throwingScript = new Proxy({ nextInts: [] }, {
+      get(target, key, receiver) {
+        if (key === 'nextInts') throw new Error('hostile getter')
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    expect(resultFailure(fixedRandomSource(throwingScript)).reason).toBe('invalid-script')
+
+    const throwingInts = new Proxy<ReadonlyArray<RandomIntType>>(
+      [resultValue(RandomInt.result(1))],
+      {
+      get(target, key, receiver) {
+        if (key === '0') throw new Error('hostile array element')
+        return Reflect.get(target, key, receiver)
+      },
+      },
+    )
+    expect(resultFailure(fixedRandomSource({ nextInts: throwingInts })).reason).toBe('invalid-script')
   })
 })

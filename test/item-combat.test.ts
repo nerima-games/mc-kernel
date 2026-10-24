@@ -149,42 +149,58 @@ describe('item combat components', () => {
     }
   })
 
-  it('maps brand failures if an option changes after validation', () => {
+  it('validates and brands one snapshot of option values', () => {
     const changingNumber = (field: string, valid: number, invalid: number) => {
       let reads = 0
-      return new Proxy({}, {
+      const value = new Proxy({}, {
         get: (_target, key) => {
           if (key !== field) return undefined
           reads += 1
-          return reads <= 2 ? valid : invalid
+          return reads === 1 ? valid : invalid
         },
       })
+      return { value, reads: () => reads }
     }
 
-    expectItemFailure(Reflect.apply(itemCombatResult.useEffectsComponent, undefined, [
-      changingNumber('speedMultiplier', 0.5, 2),
-    ]), validation(
-      'speedMultiplier', 'speedMultiplier must be a finite number in [0, 1]', 2, 'out-of-range', 'RangeError',
-    ))
-    expectItemFailure(Reflect.apply(itemCombatResult.swingAnimationComponent, undefined, [
-      changingNumber('duration', 1, -1),
-    ]), validation(
-      'duration', 'duration must be a non-negative safe integer', -1, 'out-of-range', 'RangeError',
-    ))
+    const speed = changingNumber('speedMultiplier', 0.5, 2)
+    expect(useEffectsComponent(speed.value)).toEqual({ canSprint: false, speedMultiplier: 0.5 })
+    expect(speed.reads()).toBe(1)
 
-    const cases: ReadonlyArray<Readonly<{ field: string; valid: number; invalid: number; message: string }>> = [
-      { field: 'minReach', valid: 1, invalid: -1, message: 'minReach must be a finite number in [0, 64]' },
-      { field: 'maxReach', valid: 2, invalid: 65, message: 'maxReach must be a finite number in [0, 64]' },
-      { field: 'minCreativeReach', valid: 1, invalid: -1, message: 'minCreativeReach must be a finite number in [0, 64]' },
-      { field: 'maxCreativeReach', valid: 3, invalid: 65, message: 'maxCreativeReach must be a finite number in [0, 64]' },
-      { field: 'hitboxMargin', valid: 0.3, invalid: 1.1, message: 'hitboxMargin must be a finite number in [0, 1]' },
-      { field: 'mobFactor', valid: 1, invalid: -1, message: 'mobFactor must be a finite number in [0, 2]' },
+    const duration = changingNumber('duration', 1, -1)
+    expect(swingAnimationComponent(duration.value)).toEqual({ type: 'whack', duration: 1 })
+    expect(duration.reads()).toBe(1)
+
+    const cases: ReadonlyArray<Readonly<{ field: string; valid: number; invalid: number }>> = [
+      { field: 'minReach', valid: 1, invalid: -1 },
+      { field: 'maxReach', valid: 2, invalid: 65 },
+      { field: 'minCreativeReach', valid: 1, invalid: -1 },
+      { field: 'maxCreativeReach', valid: 3, invalid: 65 },
+      { field: 'hitboxMargin', valid: 0.3, invalid: 1.1 },
+      { field: 'mobFactor', valid: 1, invalid: -1 },
     ]
-    for (const { field, valid, invalid, message } of cases) {
-      expectItemFailure(Reflect.apply(itemCombatResult.attackRangeComponent, undefined, [
-        changingNumber(field, valid, invalid),
-      ]), validation(field, message, invalid, 'out-of-range', 'RangeError'))
+    for (const { field, valid, invalid } of cases) {
+      const option = changingNumber(field, valid, invalid)
+      const component = attackRangeComponent(option.value)
+      expect(Object.getOwnPropertyDescriptor(component, field)?.value).toBe(valid)
+      expect(option.reads()).toBe(1)
     }
+
+    const hostileOptions = new Proxy({}, {
+      get: (_target, key) => key === 'speedMultiplier' ? (() => { throw new Error('hostile') })() : undefined,
+    })
+    expectItemFailure(Reflect.apply(itemCombatResult.useEffectsComponent, undefined, [hostileOptions]), validation(
+      'options', 'Unable to inspect Use effects options', hostileOptions, 'hostile-input', 'TypeError',
+    ))
+
+    const revokedOptions = Proxy.revocable({}, {})
+    revokedOptions.revoke()
+    expectItemFailure(Reflect.apply(itemCombatResult.useEffectsComponent, undefined, [revokedOptions.proxy]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'options',
+      message: 'Unable to inspect Use effects options',
+    })
   })
 
   it('guards exact component shapes and value ranges', () => {

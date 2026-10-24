@@ -11,7 +11,6 @@ import { StackCount } from "../time/quantities.js";
 import {
   craftingIngredient,
   isCraftingIngredient,
-  isCraftingIngredientInput,
   RecipeId,
   RecipeGroup,
   RecipePriority,
@@ -100,7 +99,31 @@ type RecordValue = {
 };
 
 const isRecord = (value: unknown): value is RecordValue =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+  (() => {
+    try {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    } catch {
+      return false;
+    }
+  })();
+
+const snapshotRecord = (
+  value: unknown,
+  fields: ReadonlyArray<keyof RecordValue>,
+): RecordValue | undefined => {
+  try {
+    if (!isRecord(value)) {
+      return undefined;
+    }
+    const snapshot: Record<string, unknown> = {};
+    for (const field of fields) {
+      snapshot[field] = Reflect.get(value, field);
+    }
+    return snapshot;
+  } catch {
+    return undefined;
+  }
+};
 
 const isRecipeCategory = (value: unknown): value is RecipeCategory =>
   value === "building" ||
@@ -124,46 +147,62 @@ const isInteger = (value: unknown): value is number =>
 export const isTransmuteMaterialCount = (
   value: unknown,
 ): value is TransmuteMaterialCount => {
+  const snapshot = snapshotRecord(value, ["min", "max"]);
+  if (snapshot === undefined) {
+    return false;
+  }
+  const { min, max } = snapshot;
   if (
-    !isRecord(value) ||
-    typeof value.min !== "number" ||
-    !TransmuteMaterialSlotCount.is(value.min) ||
-    typeof value.max !== "number" ||
-    !TransmuteMaterialSlotCount.is(value.max)
+    typeof min !== "number" ||
+    typeof max !== "number" ||
+    !TransmuteMaterialSlotCount.is(min) ||
+    !TransmuteMaterialSlotCount.is(max) ||
+    min < 1 ||
+    max > TRANSMUTE_MAX_MATERIAL_SLOTS ||
+    min > max
   ) {
     return false;
   }
-  if (
-    value.min < 1 ||
-    value.max > TRANSMUTE_MAX_MATERIAL_SLOTS ||
-    value.min > value.max
-  ) {
-    return false;
-  }
-  return value.min === 1 ? value.max === 1 : value.min >= 2;
+  return min === 1 ? max === 1 : min >= 2;
 };
 
 const assertMaterialCount = (
   value: unknown,
 ): Result.Result<TransmuteMaterialCount, RecipeFailure> => {
-  if (!isTransmuteMaterialCount(value)) {
+  const snapshot = snapshotRecord(value, ["min", "max"]);
+  const min = snapshot?.min;
+  const max = snapshot?.max;
+  if (
+    typeof min !== "number" ||
+    typeof max !== "number" ||
+    !Number.isSafeInteger(min) ||
+    !Number.isSafeInteger(max) ||
+    min < 1 ||
+    max > TRANSMUTE_MAX_MATERIAL_SLOTS ||
+    min > max ||
+    (min === 1 ? max !== 1 : min < 2)
+  ) {
     return recipeRangeFailure(
-      `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}], received ${String(value)}`,
+      `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}]`,
     );
   }
-  return Result.succeed({
-    min: TransmuteMaterialSlotCount(value.min),
-    max: TransmuteMaterialSlotCount(value.max),
-  });
+  const checkedMin = TransmuteMaterialSlotCount.result(min);
+  const checkedMax = TransmuteMaterialSlotCount.result(max);
+  if (Result.isFailure(checkedMin) || Result.isFailure(checkedMax)) {
+    return recipeRangeFailure(
+      `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}]`,
+    );
+  }
+  return Result.succeed({ min: checkedMin.success, max: checkedMax.success });
 };
 
 const assertIngredient = (
   ingredient: unknown,
 ): Result.Result<CraftingIngredient, RecipeFailure> => {
-  if (!isCraftingIngredientInput(ingredient)) {
-    return recipeTypeFailure("Transmute ingredient has an invalid shape");
-  }
-  return craftingIngredient(ingredient);
+  const normalized = craftingIngredient(ingredient);
+  return Result.isFailure(normalized)
+    ? recipeTypeFailure("Transmute ingredient has an invalid shape")
+    : normalized;
 };
 
 const assertOutput = (
@@ -177,7 +216,7 @@ const assertCategory = (
   value: unknown,
 ): Result.Result<RecipeCategory | undefined, RecipeFailure> => {
   if (value !== undefined && !isRecipeCategory(value)) {
-    return recipeTypeFailure(`Transmute recipe category is invalid: ${String(value)}`);
+    return recipeTypeFailure("Transmute recipe category is invalid");
   }
   return Result.succeed(value);
 };
@@ -190,19 +229,28 @@ const assertGroup = (
   }
   return value === undefined
     ? Result.succeed(undefined)
-    : Result.succeed(RecipeGroup(value));
+    : Result.mapError(RecipeGroup.result(value), () =>
+        recipeTypeFailureValue("Transmute recipe group must be a string"),
+      );
 };
 
 const assertPriority = (
   value: unknown,
 ): Result.Result<RecipePriorityValue, RecipeFailure> => {
   const priority = value ?? 0;
-  if (!isInteger(priority) || priority < 0) {
+  if (typeof priority !== "number") {
     return recipeRangeFailure(
-      `Transmute recipe priority must be a non-negative safe integer, received ${String(priority)}`,
+      "Transmute recipe priority must be a non-negative safe integer",
     );
   }
-  return Result.succeed(RecipePriority(priority));
+  const message = `Transmute recipe priority must be a non-negative safe integer, received ${priority}`;
+  if (!isInteger(priority) || priority < 0) {
+    return recipeRangeFailure(message);
+  }
+  return Result.mapError(
+    RecipePriority.result(priority),
+    () => recipeRangeFailureValue(message),
+  );
 };
 
 const assertShowNotification = (
@@ -237,10 +285,20 @@ const normalizeOptions = (
   RecipeFailure
 > =>
   Result.gen(function* () {
-    if (options !== undefined && !isRecord(options)) {
+    const record =
+      options === undefined
+        ? undefined
+        : snapshotRecord(options, [
+            "category",
+            "group",
+            "priority",
+            "showNotification",
+            "addMaterialCountToResult",
+            "materialCount",
+          ]);
+    if (options !== undefined && record === undefined) {
       return yield* recipeTypeFailure("Transmute recipe options must be an object");
     }
-    const record = options;
     const category = yield* assertCategory(record?.category);
     const group = yield* assertGroup(record?.group);
     const priority = yield* assertPriority(record?.priority);
@@ -291,25 +349,38 @@ export const transmuteRecipe = (
   });
 
 export const isTransmuteRecipe = (value: unknown): value is TransmuteRecipe => {
-  if (!isRecord(value)) {
+  const recipe = snapshotRecord(value, [
+    "_tag",
+    "id",
+    "source",
+    "material",
+    "output",
+    "materialCount",
+    "addMaterialCountToResult",
+    "category",
+    "group",
+    "priority",
+    "showNotification",
+  ]);
+  if (recipe === undefined) {
     return false;
   }
   return (
-    value._tag === "Transmute" &&
-    typeof value.id === "string" &&
-    RecipeId.is(value.id) &&
-    isCraftingIngredient(value.source) &&
-    isCraftingIngredient(value.material) &&
-    isItemStack(value.output) &&
-    isTransmuteMaterialCount(value.materialCount) &&
-    typeof value.addMaterialCountToResult === "boolean" &&
-    (value.category === undefined || isRecipeCategory(value.category)) &&
-    (value.group === undefined ||
-      (typeof value.group === "string" && RecipeGroup.is(value.group))) &&
-    typeof value.priority === "number" &&
-    RecipePriority.is(value.priority) &&
-    (value.showNotification === undefined ||
-      typeof value.showNotification === "boolean")
+    recipe._tag === "Transmute" &&
+    typeof recipe.id === "string" &&
+    RecipeId.is(recipe.id) &&
+    isCraftingIngredient(recipe.source) &&
+    isCraftingIngredient(recipe.material) &&
+    isItemStack(recipe.output) &&
+    isTransmuteMaterialCount(recipe.materialCount) &&
+    typeof recipe.addMaterialCountToResult === "boolean" &&
+    (recipe.category === undefined || isRecipeCategory(recipe.category)) &&
+    (recipe.group === undefined ||
+      (typeof recipe.group === "string" && RecipeGroup.is(recipe.group))) &&
+    typeof recipe.priority === "number" &&
+    RecipePriority.is(recipe.priority) &&
+    (recipe.showNotification === undefined ||
+      typeof recipe.showNotification === "boolean")
   );
 };
 

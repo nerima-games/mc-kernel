@@ -36,7 +36,7 @@ import {
   type HarvestToolRequirement,
 } from './block-harvest-data.js'
 import type { SupportRule } from './block-support-data.js'
-import { isBlockType } from './block-type.js'
+import { isBlockType, type BlockType } from './block-type.js'
 import { isItemType } from '../item/item-type.js'
 import { MAX_STACK_COUNT, StackCount } from '../time/quantities.js'
 
@@ -196,32 +196,46 @@ const validateDropRule = (value: unknown): Result.Result<BlockDropRule, BlockPro
     }
   })
 
-const validateSupportRule = (value: unknown): Result.Result<SupportRule, BlockPropertyFailure> =>
-  Result.gen(function* () {
-    if (!isRecord(value)) {
-      return yield* failure('type', 'block property supportRule must be an object')
-    }
-
-    const kind = value['kind']
-    if (kind === 'none' || kind === 'anySupporting') {
-      yield* assertKnownKeys(value, ['kind'], 'block property supportRule field')
-      return { kind }
-    }
-
-    if (kind === 'oneOf') {
-      yield* assertKnownKeys(value, ['kind', 'blocks'], 'block property supportRule field')
-      const blocks = value['blocks']
-      if (!Array.isArray(blocks) || blocks.length === 0) {
-        return yield* failure('range', 'block property supportRule blocks must contain at least one block')
+const validateSupportRule = (value: unknown): Result.Result<SupportRule, BlockPropertyFailure> => {
+  try {
+    return Result.gen(function* () {
+      if (!isRecord(value)) {
+        return yield* failure('type', 'block property supportRule must be an object')
       }
-      if (!blocks.every(isBlockType)) {
-        return yield* failure('type', 'block property supportRule contains an unknown block type')
-      }
-      return { kind, blocks }
-    }
 
-    return yield* failure('type', `unknown block property supportRule kind ${String(kind)}`)
-  })
+      const kind = value['kind']
+      if (kind === 'none' || kind === 'anySupporting') {
+        yield* assertKnownKeys(value, ['kind'], 'block property supportRule field')
+        return { kind }
+      }
+
+      if (kind === 'oneOf') {
+        yield* assertKnownKeys(value, ['kind', 'blocks'], 'block property supportRule field')
+        const values = value['blocks']
+        if (!Array.isArray(values)) {
+          return yield* failure('range', 'block property supportRule blocks must contain at least one block')
+        }
+        const length = values.length
+        if (!Number.isSafeInteger(length) || length === 0) {
+          return yield* failure('range', 'block property supportRule blocks must contain at least one block')
+        }
+        const blocks: Array<BlockType> = []
+        for (let index = 0; index < length; index += 1) {
+          const block = values[index]
+          if (!isBlockType(block)) {
+            return yield* failure('type', 'block property supportRule contains an unknown block type')
+          }
+          blocks.push(block)
+        }
+        return { kind, blocks }
+      }
+
+      return yield* failure('type', `unknown block property supportRule kind ${String(kind)}`)
+    })
+  } catch {
+    return failure('type', 'block property supportRule must be readable')
+  }
+}
 
 type CategoricalBlockPropertyOverrides = Pick<
   BlockPropertyOverrides,
@@ -350,16 +364,20 @@ const validateStructuredProperties = (
 function validateBlockPropertyOverrides(
   overrides: unknown,
 ): Result.Result<ValidatedBlockPropertyOverrides, BlockPropertyFailure> {
-  if (!isRecord(overrides)) {
-    return failure('type', 'block property overrides must be an object')
+  try {
+    if (!isRecord(overrides)) {
+      return failure('type', 'block property overrides must be an object')
+    }
+    return Result.gen(function* () {
+      yield* assertKnownKeys(overrides, BLOCK_PROPERTY_NAMES, 'block property')
+      const categorical = yield* validateCategoricalProperties(overrides)
+      const numeric = yield* validateNumericProperties(overrides)
+      const structured = yield* validateStructuredProperties(overrides)
+      return { ...categorical, ...numeric, ...structured }
+    })
+  } catch {
+    return failure('type', 'block property overrides must be readable')
   }
-  return Result.gen(function* () {
-    yield* assertKnownKeys(overrides, BLOCK_PROPERTY_NAMES, 'block property')
-    const categorical = yield* validateCategoricalProperties(overrides)
-    const numeric = yield* validateNumericProperties(overrides)
-    const structured = yield* validateStructuredProperties(overrides)
-    return { ...categorical, ...numeric, ...structured }
-  })
 }
 
 /** Validate external or table data and brand its numeric property values. */

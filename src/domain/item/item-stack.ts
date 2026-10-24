@@ -67,6 +67,140 @@ const readRecordField = (
     catch: () => failure(field, `Unable to inspect item stack ${field}`, 'hostile-input', value),
   })))
 
+type ItemStackSnapshotState = Readonly<{
+  readonly ancestors: WeakSet<object>
+  readonly snapshots: WeakMap<object, unknown>
+}>
+
+const NON_PLAIN_STACK_VALUE_PROTOTYPE = Object.freeze(Object.create(null))
+
+const snapshotStackValue = (
+  value: unknown,
+  field: string,
+  state: ItemStackSnapshotState,
+): Result.Result<unknown, ItemValidationFailure> => {
+  if (value === null || typeof value !== 'object') return Result.succeed(value)
+  const inspected = Effect.runSync(Effect.result(Effect.try({
+    try: () => Array.isArray(value),
+    catch: () => failure(field, `Unable to inspect item stack ${field}`, 'hostile-input', value),
+  })))
+  if (Result.isFailure(inspected)) return Result.fail(inspected.failure)
+  if (state.ancestors.has(value)) {
+    return Result.fail(failure(field, `Cyclic item stack ${field} is invalid`, 'invalid-value', value))
+  }
+  const existing = state.snapshots.get(value)
+  if (existing !== undefined) return Result.succeed(existing)
+  state.ancestors.add(value)
+
+  if (inspected.success) {
+    const length = Effect.runSync(Effect.result(Effect.try({
+      try: () => Reflect.get(value, 'length'),
+      catch: () => failure(field, `Unable to inspect item stack ${field}`, 'hostile-input', value),
+    })))
+    if (Result.isFailure(length)) {
+      state.ancestors.delete(value)
+      return Result.fail(length.failure)
+    }
+    const snapshot: unknown[] = []
+    state.snapshots.set(value, snapshot)
+    for (let index = 0; index < length.success; index += 1) {
+      const currentField = `${field}[${index}]`
+      const entry = Effect.runSync(Effect.result(Effect.try({
+        try: () => Reflect.get(value, String(index)),
+        catch: () => failure(currentField, `Unable to inspect item stack ${currentField}`, 'hostile-input', value),
+      })))
+      if (Result.isFailure(entry)) {
+        state.ancestors.delete(value)
+        return Result.fail(entry.failure)
+      }
+      const nested = snapshotStackValue(entry.success, currentField, state)
+      if (Result.isFailure(nested)) {
+        state.ancestors.delete(value)
+        return Result.fail(nested.failure)
+      }
+      snapshot.push(nested.success)
+    }
+    state.ancestors.delete(value)
+    return Result.succeed(Object.freeze(snapshot))
+  }
+
+  const prototype = Effect.runSync(Effect.result(Effect.try({
+    try: () => Object.getPrototypeOf(value),
+    catch: () => failure(field, `Unable to inspect item stack ${field}`, 'hostile-input', value),
+  })))
+  if (Result.isFailure(prototype)) {
+    state.ancestors.delete(value)
+    return Result.fail(prototype.failure)
+  }
+  const keys = Effect.runSync(Effect.result(Effect.try({
+    try: () => Object.keys(value),
+    catch: () => failure(field, `Unable to inspect item stack ${field}`, 'hostile-input', value),
+  })))
+  if (Result.isFailure(keys)) {
+    state.ancestors.delete(value)
+    return Result.fail(keys.failure)
+  }
+  const snapshotPrototype = prototype.success === Object.prototype || prototype.success === null
+    ? prototype.success
+    : NON_PLAIN_STACK_VALUE_PROTOTYPE
+  const snapshot: Record<string, unknown> = Object.create(snapshotPrototype)
+  state.snapshots.set(value, snapshot)
+  for (const key of keys.success) {
+    const currentField = `${field}.${key}`
+    const entry = Effect.runSync(Effect.result(Effect.try({
+      try: () => Reflect.get(value, key),
+      catch: () => failure(currentField, `Unable to inspect item stack ${currentField}`, 'hostile-input', value),
+    })))
+    if (Result.isFailure(entry)) {
+      state.ancestors.delete(value)
+      return Result.fail(entry.failure)
+    }
+    const nested = snapshotStackValue(entry.success, currentField, state)
+    if (Result.isFailure(nested)) {
+      state.ancestors.delete(value)
+      return Result.fail(nested.failure)
+    }
+    Object.defineProperty(snapshot, key, { enumerable: true, value: nested.success })
+  }
+  state.ancestors.delete(value)
+  return Result.succeed(Object.freeze(snapshot))
+}
+
+const itemStackSnapshot = (
+  value: unknown,
+  invalidFailure: ItemValidationFailure,
+): Result.Result<ItemStack, ItemStackFailure> => {
+  const shape = Effect.runSync(Effect.result(Effect.try({
+    try: () => {
+      if (!isRecord(value)) return false
+      const keys = Object.keys(value)
+      return keys.every((key) => key === 'item' || key === 'count' || key === 'components') &&
+        Object.hasOwn(value, 'item') && Object.hasOwn(value, 'count') && Object.hasOwn(value, 'components')
+    },
+    catch: () => failure('stack', 'Unable to inspect item stack', 'hostile-input', value),
+  })))
+  if (Result.isFailure(shape)) return Result.fail(shape.failure)
+  if (!shape.success) return Result.fail(invalidFailure)
+  if (typeof value !== 'object' || value === null) return Result.fail(invalidFailure)
+  const stack = value
+
+  return Result.gen(function* () {
+    const item = yield* readRecordField(stack, 'item')
+    const count = yield* readRecordField(stack, 'count')
+    const componentsValue = yield* readRecordField(stack, 'components')
+    const components = yield* snapshotStackValue(componentsValue, 'components', {
+      ancestors: new WeakSet<object>(),
+      snapshots: new WeakMap<object, unknown>(),
+    })
+    if (!isItemType(item) || !isItemComponents(components) || typeof count !== 'number') {
+      return yield* Result.fail(invalidFailure)
+    }
+    const stackCount = yield* Result.mapError(StackCount.result(count), () => invalidFailure)
+    if (stackCount > components.maxStackSize) return yield* Result.fail(invalidFailure)
+    return Object.freeze({ item, count: stackCount, components })
+  })
+}
+
 const stackOptionsFromUnknown = (
   value: unknown,
 ): Result.Result<ItemStackOptions, ItemStackFailure> => {
@@ -183,23 +317,33 @@ export const itemStackWithCount = (
   stack: ItemStack,
   count: StackCountValue,
 ): Result.Result<ItemStack, ItemStackFailure> => {
-  if (!isItemStack(stack)) return Result.fail(failure('stack', 'Stack must be an ItemStack', 'invalid-type', stack))
-  return stackValueOf(stack.item, Number(count), stack.components)
+  const snapshot = itemStackSnapshot(stack, failure('stack', 'Stack must be an ItemStack', 'invalid-type', stack))
+  if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
+  return stackValueOf(snapshot.success.item, Number(count), snapshot.success.components)
 }
 
 export const transmuteItemStack = (
   source: ItemStack,
   result: ItemStack,
-  count: StackCountValue = result.count,
+  count?: StackCountValue,
 ): Result.Result<ItemStack, ItemStackFailure> => {
-  if (!isItemStack(source) || !isItemStack(result)) {
-    return Result.fail(failure('stack', 'Transmute source and result must be ItemStacks', 'invalid-type'))
-  }
-  return stackValueOf(result.item, Number(count), result.components)
+  const invalid = failure('stack', 'Transmute source and result must be ItemStacks', 'invalid-type')
+  const sourceSnapshot = itemStackSnapshot(source, invalid)
+  if (Result.isFailure(sourceSnapshot)) return Result.fail(sourceSnapshot.failure)
+  const resultSnapshot = itemStackSnapshot(result, invalid)
+  if (Result.isFailure(resultSnapshot)) return Result.fail(resultSnapshot.failure)
+  return stackValueOf(resultSnapshot.success.item, Number(count ?? resultSnapshot.success.count), resultSnapshot.success.components)
 }
 
-export const itemStackEqualsIgnoringCount = (left: ItemStack, right: ItemStack): boolean =>
-  isItemStack(left) && isItemStack(right) && left.item === right.item && itemComponentsEqual(left.components, right.components)
+export const itemStackEqualsIgnoringCount = (left: ItemStack, right: ItemStack): boolean => {
+  const invalid = failure('stack', 'Stacks must be ItemStacks', 'invalid-type')
+  const leftSnapshot = itemStackSnapshot(left, invalid)
+  if (Result.isFailure(leftSnapshot)) return false
+  const rightSnapshot = itemStackSnapshot(right, invalid)
+  if (Result.isFailure(rightSnapshot)) return false
+  return leftSnapshot.success.item === rightSnapshot.success.item &&
+    itemComponentsEqual(leftSnapshot.success.components, rightSnapshot.success.components)
+}
 
 export const itemStacksCanMerge = (left: ItemStack, right: ItemStack): boolean => itemStackEqualsIgnoringCount(left, right)
 
@@ -207,20 +351,22 @@ export const splitItemStack = (
   stack: ItemStack,
   amount: TransferQuantityValue,
 ): Result.Result<{ readonly taken: ItemStack; readonly remainder: ItemSlot }, ItemStackFailure> => {
-  if (!isItemStack(stack)) return Result.fail(failure('stack', 'Stack must be an ItemStack', 'invalid-type', stack))
+  const snapshot = itemStackSnapshot(stack, failure('stack', 'Stack must be an ItemStack', 'invalid-type', stack))
+  if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
+  const input = snapshot.success
   const checkedAmount = Result.mapError(
     TransferQuantity.result(Number(amount)),
-    () => failure('amount', `Split amount must be an integer in [1, ${stack.count}]`, 'out-of-range', amount),
+    () => failure('amount', `Split amount must be an integer in [1, ${input.count}]`, 'out-of-range', amount),
   )
   if (Result.isFailure(checkedAmount)) return Result.fail(checkedAmount.failure)
-  if (Number(checkedAmount.success) > Number(stack.count)) {
-    return Result.fail(failure('amount', `Split amount must be an integer in [1, ${stack.count}]`, 'out-of-range', amount))
+  if (Number(checkedAmount.success) > Number(input.count)) {
+    return Result.fail(failure('amount', `Split amount must be an integer in [1, ${input.count}]`, 'out-of-range', amount))
   }
   return Result.gen(function* () {
-    const taken = yield* stackValueOf(stack.item, Number(checkedAmount.success), stack.components)
-    const remainder = Number(checkedAmount.success) === Number(stack.count)
+    const taken = yield* stackValueOf(input.item, Number(checkedAmount.success), input.components)
+    const remainder = Number(checkedAmount.success) === Number(input.count)
       ? undefined
-      : yield* stackValueOf(stack.item, Number(stack.count) - Number(checkedAmount.success), stack.components)
+      : yield* stackValueOf(input.item, Number(input.count) - Number(checkedAmount.success), input.components)
     return { taken, remainder }
   })
 }
@@ -229,18 +375,22 @@ export const mergeItemStacks = (
   left: ItemStack,
   right: ItemStack,
 ): Result.Result<{ readonly merged: ItemStack; readonly remainder: ItemSlot }, ItemStackFailure> => {
-  if (!isItemStack(left) || !isItemStack(right)) {
-    return Result.fail(failure('stack', 'Stacks must be ItemStacks', 'invalid-type'))
-  }
-  if (!itemStackEqualsIgnoringCount(left, right)) {
+  const invalid = failure('stack', 'Stacks must be ItemStacks', 'invalid-type')
+  const leftSnapshot = itemStackSnapshot(left, invalid)
+  if (Result.isFailure(leftSnapshot)) return Result.fail(leftSnapshot.failure)
+  const rightSnapshot = itemStackSnapshot(right, invalid)
+  if (Result.isFailure(rightSnapshot)) return Result.fail(rightSnapshot.failure)
+  const leftValue = leftSnapshot.success
+  const rightValue = rightSnapshot.success
+  if (!itemStackEqualsIgnoringCount(leftValue, rightValue)) {
     return Result.fail(failure('stack', 'IncompatibleStacks', 'invalid-value'))
   }
-  const capacity = maxStackCountForStack(left)
-  const total = left.count + right.count
+  const capacity = maxStackCountForStack(leftValue)
+  const total = leftValue.count + rightValue.count
   return Result.gen(function* () {
-    const merged = yield* stackValueOf(left.item, Math.min(capacity, total), left.components)
+    const merged = yield* stackValueOf(leftValue.item, Math.min(capacity, total), leftValue.components)
     const remainder = total > capacity
-      ? yield* stackValueOf(right.item, total - capacity, right.components)
+      ? yield* stackValueOf(rightValue.item, total - capacity, rightValue.components)
       : undefined
     return { merged, remainder }
   })

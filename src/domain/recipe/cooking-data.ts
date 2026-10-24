@@ -11,7 +11,6 @@ import { isItemType, type ItemType } from "../item/item-type.js";
 import {
   craftingIngredient,
   isCraftingIngredient,
-  isCraftingIngredientInput,
   RecipeId,
   RecipeGroup,
   RecipeExperience,
@@ -77,7 +76,31 @@ type RecordValue = {
 };
 
 const isRecord = (value: unknown): value is RecordValue =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+  (() => {
+    try {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    } catch {
+      return false;
+    }
+  })();
+
+const snapshotRecord = (
+  value: unknown,
+  fields: ReadonlyArray<keyof RecordValue>,
+): RecordValue | undefined => {
+  try {
+    if (!isRecord(value)) {
+      return undefined;
+    }
+    const snapshot: Record<string, unknown> = {};
+    for (const field of fields) {
+      snapshot[field] = Reflect.get(value, field);
+    }
+    return snapshot;
+  } catch {
+    return undefined;
+  }
+};
 
 const isCookingStation = (value: unknown): value is CookingStation =>
   COOKING_STATIONS.some((station) => station === value);
@@ -116,15 +139,17 @@ const assertStation = (
 ): Result.Result<CookingStation, RecipeFailure> =>
   isCookingStation(value)
     ? Result.succeed(value)
-    : recipeTypeFailure(`Unknown cooking station: ${String(value)}`);
+    : recipeTypeFailure(
+        typeof value === "string" ? `Unknown cooking station: ${value}` : "Unknown cooking station",
+      );
 
 const assertIngredient = (
   value: unknown,
 ): Result.Result<CraftingIngredient, RecipeFailure> => {
-  if (!isCraftingIngredientInput(value)) {
-    return recipeTypeFailure("Cooking recipe ingredient has an invalid shape");
-  }
-  return craftingIngredient(value);
+  const normalized = craftingIngredient(value);
+  return Result.isFailure(normalized)
+    ? recipeTypeFailure("Cooking recipe ingredient has an invalid shape")
+    : normalized;
 };
 
 const assertOutput = (
@@ -178,37 +203,52 @@ const normalizeOptions = (
     if (options === undefined) {
       return { priority: RecipePriority(0) };
     }
-    if (!isRecord(options)) {
+    const record = snapshotRecord(options, [
+      "category",
+      "group",
+      "priority",
+      "showNotification",
+    ]);
+    if (record === undefined) {
       return yield* recipeTypeFailure("Cooking recipe options must be an object");
     }
-    const category = options.category;
+    const category = record.category;
     if (category !== undefined && !isRecipeCategory(category)) {
       return yield* recipeTypeFailure(
-        `Cooking recipe category is invalid: ${String(category)}`,
+        typeof category === "string"
+          ? `Cooking recipe category is invalid: ${category}`
+          : "Cooking recipe category is invalid",
       );
     }
-    const group = options.group;
+    const group = record.group;
     if (group !== undefined && typeof group !== "string") {
       return yield* recipeTypeFailure("Cooking recipe group must be a string");
     }
     const normalizedGroup =
       group === undefined
         ? undefined
-        : RecipeGroup(group);
-    const priorityValue = options.priority ?? 0;
+        : yield* Result.mapError(
+            RecipeGroup.result(group),
+            () => recipeTypeFailureValue("Cooking recipe group must be a string"),
+          );
+    const priorityValue = record.priority ?? 0;
     if (typeof priorityValue !== "number") {
       return yield* recipeRangeFailure(
-        `Cooking recipe priority must be a non-negative safe integer, received ${String(priorityValue)}`,
+        typeof priorityValue === "string"
+          ? `Cooking recipe priority must be a non-negative safe integer, received ${priorityValue}`
+          : "Cooking recipe priority must be a non-negative safe integer",
       );
+    }
+    const priorityMessage =
+      `Cooking recipe priority must be a non-negative safe integer, received ${priorityValue}`;
+    if (!Number.isSafeInteger(priorityValue) || priorityValue < 0) {
+      return yield* recipeRangeFailure(priorityMessage);
     }
     const priority = yield* Result.mapError(
       RecipePriority.result(priorityValue),
-      () =>
-        recipeRangeFailureValue(
-          `Cooking recipe priority must be a non-negative safe integer, received ${String(priorityValue)}`,
-        ),
+      () => recipeRangeFailureValue(priorityMessage),
     );
-    const showNotification = options.showNotification;
+    const showNotification = record.showNotification;
     if (showNotification !== undefined && typeof showNotification !== "boolean") {
       return yield* recipeTypeFailure(
         "Cooking recipe show notification must be a boolean",
@@ -268,10 +308,27 @@ const hasCookingMetadata = (value: RecordValue): boolean =>
     typeof value.showNotification === "boolean");
 
 export const isCookingRecipe = (value: unknown): value is CookingRecipe =>
-  isRecord(value) &&
-  hasCookingIdentity(value) &&
-  hasCookingQuantities(value) &&
-  hasCookingMetadata(value);
+  (() => {
+    const snapshot = snapshotRecord(value, [
+      "_tag",
+      "id",
+      "station",
+      "ingredient",
+      "output",
+      "cookTimeTicks",
+      "experience",
+      "category",
+      "group",
+      "priority",
+      "showNotification",
+    ]);
+    return (
+      snapshot !== undefined &&
+      hasCookingIdentity(snapshot) &&
+      hasCookingQuantities(snapshot) &&
+      hasCookingMetadata(snapshot)
+    );
+  })();
 
 export const cookingRecipeForItem = (
   id: RecipeId,

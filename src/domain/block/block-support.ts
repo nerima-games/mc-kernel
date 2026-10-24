@@ -11,29 +11,42 @@ import type { SupportRule } from './block-support-data.js'
 
 export * from './block-support-data.js'
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
-
-const isSupportRule = (value: unknown): value is SupportRule => {
-  if (!isRecord(value) || typeof value['kind'] !== 'string') {
-    return false
-  }
-
-  switch (value['kind']) {
-    case 'none':
-    case 'anySupporting':
-      return true
-    case 'oneOf': {
-      const blocks = value['blocks']
-      return Array.isArray(blocks) && blocks.every(isBlockType)
-    }
-    default:
-      return false
-  }
-}
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
 
 export type SupportRuleFailure = {
   readonly _tag: 'SupportRuleFailure'
   readonly message: string
+}
+
+const invalidSupportRule = (): Result.Result<never, SupportRuleFailure> =>
+  Result.fail({ _tag: 'SupportRuleFailure', message: 'Unknown support rule kind' })
+
+const snapshotSupportRule = (value: unknown): Result.Result<SupportRule, SupportRuleFailure> => {
+  try {
+    if (!isRecord(value)) return invalidSupportRule()
+
+    const kind = value['kind']
+    if (kind === 'none' || kind === 'anySupporting') {
+      return Result.succeed({ kind })
+    }
+    if (kind !== 'oneOf') return invalidSupportRule()
+
+    const values = value['blocks']
+    if (!Array.isArray(values)) return invalidSupportRule()
+    const length = values.length
+    if (!Number.isSafeInteger(length)) return invalidSupportRule()
+
+    const blocks: Array<BlockType> = []
+    for (let index = 0; index < length; index += 1) {
+      const block = values[index]
+      if (!isBlockType(block)) return invalidSupportRule()
+      blocks.push(block)
+    }
+    return Result.succeed({ kind, blocks })
+  } catch {
+    return invalidSupportRule()
+  }
 }
 
 /** Does the rule require the caller to inspect the block below? */
@@ -56,11 +69,10 @@ export function satisfiesSupportRule(
   blockBelow: BlockType | undefined,
   belowSupportsAttachments: boolean,
 ): Result.Result<boolean, SupportRuleFailure> {
-  if (!isSupportRule(rule)) {
-    return Result.fail({ _tag: 'SupportRuleFailure', message: 'Unknown support rule kind' })
-  }
+  const snapshot = snapshotSupportRule(rule)
+  if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
 
-  if (rule.kind === 'none') return Result.succeed(true)
-  if (rule.kind === 'anySupporting') return Result.succeed(belowSupportsAttachments)
-  return Result.succeed(typeof blockBelow === 'string' && rule.blocks.includes(blockBelow))
+  if (snapshot.success.kind === 'none') return Result.succeed(true)
+  if (snapshot.success.kind === 'anySupporting') return Result.succeed(belowSupportsAttachments)
+  return Result.succeed(typeof blockBelow === 'string' && snapshot.success.blocks.includes(blockBelow))
 }

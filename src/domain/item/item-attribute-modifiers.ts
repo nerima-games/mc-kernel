@@ -72,16 +72,53 @@ const snapshotOptions = (
 export const attributeModifierDisplay = (
   display: AttributeModifierDisplay,
 ): AttributeModifierResult<AttributeModifierDisplay> => {
-  if (!isAttributeModifierDisplay(display)) {
+  const snapshot = Effect.runSync(Effect.result(Effect.try({
+    try: () => {
+      if (typeof display !== 'object' || display === null || Array.isArray(display)) return undefined
+      const prototype = Object.getPrototypeOf(display)
+      if (prototype !== Object.prototype && prototype !== null) return undefined
+      const keys = Object.keys(display)
+      const copy: Record<string, unknown> = prototype === null ? Object.create(null) : {}
+      for (const key of keys) {
+        Object.defineProperty(copy, key, {
+          enumerable: true,
+          value: Reflect.get(display, key),
+        })
+      }
+      return Object.freeze(copy)
+    },
+    catch: () => failure('display', 'Unable to inspect attribute modifier display', display, 'hostile-input'),
+  })))
+  if (Result.isFailure(snapshot)) return Result.fail(snapshot.failure)
+  if (snapshot.success === undefined) {
     return Result.fail(failure('display', 'Attribute modifier display must be valid', display, 'invalid-value'))
   }
-  if (display.type === 'override') {
-    return Result.map(textComponent(display.value), (value) => Object.freeze({
-      type: 'override',
-      value,
-    }))
+  const input = snapshot.success
+  const keys = Object.keys(input)
+  if (input['type'] === 'default' && keys.length === 1 && keys[0] === 'type') {
+    return Result.succeed(Object.freeze({ type: 'default' }))
   }
-  return Result.succeed(Object.freeze({ type: display.type }))
+  if (input['type'] === 'hidden' && keys.length === 1 && keys[0] === 'type') {
+    return Result.succeed(Object.freeze({ type: 'hidden' }))
+  }
+  if (
+    input['type'] !== 'override' ||
+    keys.length !== 2 ||
+    !Object.hasOwn(input, 'type') ||
+    !Object.hasOwn(input, 'value')
+  ) {
+    return Result.fail(failure('display', 'Attribute modifier display must be valid', display, 'invalid-value'))
+  }
+  const value = textComponent(input['value'])
+  if (Result.isFailure(value)) {
+    return Result.fail(failure(
+      'display',
+      'Attribute modifier display must be valid',
+      display,
+      value.failure.reason === 'hostile-input' ? 'hostile-input' : 'invalid-value',
+    ))
+  }
+  return Result.succeed(Object.freeze({ type: 'override', value: value.success }))
 }
 
 export const attributeModifier = (
@@ -100,10 +137,11 @@ export const attributeModifier = (
   if (input.slot !== undefined && !ATTRIBUTE_MODIFIER_SLOT_SET.has(input.slot)) {
     return Result.fail(failure('slot', `Unknown attribute modifier slot: ${String(input.slot)}`, input.slot))
   }
-  if (input.display !== undefined && !isAttributeModifierDisplay(input.display)) {
-    return Result.fail(failure('display', 'display must be a valid attribute modifier display', input.display))
-  }
-  const display = input.display === undefined ? Result.succeed(undefined) : attributeModifierDisplay(input.display)
+  const display = input.display === undefined
+    ? Result.succeed(undefined)
+    : Result.mapError(attributeModifierDisplay(input.display), (error) => error.reason === 'hostile-input'
+      ? error
+      : failure('display', 'display must be a valid attribute modifier display', input.display))
   return Result.gen(function* () {
     const displayValue = yield* display
     const resourceType = yield* type

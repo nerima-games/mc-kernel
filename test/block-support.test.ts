@@ -33,6 +33,7 @@ import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
 import {
   NEEDS_ANY_SUPPORT,
   NEEDS_NO_SUPPORT,
+  type SupportRule,
   isSupportSensitive,
   needsOneOf,
   satisfiesSupportRule as satisfiesSupportRuleResult,
@@ -148,6 +149,48 @@ describe('support-rule input validation', () => {
           message: 'Unknown support rule kind',
         })
       }
+    })),
+  )
+
+  it('snapshots rule variants and block arrays, returning failures for throwing reads', () =>
+    Effect.runPromise(Effect.sync(() => {
+      let kindReads = 0
+      let blockReads = 0
+      const blocks = new Proxy<BlockType[]>(['sand'], {
+        get(target, key, receiver) {
+          if (key === '0') {
+            blockReads += 1
+            return blockReads === 1 ? 'sand' : 'not-a-block'
+          }
+          return Reflect.get(target, key, receiver)
+        },
+      })
+      const rule = new Proxy<Extract<SupportRule, { readonly kind: 'oneOf' }>>({ kind: 'oneOf', blocks }, {
+        get(target, key, receiver) {
+          if (key === 'kind') {
+            kindReads += 1
+            return kindReads === 1 ? 'oneOf' : 'none'
+          }
+          return Reflect.get(target, key, receiver)
+        },
+      })
+
+      expect(satisfiesSupportRuleResult(rule, 'sand', false)).toMatchObject({
+        _tag: 'Success',
+        success: true,
+      })
+      expect({ kindReads, blockReads }).toStrictEqual({ kindReads: 1, blockReads: 1 })
+
+      const throwing = new Proxy({ kind: 'none' }, {
+        get(target, key, receiver) {
+          if (key === 'kind') throw new Error('hostile getter')
+          return Reflect.get(target, key, receiver)
+        },
+      })
+      expect(resultFailure(Reflect.apply(satisfiesSupportRuleResult, undefined, [throwing, 'sand', false]))).toMatchObject({
+        _tag: 'SupportRuleFailure',
+        message: 'Unknown support rule kind',
+      })
     })),
   )
 })

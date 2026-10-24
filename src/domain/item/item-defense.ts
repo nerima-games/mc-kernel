@@ -66,10 +66,53 @@ const brandValue = <A, E extends Readonly<{ readonly message: string }>>(
   (error) => failure(field, error.message, value, reason),
 )
 
-const validateObject = (value: unknown, name: string): DefenseResult<void> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? Result.succeed(undefined)
-    : Result.fail(failure(name, `${name} must be a non-null object`, value, 'invalid-type'))
+const snapshotRecord = (
+  value: unknown,
+  fieldPrefix: string,
+  fields: ReadonlyArray<string>,
+): DefenseResult<Readonly<Record<string, unknown>>> => {
+  const name = fieldPrefix || 'blocksAttacks options'
+  if (typeof value !== 'object' || value === null) {
+    return Result.fail(failure(name, `${name} must be a non-null object`, value, 'invalid-type'))
+  }
+  let field = name
+  try {
+    if (Array.isArray(value)) {
+      return Result.fail(failure(name, `${name} must be a non-null object`, value, 'invalid-type'))
+    }
+    const snapshot: Record<string, unknown> = {}
+    for (const key of fields) {
+      field = fieldPrefix === '' ? key : `${fieldPrefix}.${key}`
+      const entry = Reflect.get(value, key)
+      if (entry !== undefined) Object.defineProperty(snapshot, key, { enumerable: true, value: entry })
+    }
+    return Result.succeed(Object.freeze(snapshot))
+  } catch {
+    return Result.fail(failure(field, `Unable to inspect ${field}`, value, 'hostile-input'))
+  }
+}
+
+const snapshotArray = (
+  value: unknown,
+  field: string,
+): DefenseResult<ReadonlyArray<unknown>> => {
+  try {
+    if (!Array.isArray(value)) {
+      return Result.fail(failure(field, `${field} must be an array`, value, 'invalid-type'))
+    }
+    const length: unknown = Reflect.get(value, 'length')
+    if (typeof length !== 'number' || !Number.isSafeInteger(length) || length < 0) {
+      return Result.fail(failure(field, `Unable to inspect ${field}`, value, 'hostile-input'))
+    }
+    const snapshot: unknown[] = []
+    for (let index = 0; index < length; index += 1) {
+      snapshot.push(Reflect.get(value, String(index)))
+    }
+    return Result.succeed(Object.freeze(snapshot))
+  } catch {
+    return Result.fail(failure(field, `Unable to inspect ${field}`, value, 'hostile-input'))
+  }
+}
 
 const finiteNumber = (value: unknown, name: string): DefenseResult<number> =>
   typeof value === 'number' && Number.isFinite(value)
@@ -87,7 +130,7 @@ const positiveFiniteNumber = (value: unknown, name: string): DefenseResult<numbe
     : Result.succeed(number))
 
 const resourceLocationProviderOf = (
-  value: ResourceLocationProviderInput,
+  value: unknown,
   field: string,
 ): DefenseResult<ResourceLocationProvider> => {
   if (typeof value === 'string') {
@@ -119,51 +162,66 @@ const resourceLocationProviderOf = (
 const resourceLocationOf = (
   value: unknown,
   field: string,
-): DefenseResult<ResourceLocation> => typeof value === 'string'
-  ? brandValue(ResourceLocation.result(value), field, value)
-  : Result.fail(failure(field, `ResourceLocation has invalid syntax, received ${JSON.stringify(value)}`, value))
+): DefenseResult<ResourceLocation> => {
+  if (typeof value === 'string') return brandValue(ResourceLocation.result(value), field, value)
+  try {
+    const rendered = JSON.stringify(value) ?? String(value)
+    return Result.fail(failure(field, `ResourceLocation has invalid syntax, received ${rendered}`, value))
+  } catch {
+    return Result.fail(failure(field, `Unable to inspect ${field}`, value, 'hostile-input'))
+  }
+}
 
 const damageReductionRuleOf = (
-  options: DamageReductionOptions,
+  options: unknown,
   index: number,
-): DefenseResult<DamageReductionRule> => Result.gen(function* () {
-  yield* validateObject(options, `damageReductions[${index}]`)
-  const baseValue = yield* finiteNumber(options.base, `damageReductions[${index}].base`)
-  const factorValue = yield* finiteNumber(options.factor, `damageReductions[${index}].factor`)
-  const angleValue = options.horizontalBlockingAngle === undefined
+): DefenseResult<DamageReductionRule> => Result.flatMap(
+  snapshotRecord(options, `damageReductions[${index}]`, ['base', 'factor', 'horizontalBlockingAngle', 'type']),
+  (input) => Result.gen(function* () {
+  const baseValue = yield* finiteNumber(input['base'], `damageReductions[${index}].base`)
+  const factorValue = yield* finiteNumber(input['factor'], `damageReductions[${index}].factor`)
+  const angle = input['horizontalBlockingAngle']
+  const angleValue = angle === undefined
     ? 90
-    : yield* positiveFiniteNumber(options.horizontalBlockingAngle, `damageReductions[${index}].horizontalBlockingAngle`)
-  const type = options.type === undefined
+    : yield* positiveFiniteNumber(angle, `damageReductions[${index}].horizontalBlockingAngle`)
+  const rawType = input['type']
+  const type = rawType === undefined
     ? undefined
-    : yield* resourceLocationProviderOf(options.type, `damageReductions[${index}].type`)
+    : yield* resourceLocationProviderOf(rawType, `damageReductions[${index}].type`)
   const base = yield* brandValue(DamageReductionBase.result(baseValue), `damageReductions[${index}].base`, baseValue)
   const factor = yield* brandValue(DamageReductionFactor.result(factorValue), `damageReductions[${index}].factor`, factorValue)
   const horizontalBlockingAngle = yield* brandValue(HorizontalBlockingAngle.result(angleValue), `damageReductions[${index}].horizontalBlockingAngle`, angleValue, 'out-of-range')
   return Object.freeze({ type, base, factor, horizontalBlockingAngle })
-})
+  }),
+)
 
 const damageReductionRulesOf = (
-  options: ReadonlyArray<DamageReductionOptions>,
-): DefenseResult<ReadonlyArray<DamageReductionRule>> => {
+  options: unknown,
+): DefenseResult<ReadonlyArray<DamageReductionRule>> => Result.flatMap(
+  snapshotArray(options, 'damageReductions'),
+  (values) => {
   const rules: DamageReductionRule[] = []
-  for (const [index, option] of options.entries()) {
+  for (const [index, option] of values.entries()) {
     const rule = damageReductionRuleOf(option, index)
     if (Result.isFailure(rule)) return Result.fail(rule.failure)
     rules.push(rule.success)
   }
   return Result.succeed(rules)
-}
+  },
+)
 
-const itemDamageRuleOf = (options: ItemDamageRuleOptions): DefenseResult<ItemDamageRule> => Result.gen(function* () {
-  yield* validateObject(options, 'itemDamage')
-  const thresholdValue = yield* nonNegativeFiniteNumber(options.threshold, 'itemDamage.threshold')
-  const baseValue = yield* finiteNumber(options.base, 'itemDamage.base')
-  const factorValue = yield* finiteNumber(options.factor, 'itemDamage.factor')
+const itemDamageRuleOf = (options: unknown): DefenseResult<ItemDamageRule> => Result.flatMap(
+  snapshotRecord(options, 'itemDamage', ['threshold', 'base', 'factor']),
+  (input) => Result.gen(function* () {
+  const thresholdValue = yield* nonNegativeFiniteNumber(input['threshold'], 'itemDamage.threshold')
+  const baseValue = yield* finiteNumber(input['base'], 'itemDamage.base')
+  const factorValue = yield* finiteNumber(input['factor'], 'itemDamage.factor')
   const threshold = yield* brandValue(ItemDamageThreshold.result(thresholdValue), 'itemDamage.threshold', thresholdValue, 'out-of-range')
   const base = yield* brandValue(ItemDamageBase.result(baseValue), 'itemDamage.base', baseValue)
   const factor = yield* brandValue(ItemDamageFactor.result(factorValue), 'itemDamage.factor', factorValue)
   return Object.freeze({ threshold, base, factor })
-})
+  }),
+)
 
 export const damageResistantComponent = (
   types: ResourceLocationProviderInput,
@@ -171,30 +229,31 @@ export const damageResistantComponent = (
   Result.map(resourceLocationProviderOf(types, 'damage_resistant.types'), (value) => Object.freeze({ types: value }))
 
 const blocksAttacksComponentAfterCooldown = (
-  options: BlocksAttacksOptions,
+  options: Readonly<Record<string, unknown>>,
   blockDelayValue: number,
   cooldownScaleValue: number,
 ): DefenseResult<BlocksAttacksComponent> => {
-  const input = options.damageReductions
-  const damageReductionOptions: DefenseResult<ReadonlyArray<DamageReductionOptions>> = input === undefined
-    ? Result.succeed<ReadonlyArray<DamageReductionOptions>>([])
-    : Array.isArray(input)
-      ? Result.succeed<ReadonlyArray<DamageReductionOptions>>(input)
-      : Result.fail(failure('damageReductions', 'damageReductions must be an array', input, 'invalid-type'))
+  const input = options['damageReductions']
+  const damageReductionResult = input === undefined
+    ? Result.succeed<ReadonlyArray<DamageReductionRule>>([])
+    : damageReductionRulesOf(input)
 
-  return Result.flatMap(damageReductionOptions, (rules) => Result.flatMap(
-    damageReductionRulesOf(rules),
+  return Result.flatMap(damageReductionResult,
     (damageReductions) => Result.gen(function* () {
-      const itemDamage = options.itemDamage === undefined ? undefined : yield* itemDamageRuleOf(options.itemDamage)
-      const blockSound = options.blockSound === undefined
+      const rawItemDamage = options['itemDamage']
+      const itemDamage = rawItemDamage === undefined ? undefined : yield* itemDamageRuleOf(rawItemDamage)
+      const rawBlockSound = options['blockSound']
+      const blockSound = rawBlockSound === undefined
         ? undefined
-        : yield* resourceLocationOf(options.blockSound, 'blockSound')
-      const disabledSound = options.disabledSound === undefined
+        : yield* resourceLocationOf(rawBlockSound, 'blockSound')
+      const rawDisabledSound = options['disabledSound']
+      const disabledSound = rawDisabledSound === undefined
         ? undefined
-        : yield* resourceLocationOf(options.disabledSound, 'disabledSound')
-      const bypassedBy = options.bypassedBy === undefined
+        : yield* resourceLocationOf(rawDisabledSound, 'disabledSound')
+      const rawBypassedBy = options['bypassedBy']
+      const bypassedBy = rawBypassedBy === undefined
         ? undefined
-        : yield* resourceLocationProviderOf(options.bypassedBy, 'bypassedBy')
+        : yield* resourceLocationProviderOf(rawBypassedBy, 'bypassedBy')
       const blockDelaySeconds = yield* brandValue(BlockingDelaySeconds.result(blockDelayValue), 'blockDelaySeconds', blockDelayValue, 'out-of-range')
       const disableCooldownScale = yield* brandValue(DisableCooldownScale.result(cooldownScaleValue), 'disableCooldownScale', cooldownScaleValue, 'out-of-range')
       return Object.freeze({
@@ -207,23 +266,26 @@ const blocksAttacksComponentAfterCooldown = (
         bypassedBy,
       })
     }),
-  ))
+  )
 }
 
 export const blocksAttacksComponent = (
   options: BlocksAttacksOptions = {},
 ): DefenseResult<BlocksAttacksComponent> => Result.flatMap(
-  validateObject(options, 'blocksAttacks options'),
-  () => Result.flatMap(
-    options.blockDelaySeconds === undefined
-      ? Result.succeed(0)
-      : nonNegativeFiniteNumber(options.blockDelaySeconds, 'blockDelaySeconds'),
-    (blockDelayValue) => Result.flatMap(
-      options.disableCooldownScale === undefined
-        ? Result.succeed(1)
-        : nonNegativeFiniteNumber(options.disableCooldownScale, 'disableCooldownScale'),
-      (cooldownScaleValue) => blocksAttacksComponentAfterCooldown(options, blockDelayValue, cooldownScaleValue),
-    ),
+  snapshotRecord(options, '', [
+    'blockDelaySeconds', 'disableCooldownScale', 'damageReductions', 'itemDamage',
+    'blockSound', 'disabledSound', 'bypassedBy',
+  ]),
+  (snapshot) => Result.flatMap(
+      snapshot['blockDelaySeconds'] === undefined
+        ? Result.succeed(0)
+        : nonNegativeFiniteNumber(snapshot['blockDelaySeconds'], 'blockDelaySeconds'),
+      (blockDelayValue) => Result.flatMap(
+        snapshot['disableCooldownScale'] === undefined
+          ? Result.succeed(1)
+          : nonNegativeFiniteNumber(snapshot['disableCooldownScale'], 'disableCooldownScale'),
+        (cooldownScaleValue) => blocksAttacksComponentAfterCooldown(snapshot, blockDelayValue, cooldownScaleValue),
+      ),
   ),
 )
 

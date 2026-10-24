@@ -178,6 +178,82 @@ describe("canonical item stacks", () => {
     });
   });
 
+  it("uses one stack snapshot across count, transmute, split, and merge operations", () => {
+    const makeChangingStack = () => {
+      const reads = { item: 0, count: 0, components: 0 };
+      const values = { item: "stone", count: 4, components: itemComponents("stone") };
+      const stack = new Proxy({}, {
+        ownKeys: () => ["item", "count", "components"],
+        getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
+        get: (_target, key) => {
+          if (key === "item" || key === "count" || key === "components") {
+            reads[key] += 1;
+            if (reads[key] > 1) {
+              return key === "item" ? "not_an_item" : key === "count" ? 0 : {};
+            }
+            return values[key];
+          }
+          return undefined;
+        },
+      });
+      return { stack, reads };
+    };
+
+    const counted = makeChangingStack();
+    expect(itemResultValue(Reflect.apply(itemStackResult.itemStackWithCount, undefined, [counted.stack, StackCount(3)]))).toEqual({
+      item: "stone", count: 3, components: itemComponents("stone"),
+    });
+    expect(counted.reads).toEqual({ item: 1, count: 1, components: 1 });
+
+    const transmuted = makeChangingStack();
+    expect(itemResultValue(Reflect.apply(itemStackResult.transmuteItemStack, undefined, [
+      itemStack("dirt", StackCount(1)), transmuted.stack,
+    ]))).toEqual({
+      item: "stone", count: 4, components: itemComponents("stone"),
+    });
+    expect(transmuted.reads).toEqual({ item: 1, count: 1, components: 1 });
+
+    const splitSource = makeChangingStack();
+    expect(itemResultValue(Reflect.apply(itemStackResult.splitItemStack, undefined, [
+      splitSource.stack, TransferQuantity(2),
+    ]))).toEqual({
+      taken: itemStack("stone", StackCount(2)),
+      remainder: itemStack("stone", StackCount(2)),
+    });
+    expect(splitSource.reads).toEqual({ item: 1, count: 1, components: 1 });
+
+    const left = makeChangingStack();
+    const right = makeChangingStack();
+    expect(itemResultValue(Reflect.apply(itemStackResult.mergeItemStacks, undefined, [left.stack, right.stack]))).toEqual({
+      merged: itemStack("stone", StackCount(8)), remainder: undefined,
+    });
+    expect(left.reads).toEqual({ item: 1, count: 1, components: 1 });
+    expect(right.reads).toEqual({ item: 1, count: 1, components: 1 });
+
+    const compared = makeChangingStack();
+    expect(Reflect.apply(itemStackEqualsIgnoringCount, undefined, [
+      compared.stack, itemStack("stone", StackCount(1)),
+    ])).toBe(true);
+    expect(compared.reads).toEqual({ item: 1, count: 1, components: 1 });
+  });
+
+  it("returns a hostile-input failure when stack snapshot getters throw", () => {
+    const hostile = new Proxy({ item: "stone", count: 4, components: itemComponents("stone") }, {
+      get: (target, key, receiver) => key === "count"
+        ? (() => { throw new Error("hostile") })()
+        : Reflect.get(target, key, receiver),
+    });
+    const valid = itemStack("stone", StackCount(1));
+    const expected = {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "hostile-input", field: "count",
+      message: "Unable to inspect item stack count",
+    };
+    expectItemFailure(Reflect.apply(itemStackResult.itemStackWithCount, undefined, [hostile, StackCount(2)]), expected);
+    expectItemFailure(Reflect.apply(itemStackResult.transmuteItemStack, undefined, [valid, hostile]), expected);
+    expectItemFailure(Reflect.apply(itemStackResult.splitItemStack, undefined, [hostile, TransferQuantity(2)]), expected);
+    expectItemFailure(Reflect.apply(itemStackResult.mergeItemStacks, undefined, [hostile, valid]), expected);
+  });
+
   it("captures malformed and hostile stack options", () => {
     expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 1, []), {
       _tag: "ItemValidationFailure", field: "options", reason: "invalid-type",

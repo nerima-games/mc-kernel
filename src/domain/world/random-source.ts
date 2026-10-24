@@ -134,6 +134,25 @@ export type RandomSourceScript = Readonly<{
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
+const snapshotSequence = (
+  value: unknown,
+): Result.Result<ReadonlyArray<unknown>, RandomSourceFailure> => {
+  if (value === undefined) return Result.succeed([])
+  if (!Array.isArray(value)) {
+    return failure('invalid-script', 'RandomSource script must contain optional int and float arrays')
+  }
+
+  const length = value.length
+  if (!Number.isSafeInteger(length)) {
+    return failure('invalid-script', 'RandomSource script contains an unreadable sequence')
+  }
+  const snapshot: Array<unknown> = []
+  for (let index = 0; index < length; index += 1) {
+    snapshot.push(value[index])
+  }
+  return Result.succeed(snapshot)
+}
+
 /**
  * A `RandomSource` that replays a fixed, caller-supplied sequence rather
  * than generating one, analogous to `fixedClock`. Kernel ships this rather
@@ -145,16 +164,26 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 export const fixedRandomSource = (
   script: RandomSourceScript,
 ): Result.Result<RandomSource, RandomSourceFailure> => {
-  if (
-    !isRecord(script) ||
-    (script['nextInts'] !== undefined && !Array.isArray(script['nextInts'])) ||
-    (script['nextFloats'] !== undefined && !Array.isArray(script['nextFloats']))
-  ) {
-    return failure('invalid-script', 'RandomSource script must contain optional int and float arrays')
+  let intValues: ReadonlyArray<unknown>
+  let floatValues: ReadonlyArray<unknown>
+  try {
+    if (!isRecord(script)) {
+      return failure('invalid-script', 'RandomSource script must contain optional int and float arrays')
+    }
+    const nextInts = script['nextInts']
+    const nextFloats = script['nextFloats']
+    const intSnapshot = snapshotSequence(nextInts)
+    if (Result.isFailure(intSnapshot)) return Result.fail(intSnapshot.failure)
+    const floatSnapshot = snapshotSequence(nextFloats)
+    if (Result.isFailure(floatSnapshot)) return Result.fail(floatSnapshot.failure)
+    intValues = intSnapshot.success
+    floatValues = floatSnapshot.success
+  } catch {
+    return failure('invalid-script', 'RandomSource script must be readable')
   }
 
   const ints: Array<RandomInt> = []
-  for (const value of script.nextInts ?? []) {
+  for (const value of intValues) {
     if (typeof value !== 'number') {
       return failure('invalid-script', 'RandomSource script integer values must be numbers')
     }
@@ -167,7 +196,7 @@ export const fixedRandomSource = (
   }
 
   const floats: Array<RandomFraction> = []
-  for (const value of script.nextFloats ?? []) {
+  for (const value of floatValues) {
     if (typeof value !== 'number') {
       return failure('invalid-script', 'RandomSource script fraction values must be numbers')
     }

@@ -1003,6 +1003,42 @@ describe("current Java special recipe JSON", () => {
       }), "RecipeTypeFailure");
   });
 
+  it("snapshots the recipe type discriminator before dispatch", () => {
+    let typeReads = 0;
+    const document = Object.defineProperty(
+      {
+        ingredients: ["minecraft:stone"],
+        result: "minecraft:stone",
+      },
+      "type",
+      {
+        enumerable: true,
+        get() {
+          typeReads += 1;
+          return typeReads === 1
+            ? "minecraft:crafting_shapeless"
+            : "minecraft:crafting_shaped";
+        },
+      },
+    );
+    const recipe = recipeSuccess(
+      craftingRecipeFromUnknown("minecraft:type_snapshot", document),
+    );
+    expect(recipe._tag).toBe("Shapeless");
+    expect(typeReads).toBe(1);
+
+    const unreadableType = Object.defineProperty({}, "type", {
+      enumerable: true,
+      get() {
+        throw new Error("hostile type getter");
+      },
+    });
+    recipeFailure(
+      craftingRecipeFromUnknown("minecraft:unreadable_type", unreadableType),
+      "RecipeTypeFailure",
+    );
+  });
+
   it("reads the ranges the book cloning and star documents carry", () => {
     expect(
       recipeSuccess(craftingBookCloningRecipeFromUnknown("minecraft:test", {

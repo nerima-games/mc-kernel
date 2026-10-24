@@ -166,9 +166,88 @@ describe('item components', () => {
     })
   })
 
+  it('snapshots kinetic weapon options before validation and construction', () => {
+    let cooldownReads = 0
+    const changingKineticWeapon = new Proxy({ contactCooldownTicks: 10 }, {
+      get: (target, key, receiver) => {
+        if (key === 'contactCooldownTicks') {
+          cooldownReads += 1
+          return cooldownReads === 1 ? 10 : -1
+        }
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    const result = itemResultValue(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { kineticWeapon: changingKineticWeapon },
+    ]))
+    expect(result).toMatchObject({ kineticWeapon: { contactCooldownTicks: 10 } })
+    expect(cooldownReads).toBe(1)
+
+    const hostileKineticWeapon = new Proxy({ contactCooldownTicks: 10 }, {
+      get: (target, key, receiver) => key === 'contactCooldownTicks'
+        ? (() => { throw new Error('hostile') })()
+        : Reflect.get(target, key, receiver),
+    })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { kineticWeapon: hostileKineticWeapon },
+    ]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'kineticWeapon.contactCooldownTicks',
+      message: 'Unable to inspect item component option kineticWeapon.contactCooldownTicks',
+      value: hostileKineticWeapon,
+    })
+  })
+
+  it('snapshots nested profile options before validation and construction', () => {
+    let nameReads = 0
+    const changingProfile = new Proxy({ name: ItemPrimitive.ProfileName('First') }, {
+      ownKeys: () => ['name'],
+      getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
+      get: (_target, key) => {
+        if (key === 'name') {
+          nameReads += 1
+          return nameReads === 1 ? ItemPrimitive.ProfileName('First') : 'invalid name'
+        }
+        return undefined
+      },
+    })
+    const result = itemComponents('stone', { profile: changingProfile })
+    expect(result.profile).toEqual({ name: 'First' })
+    expect(nameReads).toBe(1)
+
+    const hostileProfile = new Proxy({}, {
+      ownKeys: () => ['name'],
+      getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
+      get: () => { throw new Error('hostile') },
+    })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { profile: hostileProfile },
+    ]), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'profile.name',
+      message: 'Unable to inspect item component option profile.name',
+    })
+  })
+
   it('returns tagged failures when component options cannot be inspected', () => {
     const hostileOptions = new Proxy({}, { get: () => { throw new Error('hostile') } })
     expectOptionsFailure('stone', hostileOptions, {
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'options',
+      message: 'Unable to inspect item component options',
+    })
+
+    const revokedOptions = Proxy.revocable({}, {})
+    revokedOptions.revoke()
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', revokedOptions.proxy,
+    ]), {
+      _tag: 'ItemValidationFailure',
       kind: 'TypeError',
       reason: 'hostile-input',
       field: 'options',

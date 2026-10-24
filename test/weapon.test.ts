@@ -99,39 +99,55 @@ describe('weapon component', () => {
     })
   })
 
-  it('returns tagged failures when option values change after validation', () => {
+  it('validates and brands one snapshot of option values', () => {
     let damageReads = 0
     const changingDamage = new Proxy({}, {
       get: (_target, key) => {
         if (key !== 'itemDamagePerAttack') return undefined
         damageReads += 1
-        return damageReads <= 3 ? 1 : -1
+        return damageReads === 1 ? 1 : -1
       },
     })
-    expectItemFailure(Reflect.apply(weaponResult.weaponComponent, undefined, [changingDamage]), {
-      _tag: 'ItemValidationFailure',
-      kind: 'RangeError',
-      reason: 'out-of-range',
-      field: 'itemDamagePerAttack',
-      message: 'itemDamagePerAttack must be a non-negative safe integer',
-      value: -1,
+    expect(itemResultValue(invokeWeaponComponent(changingDamage))).toEqual({
+      itemDamagePerAttack: 1,
+      disableBlockingForSeconds: 0,
     })
+    expect(damageReads).toBe(1)
 
     let durationReads = 0
     const changingDuration = new Proxy({}, {
       get: (_target, key) => {
         if (key !== 'disableBlockingForSeconds') return undefined
         durationReads += 1
-        return durationReads <= 3 ? 0 : -1
+        return durationReads === 1 ? 0 : -1
       },
     })
-    expectItemFailure(Reflect.apply(weaponResult.weaponComponent, undefined, [changingDuration]), {
+    expect(itemResultValue(invokeWeaponComponent(changingDuration))).toEqual({
+      itemDamagePerAttack: 1,
+      disableBlockingForSeconds: 0,
+    })
+    expect(durationReads).toBe(1)
+
+    const hostileOptions = new Proxy({}, {
+      get: (_target, key) => key === 'itemDamagePerAttack' ? (() => { throw new Error('hostile') })() : undefined,
+    })
+    expectItemFailure(invokeWeaponComponent(hostileOptions), {
       _tag: 'ItemValidationFailure',
-      kind: 'RangeError',
-      reason: 'out-of-range',
-      field: 'disableBlockingForSeconds',
-      message: 'disableBlockingForSeconds must be a finite, non-negative number',
-      value: -1,
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'options',
+      message: 'Unable to inspect weapon component options',
+      value: hostileOptions,
+    })
+
+    const revokedOptions = Proxy.revocable({}, {})
+    revokedOptions.revoke()
+    expectItemFailure(invokeWeaponComponent(revokedOptions.proxy), {
+      _tag: 'ItemValidationFailure',
+      kind: 'TypeError',
+      reason: 'hostile-input',
+      field: 'options',
+      message: 'Unable to inspect weapon component options',
     })
   })
 

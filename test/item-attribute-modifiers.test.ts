@@ -124,6 +124,50 @@ describe('item attribute modifiers', () => {
     expect(isAttributeModifiersComponent(component)).toBe(true)
   })
 
+  it('snapshots display getters once before validation and construction', () => {
+    let typeReads = 0
+    let valueReads = 0
+    const changingDisplay = new Proxy({ type: 'override' as const, value: { text: 'Snapshot' } }, {
+      ownKeys: () => ['type', 'value'],
+      getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
+      get: (_target, key) => {
+        if (key === 'type') {
+          typeReads += 1
+          return typeReads === 1 ? 'override' : 'default'
+        }
+        if (key === 'value') {
+          valueReads += 1
+          return valueReads === 1 ? { text: 'Snapshot' } : null
+        }
+        return undefined
+      },
+    })
+    expect(attributeModifierDisplay(changingDisplay)).toEqual({
+      type: 'override', value: { text: 'Snapshot' },
+    })
+    expect(typeReads).toBe(1)
+    expect(valueReads).toBe(1)
+
+    let displayReads = 0
+    const changingOptions = new Proxy(baseModifier, {
+      get: (target, key, receiver) => key === 'display'
+        ? (++displayReads === 1 ? { type: 'override', value: 'First' } : { type: 'default' })
+        : Reflect.get(target, key, receiver),
+    })
+    expect(attributeModifier(changingOptions).display).toEqual({ type: 'override', value: 'First' })
+    expect(displayReads).toBe(1)
+
+    const hostileDisplay = new Proxy({}, {
+      ownKeys: () => ['type'],
+      getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
+      get: () => { throw new Error('hostile') },
+    })
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifierDisplay, undefined, [hostileDisplay]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input', field: 'display',
+      message: 'Unable to inspect attribute modifier display',
+    })
+  })
+
   it('accepts official display variants and rejects malformed displays', () => {
     expect(isAttributeModifierDisplay({ type: 'default' })).toBe(true)
     expect(isAttributeModifierDisplay({ type: 'hidden' })).toBe(true)
