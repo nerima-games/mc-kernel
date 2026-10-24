@@ -9,7 +9,9 @@
 | 処理 | 実装の所有元（ソースパス） |
 | --- | --- |
 | 通常・特殊クラフト、調理、醸造、製錬、鍛造、石切り、`transmute` | `mc-sim:src/domain/` |
-| インベントリ、ホットバー、装備、金床、エンチャント、砥石 | `mc-sim:src/domain/` |
+| Inventory, hotbar, equipment, anvil state, grindstone | `mc-sim:src/domain/` |
+| Enchantment offer generation and state | `mc-sim:src/domain/` |
+| Enchantment application | `mx-gameplay:src/domain/` |
 | エンティティ操作、vitals、wither、爆発、起爆済みTNT | `mc-sim:src/domain/` |
 | ブロック相互作用、BlockWorld、作物、ゲームルール、統計、時刻、天候状態、乗り物状態 | `mc-sim:src/domain/` |
 | Java・Bedrockの採掘時間とブロック破壊速度 | `mx-gameplay:src/domain/interactions/` |
@@ -30,11 +32,5 @@
 | `BlockAt`、`PortalAxis`、`PortalFrame`、`PortalLayout`、ポータル寸法定数 | ポータル生成に渡す共有型・寸法データ。検出とlayout生成は `mc-worldgen` が所有する。 |
 | block entityのデータと検証、fluid・light・redstoneの静的データ | データ形状と検証はkernelに残る。状態の更新やcollection操作は各実行時処理の所有元に属する。 |
 | 設定値の正規化・key binding API、天候の定数・型・判定関数 | 設定値と共有語彙を扱う。ゲーム内の設定適用や天候状態の更新は上位の所有元に属する。 |
-
-`itemDurabilityDefinitionFor`は`src/domain/item/equipment-data.ts`で定義され、`src/domain/item/_equipment.ts`、`src/domain/item/index.ts`、`src/index.ts`を経由してroot exportされる。利用例は次のとおり。
-
-```typescript
-import { itemDurabilityDefinitionFor } from "@nerima-games/mc-kernel";
-```
 
 kernelのAPIはroot exportまたは`package.json`で公開されたsubpathから読み込む。ソースパスや内部モジュールをpackage import pathとして扱わない。所有権表は移行先を示すもので、下流リポジトリのimport差し替えが完了したことを示すものではない。移行時の扱いは[0.8から0.9への利用者移行ガイド](consumer-migration.md)を参照する。

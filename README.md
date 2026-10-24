@@ -2,7 +2,7 @@
 
 ## 責務
 
-全リポジトリが共有する語彙と純粋なドメインロジック（ブランデッド型・座標・ブロック能力モデル・ItemStack・プレイヤーインベントリ・レシピ・食料・調理・醸造・作物・ディメンション・石切台・鍛造・砥石・昼夜・天候・飛翔体・フレーム契約・Clock Port）を定義する。
+全リポジトリが共有する語彙と契約を提供する。ブランデッド型、座標、ブロック能力、ItemStack、レシピ値とJSONデコーダー、ディメンション、時間や天候の共有型、フレーム契約、Clock Portなどを定義する。
 
 ## 依存
 
@@ -21,9 +21,9 @@ kernel は共有語彙そのものなので、どのリポジトリの依存許�
 逆に kernel は他のどのリポジトリも import できない。すべてのリポジトリが kernel に依存する以上、
 kernel が誰かに依存した時点で構造的に循環が生じるためである。
 
-実装は TypeScript の型と Effect のドメインロジックを中心に構成する。ItemStack、レシピ、食料、調理、醸造、石切台、鍛造、砥石も入力値から出力値を求める純粋関数として公開する。大きな語彙表は
+実装は TypeScript の型、Effect のドメイン関数、静的データを中心に構成する。ItemStack とレシピの値、外部入力の検証、JSON デコーダーを公開し、ゲーム状態の更新や操作の実行は上位層に委ねる。大きな語彙表は
 `*-data.ts` に不変データとして置き、guard・変換・検証などの処理は別モジュールに分ける。
-座標、Anvil、砥石の計画も責務ごとに分割し、公開 API は `src/index.ts` から明示的に再公開する。
+座標の処理は責務ごとに分割し、公開 API は `src/index.ts` から明示的に再公開する。
 プラットフォーム固有の Adapter 層は kernel に置かない。
 
 詳細は **[docs/architecture.md](./docs/architecture.md)**（全 16 リポジトリの依存グラフ、推移閉包禁止、
@@ -43,6 +43,8 @@ kernel が誰かに依存した時点で構造的に循環が生じるためで�
 | [docs/testing.md](./docs/testing.md) | 検証要件・完成条件・100% カバレッジゲート |
 | [docs/versioning.md](./docs/versioning.md) | 0.x → 1.0.0 方針、GitHub Packages、**加算的な能力追加がなぜ死活問題か** |
 | [docs/freeze-checklist.md](./docs/freeze-checklist.md) | 1.0.0 凍結の前提条件と、公開前に残る項目 |
+
+下の相対リンクはリポジトリ内で使う。配布物にはREADMEを含むが、`docs/`以下は含まない。
 
 ## 依存ルール（16 リポジトリ共通）
 
@@ -108,7 +110,7 @@ $ direnv allow          # flake.nix の devShell で nodejs_24 + corepack が入
 $ pnpm install
 ```
 
-Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）を用意する。
+Nix を使わない場合は Node.js 24 以上と pnpm 12.14.0（`corepack` 推奨）を用意する。
 
 > **注意**: ツールチェーンは `devenv.nix` から `flake.nix` + `flake.lock` に移行済みである。
 > `flake.lock` はコミットされているので、`nix develop`（`.envrc` は `use flake`）は
@@ -120,9 +122,9 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
 | --- | --- |
 | `pnpm typecheck` | `tsconfig.build.json` と `tsconfig.test.json` の両方を型検査 |
 | `pnpm typecheck:dependencies` | `tsconfig.dependency-check.json`（DOM を含む lib）で依存の型宣言を検査。CI では `pnpm verify` と独立した step |
-| `pnpm lint` | oxlint と ast-grep（このリポジトリ唯一の lint / format 設定。prettier も biome も .editorconfig も置かない）。`oxlint --deny-warnings src test && ast-grep scan` として両方を実行する。oxlint は**`--deny-warnings` 付きで走る**ため、`warn` のルールもビルドを落とす（`.oxlintrc.json` は `correctness` / `suspicious` / `perf` / `restriction` の 4 カテゴリと個別ルールの大半を `warn` にし、`style` は無効化、`error` は少数だけ。このフラグが無かった頃は実質その `error` のルールしかゲートになっていなかった。`.oxlintrc.json` は JSONC なのでコメント行を除いてから数える必要がある。正確な内訳はそうやって `.oxlintrc.json` を参照）。ast-grep は oxlint が実装していない壁時計禁止と型アサーション禁止を補う（下記） |
+| `pnpm lint` | oxlint と ast-grep を実行する。`oxlint --deny-warnings src test && ast-grep scan` のため、oxlint の warning も失敗になる。ast-grep は壁時計の直接参照と型アサーションを検出する（下記） |
 | `pnpm lint:fix` | oxlint の自動修正 |
-| `pnpm test` | Vitest 4（Effect のテストは native `it` と `Effect.runPromise` を直接利用） |
+| `pnpm test` | Vitest 5（Effect のテストは native `it` と `Effect.runPromise` を直接利用） |
 | `pnpm test:watch` | vitest watch |
 | `pnpm test:coverage` | カバレッジ計測（全メトリクス100%。[docs/testing.md](./docs/testing.md) §4） |
 | `pnpm verify` | `typecheck && lint && test`（3段。カバレッジは含まない） |
@@ -130,134 +132,14 @@ Nix を使わない場合は Node.js 24 以上と pnpm 11（`corepack` 推奨）
 
 ## 現状
 
-- **ゲームモード・難易度・gamerule・ダメージ種別を公開した**（`domain/game-mode` / `domain/game-rule` / `domain/damage-type`）。
-  `game-mode` は閉じた語彙 + メンバーごとの値表なので `status-effect` / `biome` と同じ 3 ファイル構成、
-  `game-rule` は既定値・境界・正規化を扱うので `settings` と同じ 2 ファイル構成にしている。両者の境界は
-  「`settings` は**このクライアント**の描画と入力の設定、`game-rule` は**シミュレーション全体**に効く権威的な状態」である。
-  `DamageType` は**語彙だけ**を持つ。生ダメージから最終ダメージを求める軽減計算は、
-  [docs/responsibility.md](./docs/responsibility.md) §3-7 に理由と**再開条件**つきで非スコープとして記録した。
-- **`BLOCK_ID_MAX` を上げたことによる常駐メモリ増を解消した。** id 索引テーブルを**型の上限**で採寸していたため、
-  上限を 255 から 65535 にした時点で能力フラグ・プロパティ列ごとの密配列がすべて 256 倍になり、
-  `block-registry` の import が計測時点で 15.83MB から 24.91MB へ増えていた。表の長さは登録済み id の最大値から
-  導出するよう分離し、main と同じ 15.83MB に戻している（`domain/block-registry-indexes.ts`）。
-  配列の本数は `BLOCK_CAPABILITY_FLAGS` と `BlockPropertyName` の列挙に従うので、ここでは数えない
-  ——追加はレビューに名前として現れるべきものである。
-  型の上限と表の長さは、格納幅が上限を決めていた間だけ同じ数だった。
-  併せて全アクセサに範囲ガードを入れた。V8 は配列の範囲外読み取りで遅いパスを取るためだが、
-  この判断の根拠になっていたベンチマークは**本番と逆の入力分布を測っていた**。`registryQueries` は
-  id を 0..32767 から引くのに登録済みは 123 件しかなく、クエリのほぼ全部が範囲外に落ちていた。
-  実際のチャンクの id は `BlockState` が構築時に検証するのでほぼ全部が範囲内である。
-
-  ベンチマークを 2 本に分けて測り直した（`registryQueries` が現実的な分布、
-  `registryQueriesUnregistered` が未検証チャンクを復号する経路）。ガードあり／なしを交互に取った結果:
-
-  | 分布 | ガードあり | ガードなし | 勝敗 |
-  | --- | --- | --- | --- |
-  | 現実的（範囲内） | 16.070 ms | 14.517 ms | なし側が 7/8 |
-  | 範囲外 | 7.964 ms | 19.946 ms | あり側が 8/8 |
-
-  **ガードは維持する。** 現実的パスの負担は約 0.5ns/call で実在するが小さく、勝敗も 7/8 と揺れる。
-  対して範囲外パスは 8/8 で約 2.5 倍の差が付く。そして [docs/responsibility.md](./docs/responsibility.md) §3-6 は
-  下流がチャンクバッファの**未ブランドの生バイトをそのまま渡す**ことを明示的に許しており、
-  アクセサは plain `number` を取る。範囲外入力は仮定ではなくサポートされた入力である。
-  再検討するなら、現実的パスの標本数を増やしたうえで、その契約を狭める判断とセットで行うこと。
-
-- **共有語彙を 8 領域拡張した。** いずれも「その語彙を必要とする消費者が 2 つ以上あり、依存グラフ上で互いに届かない」
-  という [docs/responsibility.md](./docs/responsibility.md) §3-2 の判定条件を満たすものだけを入れている。判定の主語になるのは
-  kernel 以外にエッジを持たない 5 リポジトリ（`mc-noise` / `mc-meshing` / `mc-physics` / `mc-save` / `mc-audio`）である。
-  `domain/random-source`（乱数契約）、`domain/status-effect`、`domain/entity-type`、`domain/biome`、`domain/light`、
-  `domain/heightmap`、`domain/block-entity`、`domain/tag-membership`。
-  この条件を満たさなかったため**入れなかった**ものもある。ネットワーク packet 語彙は消費者が `mx-multiplayer` 1 つなので
-  当該リポジトリが所有し、SoundEvent registry は `mx-gameplay` と `mx-ui` が `mc-audio` に直接依存できるため `mc-audio` が所有する。
-- **乱数の境界を「源を持たない」に改めた。** 以前は「kernel は純粋で RNG を持たない」と書いていたが、
-  `domain/enchantment-table.ts` が当時すでに乱数を引数で受け取っており、記述と実装が食い違っていた。
-  `domain/random-source.ts` が `ClockPort` と同型の契約・seed 生成器・テスト用 scripted 実装を持ち、実エントロピーのアダプタは持たない。
-  詳細は [docs/responsibility.md](./docs/responsibility.md) §3-1。
-- **ステータス効果の 3 重定義を 1 つに畳んだ。** `FoodStatusEffectName`（`StatusEffectName` からの `Extract` で
-  閉じた union）、`ConsumableStatusEffect`（`ResourceLocation`）、`PotionContentsComponent` が同じ概念を独立に綴っていた。
-  これは [docs/design-notes.md](./docs/design-notes.md) §1-2 が参照実装の致命傷として記録した「同じ概念が複数箇所で
-  独立に列挙され、メンバーシップがずれる」現象が kernel 内部で再現したものである。既存の公開シグネチャは変えず、
-  3 つを `domain/status-effect` への射影にした。`minecraft:` を綴る箇所は 1 つになった。
-- **`EntityType` の閉じた語彙を実装した**（`domain/entity-type.ts`）。
-  [docs/responsibility.md](./docs/responsibility.md) が以前から責務として宣言していながら存在しなかった語彙で、
-  実在したのは `EntityKind` という網羅性チェックの効かない開いた branded string だけだった。
-  `EntityKind` は modding 入口として残し、閉じた語彙をその上に載せている。
-- **`Chunk` のブロック表現を 16 bit へ広げ、codec を v2 にした**（`domain/chunk.ts` / `domain/block-state.ts`）。
-  id の数値は変えていない（`BLOCK.SAND === 5` は 5 のまま）ので、v1 で encode されたバイト列は decode 互換パスで読める。
-  オフセット 20 の payload length フィールドは v2 で**バイト数**を意味する。8 bit のときは要素数と一致していて両義的だったが、
-  16 bit では一致しないため、encode・検証・v1/v2 の分岐の 3 箇所を明示的に揃えた。
-  v2 の decode は narrowing の**前**に 16 bit 値を registry 検証にかけるので、壊れた id が切り捨てで有効 id に化けることはない。
-
-- **ブロック能力モデルは監査に整合済み。** `docs/capability-flag-audit.md` の 28 能力のうち **27 は kernel 実装 / 1 は下流所有**。
-  下流所有の境界は `DOWNSTREAM_CAPABILITIES` に所有者と理由つきで記録され、テストが「実装済み + 下流所有 = 監査の 28」を検査している。
-  plan.md §3.1 が boolean としていた 3 つ（`emissive` / `transparent` / `fluid`）は監査に従って
-  `lightEmission: 0..15` / `opacity: 3 値` / `fluid: 'none'|'water'|'lava'` に修正済み。
-  詳細は [docs/public-api.md](./docs/public-api.md) §4。
-- **ブロックテーブルは同梱している**（`domain/block-registry.ts`）。もともとは「コンテンツなので持たない」方針だったが、
-  チャンクバッファの 1 バイトから能力を引きたいリポジトリが依存グラフ上で互いに届かない 3 箇所に現れた時点で成立しなくなった。
-  経緯と論拠は [docs/responsibility.md](./docs/responsibility.md) §3-2 と当該ファイルのヘッダにある。
-- **`BlockType` とレジストリは 123 種を収録している。** 参照実装の 120 リテラルを基礎に、kernel が必要とする
-  `soul_soil`、`wither_skeleton_skull`、`dropper` を加えた。追加時はリテラルだけでなくレジストリ行と能力を同時に定義する。
-- **`ItemType` を公開した**（`domain/item-type.ts`。鉄防具 4 種とつるはし・シャベル・斧・クワ・剣の木/石/鉄/ダイヤ/金/ネザライト tier、鍛造素材・テンプレート・防具、紙、16 色の染料と旗、書物、花火、盾を含む）。roster の正本は `test/item-registry.test.ts` が固定している明示リストであり、件数はここに書かない——追加は名前として review に現れるべきものである。plan.md §3.1 が挙げていながら
-  書かれていなかった語彙で、欠落のあいだに mc-sim / mc-playground-kit / mx-ui がそれぞれ暫定の
-  `type ItemId = string` を置いていた。`domain/block-item.ts` がブロック↔アイテムの橋
-  （監査 §6-8 の `ItemType ∩ BlockType` を導出で解く）を、`dropOfBlockId` が
-  「壊したブロックのバイト → インベントリに入るアイテム」を担う。
-  詳細は [docs/public-api.md](./docs/public-api.md) §3-bis と §4-3。
-- **`ItemStack` と shaped / shapeless レシピを公開した**（`domain/item-stack.ts` / `domain/recipe.ts`）。数量・スタック上限、3×3 grid、item/tag 材料、station tag、priority、対称形を純粋な値検証と照合で扱う。`VANILLA_CRAFTING_RECIPES` は kernel が同梱する対応済み公式データ表であり、全エディション・全バージョンの完全な registry を意味しない。
-- **ブロック相互作用の純粋な判定を公開した**（`domain/block-interaction.ts`）。破壊の不破壊判定と deterministic drop、置換可能セル、support rule に基づく設置判定、placeable item から block への canonical bridge をまとめる。ワールド変更、採掘時間、衝突、インベントリ消費、イベント発火は上位層の責務である。
-- **プレイヤーインベントリの純粋な値操作を公開した**（`domain/inventory.ts`）。36 スロットの `Inventory` に対する追加、指定スロット／指定アイテムの除去、集計、空判定と、`unknown` の保存値を検証する `normaliseInventory` を扱う。搬送サービス、所有権、コンテナ状態、ゲームプレイ統合は上位層の責務である。
-- **プレイヤーインベントリのホットバー投影を公開した**（`domain/hotbar.ts`）。9 スロットの選択範囲、インベントリ上の開始位置、外部選択値の clamp、循環移動、インベントリスロットへの投影を純粋な計算として扱う。選択状態、入力デバイス、UI、サービスの所有は上位層の責務である。
-- **調理と醸造を公開した**（`domain/smelting.ts` / `domain/brewing.ts`）。furnace 系 3 station の燃料・出力容量・調理時間と、3 本の bottle slot・blaze powder・20 秒の醸造時間を、搬送や UI を含まない値ベースの状態遷移として扱う。
-- **食料のデータと摂取ロジックを公開した**（`domain/food-data.ts` / `domain/food.ts`）。栄養値、満腹度、食用条件、食後効果、食器への変換を、プレイヤー状態と ItemStack から返す純粋な結果として扱う。
-- **ディメンションと作物の純粋モデルを公開した**（`domain/dimension.ts` / `domain/crop.ts`）。Overworld・Nether・End の閉じた語彙、作物の土壌・ディメンション適合、成熟、経過時間による成長、骨粉による成長、成熟時の保証ドロップ、保存用 crop snapshot の厳格な検証を扱う。ワールド更新、ランダム tick、ブロック変更、収穫イベントは上位層の責務である。
-- **石切台を公開した**（`domain/stonecutting.ts`）。現行の ItemType roster で実証できる石切台レシピを、exact/tag ingredient、priority、入力消費、station 境界付きの純粋な照合・適用として扱う。対応済み公式データ表は全エディション・全バージョンの完全な registry を意味しない。
-- **鍛造を公開した**（`domain/smithing.ts`）。公式の netherite transform と trim recipe の型・tag・入力検証・結果適用を、搬送や UI を含まない値ベースの変換として扱う。
-- **砥石を公開した**（`domain/grindstone.ts` / `domain/grindstone-data.ts`）。単体除去、二入力修理、通常エンチャント除去、呪い保持、エンチャント本の本変換、耐久回復、スタック制約、経験値コストを純粋な計画として扱う。
-- **special recipe 10 種を公開した**（`domain/crafting-special.ts` / `domain/crafting-special-data.ts`）。Minecraft がデータではなくコードで持っている染色・付与・バナー複製・本の複製・飾り壺・花火・地図拡張・盾装飾を、他の recipe と同じ照合と適用として扱い、対応する Java document の decoder も持つ。バナー複製が模様側のバナーを消費しないこと、花火の色が染料テーブル由来であること（赤は `#b02e26`）など vanilla 固有の規則は [docs/public-api.md](./docs/public-api.md) §3-ter-4 にある。GUI、スロット搬送、経験値、サーバー権威は上位層の責務である。
-- **item component の値そのものを公開した**（`domain/item-component-values.ts` ほか）。vanilla が定義する component 値ごとにコンストラクタと `unknown` 境界の guard を対にし、属性 modifier・戦闘・防御・エンチャントは下流が個別に触るため `domain/item-attribute-modifiers` / `domain/item-combat` / `domain/item-defense` / `domain/item-enchantments` に subpath を分けている。効果の適用と GUI は上位層の責務である。
-- **ネザーポータルの枠を公開した**（`domain/portal.ts`）。着火位置からの枠検出と、寸法指定の枠生成を、ブロック id を返す 1 本の関数だけを受け取る純粋計算として扱う。ワールドへの書き込みとポータル間の紐付けは上位層の責務である。
-- **data pack layer の共通機構を公開した**（`domain/data-pack-registry.ts`）。recipe registry と Sulfur Cube archetype registry が同じ「複数 pack を format と priority で重ねる」機構を必要とし、どちらか一方に置くと依存の向きが壊れるため kernel が所有する。
-- **昼夜と天候の純粋モデルを公開した**（`domain/time-of-day.ts` / `domain/weather.ts`）。`TimeState` / `WeatherState` の境界検証・正規化と、昼夜の進行・時刻設定・月齢・昼夜判定を kernel が所有する。状態サービス、カウントダウン、ゲームループは上位層の責務である。
-- **プレイヤー vitals の純粋モデルを公開した**（`domain/vitals.ts`）。体力・飢餓・飽和・経験値・リスポーン・外部入力の検証と UI 向け表示変換を、状態サービスやタイマーから分離して kernel が所有する。
-- **カメラ姿勢の純粋モデルを公開した**（`domain/camera-pose.ts`）。`PlayerPose` の pitch clamp、look 更新、eye-level snapshot、forward vector を `CameraPoseSnapshot` と分離し、姿勢の所有と renderer mirror は上位層に残す。
-- **フレーム時間の clamp を公開した**（`domain/frame-timing.ts`）。フレームループが受け取った経過時間を `0.001`〜`0.05` 秒に制限し、捨てた時間を別に記録する純粋関数を扱う。状態・時計・ゲームループそのものは上位層が所有する。詳細は [docs/public-api.md](./docs/public-api.md) §5-bis。
-- **設定値と統計を公開した**（`domain/settings.ts` / `domain/statistics.ts`）。`Settings` は描画距離・視野角・品質・音量・感度・key binding の既定値・境界・正規化・更新を、`Statistics` は counter の記録・achievement の解放・重複除去・正規化を扱う。画面や renderer preset への適用、achievement registry、永続化は下流の責務である。詳細は [docs/public-api.md](./docs/public-api.md) §3-quinquies-bis。
-- **乗り物 snapshot 契約を公開した**（`domain/vehicle.ts`）。boat / minecart の語彙、位置・速度・向き、搭乗者の一意性、snapshot の serial 採番を純粋なデータ契約として扱い、`validateVehicleSnapshot` が保存・ネットワーク入力を検証する。物理的な移動、レール接続、衝突、搭乗・降車は上位層の責務である。詳細は [docs/public-api.md](./docs/public-api.md) §5-quinquies。
-- **redstone の純粋更新を公開した**（`domain/redstone.ts` / `domain/redstone-network.ts` / `domain/redstone-update.ts`）。`RedstoneState` と `BlockWorld` から source・device・wire・lamp の状態を評価し、repeater の遅延・lock、comparator の比較、observer の pulse、wire propagation、lamp state を world/state/change list として返す。詳細は [docs/public-api.md](./docs/public-api.md) §5-sexies。
-- **Arrow の純粋な弾道モデルを公開した**（`domain/projectile.ts` / `domain/projectile-collision.ts`）。重力、空気・水中 drag、寿命、射手 grace、ワールド境界、ブロック/Entity の連続 AABB 衝突を値遷移として扱う。Entity 更新、ブロック変更、ダメージ適用、イベント dispatch は上位層の責務である。
-- **爆発と着火済み TNT の純粋モデルを公開した**（`domain/explosion.ts` / `domain/primed-tnt.ts`）。抵抗・遮蔽・Entity exposure・ノックバックを有限上限付きの決定論的な爆発計画へまとめ、TNT の fuse 進行と detonation を同じ計画境界で扱う。ブロック変更、ダメージ適用、Entity の生成・削除、イベント dispatch は上位層の責務である。
-- **Java Edition の公式 `minecraft:tool` と Bedrock Edition の採掘 component を公開した**（`domain/tool-component.ts` / `domain/block-break-speed.ts` / `domain/bedrock-mining.ts`）。
-  Java の `speed`、`correct_for_drops`、`default_mining_speed`、`damage_per_block`、`can_destroy_blocks_in_creative` と、Bedrock の
-  `minecraft:digger` / `minecraft:destructible_by_mining` を、それぞれの仕様に沿った型付きの純粋 API で扱う。
-  Java と Bedrock の契約は同じ型へ暗黙変換せず、Bedrock API は root と `domain/bedrock-mining` subpath から公開する。
-  プレイヤー操作の進行状態、耐久の消費適用、ドロップ生成、サーバー権威判定は上位 gameplay の責務である。
-- **`Chunk` データ構造と versioned codec は実装済み。** `domain/chunk.ts` の
-  `Chunk` / `encodeChunk` / `decodeChunk` とラウンドトリップテストが所有する。
-- **`FrameServices` は確定した — `ClockPort` だけ。** 縦切りスパイクを通した結果であり、プレースホルダではない。
-  同じスパイクで `GameModule.frameStages` が配列から Effect になり、`RRegister` パラメータが増えた。
-  [docs/freeze-checklist.md](./docs/freeze-checklist.md) (b) と
-  [docs/public-api.md](./docs/public-api.md) §7 を参照。
 - **型付き ESM ビルドは実装済み。** `pnpm build` が `dist/` に JavaScript と declaration を生成し、
   `main` / `types` / `exports` はビルド成果物を指す。`files` には `dist/` とリリースに必要なメタデータだけを含める。
-- **データとロジックは分離している。** `block-type-data.ts` / `item-type-data.ts` は閉じた語彙表を保持し、
-  `block-type.ts` / `item-type.ts` は型と外部入力用の runtime guard を提供する。座標は primitive・key・変換・幾何・近傍、
-  Anvil は validation・transformation・orchestration、砥石は data・pure plan に分割している。
 - **実行環境は Nix flake を正本とする。** `flake.nix` / `flake.lock` と `package.json` の `engines` / `packageManager` が
-  Node.js 24・pnpm 11・TypeScript 7 の境界を定義する。ASDF/asd や devenv の設定は置かず、環境定義を二重管理しない。
+  Node.js 24・pnpm 12.14.0・TypeScript 7 の境界を定義する。ASDF/asd や devenv の設定は置かず、環境定義を二重管理しない。
 - **配布境界のローカル検証は実装済み。** `pnpm package:verify` は実際に生成した tarball の
   `exports` 対象・`files` 内容・clean consumer からの import・`fixedClock` runtime・型付き declaration consumer を検査し、
   CI でも実行する。`.github/workflows/release.yaml` は `main` で package version が変わったときだけ、
   verify・package boundary 検証後に GitHub Packages へ publish する。
-- **GitHub Packages への実公開は行われており、現在の `version` は `0.4.0` である。**
-  `0.3.0` は release workflow の version 検出方式の穴により公開されなかった履歴上の中間版であり、
-  `0.4.0` は Node.js からロード可能な修正版として公開されている。公開レジストリから取得した
-  `0.4.0` tarball の install / import / runtime 検証も [freeze-checklist.md](./docs/freeze-checklist.md) に記録済みである。
-  `version` は下流の実消費とリリース判断が完了するまで `0.x` に留める
-  （[docs/versioning.md](./docs/versioning.md)）。
-- **`effect` は exact-pinned `dependencies` として宣言する。** 詳細は [docs/versioning.md](./docs/versioning.md) §1-1。
-- **カバレッジは全メトリクス100%を閾値にする。** `pnpm verify`（内部で `pnpm test:coverage` を実行）と CI のカバレッジゲートが
-  Statements / Branches / Functions / Lines を検査する（[docs/testing.md](./docs/testing.md) §4）。
 
 ## License
 

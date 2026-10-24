@@ -10,7 +10,7 @@
 
 複数リポジトリが共有し、どれか一つの所有リポジトリに置くと依存方向が崩れる型は kernel に置く。それ以外の型はその所有者のリポジトリに置く。
 
-TypeScript のコードブロックは公開宣言の要約である。単独の `...` は省略、引数名に付く `...` は可変長引数を示す。本文や見出しで名前を並べる際の `/` は併記を示す。全ブロックがそのままコンパイルできる宣言とは限らない。
+TypeScript のコードブロックは公開宣言や使用例の抜粋であり、完全なソースファイルではない。単独の `...` は省略、引数名に付く `...` は可変長引数を示す。本文や見出しで名前を並べる際の `/` は併記を示す。import path を明記した例だけが package entrypoint を示す。
 `package.json` の `types` 条件は root entrypoint を `dist/index.d.ts`、各 `./domain/<name>` subpath を `dist/domain/<name>.d.ts` に対応づける。各公開 import entrypoint の完全な型宣言は package に含まれるそのファイルから確認できる。
 
 ## 数値・文字列・bigint の意味型
@@ -146,7 +146,7 @@ const aabbContainsPoint: (box: AABB, point: Position) => boolean
 ### 2-bis. 座標のキー化（coordinate-keys）
 
 `Map` のキーや保存フォーマットに座標を使うリポジトリ（チャンクストア、dirty 集合、ネットワーク差分）向けの
-正準文字列表現。`0.2.19` で出荷済み。
+正準文字列表現。
 
 ```typescript
 type BlockPositionKey = string & Brand.Brand<'BlockPositionKey'>   // 正準形式 "x,y,z"
@@ -216,8 +216,9 @@ const blockIdOf(type: BlockType): Option.Option<BlockId>
 const blockTypeOfId(id: BlockId): Result.Result<BlockType | undefined, BlockRegistryResolutionFailure>
 const isKnownBlockId(id: BlockId): Result.Result<boolean, BlockRegistryResolutionFailure>
 const resolvedBlockOfId(id: BlockId): Result.Result<ResolvedBlock | undefined, BlockRegistryResolutionFailure>
-const resolvedBlockAt(id: BlockId): Result.Result<Option.Option<ResolvedBlock>, BlockRegistryResolutionFailure>
 ```
+
+`blockTypeOfId` はブロック名だけを返し、`resolvedBlockOfId` は解決済み定義全体を返す。どちらも未登録の ID には成功値 `undefined` を返す。
 
 ブロックレジストリの安定した公開 import path は `@nerima-games/mc-kernel/domain/block-registry` である。Fluid の lookup は `@nerima-games/mc-kernel/domain/fluid` から利用できる（§5-sexies）。
 
@@ -541,13 +542,6 @@ const shapedRecipe: (id: RecipeId, rows: ReadonlyArray<RecipePatternRow>, key: R
 const shapelessRecipe: (id: RecipeId, ingredients: ReadonlyArray<CraftingIngredientInput>, output: ItemStack, options?: RecipeOptions) => Result.Result<ShapelessRecipe, RecipeFailure>;
 const craftGrid: (width: RecipeGridDimension, height: RecipeGridDimension, items: ReadonlyArray<CraftGridInput>) => Result.Result<CraftGrid, RecipeFailure>;
 const cellAt: (grid: CraftGrid, x: RecipeGridIndex, y: RecipeGridIndex) => Slot;
-const cookingRecipe: (id: RecipeId, station: CookingStation, ingredient: CraftingIngredientInput, output: ItemStack, cookTimeTicks: PositiveTickCount, experience: RecipeExperience, options?: CookingRecipeOptions) => Result.Result<CookingRecipe, RecipeFailure>;
-const cookingRecipeForItem: (id: RecipeId, station: CookingStation, ingredient: CraftingIngredientInput, output: ItemType, count: StackCount, cookTimeTicks: PositiveTickCount, experience: RecipeExperience, options?: CookingRecipeOptions) => Result.Result<CookingRecipe, RecipeFailure>;
-const stonecuttingRecipe: (id: RecipeId, ingredient: CraftingIngredientInput, output: ItemStack, options?: StonecuttingRecipeOptions) => Result.Result<StonecuttingRecipe, RecipeFailure>;
-const smithingTransformRecipe: (id: RecipeId, template: CraftingIngredientInput, base: CraftingIngredientInput, addition: CraftingIngredientInput, output: ItemStack, options?: SmithingRecipeOptions) => Result.Result<SmithingTransformRecipe, RecipeFailure>;
-const smithingTrimRecipe: (id: RecipeId, template: CraftingIngredientInput, base: CraftingIngredientInput, addition: CraftingIngredientInput, options?: SmithingRecipeOptions) => Result.Result<SmithingTrimRecipe, RecipeFailure>;
-const transmuteRecipe: (id: RecipeId, source: CraftingIngredientInput, material: CraftingIngredientInput, output: ItemStack, options?: TransmuteRecipeOptions) => Result.Result<TransmuteRecipe, RecipeFailure>;
-const transmuteRecipeForItem: (id: RecipeId, source: CraftingIngredientInput, material: CraftingIngredientInput, output: ItemType, count: StackCount, options?: TransmuteRecipeOptions) => Result.Result<TransmuteRecipe, RecipeFailure>;
 const brewingOutput: (recipe: BrewingRecipe) => Result.Result<ItemStack, RecipeFailure>;
 ```
 
@@ -618,16 +612,16 @@ result の `components` は `ItemComponentPatch` になる。`recipeDataPath(id)
 
 ```typescript
 const craftingRecipeFromUnknown: (id: NamespacedResourceLocation, value: unknown) => Result.Result<Recipe, RecipeFailure>;
-const cookingRecipeFromUnknown: (id: NamespacedResourceLocation, value: unknown) => Result.Result<CookingRecipe, RecipeFailure>;
+const cookingRecipeFromUnknown: (id: NamespacedResourceLocation, value: unknown) => Result.Result<PortableRecipe, RecipeFailure>;
 const stonecuttingRecipeFromUnknown: (
   id: NamespacedResourceLocation,
   value: unknown,
-) => Result.Result<StonecuttingRecipe, RecipeFailure>;
-const smithingRecipeFromUnknown: (id: NamespacedResourceLocation, value: unknown) => Result.Result<SmithingRecipe, RecipeFailure>;
+) => Result.Result<PortableRecipe, RecipeFailure>;
+const smithingRecipeFromUnknown: (id: NamespacedResourceLocation, value: unknown) => Result.Result<PortableRecipe, RecipeFailure>;
 const transmuteRecipeFromUnknown: (
   id: NamespacedResourceLocation,
   value: unknown,
-) => Result.Result<TransmuteRecipe, RecipeFailure>;
+) => Result.Result<PortableRecipe, RecipeFailure>;
 const portableRecipeFromUnknown: (id: NamespacedResourceLocation, value: unknown) => Result.Result<PortableRecipe, RecipeFailure>;
 const recipeFromUnknown: typeof portableRecipeFromUnknown;
 const recipeDataPath: (id: NamespacedResourceLocation) => Result.Result<DataPackResourcePath, RecipeFailure>;
@@ -677,8 +671,6 @@ type CraftingSpecialRecipe =
 - **本の複製は generation を 1 つ進め、recipe の `allowedGenerations` の外にある本を拒否する。**
   出力数は紙の枚数で決まり、出力スタック上限を超える組み合わせは一致しない。
 - **花火の色は染料テーブルから引く。** 赤は `#ff0000` ではなく vanilla の `#b02e26` である。
-  `mixCraftingDyeColor` は革の染色と同じ明度保存アルゴリズムで、ビット演算ではなく算術で packing する
-  （チャンネルは 0-255 に clamp 済みなので正確）。
 
 書き込まれた本のページとタイトルは JSON text component であり、素の文字列を受け付けるのは
 writable book の側だけである。
@@ -786,30 +778,14 @@ const VANILLA_FUEL_RULES: ReadonlyArray<FuelRule>;
 
 `BrewingState`と`FurnaceState`はblock entityの共有データ型でもある。静的データはrootまたは実在する`@nerima-games/mc-kernel/domain/recipe` subpathからimportできる。
 
-### Dimension と作物
+### Dimension
 
-`Dimension` は vanilla の Overworld・Nether・End に限定した共有語彙で、`isDimension` は保存データやネットワーク入力の runtime guard である。root は作物の静的定義も公開する。作物 lifecycle は `mc-sim` が所有する（[実行時処理の所有元](./responsibility.md)）。
+`Dimension` は vanilla の Overworld・Nether・End に限定した共有語彙で、`isDimension` は保存データやネットワーク入力の runtime guard である。
 
 ```typescript
 const DIMENSIONS: readonly ["overworld", "nether", "end"];
 type Dimension = "overworld" | "nether" | "end";
 const isDimension: (value: unknown) => value is Dimension;
-
-const CROP_TYPES: readonly ["wheat_crop", "potato_crop", "nether_wart_crop"];
-type CropType = (typeof CROP_TYPES)[number];
-type CropDefinition = {
-  readonly crop: CropType;
-  readonly maturitySecs: FixedDurationSecs;
-  readonly seed: ItemType;
-  readonly soil: BlockType;
-  readonly dimensions: ReadonlyArray<Dimension>;
-  readonly guaranteedMatureYield: ReadonlyArray<ItemStack>;
-};
-const CROP_REGISTRY: Readonly<Record<CropType, CropDefinition>>;
-const WHEAT_MATURITY_SECS: FixedDurationSecs;
-const POTATO_MATURITY_SECS: FixedDurationSecs;
-const NETHER_WART_MATURITY_SECS: FixedDurationSecs;
-const BONE_MEAL_GROWTH_SECS: FixedDurationSecs;
 ```
 
 ### 石切台と鍛造
@@ -1100,7 +1076,6 @@ const MIN_VOLUME: number;
 const MAX_VOLUME: number;
 const DEFAULT_SETTINGS: Settings;
 const normaliseSettings: (input: unknown) => Settings;
-const applySettings: (settings: Settings, patch: Partial<Settings>) => Settings;
 type Settings = Readonly<{
   renderDistance: RenderDistanceChunks;
   fovDegrees: FieldOfViewDegrees;
@@ -1189,6 +1164,8 @@ root と `@nerima-games/mc-kernel/domain/explosion` subpath から利用でき�
 ## 4. ブロック能力モデル
 
 **権威は `docs/capability-flag-audit.md`。** 監査 §3 の表は 28 行であり、この表を採用している。
+
+根拠欄のファイル名は、[能力フラグ監査](./capability-flag-audit.md)で調べた参照実装内のパスを示す。kernel の import path ではない。
 
 2 つの仕組みに分かれる。boolean は能力フラグ表、それ以外は型付きプロパティ表。
 ### 4-1. 能力フラグ（boolean）：`domain/block-capabilities.ts` / `domain/block-capability-data.ts`
@@ -1332,7 +1309,6 @@ const resolveDrop(requirement, rule, brokenBlock, context?): BlockDrop | undefin
 `item: 'self'` は「自分自身のアイテム」を表す番兵。既定値は自分が何のブロックかを知り得ないため、
 リテラルではなく番兵でなければならない。
 
-**`item` is now `ItemType | 'self'` instead of `BlockType | 'self'`.** This allows a block to drop a non-block item.
 同じ理由で `resolveDropItem` は**部分関数になった**。旧版は `BlockType` を返して全域だった
 （「自分自身」は必ずブロックだから）。答えがアイテムになると「自分自身」は存在しないことがありうる
 （`air` / `water` / `lava` / `bedrock` / `snow`）。`undefined` がその答えで、count 0 の drop rule は存在しないため、インベントリに何も入らない。
@@ -1954,7 +1930,7 @@ const resolveDamageTypeDefinition: (value: unknown) => Result.Result<DamageTypeD
 
 roster と各フィールドは `test/golden/vanilla-damage-type.json` として固定した misode/mcmeta の Java Edition 26.3 pin に照合する。`kind` は `is_fire` / `is_explosion` / `is_projectile` / `is_fall` / `is_drowning` タグの帰属から導出し、どのタグも持たない id は `generic` になる。pin と縮約表の範囲は [conformance.md](./conformance.md) に記録する。
 
-`item-combat-data.ts` の `DamageTypeComponent = ResourceLocation` という既存の素通しエイリアスは、この語彙を使う `isVanillaDamageTypeComponent`（`item-combat-validation.ts`）で vanilla 部分集合への絞り込みができるようになった。既存の `isDamageTypeComponent` は任意の well-formed `ResourceLocation` を受け付けたままなので、data pack が独自に登録するダメージ種別は引き続き扱える。
+`isDamageTypeComponent` は root と `@nerima-games/mc-kernel/domain/item-combat` subpath から利用できる。任意の well-formed `ResourceLocation` を受け付けるため、data pack が独自に登録するダメージ種別も扱える。
 
 `mc-audio` は damage type ごとの hurt sound を選び、`mx-ui` は同じ type から死亡メッセージを組み立てる。両者は依存グラフ上で互いに届かないため、共通型を kernel に置く。型は root と `domain/damage-type` subpath から利用できる。
 
@@ -1979,7 +1955,7 @@ kernel はテスト用の固定実装だけを持ち、**実クロックを読�
 実装は利用側（ブラウザなら `performance` / Node なら `process.hrtime`）が注入する。
 
 kernel のシミュレーションコードでは、`Date.now()`、`new Date()`、`performance.now()` を直接呼ばない。
-`.oxlintrc.json` の `no-restricted-imports` と `pnpm lint` は import 境界を検査するが、wall-clock 参照は検出しない。したがって、時刻ソースの禁止は設計規約である。
+`.ast-grep/rules/no-wall-clock-read.yml` と `pnpm lint` が `src/` の直接参照を検出し、違反を失敗にする。
 Port を実装するプラットフォームアダプタだけが実クロックを読み、kernel の利用側には `ClockPort` を注入する。
 
 ## 6-bis. 乱数契約（random-source）
@@ -2009,7 +1985,7 @@ type RandomSourceScript = Readonly<{
 const fixedRandomSource: (script: RandomSourceScript) => Result.Result<RandomSource, RandomSourceFailure>;
 ```
 
-`seededRandomSource` は Park–Miller の「minimal standard」Lehmer 生成器を実装する。seed は safe integer に限り、modulus で剰余化した後、状態が 0 なら 1 に正規化するため、seed `0` と seed `2^31 - 1` は seed `1` と同じ列を返す。同じ seed と同じ呼び出し順は常に同じ値の列を返し、リプレイと早送りの前提になる。不正な seed と bound は `RandomSourceFailure` を返す。`fixedRandomSource` は `fixedClock` と対の scripted 実装で、指定した値を使い切ると、黙って折り返したり既定値へフォールバックしたりせず、`sequence-exhausted` の `RandomSourceFailure` を返す。
+`RandomSeed` と `RandomIntBound` は数値制約を検証するブランドコンストラクタである。`seededRandomSource` と `RandomSource.nextInt` は通常の `number` を受け取り、境界で検証したうえで不正値には `RandomSourceFailure` を返す。`seededRandomSource` は Park–Miller の「minimal standard」Lehmer 生成器を実装する。seed は safe integer に限り、modulus で剰余化した後、状態が 0 なら 1 に正規化するため、seed `0` と seed `2^31 - 1` は seed `1` と同じ列を返す。同じ seed と同じ呼び出し順は常に同じ値の列を返し、リプレイと早送りの前提になる。`fixedRandomSource` は `fixedClock` と対の scripted 実装で、指定した値を使い切ると、黙って折り返したり既定値へフォールバックしたりせず、`sequence-exhausted` の `RandomSourceFailure` を返す。
 
 ## 6-ter. 共通ドメイン語彙（shared-vocabulary）
 
@@ -2174,7 +2150,7 @@ const chunk: (coord: ChunkCoord, height: ChunkHeight, blocks: Uint8Array) => Res
 各バイトを1つの ID（0..255）として扱い、`BlockState` の2バイト要素へ広げる。`chunk()` と `blockState()` は
 16ビット幅の入力を受け取らない。構築時にバッファをコピーするため、呼び出し側の後続変更は Chunk に波及しない。
 
-**`Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks` を保持する（0.3.0、破壊的変更）。**
+**`Chunk.blocks` は生の `Uint8Array` ではなく `ChunkBlocks` を保持する。**
 
 ```typescript
 type ChunkBlocks = BlockState & Brand.Brand<'ChunkBlocks'>
