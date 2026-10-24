@@ -211,7 +211,7 @@ const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry>   // 123 行、id 昇順
 const BLOCK_IDS: ReadonlyArray<BlockId>                    // BLOCK_REGISTRY から取り出した id 列
 const UNREGISTERED_BLOCK_TYPES: ReadonlyArray<BlockType>   // レジストリに行が無い語彙（現状は空）
 
-type BlockRegistryResolutionFailure = BlockDefinitionFailure | BlockCapabilityFailure | BlockPropertyFailure
+type BlockRegistryResolutionFailure = BlockDefinitionFailure | BlockCapabilityFailure | BlockPropertyFailure | Brand.BrandError
 type BlockRegistryIndexFailure = BlockRegistryFailure | BlockRegistryResolutionFailure
 const blockIdOf(type: BlockType): Option.Option<BlockId>
 const blockTypeOfId(id: BlockId): Result.Result<BlockType | undefined, BlockRegistryResolutionFailure>
@@ -1541,7 +1541,7 @@ type WorldReadWriteFailure = Readonly<{
   readonly _tag: 'WorldReadWriteFailure';
   readonly reason: 'invalid-epoch' | 'invalid-revision' | 'invalid-index' | 'invalid-read-view' | 'unknown-block-id' | 'duplicate-position';
   readonly message: string;
-}>;
+}> | BlockRegistryResolutionFailure;
 const WorldEpoch: (value: number) => Result.Result<WorldEpoch, WorldReadWriteFailure>;
 const ChunkRevision: (value: number) => Result.Result<ChunkRevision, WorldReadWriteFailure>;
 const LightRevision: (value: number) => Result.Result<LightRevision, WorldReadWriteFailure>;
@@ -1588,7 +1588,7 @@ const blockWriteBatch: (
 const BlockWriteBatch: typeof blockWriteBatch;
 ```
 
-`WorldEpoch`、`ChunkRevision`、`LightRevision`、`ChunkLocalIndex`、`SectionIndex` はいずれも `WorldReadWriteFailure` を返す検証済み branded constructor である。`ReadView` は block ID・section 長・配列範囲を検証し、各 accessor は無効 index を `WorldReadWriteFailure` で返す。`BlockWriteBatch` は `BlockAxis` の safe integer 全域を受け付け、座標比較で重複 position を検証する。live chunk の mutation、STM/COW、load/unload、dirty event は所有しない。
+`WorldEpoch`、`ChunkRevision`、`LightRevision`、`ChunkLocalIndex`、`SectionIndex` はいずれも `WorldReadWriteFailure` を返す検証済み branded constructor である。`ReadView` は block ID・section 長・配列範囲を検証し、各 accessor は無効 index を `WorldReadWriteFailure` で返す。`unknown-block-id` は未登録 ID を表し、registry lookup の検証失敗は `BlockRegistryResolutionFailure` として union に保持される。`BlockWriteBatch` は `BlockAxis` の safe integer 全域を受け付け、座標比較で重複 position を検証する。live chunk の mutation、STM/COW、load/unload、dirty event は所有しない。
 
 ## 5-sexies. Fluid と redstone の静的データ
 

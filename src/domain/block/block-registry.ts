@@ -27,4 +27,4 @@ export {
 } from './block-registry-indexes.js'
 export { AIR_BLOCK_ID, BLOCK_ID_MAX, BlockId, isEmpty } from './block-registry-types.js'
 export type { BlockRegistryEntry } from './block-registry-types.js'
-export type { BlockRegistryFailure } from './block-registry-indexes.js'
+export type { BlockRegistryFailure, BlockRegistryResolutionFailure } from './block-registry-indexes.js'

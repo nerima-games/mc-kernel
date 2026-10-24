@@ -1,5 +1,9 @@
-import { Brand, Option, Result } from 'effect'
-import { isKnownBlockId, type BlockId as BlockIdType } from '../block/block-registry.js'
+import { Brand, Result } from 'effect'
+import {
+  isKnownBlockId,
+  type BlockId as BlockIdType,
+  type BlockRegistryResolutionFailure,
+} from '../block/block-registry.js'
 import { LightLevel } from '../block/block-property-data.js'
 import { CHUNK_SIZE_XZ, ChunkAxis, chunkCoord, type BlockPosition } from '../coordinates/coordinate-primitives.js'
 import { type ChunkKey, chunkKeyOf } from '../coordinates/coordinate-keys.js'
@@ -13,19 +17,21 @@ export type ChunkLocalIndex = number & Brand.Brand<'ChunkLocalIndex'>
 export type SectionIndex = number & Brand.Brand<'SectionIndex'>
 export type SectionLength = number & Brand.Brand<'SectionLength'>
 
+type WorldReadWriteFailureReason = 'invalid-epoch' | 'invalid-revision' | 'invalid-index' | 'invalid-read-view' | 'unknown-block-id' | 'duplicate-position'
+
 export type WorldReadWriteFailure = Readonly<{
   readonly _tag: 'WorldReadWriteFailure'
-  readonly reason: 'invalid-epoch' | 'invalid-revision' | 'invalid-index' | 'invalid-read-view' | 'unknown-block-id' | 'duplicate-position'
+  readonly reason: WorldReadWriteFailureReason
   readonly message: string
-}>
+}> | BlockRegistryResolutionFailure
 
 const failureValue = (
-  reason: WorldReadWriteFailure['reason'],
+  reason: WorldReadWriteFailureReason,
   message: string,
 ): WorldReadWriteFailure => ({ _tag: 'WorldReadWriteFailure', reason, message })
 
 const failure = (
-  reason: WorldReadWriteFailure['reason'],
+  reason: WorldReadWriteFailureReason,
   message: string,
 ): Result.Result<never, WorldReadWriteFailure> => Result.fail(failureValue(reason, message))
 
@@ -149,7 +155,7 @@ const blockIdOfValue = (value: number): Result.Result<BlockIdType, WorldReadWrit
   Result.gen(function* () {
     // Uint16Array guarantees every stored value is within BlockId's range.
     const blockId = sectionBlockId(value)
-    const known = Option.getOrNull(Result.getSuccess(isKnownBlockId(blockId)))
+    const known = yield* isKnownBlockId(blockId)
     if (!known) {
       return yield* failure('unknown-block-id', `Section contains an unknown block id ${value}`)
     }
@@ -211,10 +217,7 @@ export const blockEdit = (
   blockId: BlockIdType,
 ): Result.Result<BlockEdit, WorldReadWriteFailure> =>
   Result.gen(function* () {
-    const known = yield* Result.mapError(
-      isKnownBlockId(blockId),
-      () => failureValue('unknown-block-id', `Block edit contains an unknown block id ${blockId}`),
-    )
+    const known = yield* isKnownBlockId(blockId)
     if (!known) {
       return yield* failure('unknown-block-id', `Block edit contains an unknown block id ${blockId}`)
     }
