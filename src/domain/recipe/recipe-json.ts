@@ -522,7 +522,11 @@ const decodeRecipeId = (
   if (Result.isFailure(namespaced)) {
     return recipeTypeFailure(`Recipe id must be namespaced, received ${value}`);
   }
-  return Result.succeed(RecipeId(namespaced.success));
+  const recipeId = RecipeId.result(namespaced.success);
+  if (Result.isFailure(recipeId)) {
+    return recipeTypeFailure(`Recipe id must be namespaced, received ${value}`);
+  }
+  return Result.succeed(recipeId.success);
 };
 
 const decodeRecordWithType = (
