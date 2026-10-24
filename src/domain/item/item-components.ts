@@ -873,12 +873,7 @@ const validateOptions = (
   for (const { key, isValid, message } of ITEM_COMPONENT_OPTION_VALIDATORS) {
     const value = options[key]
     if (value === undefined) continue
-    const checked = Effect.runSync(Effect.result(Effect.try({
-      try: () => isValid(value),
-      catch: () => optionsFailure(String(key), `Unable to inspect item component option ${String(key)}`, value, 'hostile-input'),
-    })))
-    if (Result.isFailure(checked)) return Result.fail(checked.failure)
-    if (!checked.success) {
+    if (!isValid(value)) {
       return Result.fail(optionsFailure(
         String(key),
         typeof message === 'function' ? message(value) : message,

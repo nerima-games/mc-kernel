@@ -187,6 +187,37 @@ describe('fixedRandomSource', () => {
     })
   })
 
+  it('rejects invalid script containers and unreadable sequence lengths', () => {
+    const nonObject = resultFailure(Reflect.apply(fixedRandomSource, undefined, [null]))
+    expect(nonObject).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script must contain optional int and float arrays',
+    })
+
+    const invalidFloatSequence = resultFailure(Reflect.apply(fixedRandomSource, undefined, [{
+      nextFloats: 'not-an-array',
+    }]))
+    expect(invalidFloatSequence).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script must contain optional int and float arrays',
+    })
+
+    const unreadableLength = new Proxy<ReadonlyArray<RandomIntType>>([], {
+      get(target, key, receiver) {
+        if (key === 'length') return Number.NaN
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    const invalidLength = resultFailure(fixedRandomSource({ nextInts: unreadableLength }))
+    expect(invalidLength).toMatchObject({
+      _tag: 'RandomSourceFailure',
+      reason: 'invalid-script',
+      message: 'RandomSource script contains an unreadable sequence',
+    })
+  })
+
   it('snapshots script fields and elements once and rejects throwing reads', () => {
     let intScriptReads = 0
     let floatScriptReads = 0

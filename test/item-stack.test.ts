@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as fc from "fast-check";
 import * as itemComponentsResult from "../src/domain/item/item-components";
 import * as itemComponentPatchResult from "../src/domain/item/item-component-patch";
+import * as ItemPrimitive from "../src/domain/item/item-primitives";
 import { ItemDamage, MaxStackSize, StackCount, TransferQuantity } from "../src/domain/time/quantities";
 import * as itemStackResult from "../src/domain/item/item-stack";
 import { expectItemFailure, itemResultValue } from "./item-result-assertions";
@@ -254,6 +255,146 @@ describe("canonical item stacks", () => {
     expectItemFailure(Reflect.apply(itemStackResult.mergeItemStacks, undefined, [hostile, valid]), expected);
   });
 
+  it("snapshots nested component graphs and rejects hostile or invalid stacks", () => {
+    const invokeWithCount = (stack: unknown) =>
+      Reflect.apply(itemStackResult.itemStackWithCount, undefined, [stack, StackCount(1)]);
+    const validComponents = itemComponents("stone", {
+      customData: { list: [ItemPrimitive.ItemComponentNbtNumber(1), ItemPrimitive.ItemComponentNbtNumber(2)] },
+    });
+    expect(itemResultValue(invokeWithCount({ item: "stone", count: 1, components: validComponents }))).toEqual(
+      itemStack("stone", StackCount(1), { components: validComponents }),
+    );
+
+    const shared = { value: ItemPrimitive.ItemComponentNbtNumber(1) };
+    const sharedComponents = {
+      ...itemComponents("stone"),
+      customData: { left: shared, right: shared },
+    };
+    const sharedStackValue: unknown = itemResultValue(invokeWithCount({
+      item: "stone", count: 1, components: sharedComponents,
+    }));
+    if (!isItemStack(sharedStackValue)) throw new Error("expected a valid stack snapshot");
+    const sharedStack = sharedStackValue;
+    expect(sharedStack.components.customData?.["left"]).toBe(sharedStack.components.customData?.["right"]);
+    expect(sharedStack.components.customData?.["left"]).not.toBe(shared);
+
+    const cyclicRecord: Record<string, unknown> = {};
+    cyclicRecord["self"] = cyclicRecord;
+    expectItemFailure(invokeWithCount({
+      item: "stone", count: 1, components: { ...itemComponents("stone"), customData: cyclicRecord },
+    }), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-value", field: "components.customData.self",
+      message: "Cyclic item stack components.customData.self is invalid",
+    });
+
+    const cyclicArray: unknown[] = [];
+    cyclicArray.push(cyclicArray);
+    expectItemFailure(invokeWithCount({
+      item: "stone", count: 1, components: { ...itemComponents("stone"), customData: cyclicArray },
+    }), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-value", field: "components.customData[0]",
+      message: "Cyclic item stack components.customData[0] is invalid",
+    });
+
+    const hostileArrayLength = new Proxy([], {
+      get: (target, key, receiver) => key === "length"
+        ? (() => { throw new Error("hostile"); })()
+        : Reflect.get(target, key, receiver),
+    });
+    expectItemFailure(invokeWithCount({
+      item: "stone", count: 1, components: { ...itemComponents("stone"), customData: hostileArrayLength },
+    }), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "hostile-input", field: "components.customData",
+      message: "Unable to inspect item stack components.customData",
+    });
+
+    const hostileArrayIndex = new Proxy([1], {
+      get: (target, key, receiver) => key === "0"
+        ? (() => { throw new Error("hostile"); })()
+        : Reflect.get(target, key, receiver),
+    });
+    expectItemFailure(invokeWithCount({
+      item: "stone", count: 1, components: { ...itemComponents("stone"), customData: hostileArrayIndex },
+    }), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "hostile-input", field: "components.customData[0]",
+      message: "Unable to inspect item stack components.customData[0]",
+    });
+
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    expectItemFailure(invokeWithCount({
+      item: "stone", count: 1, components: { ...itemComponents("stone"), customData: revoked.proxy },
+    }), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "hostile-input", field: "components.customData",
+      message: "Unable to inspect item stack components.customData",
+    });
+
+    const hostilePrototype = new Proxy({}, { getPrototypeOf: () => { throw new Error("hostile"); } });
+    expectItemFailure(invokeWithCount({
+      item: "stone", count: 1, components: { ...itemComponents("stone"), customData: hostilePrototype },
+    }), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "hostile-input", field: "components.customData",
+      message: "Unable to inspect item stack components.customData",
+    });
+
+    const hostileKeys = new Proxy({}, { ownKeys: () => { throw new Error("hostile"); } });
+    expectItemFailure(invokeWithCount({
+      item: "stone", count: 1, components: { ...itemComponents("stone"), customData: hostileKeys },
+    }), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "hostile-input", field: "components.customData",
+      message: "Unable to inspect item stack components.customData",
+    });
+
+    const hostileGetter = new Proxy({}, {
+      ownKeys: () => ["value"],
+      getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
+      get: () => { throw new Error("hostile"); },
+    });
+    expectItemFailure(invokeWithCount({
+      item: "stone", count: 1, components: { ...itemComponents("stone"), customData: hostileGetter },
+    }), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "hostile-input", field: "components.customData.value",
+      message: "Unable to inspect item stack components.customData.value",
+    });
+
+    const customPrototypeValue = Object.assign(Object.create({ inherited: true }), { value: 1 });
+    expectItemFailure(invokeWithCount({
+      item: "stone", count: 1, components: { ...itemComponents("stone"), customData: customPrototypeValue },
+    }), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "stack",
+      message: "Stack must be an ItemStack",
+    });
+
+    const invalidShape = new Proxy({}, { ownKeys: () => { throw new Error("hostile"); } });
+    expectItemFailure(invokeWithCount(invalidShape), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "hostile-input", field: "stack",
+      message: "Unable to inspect item stack",
+    });
+
+    for (const invalid of [
+      null,
+      { item: "not_an_item", count: 1, components: itemComponents("stone") },
+      { item: "stone", count: "1", components: itemComponents("stone") },
+      { item: "stone", count: 0, components: itemComponents("stone") },
+      { item: "stone", count: 65, components: itemComponents("stone") },
+      { item: "stone", count: 1, components: {} },
+    ]) {
+      expectItemFailure(invokeWithCount(invalid), {
+        _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "stack",
+        message: "Stack must be an ItemStack",
+      });
+    }
+
+    const valid = itemStack("stone", StackCount(1));
+    expect(isItemStack(null)).toBe(false);
+    expect(Reflect.apply(itemStackEqualsIgnoringCount, undefined, [{}, valid])).toBe(false);
+    expect(Reflect.apply(itemStackEqualsIgnoringCount, undefined, [valid, {}])).toBe(false);
+    expectItemFailure(Reflect.apply(itemStackResult.mergeItemStacks, undefined, [valid, {}]), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "stack",
+      message: "Stacks must be ItemStacks",
+    });
+  });
+
   it("captures malformed and hostile stack options", () => {
     expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 1, []), {
       _tag: "ItemValidationFailure", field: "options", reason: "invalid-type",
@@ -421,6 +562,14 @@ describe("canonical item stacks", () => {
   it("rejects malformed operation inputs and reports merge overflow", () => {
     const left = itemStack("stone", StackCount(64));
     const right = itemStack("stone", StackCount(2));
+    expectItemFailure(Reflect.apply(itemStackResult.itemStackWithCount, undefined, [[], 1]), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "stack",
+      message: "Stack must be an ItemStack", value: [],
+    });
+    expectItemFailure(Reflect.apply(itemStackResult.itemStackWithCount, undefined, [null, 1]), {
+      _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "stack",
+      message: "Stack must be an ItemStack", value: null,
+    });
     expectItemFailure(Reflect.apply(itemStackResult.itemStackWithCount, undefined, [{}, 1]), {
       _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-type", field: "stack",
       message: "Stack must be an ItemStack", value: {},

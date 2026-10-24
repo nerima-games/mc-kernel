@@ -241,9 +241,6 @@ const normalizeOptions = (
     }
     const priorityMessage =
       `Cooking recipe priority must be a non-negative safe integer, received ${priorityValue}`;
-    if (!Number.isSafeInteger(priorityValue) || priorityValue < 0) {
-      return yield* recipeRangeFailure(priorityMessage);
-    }
     const priority = yield* Result.mapError(
       RecipePriority.result(priorityValue),
       () => recipeRangeFailureValue(priorityMessage),

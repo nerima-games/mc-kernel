@@ -385,13 +385,7 @@ const decodeCraftingOptions = (
 ): RecipeResult<RecipeOptions> =>
   Result.gen(function* () {
     const options = yield* decodeCommonOptions(value);
-    const stationTag = RecipeStationTag.result("crafting_table");
-    if (Result.isFailure(stationTag)) {
-      return yield* recipeTypeFailure(
-        "Recipe station tags must be resource locations",
-      );
-    }
-    return { tags: [stationTag.success], ...options };
+    return { tags: [RecipeStationTag("crafting_table")], ...options };
   });
 
 type NotificationRecipeOptions = Readonly<{
@@ -1231,18 +1225,10 @@ export const recipeDataPath = (
   id: NamespacedResourceLocation,
 ): Result.Result<DataPackResourcePath, RecipeFailure | DataPackRegistryFailure> =>
   Result.gen(function* () {
-    const recipeId = yield* decodeRecipeId(id);
-    const recipeDirectory = NamespacedResourceLocation.result("minecraft:recipe");
-    const namespacedRecipeId = NamespacedResourceLocation.result(recipeId);
-    if (
-      Result.isFailure(recipeDirectory) ||
-      Result.isFailure(namespacedRecipeId)
-    ) {
-      return yield* recipeTypeFailure("Recipe id must be namespaced");
-    }
+    yield* decodeRecipeId(id);
     return yield* dataPackResourcePath(
-      recipeDirectory.success,
-      namespacedRecipeId.success,
+      NamespacedResourceLocation("minecraft:recipe"),
+      id,
     );
   });
 

@@ -107,9 +107,6 @@ const assertPriority = (
     );
   }
   const message = `Stonecutting recipe priority must be a non-negative safe integer, received ${value}`;
-  if (!Number.isSafeInteger(value) || value < 0) {
-    return recipeRangeFailure(message);
-  }
   return Result.mapError(
     RecipePriority.result(value),
     () => recipeRangeFailureValue(message),

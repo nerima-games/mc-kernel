@@ -383,11 +383,30 @@ describe('light level branding', () => {
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, requiresSilkTouch: 'yes' } }]), 'type', 'block property drops requiresSilkTouch must be a boolean')
 
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ supportRule: null }]), 'type', 'block property supportRule must be an object')
+      expectPropertyFailure(
+        normalizeBlockPropertyOverrides({ supportRule: { kind: 'oneOf', blocks: 'stone' } }),
+        'range',
+        'block property supportRule blocks must contain at least one block',
+      )
       expectPropertyFailure(resolveBlockPropertiesResult({ supportRule: { kind: 'oneOf', blocks: [] } }), 'range', 'block property supportRule blocks must contain at least one block')
 
       expectPropertyFailure(Reflect.apply(propertyOfResult, undefined, [{}, 'future']), 'type', 'unknown block property future')
     })),
   )
+
+  it('returns a failure when override keys cannot be read', () => {
+    const unreadableOverrides = new Proxy({}, {
+      ownKeys() {
+        throw new Error('hostile key enumeration')
+      },
+    })
+
+    expectPropertyFailure(
+      normalizeBlockPropertyOverrides(unreadableOverrides),
+      'type',
+      'block property overrides must be readable',
+    )
+  })
 
   it('snapshots support-rule fields and blocks, and reports throwing getters', () =>
     Effect.runPromise(Effect.sync(() => {

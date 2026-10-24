@@ -264,6 +264,17 @@ describe('consumable item components', () => {
   })
 
   it('validates and constructs one snapshot of consumable options', () => {
+    for (const options of [null, []]) {
+      expectItemFailure(Reflect.apply(consumableResult.consumableComponent, undefined, [options]), {
+        _tag: 'ItemValidationFailure',
+        kind: 'TypeError',
+        reason: 'invalid-type',
+        field: 'options',
+        message: 'Consumable component options must be a non-null object',
+        value: options,
+      })
+    }
+
     let reads = 0
     const changingOptions = new Proxy({}, {
       get: (_target, key) => {

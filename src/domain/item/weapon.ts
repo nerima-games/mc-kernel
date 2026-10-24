@@ -11,25 +11,6 @@ export type WeaponComponentOptions = Readonly<{
   readonly disableBlockingForSeconds?: WeaponDisableBlockingSeconds
 }>
 
-const validateOptions = (options: WeaponComponentOptions): Result.Result<void, ItemValidationFailure> => {
-  if (typeof options !== 'object' || options === null || Array.isArray(options)) {
-    return Result.fail(itemValidationFailure('options', 'Weapon component options must be a non-null object', 'invalid-type', options))
-  }
-  if (
-    options.itemDamagePerAttack !== undefined &&
-    (!Number.isSafeInteger(options.itemDamagePerAttack) || options.itemDamagePerAttack < 0)
-  ) {
-    return Result.fail(itemValidationFailure('itemDamagePerAttack', 'itemDamagePerAttack must be a non-negative safe integer', 'out-of-range', options.itemDamagePerAttack))
-  }
-  if (
-    options.disableBlockingForSeconds !== undefined &&
-    (!Number.isFinite(options.disableBlockingForSeconds) || options.disableBlockingForSeconds < 0)
-  ) {
-    return Result.fail(itemValidationFailure('disableBlockingForSeconds', 'disableBlockingForSeconds must be a finite, non-negative number', 'out-of-range', options.disableBlockingForSeconds))
-  }
-  return Result.succeed(undefined)
-}
-
 const snapshotOptions = (value: unknown): Result.Result<WeaponComponentOptions, ItemValidationFailure> => {
   if (typeof value !== 'object' || value === null) {
     return Result.fail(itemValidationFailure('options', 'Weapon component options must be a non-null object', 'invalid-type', value))
@@ -53,7 +34,7 @@ export const weaponComponent = (
   options: WeaponComponentOptions = {},
 ): Result.Result<WeaponComponent, ItemValidationFailure> => Result.flatMap(
   snapshotOptions(options),
-  (snapshot) => Result.flatMap(validateOptions(snapshot), () => Result.gen(function* () {
+  (snapshot) => Result.gen(function* () {
     const itemDamagePerAttack = yield* Result.mapError(
       ItemDamage.result(snapshot.itemDamagePerAttack ?? 1),
       () => itemValidationFailure('itemDamagePerAttack', 'itemDamagePerAttack must be a non-negative safe integer', 'out-of-range', snapshot.itemDamagePerAttack),
@@ -63,5 +44,5 @@ export const weaponComponent = (
       () => itemValidationFailure('disableBlockingForSeconds', 'disableBlockingForSeconds must be a finite, non-negative number', 'out-of-range', snapshot.disableBlockingForSeconds),
     )
     return Object.freeze({ itemDamagePerAttack, disableBlockingForSeconds })
-  })),
+  }),
 )

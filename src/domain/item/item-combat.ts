@@ -98,49 +98,15 @@ const snapshotOptions = <T extends object>(
 }
 
 const validateUseEffectsOptions = (options: UseEffectsOptions): Result.Result<void, ItemValidationFailure> => {
-  const validObject = validateOptionsObject(options, 'Use effects options')
-  if (Result.isFailure(validObject)) return Result.fail(validObject.failure)
   if (options.canSprint !== undefined && typeof options.canSprint !== 'boolean') {
     return Result.fail(failure('canSprint', 'canSprint must be a boolean', 'invalid-type', options.canSprint))
-  }
-  if (options.speedMultiplier !== undefined && !UseSpeedMultiplier.is(options.speedMultiplier)) {
-    return Result.fail(failure('speedMultiplier', 'speedMultiplier must be a finite number in [0, 1]', 'out-of-range', options.speedMultiplier))
   }
   return Result.succeed(undefined)
 }
 
 const validateSwingAnimationOptions = (options: SwingAnimationOptions): Result.Result<void, ItemValidationFailure> => {
-  const validObject = validateOptionsObject(options, 'Swing animation options')
-  if (Result.isFailure(validObject)) return Result.fail(validObject.failure)
   if (options.type !== undefined && !SWING_ANIMATION_TYPES.includes(options.type)) {
     return Result.fail(failure('type', `Unknown swing animation type: ${String(options.type)}`, 'invalid-value', options.type))
-  }
-  if (options.duration !== undefined && !SwingAnimationDuration.is(options.duration)) {
-    return Result.fail(failure('duration', 'duration must be a non-negative safe integer', 'out-of-range', options.duration))
-  }
-  return Result.succeed(undefined)
-}
-
-const validateAttackRangeOptions = (options: AttackRangeOptions): Result.Result<void, ItemValidationFailure> => {
-  const validObject = validateOptionsObject(options, 'Attack range options')
-  if (Result.isFailure(validObject)) return Result.fail(validObject.failure)
-  if (options.minReach !== undefined && !AttackRangeDistance.is(options.minReach)) {
-    return Result.fail(failure('minReach', 'minReach must be a finite number in [0, 64]', 'out-of-range', options.minReach))
-  }
-  if (options.maxReach !== undefined && !AttackRangeDistance.is(options.maxReach)) {
-    return Result.fail(failure('maxReach', 'maxReach must be a finite number in [0, 64]', 'out-of-range', options.maxReach))
-  }
-  if (options.minCreativeReach !== undefined && !AttackRangeDistance.is(options.minCreativeReach)) {
-    return Result.fail(failure('minCreativeReach', 'minCreativeReach must be a finite number in [0, 64]', 'out-of-range', options.minCreativeReach))
-  }
-  if (options.maxCreativeReach !== undefined && !AttackRangeDistance.is(options.maxCreativeReach)) {
-    return Result.fail(failure('maxCreativeReach', 'maxCreativeReach must be a finite number in [0, 64]', 'out-of-range', options.maxCreativeReach))
-  }
-  if (options.hitboxMargin !== undefined && !AttackHitboxMargin.is(options.hitboxMargin)) {
-    return Result.fail(failure('hitboxMargin', 'hitboxMargin must be a finite number in [0, 1]', 'out-of-range', options.hitboxMargin))
-  }
-  if (options.mobFactor !== undefined && !MobAttackRangeFactor.is(options.mobFactor)) {
-    return Result.fail(failure('mobFactor', 'mobFactor must be a finite number in [0, 2]', 'out-of-range', options.mobFactor))
   }
   return Result.succeed(undefined)
 }
@@ -189,7 +155,7 @@ export const attackRangeComponent = (
   snapshotOptions<AttackRangeOptions>(options, 'Attack range', [
     'minReach', 'maxReach', 'minCreativeReach', 'maxCreativeReach', 'hitboxMargin', 'mobFactor',
   ]),
-  (snapshot) => Result.flatMap(validateAttackRangeOptions(snapshot), () => Result.gen(function* () {
+  (snapshot) => Result.gen(function* () {
     const minReach = yield* Result.mapError(AttackRangeDistance.result(snapshot.minReach ?? 0), () => failure('minReach', 'minReach must be a finite number in [0, 64]', 'out-of-range', snapshot.minReach))
     const maxReach = yield* Result.mapError(AttackRangeDistance.result(snapshot.maxReach ?? 3), () => failure('maxReach', 'maxReach must be a finite number in [0, 64]', 'out-of-range', snapshot.maxReach))
     const minCreativeReach = yield* Result.mapError(AttackRangeDistance.result(snapshot.minCreativeReach ?? 0), () => failure('minCreativeReach', 'minCreativeReach must be a finite number in [0, 64]', 'out-of-range', snapshot.minCreativeReach))
@@ -197,5 +163,5 @@ export const attackRangeComponent = (
     const hitboxMargin = yield* Result.mapError(AttackHitboxMargin.result(snapshot.hitboxMargin ?? 0.3), () => failure('hitboxMargin', 'hitboxMargin must be a finite number in [0, 1]', 'out-of-range', snapshot.hitboxMargin))
     const mobFactor = yield* Result.mapError(MobAttackRangeFactor.result(snapshot.mobFactor ?? 1), () => failure('mobFactor', 'mobFactor must be a finite number in [0, 2]', 'out-of-range', snapshot.mobFactor))
     return Object.freeze({ minReach, maxReach, minCreativeReach, maxCreativeReach, hitboxMargin, mobFactor })
-  })),
+  }),
 )

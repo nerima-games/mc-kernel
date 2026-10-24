@@ -1,5 +1,5 @@
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { isItemStack, itemStack as itemStackResult } from "../src/domain/item/item-stack";
 import type { ItemType } from "../src/domain/item/item-type";
@@ -30,9 +30,14 @@ import {
 } from "../src/domain/recipe/recipe";
 import {
   craftingIngredient,
+  isAnyOfIngredient,
+  isCraftingIngredient,
+  isIngredient,
+  isIngredientInput,
   staticShapedRecipe,
   staticShapelessRecipe,
 } from "../src/domain/recipe/recipe-data";
+import type { RecipePatternKeyMap } from "../src/domain/recipe/recipe-data";
 import { recipeExternalFailure } from "../src/domain/recipe/recipe-error";
 import type {
   ItemTagMemberships,
@@ -190,6 +195,235 @@ describe("recipe data", () => {
       craftingIngredient(unreadableIngredient),
       typeFailure("Recipe ingredient must be an item type, item tag, or ingredient object"),
     );
+  });
+
+  it("guards exact, tagged, and alternative ingredients", () => {
+    const exact = { _tag: "Exact", item: "stone", count: 1 };
+    const taggedIngredient = {
+      _tag: "ItemTag",
+      tag: "#minecraft:planks",
+      count: 1,
+    };
+    const alternatives = expectRecipeSuccess(anyOf(["stone", "dirt"]));
+
+    expect(isIngredient(exact)).toBe(true);
+    expect(isIngredient(taggedIngredient)).toBe(true);
+    expect(isIngredientInput("stone")).toBe(true);
+    expect(isIngredientInput("#minecraft:planks")).toBe(true);
+    expect(isIngredientInput(exact)).toBe(true);
+    expect(isAnyOfIngredient(alternatives)).toBe(true);
+    expect(isCraftingIngredient(exact)).toBe(true);
+    expect(isCraftingIngredient(alternatives)).toBe(true);
+    expect(isCraftingIngredient({ _tag: "AnyOf", count: 1, options: [] })).toBe(false);
+    expect(isCraftingIngredientInput("stone")).toBe(true);
+    expect(isCraftingIngredientInput(["stone", "dirt"])).toBe(true);
+    expect(isCraftingIngredientInput(alternatives)).toBe(true);
+    expect(isCraftingIngredientInput({})).toBe(false);
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    expect(isCraftingIngredientInput(revoked.proxy)).toBe(false);
+    expectRecipeFailure(
+      craftingIngredient([revoked.proxy]),
+      typeFailure("Recipe ingredient must be an item type, item tag, or ingredient object"),
+    );
+
+    const structuredAlternative = {
+      _tag: "AnyOf",
+      count: 1,
+      options: [{ _tag: "Exact", item: "stone", count: 1 }],
+    };
+    expect(Result.isSuccess(craftingIngredient(structuredAlternative))).toBe(true);
+
+    const unreadableIngredient = new Proxy({}, {
+      get(_target, property) {
+        if (property === "_tag") return "Exact";
+        if (property === "item") throw new Error("hostile ingredient getter");
+        return undefined;
+      },
+    });
+    expectRecipeFailure(
+      craftingIngredient(unreadableIngredient),
+      typeFailure("Recipe ingredient must be an item type, item tag, or ingredient object"),
+    );
+    expectRecipeFailure(
+      craftingIngredient([unreadableIngredient]),
+      typeFailure("Recipe ingredient must be an item type, item tag, or ingredient object"),
+    );
+    const unreadableAlternative = new Proxy({}, {
+      get(_target, property) {
+        if (property === "_tag") return "AnyOf";
+        if (property === "count") return 1;
+        if (property === "options") throw new Error("hostile alternative getter");
+        return undefined;
+      },
+    });
+    expectRecipeFailure(
+      craftingIngredient(unreadableAlternative),
+      typeFailure("Recipe ingredient object has an invalid shape"),
+    );
+  });
+
+  it("returns failures for hostile snapshot inspection and invalid scalar details", () => {
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    expectRecipeFailure(
+      craftingIngredient(revoked.proxy),
+      typeFailure("Recipe ingredient must be an item type, item tag, or ingredient object"),
+    );
+
+    const invalidLength = new Proxy(["stone"], {
+      get(target, property, receiver) {
+        return property === "length" ? Number.NaN : Reflect.get(target, property, receiver);
+      },
+    });
+    expectRecipeFailure(
+      craftingIngredient(invalidLength),
+      typeFailure("Recipe ingredient must be an item type, item tag, or ingredient object"),
+    );
+    const unreadableLength = new Proxy(["stone"], {
+      get(target, property, receiver) {
+        if (property === "length") throw new Error("hostile array getter");
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    expectRecipeFailure(
+      craftingIngredient(unreadableLength),
+      typeFailure("Recipe ingredient must be an item type, item tag, or ingredient object"),
+    );
+
+    const unreadableKey = new Proxy({ A: "stone" }, {
+      ownKeys() {
+        throw new Error("hostile ownKeys trap");
+      },
+    });
+    expectRecipeFailure(
+      Reflect.apply(shapedRecipe, undefined, [
+        recipeId("minecraft:unreadable_key"),
+        [recipePatternRow("A")],
+        unreadableKey,
+        itemStack("stick", 1),
+      ]),
+      typeFailure("Shaped recipe key must be an object"),
+    );
+
+    expectRecipeFailure(
+      Reflect.apply(tagged, undefined, ["#minecraft:planks", null]),
+      rangeFailure("Ingredient count must be a safe integer in [1, 64]"),
+    );
+    expectRecipeFailure(
+      Reflect.apply(tagged, undefined, [7]),
+      typeFailure("Recipe item tag must start with # and contain a name, received 7"),
+    );
+    expectRecipeFailure(
+      Reflect.apply(tagged, undefined, [{}]),
+      typeFailure("Recipe item tag must start with # and contain a name, received non-string"),
+    );
+    expectRecipeFailure(
+      Reflect.apply(exactly, undefined, [null]),
+      typeFailure("Unknown exact ingredient item"),
+    );
+    expectRecipeFailure(
+      Reflect.apply(shapelessRecipe, undefined, [
+        recipeId("minecraft:bad_tags"),
+        ["stone"],
+        itemStack("stick", 1),
+        { tags: "not-an-array" },
+      ]),
+      typeFailure("Recipe station tags must be an array"),
+    );
+    for (const options of [
+      { category: 1 },
+      { priority: {} },
+      { priority: -1 },
+    ]) {
+      expect(Result.isFailure(Reflect.apply(shapelessRecipe, undefined, [
+        recipeId("minecraft:bad_option_value"),
+        ["stone"],
+        itemStack("stick", 1),
+        options,
+      ]))).toBe(true);
+    }
+  });
+
+  it("maps recipe brand failures into Result failures", () => {
+    const symbolResult = RecipePatternSymbol.result("");
+    if (Result.isSuccess(symbolResult)) throw new Error("expected an invalid pattern symbol");
+    const brandFailure = symbolResult.failure;
+    const validId = recipeId("minecraft:brand_failure");
+    const validRow = [recipePatternRow("A")];
+    const validKey: RecipePatternKeyMap = {
+      [recipePatternSymbol("A")]: "stone",
+    };
+    const validOutput = itemStack("stick", 1);
+    const groupSpy = vi
+      .spyOn(RecipeGroup, "result")
+      .mockReturnValue(Result.fail(brandFailure));
+    try {
+      expectRecipeFailure(
+        shapelessRecipe(
+          recipeId("minecraft:bad_group"),
+          ["stone"],
+          itemStack("stick", 1),
+          { group: RecipeGroup("group") },
+        ),
+        typeFailure("Recipe group must be a string"),
+      );
+    } finally {
+      groupSpy.mockRestore();
+    }
+
+    const symbolSpy = vi
+      .spyOn(RecipePatternSymbol, "result")
+      .mockReturnValue(Result.fail(brandFailure));
+    try {
+      expectRecipeFailure(
+        shapedRecipe(
+          validId,
+          validRow,
+          validKey,
+          validOutput,
+        ),
+        typeFailure("Shaped recipe keys must use one non-space character"),
+      );
+    } finally {
+      symbolSpy.mockRestore();
+    }
+
+    const originalDimensionResult = RecipeGridDimension.result.bind(RecipeGridDimension);
+    const widthSpy = vi
+      .spyOn(RecipeGridDimension, "result")
+      .mockReturnValue(Result.fail(brandFailure));
+    try {
+      expectRecipeFailure(
+        shapedRecipe(
+          validId,
+          validRow,
+          validKey,
+          validOutput,
+        ),
+        rangeFailure("Shaped recipe dimensions are out of range"),
+      );
+    } finally {
+      widthSpy.mockRestore();
+    }
+
+    const heightSpy = vi
+      .spyOn(RecipeGridDimension, "result")
+      .mockImplementationOnce((value) => originalDimensionResult(value))
+      .mockReturnValue(Result.fail(brandFailure));
+    try {
+      expectRecipeFailure(
+        shapedRecipe(
+          validId,
+          validRow,
+          validKey,
+          validOutput,
+        ),
+        rangeFailure("Shaped recipe dimensions are out of range"),
+      );
+    } finally {
+      heightSpy.mockRestore();
+    }
   });
 
   it("rejects invalid scalar recipe brands", () => {

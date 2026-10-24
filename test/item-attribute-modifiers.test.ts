@@ -166,6 +166,29 @@ describe('item attribute modifiers', () => {
       _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input', field: 'display',
       message: 'Unable to inspect attribute modifier display',
     })
+
+    const nullPrototypeDisplay = Object.assign(Object.create(null), { type: 'default' })
+    expect(attributeModifierDisplay(nullPrototypeDisplay)).toEqual({ type: 'default' })
+
+    const inheritedDisplay = Object.assign(new Date(), { type: 'default' })
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifierDisplay, undefined, [inheritedDisplay]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-value', field: 'display',
+      message: 'Attribute modifier display must be valid',
+    })
+
+    const hostileText = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifierDisplay, undefined, [{
+      type: 'override', value: hostileText,
+    }]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input', field: 'display',
+      message: 'Attribute modifier display must be valid',
+    })
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{
+      ...baseModifier, display: { type: 'override', value: hostileText },
+    }]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input', field: 'display',
+      message: 'Attribute modifier display must be valid',
+    })
   })
 
   it('accepts official display variants and rejects malformed displays', () => {

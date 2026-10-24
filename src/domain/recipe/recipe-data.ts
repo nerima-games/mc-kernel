@@ -689,9 +689,6 @@ const normalizeOptions = (
     }
     const priorityMessage =
       `Recipe priority must be a non-negative safe integer, received ${priority}`;
-    if (!Number.isSafeInteger(priority) || priority < 0) {
-      return yield* recipeRangeFailure(priorityMessage);
-    }
     const normalizedPriority = yield* Result.mapError(
       RecipePriority.result(priority),
       () => recipeRangeFailureValue(priorityMessage),
@@ -750,7 +747,7 @@ const normalizePatternRows = (
       ),
     );
 
-    const ingredients = new Map<RecipePatternSymbol, CraftingIngredient>();
+    const ingredients = new Map<string, CraftingIngredient>();
     for (const [character, ingredient] of keyEntries) {
       if (character.length !== 1 || character === " ") {
         return yield* recipeTypeFailure(
@@ -776,14 +773,7 @@ const normalizePatternRows = (
           rawCells.push(undefined);
           continue;
         }
-        const symbolResult = RecipePatternSymbol.result(character);
-        if (Result.isFailure(symbolResult)) {
-          return yield* recipeTypeFailure(
-            "Shaped recipe pattern contains an invalid symbol",
-          );
-        }
-        const symbol = symbolResult.success;
-        const ingredient = ingredients.get(symbol);
+        const ingredient = ingredients.get(character);
         if (ingredient === undefined) {
           return yield* recipeTypeFailure(
             `Shaped recipe pattern references unknown key: ${character}`,

@@ -155,11 +155,6 @@ const normalizeOptions = (
     }
     const priorityMessage =
       `Smithing recipe priority must be a non-negative safe integer, received ${priority}`;
-    if (!Number.isSafeInteger(priority) || priority < 0) {
-      return yield* recipeRangeFailure(
-        priorityMessage,
-      );
-    }
     const tags = snapshotArray(record?.["tags"] ?? []);
     if (tags === undefined) {
       return yield* recipeTypeFailure("Smithing recipe station tags must be an array");

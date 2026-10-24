@@ -1,5 +1,5 @@
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { itemStack as itemStackResult } from "../src/domain/item/item-stack";
 import {
@@ -91,9 +91,12 @@ describe("transmute recipe data", () => {
     expect(TRANSMUTE_MAX_MATERIAL_SLOTS).toBe(8);
     expect(isTransmuteMaterialCount({ min: 1, max: 1 })).toBe(true);
     expect(isTransmuteMaterialCount({ min: 2, max: 8 })).toBe(true);
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
     for (const value of [
       null,
       [],
+      revoked.proxy,
       { min: "1", max: 1 },
       { min: 1.5, max: 2 },
       { min: 0, max: 1 },
@@ -162,11 +165,16 @@ describe("transmute recipe data", () => {
     for (const [options, tag] of [
       [{ category: "invalid" }, "RecipeTypeFailure"],
       [{ group: 1 }, "RecipeTypeFailure"],
+      [{ priority: "high" }, "RecipeRangeFailure"],
       [{ priority: -1 }, "RecipeRangeFailure"],
       [{ priority: 1.5 }, "RecipeRangeFailure"],
       [{ showNotification: 1 }, "RecipeTypeFailure"],
       [{ addMaterialCountToResult: 1 }, "RecipeTypeFailure"],
       [{ materialCount: { min: 1, max: 2 } }, "RecipeRangeFailure"],
+      [{ materialCount: { min: 0, max: 1 } }, "RecipeRangeFailure"],
+      [{ materialCount: { min: 2, max: 9 } }, "RecipeRangeFailure"],
+      [{ materialCount: { min: 1.5, max: 2 } }, "RecipeRangeFailure"],
+      [{ materialCount: { min: "1", max: 1 } }, "RecipeRangeFailure"],
     ] as const) {
       recipeFailure(Reflect.apply(transmuteRecipe, undefined, [
         "minecraft:bad_options",
@@ -260,6 +268,28 @@ describe("transmute recipe data", () => {
       { ...valid, showNotification: 1 },
     ]) {
       expect(isTransmuteRecipe(value)).toBe(false);
+    }
+  });
+
+  it("maps a group brand validation failure to a recipe failure", () => {
+    const brandResult = RecipePriority.result(-1);
+    if (Result.isSuccess(brandResult)) throw new Error("expected an invalid recipe priority");
+    const resultSpy = vi
+      .spyOn(RecipeGroup, "result")
+      .mockReturnValue(Result.fail(brandResult.failure));
+    try {
+      recipeFailure(
+        transmuteRecipe(
+          RecipeId("minecraft:bad_group"),
+          "stone",
+          "dirt",
+          itemStack("sand", 1),
+          { group: RecipeGroup("conversion") },
+        ),
+        "RecipeTypeFailure",
+      );
+    } finally {
+      resultSpy.mockRestore();
     }
   });
 });

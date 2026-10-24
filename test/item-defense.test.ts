@@ -404,4 +404,34 @@ describe('item defense components', () => {
     expect(isBlocksAttacksComponent(null)).toBe(false)
     expect(isBlocksAttacksComponent([])).toBe(false)
   })
+
+  it('reports invalid and hostile damage reduction arrays without throwing', () => {
+    const invalidLength = new Proxy([], {
+      get: (target, key, receiver) => key === 'length' ? Number.NaN : Reflect.get(target, key, receiver),
+    })
+    expectItemFailure(invokeBlocksAttacks({ damageReductions: invalidLength }), validation(
+      'TypeError', 'hostile-input', 'damageReductions', 'Unable to inspect damageReductions', invalidLength,
+    ))
+
+    const hostileLength = new Proxy([], {
+      get: (target, key, receiver) => key === 'length'
+        ? (() => { throw new Error('hostile') })()
+        : Reflect.get(target, key, receiver),
+    })
+    expectItemFailure(invokeBlocksAttacks({ damageReductions: hostileLength }), validation(
+      'TypeError', 'hostile-input', 'damageReductions', 'Unable to inspect damageReductions', hostileLength,
+    ))
+
+    const symbolSound = Symbol('bell')
+    expectItemFailure(invokeBlocksAttacks({ blockSound: symbolSound }), validation(
+      'TypeError', 'invalid-value', 'blockSound', 'ResourceLocation has invalid syntax, received Symbol(bell)', symbolSound,
+    ))
+
+    const hostileSound = new Proxy({}, {
+      get: (_target, key) => key === 'toJSON' ? () => { throw new Error('hostile') } : undefined,
+    })
+    expectItemFailure(invokeBlocksAttacks({ blockSound: hostileSound }), validation(
+      'TypeError', 'hostile-input', 'blockSound', 'Unable to inspect blockSound', hostileSound,
+    ))
+  })
 })

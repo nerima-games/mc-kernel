@@ -233,6 +233,94 @@ describe('item components', () => {
     })
   })
 
+  it('snapshots nested option graphs and returns failures for hostile inspection', () => {
+    let sharedReads = 0
+    const shared = { get value() { sharedReads += 1; return ItemPrimitive.ItemComponentNbtNumber(1) } }
+    const sharedResult = itemComponents('stone', { customData: { left: shared, right: shared } })
+    expect(sharedResult.customData?.['left']).toEqual({ value: ItemPrimitive.ItemComponentNbtNumber(1) })
+    expect(sharedReads).toBe(1)
+
+    const cyclicRecord: Record<string, unknown> = {}
+    cyclicRecord['self'] = cyclicRecord
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: cyclicRecord },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-value',
+      field: 'customData.self', message: 'Cyclic item component option customData.self is invalid',
+    })
+
+    const cyclicArray: unknown[] = []
+    cyclicArray.push(cyclicArray)
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: cyclicArray },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'invalid-value',
+      field: 'customData[0]', message: 'Cyclic item component option customData[0] is invalid',
+    })
+
+    const hostileArrayLength = new Proxy([], {
+      get: (target, key, receiver) => key === 'length'
+        ? (() => { throw new Error('hostile') })()
+        : Reflect.get(target, key, receiver),
+    })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: hostileArrayLength },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input',
+      field: 'customData', message: 'Unable to inspect item component option customData',
+    })
+
+    const hostileArrayIndex = new Proxy([1], {
+      get: (target, key, receiver) => key === '0'
+        ? (() => { throw new Error('hostile') })()
+        : Reflect.get(target, key, receiver),
+    })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: hostileArrayIndex },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input',
+      field: 'customData[0]', message: 'Unable to inspect item component option customData[0]',
+    })
+
+    const revoked = Proxy.revocable({}, {})
+    revoked.revoke()
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { profile: revoked.proxy },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input',
+      field: 'profile', message: 'Unable to inspect item component option profile',
+    })
+
+    const hostilePrototype = new Proxy({}, { getPrototypeOf: () => { throw new Error('hostile') } })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: hostilePrototype },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input',
+      field: 'customData', message: 'Unable to inspect item component option customData',
+    })
+
+    const hostileKeys = new Proxy({}, { ownKeys: () => { throw new Error('hostile') } })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: hostileKeys },
+    ]), {
+      _tag: 'ItemValidationFailure', kind: 'TypeError', reason: 'hostile-input',
+      field: 'customData', message: 'Unable to inspect item component option customData',
+    })
+
+    const customPrototypeValue = Object.assign(Object.create({ inherited: true }), { value: 1 })
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { customData: customPrototypeValue },
+    ]), {
+      _tag: 'ItemValidationFailure', reason: 'invalid-value', field: 'customData',
+    })
+
+    expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [
+      'stone', { profile: 'not a profile' },
+    ]), {
+      _tag: 'ItemValidationFailure', reason: 'invalid-value', field: 'profile',
+    })
+  })
+
   it('returns tagged failures when component options cannot be inspected', () => {
     const hostileOptions = new Proxy({}, { get: () => { throw new Error('hostile') } })
     expectOptionsFailure('stone', hostileOptions, {

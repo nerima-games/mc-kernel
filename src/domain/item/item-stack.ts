@@ -170,9 +170,10 @@ const itemStackSnapshot = (
   value: unknown,
   invalidFailure: ItemValidationFailure,
 ): Result.Result<ItemStack, ItemStackFailure> => {
+  if (typeof value !== 'object' || value === null) return Result.fail(invalidFailure)
   const shape = Effect.runSync(Effect.result(Effect.try({
     try: () => {
-      if (!isRecord(value)) return false
+      if (Array.isArray(value)) return false
       const keys = Object.keys(value)
       return keys.every((key) => key === 'item' || key === 'count' || key === 'components') &&
         Object.hasOwn(value, 'item') && Object.hasOwn(value, 'count') && Object.hasOwn(value, 'components')
@@ -181,7 +182,6 @@ const itemStackSnapshot = (
   })))
   if (Result.isFailure(shape)) return Result.fail(shape.failure)
   if (!shape.success) return Result.fail(invalidFailure)
-  if (typeof value !== 'object' || value === null) return Result.fail(invalidFailure)
   const stack = value
 
   return Result.gen(function* () {

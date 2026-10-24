@@ -141,9 +141,6 @@ const assertRecipeId = (
       )
     : recipeTypeFailure("Transmute recipe id must be a resource location");
 
-const isInteger = (value: unknown): value is number =>
-  typeof value === "number" && Number.isSafeInteger(value);
-
 export const isTransmuteMaterialCount = (
   value: unknown,
 ): value is TransmuteMaterialCount => {
@@ -172,16 +169,7 @@ const assertMaterialCount = (
   const snapshot = snapshotRecord(value, ["min", "max"]);
   const min = snapshot?.min;
   const max = snapshot?.max;
-  if (
-    typeof min !== "number" ||
-    typeof max !== "number" ||
-    !Number.isSafeInteger(min) ||
-    !Number.isSafeInteger(max) ||
-    min < 1 ||
-    max > TRANSMUTE_MAX_MATERIAL_SLOTS ||
-    min > max ||
-    (min === 1 ? max !== 1 : min < 2)
-  ) {
+  if (typeof min !== "number" || typeof max !== "number") {
     return recipeRangeFailure(
       `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}]`,
     );
@@ -189,6 +177,16 @@ const assertMaterialCount = (
   const checkedMin = TransmuteMaterialSlotCount.result(min);
   const checkedMax = TransmuteMaterialSlotCount.result(max);
   if (Result.isFailure(checkedMin) || Result.isFailure(checkedMax)) {
+    return recipeRangeFailure(
+      `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}]`,
+    );
+  }
+  if (
+    checkedMin.success > checkedMax.success ||
+    (checkedMin.success === 1
+      ? checkedMax.success !== 1
+      : checkedMin.success < 2)
+  ) {
     return recipeRangeFailure(
       `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}]`,
     );
@@ -244,9 +242,6 @@ const assertPriority = (
     );
   }
   const message = `Transmute recipe priority must be a non-negative safe integer, received ${priority}`;
-  if (!isInteger(priority) || priority < 0) {
-    return recipeRangeFailure(message);
-  }
   return Result.mapError(
     RecipePriority.result(priority),
     () => recipeRangeFailureValue(message),

@@ -1,10 +1,12 @@
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { isAnyOfIngredient } from "../src/domain/recipe/recipe-data";
 import { itemStack as itemStackResult } from "../src/domain/item/item-stack";
 import { StackCount } from "../src/domain/time/quantities";
-import { NamespacedResourceLocation } from "../src/domain/text/identifiers";
+import { NamespacedResourceLocation, TagLocation } from "../src/domain/text/identifiers";
+import { BookGeneration } from "../src/domain/item/item-primitives";
+import { RecipeGroup } from "../src/domain/recipe/recipe-data";
 import {
   cookingRecipeFromUnknown as decodeCookingRecipeFromUnknown,
   craftingBannerDuplicateRecipeFromUnknown as decodeCraftingBannerDuplicateRecipeFromUnknown,
@@ -1037,6 +1039,129 @@ describe("current Java special recipe JSON", () => {
       craftingRecipeFromUnknown("minecraft:unreadable_type", unreadableType),
       "RecipeTypeFailure",
     );
+  });
+
+  it("returns failures when recipe JSON array and key snapshots cannot be inspected", () => {
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    recipeFailure(
+      craftingRecipeFromUnknown("minecraft:revoked_document", revoked.proxy),
+      "RecipeTypeFailure",
+    );
+
+    const invalidLength = new Proxy(["#"], {
+      get(target, property, receiver) {
+        return property === "length" ? Number.NaN : Reflect.get(target, property, receiver);
+      },
+    });
+    recipeFailure(
+      craftingRecipeFromUnknown("minecraft:invalid_pattern_length", {
+        type: "minecraft:crafting_shaped",
+        pattern: invalidLength,
+        key: { "#": "minecraft:stone" },
+        result: "minecraft:stone",
+      }),
+      "RecipeTypeFailure",
+      undefined,
+      /Shaped recipe pattern must be an array/,
+    );
+
+    const unreadableLength = new Proxy(["#"], {
+      get(target, property, receiver) {
+        if (property === "length") throw new Error("hostile array getter");
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    recipeFailure(
+      craftingRecipeFromUnknown("minecraft:unreadable_pattern", {
+        type: "minecraft:crafting_shaped",
+        pattern: unreadableLength,
+        key: { "#": "minecraft:stone" },
+        result: "minecraft:stone",
+      }),
+      "RecipeTypeFailure",
+      undefined,
+      /Shaped recipe pattern must be an array/,
+    );
+
+    const unreadableKey = new Proxy({ "#": "minecraft:stone" }, {
+      ownKeys() {
+        throw new Error("hostile ownKeys trap");
+      },
+    });
+    recipeFailure(
+      craftingRecipeFromUnknown("minecraft:unreadable_key", {
+        type: "minecraft:crafting_shaped",
+        pattern: ["#"],
+        key: unreadableKey,
+        result: "minecraft:stone",
+      }),
+      "RecipeTypeFailure",
+      undefined,
+      /Shaped recipe key must be an object/,
+    );
+  });
+
+  it("maps brand validation failures to recipe JSON failures", () => {
+    const tagResult = TagLocation.result("not-a-tag");
+    if (Result.isSuccess(tagResult)) throw new Error("expected an invalid item tag");
+    const brandFailure = tagResult.failure;
+    const tagSpy = vi
+      .spyOn(TagLocation, "result")
+      .mockReturnValue(Result.fail(brandFailure));
+    try {
+      recipeFailure(
+        craftingRecipeFromUnknown("minecraft:bad_item_tag_brand", {
+          type: "minecraft:crafting_shapeless",
+          ingredients: ["#minecraft:planks"],
+          result: "minecraft:stick",
+        }),
+        "RecipeTypeFailure",
+        undefined,
+        /Recipe item tag must be namespaced/,
+      );
+    } finally {
+      tagSpy.mockRestore();
+    }
+
+    const groupSpy = vi
+      .spyOn(RecipeGroup, "result")
+      .mockReturnValue(Result.fail(brandFailure));
+    try {
+      recipeFailure(
+        craftingRecipeFromUnknown("minecraft:bad_group_brand", {
+          type: "minecraft:crafting_shapeless",
+          group: "test",
+          ingredients: ["minecraft:stone"],
+          result: "minecraft:stick",
+        }),
+        "RecipeTypeFailure",
+        undefined,
+        /Recipe group must be a string/,
+      );
+    } finally {
+      groupSpy.mockRestore();
+    }
+
+    const generationSpy = vi
+      .spyOn(BookGeneration, "result")
+      .mockReturnValue(Result.fail(brandFailure));
+    try {
+      recipeFailure(
+        craftingBookCloningRecipeFromUnknown("minecraft:bad_book_generation_brand", {
+          type: "minecraft:crafting_special_bookcloning",
+          source: "minecraft:written_book",
+          material: "minecraft:paper",
+          allowed_generations: { min: 0, max: 2 },
+          result: "minecraft:written_book",
+        }),
+        "RecipeRangeFailure",
+        undefined,
+        /allowed_generations must be between 0 and 2/,
+      );
+    } finally {
+      generationSpy.mockRestore();
+    }
   });
 
   it("reads the ranges the book cloning and star documents carry", () => {

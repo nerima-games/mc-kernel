@@ -84,6 +84,84 @@ describe("smithing recipe data", () => {
     });
   });
 
+  it("returns failures for invalid priority types and hostile tag snapshots", () => {
+    const template = SMITHING_TRIM_TEMPLATE_TAG;
+    const base = SMITHING_TRIMMABLE_ARMOR_TAG;
+    const addition = SMITHING_TRIM_MATERIAL_TAG;
+    expectRecipeFailure(
+      Reflect.apply(smithingTrimRecipe, undefined, [
+        RecipeId("minecraft:string_priority"),
+        template,
+        base,
+        addition,
+        { priority: "high" },
+      ]),
+      {
+        _tag: "RecipeRangeFailure",
+        name: "RangeError",
+        message: "Smithing recipe priority must be a non-negative safe integer",
+      },
+    );
+
+    const invalidLengthTags = new Proxy([SMITHING_STATION_TAG], {
+      get(target, property, receiver) {
+        return property === "length" ? Number.NaN : Reflect.get(target, property, receiver);
+      },
+    });
+    expectRecipeFailure(
+      Reflect.apply(smithingTrimRecipe, undefined, [
+        RecipeId("minecraft:invalid_tag_length"),
+        template,
+        base,
+        addition,
+        { tags: invalidLengthTags },
+      ]),
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Smithing recipe station tags must be an array",
+      },
+    );
+
+    const unreadableTags = new Proxy([SMITHING_STATION_TAG], {
+      get(target, property, receiver) {
+        if (property === "length") throw new Error("hostile tag array");
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    expectRecipeFailure(
+      Reflect.apply(smithingTrimRecipe, undefined, [
+        RecipeId("minecraft:unreadable_tags"),
+        template,
+        base,
+        addition,
+        { tags: unreadableTags },
+      ]),
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Smithing recipe station tags must be an array",
+      },
+    );
+
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    expectRecipeFailure(
+      Reflect.apply(smithingTrimRecipe, undefined, [
+        RecipeId("minecraft:revoked_options"),
+        template,
+        base,
+        addition,
+        revoked.proxy,
+      ]),
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Smithing recipe options must be an object",
+      },
+    );
+  });
+
   it("constructs transform and trim recipes with station metadata", () => {
     expect(SMITHING_STATION_TAG).toBe("smithing_table");
     expect(SMITHING_TRIM_TEMPLATE_TAG).toBe("#minecraft:trim_templates");

@@ -162,5 +162,16 @@ describe("stonecutting recipe data", () => {
       Reflect.apply(stonecuttingRecipe, undefined, ["minecraft:bad", "stone", output, { showNotification: 1 }]),
       typeFailure("Stonecutting recipe show notification must be a boolean"),
     );
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, ["minecraft:bad", "stone", output, { priority: "high" }]),
+      rangeFailure("Stonecutting recipe priority must be a non-negative safe integer"),
+    );
+
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    expectFailure(
+      Reflect.apply(stonecuttingRecipe, undefined, ["minecraft:revoked_options", "stone", output, revoked.proxy]),
+      typeFailure("Stonecutting recipe options must be an object"),
+    );
   });
 });

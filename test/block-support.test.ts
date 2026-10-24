@@ -152,6 +152,28 @@ describe('support-rule input validation', () => {
     })),
   )
 
+  it('rejects non-array and unreadable-length block lists with a failure', () => {
+    const nonArray = resultFailure(Reflect.apply(satisfiesSupportRuleResult, undefined, [
+      { kind: 'oneOf', blocks: 'sand' },
+      'sand',
+      true,
+    ]))
+    const unreadableLength = new Proxy<BlockType[]>(['sand'], {
+      get(target, key, receiver) {
+        if (key === 'length') return Number.NaN
+        return Reflect.get(target, key, receiver)
+      },
+    })
+    const invalidLength = resultFailure(Reflect.apply(satisfiesSupportRuleResult, undefined, [
+      { kind: 'oneOf', blocks: unreadableLength },
+      'sand',
+      true,
+    ]))
+
+    expect(nonArray).toMatchObject({ _tag: 'SupportRuleFailure', message: 'Unknown support rule kind' })
+    expect(invalidLength).toMatchObject({ _tag: 'SupportRuleFailure', message: 'Unknown support rule kind' })
+  })
+
   it('snapshots rule variants and block arrays, returning failures for throwing reads', () =>
     Effect.runPromise(Effect.sync(() => {
       let kindReads = 0

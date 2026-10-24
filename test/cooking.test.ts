@@ -1,5 +1,5 @@
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { itemStack as itemStackResult } from "../src/domain/item/item-stack";
 import {
@@ -93,6 +93,98 @@ describe("cooking recipe data", () => {
       result,
       typeFailure("Cooking recipe options must be an object"),
     );
+  });
+
+  it("returns failures for non-string fields and revoked option proxies", () => {
+    const output = itemStack("iron_ingot", 1);
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, [
+        RecipeId("minecraft:bad_station"),
+        3,
+        "raw_iron",
+        output,
+        PositiveTickCount(200),
+        RecipeExperience(0.7),
+      ]),
+      typeFailure("Unknown cooking station"),
+    );
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, [
+        RecipeId("minecraft:bad_category"),
+        "furnace",
+        "raw_iron",
+        output,
+        PositiveTickCount(200),
+        RecipeExperience(0.7),
+        { category: 3 },
+      ]),
+      typeFailure("Cooking recipe category is invalid"),
+    );
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, [
+        RecipeId("minecraft:bad_priority"),
+        "furnace",
+        "raw_iron",
+        output,
+        PositiveTickCount(200),
+        RecipeExperience(0.7),
+        { priority: "high" },
+      ]),
+      rangeFailure(
+        "Cooking recipe priority must be a non-negative safe integer, received high",
+      ),
+    );
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, [
+        RecipeId("minecraft:object_priority"),
+        "furnace",
+        "raw_iron",
+        output,
+        PositiveTickCount(200),
+        RecipeExperience(0.7),
+        { priority: {} },
+      ]),
+      rangeFailure("Cooking recipe priority must be a non-negative safe integer"),
+    );
+
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, [
+        RecipeId("minecraft:revoked_options"),
+        "furnace",
+        "raw_iron",
+        output,
+        PositiveTickCount(200),
+        RecipeExperience(0.7),
+        revoked.proxy,
+      ]),
+      typeFailure("Cooking recipe options must be an object"),
+    );
+  });
+
+  it("maps a group brand validation failure to a recipe failure", () => {
+    const brandResult = RecipePriority.result(-1);
+    if (Result.isSuccess(brandResult)) throw new Error("expected an invalid recipe priority");
+    const resultSpy = vi
+      .spyOn(RecipeGroup, "result")
+      .mockReturnValue(Result.fail(brandResult.failure));
+    try {
+      expectFailure(
+        cookingRecipe(
+          RecipeId("minecraft:bad_group"),
+          "furnace",
+          "raw_iron",
+          itemStack("iron_ingot", 1),
+          PositiveTickCount(200),
+          RecipeExperience(0.7),
+          { group: RecipeGroup("ores") },
+        ),
+        typeFailure("Cooking recipe group must be a string"),
+      );
+    } finally {
+      resultSpy.mockRestore();
+    }
   });
 
   it("constructs cooking recipes for each station and normalizes metadata", () => {
