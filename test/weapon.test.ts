@@ -99,6 +99,25 @@ describe('weapon component', () => {
     })
   })
 
+  it('rejects null option values instead of replacing them with defaults', () => {
+    expectItemFailure(invokeWeaponComponent({ itemDamagePerAttack: null }), {
+      _tag: 'ItemValidationFailure',
+      kind: 'RangeError',
+      reason: 'out-of-range',
+      field: 'itemDamagePerAttack',
+      message: 'itemDamagePerAttack must be a non-negative safe integer',
+      value: null,
+    })
+    expectItemFailure(invokeWeaponComponent({ disableBlockingForSeconds: null }), {
+      _tag: 'ItemValidationFailure',
+      kind: 'RangeError',
+      reason: 'out-of-range',
+      field: 'disableBlockingForSeconds',
+      message: 'disableBlockingForSeconds must be a finite, non-negative number',
+      value: null,
+    })
+  })
+
   it('validates and brands one snapshot of option values', () => {
     let damageReads = 0
     const changingDamage = new Proxy({}, {

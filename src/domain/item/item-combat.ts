@@ -94,7 +94,7 @@ export const useEffectsComponent = (
     if (canSprint !== undefined && typeof canSprint !== 'boolean') {
       return Result.fail(failure('canSprint', 'canSprint must be a boolean', 'invalid-type', canSprint))
     }
-    const speedMultiplierValue = snapshot['speedMultiplier'] ?? 0.2
+    const speedMultiplierValue = snapshot['speedMultiplier'] === undefined ? 0.2 : snapshot['speedMultiplier']
     if (typeof speedMultiplierValue !== 'number') {
       return Result.fail(failure('speedMultiplier', 'speedMultiplier must be a finite number in [0, 1]', 'out-of-range', speedMultiplierValue))
     }
@@ -130,7 +130,7 @@ export const swingAnimationComponent = (
     if (typeValue !== undefined && !isSwingAnimationType(typeValue)) {
       return Result.fail(failure('type', `Unknown swing animation type: ${String(typeValue)}`, 'invalid-value', typeValue))
     }
-    const durationValue = snapshot['duration'] ?? 6
+    const durationValue = snapshot['duration'] === undefined ? 6 : snapshot['duration']
     if (typeof durationValue !== 'number') {
       return Result.fail(failure('duration', 'duration must be a non-negative safe integer', 'out-of-range', durationValue))
     }
@@ -148,12 +148,12 @@ export const attackRangeComponent = (
     'minReach', 'maxReach', 'minCreativeReach', 'maxCreativeReach', 'hitboxMargin', 'mobFactor',
   ]),
   (snapshot) => Result.gen(function* () {
-    const minReachValue = snapshot['minReach'] ?? 0
-    const maxReachValue = snapshot['maxReach'] ?? 3
-    const minCreativeReachValue = snapshot['minCreativeReach'] ?? 0
-    const maxCreativeReachValue = snapshot['maxCreativeReach'] ?? 5
-    const hitboxMarginValue = snapshot['hitboxMargin'] ?? 0.3
-    const mobFactorValue = snapshot['mobFactor'] ?? 1
+    const minReachValue = snapshot['minReach'] === undefined ? 0 : snapshot['minReach']
+    const maxReachValue = snapshot['maxReach'] === undefined ? 3 : snapshot['maxReach']
+    const minCreativeReachValue = snapshot['minCreativeReach'] === undefined ? 0 : snapshot['minCreativeReach']
+    const maxCreativeReachValue = snapshot['maxCreativeReach'] === undefined ? 5 : snapshot['maxCreativeReach']
+    const hitboxMarginValue = snapshot['hitboxMargin'] === undefined ? 0.3 : snapshot['hitboxMargin']
+    const mobFactorValue = snapshot['mobFactor'] === undefined ? 1 : snapshot['mobFactor']
     if (typeof minReachValue !== 'number') return yield* Result.fail(failure('minReach', 'minReach must be a finite number in [0, 64]', 'out-of-range', minReachValue))
     if (typeof maxReachValue !== 'number') return yield* Result.fail(failure('maxReach', 'maxReach must be a finite number in [0, 64]', 'out-of-range', maxReachValue))
     if (typeof minCreativeReachValue !== 'number') return yield* Result.fail(failure('minCreativeReach', 'minCreativeReach must be a finite number in [0, 64]', 'out-of-range', minCreativeReachValue))

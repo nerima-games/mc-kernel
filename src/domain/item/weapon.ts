@@ -31,7 +31,7 @@ export const weaponComponent = (
 ): Result.Result<WeaponComponent, ItemValidationFailure> => Result.flatMap(
   snapshotOptions(options),
   (snapshot) => Result.gen(function* () {
-    const itemDamageValue = snapshot['itemDamagePerAttack'] ?? 1
+    const itemDamageValue = snapshot['itemDamagePerAttack'] === undefined ? 1 : snapshot['itemDamagePerAttack']
     if (typeof itemDamageValue !== 'number') {
       return yield* Result.fail(itemValidationFailure(
         'itemDamagePerAttack',
@@ -44,7 +44,7 @@ export const weaponComponent = (
       ItemDamage.result(itemDamageValue),
       () => itemValidationFailure('itemDamagePerAttack', 'itemDamagePerAttack must be a non-negative safe integer', 'out-of-range', itemDamageValue),
     )
-    const disableBlockingValue = snapshot['disableBlockingForSeconds'] ?? 0
+    const disableBlockingValue = snapshot['disableBlockingForSeconds'] === undefined ? 0 : snapshot['disableBlockingForSeconds']
     if (typeof disableBlockingValue !== 'number') {
       return yield* Result.fail(itemValidationFailure(
         'disableBlockingForSeconds',

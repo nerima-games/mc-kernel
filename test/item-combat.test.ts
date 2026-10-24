@@ -149,6 +149,28 @@ describe('item combat components', () => {
     }
   })
 
+  it('rejects null option values instead of replacing them with defaults', () => {
+    expectItemFailure(Reflect.apply(itemCombatResult.useEffectsComponent, undefined, [{ speedMultiplier: null }]), validation(
+      'speedMultiplier', 'speedMultiplier must be a finite number in [0, 1]', null, 'out-of-range', 'RangeError',
+    ))
+    expectItemFailure(Reflect.apply(itemCombatResult.swingAnimationComponent, undefined, [{ duration: null }]), validation(
+      'duration', 'duration must be a non-negative safe integer', null, 'out-of-range', 'RangeError',
+    ))
+
+    for (const [field, message] of [
+      ['minReach', 'minReach must be a finite number in [0, 64]'],
+      ['maxReach', 'maxReach must be a finite number in [0, 64]'],
+      ['minCreativeReach', 'minCreativeReach must be a finite number in [0, 64]'],
+      ['maxCreativeReach', 'maxCreativeReach must be a finite number in [0, 64]'],
+      ['hitboxMargin', 'hitboxMargin must be a finite number in [0, 1]'],
+      ['mobFactor', 'mobFactor must be a finite number in [0, 2]'],
+    ] as const) {
+      expectItemFailure(Reflect.apply(itemCombatResult.attackRangeComponent, undefined, [{ [field]: null }]), validation(
+        field, message, null, 'out-of-range', 'RangeError',
+      ))
+    }
+  })
+
   it('validates and brands one snapshot of option values', () => {
     const changingNumber = (field: string, valid: number, invalid: number) => {
       let reads = 0
