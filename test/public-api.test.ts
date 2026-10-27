@@ -448,6 +448,12 @@ describe("public API surface", () => {
           "LevelUpLevelSchema",
           "AchievementIdSchema",
           "DomainEventSchema",
+          "DamageCauseSchema",
+          "ExplosionSourceSchema",
+          "HealthAmountSchema",
+          "ExperienceAmountSchema",
+          "ProjectileIdSchema",
+          "Velocity3Schema",
           "EntityIdSchema",
           "DimensionIdSchema",
           "WorldIdSchema",
@@ -1819,6 +1825,24 @@ describe("public API surface", () => {
     expectTypeOf<kernel.DomainEventAchievementId>().toEqualTypeOf<
       import("../src/domain/event/domain-event.js").AchievementId
     >();
+    expectTypeOf<kernel.DamageCause>().toEqualTypeOf<
+      import("../src/domain/event/event-primitives.js").DamageCause
+    >();
+    expectTypeOf<kernel.ExplosionSource>().toEqualTypeOf<
+      import("../src/domain/event/event-primitives.js").ExplosionSource
+    >();
+    expectTypeOf<kernel.HealthAmount>().toEqualTypeOf<
+      import("../src/domain/event/event-primitives.js").HealthAmount
+    >();
+    expectTypeOf<kernel.ExperienceAmount>().toEqualTypeOf<
+      import("../src/domain/event/event-primitives.js").ExperienceAmount
+    >();
+    expectTypeOf<kernel.ProjectileId>().toEqualTypeOf<
+      import("../src/domain/event/event-primitives.js").ProjectileId
+    >();
+    expectTypeOf<kernel.Velocity3>().toEqualTypeOf<
+      import("../src/domain/event/event-primitives.js").Velocity3
+    >();
     expectTypeOf<kernel.AngleRadians>().toEqualTypeOf<
       import("../src/domain/shared-vocabulary/shared-vocabulary.js").AngleRadians
     >();
@@ -1859,6 +1883,12 @@ describe("public API surface", () => {
         ]);
 
         expect(event.DomainEventSchema).toBe(packageRoot.DomainEventSchema);
+        expect(event.DamageCauseSchema).toBe(packageRoot.DamageCauseSchema);
+        expect(event.ExplosionSourceSchema).toBe(packageRoot.ExplosionSourceSchema);
+        expect(event.HealthAmountSchema).toBe(packageRoot.HealthAmountSchema);
+        expect(event.ExperienceAmountSchema).toBe(packageRoot.ExperienceAmountSchema);
+        expect(event.ProjectileIdSchema).toBe(packageRoot.ProjectileIdSchema);
+        expect(event.Velocity3Schema).toBe(packageRoot.Velocity3Schema);
         expect(moduleContracts.SaveSliceIdSchema).toBe(
           packageRoot.SaveSliceIdSchema,
         );

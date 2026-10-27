@@ -2078,20 +2078,38 @@ stage は時間を読まずに進めず、かつグローバルから読んで�
 
 ID/name schema は空でない文字列、`SaveVersionSchema` は正の整数、`ModuleContractKindSchema` は `qa-namespace` / `qa-operation` / `save-slice` を検証する。例示用の `QaBlockPositionInput` / `QaBlockIdOutput` codec と `ObserveBlockAtQa` / `ExampleQaNamespace` 型も `domain/module-contracts` subpath から利用できる。
 
-## 7-bis. DomainEvent（domain-event）
+## 7-bis. Domain events (`domain-event`)
 
-`DomainEventSchema` はイベント発生時点の値を持つ tagged union であり、`domain/domain-event` subpath から import できる。`position` の座標単位は block である。
+`DomainEventSchema` is a transient tagged union that records values at event time. Import it from the package root or the `domain/domain-event` subpath. Positions use block units. The vocabulary belongs to `mc-kernel`; the event bus belongs to `mc-sim`. Events notify consumers after a state transition succeeds and do not hold authoritative state. Event decoders reject undeclared properties at the event and nested payload levels, including the five tags first published in 0.9.0; extra properties that were previously ignored now cause decoding to fail. The first five rows below are the tags available in 0.9.0; the remaining fifteen are new in 0.10.0. Exhaustive consumers must handle them. Producers of `EntityDamaged` and `Explosion` must provide the newly required `cause` and `source` fields. `mx-gameplay` has not yet released a producer for these event payloads.
 
-| `_tag` | payload | 制約 |
+| `_tag` | Required payload | Constraints |
 | --- | --- | --- |
-| `EntityDamaged` | `tick`, `entity`, `position`, `amount` | damage は有限の正数 |
-| `BlockBroken` | `tick`, `actor`, `address`, `block` | `block` は数値 `BlockId` |
-| `Explosion` | `tick`, `position`, `power` | power は整数 1..6 |
-| `LevelUp` | `tick`, `entity`, `position`, `level` | level は 1 以上の safe integer |
-| `AchievementUnlocked` | `tick`, `player`, `achievement` | achievement ID は非空文字列 |
+| `EntityDamaged` | `tick`, `entity`, `position`, `amount`, `cause` | `amount` is a positive finite `DamageAmount`; `cause` is one of the closed `DamageCause` literals below. |
+| `BlockBroken` | `tick`, `actor`, `address`, `block` | `block` is a numeric `BlockId`. |
+| `Explosion` | `tick`, `position`, `power`, `source` | `power` is an integer from 1 through 6; `source` is `creeper` or `tnt`. |
+| `LevelUp` | `tick`, `entity`, `position`, `level` | `level` is a positive safe integer. |
+| `AchievementUnlocked` | `tick`, `player`, `achievement` | `achievement` is a non-empty branded string. |
+| `BlockPlaced` | `tick`, `actor`, `address`, `block` | `address` is dimension-qualified. |
+| `BlockChangedByWorld` | `tick`, `address`, `cause` | `cause` is `fire`, `weather`, `fluid`, `support-cascade`, or `explosion`. |
+| `EntityDied` | `tick`, `entity`, `kind`, `position`, `cause` | Uses the existing `EntityKind` vocabulary and branded `DamageCause`. |
+| `EntityHealed` | `tick`, `entity`, `amount`, `cause` | `amount` is a positive finite `HealthAmount`; `cause` is `regeneration`. |
+| `EntitySpawned` | `tick`, `entity`, `kind`, `position` | Uses the existing `EntityKind` vocabulary. |
+| `EntityTeleported` | `tick`, `entity`, `from`, `to`, `cause` | `from` and `to` are `WorldPosition` values, each including its dimension. |
+| `ItemDropped` | `tick`, `droppedItem`, `item`, `count`, `position` | Uses existing `EntityId`, `ItemId`, and `StackCount` brands. |
+| `ItemPickedUp` | `tick`, `actor`, `source`, `item`, `count` | `source` is `DroppedItem { id: EntityId }` or `Projectile { id: ProjectileId }`; uses existing item and count brands. |
+| `ItemConsumed` | `tick`, `actor`, `item`, `count`, `use` | `use` is `food`, `potion`, `bow-ammo`, or `ender-pearl`. |
+| `WeatherGameplayEffect` | `tick`, `effect` | `effect` is `LightningStrike { position }`, `CreeperCharged { entity }`, or `EntityTransformed { entity, kind }`. |
+| `ProjectileLaunched` | `tick`, `projectile`, `shooter`, `origin`, `initialVelocity` | `origin` is a `WorldPosition`; `initialVelocity` is a finite vector in signed blocks per second, with +X east, +Y up, and +Z south. |
+| `ProjectileImpacted` | `tick`, `projectile`, `position`, `hit` | `hit` is a tagged block address or entity ID. |
+| `ShieldBlocked` | `tick`, `attacker?`, `defender`, `position`, `blockedAmount` | `attacker` is optional; `blockedAmount` uses `DamageAmount`. |
+| `ExperienceCollected` | `tick`, `player`, `orb`, `amount` | `amount` is a positive safe integer `ExperienceAmount`. |
+| `VehicleTransition` | `tick`, `actor`, `vehicle`, `transition`, `exitReason?` | Uses the existing `VehicleId`; `transition` is `mounted` or `exited`; only `exited` may carry an optional reason: `requested`, `collision`, or `destroyed`. |
 
-`ExperienceLevelSchema` は event payload には含まれない、0 以上の safe integer の `ExperienceLevel` を検証する。`LevelUpLevelSchema` は `LevelUp.level` に使う 1 以上の safe integer を検証する。event bus と subscriber capacity は `mc-sim` 側である。
-event subpath は branded type `AchievementId` を、package root は同じ型を `DomainEventAchievementId` として公開する。
+`DamageCauseSchema` is a closed union: `fall`, `lava`, `cactus`, `in_fire`, `on_fire`, `drowning`, `suffocation`, `starvation`, `mob`, `projectile`, `explosion`, `void`, `ender_pearl`, `poison`, `generic`, and `lightning`. These values follow mx-gameplay's [closed `DeathCause` union](https://github.com/nerima-games/mx-gameplay/blob/main/src/domain/death-cause.ts), plus `lightning` because its [thunder weather rule emits `EntityLightningDamage`](https://github.com/nerima-games/mx-gameplay/blob/main/src/domain/weather-gameplay.ts). `ExplosionSourceSchema` is the closed union `creeper | tnt`, matching [mx-gameplay's explosion source categories](https://github.com/nerima-games/mx-gameplay/blob/main/src/domain/mob/explosion.ts); charged creepers use source `creeper` with a distinct power.
+
+`HealthAmountSchema`, `ExperienceAmountSchema`, `ProjectileIdSchema`, and `Velocity3Schema` are exported from both import paths with their corresponding branded types. `HealthAmount` is positive and finite. `ExperienceAmount` is a positive safe integer. `Velocity3` components are signed blocks per second in the mc-physics axes: +X east, +Y up, and +Z south. This matches mc-physics 0.4.0's `VelocityVector` components branded as `BlocksPerSecond` and its projectile integration basis ([physical units](https://github.com/nerima-games/mc-physics/blob/v0.4.0/src/domain/physical-units.ts), [projectile API](https://github.com/nerima-games/mc-physics/blob/v0.4.0/src/domain/projectile.ts)). `ExperienceLevelSchema` remains separate from event payloads and validates a non-negative safe integer; `LevelUpLevelSchema` validates a positive safe integer.
+
+`AchievementId` remains available as `DomainEventAchievementId` from the package root and as `AchievementId` from the event subpath.
 
 ## 7-ter. WorldWritePort（world-write-port）
 
