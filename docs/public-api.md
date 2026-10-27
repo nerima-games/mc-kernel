@@ -2078,20 +2078,36 @@ stage は時間を読まずに進めず、かつグローバルから読んで�
 
 ID/name schema は空でない文字列、`SaveVersionSchema` は正の整数、`ModuleContractKindSchema` は `qa-namespace` / `qa-operation` / `save-slice` を検証する。例示用の `QaBlockPositionInput` / `QaBlockIdOutput` codec と `ObserveBlockAtQa` / `ExampleQaNamespace` 型も `domain/module-contracts` subpath から利用できる。
 
-## 7-bis. DomainEvent（domain-event）
+## 7-bis. Domain events (`domain-event`)
 
-`DomainEventSchema` はイベント発生時点の値を持つ tagged union であり、`domain/domain-event` subpath から import できる。`position` の座標単位は block である。
+`DomainEventSchema` is a transient tagged union that records values at event time. Import it from the package root or the `domain/domain-event` subpath. Positions use block units. The vocabulary belongs to `mc-kernel`; the event bus belongs to `mc-sim`. Events notify consumers after a state transition succeeds and do not hold authoritative state. This release adds fifteen tags, so exhaustive consumers must handle them. Producers of `EntityDamaged` and `Explosion` must provide the newly required `cause` and `source` fields.
 
-| `_tag` | payload | 制約 |
+| `_tag` | Required payload | Constraints |
 | --- | --- | --- |
-| `EntityDamaged` | `tick`, `entity`, `position`, `amount` | damage は有限の正数 |
-| `BlockBroken` | `tick`, `actor`, `address`, `block` | `block` は数値 `BlockId` |
-| `Explosion` | `tick`, `position`, `power` | power は整数 1..6 |
-| `LevelUp` | `tick`, `entity`, `position`, `level` | level は 1 以上の safe integer |
-| `AchievementUnlocked` | `tick`, `player`, `achievement` | achievement ID は非空文字列 |
+| `EntityDamaged` | `tick`, `entity`, `position`, `amount`, `cause` | `amount` is a positive finite `DamageAmount`; `cause` is a non-empty branded string with open values. |
+| `BlockBroken` | `tick`, `actor`, `address`, `block` | `block` is a numeric `BlockId`. |
+| `Explosion` | `tick`, `position`, `power`, `source` | `power` is an integer from 1 through 6; `source` is a non-empty branded string with open values. |
+| `LevelUp` | `tick`, `entity`, `position`, `level` | `level` is a positive safe integer. |
+| `AchievementUnlocked` | `tick`, `player`, `achievement` | `achievement` is a non-empty branded string. |
+| `BlockPlaced` | `tick`, `actor`, `address`, `block` | `address` is dimension-qualified. |
+| `BlockChangedByWorld` | `tick`, `address`, `cause` | `cause` is `fire`, `weather`, `fluid`, `support-cascade`, or `explosion`. |
+| `EntityDied` | `tick`, `entity`, `kind`, `position`, `cause` | Uses the existing `EntityKind` vocabulary and branded `DamageCause`. |
+| `EntityHealed` | `tick`, `entity`, `amount`, `cause` | `amount` is a positive finite `HealthAmount`; `cause` is `regeneration`. |
+| `EntitySpawned` | `tick`, `entity`, `kind`, `position` | Uses the existing `EntityKind` vocabulary. |
+| `EntityTeleported` | `tick`, `entity`, `from`, `to`, `cause` | `from` and `to` are `WorldPosition` values, each including its dimension. |
+| `ItemDropped` | `tick`, `droppedItem`, `item`, `count`, `position` | Uses existing `EntityId`, `ItemId`, and `StackCount` brands. |
+| `ItemPickedUp` | `tick`, `actor`, `source`, `item`, `count` | `source` is `DroppedItem { id: EntityId }` or `Projectile { id: ProjectileId }`; uses existing item and count brands. |
+| `ItemConsumed` | `tick`, `actor`, `item`, `count`, `use` | `use` is `food`, `potion`, `bow-ammo`, or `ender-pearl`. |
+| `WeatherGameplayEffect` | `tick`, `effect` | `effect` is `LightningStrike { position }`, `CreeperCharged { entity }`, or `EntityTransformed { entity, kind }`. |
+| `ProjectileLaunched` | `tick`, `projectile`, `shooter`, `origin`, `initialVelocity` | `origin` is a `WorldPosition`; `initialVelocity` has finite x/y/z components. The proposal does not specify units or a coordinate convention. |
+| `ProjectileImpacted` | `tick`, `projectile`, `position`, `hit` | `hit` is a tagged block address or entity ID. |
+| `ShieldBlocked` | `tick`, `attacker?`, `defender`, `position`, `blockedAmount` | `attacker` is optional; `blockedAmount` uses `DamageAmount`. |
+| `ExperienceCollected` | `tick`, `player`, `orb`, `amount` | `amount` is a positive safe integer `ExperienceAmount`. |
+| `VehicleTransition` | `tick`, `actor`, `vehicle`, `transition`, `exitReason?` | Uses the existing `VehicleId`; `transition` is `mounted` or `exited`; an optional exit reason is `requested`, `collision`, or `destroyed`. The schema does not require a reason for `exited` or forbid one for `mounted`. |
 
-`ExperienceLevelSchema` は event payload には含まれない、0 以上の safe integer の `ExperienceLevel` を検証する。`LevelUpLevelSchema` は `LevelUp.level` に使う 1 以上の safe integer を検証する。event bus と subscriber capacity は `mc-sim` 側である。
-event subpath は branded type `AchievementId` を、package root は同じ型を `DomainEventAchievementId` として公開する。
+`DamageCauseSchema` and `ExplosionSourceSchema` accept any non-empty string as open vocabularies; the gameplay proposal defines no closed list of values. `HealthAmountSchema`, `ExperienceAmountSchema`, `ProjectileIdSchema`, and `Velocity3Schema` are also exported from both import paths with their corresponding branded types. `HealthAmount` is positive and finite. `ExperienceAmount` is a positive safe integer. `Velocity3` brands a finite x/y/z vector without assigning units or a coordinate convention. `ExperienceLevelSchema` remains separate from event payloads and validates a non-negative safe integer; `LevelUpLevelSchema` validates a positive safe integer.
+
+`AchievementId` remains available as `DomainEventAchievementId` from the package root and as `AchievementId` from the event subpath.
 
 ## 7-ter. WorldWritePort（world-write-port）
 

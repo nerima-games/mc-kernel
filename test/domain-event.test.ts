@@ -93,6 +93,7 @@ describe('DomainEventSchema', () => {
         entity: 'zombie',
         position: { dimension: 'overworld', x: 1.5, y: 64, z: -2 },
         amount: 0.5,
+        cause: 'fall',
       },
       {
         _tag: 'BlockBroken',
@@ -109,6 +110,7 @@ describe('DomainEventSchema', () => {
         tick: 2,
         position: { dimension: 'nether', x: 0, y: 32, z: 0 },
         power: 6,
+        source: 'creeper',
       },
       {
         _tag: 'LevelUp',
@@ -123,10 +125,149 @@ describe('DomainEventSchema', () => {
         player: 'player-1',
         achievement: 'first_steps',
       },
+      {
+        _tag: 'BlockPlaced',
+        tick: 5,
+        actor: 'player-1',
+        address: { dimension: 'overworld', position: { x: 1, y: 64, z: -2 } },
+        block: 1,
+      },
+      {
+        _tag: 'BlockChangedByWorld',
+        tick: 6,
+        address: { dimension: 'overworld', position: { x: 1, y: 64, z: -2 } },
+        cause: 'weather',
+      },
+      {
+        _tag: 'EntityDied',
+        tick: 7,
+        entity: 'zombie-1',
+        kind: 'zombie',
+        position: { dimension: 'overworld', x: 1.5, y: 64, z: -2 },
+        cause: 'fire',
+      },
+      {
+        _tag: 'EntityHealed',
+        tick: 8,
+        entity: 'player-1',
+        amount: 2.5,
+        cause: 'regeneration',
+      },
+      {
+        _tag: 'EntitySpawned',
+        tick: 9,
+        entity: 'cow-1',
+        kind: 'cow',
+        position: { dimension: 'overworld', x: 1.5, y: 64, z: -2 },
+      },
+      {
+        _tag: 'EntityTeleported',
+        tick: 10,
+        entity: 'player-1',
+        from: { dimension: 'overworld', x: 1.5, y: 64, z: -2 },
+        to: { dimension: 'nether', x: 12, y: 64, z: 8 },
+        cause: 'nether-portal',
+      },
+      {
+        _tag: 'ItemDropped',
+        tick: 11,
+        droppedItem: 'dropped-item-1',
+        item: 4,
+        count: 2,
+        position: { dimension: 'overworld', x: 1.5, y: 64, z: -2 },
+      },
+      {
+        _tag: 'ItemPickedUp',
+        tick: 12,
+        actor: 'player-1',
+        source: { _tag: 'DroppedItem', id: 'dropped-item-1' },
+        item: 4,
+        count: 1,
+      },
+      {
+        _tag: 'ItemConsumed',
+        tick: 13,
+        actor: 'player-1',
+        item: 4,
+        count: 1,
+        use: 'food',
+      },
+      {
+        _tag: 'WeatherGameplayEffect',
+        tick: 14,
+        effect: {
+          _tag: 'LightningStrike',
+          position: { dimension: 'overworld', x: 1.5, y: 64, z: -2 },
+        },
+      },
+      {
+        _tag: 'ProjectileLaunched',
+        tick: 15,
+        projectile: 'arrow-1',
+        shooter: 'player-1',
+        origin: { dimension: 'overworld', x: 1.5, y: 64, z: -2 },
+        initialVelocity: { x: 1, y: 0.5, z: 0 },
+      },
+      {
+        _tag: 'ProjectileImpacted',
+        tick: 16,
+        projectile: 'arrow-1',
+        position: { dimension: 'overworld', x: 2.5, y: 64, z: -2 },
+        hit: {
+          _tag: 'Block',
+          address: { dimension: 'overworld', position: { x: 2, y: 64, z: -2 } },
+        },
+      },
+      {
+        _tag: 'ShieldBlocked',
+        tick: 17,
+        attacker: 'zombie-1',
+        defender: 'player-1',
+        position: { dimension: 'overworld', x: 1.5, y: 64, z: -2 },
+        blockedAmount: 1.5,
+      },
+      {
+        _tag: 'ExperienceCollected',
+        tick: 18,
+        player: 'player-1',
+        orb: 'xp-orb-1',
+        amount: 3,
+      },
+      {
+        _tag: 'VehicleTransition',
+        tick: 19,
+        actor: 'player-1',
+        vehicle: 'minecart-1',
+        transition: 'mounted',
+      },
     ]
 
     for (const event of events) {
       expect(Result.isSuccess(decodeDomainEvent(event))).toBe(true)
     }
+  })
+
+  it('requires damage causes and explosion sources', () => {
+    expect(
+      Result.isSuccess(
+        decodeDomainEvent({
+          _tag: 'EntityDamaged',
+          tick: 0,
+          entity: 'zombie',
+          position: { dimension: 'overworld', x: 1.5, y: 64, z: -2 },
+          amount: 0.5,
+        }),
+      ),
+    ).toBe(false)
+    expect(
+      Result.isSuccess(
+        decodeDomainEvent({
+          _tag: 'Explosion',
+          tick: 0,
+          position: { dimension: 'nether', x: 0, y: 32, z: 0 },
+          power: 6,
+        }),
+      ),
+    ).toBe(false)
   })
 })
