@@ -13,14 +13,31 @@ import {
 } from '../src/domain/event/event-primitives.js'
 
 describe('C3 event primitive schemas', () => {
-  it('accepts non-empty damage causes and explosion sources', () => {
-    expect(Result.isSuccess(Schema.decodeUnknownResult(DamageCauseSchema)('fire'))).toBe(true)
-    expect(Result.isSuccess(Schema.decodeUnknownResult(ExplosionSourceSchema)('creeper'))).toBe(true)
+  it('accepts the declared damage causes and explosion sources', () => {
+    const decodeCause = Schema.decodeUnknownResult(DamageCauseSchema)
+    const decodeSource = Schema.decodeUnknownResult(ExplosionSourceSchema)
+    const causes = [
+      'fall', 'lava', 'cactus', 'in_fire', 'on_fire', 'drowning', 'suffocation', 'starvation',
+      'mob', 'projectile', 'explosion', 'void', 'ender_pearl', 'poison', 'generic', 'lightning',
+    ] as const
+
+    for (const cause of causes) {
+      expect(Result.isSuccess(decodeCause(cause))).toBe(true)
+    }
+    for (const source of ['creeper', 'tnt'] as const) {
+      expect(Result.isSuccess(decodeSource(source))).toBe(true)
+    }
   })
 
-  it('rejects empty damage causes and explosion sources', () => {
-    expect(Result.isSuccess(Schema.decodeUnknownResult(DamageCauseSchema)(''))).toBe(false)
-    expect(Result.isSuccess(Schema.decodeUnknownResult(ExplosionSourceSchema)(''))).toBe(false)
+  it('rejects damage causes and explosion sources outside their vocabularies', () => {
+    const decodeCause = Schema.decodeUnknownResult(DamageCauseSchema)
+    const decodeSource = Schema.decodeUnknownResult(ExplosionSourceSchema)
+    for (const cause of ['', 'fire', 'unknown']) {
+      expect(Result.isSuccess(decodeCause(cause))).toBe(false)
+    }
+    for (const source of ['', 'charged_creeper', 'unknown']) {
+      expect(Result.isSuccess(decodeSource(source))).toBe(false)
+    }
   })
 
   it('accepts positive finite health amounts', () => {

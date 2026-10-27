@@ -20,7 +20,7 @@ const entityDiedEvent = {
   entity: 'zombie-1',
   kind: 'zombie',
   position,
-  cause: 'fire',
+  cause: 'in_fire',
 }
 
 const entityHealedEvent = {

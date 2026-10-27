@@ -144,7 +144,7 @@ describe('DomainEventSchema', () => {
         entity: 'zombie-1',
         kind: 'zombie',
         position: { dimension: 'overworld', x: 1.5, y: 64, z: -2 },
-        cause: 'fire',
+        cause: 'lightning',
       },
       {
         _tag: 'EntityHealed',

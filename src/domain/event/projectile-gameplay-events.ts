@@ -201,24 +201,35 @@ export const ExperienceCollectedEventSchema: Schema.Codec<
 type VehicleTransitionFields = {
   actor: Schema.Schema.Type<typeof EntityIdSchema>
   vehicle: Schema.Schema.Type<typeof VehicleIdSchema>
-  transition: 'mounted' | 'exited'
-  exitReason?: 'requested' | 'collision' | 'destroyed'
-}
+} & (
+  | { transition: 'mounted'; exitReason?: never }
+  | { transition: 'exited'; exitReason?: 'requested' | 'collision' | 'destroyed' }
+)
 
 type VehicleTransitionFieldsEncoded = {
   actor: Schema.Codec.Encoded<typeof EntityIdSchema>
   vehicle: Schema.Codec.Encoded<typeof VehicleIdSchema>
-  transition: 'mounted' | 'exited'
-  exitReason?: 'requested' | 'collision' | 'destroyed'
-}
+} & (
+  | { transition: 'mounted'; exitReason?: never }
+  | { transition: 'exited'; exitReason?: 'requested' | 'collision' | 'destroyed' }
+)
 
 export const VehicleTransitionEventSchema: Schema.Codec<
   EventValue<'VehicleTransition', VehicleTransitionFields>,
   EventEncoded<'VehicleTransition', VehicleTransitionFieldsEncoded>
-> = Schema.TaggedStruct('VehicleTransition', {
-  tick: SimulationTickSchema,
-  actor: EntityIdSchema,
-  vehicle: VehicleIdSchema,
-  transition: Schema.Literals(['mounted', 'exited']),
-  exitReason: Schema.optionalKey(Schema.Literals(['requested', 'collision', 'destroyed'])),
-})
+> = Schema.Union([
+  Schema.TaggedStruct('VehicleTransition', {
+    tick: SimulationTickSchema,
+    actor: EntityIdSchema,
+    vehicle: VehicleIdSchema,
+    transition: Schema.Literals(['mounted']),
+    exitReason: Schema.optionalKey(Schema.Never),
+  }),
+  Schema.TaggedStruct('VehicleTransition', {
+    tick: SimulationTickSchema,
+    actor: EntityIdSchema,
+    vehicle: VehicleIdSchema,
+    transition: Schema.Literals(['exited']),
+    exitReason: Schema.optionalKey(Schema.Literals(['requested', 'collision', 'destroyed'])),
+  }),
+])

@@ -10,14 +10,51 @@ export const DamageAmountSchema: Schema.Codec<DamageAmountValue, number> = Schem
   .pipe(Schema.brand('DamageAmount'))
 export type DamageAmount = Schema.Schema.Type<typeof DamageAmountSchema>
 
-type DamageCauseValue = Brand.Branded<string, 'DamageCause'>
-export const DamageCauseSchema: Schema.Codec<DamageCauseValue, string> =
-  Schema.NonEmptyString.pipe(Schema.brand('DamageCause'))
+type DamageCauseLiteral =
+  | 'fall'
+  | 'lava'
+  | 'cactus'
+  | 'in_fire'
+  | 'on_fire'
+  | 'drowning'
+  | 'suffocation'
+  | 'starvation'
+  | 'mob'
+  | 'projectile'
+  | 'explosion'
+  | 'void'
+  | 'ender_pearl'
+  | 'poison'
+  | 'generic'
+  | 'lightning'
+type DamageCauseValue = Brand.Branded<DamageCauseLiteral, 'DamageCause'>
+/** Closed shared damage vocabulary, including lightning emitted by thunder weather gameplay. */
+export const DamageCauseSchema: Schema.Codec<DamageCauseValue, DamageCauseLiteral> =
+  Schema.Literals([
+    'fall',
+    'lava',
+    'cactus',
+    'in_fire',
+    'on_fire',
+    'drowning',
+    'suffocation',
+    'starvation',
+    'mob',
+    'projectile',
+    'explosion',
+    'void',
+    'ender_pearl',
+    'poison',
+    'generic',
+    'lightning',
+  ]).pipe(Schema.brand('DamageCause'))
 export type DamageCause = Schema.Schema.Type<typeof DamageCauseSchema>
 
-type ExplosionSourceValue = Brand.Branded<string, 'ExplosionSource'>
-export const ExplosionSourceSchema: Schema.Codec<ExplosionSourceValue, string> =
-  Schema.NonEmptyString.pipe(Schema.brand('ExplosionSource'))
+type ExplosionSourceLiteral = 'creeper' | 'tnt'
+type ExplosionSourceValue = Brand.Branded<ExplosionSourceLiteral, 'ExplosionSource'>
+/** Closed to the source categories emitted by gameplay explosion rules. */
+export const ExplosionSourceSchema: Schema.Codec<ExplosionSourceValue, ExplosionSourceLiteral> =
+  Schema.Literals(['creeper', 'tnt']).pipe(Schema.brand('ExplosionSource'))
 export type ExplosionSource = Schema.Schema.Type<typeof ExplosionSourceSchema>
 
 type HealthAmountValue = Brand.Branded<number, 'HealthAmount'>
@@ -38,6 +75,7 @@ export const ProjectileIdSchema: Schema.Codec<ProjectileIdValue, string> =
 export type ProjectileId = Schema.Schema.Type<typeof ProjectileIdSchema>
 
 type Velocity3Value = Brand.Branded<Readonly<{ x: number; y: number; z: number }>, 'Velocity3'>
+/** Signed blocks per second in mc-physics axes: +X east, +Y up, and +Z south. */
 export const Velocity3Schema: Schema.Codec<Velocity3Value, Readonly<{ x: number; y: number; z: number }>> =
   Schema.Struct({
     x: Schema.Finite,

@@ -259,6 +259,26 @@ describe('projectile and gameplay domain events', () => {
         ),
       ).toBe(true)
     }
+    expect(
+      Result.isSuccess(
+        decodeDomainEvent({ ...mounted, transition: 'exited' }),
+      ),
+    ).toBe(true)
+  })
+
+  it('rejects exitReason when a vehicle transition is mounted', () => {
+    expect(
+      Result.isSuccess(
+        decodeDomainEvent({
+          _tag: 'VehicleTransition',
+          tick: 6,
+          actor: 'player-1',
+          vehicle: 'boat-1',
+          transition: 'mounted',
+          exitReason: 'requested',
+        }),
+      ),
+    ).toBe(false)
   })
 
   it('rejects VehicleTransition without its required vehicle', () => {
