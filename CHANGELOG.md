@@ -1,5 +1,11 @@
 # @nerima-games/mc-kernel
 
+## 0.10.0
+
+### Minor Changes
+
+- Add `BlockPlaced`, `BlockChangedByWorld`, `EntityDied`, `EntityHealed`, `EntitySpawned`, `EntityTeleported`, `ItemDropped`, `ItemPickedUp`, `ItemConsumed`, `WeatherGameplayEffect`, `ProjectileLaunched`, `ProjectileImpacted`, `ShieldBlocked`, `ExperienceCollected`, and `VehicleTransition` to `DomainEventSchema`. Require `cause: DamageCause` on `EntityDamaged` and `source: ExplosionSource` on `Explosion`. Event decoders reject undeclared properties at event roots and nested payloads. This also changes the 0.9.0 tags `EntityDamaged`, `BlockBroken`, `Explosion`, `LevelUp`, and `AchievementUnlocked`: extra fields they previously ignored now fail decoding.
+
 ## 0.9.0
 
 ### Minor Changes
