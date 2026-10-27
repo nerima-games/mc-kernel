@@ -1,5 +1,11 @@
 # @nerima-games/mc-kernel
 
+## 0.11.0
+
+### Minor Changes
+
+- Add a typed WorldWritePort failure for unavailable chunks.
+
 ## 0.10.0
 
 ### Minor Changes
