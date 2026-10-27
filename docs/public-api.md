@@ -16,7 +16,7 @@ TypeScript のコードブロックは公開宣言や使用例の抜粋であり
 
 ## 数値・文字列・bigint の意味型
 
-公開 API で意味のある数値・文字列・bigint を引数や戻り値として渡す場合と、公開データ型でフィールドとして保持する場合は、その意味に対応するブランド型を使う。`Brand.Constructor` 型のブランドコンストラクタは未検証のプリミティブを受け取る。通常の呼び出しは検証済みのブランド値を返し、検証に失敗すると `BrandError` を投げる。失敗を値として扱う場合は `.result(value)` を使うと `Result` を、理由が不要な場合は `.option(value)` を使うと `Option` を受け取れる。外部データの decoder は `unknown` を受け取る。
+公開 API で意味のある数値・文字列・bigint を引数や戻り値として渡す場合と、公開データ型でフィールドとして保持する場合は、その意味に対応するブランド型を使う。`Brand.Constructor` 型のブランドコンストラクタは未検証のプリミティブを受け取る。通常の呼び出しは検証済みのブランド値を返し、検証に失敗すると `BrandError` を投げる。失敗を値として扱う場合は `.result(value)` を使うと `Result` を、理由が不要な場合は `.option(value)` を使うと `Option` を受け取れる。外部データの decoder は `unknown` を受け取る。次の表はブランド型を使う主な公開 API 群を示す。
 
 | 領域 | 主な公開契約 |
 | --- | --- |
@@ -29,7 +29,7 @@ TypeScript のコードブロックは公開宣言や使用例の抜粋であり
 | text | vanilla path は `VanillaResourcePath`。Settings の距離、視野角、音量、感度、action、key code と difficulty multiplier は専用ブランドを使う。 |
 | entity | serial、health、roster repair count、explosion の半径/count/exposure、portal の幅/高さ、vehicle velocity/診断文字列、Sulfur Cube の数値値は専用ブランドを使う。yaw は `AngleRadians`。 |
 
-各 `Brand.Constructor` は値の型と同名で公開される。
+ブランド型と validator の受理域は次のとおり。各 `Brand.Constructor` は値の型と同名で公開される。
 
 | 領域 | ブランドと受理域 |
 | --- | --- |
@@ -644,6 +644,7 @@ transmute の現在の JSON schema は [Minecraft Java Edition 26.1](https://www
 
 ### 3-ter-4. special recipe（crafting-special）
 
+特殊クラフトは 10 種の `CraftingSpecialRecipe` で表す。
 kernel は各型のコンストラクタと Java 版 recipe JSON decoder を公開する。
 実行時の照合と適用は `mc-sim` の責務である（[実行時処理の所有元](./responsibility.md)）。
 
@@ -1184,6 +1185,8 @@ const resolveBlockCapabilities(overrides): Result.Result<BlockCapabilities, Bloc
 const capabilityOf(overrides, flag): Result.Result<boolean, BlockCapabilityFailure>
 ```
 
+実装済みのフラグは 12 個である。
+
 | フラグ                  | 既定       | 根拠                                                                          |
 | ----------------------- | ---------- | ----------------------------------------------------------------------------- |
 | `passable`              | `false`    | 監査 §4.1 `block-collision-predicates.ts:22-44`                               |
@@ -1220,6 +1223,8 @@ type BlockPropertyFailure = { readonly _tag: 'BlockPropertyFailure'; readonly re
 const resolveBlockProperties(overrides): Result.Result<BlockProperties, BlockPropertyFailure>
 const propertyOf<K>(overrides, name: K): Result.Result<BlockProperties[K], BlockPropertyFailure>
 ```
+
+実装済みのプロパティは 16 個である。
 
 | プロパティ         | 型                                                      | 既定                                  | 根拠                                                                |
 | ------------------ | ------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------- |
@@ -2109,25 +2114,11 @@ ID/name schema は空でない文字列、`SaveVersionSchema` は正の整数、
 
 ## 7-ter. WorldWritePort（world-write-port）
 
-The `domain/world-write-port` subpath exposes the kernel write port and its data types. `BlockEditSchema` validates `{ position, block }`, also represented by the `BlockEdit` type. `WorldWriteBatchSchema` contains the expected world and dimension revisions and edits; `WorldWriteCommitSchema` contains the committed revisions. The batch schema structurally decodes an empty `edits` array, while `applyBatch` rejects an empty batch with `WorldWriteInvalidBatch.reason: "empty"`. That reason is also `duplicate-position` for repeated block positions. `WorldWriteChunkUnavailable` identifies the target the writer cannot access as `{ dimension, chunk }`: `dimension` is a branded value decoded by `DimensionIdSchema`, and `chunk` is a canonical `ChunkKey` (`cx,cz`). `WorldWriteChunkUnavailableSchema` validates both values and rejects missing or extra properties.
+`domain/world-write-port` subpath は kernel の書込 port とデータ型を公開する。`BlockEditSchema` は `{ position, block }` を検証し、同じ shape を `BlockEdit` 型で表す。`WorldWriteBatchSchema` は world/dimension の期待 revision と edits、`WorldWriteCommitSchema` は確定後の両 revision を表す。batch schema は空の `edits` も構造上 decode する。`WorldWriteInvalidBatch.reason` は `empty` または `duplicate-position` を示す。
+
+`WorldWriteChunkUnavailable` は書き込み先の chunk を利用できない場合を表し、`{ dimension, chunk }` を保持する。`dimension` は `DimensionIdSchema` で検証するブランド値であり、`chunk` には正規形の `ChunkKey`（`cx,cz`）を使う。`WorldWriteChunkUnavailableSchema` は両方の値を検証し、必須項目の欠落と余分なフィールドを拒否する。
 
 ```typescript
-type BlockEdit = Readonly<{
-  position: BlockPosition;
-  block: BlockId;
-}>;
-type WorldWriteBatch = Readonly<{
-  world: WorldId;
-  expectedWorldRevision: WorldRevision;
-  dimension: DimensionId;
-  expectedDimensionRevision: DimensionRevision;
-  edits: ReadonlyArray<BlockEdit>;
-}>;
-type WorldWriteCommit = Readonly<{
-  worldRevision: WorldRevision;
-  dimensionRevision: DimensionRevision;
-}>;
-
 class WorldWritePort extends Context.Service<WorldWritePort, {
   readonly applyBatch: (
     batch: WorldWriteBatch,
@@ -2138,9 +2129,9 @@ class WorldWritePort extends Context.Service<WorldWritePort, {
 }>()("mc-kernel/domain/world/WorldWritePort") {}
 ```
 
-The string passed to `Context.Service` is the service identifier, not the package import path. Import the types and values from the `domain/world-write-port` subpath.
+`Context.Service` に渡す文字列は service の識別子で、package の import path ではない。型と value は `domain/world-write-port` subpath から import する。
 
-The existing `domain/world-read-write` subpath exposes a `BlockEdit` with `{ position, blockId }`. The root barrel keeps that type and exports the port subpath's `{ position, block }` type as `WorldWriteBlockEdit`. Import `BlockEdit` from `domain/world-write-port` when using the port-specific type. Adapters and mutation implementations are outside this contract.
+既存の `domain/world-read-write` subpath は `{ position, blockId }` の `BlockEdit` を公開する。root barrel はこの型を保ち、port subpath の `{ position, block }` 型を `WorldWriteBlockEdit` として公開する。port 固有の `BlockEdit` 型を使う場合は `domain/world-write-port` subpath から import する。adapter と mutation 実装はこの契約には含まれない。
 
 
 

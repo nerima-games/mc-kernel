@@ -1,6 +1,6 @@
 import { Context, Effect, Schema, SchemaParser } from 'effect'
 import type { Cause } from 'effect'
-import { isChunkKey, type ChunkKey } from '../coordinates/coordinate-keys.js'
+import { ChunkKeySchema } from '../coordinates/coordinate-keys.js'
 import {
   BlockIdSchema,
   BlockPositionSchema,
@@ -89,16 +89,12 @@ const WorldWriteInvalidBatchBase: Schema.Class<
 
 export class WorldWriteInvalidBatch extends WorldWriteInvalidBatchBase {}
 
-const chunkKeySchema: Schema.Codec<ChunkKey, string> = Schema.String
-  .check(Schema.makeFilter(isChunkKey))
-  .pipe(Schema.brand('ChunkKey'))
-
 const worldWriteChunkUnavailableFields: {
   readonly dimension: typeof DimensionIdSchema
-  readonly chunk: typeof chunkKeySchema
+  readonly chunk: typeof ChunkKeySchema
 } = {
   dimension: DimensionIdSchema,
-  chunk: chunkKeySchema,
+  chunk: ChunkKeySchema,
 }
 
 const WorldWriteChunkUnavailableBase: Schema.Class<
