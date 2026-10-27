@@ -13,6 +13,7 @@ import {
   VehicleIdSchema,
   Velocity3Schema,
 } from './event-primitives.js'
+import { strictEventSchema } from './strict-event-schema.js'
 
 type EventValue<Tag extends string, Fields extends object> = Readonly<{
   _tag: Tag
@@ -70,10 +71,10 @@ const WeatherGameplayEffectPayloadSchema = Schema.Union([
 export const WeatherGameplayEffectEventSchema: Schema.Codec<
   EventValue<'WeatherGameplayEffect', { effect: WeatherGameplayEffectValue }>,
   EventEncoded<'WeatherGameplayEffect', { effect: WeatherGameplayEffectEncoded }>
-> = Schema.TaggedStruct('WeatherGameplayEffect', {
+> = strictEventSchema(Schema.TaggedStruct('WeatherGameplayEffect', {
   tick: SimulationTickSchema,
   effect: WeatherGameplayEffectPayloadSchema,
-})
+}))
 
 type ProjectileLaunchedFields = {
   projectile: Schema.Schema.Type<typeof ProjectileIdSchema>
@@ -92,13 +93,13 @@ type ProjectileLaunchedFieldsEncoded = {
 export const ProjectileLaunchedEventSchema: Schema.Codec<
   EventValue<'ProjectileLaunched', ProjectileLaunchedFields>,
   EventEncoded<'ProjectileLaunched', ProjectileLaunchedFieldsEncoded>
-> = Schema.TaggedStruct('ProjectileLaunched', {
+> = strictEventSchema(Schema.TaggedStruct('ProjectileLaunched', {
   tick: SimulationTickSchema,
   projectile: ProjectileIdSchema,
   shooter: EntityIdSchema,
   origin: WorldPositionSchema,
   initialVelocity: Velocity3Schema,
-})
+}))
 
 const ProjectileImpactHitSchema = Schema.Union([
   Schema.TaggedStruct('Block', {
@@ -144,12 +145,12 @@ type ProjectileImpactedFieldsEncoded = {
 export const ProjectileImpactedEventSchema: Schema.Codec<
   EventValue<'ProjectileImpacted', ProjectileImpactedFields>,
   EventEncoded<'ProjectileImpacted', ProjectileImpactedFieldsEncoded>
-> = Schema.TaggedStruct('ProjectileImpacted', {
+> = strictEventSchema(Schema.TaggedStruct('ProjectileImpacted', {
   tick: SimulationTickSchema,
   projectile: ProjectileIdSchema,
   position: WorldPositionSchema,
   hit: ProjectileImpactHitSchema,
-})
+}))
 
 type ShieldBlockedFields = {
   attacker?: Schema.Schema.Type<typeof EntityIdSchema>
@@ -168,13 +169,13 @@ type ShieldBlockedFieldsEncoded = {
 export const ShieldBlockedEventSchema: Schema.Codec<
   EventValue<'ShieldBlocked', ShieldBlockedFields>,
   EventEncoded<'ShieldBlocked', ShieldBlockedFieldsEncoded>
-> = Schema.TaggedStruct('ShieldBlocked', {
+> = strictEventSchema(Schema.TaggedStruct('ShieldBlocked', {
   tick: SimulationTickSchema,
   attacker: Schema.optionalKey(EntityIdSchema),
   defender: EntityIdSchema,
   position: WorldPositionSchema,
   blockedAmount: DamageAmountSchema,
-})
+}))
 
 type ExperienceCollectedFields = {
   player: Schema.Schema.Type<typeof EntityIdSchema>
@@ -191,12 +192,12 @@ type ExperienceCollectedFieldsEncoded = {
 export const ExperienceCollectedEventSchema: Schema.Codec<
   EventValue<'ExperienceCollected', ExperienceCollectedFields>,
   EventEncoded<'ExperienceCollected', ExperienceCollectedFieldsEncoded>
-> = Schema.TaggedStruct('ExperienceCollected', {
+> = strictEventSchema(Schema.TaggedStruct('ExperienceCollected', {
   tick: SimulationTickSchema,
   player: EntityIdSchema,
   orb: EntityIdSchema,
   amount: ExperienceAmountSchema,
-})
+}))
 
 type VehicleTransitionFields = {
   actor: Schema.Schema.Type<typeof EntityIdSchema>
@@ -217,7 +218,7 @@ type VehicleTransitionFieldsEncoded = {
 export const VehicleTransitionEventSchema: Schema.Codec<
   EventValue<'VehicleTransition', VehicleTransitionFields>,
   EventEncoded<'VehicleTransition', VehicleTransitionFieldsEncoded>
-> = Schema.Union([
+> = strictEventSchema(Schema.Union([
   Schema.TaggedStruct('VehicleTransition', {
     tick: SimulationTickSchema,
     actor: EntityIdSchema,
@@ -232,4 +233,4 @@ export const VehicleTransitionEventSchema: Schema.Codec<
     transition: Schema.Literals(['exited']),
     exitReason: Schema.optionalKey(Schema.Literals(['requested', 'collision', 'destroyed'])),
   }),
-])
+]))

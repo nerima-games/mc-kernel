@@ -10,6 +10,7 @@ import {
   EntityKindSchema,
   HealthAmountSchema,
 } from './event-primitives.js'
+import { strictEventSchema } from './strict-event-schema.js'
 
 type EventValue<Tag extends string, Fields extends object> = Readonly<{
   _tag: Tag
@@ -38,13 +39,13 @@ type EntityDiedFieldsEncoded = {
 export const EntityDiedEventSchema: Schema.Codec<
   EventValue<'EntityDied', EntityDiedFields>,
   EventEncoded<'EntityDied', EntityDiedFieldsEncoded>
-> = Schema.TaggedStruct('EntityDied', {
+> = strictEventSchema(Schema.TaggedStruct('EntityDied', {
   tick: SimulationTickSchema,
   entity: EntityIdSchema,
   kind: EntityKindSchema,
   position: WorldPositionSchema,
   cause: DamageCauseSchema,
-})
+}))
 
 type EntityHealedFields = {
   entity: Schema.Schema.Type<typeof EntityIdSchema>
@@ -61,12 +62,12 @@ type EntityHealedFieldsEncoded = {
 export const EntityHealedEventSchema: Schema.Codec<
   EventValue<'EntityHealed', EntityHealedFields>,
   EventEncoded<'EntityHealed', EntityHealedFieldsEncoded>
-> = Schema.TaggedStruct('EntityHealed', {
+> = strictEventSchema(Schema.TaggedStruct('EntityHealed', {
   tick: SimulationTickSchema,
   entity: EntityIdSchema,
   amount: HealthAmountSchema,
   cause: Schema.Literals(['regeneration']),
-})
+}))
 
 type EntitySpawnedFields = {
   entity: Schema.Schema.Type<typeof EntityIdSchema>
@@ -83,12 +84,12 @@ type EntitySpawnedFieldsEncoded = {
 export const EntitySpawnedEventSchema: Schema.Codec<
   EventValue<'EntitySpawned', EntitySpawnedFields>,
   EventEncoded<'EntitySpawned', EntitySpawnedFieldsEncoded>
-> = Schema.TaggedStruct('EntitySpawned', {
+> = strictEventSchema(Schema.TaggedStruct('EntitySpawned', {
   tick: SimulationTickSchema,
   entity: EntityIdSchema,
   kind: EntityKindSchema,
   position: WorldPositionSchema,
-})
+}))
 
 type EntityTeleportedFields = {
   entity: Schema.Schema.Type<typeof EntityIdSchema>
@@ -107,10 +108,10 @@ type EntityTeleportedFieldsEncoded = {
 export const EntityTeleportedEventSchema: Schema.Codec<
   EventValue<'EntityTeleported', EntityTeleportedFields>,
   EventEncoded<'EntityTeleported', EntityTeleportedFieldsEncoded>
-> = Schema.TaggedStruct('EntityTeleported', {
+> = strictEventSchema(Schema.TaggedStruct('EntityTeleported', {
   tick: SimulationTickSchema,
   entity: EntityIdSchema,
   from: WorldPositionSchema,
   to: WorldPositionSchema,
   cause: Schema.Literals(['nether-portal', 'end-portal', 'ender-pearl', 'enderman']),
-})
+}))

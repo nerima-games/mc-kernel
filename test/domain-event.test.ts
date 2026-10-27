@@ -247,6 +247,105 @@ describe('DomainEventSchema', () => {
     }
   })
 
+  it('rejects undeclared properties at the event and nested payload levels', () => {
+    const blockPlaced = {
+      _tag: 'BlockPlaced',
+      tick: 5,
+      actor: 'player-1',
+      address: { dimension: 'overworld', position: { x: 1, y: 64, z: -2 } },
+      block: 1,
+    }
+
+    expect(Result.isSuccess(decodeDomainEvent({ ...blockPlaced, extra: true }))).toBe(false)
+    expect(
+      Result.isSuccess(
+        decodeDomainEvent({
+          ...blockPlaced,
+          address: { ...blockPlaced.address, extra: true },
+        }),
+      ),
+    ).toBe(false)
+  })
+
+  it('requires the block field on BlockBroken', () => {
+    expect(
+      Result.isSuccess(
+        decodeDomainEvent({
+          _tag: 'BlockBroken',
+          tick: 1,
+          actor: 'player-1',
+          address: { dimension: 'overworld', position: { x: 1, y: 64, z: -2 } },
+        }),
+      ),
+    ).toBe(false)
+  })
+
+  it('requires the level field on LevelUp', () => {
+    expect(
+      Result.isSuccess(
+        decodeDomainEvent({
+          _tag: 'LevelUp',
+          tick: 1,
+          entity: 'player-1',
+          position: { dimension: 'overworld', x: 1, y: 64, z: -2 },
+        }),
+      ),
+    ).toBe(false)
+  })
+
+  it('requires the achievement field on AchievementUnlocked', () => {
+    expect(
+      Result.isSuccess(
+        decodeDomainEvent({
+          _tag: 'AchievementUnlocked',
+          tick: 1,
+          player: 'player-1',
+        }),
+      ),
+    ).toBe(false)
+  })
+
+  it('rejects out-of-range block and item IDs in event payloads', () => {
+    expect(
+      Result.isSuccess(
+        decodeDomainEvent({
+          _tag: 'BlockPlaced',
+          tick: 1,
+          actor: 'player-1',
+          address: { dimension: 'overworld', position: { x: 1, y: 64, z: -2 } },
+          block: 65536,
+        }),
+      ),
+    ).toBe(false)
+    expect(
+      Result.isSuccess(
+        decodeDomainEvent({
+          _tag: 'ItemDropped',
+          tick: 1,
+          droppedItem: 'dropped-item-1',
+          item: 65536,
+          count: 1,
+          position: { dimension: 'overworld', x: 1, y: 64, z: -2 },
+        }),
+      ),
+    ).toBe(false)
+  })
+
+  it('rejects NaN in an event world position', () => {
+    expect(
+      Result.isSuccess(
+        decodeDomainEvent({
+          _tag: 'EntityDied',
+          tick: 1,
+          entity: 'zombie-1',
+          kind: 'zombie',
+          position: { dimension: 'overworld', x: Number.NaN, y: 64, z: -2 },
+          cause: 'fall',
+        }),
+      ),
+    ).toBe(false)
+  })
+
   it('requires damage causes and explosion sources', () => {
     expect(
       Result.isSuccess(

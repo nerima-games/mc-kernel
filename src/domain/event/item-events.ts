@@ -7,6 +7,7 @@ import {
   WorldPositionSchema,
 } from '../shared-vocabulary/shared-vocabulary.js'
 import { ProjectileIdSchema, StackCountSchema } from './event-primitives.js'
+import { strictEventSchema } from './strict-event-schema.js'
 
 type EventValue<Tag extends string, Fields extends object> = Readonly<{
   _tag: Tag
@@ -53,13 +54,13 @@ type ItemDroppedFieldsEncoded = {
 export const ItemDroppedEventSchema: Schema.Codec<
   EventValue<'ItemDropped', ItemDroppedFields>,
   EventEncoded<'ItemDropped', ItemDroppedFieldsEncoded>
-> = Schema.TaggedStruct('ItemDropped', {
+> = strictEventSchema(Schema.TaggedStruct('ItemDropped', {
   tick: SimulationTickSchema,
   droppedItem: EntityIdSchema,
   item: ItemIdSchema,
   count: StackCountSchema,
   position: WorldPositionSchema,
-})
+}))
 
 type ItemPickedUpFields = {
   actor: Schema.Schema.Type<typeof EntityIdSchema>
@@ -78,13 +79,13 @@ type ItemPickedUpFieldsEncoded = {
 export const ItemPickedUpEventSchema: Schema.Codec<
   EventValue<'ItemPickedUp', ItemPickedUpFields>,
   EventEncoded<'ItemPickedUp', ItemPickedUpFieldsEncoded>
-> = Schema.TaggedStruct('ItemPickedUp', {
+> = strictEventSchema(Schema.TaggedStruct('ItemPickedUp', {
   tick: SimulationTickSchema,
   actor: EntityIdSchema,
   source: ItemPickupSourceSchema,
   item: ItemIdSchema,
   count: StackCountSchema,
-})
+}))
 
 type ItemConsumedFields = {
   actor: Schema.Schema.Type<typeof EntityIdSchema>
@@ -103,10 +104,10 @@ type ItemConsumedFieldsEncoded = {
 export const ItemConsumedEventSchema: Schema.Codec<
   EventValue<'ItemConsumed', ItemConsumedFields>,
   EventEncoded<'ItemConsumed', ItemConsumedFieldsEncoded>
-> = Schema.TaggedStruct('ItemConsumed', {
+> = strictEventSchema(Schema.TaggedStruct('ItemConsumed', {
   tick: SimulationTickSchema,
   actor: EntityIdSchema,
   item: ItemIdSchema,
   count: StackCountSchema,
   use: Schema.Literals(['food', 'potion', 'bow-ammo', 'ender-pearl']),
-})
+}))

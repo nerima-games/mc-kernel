@@ -35,6 +35,7 @@ import {
   VehicleTransitionEventSchema,
   WeatherGameplayEffectEventSchema,
 } from './projectile-gameplay-events.js'
+import { strictEventSchema } from './strict-event-schema.js'
 
 export {
   DamageAmountSchema,
@@ -190,51 +191,53 @@ type DomainEventValue = ExistingDomainEventValue | AddedDomainEventValue
 type DomainEventEncoded = ExistingDomainEventEncoded | AddedDomainEventEncoded
 
 // Positions use block units; damage and level-up events capture their creation-time position.
-export const DomainEventSchema: Schema.Codec<DomainEventValue, DomainEventEncoded> = Schema.Union([
-  Schema.TaggedStruct('EntityDamaged', {
-    tick: SimulationTickSchema,
-    entity: EntityIdSchema,
-    position: WorldPositionSchema,
-    amount: DamageAmountSchema,
-    cause: DamageCauseSchema,
-  }),
-  Schema.TaggedStruct('BlockBroken', {
-    tick: SimulationTickSchema,
-    actor: EntityIdSchema,
-    address: BlockAddressSchema,
-    block: BlockIdSchema,
-  }),
-  Schema.TaggedStruct('Explosion', {
-    tick: SimulationTickSchema,
-    position: WorldPositionSchema,
-    power: ExplosionPowerSchema,
-    source: ExplosionSourceSchema,
-  }),
-  Schema.TaggedStruct('LevelUp', {
-    tick: SimulationTickSchema,
-    entity: EntityIdSchema,
-    position: WorldPositionSchema,
-    level: LevelUpLevelSchema,
-  }),
-  Schema.TaggedStruct('AchievementUnlocked', {
-    tick: SimulationTickSchema,
-    player: EntityIdSchema,
-    achievement: AchievementIdSchema,
-  }),
-  BlockPlacedEventSchema,
-  BlockChangedByWorldEventSchema,
-  EntityDiedEventSchema,
-  EntityHealedEventSchema,
-  EntitySpawnedEventSchema,
-  EntityTeleportedEventSchema,
-  ItemDroppedEventSchema,
-  ItemPickedUpEventSchema,
-  ItemConsumedEventSchema,
-  WeatherGameplayEffectEventSchema,
-  ProjectileLaunchedEventSchema,
-  ProjectileImpactedEventSchema,
-  ShieldBlockedEventSchema,
-  ExperienceCollectedEventSchema,
-  VehicleTransitionEventSchema,
-])
+export const DomainEventSchema: Schema.Codec<DomainEventValue, DomainEventEncoded> = strictEventSchema(
+  Schema.Union([
+    Schema.TaggedStruct('EntityDamaged', {
+      tick: SimulationTickSchema,
+      entity: EntityIdSchema,
+      position: WorldPositionSchema,
+      amount: DamageAmountSchema,
+      cause: DamageCauseSchema,
+    }),
+    Schema.TaggedStruct('BlockBroken', {
+      tick: SimulationTickSchema,
+      actor: EntityIdSchema,
+      address: BlockAddressSchema,
+      block: BlockIdSchema,
+    }),
+    Schema.TaggedStruct('Explosion', {
+      tick: SimulationTickSchema,
+      position: WorldPositionSchema,
+      power: ExplosionPowerSchema,
+      source: ExplosionSourceSchema,
+    }),
+    Schema.TaggedStruct('LevelUp', {
+      tick: SimulationTickSchema,
+      entity: EntityIdSchema,
+      position: WorldPositionSchema,
+      level: LevelUpLevelSchema,
+    }),
+    Schema.TaggedStruct('AchievementUnlocked', {
+      tick: SimulationTickSchema,
+      player: EntityIdSchema,
+      achievement: AchievementIdSchema,
+    }),
+    BlockPlacedEventSchema,
+    BlockChangedByWorldEventSchema,
+    EntityDiedEventSchema,
+    EntityHealedEventSchema,
+    EntitySpawnedEventSchema,
+    EntityTeleportedEventSchema,
+    ItemDroppedEventSchema,
+    ItemPickedUpEventSchema,
+    ItemConsumedEventSchema,
+    WeatherGameplayEffectEventSchema,
+    ProjectileLaunchedEventSchema,
+    ProjectileImpactedEventSchema,
+    ShieldBlockedEventSchema,
+    ExperienceCollectedEventSchema,
+    VehicleTransitionEventSchema,
+  ]),
+)
 export type DomainEvent = Schema.Schema.Type<typeof DomainEventSchema>

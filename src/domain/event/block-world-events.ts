@@ -6,6 +6,7 @@ import {
   EntityIdSchema,
   SimulationTickSchema,
 } from '../shared-vocabulary/shared-vocabulary.js'
+import { strictEventSchema } from './strict-event-schema.js'
 
 type EventValue<Tag extends string, Fields extends object> = Readonly<{
   _tag: Tag
@@ -32,12 +33,12 @@ type BlockPlacedFieldsEncoded = {
 export const BlockPlacedEventSchema: Schema.Codec<
   EventValue<'BlockPlaced', BlockPlacedFields>,
   EventEncoded<'BlockPlaced', BlockPlacedFieldsEncoded>
-> = Schema.TaggedStruct('BlockPlaced', {
+> = strictEventSchema(Schema.TaggedStruct('BlockPlaced', {
   tick: SimulationTickSchema,
   actor: EntityIdSchema,
   address: BlockAddressSchema,
   block: BlockIdSchema,
-})
+}))
 
 type BlockChangedByWorldFields = {
   address: Schema.Schema.Type<typeof BlockAddressSchema>
@@ -52,8 +53,8 @@ type BlockChangedByWorldFieldsEncoded = {
 export const BlockChangedByWorldEventSchema: Schema.Codec<
   EventValue<'BlockChangedByWorld', BlockChangedByWorldFields>,
   EventEncoded<'BlockChangedByWorld', BlockChangedByWorldFieldsEncoded>
-> = Schema.TaggedStruct('BlockChangedByWorld', {
+> = strictEventSchema(Schema.TaggedStruct('BlockChangedByWorld', {
   tick: SimulationTickSchema,
   address: BlockAddressSchema,
   cause: Schema.Literals(['fire', 'weather', 'fluid', 'support-cascade', 'explosion']),
-})
+}))

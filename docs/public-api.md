@@ -2080,7 +2080,7 @@ ID/name schema は空でない文字列、`SaveVersionSchema` は正の整数、
 
 ## 7-bis. Domain events (`domain-event`)
 
-`DomainEventSchema` is a transient tagged union that records values at event time. Import it from the package root or the `domain/domain-event` subpath. Positions use block units. The vocabulary belongs to `mc-kernel`; the event bus belongs to `mc-sim`. Events notify consumers after a state transition succeeds and do not hold authoritative state. This release adds fifteen tags, so exhaustive consumers must handle them. Producers of `EntityDamaged` and `Explosion` must provide the newly required `cause` and `source` fields.
+`DomainEventSchema` is a transient tagged union that records values at event time. Import it from the package root or the `domain/domain-event` subpath. Positions use block units. The vocabulary belongs to `mc-kernel`; the event bus belongs to `mc-sim`. Events notify consumers after a state transition succeeds and do not hold authoritative state. Event decoders reject undeclared properties at the event and nested payload levels, including the five tags first published in 0.9.0; extra properties that were previously ignored now cause decoding to fail. The first five rows below are the tags available in 0.9.0; the remaining fifteen are new in 0.10.0. Exhaustive consumers must handle them. Producers of `EntityDamaged` and `Explosion` must provide the newly required `cause` and `source` fields. `mx-gameplay` has not yet released a producer for these event payloads.
 
 | `_tag` | Required payload | Constraints |
 | --- | --- | --- |

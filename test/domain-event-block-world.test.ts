@@ -22,6 +22,18 @@ describe('BlockPlacedEventSchema', () => {
     expect(Result.isSuccess(decodeBlockPlaced(event))).toBe(true)
   })
 
+  it('rejects undeclared properties at the event and nested payload levels', () => {
+    expect(Result.isSuccess(decodeBlockPlaced({ ...event, extra: true }))).toBe(false)
+    expect(
+      Result.isSuccess(
+        decodeBlockPlaced({
+          ...event,
+          address: { ...event.address, extra: true },
+        }),
+      ),
+    ).toBe(false)
+  })
+
   it('rejects an omitted tick and an invalid tick', () => {
     const { tick: _tick, ...withoutTick } = event
 
