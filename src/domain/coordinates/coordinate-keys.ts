@@ -1,4 +1,4 @@
-import { Brand, Result } from 'effect'
+import { Brand, Result, Schema } from 'effect'
 
 import {
   BlockAxis,
@@ -157,6 +157,10 @@ export const ChunkKey = (value: unknown): Result.Result<ChunkKey, CoordinateKeyF
 /** True only for the single canonical spelling of a safe-integer chunk key. */
 export const isChunkKey = (value: unknown): value is ChunkKey =>
   typeof value === 'string' && parseChunkKey(value) !== undefined
+
+export const ChunkKeySchema: Schema.Codec<ChunkKey, string> = Schema.String
+  .check(Schema.makeFilter(isChunkKey))
+  .pipe(Schema.brand('ChunkKey'))
 
 /** Parses a trusted canonical chunk key, rejecting malformed forged values. */
 export const chunkCoordOfKey = (value: ChunkKey): Result.Result<ChunkCoord, CoordinateKeyFailure> => {

@@ -1,5 +1,6 @@
-import { Context, Effect, Schema } from 'effect'
+import { Context, Effect, Schema, SchemaParser } from 'effect'
 import type { Cause } from 'effect'
+import { ChunkKeySchema } from '../coordinates/coordinate-keys.js'
 import {
   BlockIdSchema,
   BlockPositionSchema,
@@ -88,10 +89,47 @@ const WorldWriteInvalidBatchBase: Schema.Class<
 
 export class WorldWriteInvalidBatch extends WorldWriteInvalidBatchBase {}
 
+const worldWriteChunkUnavailableFields: {
+  readonly dimension: typeof DimensionIdSchema
+  readonly chunk: typeof ChunkKeySchema
+} = {
+  dimension: DimensionIdSchema,
+  chunk: ChunkKeySchema,
+}
+
+const WorldWriteChunkUnavailableBase: Schema.Class<
+  WorldWriteChunkUnavailable,
+  Schema.TaggedStruct<'WorldWriteChunkUnavailable', typeof worldWriteChunkUnavailableFields>,
+  Cause.YieldableError
+> = Schema.TaggedError<WorldWriteChunkUnavailable>()(
+  'WorldWriteChunkUnavailable',
+  worldWriteChunkUnavailableFields,
+)
+
+export class WorldWriteChunkUnavailable extends WorldWriteChunkUnavailableBase {}
+
+export const WorldWriteChunkUnavailableSchema: Schema.Codec<
+  WorldWriteChunkUnavailable,
+  Schema.Codec.Encoded<typeof WorldWriteChunkUnavailable>
+> = Schema.declareConstructor<
+  WorldWriteChunkUnavailable,
+  Schema.Codec.Encoded<typeof WorldWriteChunkUnavailable>
+>()(
+  [WorldWriteChunkUnavailable],
+  ([inner]) => (input, _ast, options) =>
+    SchemaParser.decodeUnknownEffect(inner)(input, {
+      ...options,
+      onExcessProperty: 'error',
+    }),
+)
+
 type WorldWriteService = {
   readonly applyBatch: (
     batch: WorldWriteBatch,
-  ) => Effect.Effect<WorldWriteCommit, WorldWriteConflict | WorldWriteInvalidBatch>
+  ) => Effect.Effect<
+    WorldWriteCommit,
+    WorldWriteConflict | WorldWriteInvalidBatch | WorldWriteChunkUnavailable
+  >
 }
 
 const WorldWritePortBase: Context.ServiceClass<

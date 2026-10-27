@@ -468,6 +468,8 @@ describe("public API surface", () => {
           "BlockEditSchema",
           "WorldWriteBatchSchema",
           "WorldWriteCommitSchema",
+          "WorldWriteChunkUnavailable",
+          "WorldWriteChunkUnavailableSchema",
           "WorldWriteConflict",
           "WorldWriteInvalidBatch",
           "WorldWritePort",

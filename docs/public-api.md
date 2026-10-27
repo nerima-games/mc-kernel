@@ -644,7 +644,8 @@ transmute の現在の JSON schema は [Minecraft Java Edition 26.1](https://www
 
 ### 3-ter-4. special recipe（crafting-special）
 
-特殊クラフトは 10 種の `CraftingSpecialRecipe` で表す。kernel は各型のコンストラクタと Java 版 recipe JSON decoder を公開する。
+特殊クラフトは 10 種の `CraftingSpecialRecipe` で表す。
+kernel は各型のコンストラクタと Java 版 recipe JSON decoder を公開する。
 実行時の照合と適用は `mc-sim` の責務である（[実行時処理の所有元](./responsibility.md)）。
 
 ```typescript
@@ -2115,13 +2116,15 @@ ID/name schema は空でない文字列、`SaveVersionSchema` は正の整数、
 
 `domain/world-write-port` subpath は kernel の書込 port とデータ型を公開する。`BlockEditSchema` は `{ position, block }` を検証し、同じ shape を `BlockEdit` 型で表す。`WorldWriteBatchSchema` は world/dimension の期待 revision と edits、`WorldWriteCommitSchema` は確定後の両 revision を表す。batch schema は空の `edits` も構造上 decode する。`WorldWriteInvalidBatch.reason` は `empty` または `duplicate-position` を示す。
 
+`WorldWriteChunkUnavailable` は書き込み先の chunk を利用できない場合を表し、`{ dimension, chunk }` を保持する。`dimension` は `DimensionIdSchema` で検証するブランド値であり、`chunk` には正規形の `ChunkKey`（`cx,cz`）を使う。`WorldWriteChunkUnavailableSchema` は両方の値を検証し、必須項目の欠落と余分なフィールドを拒否する。
+
 ```typescript
 class WorldWritePort extends Context.Service<WorldWritePort, {
   readonly applyBatch: (
     batch: WorldWriteBatch,
   ) => Effect.Effect<
     WorldWriteCommit,
-    WorldWriteConflict | WorldWriteInvalidBatch
+    WorldWriteConflict | WorldWriteInvalidBatch | WorldWriteChunkUnavailable
   >;
 }>()("mc-kernel/domain/world/WorldWritePort") {}
 ```
