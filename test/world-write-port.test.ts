@@ -4,6 +4,8 @@ import {
   BlockEditSchema,
   WorldWriteBatchSchema,
   WorldWriteCommitSchema,
+  WorldWriteChunkUnavailable,
+  WorldWriteChunkUnavailableSchema,
   WorldWriteConflict,
   WorldWriteInvalidBatch,
 } from '../src/domain/world/world-write-port.js'
@@ -73,4 +75,46 @@ describe('world write port schemas', () => {
       expect(error).toMatchObject({ _tag: 'WorldWriteInvalidBatch', reason })
     },
   )
+
+  it('decodes a chunk-unavailable failure with a branded dimension and canonical chunk key', () => {
+    const error = Schema.decodeUnknownSync(WorldWriteChunkUnavailableSchema)({
+      _tag: 'WorldWriteChunkUnavailable',
+      dimension: 'nether',
+      chunk: '-1,2',
+    })
+
+    expect(error).toBeInstanceOf(WorldWriteChunkUnavailable)
+    expect(error).toMatchObject({
+      _tag: 'WorldWriteChunkUnavailable',
+      dimension: 'nether',
+      chunk: '-1,2',
+    })
+  })
+
+  it.each([
+    { _tag: 'WorldWriteChunkUnavailable', chunk: '-1,2' },
+    { _tag: 'WorldWriteChunkUnavailable', dimension: 'nether' },
+  ])('rejects a chunk-unavailable failure with a missing required field', (input) => {
+    expect(() => Schema.decodeUnknownSync(WorldWriteChunkUnavailableSchema)(input)).toThrow()
+  })
+
+  it('rejects extra properties on a chunk-unavailable failure', () => {
+    expect(() => Schema.decodeUnknownSync(WorldWriteChunkUnavailableSchema)({
+      _tag: 'WorldWriteChunkUnavailable',
+      dimension: 'nether',
+      chunk: '-1,2',
+      extra: true,
+    })).toThrow()
+  })
+
+  it.each([
+    { dimension: 'void', chunk: '-1,2' },
+    { dimension: 'nether', chunk: '-1.0,2' },
+  ])('rejects an invalid dimension or chunk key', ({ dimension, chunk }) => {
+    expect(() => Schema.decodeUnknownSync(WorldWriteChunkUnavailableSchema)({
+      _tag: 'WorldWriteChunkUnavailable',
+      dimension,
+      chunk,
+    })).toThrow()
+  })
 })

@@ -3,12 +3,13 @@ import { expectTypeOf } from 'vitest'
 import type {
   WorldWriteBatch,
   WorldWriteCommit,
+  WorldWriteChunkUnavailable,
   WorldWriteConflict,
   WorldWriteInvalidBatch,
   WorldWritePort,
 } from '../src/domain/world/world-write-port.js'
 
-type ExpectedFailures = WorldWriteConflict | WorldWriteInvalidBatch
+type ExpectedFailures = WorldWriteConflict | WorldWriteInvalidBatch | WorldWriteChunkUnavailable
 type ExpectedService = {
   readonly applyBatch: (batch: WorldWriteBatch) => Effect.Effect<WorldWriteCommit, ExpectedFailures>
 }

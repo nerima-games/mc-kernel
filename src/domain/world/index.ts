@@ -3,6 +3,8 @@ export {
   BlockEditSchema,
   WorldWriteBatchSchema,
   WorldWriteCommitSchema,
+  WorldWriteChunkUnavailable,
+  WorldWriteChunkUnavailableSchema,
   WorldWriteConflict,
   WorldWriteInvalidBatch,
   WorldWritePort,
