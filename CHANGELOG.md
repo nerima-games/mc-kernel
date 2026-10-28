@@ -1,5 +1,11 @@
 # @nerima-games/mc-kernel
 
+## 0.14.0
+
+### Minor Changes
+
+- Remove the non-vanilla `minecraft:story/obtain_obsidian` alias from the achievement ID catalog. Keep `minecraft:story/form_obsidian` as the vanilla Ice Bucket Challenge ID.
+
 ## 0.13.0
 
 ### Minor Changes
