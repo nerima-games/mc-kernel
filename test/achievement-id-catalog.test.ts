@@ -191,7 +191,15 @@ describe('AchievementId catalog', () => {
   })
 
   it('returns a typed failure for the non-vanilla obsidian alias', () => {
-    expect(Result.isFailure(decodeAchievementId('minecraft:story/obtain_obsidian'))).toBe(true)
+    const result = decodeAchievementId('minecraft:story/obtain_obsidian')
+
+    expectTypeOf(result).toEqualTypeOf<
+      Result.Result<kernel.DomainEventAchievementId, Schema.SchemaError>
+    >()
+    expect(Result.isFailure(result)).toBe(true)
+    if (Result.isFailure(result)) {
+      expect(Schema.isSchemaError(result.failure)).toBe(true)
+    }
   })
 
   it('returns typed failures for arbitrary strings outside the catalog', () => {
