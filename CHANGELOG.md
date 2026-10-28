@@ -1,5 +1,13 @@
 # @nerima-games/mc-kernel
 
+## 0.12.0
+
+### Minor Changes
+
+- Align block fire-spread capabilities with vanilla Java Edition.
+
+- Add a BrewingStand source for ItemPickedUp events.
+
 ## 0.11.0
 
 ### Minor Changes
