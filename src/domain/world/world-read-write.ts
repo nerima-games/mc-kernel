@@ -190,14 +190,15 @@ export const readView = (input: ReadViewInput): Result.Result<ReadView, WorldRea
   if (!(blocks instanceof Uint16Array) || !(light instanceof Uint16Array)) {
     return failure('invalid-read-view', 'ReadView sections must be Uint16Array values')
   }
-  let blockData: Uint16Array
-  let lightData: Uint16Array
-  try {
-    blockData = Uint16Array.prototype.slice.call(blocks)
-    lightData = Uint16Array.prototype.slice.call(light)
-  } catch {
-    return failure('invalid-read-view', 'ReadView sections could not be copied')
-  }
+  const copied = Result.try({
+    try: (): { blockData: Uint16Array; lightData: Uint16Array } => ({
+      blockData: Uint16Array.prototype.slice.call(blocks),
+      lightData: Uint16Array.prototype.slice.call(light),
+    }),
+    catch: () => failureValue('invalid-read-view', 'ReadView sections could not be copied'),
+  })
+  if (Result.isFailure(copied)) return Result.fail(copied.failure)
+  const { blockData, lightData } = copied.success
 
   const epochValue = inputSnapshot.success['epoch']
   const chunkValue = inputSnapshot.success['chunk']

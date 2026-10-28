@@ -1,0 +1,302 @@
+[
+  {
+    "count": 1,
+    "file": "src/domain/item/item-component-values.ts",
+    "ruleId": "no-effect-run-outside-entrypoints",
+    "text": "Effect.runSync(Effect.result(Effect.try({ try: read, catch: () => componentFailure(field, `Unable to inspect ${field}`, input, 'hostile-input'), })))"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/item/item-components-validation.ts",
+    "ruleId": "no-effect-run-outside-entrypoints",
+    "text": "Effect.runSync(Effect.result(Effect.try({ try: () => isResolvedNestedValue(value, new Set<object>(), 'components'), catch: () => itemValidationFailure('components', 'Unable to inspect item components', 'hostile-input', value), })))"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/item/item-components-validation.ts",
+    "ruleId": "no-effect-run-outside-entrypoints",
+    "text": "Effect.runSync(Effect.result(Effect.try({ try: () => left === right || (left !== undefined && right !== undefined && deepValueEqual(left, right)), catch: () => itemValidationFailure('components', 'Unable to compare item components', 'hostile-input'), })))"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/item/item-registry.ts",
+    "ruleId": "no-effect-run-outside-entrypoints",
+    "text": "Effect.runSync(Effect.result(Effect.try({ try: () => bytes.slice(), catch: () => itemValidationFailure('bytes', 'Unable to read ItemIdBytes input', 'hostile-input', bytes), })))"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/item/item-registry.ts",
+    "ruleId": "no-effect-run-outside-entrypoints",
+    "text": "Effect.runSync(Effect.result(Effect.try({ try: () => { const length = copied.success.length return { length, highByte: length === ITEM_ID_BYTES ? copied.success[ITEM_ID_BYTE_OFFSET] : undefined, lowByte: length === ITEM_ID_BYTES ? copied.success[ITEM_ID_BYTE_OFFSET + 1] : undefined, } }, catch: () => itemValidationFailure('bytes', 'Unable to read ItemIdBytes input', 'hostile-input', bytes), })))"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/item/item-stack.ts",
+    "ruleId": "no-effect-run-outside-entrypoints",
+    "text": "Effect.runSync(Effect.result(Effect.try({ try: () => { if (!isRecord(value)) return false const keys = Object.keys(value) if (!keys.every((key) => key === 'item' || key === 'count' || key === 'components')) return false if (!Object.hasOwn(value, 'item') || !Object.hasOwn(value, 'count') || !Object.hasOwn(value, 'components')) return false const item = Reflect.get(value, 'item') const components = Reflect.get(value, 'components') const count = Reflect.get(value, 'count') return isItemType(item) && isItemComponents(components) && typeof count === 'number' && Number.isSafeInteger(count) && count >= 1 && count <= components.maxStackSize }, catch: () => failure('stack', 'Unable to inspect item stack', 'hostile-input', value), })))"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/item/tool-component.ts",
+    "ruleId": "no-effect-run-outside-entrypoints",
+    "text": "Effect.runSync(Effect.result(Effect.try({ try: read, catch: () => failure(field, `Unable to inspect ${field}`, value, 'hostile-input'), })))"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/text/json-value.ts",
+    "ruleId": "no-effect-run-outside-entrypoints",
+    "text": "Effect.runSync(Effect.result(Effect.try({ try: () => isJsonValueIn(value, new WeakSet<object>()), catch: () => false, })))"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/text/text-component-validation.ts",
+    "ruleId": "no-effect-run-outside-entrypoints",
+    "text": "Effect.runSync(Effect.result(Effect.try({ try: () => { if (typeof value === 'string') return true if (value === null || typeof value !== 'object') return false return isTextComponentValueInternal(value, new WeakSet<object>()) }, catch: () => false, })))"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/block/light-data.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "number"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/item/item-combat.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "number"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/item/item-combat.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/item/item-component-patch.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "string"
+  },
+  {
+    "count": 3,
+    "file": "src/domain/item/item-component-values.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "number"
+  },
+  {
+    "count": 17,
+    "file": "src/domain/item/item-component-values.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "string"
+  },
+  {
+    "count": 2,
+    "file": "src/domain/item/item-failure.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "string"
+  },
+  {
+    "count": 4,
+    "file": "src/domain/recipe/recipe-data.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "string"
+  },
+  {
+    "count": 5,
+    "file": "src/domain/recipe/recipe-error.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/world/chunk.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "number"
+  },
+  {
+    "count": 2,
+    "file": "src/domain/world/data-pack-registry.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "number"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/world/random-source.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "number"
+  },
+  {
+    "count": 6,
+    "file": "src/domain/world/world-read-write.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "number"
+  },
+  {
+    "count": 5,
+    "file": "src/input-snapshot.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "number"
+  },
+  {
+    "count": 9,
+    "file": "src/input-snapshot.ts",
+    "ruleId": "no-raw-exported-function-parameter",
+    "text": "string"
+  },
+  {
+    "count": 2,
+    "file": "src/input-snapshot.ts",
+    "ruleId": "no-raw-exported-function-return",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/block/block-capabilities.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/block/block-definition.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/block/block-property-validation.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/block/block-registry-indexes.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/block/block-state.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/block/block-support.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/block/light-data.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/coordinates/coordinate-keys.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/coordinates/coordinate-neighbours.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 2,
+    "file": "src/domain/entity/entity-attributes.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "number"
+  },
+  {
+    "count": 8,
+    "file": "src/domain/entity/wither-data.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "number"
+  },
+  {
+    "count": 2,
+    "file": "src/domain/item/item-failure.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 5,
+    "file": "src/domain/recipe/recipe-error.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/text/game-mode-validation.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 4,
+    "file": "src/domain/text/game-rule-data.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "number"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/text/json-value.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/text/statistics-data.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "number"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/text/text-component.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/world/biome-validation.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/world/chunk.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/world/data-pack-registry.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/world/random-source.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "number"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/world/random-source.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/world/world-read-write.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  },
+  {
+    "count": 3,
+    "file": "src/input-snapshot.ts",
+    "ruleId": "no-raw-exported-type-field",
+    "text": "string"
+  }
+]

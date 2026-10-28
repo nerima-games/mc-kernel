@@ -50,7 +50,6 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntryInput> = [
       capabilities: {
         passable: true, // block-collision-predicates.ts:29
         climbable: true, // block-collision-predicates.ts:177-182 (`isInLadder`)
-        flammable: true, // fire-lifecycle.ts:26 (`FLAMMABLE_BLOCK_TYPES`)
         suffocates: false, // environment-hazard.config.ts:63 (`NON_SUFFOCATING_BLOCKS`)
         validSpawnSurface: false, // spawn-selection-search.ts:46
       },
@@ -123,7 +122,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntryInput> = [
     id: BlockId(21),
     definition: {
       type: 'dandelion',
-      capabilities: SURFACE_PLANT_CAPABILITIES,
+      capabilities: { ...SURFACE_PLANT_CAPABILITIES, flammable: true },
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
@@ -136,7 +135,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntryInput> = [
     id: BlockId(22),
     definition: {
       type: 'poppy',
-      capabilities: SURFACE_PLANT_CAPABILITIES,
+      capabilities: { ...SURFACE_PLANT_CAPABILITIES, flammable: true },
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
@@ -183,7 +182,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntryInput> = [
     id: BlockId(25),
     definition: {
       type: 'tall_grass',
-      capabilities: SURFACE_PLANT_CAPABILITIES,
+      capabilities: { ...SURFACE_PLANT_CAPABILITIES, flammable: true },
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',
@@ -199,7 +198,7 @@ export const BLOCK_REGISTRY_PASSABLE: ReadonlyArray<BlockRegistryEntryInput> = [
     id: BlockId(26),
     definition: {
       type: 'fern',
-      capabilities: SURFACE_PLANT_CAPABILITIES,
+      capabilities: { ...SURFACE_PLANT_CAPABILITIES, flammable: true },
       properties: {
         ...PLANT_PROPERTIES,
         renderKind: 'cross',

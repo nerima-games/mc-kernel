@@ -1,6 +1,7 @@
 import { Schema } from 'effect'
 
 import {
+  BlockAddressSchema,
   EntityIdSchema,
   ItemIdSchema,
   SimulationTickSchema,
@@ -22,10 +23,12 @@ type EventEncoded<Tag extends string, Fields extends object> = Readonly<{
 type ItemPickupSourceValue =
   | Readonly<{ _tag: 'DroppedItem'; id: Schema.Schema.Type<typeof EntityIdSchema> }>
   | Readonly<{ _tag: 'Projectile'; id: Schema.Schema.Type<typeof ProjectileIdSchema> }>
+  | Readonly<{ _tag: 'BrewingStand'; address: Schema.Schema.Type<typeof BlockAddressSchema> }>
 
 type ItemPickupSourceEncoded =
   | Readonly<{ _tag: 'DroppedItem'; id: Schema.Codec.Encoded<typeof EntityIdSchema> }>
   | Readonly<{ _tag: 'Projectile'; id: Schema.Codec.Encoded<typeof ProjectileIdSchema> }>
+  | Readonly<{ _tag: 'BrewingStand'; address: Schema.Codec.Encoded<typeof BlockAddressSchema> }>
 
 const ItemPickupSourceSchema: Schema.Codec<ItemPickupSourceValue, ItemPickupSourceEncoded> =
   Schema.Union([
@@ -34,6 +37,9 @@ const ItemPickupSourceSchema: Schema.Codec<ItemPickupSourceValue, ItemPickupSour
     }),
     Schema.TaggedStruct('Projectile', {
       id: ProjectileIdSchema,
+    }),
+    Schema.TaggedStruct('BrewingStand', {
+      address: BlockAddressSchema,
     }),
   ])
 

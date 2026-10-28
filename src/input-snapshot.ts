@@ -36,6 +36,14 @@ const failure = (
   value,
 })
 
+const safely = <Value>(
+  action: () => Result.Result<Value, InputSnapshotFailure>,
+  onFailure: () => InputSnapshotFailure,
+): Result.Result<Value, InputSnapshotFailure> => {
+  const attempted = Result.try({ try: action, catch: onFailure })
+  return Result.isFailure(attempted) ? Result.fail(attempted.failure) : attempted.success
+}
+
 const propertyPath = (parent: string | undefined, property: string): string =>
   parent === undefined || parent.length === 0 ? property : `${parent}.${property}`
 
@@ -52,7 +60,7 @@ const snapshotInputArrayImpl = (
 ): Result.Result<ReadonlyArray<unknown>, InputSnapshotFailure> => {
   if (!validLimit(maxLength)) return Result.fail(failure('invalid-limit', value, undefined, pathPrefix))
 
-  try {
+  return safely(() => {
     if (!Array.isArray(value)) return Result.fail(failure('invalid-container', value, undefined, pathPrefix))
     const length: unknown = Reflect.get(value, 'length')
     if (typeof length !== 'number' || !Number.isSafeInteger(length) || length < 0) {
@@ -63,16 +71,15 @@ const snapshotInputArrayImpl = (
     const snapshot: unknown[] = new Array(length)
     for (let index = 0; index < length; index += 1) {
       if (!Object.hasOwn(value, index)) continue
-      try {
-        snapshot[index] = Reflect.get(value, String(index))
-      } catch {
-        return Result.fail(failure('hostile-input', value, undefined, indexPath(pathPrefix, index)))
-      }
+      const entry = safely(
+        () => Result.succeed(Reflect.get(value, String(index))),
+        () => failure('hostile-input', value, undefined, indexPath(pathPrefix, index)),
+      )
+      if (Result.isFailure(entry)) return Result.fail(entry.failure)
+      snapshot[index] = entry.success
     }
     return Result.succeed(Object.freeze(snapshot))
-  } catch {
-    return Result.fail(failure('hostile-input', value, undefined, pathPrefix))
-  }
+  }, () => failure('hostile-input', value, undefined, pathPrefix))
 }
 
 export function snapshotInputArray(
@@ -116,7 +123,7 @@ export const snapshotInputArrayOf = <Value>(
 ): Result.Result<ReadonlyArray<Value | undefined>, InputSnapshotFailure> => {
   if (!validLimit(maxLength)) return Result.fail(failure('invalid-limit', value, undefined, pathPrefix))
 
-  try {
+  return safely(() => {
     if (!Array.isArray(value)) return Result.fail(failure('invalid-container', value, undefined, pathPrefix))
     const length: unknown = Reflect.get(value, 'length')
     if (typeof length !== 'number' || !Number.isSafeInteger(length) || length < 0) {
@@ -127,16 +134,15 @@ export const snapshotInputArrayOf = <Value>(
     const snapshot: Array<Value | undefined> = new Array(length)
     for (let index = 0; index < length; index += 1) {
       if (!Object.hasOwn(value, index)) continue
-      try {
-        snapshot[index] = value[index]
-      } catch {
-        return Result.fail(failure('hostile-input', value, undefined, indexPath(pathPrefix, index)))
-      }
+      const entry = safely(
+        () => Result.succeed(value[index]),
+        () => failure('hostile-input', value, undefined, indexPath(pathPrefix, index)),
+      )
+      if (Result.isFailure(entry)) return Result.fail(entry.failure)
+      snapshot[index] = entry.success
     }
     return Result.succeed(Object.freeze(snapshot))
-  } catch {
-    return Result.fail(failure('hostile-input', value, undefined, pathPrefix))
-  }
+  }, () => failure('hostile-input', value, undefined, pathPrefix))
 }
 
 const snapshotInputRecordImpl = (
@@ -144,8 +150,8 @@ const snapshotInputRecordImpl = (
   fields?: ReadonlyArray<string>,
   allowedFields?: ReadonlyArray<string>,
   pathPrefix?: string,
-): Result.Result<Readonly<Record<string, unknown>>, InputSnapshotFailure> => {
-  try {
+): Result.Result<Readonly<Record<string, unknown>>, InputSnapshotFailure> =>
+  safely(() => {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       return Result.fail(failure('invalid-container', value, undefined, pathPrefix))
     }
@@ -169,14 +175,13 @@ const snapshotInputRecordImpl = (
       const keys = Object.keys(value)
       if (keys.length > MAX_GENERIC_INPUT_ENTRIES) return Result.fail(failure('too-large', value, undefined, pathPrefix))
       for (const key of keys) {
-        let fieldValue: unknown
-        try {
-          fieldValue = Reflect.get(value, key)
-        } catch {
-          return Result.fail(failure('hostile-input', value, undefined, propertyPath(pathPrefix, key)))
-        }
+        const entry = safely(
+          () => Result.succeed(Reflect.get(value, key)),
+          () => failure('hostile-input', value, undefined, propertyPath(pathPrefix, key)),
+        )
+        if (Result.isFailure(entry)) return Result.fail(entry.failure)
         Object.defineProperty(snapshot, key, {
-          value: fieldValue,
+          value: entry.success,
           enumerable: true,
           configurable: true,
           writable: true,
@@ -184,15 +189,14 @@ const snapshotInputRecordImpl = (
       }
     } else {
       for (const field of fields) {
-        let fieldValue: unknown
-        try {
-          fieldValue = Reflect.get(value, field)
-        } catch {
-          return Result.fail(failure('hostile-input', value, undefined, propertyPath(pathPrefix, field)))
-        }
-        if (fieldValue === undefined) continue
+        const entry = safely(
+          () => Result.succeed(Reflect.get(value, field)),
+          () => failure('hostile-input', value, undefined, propertyPath(pathPrefix, field)),
+        )
+        if (Result.isFailure(entry)) return Result.fail(entry.failure)
+        if (entry.success === undefined) continue
         Object.defineProperty(snapshot, field, {
-          value: fieldValue,
+          value: entry.success,
           enumerable: true,
           configurable: true,
           writable: true,
@@ -200,10 +204,7 @@ const snapshotInputRecordImpl = (
       }
     }
     return Result.succeed(Object.freeze(snapshot))
-  } catch {
-    return Result.fail(failure('hostile-input', value, undefined, pathPrefix))
-  }
-}
+  }, () => failure('hostile-input', value, undefined, pathPrefix))
 
 export function snapshotInputRecord(
   value: unknown,
@@ -231,8 +232,8 @@ export const snapshotInputRecordWith = <Input extends object, Snapshot>(
   value: Input,
   read: (input: Input) => Snapshot,
   pathPrefix?: string,
-): Result.Result<Snapshot, InputSnapshotFailure> => {
-  try {
+): Result.Result<Snapshot, InputSnapshotFailure> =>
+  safely(() => {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       return Result.fail(failure('invalid-container', value, undefined, pathPrefix))
     }
@@ -241,10 +242,7 @@ export const snapshotInputRecordWith = <Input extends object, Snapshot>(
       return Result.fail(failure('unsupported-prototype', value, undefined, pathPrefix))
     }
     return Result.succeed(read(value))
-  } catch {
-    return Result.fail(failure('hostile-input', value, undefined, pathPrefix))
-  }
-}
+  }, () => failure('hostile-input', value, undefined, pathPrefix))
 
 export const snapshotInputEntries = (
   value: unknown,
@@ -252,7 +250,7 @@ export const snapshotInputEntries = (
   pathPrefix?: string,
 ): Result.Result<ReadonlyArray<readonly [string, unknown]>, InputSnapshotFailure> => {
   if (!validLimit(maxEntries)) return Result.fail(failure('invalid-limit', value, undefined, pathPrefix))
-  try {
+  return safely(() => {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) {
       return Result.fail(failure('invalid-container', value, undefined, pathPrefix))
     }
@@ -264,16 +262,15 @@ export const snapshotInputEntries = (
     if (keys.length > maxEntries) return Result.fail(failure('too-large', value, undefined, pathPrefix))
     const entries: Array<readonly [string, unknown]> = []
     for (const key of keys) {
-      try {
-        entries.push(Object.freeze([key, Reflect.get(value, key)] as const))
-      } catch {
-        return Result.fail(failure('hostile-input', value, undefined, propertyPath(pathPrefix, key)))
-      }
+      const entry = safely(
+        () => Result.succeed(Object.freeze([key, Reflect.get(value, key)] as const)),
+        () => failure('hostile-input', value, undefined, propertyPath(pathPrefix, key)),
+      )
+      if (Result.isFailure(entry)) return Result.fail(entry.failure)
+      entries.push(entry.success)
     }
     return Result.succeed(Object.freeze(entries))
-  } catch {
-    return Result.fail(failure('hostile-input', value, undefined, pathPrefix))
-  }
+  }, () => failure('hostile-input', value, undefined, pathPrefix))
 }
 
 const snapshotInputValueImpl = (
@@ -295,7 +292,7 @@ const snapshotInputValueImpl = (
     if (copies.has(current)) return Result.succeed(copies.get(current))
 
     ancestors.add(current)
-    try {
+    const copied = safely<unknown>(() => {
       if (Array.isArray(current)) {
         const entries = snapshotInputArray(current, maxArrayLength, path)
         if (Result.isFailure(entries)) return Result.fail(entries.failure)
@@ -327,11 +324,9 @@ const snapshotInputValueImpl = (
       const frozen = Object.freeze(result)
       copies.set(current, frozen)
       return Result.succeed(frozen)
-    } catch {
-      return Result.fail(failure('hostile-input', current, undefined, path))
-    } finally {
-      ancestors.delete(current)
-    }
+    }, () => failure('hostile-input', current, undefined, path))
+    ancestors.delete(current)
+    return copied
   }
 
   return validLimit(maxArrayLength)

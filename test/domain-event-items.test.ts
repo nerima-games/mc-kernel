@@ -1,3 +1,4 @@
+import * as fc from 'fast-check'
 import { Result, Schema } from 'effect'
 import { describe, expect, it } from 'vitest'
 import {
@@ -33,6 +34,17 @@ const consumedEvent = {
   use: 'food',
 }
 
+const brewingStandPickedUpEvent = {
+  ...pickedUpEvent,
+  source: {
+    _tag: 'BrewingStand',
+    address: {
+      dimension: 'overworld',
+      position: { x: 1, y: 64, z: -2 },
+    },
+  },
+}
+
 describe('item domain event schemas', () => {
   it('accepts dropped, picked up, and consumed events', () => {
     expect(Result.isSuccess(Schema.decodeUnknownResult(ItemDroppedEventSchema)(droppedEvent))).toBe(true)
@@ -49,6 +61,58 @@ describe('item domain event schemas', () => {
         }),
       ),
     ).toBe(true)
+  })
+
+  it('encodes existing item pickup sources without changing their shapes', () => {
+    const droppedItemPickup = Schema.decodeUnknownSync(ItemPickedUpEventSchema)(pickedUpEvent)
+    const droppedItemPickupEncoded = Schema.encodeSync(ItemPickedUpEventSchema)(droppedItemPickup)
+    expect(droppedItemPickupEncoded).toStrictEqual(pickedUpEvent)
+
+    const projectilePickupEvent = {
+      ...pickedUpEvent,
+      source: { _tag: 'Projectile', id: 'projectile-1' },
+    }
+    const projectilePickup = Schema.decodeUnknownSync(ItemPickedUpEventSchema)(projectilePickupEvent)
+    expect(
+      Schema.encodeSync(ItemPickedUpEventSchema)(projectilePickup),
+    ).toStrictEqual(projectilePickupEvent)
+  })
+
+  it('round trips BrewingStand item pickup sources through the public strict schema', () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom('overworld', 'nether', 'end'),
+        fc.record({ x: fc.integer(), y: fc.integer(), z: fc.integer() }),
+        (dimension, position) => {
+          const event = {
+            ...brewingStandPickedUpEvent,
+            source: { _tag: 'BrewingStand', address: { dimension, position } },
+          }
+          const decodedInput = Schema.decodeUnknownSync(ItemPickedUpEventSchema)(event)
+          const encoded = Schema.encodeSync(ItemPickedUpEventSchema)(decodedInput)
+          const decoded = Schema.decodeUnknownSync(ItemPickedUpEventSchema)(encoded)
+
+          expect(decoded).toStrictEqual(decodedInput)
+        },
+      ),
+    )
+  })
+
+  it('returns typed decode failures for invalid BrewingStand source shapes', () => {
+    const { address: _address, ...sourceWithoutAddress } = brewingStandPickedUpEvent.source
+    const invalidSources = [
+      sourceWithoutAddress,
+      { ...brewingStandPickedUpEvent.source, address: null },
+      { ...brewingStandPickedUpEvent.source, unexpected: true },
+    ]
+
+    for (const source of invalidSources) {
+      const decoded = Schema.decodeUnknownResult(ItemPickedUpEventSchema)({
+        ...brewingStandPickedUpEvent,
+        source,
+      })
+      expect(Result.isFailure(decoded)).toBe(true)
+    }
   })
 
   it('rejects each event when tick is missing', () => {

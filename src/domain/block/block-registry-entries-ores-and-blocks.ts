@@ -287,7 +287,11 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
   // `torch` 14 and `redstone_ore` 9.
   {
     id: BlockId(64),
-    definition: { type: 'coal_block', properties: { hardness: 65, friction: 0.8, footstepMaterial: 'stone' } },
+    definition: {
+      type: 'coal_block',
+      capabilities: { flammable: true },
+      properties: { hardness: 65, friction: 0.8, footstepMaterial: 'stone' },
+    },
   },
   {
     id: BlockId(65),

@@ -158,12 +158,12 @@ const resourceLocationOf = (
   field: string,
 ): DefenseResult<ResourceLocation> => {
   if (typeof value === 'string') return brandValue(ResourceLocation.result(value), field, value)
-  try {
-    const rendered = JSON.stringify(value) ?? String(value)
-    return Result.fail(failure(field, `ResourceLocation has invalid syntax, received ${rendered}`, value))
-  } catch {
-    return Result.fail(failure(field, `Unable to inspect ${field}`, value, 'hostile-input'))
-  }
+  const rendered = Result.try({
+    try: () => JSON.stringify(value) ?? String(value),
+    catch: () => failure(field, `Unable to inspect ${field}`, value, 'hostile-input'),
+  })
+  if (Result.isFailure(rendered)) return Result.fail(rendered.failure)
+  return Result.fail(failure(field, `ResourceLocation has invalid syntax, received ${rendered.success}`, value))
 }
 
 const damageReductionRuleOf = (

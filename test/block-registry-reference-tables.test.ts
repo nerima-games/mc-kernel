@@ -644,19 +644,20 @@ describe('the completed roster and additive gameplay vocabulary', () => {
       // These are the ones the last 84 finished, asserted as membership so that
       // "the table is complete" is checked rather than claimed.
 
-      // `FLAMMABLE_BLOCK_TYPES` (`fire-lifecycle.ts:19-30`), 11 members.
+      // Source: https://minecraft.wiki/w/Fire#Spread
+      // This covers every current registry ID represented by the table's block groups.
+      // The `Can catch fire from lava` column is separate from flammability/spread odds.
       const flammable = BLOCK_IDS.filter((id) => capabilityOfBlockId(id, 'flammable')).map((id) => blockTypeOfId(id))
       expect(flammable).toStrictEqual([
         'oak_log',
         'oak_leaves',
         'oak_planks',
-        'ladder',
-        'crafting_table',
-        'chest',
-        'door',
-        'door_open',
+        'dandelion',
+        'poppy',
+        'tall_grass',
+        'fern',
+        'coal_block',
         'oak_stairs',
-        'bed',
         'tnt',
       ])
 
