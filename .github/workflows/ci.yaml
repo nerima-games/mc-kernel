@@ -46,6 +46,11 @@ jobs:
           cachix-cache: ${{ vars.CACHIX_CACHE }}
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
+      - name: Shared ast-grep conformance
+        uses: nerima-games/.github/conformance/ast-grep@f594176eb568341ab31babbfef16a260979f75f2
+        with:
+          public-api-baseline: .ast-grep/public-api-baseline.json
+
       # mc-kernel has no @nerima-games/* dependency of its own, but the
       # registry lookup happens before pnpm knows that: @nerima-games:registry
       # in .npmrc points every scoped resolution at GitHub Packages, which

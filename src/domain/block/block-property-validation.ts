@@ -55,6 +55,11 @@ export type BlockPropertyFailure = {
   readonly message: string
 }
 
+const failureValue = (
+  reason: BlockPropertyFailure['reason'],
+  message: string,
+): BlockPropertyFailure => ({ _tag: 'BlockPropertyFailure', reason, message })
+
 const failure = (
   reason: BlockPropertyFailure['reason'],
   message: string,
@@ -198,8 +203,8 @@ const validateDropRule = (value: unknown): Result.Result<BlockDropRule, BlockPro
   })
 
 const validateSupportRule = (value: unknown): Result.Result<SupportRule, BlockPropertyFailure> => {
-  try {
-    return Result.gen(function* () {
+  const validated = Result.try({
+    try: (): Result.Result<SupportRule, BlockPropertyFailure> => Result.gen(function* () {
       if (!isRecord(value)) {
         return yield* failure('type', 'block property supportRule must be an object')
       }
@@ -232,10 +237,10 @@ const validateSupportRule = (value: unknown): Result.Result<SupportRule, BlockPr
       }
 
       return yield* failure('type', `unknown block property supportRule kind ${String(kind)}`)
-    })
-  } catch {
-    return failure('type', 'block property supportRule must be readable')
-  }
+    }),
+    catch: () => failureValue('type', 'block property supportRule must be readable'),
+  })
+  return Result.isFailure(validated) ? Result.fail(validated.failure) : validated.success
 }
 
 type CategoricalBlockPropertyOverrides = Pick<
@@ -378,20 +383,22 @@ function validateBlockPropertyOverrides(
     return failure(reason, message)
   }
   const copiedOverrides = snapshot.success
-  try {
-    if (!isRecord(copiedOverrides)) {
-      return failure('type', 'block property overrides must be an object')
-    }
-    return Result.gen(function* () {
-      yield* assertKnownKeys(copiedOverrides, BLOCK_PROPERTY_NAMES, 'block property')
-      const categorical = yield* validateCategoricalProperties(copiedOverrides)
-      const numeric = yield* validateNumericProperties(copiedOverrides)
-      const structured = yield* validateStructuredProperties(copiedOverrides)
-      return { ...categorical, ...numeric, ...structured }
-    })
-  } catch {
-    return failure('type', 'block property overrides must be readable')
-  }
+  const validated = Result.try({
+    try: () => {
+      if (!isRecord(copiedOverrides)) {
+        return failure('type', 'block property overrides must be an object')
+      }
+      return Result.gen(function* () {
+        yield* assertKnownKeys(copiedOverrides, BLOCK_PROPERTY_NAMES, 'block property')
+        const categorical = yield* validateCategoricalProperties(copiedOverrides)
+        const numeric = yield* validateNumericProperties(copiedOverrides)
+        const structured = yield* validateStructuredProperties(copiedOverrides)
+        return { ...categorical, ...numeric, ...structured }
+      })
+    },
+    catch: () => failureValue('type', 'block property overrides must be readable'),
+  })
+  return Result.isFailure(validated) ? Result.fail(validated.failure) : validated.success
 }
 
 /** Validate external or table data and brand its numeric property values. */
