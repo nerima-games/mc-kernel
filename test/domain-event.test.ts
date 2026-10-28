@@ -76,8 +76,9 @@ describe('LevelUpLevelSchema', () => {
 describe('AchievementIdSchema', () => {
   const decodeAchievementId = Schema.decodeUnknownResult(AchievementIdSchema)
 
-  it('accepts non-empty IDs and rejects an empty ID', () => {
-    expect(Result.isSuccess(decodeAchievementId('first_steps'))).toBe(true)
+  it('accepts known namespaced IDs and rejects unknown IDs', () => {
+    expect(Result.isSuccess(decodeAchievementId('minecraft:story/root'))).toBe(true)
+    expect(Result.isSuccess(decodeAchievementId('minecraft:story/not_real'))).toBe(false)
     expect(Result.isSuccess(decodeAchievementId(''))).toBe(false)
   })
 })
@@ -123,7 +124,7 @@ describe('DomainEventSchema', () => {
         _tag: 'AchievementUnlocked',
         tick: 4,
         player: 'player-1',
-        achievement: 'first_steps',
+        achievement: 'minecraft:story/root',
       },
       {
         _tag: 'BlockPlaced',

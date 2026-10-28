@@ -1,0 +1,207 @@
+import * as fc from 'fast-check'
+import { type Brand, Result, Schema } from 'effect'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import * as kernel from '../src/index.js'
+
+const advancementSourceNameById = {
+  'minecraft:story/root': 'Minecraft',
+  'minecraft:story/mine_stone': 'Stone Age',
+  'minecraft:story/upgrade_tools': 'Getting an Upgrade',
+  'minecraft:story/smelt_iron': 'Acquire Hardware',
+  'minecraft:story/obtain_armor': 'Suit Up',
+  'minecraft:story/lava_bucket': 'Hot Stuff',
+  'minecraft:story/iron_tools': "Isn't It Iron Pick?",
+  'minecraft:story/deflect_arrow': 'Not Today, Thank You',
+  'minecraft:story/form_obsidian': 'Ice Bucket Challenge',
+  'minecraft:story/obtain_obsidian': 'Ice Bucket Challenge',
+  'minecraft:story/mine_diamond': 'Diamonds!',
+  'minecraft:story/enter_the_nether': 'We Need to Go Deeper',
+  'minecraft:story/shiny_gear': 'Cover Me with Diamonds',
+  'minecraft:story/enchant_item': 'Enchanter',
+  'minecraft:story/cure_zombie_villager': 'Zombie Doctor',
+  'minecraft:story/follow_ender_eye': 'Eye Spy',
+  'minecraft:story/enter_the_end': 'The End?',
+  'minecraft:nether/root': 'Nether',
+  'minecraft:nether/return_to_sender': 'Return to Sender',
+  'minecraft:nether/find_bastion': 'Those Were the Days',
+  'minecraft:nether/obtain_ancient_debris': 'Hidden in the Depths',
+  'minecraft:nether/fast_travel': 'Subspace Bubble',
+  'minecraft:nether/find_fortress': 'A Terrible Fortress',
+  'minecraft:nether/obtain_crying_obsidian': 'Who is Cutting Onions?',
+  'minecraft:nether/distract_piglin': 'Oh Shiny',
+  'minecraft:nether/ride_strider': 'This Boat Has Legs',
+  'minecraft:nether/uneasy_alliance': 'Uneasy Alliance',
+  'minecraft:nether/loot_bastion': 'War Pigs',
+  'minecraft:nether/netherite_armor': 'Cover Me in Debris',
+  'minecraft:nether/get_wither_skull': 'Spooky Scary Skeleton',
+  'minecraft:nether/obtain_blaze_rod': 'Into Fire',
+  'minecraft:nether/charge_respawn_anchor': 'Not Quite "Nine" Lives',
+  'minecraft:nether/ride_strider_in_overworld_lava': 'Feels Like Home',
+  'minecraft:nether/explore_nether': 'Hot Tourist Destinations',
+  'minecraft:nether/summon_wither': 'Withering Heights',
+  'minecraft:nether/brew_potion': 'Local Brewery',
+  'minecraft:nether/create_beacon': 'Bring Home the Beacon',
+  'minecraft:nether/all_potions': 'A Furious Cocktail',
+  'minecraft:nether/create_full_beacon': 'Beaconator',
+  'minecraft:nether/all_effects': 'How Did We Get Here?',
+  'minecraft:end/root': 'The End',
+  'minecraft:end/kill_dragon': 'Free the End',
+  'minecraft:end/dragon_egg': 'The Next Generation',
+  'minecraft:end/enter_end_gateway': 'Remote Getaway',
+  'minecraft:end/respawn_dragon': 'The End... Again...',
+  'minecraft:end/dragon_breath': 'You Need a Mint',
+  'minecraft:end/find_end_city': 'The City at the End of the Game',
+  'minecraft:end/elytra': "Sky's the Limit",
+  'minecraft:end/levitate': 'Great View From Up Here',
+  'minecraft:adventure/root': 'Adventure',
+  'minecraft:adventure/heart_transplanter': 'Heart Transplanter',
+  'minecraft:adventure/voluntary_exile': 'Voluntary Exile',
+  'minecraft:adventure/use_lodestone': 'Country Lode, Take Me Home',
+  'minecraft:adventure/spyglass_at_parrot': 'Is It a Bird?',
+  'minecraft:adventure/kill_a_mob': 'Monster Hunter',
+  'minecraft:adventure/read_power_of_chiseled_bookshelf': 'The Power of Books',
+  'minecraft:adventure/trade': 'What a Deal!',
+  'minecraft:adventure/trim_with_any_armor_pattern': 'Crafting a New Look',
+  'minecraft:adventure/honey_block_slide': 'Sticky Situation',
+  'minecraft:adventure/ol_betsy': "Ol' Betsy",
+  'minecraft:adventure/lightning_rod_with_villager_no_fire': 'Surge Protector',
+  'minecraft:adventure/fall_from_world_height': 'Caves & Cliffs',
+  'minecraft:adventure/salvage_sherd': 'Respecting the Remnants',
+  'minecraft:adventure/avoid_vibration': 'Sneak 100',
+  'minecraft:adventure/sleep_in_bed': 'Sweet Dreams',
+  'minecraft:adventure/hero_of_the_village': 'Hero of the Village',
+  'minecraft:adventure/spyglass_at_ghast': 'Is It a Balloon?',
+  'minecraft:adventure/throw_trident': 'A Throwaway Joke',
+  'minecraft:adventure/kill_mob_near_sculk_catalyst': 'It Spreads',
+  'minecraft:adventure/shoot_arrow': 'Take Aim',
+  'minecraft:adventure/kill_all_mobs': 'Monsters Hunted',
+  'minecraft:adventure/totem_of_undying': 'Postmortal',
+  'minecraft:adventure/spear_many_mobs': 'Mob Kabob',
+  'minecraft:adventure/summon_iron_golem': 'Hired Help',
+  'minecraft:adventure/trade_at_world_height': 'Star Trader',
+  'minecraft:adventure/trim_with_all_exclusive_armor_patterns': 'Smithing with Style',
+  'minecraft:adventure/two_birds_one_arrow': 'Two Birds, One Arrow',
+  'minecraft:adventure/whos_the_pillager_now': "Who's the Pillager Now?",
+  'minecraft:adventure/arbalistic': 'Arbalistic',
+  'minecraft:adventure/craft_decorated_pot_using_only_sherds': 'Careful Restoration',
+  'minecraft:adventure/adventuring_time': 'Adventuring Time',
+  'minecraft:adventure/play_jukebox_in_meadows': 'Sound of Music',
+  'minecraft:adventure/walk_on_powder_snow_with_leather_boots': 'Light as a Rabbit',
+  'minecraft:adventure/spyglass_at_dragon': 'Is It a Plane?',
+  'minecraft:adventure/very_very_frightening': 'Very Very Frightening',
+  'minecraft:adventure/sniper_duel': 'Sniper Duel',
+  'minecraft:adventure/bullseye': 'Bullseye',
+  'minecraft:adventure/brush_armadillo': "Isn't It Scute?",
+  'minecraft:adventure/minecraft_trials_edition': 'Minecraft: Trial(s) Edition',
+  'minecraft:adventure/crafters_crafting_crafters': 'Crafters Crafting Crafters',
+  'minecraft:adventure/lighten_up': 'Lighten Up',
+  'minecraft:adventure/who_needs_rockets': 'Who Needs Rockets?',
+  'minecraft:adventure/under_lock_and_key': 'Under Lock and Key',
+  'minecraft:adventure/revaulting': 'Revaulting',
+  'minecraft:adventure/blowback': 'Blowback',
+  'minecraft:adventure/overoverkill': 'Over-Overkill',
+  'minecraft:husbandry/root': 'Husbandry',
+  'minecraft:husbandry/place_dried_ghast_in_water': 'Stay Hydrated!',
+  'minecraft:husbandry/safely_harvest_honey': 'Bee Our Guest',
+  'minecraft:husbandry/breed_an_animal': 'The Parrots and the Bats',
+  'minecraft:husbandry/allay_deliver_item_to_player': "You've Got a Friend in Me",
+  'minecraft:husbandry/ride_a_boat_with_a_goat': 'Whatever Floats Your Goat!',
+  'minecraft:husbandry/tame_an_animal': 'Best Friends Forever',
+  'minecraft:husbandry/make_a_sign_glow': 'Glow and Behold!',
+  'minecraft:husbandry/fishy_business': 'Fishy Business',
+  'minecraft:husbandry/silk_touch_nest': 'Total Beelocation',
+  'minecraft:husbandry/tadpole_in_a_bucket': 'Bukkit Bukkit',
+  'minecraft:husbandry/uh_oh': 'Uh-Oh',
+  'minecraft:husbandry/obtain_sniffer_egg': 'Smells Interesting',
+  'minecraft:husbandry/plant_seed': 'A Seedy Place',
+  'minecraft:husbandry/wax_on': 'Wax On',
+  'minecraft:husbandry/bred_all_animals': 'Two by Two',
+  'minecraft:husbandry/allay_deliver_cake_to_note_block': 'Birthday Song',
+  'minecraft:husbandry/complete_catalogue': 'A Complete Catalogue',
+  'minecraft:husbandry/tactical_fishing': 'Tactical Fishing',
+  'minecraft:husbandry/leash_all_frog_variants': 'When the Squad Hops into Town',
+  'minecraft:husbandry/feed_snifflet': 'Little Sniffs',
+  'minecraft:husbandry/balanced_diet': 'A Balanced Diet',
+  'minecraft:husbandry/obtain_netherite_hoe': 'Serious Dedication',
+  'minecraft:husbandry/wax_off': 'Wax Off',
+  'minecraft:husbandry/axolotl_in_a_bucket': 'The Cutest Predator',
+  'minecraft:husbandry/froglights': 'With Our Powers Combined!',
+  'minecraft:husbandry/plant_any_sniffer_seed': 'Planting the Past',
+  'minecraft:husbandry/kill_axolotl_target': 'The Healing Power of Friendship!',
+  'minecraft:husbandry/repair_wolf_armor': 'Good as New',
+  'minecraft:husbandry/whole_pack': 'The Whole Pack',
+  'minecraft:husbandry/remove_wolf_armor': 'Shear Brilliance',
+} as const satisfies Readonly<Record<kernel.DomainEventAchievementId, string>>
+
+const decodeAchievementId = Schema.decodeUnknownResult(kernel.AchievementIdSchema)
+const catalogIdSet: ReadonlySet<string> = new Set(kernel.ACHIEVEMENT_IDS)
+
+describe('AchievementId catalog', () => {
+  it('matches current vanilla advancement names and keeps the source catalog unique', () => {
+    expect(kernel.ACHIEVEMENT_IDS).toHaveLength(127)
+    expect(new Set(kernel.ACHIEVEMENT_IDS).size).toBe(127)
+    expect(kernel.ACHIEVEMENT_IDS.every((id) => id.startsWith('minecraft:'))).toBe(true)
+    expectTypeOf<kernel.DomainEventAchievementId>().toEqualTypeOf<
+      Brand.Branded<(typeof kernel.ACHIEVEMENT_IDS)[number], 'AchievementId'>
+    >()
+    expect(Object.keys(advancementSourceNameById)).toEqual(kernel.ACHIEVEMENT_IDS)
+    expect(advancementSourceNameById['minecraft:story/obtain_obsidian']).toBe(
+      'Ice Bucket Challenge',
+    )
+  })
+
+  it('round-trips every catalog ID through the public schema', () => {
+    fc.assert(
+      fc.property(fc.constant(kernel.ACHIEVEMENT_IDS), (ids) => {
+        for (const id of ids) {
+          const decoded = decodeAchievementId(id)
+          expect(Result.isSuccess(decoded), id).toBe(true)
+          if (Result.isFailure(decoded)) continue
+
+          const encoded = Schema.encodeSync(kernel.AchievementIdSchema)(decoded.success)
+          const roundTripped = decodeAchievementId(encoded)
+          expect(Result.isSuccess(roundTripped), id).toBe(true)
+          if (Result.isSuccess(roundTripped)) {
+            expect(roundTripped.success).toBe(decoded.success)
+          }
+        }
+      }),
+      { numRuns: 1 },
+    )
+  })
+
+  it('returns typed failures for invalid boundary and identifier forms', () => {
+    const invalidBoundaryIds = [
+      '',
+      ' minecraft:story/root',
+      'minecraft:story/root ',
+      'Minecraft:story/root',
+      'minecraft:STORY/root',
+      'story/root',
+      'minecraft:story/roo',
+      'minecraft:story/rootx',
+      'minecraft:husbandry/remove_wolf_armo',
+      'minecraft:husbandry/remove_wolf_armorz',
+    ] as const
+
+    fc.assert(
+      fc.property(fc.constant(invalidBoundaryIds), (ids) => {
+        for (const id of ids) {
+          expect(Result.isFailure(decodeAchievementId(id)), id).toBe(true)
+        }
+      }),
+      { numRuns: 1 },
+    )
+  })
+
+  it('returns typed failures for arbitrary strings outside the catalog', () => {
+    fc.assert(
+      fc.property(
+        fc.string().filter((value) => !catalogIdSet.has(value)),
+        (value) => {
+          expect(Result.isFailure(decodeAchievementId(value)), value).toBe(true)
+        },
+      ),
+    )
+  })
+})

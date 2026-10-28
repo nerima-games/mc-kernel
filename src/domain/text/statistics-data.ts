@@ -1,5 +1,8 @@
+import type { AchievementId } from '../event/domain-event.js'
+
+export type { AchievementId } from '../event/domain-event.js'
+
 export type StatisticKey = string
-export type AchievementId = string
 
 export type Statistics = Readonly<{
   counters: Readonly<Record<StatisticKey, number>>
