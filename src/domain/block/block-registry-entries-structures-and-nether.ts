@@ -10,11 +10,8 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
   // ids 103-119: crafted blocks, furniture, and the Nether
   // ---------------------------------------------------------------------------
   //
-  // The remainder, and the group with the most `flammable` in it:
-  // `FLAMMABLE_BLOCK_TYPES` (`fire-lifecycle.ts:19-30`) has eleven members and
-  // seven of them land here — `crafting_table`, `chest`, `door`, `door_open`,
-  // `oak_stairs`, `bed`, `tnt` — completing that closed table (the other four,
-  // `oak_log`, `oak_leaves`, `oak_planks` and `ladder`, were already in place).
+  // `flammable` follows vanilla's fire-spread odds table. Catching fire from
+  // lava is a separate property.
   //
   // `netherrack` is a `fireSource`, which until now only `lava` was.
   // `isFireSourceIndex` (`fire-lifecycle.ts:80-81`) is exactly those two, so the
@@ -45,7 +42,6 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
     id: BlockId(103),
     definition: {
       type: 'crafting_table',
-      capabilities: { flammable: true },
       properties: { hardness: 40, footstepMaterial: 'wood', harvestTool: FASTER_WITH_AXE },
     },
   },
@@ -57,7 +53,6 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
     id: BlockId(105),
     definition: {
       type: 'chest',
-      capabilities: { flammable: true },
       properties: { hardness: 35, footstepMaterial: 'wood' },
     },
   },
@@ -65,7 +60,7 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
     id: BlockId(106),
     definition: {
       type: 'door',
-      capabilities: { flammable: true, suffocates: false, validSpawnSurface: false },
+      capabilities: { suffocates: false, validSpawnSurface: false },
       properties: { opacity: 'transparentSolid', hardness: 15, footstepMaterial: 'wood' },
     },
   },
@@ -73,7 +68,7 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
     id: BlockId(107),
     definition: {
       type: 'door_open',
-      capabilities: { flammable: true, suffocates: false, validSpawnSurface: false },
+      capabilities: { suffocates: false, validSpawnSurface: false },
       properties: {
         opacity: 'transparentSolid',
         hardness: 15,
@@ -120,7 +115,7 @@ export const BLOCK_REGISTRY_STRUCTURES_AND_NETHER: ReadonlyArray<BlockRegistryEn
     id: BlockId(112),
     definition: {
       type: 'bed',
-      capabilities: { flammable: true, suffocates: false, validSpawnSurface: false },
+      capabilities: { suffocates: false, validSpawnSurface: false },
       properties: { opacity: 'transparentSolid', hardness: 10, footstepMaterial: 'wood' },
     },
   },

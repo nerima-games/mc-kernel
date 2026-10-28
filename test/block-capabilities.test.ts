@@ -536,4 +536,43 @@ describe('audit §4.9, continued — the roster additions that make the argument
       }
     })),
   )
+
+  it('matches every current vanilla fire-spread block in the registry', () =>
+    Effect.runPromise(Effect.sync(() => {
+      // Source: https://minecraft.wiki/w/Fire#Spread
+      // These are all current registry IDs represented by the table's block groups.
+      // Related block pages mark ladder, crafting table, and chest `Flammable: No`:
+      // https://minecraft.wiki/w/Ladder, https://minecraft.wiki/w/Crafting_Table,
+      // https://minecraft.wiki/w/Chest
+      const vanillaFireSpreadFixture = [
+        ['oak_log', true],
+        ['oak_leaves', true],
+        ['oak_planks', true],
+        ['coal_block', true],
+        ['oak_stairs', true],
+        ['tnt', true],
+        ['dandelion', true],
+        ['poppy', true],
+        ['tall_grass', true],
+        ['fern', true],
+        // Lava ignition is separate from the table's flammability/spread odds.
+        ['ladder', false],
+        ['crafting_table', false],
+        ['chest', false],
+        ['door', false],
+        ['door_open', false],
+        ['bed', false],
+        ['sapling', false],
+        ['wheat_crop', false],
+        ['potato_crop', false],
+      ] as const
+
+      for (const [type, flammable] of vanillaFireSpreadFixture) {
+        expect({
+          block: type,
+          flammable: capabilityOfBlockId(blockIdOf(type), 'flammable'),
+        }).toStrictEqual({ block: type, flammable })
+      }
+    })),
+  )
 })
