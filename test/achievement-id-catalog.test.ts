@@ -13,7 +13,6 @@ const advancementSourceNameById = {
   'minecraft:story/iron_tools': "Isn't It Iron Pick?",
   'minecraft:story/deflect_arrow': 'Not Today, Thank You',
   'minecraft:story/form_obsidian': 'Ice Bucket Challenge',
-  'minecraft:story/obtain_obsidian': 'Ice Bucket Challenge',
   'minecraft:story/mine_diamond': 'Diamonds!',
   'minecraft:story/enter_the_nether': 'We Need to Go Deeper',
   'minecraft:story/shiny_gear': 'Cover Me with Diamonds',
@@ -138,16 +137,13 @@ const catalogIdSet: ReadonlySet<string> = new Set(kernel.ACHIEVEMENT_IDS)
 
 describe('AchievementId catalog', () => {
   it('matches current vanilla advancement names and keeps the source catalog unique', () => {
-    expect(kernel.ACHIEVEMENT_IDS).toHaveLength(127)
-    expect(new Set(kernel.ACHIEVEMENT_IDS).size).toBe(127)
+    expect(kernel.ACHIEVEMENT_IDS).toHaveLength(126)
+    expect(new Set(kernel.ACHIEVEMENT_IDS).size).toBe(126)
     expect(kernel.ACHIEVEMENT_IDS.every((id) => id.startsWith('minecraft:'))).toBe(true)
     expectTypeOf<kernel.DomainEventAchievementId>().toEqualTypeOf<
       Brand.Branded<(typeof kernel.ACHIEVEMENT_IDS)[number], 'AchievementId'>
     >()
     expect(Object.keys(advancementSourceNameById)).toEqual(kernel.ACHIEVEMENT_IDS)
-    expect(advancementSourceNameById['minecraft:story/obtain_obsidian']).toBe(
-      'Ice Bucket Challenge',
-    )
   })
 
   it('round-trips every catalog ID through the public schema', () => {
@@ -192,6 +188,10 @@ describe('AchievementId catalog', () => {
       }),
       { numRuns: 1 },
     )
+  })
+
+  it('returns a typed failure for the non-vanilla obsidian alias', () => {
+    expect(Result.isFailure(decodeAchievementId('minecraft:story/obtain_obsidian'))).toBe(true)
   })
 
   it('returns typed failures for arbitrary strings outside the catalog', () => {

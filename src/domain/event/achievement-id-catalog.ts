@@ -8,7 +8,6 @@ export const ACHIEVEMENT_IDS = [
   'minecraft:story/iron_tools',
   'minecraft:story/deflect_arrow',
   'minecraft:story/form_obsidian',
-  'minecraft:story/obtain_obsidian',
   'minecraft:story/mine_diamond',
   'minecraft:story/enter_the_nether',
   'minecraft:story/shiny_gear',
