@@ -1830,8 +1830,8 @@ describe("public API surface", () => {
     expectTypeOf<kernel.DomainEventAchievementId>().toEqualTypeOf<
       import("../src/domain/text/statistics-data.js").AchievementId
     >();
-    expect(kernel.ACHIEVEMENT_IDS).toHaveLength(127);
-    expect(kernel.ACHIEVEMENT_IDS).toContain(
+    expect(kernel.ACHIEVEMENT_IDS).toHaveLength(126);
+    expect(kernel.ACHIEVEMENT_IDS).not.toContain(
       "minecraft:story/obtain_obsidian",
     );
     expectTypeOf<kernel.DamageCause>().toEqualTypeOf<
