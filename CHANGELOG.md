@@ -1,5 +1,11 @@
 # @nerima-games/mc-kernel
 
+## 0.13.0
+
+### Minor Changes
+
+- Make achievement IDs a finite catalog of Java Edition advancements.
+
 ## 0.12.0
 
 ### Minor Changes
