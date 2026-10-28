@@ -104,8 +104,9 @@ re-exports that barrel.
 
 ### event
 
-`block-world-events.ts`, `domain-event.ts`, `entity-events.ts`, `event-primitives.ts`,
-`item-events.ts`, `projectile-gameplay-events.ts`, `strict-event-schema.ts`
+`achievement-id-catalog.ts`, `block-world-events.ts`, `domain-event.ts`,
+`entity-events.ts`, `event-primitives.ts`, `item-events.ts`,
+`projectile-gameplay-events.ts`, `strict-event-schema.ts`
 
 ### module-contracts
 

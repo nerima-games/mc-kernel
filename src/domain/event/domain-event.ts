@@ -1,5 +1,7 @@
 import { type Brand, Schema } from 'effect'
 
+import { ACHIEVEMENT_IDS } from './achievement-id-catalog.js'
+
 import {
   BlockAddressSchema,
   BlockIdSchema,
@@ -74,9 +76,13 @@ export const LevelUpLevelSchema: Schema.Codec<LevelUpLevelValue, number> = Schem
   .pipe(Schema.brand('LevelUpLevel'))
 export type LevelUpLevel = Schema.Schema.Type<typeof LevelUpLevelSchema>
 
-type AchievementIdValue = Brand.Branded<string, 'AchievementId'>
-export const AchievementIdSchema: Schema.Codec<AchievementIdValue, string> =
-  Schema.NonEmptyString.pipe(Schema.brand('AchievementId'))
+type AchievementIdValue = Brand.Branded<(typeof ACHIEVEMENT_IDS)[number], 'AchievementId'>
+export const AchievementIdSchema: Schema.Codec<
+  AchievementIdValue,
+  (typeof ACHIEVEMENT_IDS)[number]
+> = Schema.Literals(ACHIEVEMENT_IDS).pipe(
+  Schema.brand('AchievementId'),
+)
 export type AchievementId = Schema.Schema.Type<typeof AchievementIdSchema>
 
 type ExistingDomainEventValue =

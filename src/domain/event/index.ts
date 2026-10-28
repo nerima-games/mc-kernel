@@ -1,3 +1,4 @@
+export { ACHIEVEMENT_IDS } from "./achievement-id-catalog.js";
 export {
   AchievementIdSchema,
   DamageAmountSchema,
