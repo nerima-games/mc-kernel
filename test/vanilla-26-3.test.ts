@@ -110,7 +110,7 @@ describe('Minecraft Java Edition 26.3 V-1 golden', () => {
   it('keeps conformance catalog counts aligned with the exposed tables', () => {
     expect(conformanceCounts('block-registry-26-3', 'Block table remains')).toEqual([BLOCK_TYPES.length, keysOf(golden.block).length])
     expect(conformanceCounts('item-registry-26-3', 'Item table remains')).toEqual([ITEM_TYPES.length, golden.item.length])
-    expect(conformanceCounts('recipe-types-26-3', 'Kernel schema represents')).toEqual([VANILLA_CRAFTING_RECIPES.length, keysOf(golden.recipe).length])
+    expect(conformanceCounts('recipe-types-26-3', 'Crafting table contains')).toEqual([VANILLA_CRAFTING_RECIPES.length, keysOf(golden.recipe).length])
   })
 
   it('matches enchantment max levels for every currently represented rule', () => {
