@@ -1,5 +1,19 @@
 # @nerima-games/mc-kernel
 
+## 0.15.0
+
+### Minor Changes
+
+- [#90](https://github.com/nerima-games/mc-kernel/pull/90) [`c38b902`](https://github.com/nerima-games/mc-kernel/commit/c38b9020fa6d24655d92124cb716961a56f46fd2) Thanks [@takeokunn](https://github.com/takeokunn)! - Add block-state schemas, per-block definitions, and a 32-bit per-cell state codec.
+
+- [#91](https://github.com/nerima-games/mc-kernel/pull/91) [`07415bc`](https://github.com/nerima-games/mc-kernel/commit/07415bc6caa985151b5c998b1c21050bda8a57cd) Thanks [@takeokunn](https://github.com/takeokunn)! - Add vanilla item, recipe, smelting, and ore hardness data.
+
+- [#92](https://github.com/nerima-games/mc-kernel/pull/92) [`c12e261`](https://github.com/nerima-games/mc-kernel/commit/c12e26188d3ddcd7f46037881f48fbe8b3d08deb) Thanks [@takeokunn](https://github.com/takeokunn)! - Add English and Japanese display names for registered items and blocks, with a typed lookup API.
+
+### Patch Changes
+
+- [#94](https://github.com/nerima-games/mc-kernel/pull/94) [`958518d`](https://github.com/nerima-games/mc-kernel/commit/958518d597623a89489686534ca9cd441e61896a) Thanks [@takeokunn](https://github.com/takeokunn)! - Describe untrusted values in domain diagnostics without invoking conversion hooks, and return typed validation failures when public schema parsers encounter values that would throw.
+
 ## 0.14.0
 
 ### Minor Changes
