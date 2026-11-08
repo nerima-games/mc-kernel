@@ -181,30 +181,36 @@ const VALUE_KEYS = [
 const CONNECTION_KEYS = ['down', 'north', 'east', 'south', 'west', 'up'] as const
 
 const parseBlockStateValues = (value: unknown): Result.Result<BlockStateValues, BlockStateCodecFailure> => {
-  try {
-    if (!isPlainRecord(value)) {
-      return failure('invalid-state', 'Block-state values must be a plain object')
-    }
-
-    const validTopLevelKeys = validatePlainDataKeys(value, VALUE_KEYS)
-    if (Result.isFailure(validTopLevelKeys)) return Result.fail(validTopLevelKeys.failure)
-
-    if (Object.hasOwn(value, 'connections')) {
-      const connections = value['connections']
-      if (!isPlainRecord(connections)) {
-        return failure('invalid-property-value', 'Block-state connections must be a plain object')
+  const inspected = Result.try({
+    try: () => {
+      if (!isPlainRecord(value)) {
+        return failure('invalid-state', 'Block-state values must be a plain object')
       }
-      const validConnectionKeys = validatePlainDataKeys(connections, CONNECTION_KEYS)
-      if (Result.isFailure(validConnectionKeys)) return Result.fail(validConnectionKeys.failure)
-    }
 
-    const decoded = Schema.decodeUnknownResult(BlockStateValuesSchema)(value)
-    return decoded._tag === 'Success'
-      ? Result.succeed(decoded.success)
-      : failure('invalid-property-value', 'Block-state values do not match the public schema')
-  } catch {
-    return failure('invalid-state', 'Unable to inspect block-state values')
-  }
+      const validTopLevelKeys = validatePlainDataKeys(value, VALUE_KEYS)
+      if (Result.isFailure(validTopLevelKeys)) return Result.fail(validTopLevelKeys.failure)
+
+      if (Object.hasOwn(value, 'connections')) {
+        const connections = value['connections']
+        if (!isPlainRecord(connections)) {
+          return failure('invalid-property-value', 'Block-state connections must be a plain object')
+        }
+        const validConnectionKeys = validatePlainDataKeys(connections, CONNECTION_KEYS)
+        if (Result.isFailure(validConnectionKeys)) return Result.fail(validConnectionKeys.failure)
+      }
+
+      const decoded = Schema.decodeUnknownResult(BlockStateValuesSchema)(value)
+      return decoded._tag === 'Success'
+        ? Result.succeed(decoded.success)
+        : failure('invalid-property-value', 'Block-state values do not match the public schema')
+    },
+    catch: (): BlockStateCodecFailure => ({
+      _tag: 'BlockStateCodecFailure',
+      reason: 'invalid-state',
+      message: 'Unable to inspect block-state values',
+    }),
+  })
+  return Result.isFailure(inspected) ? Result.fail(inspected.failure) : inspected.success
 }
 
 const getDefinition = (blockId: BlockId): Result.Result<BlockStateDefinition, BlockStateCodecFailure> => {
