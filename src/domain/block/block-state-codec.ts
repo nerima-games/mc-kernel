@@ -80,7 +80,7 @@ const writeSlotValue = (
   }
 }
 
-const freezeBlockStateValues = (state: BlockStateValues): BlockStateValues => {
+const freezeBlockStateValues = <State extends BlockStateValues>(state: State): State => {
   if (state.connections !== undefined) Object.freeze(state.connections)
   return Object.freeze(state)
 }
@@ -380,6 +380,5 @@ export const effectiveBlockStateOf = (
     ...idFixedEffectiveProperties(definition.success.blockType),
   })
   const effectiveState = Schema.decodeUnknownSync(EffectiveBlockStateValuesSchema)(state)
-  if (effectiveState.connections !== undefined) Object.freeze(effectiveState.connections)
-  return Result.succeed(Object.freeze(effectiveState))
+  return Result.succeed(freezeBlockStateValues(effectiveState))
 }

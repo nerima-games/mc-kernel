@@ -283,6 +283,15 @@ describe('block-state codec', () => {
     const emptyState = Schema.decodeUnknownSync(kernel.EncodedBlockStateSchema)(0)
     expect(resultValue(kernel.effectiveBlockStateOf(blockId('redstone_lamp'), emptyState)).lit).toBe(false)
     expect(resultValue(kernel.effectiveBlockStateOf(blockId('redstone_lamp_lit'), emptyState)).lit).toBe(true)
+
+    const wireId = blockId('redstone_wire')
+    const wireState = resultValue(kernel.encodeBlockState(wireId, {
+      connections: { north: 'side' },
+      power: 15,
+    }))
+    const effectiveWire = resultValue(kernel.effectiveBlockStateOf(wireId, wireState))
+    expect(effectiveWire).toMatchObject({ connections: { north: 'side' }, power: 15 })
+    expect(Object.isFrozen(effectiveWire.connections)).toBe(true)
   })
 
   it('checks encoded boundaries and returns schema-valid effective states for arbitrary inputs', () => {
