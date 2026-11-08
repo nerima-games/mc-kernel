@@ -167,20 +167,30 @@ describe("public API surface", () => {
           "BlockId",
           "BlockMovementDrag",
           "BlockState",
+          "BlockStateAgeSchema",
           "BlockStateAxisSchema",
           "BlockStateByteOffset",
           "BlockStateConnectionValueSchema",
           "BlockStateConnectionsSchema",
+          "BlockStateDelaySchema",
           "BlockStateDirectionSchema",
+          "BlockStateDistanceSchema",
           "BlockStateFaceSchema",
           "BlockStateFacingSchema",
           "BlockStateHalfSchema",
           "BlockStateHingeSchema",
           "BlockStateIndex",
+          "BlockStateIntegerSchema",
+          "BlockStateLayersSchema",
           "BlockStateLength",
+          "BlockStateLevelSchema",
           "BlockStateModeSchema",
+          "BlockStateMoistureSchema",
           "BlockStatePartSchema",
+          "BlockStatePowerSchema",
+          "BlockStateRotationSchema",
           "BlockStateShapeSchema",
+          "BlockStateStageSchema",
           "BlockStateTypeSchema",
           "BlockStateValuesSchema",
           "CHEST_SLOT_COUNT",
@@ -2296,7 +2306,17 @@ describe("public API surface", () => {
         expect(blockStateModule.BlockState).toBe(packageRoot.BlockState);
         expect(blockStateModule.blockState).toBe(packageRoot.blockState);
         expect(blockStateModule.BlockStateValuesSchema).toBe(packageRoot.BlockStateValuesSchema);
+        expect(blockStateModule.BlockStateAgeSchema).toBe(packageRoot.BlockStateAgeSchema);
         expect(blockStateModule.BlockStateAxisSchema).toBe(packageRoot.BlockStateAxisSchema);
+        expect(blockStateModule.BlockStateDelaySchema).toBe(packageRoot.BlockStateDelaySchema);
+        expect(blockStateModule.BlockStateDistanceSchema).toBe(packageRoot.BlockStateDistanceSchema);
+        expect(blockStateModule.BlockStateIntegerSchema).toBe(packageRoot.BlockStateIntegerSchema);
+        expect(blockStateModule.BlockStateLayersSchema).toBe(packageRoot.BlockStateLayersSchema);
+        expect(blockStateModule.BlockStateLevelSchema).toBe(packageRoot.BlockStateLevelSchema);
+        expect(blockStateModule.BlockStateMoistureSchema).toBe(packageRoot.BlockStateMoistureSchema);
+        expect(blockStateModule.BlockStatePowerSchema).toBe(packageRoot.BlockStatePowerSchema);
+        expect(blockStateModule.BlockStateRotationSchema).toBe(packageRoot.BlockStateRotationSchema);
+        expect(blockStateModule.BlockStateStageSchema).toBe(packageRoot.BlockStateStageSchema);
         expect(blockStateModule.BLOCK_STATE_TYPES).toBe(packageRoot.BLOCK_STATE_TYPES);
         expect(blockStateModule.BLOCK_STATE_MAX_USED_BITS).toBe(packageRoot.BLOCK_STATE_MAX_USED_BITS);
         expect(blockStateModule.encodeBlockState).toBe(packageRoot.encodeBlockState);

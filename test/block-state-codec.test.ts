@@ -78,6 +78,9 @@ const ID_FIXED_PROPERTIES = new Map<string, ReadonlySet<string>>([
 
 const blockId = (blockType: kernel.BlockType) => optionValue(blockIdOf(blockType))
 
+const bitWidthOf = (definition: BlockStateDefinition): number =>
+  definition.slots.reduce((width, slot) => width + Math.ceil(Math.log2(slot.values.length)), 0)
+
 const valuesWithSlot = (
   definition: BlockStateDefinition,
   slot: BlockStateSlotDefinition,
@@ -114,7 +117,7 @@ describe('block-state codec', () => {
     for (const entry of BLOCK_REGISTRY) {
       const definition = resultValue(kernel.blockStateDefinitionOf(entry.id))
       expect(definition.blockType).toBe(entry.definition.type)
-      expect(definition.bitWidth).toBeLessThanOrEqual(kernel.BLOCK_STATE_ENCODING_BITS)
+      expect(bitWidthOf(definition)).toBeLessThanOrEqual(kernel.BLOCK_STATE_ENCODING_BITS)
 
       const defaults = resultValue(kernel.defaultBlockState(entry.id))
       expect(defaults).toStrictEqual(definition.defaultState)

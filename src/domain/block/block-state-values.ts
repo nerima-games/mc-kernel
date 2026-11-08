@@ -10,8 +10,52 @@ const strictSchema = <Value, Encoded>(schema: Schema.Codec<Value, Encoded>): Sch
       }),
   )
 
-const integerRange = (minimum: number, maximum: number): Schema.Codec<number, number> =>
-  Schema.Int.check(Schema.isBetween({ minimum, maximum }))
+const BLOCK_STATE_INTEGER_VALUES = [
+  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+] as const
+const BLOCK_STATE_LEVEL_VALUES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] as const
+const BLOCK_STATE_DELAY_VALUES = [1, 2, 3, 4] as const
+const BLOCK_STATE_DISTANCE_VALUES = [1, 2, 3, 4, 5, 6, 7] as const
+const BLOCK_STATE_LAYERS_VALUES = [1, 2, 3, 4, 5, 6, 7, 8] as const
+const BLOCK_STATE_MOISTURE_VALUES = [0, 1, 2, 3, 4, 5, 6, 7] as const
+const BLOCK_STATE_STAGE_VALUES = [0, 1] as const
+
+export type BlockStateInteger = typeof BLOCK_STATE_INTEGER_VALUES[number]
+export const BlockStateIntegerSchema: Schema.Codec<BlockStateInteger, BlockStateInteger> =
+  Schema.Literals(BLOCK_STATE_INTEGER_VALUES)
+
+export type BlockStateAge = BlockStateInteger
+export const BlockStateAgeSchema: Schema.Codec<BlockStateAge, BlockStateAge> = BlockStateIntegerSchema
+
+export type BlockStateLevel = typeof BLOCK_STATE_LEVEL_VALUES[number]
+export const BlockStateLevelSchema: Schema.Codec<BlockStateLevel, BlockStateLevel> =
+  Schema.Literals(BLOCK_STATE_LEVEL_VALUES)
+
+export type BlockStateDelay = typeof BLOCK_STATE_DELAY_VALUES[number]
+export const BlockStateDelaySchema: Schema.Codec<BlockStateDelay, BlockStateDelay> =
+  Schema.Literals(BLOCK_STATE_DELAY_VALUES)
+
+export type BlockStateDistance = typeof BLOCK_STATE_DISTANCE_VALUES[number]
+export const BlockStateDistanceSchema: Schema.Codec<BlockStateDistance, BlockStateDistance> =
+  Schema.Literals(BLOCK_STATE_DISTANCE_VALUES)
+
+export type BlockStateLayers = typeof BLOCK_STATE_LAYERS_VALUES[number]
+export const BlockStateLayersSchema: Schema.Codec<BlockStateLayers, BlockStateLayers> =
+  Schema.Literals(BLOCK_STATE_LAYERS_VALUES)
+
+export type BlockStateMoisture = typeof BLOCK_STATE_MOISTURE_VALUES[number]
+export const BlockStateMoistureSchema: Schema.Codec<BlockStateMoisture, BlockStateMoisture> =
+  Schema.Literals(BLOCK_STATE_MOISTURE_VALUES)
+
+export type BlockStatePower = BlockStateLevel
+export const BlockStatePowerSchema: Schema.Codec<BlockStatePower, BlockStatePower> = BlockStateLevelSchema
+
+export type BlockStateRotation = BlockStateLevel
+export const BlockStateRotationSchema: Schema.Codec<BlockStateRotation, BlockStateRotation> = BlockStateLevelSchema
+
+export type BlockStateStage = typeof BLOCK_STATE_STAGE_VALUES[number]
+export const BlockStateStageSchema: Schema.Codec<BlockStateStage, BlockStateStage> =
+  Schema.Literals(BLOCK_STATE_STAGE_VALUES)
 
 export type BlockStateDirection = 'down' | 'north' | 'east' | 'south' | 'west' | 'up'
 export const BlockStateDirectionSchema: Schema.Codec<BlockStateDirection, BlockStateDirection> = Schema.Literals([
@@ -135,33 +179,33 @@ export type BlockStateValues = Readonly<{
   half?: BlockStateHalf
   hinge?: BlockStateHinge
   open?: boolean
-  age?: number
-  level?: number
+  age?: BlockStateAge
+  level?: BlockStateLevel
   powered?: boolean
-  delay?: number
+  delay?: BlockStateDelay
   shape?: BlockStateShape
   connections?: BlockStateConnections
   axis?: BlockStateAxis
-  distance?: number
+  distance?: BlockStateDistance
   enabled?: boolean
   extended?: boolean
   face?: BlockStateFace
   has_bottle_0?: boolean
   has_bottle_1?: boolean
   has_bottle_2?: boolean
-  layers?: number
+  layers?: BlockStateLayers
   lit?: boolean
   locked?: boolean
   mode?: BlockStateMode
-  moisture?: number
+  moisture?: BlockStateMoisture
   occupied?: boolean
   part?: BlockStatePart
   persistent?: boolean
-  power?: number
-  rotation?: number
+  power?: BlockStatePower
+  rotation?: BlockStateRotation
   short?: boolean
   snowy?: boolean
-  stage?: number
+  stage?: BlockStateStage
   triggered?: boolean
   type?: BlockStateType
   unstable?: boolean
@@ -172,33 +216,33 @@ const BlockStateValuesStructSchema = Schema.Struct({
   half: Schema.optionalKey(BlockStateHalfSchema),
   hinge: Schema.optionalKey(BlockStateHingeSchema),
   open: Schema.optionalKey(Schema.Boolean),
-  age: Schema.optionalKey(integerRange(0, 25)),
-  level: Schema.optionalKey(integerRange(0, 15)),
+  age: Schema.optionalKey(BlockStateAgeSchema),
+  level: Schema.optionalKey(BlockStateLevelSchema),
   powered: Schema.optionalKey(Schema.Boolean),
-  delay: Schema.optionalKey(integerRange(1, 4)),
+  delay: Schema.optionalKey(BlockStateDelaySchema),
   shape: Schema.optionalKey(BlockStateShapeSchema),
   connections: Schema.optionalKey(BlockStateConnectionsSchema),
   axis: Schema.optionalKey(BlockStateAxisSchema),
-  distance: Schema.optionalKey(integerRange(1, 7)),
+  distance: Schema.optionalKey(BlockStateDistanceSchema),
   enabled: Schema.optionalKey(Schema.Boolean),
   extended: Schema.optionalKey(Schema.Boolean),
   face: Schema.optionalKey(BlockStateFaceSchema),
   has_bottle_0: Schema.optionalKey(Schema.Boolean),
   has_bottle_1: Schema.optionalKey(Schema.Boolean),
   has_bottle_2: Schema.optionalKey(Schema.Boolean),
-  layers: Schema.optionalKey(integerRange(1, 8)),
+  layers: Schema.optionalKey(BlockStateLayersSchema),
   lit: Schema.optionalKey(Schema.Boolean),
   locked: Schema.optionalKey(Schema.Boolean),
   mode: Schema.optionalKey(BlockStateModeSchema),
-  moisture: Schema.optionalKey(integerRange(0, 7)),
+  moisture: Schema.optionalKey(BlockStateMoistureSchema),
   occupied: Schema.optionalKey(Schema.Boolean),
   part: Schema.optionalKey(BlockStatePartSchema),
   persistent: Schema.optionalKey(Schema.Boolean),
-  power: Schema.optionalKey(integerRange(0, 15)),
-  rotation: Schema.optionalKey(integerRange(0, 15)),
+  power: Schema.optionalKey(BlockStatePowerSchema),
+  rotation: Schema.optionalKey(BlockStateRotationSchema),
   short: Schema.optionalKey(Schema.Boolean),
   snowy: Schema.optionalKey(Schema.Boolean),
-  stage: Schema.optionalKey(integerRange(0, 1)),
+  stage: Schema.optionalKey(BlockStateStageSchema),
   triggered: Schema.optionalKey(Schema.Boolean),
   type: Schema.optionalKey(BlockStateTypeSchema),
   unstable: Schema.optionalKey(Schema.Boolean),

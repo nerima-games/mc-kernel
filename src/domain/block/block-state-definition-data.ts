@@ -1,4 +1,6 @@
+import { Schema } from 'effect'
 import type { BlockType } from './block-type.js'
+import { BlockStateIntegerSchema } from './block-state-values.js'
 import type {
   BlockStateAxis,
   BlockStateConnectionValue,
@@ -7,6 +9,7 @@ import type {
   BlockStateFacing,
   BlockStateHalf,
   BlockStateHinge,
+  BlockStateInteger,
   BlockStateMode,
   BlockStatePart,
   BlockStateShape,
@@ -24,7 +27,7 @@ export type BlockStateSlotDefinition =
   | { readonly property: 'part'; readonly values: readonly BlockStatePart[] }
   | { readonly property: 'type'; readonly values: readonly BlockStateType[] }
   | { readonly property: 'open' | 'powered' | 'enabled' | 'extended' | 'lit' | 'locked' | 'occupied' | 'persistent' | 'short' | 'snowy' | 'triggered' | 'unstable' | 'waterlogged' | 'has_bottle_0' | 'has_bottle_1' | 'has_bottle_2'; readonly values: readonly boolean[] }
-  | { readonly property: 'age' | 'level' | 'delay' | 'distance' | 'layers' | 'moisture' | 'power' | 'rotation' | 'stage'; readonly values: readonly number[] }
+  | { readonly property: 'age' | 'level' | 'delay' | 'distance' | 'layers' | 'moisture' | 'power' | 'rotation' | 'stage'; readonly values: readonly BlockStateInteger[] }
   | { readonly property: 'connections'; readonly direction: BlockStateDirection; readonly values: readonly BlockStateConnectionValue[] }
 
 export type BlockStateDefinitionData = {
@@ -80,15 +83,18 @@ const booleanProperty = (
   values: immutableValues(defaultValue ? [true, false] : [false, true]),
 })
 
-type IntegerProperty = BlockStateSlotDefinition & { readonly values: readonly number[] }
+type IntegerProperty = BlockStateSlotDefinition & { readonly values: readonly BlockStateInteger[] }
 const integerProperty = (
-  property: Extract<BlockStateSlotDefinition, { readonly values: readonly number[] }>['property'],
+  property: Extract<BlockStateSlotDefinition, { readonly values: readonly BlockStateInteger[] }>['property'],
   minimum: number,
   maximum: number,
   defaultValue: number,
 ): IntegerProperty => ({
   property,
-  values: immutableValues([defaultValue, ...Array.from({ length: maximum - minimum + 1 }, (_, index) => minimum + index).filter((value) => value !== defaultValue)]),
+  values: immutableValues(Schema.decodeUnknownSync(Schema.Array(BlockStateIntegerSchema))([
+    defaultValue,
+    ...Array.from({ length: maximum - minimum + 1 }, (_, index) => minimum + index).filter((value) => value !== defaultValue),
+  ])),
 })
 
 const connection = (

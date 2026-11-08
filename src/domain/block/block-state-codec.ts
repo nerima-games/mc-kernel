@@ -29,21 +29,20 @@ export type BlockStateCodecFailure = {
     | 'invalid-property-value'
     | 'invalid-encoded-value'
     | 'reserved-code'
-  readonly message: string
 }
 
 export type BlockStateDefinition = {
   readonly blockType: BlockType
   readonly slots: ReadonlyArray<BlockStateSlotDefinition>
-  readonly bitWidth: number
   readonly defaultState: BlockStateValues
 }
 
+type InternalBlockStateDefinition = BlockStateDefinition & { readonly bitWidth: number }
+
 const failure = (
   reason: BlockStateCodecFailure['reason'],
-  message: string,
 ): Result.Result<never, BlockStateCodecFailure> =>
-  Result.fail({ _tag: 'BlockStateCodecFailure', reason, message })
+  Result.fail({ _tag: 'BlockStateCodecFailure', reason })
 
 const bitsFor = (valueCount: number): number => Math.ceil(Math.log2(valueCount))
 
@@ -96,7 +95,7 @@ const createDefaultState = (slots: ReadonlyArray<BlockStateSlotDefinition>): Blo
 const createDefinition = (
   blockType: BlockType,
   slots: ReadonlyArray<BlockStateSlotDefinition>,
-): BlockStateDefinition => {
+): InternalBlockStateDefinition => {
   const immutableSlots: ReadonlyArray<BlockStateSlotDefinition> = Object.freeze([...slots])
   const bitWidth = immutableSlots.reduce((width, slot) => width + bitsFor(slot.values.length), 0)
 
@@ -108,7 +107,7 @@ const createDefinition = (
   })
 }
 
-const DEFINITION_BY_ID = new Map<number, BlockStateDefinition>(
+const DEFINITION_BY_ID = new Map<number, InternalBlockStateDefinition>(
   BLOCK_REGISTRY.map((entry) => {
     const data = stateDataByType.get(entry.definition.type)
     return [entry.id, createDefinition(entry.definition.type, data?.slots ?? [])]
@@ -131,11 +130,11 @@ const validatePlainDataKeys = (
 ): Result.Result<void, BlockStateCodecFailure> => {
   for (const key of Reflect.ownKeys(value)) {
     if (typeof key !== 'string' || !allowedKeys.includes(key)) {
-      return failure('unsupported-property', `Unsupported block-state property ${String(key)}`)
+      return failure('unsupported-property')
     }
     const descriptor = Object.getOwnPropertyDescriptor(value, key)
     if (descriptor === undefined || !('value' in descriptor) || descriptor.value === undefined) {
-      return failure('invalid-state', `Block-state property ${key} must be an explicit data value`)
+      return failure('invalid-state')
     }
   }
   return Result.succeed(undefined)
@@ -184,7 +183,7 @@ const parseBlockStateValues = (value: unknown): Result.Result<BlockStateValues, 
   const inspected = Result.try({
     try: () => {
       if (!isPlainRecord(value)) {
-        return failure('invalid-state', 'Block-state values must be a plain object')
+        return failure('invalid-state')
       }
 
       const validTopLevelKeys = validatePlainDataKeys(value, VALUE_KEYS)
@@ -193,7 +192,7 @@ const parseBlockStateValues = (value: unknown): Result.Result<BlockStateValues, 
       if (Object.hasOwn(value, 'connections')) {
         const connections = value['connections']
         if (!isPlainRecord(connections)) {
-          return failure('invalid-property-value', 'Block-state connections must be a plain object')
+          return failure('invalid-property-value')
         }
         const validConnectionKeys = validatePlainDataKeys(connections, CONNECTION_KEYS)
         if (Result.isFailure(validConnectionKeys)) return Result.fail(validConnectionKeys.failure)
@@ -202,30 +201,29 @@ const parseBlockStateValues = (value: unknown): Result.Result<BlockStateValues, 
       const decoded = Schema.decodeUnknownResult(BlockStateValuesSchema)(value)
       return decoded._tag === 'Success'
         ? Result.succeed(decoded.success)
-        : failure('invalid-property-value', 'Block-state values do not match the public schema')
+        : failure('invalid-property-value')
     },
     catch: (): BlockStateCodecFailure => ({
       _tag: 'BlockStateCodecFailure',
       reason: 'invalid-state',
-      message: 'Unable to inspect block-state values',
     }),
   })
   return Result.isFailure(inspected) ? Result.fail(inspected.failure) : inspected.success
 }
 
-const getDefinition = (blockId: BlockId): Result.Result<BlockStateDefinition, BlockStateCodecFailure> => {
+const getDefinition = (blockId: BlockId): Result.Result<InternalBlockStateDefinition, BlockStateCodecFailure> => {
   if (typeof blockId !== 'number' || !Number.isInteger(blockId) || blockId < MIN_BLOCK_ID || blockId > 0xffff) {
-    return failure('invalid-block-id', 'Block id must be an integer in [0, 65535]')
+    return failure('invalid-block-id')
   }
 
   const validatedBlockId = BlockId.result(blockId)
   if (Result.isFailure(validatedBlockId)) {
-    return failure('invalid-block-id', validatedBlockId.failure.message)
+    return failure('invalid-block-id')
   }
 
   const definition = DEFINITION_BY_ID.get(validatedBlockId.success)
   return definition === undefined
-    ? failure('unknown-block-id', `No block-state definition exists for block id ${validatedBlockId.success}`)
+    ? failure('unknown-block-id')
     : Result.succeed(definition)
 }
 
@@ -237,7 +235,7 @@ const validateSupportedProperties = (
 
   for (const property of VALUE_KEYS) {
     if (Object.hasOwn(state, property) && !supportedProperties.has(property)) {
-      return failure('unsupported-property', `${definition.blockType} does not support ${property}`)
+      return failure('unsupported-property')
     }
   }
 
@@ -245,7 +243,7 @@ const validateSupportedProperties = (
   if (connections !== undefined) {
     for (const direction of Object.keys(connections)) {
       if (!definition.slots.some((slot) => slot.property === 'connections' && slot.direction === direction)) {
-        return failure('unsupported-property', `${definition.blockType} does not support connection ${direction}`)
+        return failure('unsupported-property')
       }
     }
   }
@@ -253,8 +251,7 @@ const validateSupportedProperties = (
   for (const slot of definition.slots) {
     const value = readSlotValue(state, slot)
     if (value !== undefined && !slot.values.some((allowed) => allowed === value)) {
-      const name = slot.property === 'connections' ? `connections.${slot.direction}` : slot.property
-      return failure('invalid-property-value', `${definition.blockType} ${name} has an unsupported value`)
+      return failure('invalid-property-value')
     }
   }
 
@@ -263,7 +260,10 @@ const validateSupportedProperties = (
 
 export const blockStateDefinitionOf = (
   blockId: BlockId,
-): Result.Result<BlockStateDefinition, BlockStateCodecFailure> => getDefinition(blockId)
+): Result.Result<BlockStateDefinition, BlockStateCodecFailure> => Result.map(
+  getDefinition(blockId),
+  ({ blockType, slots, defaultState }) => Object.freeze({ blockType, slots, defaultState }),
+)
 
 export const defaultBlockState = (
   blockId: BlockId,
@@ -296,7 +296,7 @@ export const encodeBlockState = (
   const validated = Schema.decodeUnknownResult(EncodedBlockStateSchema)(encoded)
   return validated._tag === 'Success'
     ? Result.succeed(validated.success)
-    : failure('invalid-encoded-value', 'Encoded block state does not match the public schema')
+    : failure('invalid-encoded-value')
 }
 
 const parseEncodedBlockState = (value: unknown): Result.Result<EncodedBlockState, BlockStateCodecFailure> => {
@@ -306,13 +306,13 @@ const parseEncodedBlockState = (value: unknown): Result.Result<EncodedBlockState
     value < MIN_BLOCK_ID ||
     value > MAX_ENCODED_BLOCK_STATE
   ) {
-    return failure('invalid-encoded-value', 'Encoded block state must be an unsigned 32-bit integer')
+    return failure('invalid-encoded-value')
   }
 
   const parsed = Schema.decodeUnknownResult(EncodedBlockStateSchema)(value)
   return parsed._tag === 'Success'
     ? Result.succeed(parsed.success)
-    : failure('invalid-encoded-value', 'Encoded block state is outside the public schema range')
+    : failure('invalid-encoded-value')
 }
 
 export const decodeBlockState = (
@@ -333,19 +333,19 @@ export const decodeBlockState = (
     const fieldCapacity = 2 ** fieldBits
     const fieldIndex = Math.floor(parsed.success / (2 ** offset)) % fieldCapacity
     if (fieldIndex >= slot.values.length) {
-      return failure('reserved-code', `${definition.success.blockType} contains a reserved ${slot.property} code`)
+      return failure('reserved-code')
     }
     writeSlotValue(state, connections, slot, slot.values[fieldIndex])
     offset += fieldBits
   }
 
   if (parsed.success >= 2 ** offset) {
-    return failure('reserved-code', `${definition.success.blockType} contains nonzero unused state bits`)
+    return failure('reserved-code')
   }
 
   if (Object.keys(connections).length > 0) state['connections'] = Object.freeze(connections)
   const decoded = Schema.decodeUnknownResult(BlockStateValuesSchema)(Object.freeze(state))
   return decoded._tag === 'Success'
     ? Result.succeed(freezeBlockStateValues(decoded.success))
-    : failure('invalid-encoded-value', 'Decoded block state does not match the public schema')
+    : failure('invalid-encoded-value')
 }
