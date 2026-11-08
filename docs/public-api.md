@@ -295,7 +295,7 @@ kernel は現在の `ItemType` roster に対応する純粋な装備スロット
 
 ### 3-bis-0. アイテムとブロックの表示名（display-name）
 
-`getDisplayName` は `@nerima-games/mc-kernel` または `@nerima-games/mc-kernel/domain/display-name` から利用できる。`ItemType` または `BlockType` の ID と `en` / `ja` を受け取り、対応する表示名を `Result` で返す。不正な kind、ID、言語、余分なプロパティは `InvalidDisplayNameRequest` になる。
+`getDisplayName` は root package と `domain/display-name` subpath のどちらからも利用できる。`ItemType` または `BlockType` の ID と `en` / `ja` を受け取り、対応する表示名を `Result` で返す。不正な kind、ID、言語、余分なプロパティは `InvalidDisplayNameRequest` になる。
 
 ```typescript
 type DisplayLanguage = 'en' | 'ja'
@@ -309,7 +309,7 @@ const ITEM_DISPLAY_NAMES: Readonly<Record<ItemType, DisplayNames>>
 const BLOCK_DISPLAY_NAMES: Readonly<Record<BlockType, DisplayNames>>
 ```
 
-英語名は ID をアンダースコアで単語に分け、各単語の先頭を大文字にして空白でつなぐ。語順や略語の調整が必要な ID だけソース内の上書き表で整える。日本語名は英語名と対象の性質をもとに独自に訳し、ID ごとの表に記録する。どちらの表も現在の全 `ItemType` / `BlockType` を網羅する。ブロック状態のプロパティ値から表示名は合成しない。
+英語名は ID をアンダースコアで単語に分け、各単語の先頭を大文字にして空白でつなぐ。語順や略語の調整が必要な ID だけソース内の上書き表で整える。日本語名は英語名と対象の性質をもとに独自に訳し、ID ごとの表に記録する。各行には `katakana`（ID の語をカタカナ表記）、`common`（一般的な日本語の普通名詞）、`compound`（ID の語を組み合わせた名前）の命名方法も付ける。どちらの表も現在の全 `ItemType` / `BlockType` を網羅する。ブロック状態のプロパティ値から表示名は合成しない。
 
 ### 3-bis-1. アイテムの数値 wire ID（item-registry）
 

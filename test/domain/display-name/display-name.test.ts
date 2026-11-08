@@ -5,6 +5,7 @@ import * as kernel from '../../../src/index.js'
 import {
   englishDisplayNameForId,
   japaneseDisplayNameForId,
+  japaneseNameMethodForId,
 } from '../../../src/domain/display-name/display-name-naming.js'
 
 const ALLOWED_SHARED_NAME_IDS = [
@@ -67,6 +68,18 @@ const isAllowedSharedNameGroup = (rows: ReadonlyArray<NameExpectation>): boolean
   allowedSharedNameIds.has(rows[0]?.id ?? '')
 
 describe('display names', () => {
+  it('records an allowed Japanese naming method for every current ID', () => {
+    const methods = ['katakana', 'common', 'compound'] as const
+    const ids: ReadonlyArray<kernel.ItemType | kernel.BlockType> = [
+      ...kernel.ITEM_TYPES,
+      ...kernel.BLOCK_TYPES,
+    ]
+
+    for (const id of ids) {
+      expect(methods).toContain(japaneseNameMethodForId(id))
+    }
+  })
+
   it('covers every current item and block ID with trimmed non-empty names computed from that ID', () => {
     expect(Object.keys(kernel.ITEM_DISPLAY_NAMES).sort()).toEqual([...kernel.ITEM_TYPES].sort())
     expect(Object.keys(kernel.BLOCK_DISPLAY_NAMES).sort()).toEqual([...kernel.BLOCK_TYPES].sort())
