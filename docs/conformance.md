@@ -54,7 +54,7 @@ The other recipe types in the 26.3 golden catalog include `stonecutting` 351,
 `smithing_transform` 12, `crafting_special_repairitem` 1,
 `crafting_special_shielddecoration` 1, and `crafting_imbue` 1. These rows fall
 outside `VANILLA_CRAFTING_RECIPES`; separate tables represent subsets of
-smelting and brewing rows, and fuel values live in their own table.
+smelting and brewing rows.
 
 ## Entries to add to the mc-dev-meta conformance catalog
 

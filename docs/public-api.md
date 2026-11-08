@@ -773,7 +773,6 @@ type SmeltingStationFailure = {
   readonly reason: "unsupported-station";
   readonly recipeId: RecipeId;
   readonly station: CookingStation;
-  readonly message: string;
 };
 const smeltingCookTimeForStation: (recipe: SmeltingRecipe, station: CookingStation) => Result.Result<FixedDurationSecs, SmeltingStationFailure>;
 type FuelRule = {

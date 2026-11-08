@@ -5,7 +5,8 @@ import { StackCount } from '../time/quantities.js'
 import { DEFAULT_BLOCK_DROP } from './block-harvest-data.js'
 import { NEEDS_STONE_PICKAXE } from './block-registry-rules.js'
 
-// The stored count is the vanilla minimum of 2; Fortune's random bonus is resolved by gameplay.
+// Fixed-count drops store 2 raw copper, but vanilla randomizes 2–5 even without Fortune.
+// This model cannot represent that range; Fortune's separate bonus is resolved by gameplay.
 export const BLOCK_REGISTRY_COPPER: ReadonlyArray<BlockRegistryEntryInput> = [
   {
     id: BlockId(123),
