@@ -2,11 +2,11 @@
 
 ## Scope
 
-This memo defines mutable per-cell state alongside the existing `BlockId`. It keeps all 123 current kernel block types and the current chunk `BlockState` buffer unchanged. The vanilla reference is Java Edition 26.3: the checked-in crosswalk source is `test/golden/vanilla-block.json`, generated from the Java block-state roster and pinned by `test/vanilla-26-3.test.ts`. The [Minecraft Wiki Block states table](https://minecraft.wiki/w/Block_state) is the readable cross-check. Kernel-only names are mapped to a representative vanilla block in the table below.
+This memo defines the K1 target contract for mutable per-cell state alongside the existing `BlockId`. It keeps all 123 current kernel block types and the current chunk `BlockState` ID buffer unchanged. `EncodedBlockState` contains state only, not the block ID; consumers pair one encoded state value with each corresponding ID cell. The vanilla reference is Java Edition 26.3: the checked-in crosswalk source is `test/golden/vanilla-block.json`, generated from the Java block-state roster and pinned by `test/vanilla-26-3.test.ts`. The [Minecraft Wiki Block states table](https://minecraft.wiki/w/Block_state) is the readable cross-check. Kernel-only names are mapped to a representative vanilla block in the table below.
 
-The vocabulary is selected by whether a property changes gameplay, rendering, redstone behavior, or world generation in this run. It contains 40 vanilla property names after the ID-backed exclusions below. The six directional boolean/connection properties (`down`, `east`, `north`, `south`, `up`, `west`) share the API field `connections`; redstone wire uses `none`, `side`, or `up` for its four horizontal directions, while fire and chorus plant use booleans. The `power` property is a numeric signal level from 0 through 15 and remains distinct from boolean `powered`.
+The vocabulary includes a property when it changes gameplay, rendering, redstone behavior, or world generation for one of the 123 kernel block types. It contains 40 vanilla property names after the ID-backed exclusions below. The six directional boolean/connection properties (`down`, `east`, `north`, `south`, `up`, `west`) share the API field `connections`; redstone wire uses `none`, `side`, or `up` for its four horizontal directions, while fire and chorus plant use booleans. The `power` property is a numeric signal level from 0 through 15 and remains distinct from boolean `powered`.
 
-All properties in the vanilla-state column are encoded except the exact ID-backed cases listed in “Excluded properties”. After those exclusions, 59 kernel types have encoded state and 64 accept only the empty state. `—` means the vanilla block has no block-state properties. The kernel `end_crystal` type is an extension for a vanilla entity and has no vanilla block-state row. Blocks without a kernel type are outside the 123-row crosswalk; weighted pressure plates are called out below because their `power` property is not covered by the kernel `pressure_plate` alias.
+All properties in the vanilla-state column are encoded except the exact ID-backed cases listed in “Excluded properties”. After those exclusions, 59 kernel types have encoded state and 64 accept only the empty state. `—` means the vanilla block has no block-state properties. The kernel `end_crystal` type is an extension for a vanilla entity and has no vanilla block-state row. Other vanilla blocks are outside this crosswalk because the kernel has no corresponding block type.
 
 ## Complete 123-type crosswalk
 
@@ -138,36 +138,29 @@ Each state is shown as `property=allowed-values (default value)`. Numeric ranges
 | `soul_soil` | `soul_soil` | — |
 | `wither_skeleton_skull` | `wither_skeleton_skull` | powered=true/false (default false); rotation=0..15 (default 0) |
 
-## Alias decisions
-
-The table maps `sapling` to representative `oak_sapling`; crop types `wheat_crop`, `potato_crop`, and `nether_wart_crop` to `wheat`, `potatoes`, and `nether_wart`; `bed` to representative `white_bed`; `door` and `door_open` to `oak_door`; `end_portal_frame_filled` to `end_portal_frame`; `redstone_lamp_lit` to `redstone_lamp`; and `nether_brick` to `nether_bricks`. These names use the shared vanilla property schema shown in the table. The single kernel `pressure_plate` maps to the non-weighted `stone_pressure_plate`; this is the selected representative for the existing generic kernel type. Weighted plates remain outside the mapping because their kernel types do not exist.
-
 ## Included property vocabulary
 
 The state schema accepts the following properties when supported by the selected block type:
 
 - Scalar properties: `facing`, `half`, `hinge`, `open`, `age`, `level`, `powered`, `delay`, `shape`, `axis`, `distance`, `enabled`, `extended`, `face`, `has_bottle_0`, `has_bottle_1`, `has_bottle_2`, `layers`, `lit`, `locked`, `mode`, `moisture`, `occupied`, `part`, `persistent`, `power`, `rotation`, `short`, `snowy`, `stage`, `triggered`, `type`, `unstable`, and `waterlogged`.
-- Directional state is grouped as `connections` with the block-specific directions and values shown in the crosswalk. It covers the six vanilla keys `down`, `east`, `north`, `south`, `up`, and `west`.
-
-Every included property affects a gameplay, render, redstone, or world-generation outcome represented by this run. Examples include crop growth and farmland hydration, leaf persistence/distance, snow layers, slab/stair geometry, facing/axis, bed part, door geometry and state, redstone-wire signal strength and connections, and component activation state.
 
 ## Excluded properties and reasons
 
 | Vanilla block and property | Kernel block type(s) | Reason |
 | --- | --- | --- |
-| `oak_door.open` | `door_open` | `door_open` means `open=true` and has its own ID, `BlockId(107)`, at `src/domain/block/block-registry-entries-structures-and-nether.ts:68-70`. `open` remains encoded for `door` (`BlockId(106)`, lines 60-62), where open and closed states share that ID. |
+| `oak_door.open` | `door_open` | `door_open` means `open=true` and has its own ID, `BlockId(107)`, at `src/domain/block/block-registry-entries-structures-and-nether.ts:68-70`. `open` remains encoded for `door` (`BlockId(106)` at `src/domain/block/block-registry-entries-structures-and-nether.ts:60-62`), where open and closed states share that ID. |
 | `end_portal_frame.eye` | `end_portal_frame`, `end_portal_frame_filled` | Empty (`eye=false`) and eye-filled (`eye=true`) variants have distinct IDs, `BlockId(87)` and `BlockId(88)`, at `src/domain/block/block-registry-entries-end.ts:49-60`. `facing` remains stateful for both. |
 | `redstone_lamp.lit` | `redstone_lamp`, `redstone_lamp_lit` | Off (`lit=false`) and lit (`lit=true`) variants have distinct IDs, `BlockId(79)` and `BlockId(80)`, at `src/domain/block/block-registry-entries-crops-and-redstone.ts:184-188`. |
-| `heavy_weighted_pressure_plate.power`, `light_weighted_pressure_plate.power` | none | Neither weighted plate has a kernel block type. The kernel `pressure_plate` is mapped to vanilla `stone_pressure_plate` (`src/domain/block/block-registry-entries-collision-shapes.ts:51-53`); weighted-plate types must be added before their `power` state can be represented. |
+| `heavy_weighted_pressure_plate.power`, `light_weighted_pressure_plate.power` | none | Neither weighted plate has a kernel block type. For the single generic kernel `pressure_plate`, this design selects vanilla `stone_pressure_plate` (`src/domain/block/block-registry-entries-collision-shapes.ts:51-53`) as the representative; weighted-plate types must be added before their `power` state can be represented. |
 | Block-state properties for `end_crystal` | `end_crystal` | Java Edition End Crystal is an entity, not a block. The kernel entry is an extension at `src/domain/block/block-registry-entries-end.ts:105-109`, so no vanilla Block states property is applicable. |
 
 Properties shown in the crosswalk are otherwise all included. Other vanilla blocks and their properties are excluded from this run because the kernel has no corresponding block type; the 123-row crosswalk defines the boundary. Java fluid-state entries are separate from the Block states table; this codec covers the block `level` properties shown for water and lava.
 
 ## Values and encoding
 
-`BlockStateValues` is a strict object with optional properties. A per-block definition lists supported fields, their allowed values, and the default from the crosswalk. Omitted values resolve to that block default. Unknown fields, unsupported properties, invalid values, unknown block IDs, reserved encodings, and malformed integers return typed failures; invalid input is never coerced to a default, null, or success.
+The K1 API contract defines `BlockStateValues` as a strict object with optional properties. A per-block definition lists supported fields, their allowed values, and the default from the crosswalk. Omitted values resolve to that block default. Unknown fields, unsupported properties, invalid values, unknown block IDs, reserved encodings, and malformed integers return typed failures; invalid input is never coerced to a default, null, or success.
 
-The codec returns one unsigned 32-bit integer per cell. Field slots are packed from least significant bit upward. Existing slots retain this order: `facing`, `half`, `hinge`, `open`, `age`, `level`, `powered`, `delay`, `shape`, then `connections` in `down`, `north`, `east`, `south`, `west`, `up` order. The added scalar slots follow in this order: `axis`, `distance`, `enabled`, `extended`, `face`, `has_bottle_0`, `has_bottle_1`, `has_bottle_2`, `layers`, `lit`, `locked`, `mode`, `moisture`, `occupied`, `part`, `persistent`, `power`, `rotation`, `short`, `snowy`, `stage`, `triggered`, `type`, `unstable`, `waterlogged`. A property default has code zero; legal non-default values follow the crosswalk order. Each slot uses the minimum number of bits for its legal values.
+The codec encodes each cell's state in one unsigned 32-bit integer. Field slots are packed from least significant bit upward. Existing slots retain this order: `facing`, `half`, `hinge`, `open`, `age`, `level`, `powered`, `delay`, `shape`, then `connections` in `down`, `north`, `east`, `south`, `west`, `up` order. The added scalar slots follow in this order: `axis`, `distance`, `enabled`, `extended`, `face`, `has_bottle_0`, `has_bottle_1`, `has_bottle_2`, `layers`, `lit`, `locked`, `mode`, `moisture`, `occupied`, `part`, `persistent`, `power`, `rotation`, `short`, `snowy`, `stage`, `triggered`, `type`, `unstable`, `waterlogged`. A property default has code zero; legal non-default values follow the crosswalk order. Each slot uses the minimum number of bits for its legal values.
 
 The widest block layout is `redstone_wire`: its north/east/south/west connections each use 2 bits for `none`/`side`/`up` (8 bits total), and its `power` uses 4 bits for 0–15, for 12 bits total. The 32-bit value therefore has 20 reserved high bits in version 1. Reserved codes and nonzero unused bits are invalid. All defaults encode as zero.
 
@@ -175,5 +168,7 @@ The integer codec does not define byte order. Save and network formats own seria
 
 ## C7 integration proposal
 
-Add `state?: BlockStateValues` to C7’s `BlockEditSchema`. Omission means the block-specific default. The coordinator validates explicit values against the edit’s block before checking revisions or writing. An invalid block-state value returns `WorldWriteInvalidBatch` with a new `invalid-block-state` reason, leaving the batch atomicity and revision rules unchanged. Chunk storage uses `encodeBlockState`; replicated and saved representations may carry the encoded value under their own versioned schemas.
+C7 is the shared atomic, dual-revision-checked world-write contract. Its world-session coordinator validates the complete batch before checking revisions or writing. This section is a proposal for extending that contract; the API shape and error reason below are target behavior, not current kernel exports.
+
+Add `state?: BlockStateValues` to C7’s `BlockEditSchema`. Omission means the block-specific default. The coordinator validates explicit values against the edit’s block before checking revisions or writing. An invalid block-state value returns `WorldWriteInvalidBatch` with a new `invalid-block-state` reason, leaving the batch atomicity and revision rules unchanged. Chunk storage keeps each encoded state aligned with the corresponding `BlockId` cell in a separate value. Replicated and saved representations may carry the encoded value under their own versioned schemas.
 
