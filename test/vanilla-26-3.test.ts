@@ -102,14 +102,14 @@ describe('Minecraft Java Edition 26.3 V-1 golden', () => {
       const id = recipe.id.replace('minecraft:', '').replaceAll('-', '_')
       return recipeExtensions.has(id) || golden.recipe[id] !== undefined
     })).toBe(true)
-    expect(BLOCK_TYPES).toHaveLength(123)
-    expect(ITEM_TYPES).toHaveLength(303)
-    expect(VANILLA_CRAFTING_RECIPES).toHaveLength(115)
+    expect(BLOCK_TYPES).toHaveLength(125)
+    expect(ITEM_TYPES).toHaveLength(308)
+    expect(VANILLA_CRAFTING_RECIPES).toHaveLength(117)
   })
 
   it('keeps conformance catalog counts aligned with the exposed tables', () => {
-    expect(conformanceCounts('block-registry-26-3', 'Block table remains')).toEqual([BLOCK_TYPES.length, keysOf(golden.block).length])
-    expect(conformanceCounts('item-registry-26-3', 'Item table remains')).toEqual([ITEM_TYPES.length, golden.item.length])
+    expect(conformanceCounts('block-registry-26-3', 'Block table contains')).toEqual([BLOCK_TYPES.length, keysOf(golden.block).length])
+    expect(conformanceCounts('item-registry-26-3', 'Item table contains')).toEqual([ITEM_TYPES.length, golden.item.length])
     expect(conformanceCounts('recipe-types-26-3', 'Crafting table contains')).toEqual([VANILLA_CRAFTING_RECIPES.length, keysOf(golden.recipe).length])
   })
 

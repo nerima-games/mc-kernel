@@ -161,8 +161,8 @@ mc-save 側で追加する。
 
 - `pnpm verify` を基準に typecheck / lint / test / coverage を回す運用
 - 能力フラグ監査と、それに対応する registry / property / support rule の実装
-- `BlockType` 123 種の公開
-- `ItemType` 205 種の公開
+- `BlockType` 125 種の公開
+- `ItemType` 308 種の公開
 - `block-break-speed.test.ts` による硬度 lookup、道具倍率、効率、既定速度の公式式検証
 - Bedrock `minecraft:digger` / `minecraft:destructible_by_mining` の descriptor、tag query、状態値、既定値、item-specific speed 検証
 - `Chunk` データ構造と codec、および round-trip test
