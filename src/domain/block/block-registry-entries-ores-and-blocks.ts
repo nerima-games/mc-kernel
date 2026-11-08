@@ -17,7 +17,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
   //     by the kernel with Java Edition's netherite tier. Coal is
   //     wooden; iron and lapis are stone; gold, redstone, diamond and emerald
   //     are iron. Deepslate variants sit at the SAME tier as their stone twins —
-  //     the ladder pairs them explicitly — so deepslate is harder (60 vs 50) but
+  //     the ladder pairs them explicitly — so deepslate is harder (4.5 vs 3) but
   //     not gated higher. Two axes, one of which moves and one of which does not.
   //
   //   `drops.item`   `INVENTORY_DROP_OVERRIDES`. Not one ore drops itself, and
@@ -48,7 +48,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
     definition: {
       type: 'coal_ore',
       properties: {
-        hardness: 50,
+        hardness: 3,
         friction: 0.8,
         footstepMaterial: 'stone',
         xpOnBreak: 5,
@@ -62,7 +62,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
     definition: {
       type: 'iron_ore',
       properties: {
-        hardness: 50,
+        hardness: 3,
         friction: 0.8,
         footstepMaterial: 'stone',
         harvestTool: NEEDS_STONE_PICKAXE,
@@ -75,7 +75,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
     definition: {
       type: 'gold_ore',
       properties: {
-        hardness: 50,
+        hardness: 3,
         friction: 0.8,
         footstepMaterial: 'stone',
         harvestTool: NEEDS_IRON_PICKAXE,
@@ -88,7 +88,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
     definition: {
       type: 'diamond_ore',
       properties: {
-        hardness: 50,
+        hardness: 3,
         friction: 0.8,
         footstepMaterial: 'stone',
         xpOnBreak: 7,
@@ -103,7 +103,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
       type: 'redstone_ore',
       properties: {
         lightEmission: 9,
-        hardness: 50,
+        hardness: 3,
         friction: 0.8,
         footstepMaterial: 'stone',
         xpOnBreak: 5,
@@ -123,7 +123,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
     definition: {
       type: 'lapis_ore',
       properties: {
-        hardness: 50,
+        hardness: 3,
         friction: 0.8,
         footstepMaterial: 'stone',
         xpOnBreak: 5,
@@ -143,7 +143,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
     definition: {
       type: 'emerald_ore',
       properties: {
-        hardness: 50,
+        hardness: 3,
         friction: 0.8,
         footstepMaterial: 'stone',
         xpOnBreak: 7,
@@ -157,7 +157,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
     definition: {
       type: 'deepslate_coal_ore',
       properties: {
-        hardness: 60,
+        hardness: 4.5,
         friction: 0.8,
         footstepMaterial: 'stone',
         xpOnBreak: 5,
@@ -171,7 +171,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
     definition: {
       type: 'deepslate_iron_ore',
       properties: {
-        hardness: 60,
+        hardness: 4.5,
         friction: 0.8,
         footstepMaterial: 'stone',
         harvestTool: NEEDS_STONE_PICKAXE,
@@ -184,7 +184,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
     definition: {
       type: 'deepslate_gold_ore',
       properties: {
-        hardness: 60,
+        hardness: 4.5,
         friction: 0.8,
         footstepMaterial: 'stone',
         harvestTool: NEEDS_IRON_PICKAXE,
@@ -197,7 +197,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
     definition: {
       type: 'deepslate_diamond_ore',
       properties: {
-        hardness: 60,
+        hardness: 4.5,
         friction: 0.8,
         footstepMaterial: 'stone',
         xpOnBreak: 7,
@@ -217,7 +217,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
       type: 'deepslate_redstone_ore',
       properties: {
         lightEmission: 9,
-        hardness: 60,
+        hardness: 4.5,
         friction: 0.8,
         footstepMaterial: 'stone',
         xpOnBreak: 5,
@@ -237,7 +237,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
     definition: {
       type: 'deepslate_lapis_ore',
       properties: {
-        hardness: 60,
+        hardness: 4.5,
         friction: 0.8,
         footstepMaterial: 'stone',
         xpOnBreak: 5,
@@ -257,7 +257,7 @@ export const BLOCK_REGISTRY_ORES_AND_BLOCKS: ReadonlyArray<BlockRegistryEntryInp
     definition: {
       type: 'deepslate_emerald_ore',
       properties: {
-        hardness: 60,
+        hardness: 4.5,
         friction: 0.8,
         footstepMaterial: 'stone',
         xpOnBreak: 7,

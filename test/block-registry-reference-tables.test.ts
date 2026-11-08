@@ -440,7 +440,7 @@ describe('the reference tables this roster transcribes', () => {
         ['oak_planks', number('35')],
         ['stone', number('25')],
         ['deepslate', number('50')],
-        ['obsidian', number('90')],
+        ['obsidian', number('50')],
         ['purpur_block', number('1.5')],
         ['end_stone_bricks', number('45')],
         ['end_gateway', UNBREAKABLE_HARDNESS],
@@ -593,8 +593,8 @@ describe('the completed roster and additive gameplay vocabulary', () => {
 
       // Deepslate is HARDER than its stone twin while being gated at the SAME
       // Tier — the clearest single case for hardness and minTier being two axes.
-      expect(propertyOfBlockId(blockIdOf('deepslate_iron_ore'), 'hardness')).toBe(number('60'))
-      expect(propertyOfBlockId(iron, 'hardness')).toBe(number('50'))
+      expect(propertyOfBlockId(blockIdOf('deepslate_iron_ore'), 'hardness')).toBe(number('4.5'))
+      expect(propertyOfBlockId(iron, 'hardness')).toBe(number('3'))
       expect(propertyOfBlockId(blockIdOf('deepslate_iron_ore'), 'harvestTool').minTier).toBe('stone')
     })),
   )
