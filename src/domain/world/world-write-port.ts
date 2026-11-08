@@ -1,6 +1,9 @@
-import { Context, Effect, Schema, SchemaParser } from 'effect'
+import { Context, Effect, Result, Schema, SchemaIssue, SchemaParser } from 'effect'
 import type { Cause } from 'effect'
+import { blockStateDefinitionOf, encodeBlockState } from '../block/block-state-codec.js'
+import { BlockStateValuesSchema } from '../block/block-state-values.js'
 import { ChunkKeySchema } from '../coordinates/coordinate-keys.js'
+import { safeUnknownSchema } from '../safe-unknown-schema.js'
 import {
   BlockIdSchema,
   BlockPositionSchema,
@@ -10,16 +13,42 @@ import {
   WorldRevisionSchema,
 } from '../shared-vocabulary/shared-vocabulary.js'
 
-export const BlockEditSchema: Schema.Codec<{
+const BlockEditSchemaBase: Schema.Codec<{
   readonly position: Schema.Schema.Type<typeof BlockPositionSchema>
   readonly block: Schema.Schema.Type<typeof BlockIdSchema>
+  readonly state?: Schema.Schema.Type<typeof BlockStateValuesSchema>
 }, {
   readonly position: Schema.Codec.Encoded<typeof BlockPositionSchema>
   readonly block: Schema.Codec.Encoded<typeof BlockIdSchema>
-}> = Schema.Struct({
+  readonly state?: Schema.Codec.Encoded<typeof BlockStateValuesSchema>
+}> = safeUnknownSchema(Schema.Struct({
   position: BlockPositionSchema,
   block: BlockIdSchema,
-})
+  state: Schema.optionalKey(BlockStateValuesSchema),
+}))
+
+export const BlockEditSchema: typeof BlockEditSchemaBase = Schema.declareConstructor<
+  Schema.Schema.Type<typeof BlockEditSchemaBase>,
+  Schema.Codec.Encoded<typeof BlockEditSchemaBase>
+>()(
+  [BlockEditSchemaBase],
+  ([inner]) => (input, ast, options) =>
+    Effect.flatMap(
+      SchemaParser.decodeUnknownEffect(inner)(input, options),
+      (edit) => {
+        if (edit.state === undefined) return Effect.succeed(edit)
+
+        const definition = blockStateDefinitionOf(edit.block)
+        if (Result.isFailure(definition) || definition.success.slots.length === 0) {
+          return Effect.fail(new SchemaIssue.InvalidType(ast))
+        }
+
+        return Result.isFailure(encodeBlockState(edit.block, edit.state))
+          ? Effect.fail(new SchemaIssue.InvalidType(ast))
+          : Effect.succeed(edit)
+      },
+    ),
+)
 export type BlockEdit = Schema.Schema.Type<typeof BlockEditSchema>
 
 export const WorldWriteBatchSchema: Schema.Codec<{
