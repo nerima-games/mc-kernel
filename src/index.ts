@@ -5,6 +5,7 @@ export * from "./domain/coordinates/index.js";
 export * from "./domain/world/index.js";
 export * from "./domain/block/index.js";
 export * from "./domain/item/index.js";
+export * from "./domain/display-name/index.js";
 export * from "./domain/recipe/index.js";
 export * from "./domain/entity/index.js";
 export * from "./domain/time/index.js";
