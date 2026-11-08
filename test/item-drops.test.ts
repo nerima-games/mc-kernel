@@ -74,6 +74,20 @@ const IRON_ARMOUR_ITEM_TYPES = [
   'iron_boots',
 ] as const satisfies ReadonlyArray<ItemType>
 
+const LEATHER_ARMOUR_ITEM_TYPES = [
+  'leather_helmet',
+  'leather_chestplate',
+  'leather_leggings',
+  'leather_boots',
+] as const satisfies ReadonlyArray<ItemType>
+
+const GOLD_ARMOUR_ITEM_TYPES = [
+  'gold_helmet',
+  'gold_chestplate',
+  'gold_leggings',
+  'gold_boots',
+] as const satisfies ReadonlyArray<ItemType>
+
 const DIAMOND_ARMOUR_ITEM_TYPES = [
   'diamond_helmet',
   'diamond_chestplate',
@@ -819,11 +833,28 @@ describe('the rule that keeps a `self` drop honest', () => {
         'red_banner',
         'white_banner',
         'yellow_banner',
+        'potion_of_healing',
+        'ink_sac',
+        'prismarine_shard',
+        'dragon_breath',
+        'popped_chorus_fruit',
+        'shulker_shell',
+        'compass',
+        'clock',
+        'spyglass',
+        'charcoal',
+        'blaze_rod',
+        'potion_of_swiftness_ii',
+        'potion_of_healing_ii',
+        'potion_of_swiftness_long',
       ])
       const EQUIPMENT_ITEMS: ReadonlySet<string> = new Set([
+        ...LEATHER_ARMOUR_ITEM_TYPES,
         ...IRON_ARMOUR_ITEM_TYPES,
+        ...GOLD_ARMOUR_ITEM_TYPES,
         ...DIAMOND_ARMOUR_ITEM_TYPES,
         ...NETHERITE_ARMOUR_ITEM_TYPES,
+        'elytra',
       ])
 
       const dropped = droppedItemTypes()
@@ -842,9 +873,12 @@ describe('the rule that keeps a `self` drop honest', () => {
       // Unexplained item cannot be hidden by adding a name to the exemption.
       expect([...EXPLICIT_NON_BLOCK_ITEMS].filter((name) => !isItemType(name))).toStrictEqual([])
       expect([...EQUIPMENT_ITEMS]).toStrictEqual([
+        ...LEATHER_ARMOUR_ITEM_TYPES,
         ...IRON_ARMOUR_ITEM_TYPES,
+        ...GOLD_ARMOUR_ITEM_TYPES,
         ...DIAMOND_ARMOUR_ITEM_TYPES,
         ...NETHERITE_ARMOUR_ITEM_TYPES,
+        'elytra',
       ])
     })),
   )

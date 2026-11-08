@@ -31,6 +31,14 @@ export type EquippableItemType =
   | 'iron_chestplate'
   | 'iron_leggings'
   | 'iron_boots'
+  | 'leather_helmet'
+  | 'leather_chestplate'
+  | 'leather_leggings'
+  | 'leather_boots'
+  | 'gold_helmet'
+  | 'gold_chestplate'
+  | 'gold_leggings'
+  | 'gold_boots'
   | 'diamond_helmet'
   | 'diamond_chestplate'
   | 'diamond_leggings'
@@ -71,6 +79,7 @@ export type EquippableItemType =
   | 'netherite_sword'
   | 'bow'
   | 'fishing_rod'
+  | 'elytra'
   | 'flint_and_steel'
   | 'shears'
 
@@ -81,6 +90,14 @@ export const EQUIPMENT_CATALOG: Readonly<
   iron_chestplate: { slots: CHEST_SLOTS },
   iron_leggings: { slots: LEGS_SLOTS },
   iron_boots: { slots: FEET_SLOTS },
+  leather_helmet: { slots: HEAD_SLOTS },
+  leather_chestplate: { slots: CHEST_SLOTS },
+  leather_leggings: { slots: LEGS_SLOTS },
+  leather_boots: { slots: FEET_SLOTS },
+  gold_helmet: { slots: HEAD_SLOTS },
+  gold_chestplate: { slots: CHEST_SLOTS },
+  gold_leggings: { slots: LEGS_SLOTS },
+  gold_boots: { slots: FEET_SLOTS },
   diamond_helmet: { slots: HEAD_SLOTS },
   diamond_chestplate: { slots: CHEST_SLOTS },
   diamond_leggings: { slots: LEGS_SLOTS },
@@ -121,6 +138,7 @@ export const EQUIPMENT_CATALOG: Readonly<
   netherite_sword: { slots: HAND_SLOTS },
   bow: { slots: HAND_SLOTS },
   fishing_rod: { slots: HAND_SLOTS },
+  elytra: { slots: CHEST_SLOTS },
   flint_and_steel: { slots: HAND_SLOTS },
   shears: { slots: HAND_SLOTS },
 } satisfies Partial<Record<ItemType, EquipmentDefinition>>
@@ -130,10 +148,18 @@ export type DamageableItemType = EquippableItemType
 export const ITEM_DURABILITY_CATALOG: Readonly<
   Record<DamageableItemType, ItemDurabilityDefinition>
 > = {
+  leather_helmet: { maxDurability: MaxDamage(55) },
+  leather_chestplate: { maxDurability: MaxDamage(80) },
+  leather_leggings: { maxDurability: MaxDamage(75) },
+  leather_boots: { maxDurability: MaxDamage(65) },
   iron_helmet: { maxDurability: MaxDamage(165) },
   iron_chestplate: { maxDurability: MaxDamage(240) },
   iron_leggings: { maxDurability: MaxDamage(225) },
   iron_boots: { maxDurability: MaxDamage(195) },
+  gold_helmet: { maxDurability: MaxDamage(77) },
+  gold_chestplate: { maxDurability: MaxDamage(112) },
+  gold_leggings: { maxDurability: MaxDamage(105) },
+  gold_boots: { maxDurability: MaxDamage(91) },
   diamond_helmet: { maxDurability: MaxDamage(363) },
   diamond_chestplate: { maxDurability: MaxDamage(528) },
   diamond_leggings: { maxDurability: MaxDamage(495) },
@@ -174,6 +200,7 @@ export const ITEM_DURABILITY_CATALOG: Readonly<
   netherite_sword: { maxDurability: MaxDamage(2031) },
   bow: { maxDurability: MaxDamage(384) },
   fishing_rod: { maxDurability: MaxDamage(64) },
+  elytra: { maxDurability: MaxDamage(432) },
   flint_and_steel: { maxDurability: MaxDamage(64) },
   shears: { maxDurability: MaxDamage(238) },
 } satisfies Partial<Record<ItemType, ItemDurabilityDefinition>>

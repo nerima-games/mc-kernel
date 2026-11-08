@@ -74,6 +74,31 @@ const KNOWN_ITEM_TYPES = [
   'diamond_pickaxe',
   'eye_of_ender',
 ] as const satisfies ReadonlyArray<ItemType>
+const APPENDED_VANILLA_ITEM_TYPES = [
+  'potion_of_healing',
+  'ink_sac',
+  'prismarine_shard',
+  'dragon_breath',
+  'elytra',
+  'popped_chorus_fruit',
+  'shulker_shell',
+  'compass',
+  'clock',
+  'spyglass',
+  'leather_helmet',
+  'leather_chestplate',
+  'leather_leggings',
+  'leather_boots',
+  'gold_helmet',
+  'gold_chestplate',
+  'gold_leggings',
+  'gold_boots',
+  'charcoal',
+  'blaze_rod',
+  'potion_of_swiftness_ii',
+  'potion_of_healing_ii',
+  'potion_of_swiftness_long',
+] as const satisfies ReadonlyArray<ItemType>
 
 const UNITEMISED_EXAMPLE_BLOCK_TYPES = ['air', 'water', 'bedrock'] as const satisfies ReadonlyArray<BlockType>
 const NON_PLACEABLE_EXAMPLE_ITEM_TYPES = ['stick', 'bow', 'arrow', 'glowstone_dust'] as const satisfies ReadonlyArray<ItemType>
@@ -81,6 +106,7 @@ const FIRST_ITEM_TYPE_INDEX = 0
 
 const VALIDATED_ITEM_TYPES = [
   ...KNOWN_ITEM_TYPES,
+  ...APPENDED_VANILLA_ITEM_TYPES,
   ...HOE_ITEM_TYPES,
   ...SWORD_ITEM_TYPES,
   ...NETHERITE_TOOL_TYPES,
@@ -334,6 +360,29 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'red_banner',
         'white_banner',
         'yellow_banner',
+        'potion_of_healing',
+        'ink_sac',
+        'prismarine_shard',
+        'dragon_breath',
+        'elytra',
+        'popped_chorus_fruit',
+        'shulker_shell',
+        'compass',
+        'clock',
+        'spyglass',
+        'leather_helmet',
+        'leather_chestplate',
+        'leather_leggings',
+        'leather_boots',
+        'gold_helmet',
+        'gold_chestplate',
+        'gold_leggings',
+        'gold_boots',
+        'charcoal',
+        'blaze_rod',
+        'potion_of_swiftness_ii',
+        'potion_of_healing_ii',
+        'potion_of_swiftness_long',
       ])
 
       // The block half of the same ledger: 23 entries over 36 blocks before, 35
