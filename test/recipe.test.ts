@@ -952,6 +952,22 @@ describe("vanilla recipe data", () => {
       1,
     );
     expectShapedVanillaRecipe(
+      "minecraft:glistering_melon_slice",
+      3,
+      3,
+      ["gold_nugget", "gold_nugget", "gold_nugget", "gold_nugget", "melon_slice", "gold_nugget", "gold_nugget", "gold_nugget", "gold_nugget"],
+      "glistering_melon_slice",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:spyglass",
+      1,
+      3,
+      ["amethyst_shard", "copper_ingot", "copper_ingot"],
+      "spyglass",
+      1,
+    );
+    expectShapedVanillaRecipe(
       "minecraft:leather_helmet",
       3,
       2,

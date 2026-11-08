@@ -50,6 +50,12 @@ describe('brewing data', () => {
         ingredient: 'glowstone_dust',
         output: 'potion_of_healing_ii',
       },
+      {
+        id: 'minecraft:healing',
+        input: 'awkward_potion',
+        ingredient: 'glistering_melon_slice',
+        output: 'potion_of_healing',
+      },
     ] as const
 
     for (const expected of transforms) {
@@ -59,6 +65,6 @@ describe('brewing data', () => {
       expect(success(brewingOutput(recipe))).toEqual(success(itemStack(expected.output, StackCount(1))))
     }
 
-    expect(VANILLA_BREWING_RECIPES.some((recipe) => recipe.output === 'potion_of_healing')).toBe(false)
+    expect(VANILLA_BREWING_RECIPES.some((recipe) => recipe.output === 'potion_of_healing')).toBe(true)
   })
 })

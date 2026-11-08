@@ -622,6 +622,20 @@ export const VANILLA_CRAFTING_RECIPES: RecipeTable = [
     CRAFTING_TABLE_OPTIONS,
   ),
   shapedRecipe(
+    'minecraft:glistering_melon_slice',
+    ['GGG', 'GMG', 'GGG'],
+    { G: 'gold_nugget', M: 'melon_slice' },
+    canonicalStack('glistering_melon_slice', 1),
+    CRAFTING_TABLE_OPTIONS,
+  ),
+  shapedRecipe(
+    'minecraft:spyglass',
+    [' A ', ' C ', ' C '],
+    { A: 'amethyst_shard', C: 'copper_ingot' },
+    canonicalStack('spyglass', 1),
+    CRAFTING_TABLE_OPTIONS,
+  ),
+  shapedRecipe(
     'minecraft:leather_helmet',
     ['LLL', 'L L'],
     { L: 'leather' },

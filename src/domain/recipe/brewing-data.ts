@@ -77,6 +77,7 @@ export const VANILLA_BREWING_RECIPES: BrewingRecipeTable = [
   brewingRecipe('minecraft:long_swiftness', 'potion_of_swiftness', 'redstone_dust', 'potion_of_swiftness_long'),
   brewingRecipe('minecraft:poison', 'awkward_potion', 'spider_eye', 'potion_of_poison'),
   brewingRecipe('minecraft:regeneration', 'awkward_potion', 'ghast_tear', 'potion_of_regeneration'),
+  brewingRecipe('minecraft:healing', 'awkward_potion', 'glistering_melon_slice', 'potion_of_healing'),
   brewingRecipe('minecraft:strong_healing', 'potion_of_healing', 'glowstone_dust', 'potion_of_healing_ii'),
 ]
 

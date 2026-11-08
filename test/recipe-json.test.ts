@@ -1,8 +1,10 @@
 import { Result } from "effect";
+import * as Schema from "effect/Schema";
+import * as fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
 
 import { isAnyOfIngredient } from "../src/domain/recipe/recipe-data";
-import { itemStack as itemStackResult } from "../src/domain/item/item-stack";
+import { itemStack as itemStackResult, itemStackFromUnknown } from "../src/domain/item/item-stack";
 import { StackCount } from "../src/domain/time/quantities";
 import { NamespacedResourceLocation, TagLocation } from "../src/domain/text/identifiers";
 import { BookGeneration } from "../src/domain/item/item-primitives";
@@ -111,6 +113,36 @@ const recipeFailure = (
 const expectInvalidRecipe = (id: string, value: unknown): void => {
   recipeFailure(craftingRecipeFromUnknown(id, value));
 };
+
+const itemStackBoundarySchema = Schema.Struct({
+  item: Schema.String,
+  count: Schema.Number,
+  components: Schema.Record(Schema.String, Schema.Unknown),
+});
+
+const recipeBoundarySchema = Schema.Union([
+  Schema.Struct({
+    _tag: Schema.Literal("Shaped"),
+    id: Schema.String,
+    pattern: Schema.Struct({
+      width: Schema.Number,
+      height: Schema.Number,
+      cells: Schema.Array(Schema.Unknown),
+    }),
+    output: itemStackBoundarySchema,
+    assumeSymmetry: Schema.Boolean,
+    priority: Schema.Number,
+    tags: Schema.Array(Schema.String),
+  }),
+  Schema.Struct({
+    _tag: Schema.Literal("Shapeless"),
+    id: Schema.String,
+    ingredients: Schema.Array(Schema.Unknown),
+    output: itemStackBoundarySchema,
+    priority: Schema.Number,
+    tags: Schema.Array(Schema.String),
+  }),
+]);
 
 describe("current Java crafting recipe JSON", () => {
   it("decodes shaped recipes with canonical components and alternatives", () => {
@@ -238,24 +270,70 @@ describe("current Java crafting recipe JSON", () => {
     }), "RecipeTypeFailure", undefined, /must be namespaced/);
   });
 
-  it("returns a typed failure when a dynamic recipe uses an unrepresented input", () => {
-    recipeFailure(
-      craftingRecipeFromUnknown("minecraft:spyglass", {
-        type: "minecraft:crafting_shaped",
-        pattern: ["C", "Q"],
-        key: {
-          C: "minecraft:copper_ingot",
-          Q: "minecraft:amethyst_shard",
-        },
-        result: "minecraft:spyglass",
-      }),
-      "RecipeTypeFailure",
-      {
-        _tag: "RecipeTypeFailure",
-        name: "TypeError",
-        message: "Unknown recipe item, received minecraft:copper_ingot",
+  it("decodes the vanilla spyglass recipe once copper is represented", () => {
+    const recipe = recipeSuccess(craftingRecipeFromUnknown("minecraft:spyglass", {
+      type: "minecraft:crafting_shaped",
+      pattern: [" # ", " X ", " X "],
+      key: {
+        "#": "minecraft:amethyst_shard",
+        X: "minecraft:copper_ingot",
       },
+      result: "minecraft:spyglass",
+    }));
+
+    expect(recipe._tag).toBe("Shaped");
+    if (recipe._tag !== "Shaped") throw new Error("expected a shaped spyglass recipe");
+    expect(recipe.pattern.width).toBe(1);
+    expect(recipe.pattern.height).toBe(3);
+    expect(recipe.pattern.cells[0]).toMatchObject({ _tag: "Exact", item: "amethyst_shard" });
+    expect(recipe.pattern.cells[1]).toMatchObject({ _tag: "Exact", item: "copper_ingot" });
+    expect(recipe.pattern.cells[2]).toMatchObject({ _tag: "Exact", item: "copper_ingot" });
+    expect(recipe.output).toMatchObject({ item: "spyglass", count: 1 });
+  });
+
+  it("returns tagged failures or Schema-decodable successes for arbitrary item and recipe inputs", () => {
+    const validItemStackInput = ["stick", 1, {}] as const;
+    const itemStackInput = fc.oneof(
+      fc.constant(validItemStackInput),
+      fc.tuple(fc.anything(), fc.anything(), fc.anything()),
     );
+    const validRecipeInput = {
+      type: "minecraft:crafting_shapeless",
+      ingredients: ["minecraft:stick"],
+      result: "minecraft:stone",
+    };
+    const recipeDocument = fc.oneof(fc.constant(validRecipeInput), fc.anything());
+    let itemStackSuccesses = 0;
+    let recipeSuccesses = 0;
+
+    fc.assert(fc.property(itemStackInput, ([item, count, options]) => {
+      const result = itemStackFromUnknown(item, count, options);
+      if (Result.isFailure(result)) {
+        expect(["ItemValidationFailure", "ItemComponentPatchConflictError", "TextComponentFailure"])
+          .toContain(result.failure._tag);
+      } else {
+        Schema.decodeUnknownSync(itemStackBoundarySchema)(result.success);
+        itemStackSuccesses += 1;
+      }
+    }));
+
+    fc.assert(fc.property(recipeDocument, (value) => {
+      const result = craftingRecipeFromUnknown("minecraft:property_test", value);
+      if (Result.isFailure(result)) {
+        expect([
+          "RecipeTypeFailure",
+          "RecipeRangeFailure",
+          "RecipeExternalFailure",
+          "RecipeItemFailure",
+        ]).toContain(result.failure._tag);
+      } else {
+        Schema.decodeUnknownSync(recipeBoundarySchema)(result.success);
+        recipeSuccesses += 1;
+      }
+    }));
+
+    expect(itemStackSuccesses).toBeGreaterThan(0);
+    expect(recipeSuccesses).toBeGreaterThan(0);
   });
 
   it("maps namespaced recipe ids to data-pack paths", () => {
