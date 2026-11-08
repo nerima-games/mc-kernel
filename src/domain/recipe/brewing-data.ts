@@ -73,8 +73,12 @@ const brewingRecipe = (id: string, input: ItemType, ingredient: ItemType, output
 export const VANILLA_BREWING_RECIPES: BrewingRecipeTable = [
   brewingRecipe('minecraft:awkward_potion', 'water_bottle', 'nether_wart', 'awkward_potion'),
   brewingRecipe('minecraft:swiftness', 'awkward_potion', 'sugar', 'potion_of_swiftness'),
+  brewingRecipe('minecraft:strong_swiftness', 'potion_of_swiftness', 'glowstone_dust', 'potion_of_swiftness_ii'),
+  brewingRecipe('minecraft:long_swiftness', 'potion_of_swiftness', 'redstone_dust', 'potion_of_swiftness_long'),
   brewingRecipe('minecraft:poison', 'awkward_potion', 'spider_eye', 'potion_of_poison'),
   brewingRecipe('minecraft:regeneration', 'awkward_potion', 'ghast_tear', 'potion_of_regeneration'),
+  brewingRecipe('minecraft:healing', 'awkward_potion', 'glistering_melon_slice', 'potion_of_healing'),
+  brewingRecipe('minecraft:strong_healing', 'potion_of_healing', 'glowstone_dust', 'potion_of_healing_ii'),
 ]
 
 export const brewingOutput = (

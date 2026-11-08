@@ -121,6 +121,36 @@ const FOOD_COMPONENT_ITEM_IDS = {
   rabbit_stew: 236,
   sweet_berries: 237,
 } as const satisfies Readonly<Partial<Record<ItemType, number>>>
+const VANILLA_PARITY_ITEM_IDS = {
+  potion_of_healing: 280,
+  ink_sac: 281,
+  prismarine_shard: 282,
+  dragon_breath: 283,
+  elytra: 284,
+  popped_chorus_fruit: 285,
+  shulker_shell: 286,
+  compass: 287,
+  clock: 288,
+  spyglass: 289,
+  leather_helmet: 290,
+  leather_chestplate: 291,
+  leather_leggings: 292,
+  leather_boots: 293,
+  gold_helmet: 294,
+  gold_chestplate: 295,
+  gold_leggings: 296,
+  gold_boots: 297,
+  charcoal: 298,
+  blaze_rod: 299,
+  potion_of_swiftness_ii: 300,
+  potion_of_healing_ii: 301,
+  potion_of_swiftness_long: 302,
+  glistering_melon_slice: 303,
+  copper_ore: 304,
+  deepslate_copper_ore: 305,
+  raw_copper: 306,
+  copper_ingot: 307,
+} as const satisfies Readonly<Partial<Record<ItemType, number>>>
 
 const EXPECTED_ITEM_TYPES: ReadonlyArray<ItemType> = [
   'stone',
@@ -403,6 +433,34 @@ const EXPECTED_ITEM_TYPES: ReadonlyArray<ItemType> = [
   'red_banner',
   'white_banner',
   'yellow_banner',
+  'potion_of_healing',
+  'ink_sac',
+  'prismarine_shard',
+  'dragon_breath',
+  'elytra',
+  'popped_chorus_fruit',
+  'shulker_shell',
+  'compass',
+  'clock',
+  'spyglass',
+  'leather_helmet',
+  'leather_chestplate',
+  'leather_leggings',
+  'leather_boots',
+  'gold_helmet',
+  'gold_chestplate',
+  'gold_leggings',
+  'gold_boots',
+  'charcoal',
+  'blaze_rod',
+  'potion_of_swiftness_ii',
+  'potion_of_healing_ii',
+  'potion_of_swiftness_long',
+  'glistering_melon_slice',
+  'copper_ore',
+  'deepslate_copper_ore',
+  'raw_copper',
+  'copper_ingot',
 ]
 
 /**
@@ -616,6 +674,13 @@ describe('item registry', () => {
     })),
   )
 
+  it('appends the missing vanilla item vocabulary after every existing permanent id', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(itemIdOf('yellow_banner')).toBe(279)
+      expectAppendedItemIds(VANILLA_PARITY_ITEM_IDS)
+    })),
+  )
+
   it('round-trips every registered item through its two-byte save and wire field', () =>
     Effect.runPromise(Effect.sync(() => {
       for (const type of ITEM_TYPES) {
@@ -639,6 +704,7 @@ describe('item registry', () => {
       expect(itemResultValue(ItemIdBytes(new Uint8Array([0, EYE_OF_ENDER_ITEM_ID])))).toStrictEqual(
         new Uint8Array([0, EYE_OF_ENDER_ITEM_ID]),
       )
+      expect(itemResultValue(decodeItemId(itemResultValue(ItemIdBytes(new Uint8Array([1, 24])))))).toBe('potion_of_healing')
       for (const length of [0, 1, 3]) {
         const input = new Uint8Array(length)
         expectItemFailure(ItemIdBytes(input), {
@@ -647,7 +713,7 @@ describe('item registry', () => {
         })
       }
       for (const [input, id] of [
-        [new Uint8Array([1, 24]), 280],
+        [new Uint8Array([1, 52]), 308],
         [new Uint8Array([0xff, 0xff]), 0xffff],
       ] as const) {
         const expected = {
@@ -762,7 +828,11 @@ describe('item registry', () => {
       expect(isKnownItemId(205)).toBe(true)
       expect(isKnownItemId(224)).toBe(true)
       expect(isKnownItemId(279)).toBe(true)
-      expect(isKnownItemId(280)).toBe(false)
+      expect(isKnownItemId(280)).toBe(true)
+      expect(isKnownItemId(302)).toBe(true)
+      expect(isKnownItemId(303)).toBe(true)
+      expect(isKnownItemId(307)).toBe(true)
+      expect(isKnownItemId(308)).toBe(false)
       expect(isKnownItemId(-1)).toBe(false)
       expect(isKnownItemId(1.5)).toBe(false)
     })),
@@ -819,6 +889,20 @@ describe('item registry', () => {
         'netherite_chestplate',
         'netherite_leggings',
         'netherite_boots',
+        'elytra',
+        'spyglass',
+        'leather_helmet',
+        'leather_chestplate',
+        'leather_leggings',
+        'leather_boots',
+        'gold_helmet',
+        'gold_chestplate',
+        'gold_leggings',
+        'gold_boots',
+        'potion_of_healing',
+        'potion_of_swiftness_ii',
+        'potion_of_healing_ii',
+        'potion_of_swiftness_long',
         'beetroot_soup',
         'mushroom_stew',
         'rabbit_stew',
@@ -880,6 +964,15 @@ describe('item registry', () => {
         'porkchop',
         'pumpkin_pie',
         'sweet_berries',
+        'ink_sac',
+        'prismarine_shard',
+        'dragon_breath',
+        'popped_chorus_fruit',
+        'shulker_shell',
+        'compass',
+        'clock',
+        'charcoal',
+        'blaze_rod',
       ] as const) {
         expect(maxStackCountOfItem(type)).toBe(64)
       }

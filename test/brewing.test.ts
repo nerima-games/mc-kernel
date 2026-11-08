@@ -29,4 +29,42 @@ describe('brewing data', () => {
       success(itemStack('awkward_potion', StackCount(1))),
     )
   })
+
+  it('uses the vanilla reagents for represented potion upgrades', () => {
+    const transforms = [
+      {
+        id: 'minecraft:strong_swiftness',
+        input: 'potion_of_swiftness',
+        ingredient: 'glowstone_dust',
+        output: 'potion_of_swiftness_ii',
+      },
+      {
+        id: 'minecraft:long_swiftness',
+        input: 'potion_of_swiftness',
+        ingredient: 'redstone_dust',
+        output: 'potion_of_swiftness_long',
+      },
+      {
+        id: 'minecraft:strong_healing',
+        input: 'potion_of_healing',
+        ingredient: 'glowstone_dust',
+        output: 'potion_of_healing_ii',
+      },
+      {
+        id: 'minecraft:healing',
+        input: 'awkward_potion',
+        ingredient: 'glistering_melon_slice',
+        output: 'potion_of_healing',
+      },
+    ] as const
+
+    for (const expected of transforms) {
+      const recipe = VANILLA_BREWING_RECIPES.find((candidate) => candidate.id === expected.id)
+      if (recipe === undefined) throw new Error(`Missing brewing recipe ${expected.id}`)
+      expect(recipe).toMatchObject(expected)
+      expect(success(brewingOutput(recipe))).toEqual(success(itemStack(expected.output, StackCount(1))))
+    }
+
+    expect(VANILLA_BREWING_RECIPES.some((recipe) => recipe.output === 'potion_of_healing')).toBe(true)
+  })
 })

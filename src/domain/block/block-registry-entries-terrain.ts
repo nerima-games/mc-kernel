@@ -40,7 +40,7 @@ export const BLOCK_REGISTRY_TERRAIN: ReadonlyArray<BlockRegistryEntryInput> = [
       // (`block-vocabulary.ts:649`), which marks obsidian
       // `resistsNormalExplosion: true` — kernel had no such column before.
       properties: {
-        hardness: 90,
+        hardness: 50,
         friction: 0.8,
         footstepMaterial: 'stone',
         blastResistance: Number.POSITIVE_INFINITY,

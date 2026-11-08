@@ -74,6 +74,20 @@ const IRON_ARMOUR_ITEM_TYPES = [
   'iron_boots',
 ] as const satisfies ReadonlyArray<ItemType>
 
+const LEATHER_ARMOUR_ITEM_TYPES = [
+  'leather_helmet',
+  'leather_chestplate',
+  'leather_leggings',
+  'leather_boots',
+] as const satisfies ReadonlyArray<ItemType>
+
+const GOLD_ARMOUR_ITEM_TYPES = [
+  'gold_helmet',
+  'gold_chestplate',
+  'gold_leggings',
+  'gold_boots',
+] as const satisfies ReadonlyArray<ItemType>
+
 const DIAMOND_ARMOUR_ITEM_TYPES = [
   'diamond_helmet',
   'diamond_chestplate',
@@ -223,6 +237,8 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
     ['deepslate_redstone_ore', 'nothing', 'redstone_dust'],
     ['deepslate_lapis_ore', 'nothing', 'lapis_lazuli'],
     ['deepslate_emerald_ore', 'nothing', 'emerald'],
+    ['copper_ore', 'nothing', 'raw_copper'],
+    ['deepslate_copper_ore', 'nothing', 'raw_copper'],
     ['coal_block', 'coal_block', 'coal_block'],
     ['iron_block', 'iron_block', 'iron_block'],
     ['gold_block', 'gold_block', 'gold_block'],
@@ -404,6 +420,16 @@ describe('the tool gate', () => {
         affectedByFortune: true,
         count: 4,
         item: 'deepslate_redstone_ore',
+      })
+      expect(dropOfBlockId(knownBlockIdOf('copper_ore'), SILK_TOUCH)).toStrictEqual({
+        affectedByFortune: true,
+        count: 2,
+        item: 'copper_ore',
+      })
+      expect(dropOfBlockId(knownBlockIdOf('deepslate_copper_ore'), SILK_TOUCH)).toStrictEqual({
+        affectedByFortune: true,
+        count: 2,
+        item: 'deepslate_copper_ore',
       })
       // `glowstone` was the one row missing `silkTouchItem` — see the
       // registry comment at its definition. `count`/`affectedByFortune` stay
@@ -819,11 +845,30 @@ describe('the rule that keeps a `self` drop honest', () => {
         'red_banner',
         'white_banner',
         'yellow_banner',
+        'potion_of_healing',
+        'glistering_melon_slice',
+        'copper_ingot',
+        'ink_sac',
+        'prismarine_shard',
+        'dragon_breath',
+        'popped_chorus_fruit',
+        'shulker_shell',
+        'compass',
+        'clock',
+        'spyglass',
+        'charcoal',
+        'blaze_rod',
+        'potion_of_swiftness_ii',
+        'potion_of_healing_ii',
+        'potion_of_swiftness_long',
       ])
       const EQUIPMENT_ITEMS: ReadonlySet<string> = new Set([
+        ...LEATHER_ARMOUR_ITEM_TYPES,
         ...IRON_ARMOUR_ITEM_TYPES,
+        ...GOLD_ARMOUR_ITEM_TYPES,
         ...DIAMOND_ARMOUR_ITEM_TYPES,
         ...NETHERITE_ARMOUR_ITEM_TYPES,
+        'elytra',
       ])
 
       const dropped = droppedItemTypes()
@@ -842,9 +887,12 @@ describe('the rule that keeps a `self` drop honest', () => {
       // Unexplained item cannot be hidden by adding a name to the exemption.
       expect([...EXPLICIT_NON_BLOCK_ITEMS].filter((name) => !isItemType(name))).toStrictEqual([])
       expect([...EQUIPMENT_ITEMS]).toStrictEqual([
+        ...LEATHER_ARMOUR_ITEM_TYPES,
         ...IRON_ARMOUR_ITEM_TYPES,
+        ...GOLD_ARMOUR_ITEM_TYPES,
         ...DIAMOND_ARMOUR_ITEM_TYPES,
         ...NETHERITE_ARMOUR_ITEM_TYPES,
+        'elytra',
       ])
     })),
   )

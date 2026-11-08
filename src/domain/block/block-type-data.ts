@@ -242,4 +242,6 @@ export const BLOCK_TYPES = [
   'fire',
   'soul_soil',
   'wither_skeleton_skull',
+  'copper_ore',
+  'deepslate_copper_ore',
 ] as const

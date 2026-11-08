@@ -485,6 +485,46 @@ describe('item components', () => {
     expect(itemComponentStackLimitOf('diamond_pickaxe')).toBe(1)
     expect(ITEMS_WITH_SINGLE_STACK_LIMIT).toContain('diamond_pickaxe')
     expect(ITEMS_WITH_SIXTEEN_STACK_LIMIT).toContain('ender_pearl')
+    const vanillaSingleStackItems = [
+      'potion_of_healing',
+      'elytra',
+      'spyglass',
+      'leather_helmet',
+      'leather_chestplate',
+      'leather_leggings',
+      'leather_boots',
+      'gold_helmet',
+      'gold_chestplate',
+      'gold_leggings',
+      'gold_boots',
+      'potion_of_swiftness_ii',
+      'potion_of_healing_ii',
+      'potion_of_swiftness_long',
+    ] as const
+    for (const item of vanillaSingleStackItems) {
+      expect(itemComponentStackLimitOf(item)).toBe(1)
+      expect(ITEMS_WITH_SINGLE_STACK_LIMIT).toContain(item)
+    }
+  })
+
+  it('resolves vanilla damage defaults for elytra and new armor', () => {
+    const damageableItems = [
+      ['elytra', 432],
+      ['leather_helmet', 55],
+      ['leather_chestplate', 80],
+      ['leather_leggings', 75],
+      ['leather_boots', 65],
+      ['gold_helmet', 77],
+      ['gold_chestplate', 112],
+      ['gold_leggings', 105],
+      ['gold_boots', 91],
+    ] as const
+    for (const [item, maxDamage] of damageableItems) {
+      const components = itemComponents(item)
+      expect(components.maxStackSize).toBe(1)
+      expect(components.maxDamage).toBe(maxDamage)
+      expect(components.damage).toBe(0)
+    }
   })
 
   it('resolves immutable generic component values', () => {

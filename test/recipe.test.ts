@@ -58,6 +58,50 @@ const itemStack = (item: Parameters<typeof itemStackResult>[0], count: number) =
     itemStackResult(item, expectRecipeSuccess(StackCount.result(count))),
   );
 
+const vanillaRecipeById = (id: string) => {
+  const recipe = VANILLA_CRAFTING_RECIPES.find((candidate) => candidate.id === id);
+  if (recipe === undefined) throw new Error(`Missing vanilla recipe ${id}`);
+  return recipe;
+};
+
+const expectShapedVanillaRecipe = (
+  id: string,
+  width: number,
+  height: number,
+  inputs: ReadonlyArray<ItemType | undefined>,
+  output: ItemType,
+  outputCount: number,
+): void => {
+  const recipe = vanillaRecipeById(id);
+  expect(recipe._tag).toBe("Shaped");
+  if (recipe._tag !== "Shaped") throw new Error(`Expected shaped recipe ${id}`);
+  expect(recipe.pattern.width).toBe(width);
+  expect(recipe.pattern.height).toBe(height);
+  expect(
+    recipe.pattern.cells.map((cell) =>
+      cell?._tag === "Exact" ? cell.item : undefined,
+    ),
+  ).toEqual(inputs);
+  expect(recipe.output).toEqual(itemStack(output, outputCount));
+};
+
+const expectShapelessVanillaRecipe = (
+  id: string,
+  inputs: ReadonlyArray<ItemType>,
+  output: ItemType,
+  outputCount: number,
+): void => {
+  const recipe = vanillaRecipeById(id);
+  expect(recipe._tag).toBe("Shapeless");
+  if (recipe._tag !== "Shapeless") throw new Error(`Expected shapeless recipe ${id}`);
+  expect(
+    recipe.ingredients.map((ingredient) =>
+      ingredient._tag === "Exact" ? ingredient.item : undefined,
+    ),
+  ).toEqual(inputs);
+  expect(recipe.output).toEqual(itemStack(output, outputCount));
+};
+
 const recipeId = (value: string) => expectRecipeSuccess(RecipeId.result(value));
 const recipeIngredientCount = (value: number) =>
   expectRecipeSuccess(RecipeIngredientCount.result(value));
@@ -888,11 +932,183 @@ describe("recipe data", () => {
 });
 
 describe("vanilla recipe data", () => {
-  it("keeps the supported crafting recipes tagged for their station", () => {
+  it("uses actual inputs and outputs for the added vanilla recipes", () => {
+    expectShapedVanillaRecipe("minecraft:bread", 3, 1, ["wheat", "wheat", "wheat"], "bread", 1);
+    expectShapelessVanillaRecipe("minecraft:blaze_powder", ["blaze_rod"], "blaze_powder", 2);
+    expectShapedVanillaRecipe(
+      "minecraft:compass",
+      3,
+      3,
+      [undefined, "iron_ingot", undefined, "iron_ingot", "redstone_dust", "iron_ingot", undefined, "iron_ingot", undefined],
+      "compass",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:clock",
+      3,
+      3,
+      [undefined, "gold_ingot", undefined, "gold_ingot", "redstone_dust", "gold_ingot", undefined, "gold_ingot", undefined],
+      "clock",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:glistering_melon_slice",
+      3,
+      3,
+      ["gold_nugget", "gold_nugget", "gold_nugget", "gold_nugget", "melon_slice", "gold_nugget", "gold_nugget", "gold_nugget", "gold_nugget"],
+      "glistering_melon_slice",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:spyglass",
+      1,
+      3,
+      ["amethyst_shard", "copper_ingot", "copper_ingot"],
+      "spyglass",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:leather_helmet",
+      3,
+      2,
+      ["leather", "leather", "leather", "leather", undefined, "leather"],
+      "leather_helmet",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:leather_chestplate",
+      3,
+      3,
+      ["leather", undefined, "leather", "leather", "leather", "leather", "leather", "leather", "leather"],
+      "leather_chestplate",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:leather_leggings",
+      3,
+      3,
+      ["leather", "leather", "leather", "leather", undefined, "leather", "leather", undefined, "leather"],
+      "leather_leggings",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:leather_boots",
+      3,
+      2,
+      ["leather", undefined, "leather", "leather", undefined, "leather"],
+      "leather_boots",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:gold_helmet",
+      3,
+      2,
+      ["gold_ingot", "gold_ingot", "gold_ingot", "gold_ingot", undefined, "gold_ingot"],
+      "gold_helmet",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:gold_chestplate",
+      3,
+      3,
+      ["gold_ingot", undefined, "gold_ingot", "gold_ingot", "gold_ingot", "gold_ingot", "gold_ingot", "gold_ingot", "gold_ingot"],
+      "gold_chestplate",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:gold_leggings",
+      3,
+      3,
+      ["gold_ingot", "gold_ingot", "gold_ingot", "gold_ingot", undefined, "gold_ingot", "gold_ingot", undefined, "gold_ingot"],
+      "gold_leggings",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:gold_boots",
+      3,
+      2,
+      ["gold_ingot", undefined, "gold_ingot", "gold_ingot", undefined, "gold_ingot"],
+      "gold_boots",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:shulker_box",
+      1,
+      3,
+      ["shulker_shell", "chest", "shulker_shell"],
+      "shulker_box",
+      1,
+    );
+    expectShapedVanillaRecipe(
+      "minecraft:brewing_stand",
+      3,
+      2,
+      [undefined, "blaze_rod", undefined, "cobblestone", "cobblestone", "cobblestone"],
+      "brewing_stand",
+      1,
+    );
+    expectShapelessVanillaRecipe("minecraft:black_dye", ["ink_sac"], "black_dye", 1);
+
+    const torch = vanillaRecipeById("minecraft:torch");
+    if (torch._tag !== "Shaped") throw new Error("Expected a shaped torch recipe");
+    const coalIngredient = torch.pattern.cells[0];
+    if (coalIngredient === undefined) throw new Error("Expected a torch fuel ingredient");
+    expect(expectRecipeSuccess(ingredientMatches(coalIngredient, "coal"))).toBe(true);
+    expect(expectRecipeSuccess(ingredientMatches(coalIngredient, "charcoal"))).toBe(true);
+    expect(torch.output).toEqual(itemStack("torch", 4));
+
+    const fireCharge = vanillaRecipeById("minecraft:fire-charge");
+    if (fireCharge._tag !== "Shapeless") {
+      throw new Error("Expected a shapeless fire charge recipe");
+    }
+    const fuelIngredient = fireCharge.ingredients[2];
+    if (fuelIngredient === undefined) {
+      throw new Error("Expected a fire charge fuel ingredient");
+    }
+    expect(expectRecipeSuccess(ingredientMatches(fuelIngredient, "coal"))).toBe(true);
+    expect(expectRecipeSuccess(ingredientMatches(fuelIngredient, "charcoal"))).toBe(true);
+    expect(fireCharge.output).toEqual(itemStack("fire_charge", 3));
+  });
+
+  it("requires a crafting table exactly when the recipe does not fit the 2x2 inventory grid", () => {
     expect(VANILLA_CRAFTING_RECIPES.length).toBeGreaterThan(70);
+    const inventoryGridRecipeIds = new Set([
+      "minecraft:bone-meal",
+      "minecraft:oak-planks",
+      "minecraft:stick",
+      "minecraft:crafting-table",
+      "minecraft:torch",
+      "minecraft:glowstone",
+      "minecraft:flint-and-steel",
+      "minecraft:fire-charge",
+      "minecraft:eye-of-ender",
+      "minecraft:coal-from-block",
+      "minecraft:iron-from-block",
+      "minecraft:diamond-from-block",
+      "minecraft:redstone-from-block",
+      "minecraft:lapis-from-block",
+      "minecraft:emerald-from-block",
+      "minecraft:amethyst-block",
+      "minecraft:amethyst-from-block",
+      "minecraft:sandstone",
+      "minecraft:redstone-torch",
+      "minecraft:lever",
+      "minecraft:stone-button",
+      "minecraft:end-stone-bricks",
+      "minecraft:purpur-pillar",
+      "minecraft:pressure-plate",
+      "minecraft:shears",
+      "minecraft:wool",
+      "minecraft:sugar",
+      "minecraft:gold-ingot",
+      "minecraft:book",
+      "minecraft:blaze_powder",
+      "minecraft:black_dye",
+    ]);
+    const tableTag = recipeStationTag("crafting_table");
     expect(
       VANILLA_CRAFTING_RECIPES.every((recipe) =>
-        recipe.tags.includes(recipeStationTag("crafting_table")),
+        recipe.tags.includes(tableTag) === !inventoryGridRecipeIds.has(recipe.id),
       ),
     ).toBe(true);
   });

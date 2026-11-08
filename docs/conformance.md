@@ -13,55 +13,56 @@ used by the package tests are tracked.
 | `26.3-assets-json` | `4ea7e5424848e1bed4e8c059986950bdd0acfb22` |
 | `26.3-summary` | `d96c75fec200c4580dd75e033a76341521165461` |
 
-Generate the golden files from the pinned generator with:
-
-```sh
-nix develop --command pnpm install
-nix develop --command pnpm tsx scripts/conformance/generate.ts --out test/golden
-```
-
-The generator reads five golden inputs and emits seven identifier or value
-constants into `src/domain/vanilla-26-3-generated.ts`. The optional output path
-is used by the freshness test; omitting it updates the committed generated
-module.
+The pinned `mc-dev-meta` conformance workflow generates the checked-in golden files;
+its generator is maintained outside this repository. To regenerate the derived
+identifier and value constants from those goldens, run:
 
 ```sh
 nix develop --command pnpm generate:vanilla
+```
+
+`scripts/generate-vanilla-tables.ts` reads five golden files and writes seven
+identifier or value constants to `src/domain/vanilla-26-3-generated.ts`. To
+write the generated module to a temporary path instead, run:
+
+```sh
 nix develop --command node --experimental-strip-types scripts/generate-vanilla-tables.ts --output /tmp/vanilla-26-3-generated.ts
 ```
 
 Across generated and hand-maintained data, the package covers biome, block,
 damage-type, enchantment, item, mob-effect, recipe, and item-tag categories.
 `test/vanilla-26-3.test.ts` decodes each golden file with `effect/Schema` and
-checks the generated counts and represented table values.
+compares exposed ids with the 26.3 data, allowing the listed compatibility
+extensions.
 
 ## Intentional coverage differences
 
-The regenerated kernel tables now match all 67 biomes, 51 damage types, 40 mob
-effects, 43 enchantments, and 236 tag ids. The intentionally divergent tables
-remain capability-scoped: block is 123/1286, item is 280/1658, and recipe is
-100/2042 (kernel/26.3). Their tests require every exposed id to exist in 26.3;
-the remaining ids are deferred until the corresponding downstream contracts can
-represent them.
+The generated tables cover all 67 biomes, 51 damage types, 40 mob effects, 43
+enchantments, and 236 tag ids. Block and item tables remain partial to avoid
+expanding downstream block rendering and item/model contracts. Every exposed
+block, item, and crafting recipe id is checked against the Minecraft 26.3 golden
+data. `VANILLA_CRAFTING_RECIPES` counts only crafting recipes; smelting, brewing,
+and fuel data live in separate tables.
 
-The kernel represents 100 of the 1,202 shaped/shapeless rows. The other 1,102
-shaped/shapeless rows are not represented. Another 840 rows use unsupported
-recipe types: `stonecutting` 351, `smelting` 73, `campfire_cooking` 9,
+The other recipe types in the 26.3 golden catalog include `stonecutting` 351,
+`smelting` 73, `campfire_cooking` 9,
 `smoking` 9, `crafting_special_bannerduplicate` 16, `crafting_transmute` 33,
 `smithing_trim` 18, `crafting_special_bookcloning` 1, `brewing` 279,
 `blasting` 25, `crafting_decorated_pot` 1, `crafting_special_firework_rocket`
 1, `crafting_special_firework_star` 1, `crafting_special_firework_star_fade`
 1, `crafting_dye` 6, `crafting_special_mapextending` 1,
 `smithing_transform` 12, `crafting_special_repairitem` 1,
-`crafting_special_shielddecoration` 1, and `crafting_imbue` 1. These rows are
-intentionally not copied into `recipe-vanilla-data.ts`.
+`crafting_special_shielddecoration` 1, and `crafting_imbue` 1. These rows fall
+outside `VANILLA_CRAFTING_RECIPES`; separate tables represent subsets of
+smelting and brewing rows.
 
 ## Entries to add to the mc-dev-meta conformance catalog
 
-The maintainer of the mc-dev-meta conformance catalog should add these rows:
+These proposed rows are for the separately maintained `mc-dev-meta` conformance
+catalog:
 
 | id | owner | reason |
 | --- | --- | --- |
-| `mc-kernel:block-registry-26-3` | `mc-kernel` | Block table remains 123/1286 to avoid downstream meshing and render contract expansion. |
-| `mc-kernel:item-registry-26-3` | `mc-kernel` | Item table remains 280/1658 to avoid downstream item/model contract expansion. |
-| `mc-kernel:recipe-types-26-3` | `mc-kernel` | Kernel schema represents 100/2042 recipe rows overall: 100 of 1,202 shaped/shapeless rows are represented, while 1,102 are not; the listed 840 rows use other unsupported recipe types. |
+| `mc-kernel:block-registry-26-3` | `mc-kernel` | Block table contains 125/1286 entries; remaining entries are outside the shared block and rendering contract. |
+| `mc-kernel:item-registry-26-3` | `mc-kernel` | Item table contains 308/1658 entries; remaining entries are outside the shared item and model contract. |
+| `mc-kernel:recipe-types-26-3` | `mc-kernel` | Crafting table contains 117/2042 rows from the vanilla recipe catalog: 117 of 1,202 shaped/shapeless rows are represented, while 1,085 shaped/shapeless and 840 other-type rows are outside this table. Separate smelting and brewing tables represent additional subsets. |

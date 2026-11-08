@@ -74,6 +74,36 @@ const KNOWN_ITEM_TYPES = [
   'diamond_pickaxe',
   'eye_of_ender',
 ] as const satisfies ReadonlyArray<ItemType>
+const APPENDED_VANILLA_ITEM_TYPES = [
+  'potion_of_healing',
+  'ink_sac',
+  'prismarine_shard',
+  'dragon_breath',
+  'elytra',
+  'popped_chorus_fruit',
+  'shulker_shell',
+  'compass',
+  'clock',
+  'spyglass',
+  'leather_helmet',
+  'leather_chestplate',
+  'leather_leggings',
+  'leather_boots',
+  'gold_helmet',
+  'gold_chestplate',
+  'gold_leggings',
+  'gold_boots',
+  'charcoal',
+  'blaze_rod',
+  'potion_of_swiftness_ii',
+  'potion_of_healing_ii',
+  'potion_of_swiftness_long',
+  'glistering_melon_slice',
+  'copper_ore',
+  'deepslate_copper_ore',
+  'raw_copper',
+  'copper_ingot',
+] as const satisfies ReadonlyArray<ItemType>
 
 const UNITEMISED_EXAMPLE_BLOCK_TYPES = ['air', 'water', 'bedrock'] as const satisfies ReadonlyArray<BlockType>
 const NON_PLACEABLE_EXAMPLE_ITEM_TYPES = ['stick', 'bow', 'arrow', 'glowstone_dust'] as const satisfies ReadonlyArray<ItemType>
@@ -81,6 +111,7 @@ const FIRST_ITEM_TYPE_INDEX = 0
 
 const VALIDATED_ITEM_TYPES = [
   ...KNOWN_ITEM_TYPES,
+  ...APPENDED_VANILLA_ITEM_TYPES,
   ...HOE_ITEM_TYPES,
   ...SWORD_ITEM_TYPES,
   ...NETHERITE_TOOL_TYPES,
@@ -334,10 +365,36 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'red_banner',
         'white_banner',
         'yellow_banner',
+        'potion_of_healing',
+        'ink_sac',
+        'prismarine_shard',
+        'dragon_breath',
+        'elytra',
+        'popped_chorus_fruit',
+        'shulker_shell',
+        'compass',
+        'clock',
+        'spyglass',
+        'leather_helmet',
+        'leather_chestplate',
+        'leather_leggings',
+        'leather_boots',
+        'gold_helmet',
+        'gold_chestplate',
+        'gold_leggings',
+        'gold_boots',
+        'charcoal',
+        'blaze_rod',
+        'potion_of_swiftness_ii',
+        'potion_of_healing_ii',
+        'potion_of_swiftness_long',
+        'glistering_melon_slice',
+        'raw_copper',
+        'copper_ingot',
       ])
 
       // The block half of the same ledger: 23 entries over 36 blocks before, 35
-      // entries now. The block registry has 123 rows; the drop ledger is a
+      // entries now. The block registry has 125 rows; the drop ledger is a
       // separate, smaller set. It grew far more slowly than the roster did, and its
       // Composition changed completely — seven of the old entries turned out to
       // Be untranscribed drops rather than gaps (a block whose row says "yields

@@ -7,6 +7,15 @@ import {
   resolveBlock as resolveBlockResult,
 } from '../src/domain/block/block-definition'
 import { BLOCK_CAPABILITY_DEFAULTS, BLOCK_CAPABILITY_FLAGS } from '../src/domain/block/block-capabilities'
+import { BLOCK_REGISTRY_COPPER } from '../src/domain/block/block-registry-entries-copper'
+import { BLOCK_REGISTRY_ORES_AND_BLOCKS } from '../src/domain/block/block-registry-entries-ores-and-blocks'
+import { BLOCK_REGISTRY_TERRAIN } from '../src/domain/block/block-registry-entries-terrain'
+import {
+  NEEDS_DIAMOND_PICKAXE,
+  NEEDS_IRON_PICKAXE,
+  NEEDS_STONE_PICKAXE,
+  NEEDS_WOODEN_PICKAXE,
+} from '../src/domain/block/block-registry-rules'
 import {
   BLOCK_PROPERTY_DEFAULTS,
   BLOCK_PROPERTY_NAMES,
@@ -28,6 +37,33 @@ const LAVA_CONTACT_DAMAGE = 4
 const MAXIMUM_LIGHT_EMISSION = 15
 const DOWNSTREAM_CAPABILITY_COUNT = 1
 const DOWNSTREAM_CAPABILITY_MINIMUM_EXPLANATION_LENGTH = 20
+const STONE_ORE_HARDNESS = 3
+const DEEPSLATE_ORE_HARDNESS = 4.5
+const OBSIDIAN_HARDNESS = 50
+
+const ORE_HARDNESS_AND_TOOL = [
+  ['coal_ore', STONE_ORE_HARDNESS, NEEDS_WOODEN_PICKAXE],
+  ['iron_ore', STONE_ORE_HARDNESS, NEEDS_STONE_PICKAXE],
+  ['gold_ore', STONE_ORE_HARDNESS, NEEDS_IRON_PICKAXE],
+  ['diamond_ore', STONE_ORE_HARDNESS, NEEDS_IRON_PICKAXE],
+  ['redstone_ore', STONE_ORE_HARDNESS, NEEDS_IRON_PICKAXE],
+  ['lapis_ore', STONE_ORE_HARDNESS, NEEDS_STONE_PICKAXE],
+  ['emerald_ore', STONE_ORE_HARDNESS, NEEDS_IRON_PICKAXE],
+  ['deepslate_coal_ore', DEEPSLATE_ORE_HARDNESS, NEEDS_WOODEN_PICKAXE],
+  ['deepslate_iron_ore', DEEPSLATE_ORE_HARDNESS, NEEDS_STONE_PICKAXE],
+  ['deepslate_gold_ore', DEEPSLATE_ORE_HARDNESS, NEEDS_IRON_PICKAXE],
+  ['deepslate_diamond_ore', DEEPSLATE_ORE_HARDNESS, NEEDS_IRON_PICKAXE],
+  ['deepslate_redstone_ore', DEEPSLATE_ORE_HARDNESS, NEEDS_IRON_PICKAXE],
+  ['deepslate_lapis_ore', DEEPSLATE_ORE_HARDNESS, NEEDS_STONE_PICKAXE],
+  ['deepslate_emerald_ore', DEEPSLATE_ORE_HARDNESS, NEEDS_IRON_PICKAXE],
+  ['copper_ore', STONE_ORE_HARDNESS, NEEDS_STONE_PICKAXE],
+  ['deepslate_copper_ore', DEEPSLATE_ORE_HARDNESS, NEEDS_STONE_PICKAXE],
+] as const
+
+const blockPropertiesForType = (type: string) =>
+  [...BLOCK_REGISTRY_ORES_AND_BLOCKS, ...BLOCK_REGISTRY_COPPER, ...BLOCK_REGISTRY_TERRAIN]
+    .find(({ definition }) => definition.type === type)
+    ?.definition.properties
 
 describe('adding a block is one table row plus flag settings (the design contract invariant)', () => {
   // THE named regression test for the design contract's closing requirement:
@@ -113,6 +149,19 @@ describe('adding a block is one table row plus flag settings (the design contrac
 })
 
 describe('resolveBlock', () => {
+  it('uses vanilla hardness and minimum pickaxe tiers for ores and obsidian', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(ORE_HARDNESS_AND_TOOL).toHaveLength(16)
+      for (const [type, hardness, harvestTool] of ORE_HARDNESS_AND_TOOL) {
+        expect(blockPropertiesForType(type), type).toMatchObject({ hardness, harvestTool })
+      }
+      expect(blockPropertiesForType('obsidian')).toMatchObject({
+        hardness: OBSIDIAN_HARDNESS,
+        harvestTool: NEEDS_DIAMOND_PICKAXE,
+      })
+    })),
+  )
+
   it('resolves both halves and agrees with resolving each half separately', () =>
     Effect.runPromise(Effect.sync(() => {
       const glowstone: BlockDefinition = {

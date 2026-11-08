@@ -158,6 +158,20 @@ export const ITEMS_WITH_SINGLE_STACK_LIMIT: ReadonlyArray<ItemType> = [
   'beetroot_soup',
   'mushroom_stew',
   'rabbit_stew',
+  'potion_of_healing',
+  'elytra',
+  'spyglass',
+  'leather_helmet',
+  'leather_chestplate',
+  'leather_leggings',
+  'leather_boots',
+  'gold_helmet',
+  'gold_chestplate',
+  'gold_leggings',
+  'gold_boots',
+  'potion_of_swiftness_ii',
+  'potion_of_healing_ii',
+  'potion_of_swiftness_long',
 ]
 
 export const ITEMS_WITH_SIXTEEN_STACK_LIMIT: ReadonlyArray<ItemType> = [
