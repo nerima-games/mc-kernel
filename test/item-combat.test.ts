@@ -115,6 +115,12 @@ describe('item combat components', () => {
     expectItemFailure(Reflect.apply(itemCombatResult.damageTypeComponent, undefined, [1]), validation(
       'damageType', 'damageType must be a valid resource location: 1', 1, 'invalid-value', 'TypeError',
     ))
+    for (const value of [null, Symbol(), { toString: false }]) {
+      const received = value === null ? 'null' : typeof value
+      expectItemFailure(Reflect.apply(itemCombatResult.damageTypeComponent, undefined, [value]), validation(
+        'damageType', `damageType must be a valid resource location: ${received}`, value, 'invalid-value', 'TypeError',
+      ))
+    }
 
     for (const options of [null, []]) {
       expectItemFailure(Reflect.apply(itemCombatResult.swingAnimationComponent, undefined, [options]), validation(

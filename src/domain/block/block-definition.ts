@@ -39,6 +39,7 @@
  * is answered by the mechanism rather than by the location — the table states
  * OVERRIDES only, so a wrong row is one wrong line rather than a fork.
  */
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from 'effect'
 import { snapshotInputRecord } from '../../input-snapshot.js'
 import {
@@ -99,7 +100,7 @@ function validateBlockDefinition(
   )
   if (Result.isFailure(snapshot)) {
     return snapshot.failure.reason === 'unexpected-field'
-      ? failure('unknown-field', `unknown block definition field ${snapshot.failure.field}`)
+      ? failure('unknown-field', `unknown block definition field ${describeUnknown(snapshot.failure.field)}`)
       : failure('invalid-shape', 'block definition must be an object')
   }
 

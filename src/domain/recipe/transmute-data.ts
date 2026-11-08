@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand, Result } from "effect";
 import {
   isItemStack,
@@ -50,7 +51,7 @@ export const TransmuteMaterialSlotCount: Brand.Constructor<TransmuteMaterialSlot
   Brand.make<TransmuteMaterialSlotCount>((value) =>
     Number.isSafeInteger(value) && value >= 1 && value <= TRANSMUTE_MAX_MATERIAL_SLOTS
       ? true
-      : `TransmuteMaterialSlotCount must be an integer in [1, ${TRANSMUTE_MAX_MATERIAL_SLOTS}], received ${value}`,
+      : `TransmuteMaterialSlotCount must be an integer in [1, ${describeUnknown(TRANSMUTE_MAX_MATERIAL_SLOTS)}], received ${describeUnknown(value)}`,
   );
 
 export type TransmuteMaterialCount = Readonly<{
@@ -153,14 +154,14 @@ const assertMaterialCount = (
   const max = snapshot?.max;
   if (typeof min !== "number" || typeof max !== "number") {
     return recipeRangeFailure(
-      `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}]`,
+      `Transmute material count must be [1, 1] or a range in [2, ${describeUnknown(TRANSMUTE_MAX_MATERIAL_SLOTS)}]`,
     );
   }
   const checkedMin = TransmuteMaterialSlotCount.result(min);
   const checkedMax = TransmuteMaterialSlotCount.result(max);
   if (Result.isFailure(checkedMin) || Result.isFailure(checkedMax)) {
     return recipeRangeFailure(
-      `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}]`,
+      `Transmute material count must be [1, 1] or a range in [2, ${describeUnknown(TRANSMUTE_MAX_MATERIAL_SLOTS)}]`,
     );
   }
   if (
@@ -170,7 +171,7 @@ const assertMaterialCount = (
       : checkedMin.success < 2)
   ) {
     return recipeRangeFailure(
-      `Transmute material count must be [1, 1] or a range in [2, ${TRANSMUTE_MAX_MATERIAL_SLOTS}]`,
+      `Transmute material count must be [1, 1] or a range in [2, ${describeUnknown(TRANSMUTE_MAX_MATERIAL_SLOTS)}]`,
     );
   }
   return Result.succeed({ min: checkedMin.success, max: checkedMax.success });
@@ -223,7 +224,7 @@ const assertPriority = (
       "Transmute recipe priority must be a non-negative safe integer",
     );
   }
-  const message = `Transmute recipe priority must be a non-negative safe integer, received ${priority}`;
+  const message = `Transmute recipe priority must be a non-negative safe integer, received ${describeUnknown(priority)}`;
   return Result.mapError(
     RecipePriority.result(priority),
     () => recipeRangeFailureValue(message),
@@ -371,19 +372,24 @@ export const transmuteRecipeForItem = (
 ): Result.Result<TransmuteRecipe, RecipeFailure> =>
   Result.gen(function* () {
     if (!isItemType(output)) {
-      return yield* recipeTypeFailure(`Unknown item type: ${String(output)}`);
+      return yield* recipeTypeFailure(`Unknown item type: ${describeUnknown(typeof output === "string" ? output : typeof output)}`);
     }
-    if (count > maxStackCountForItem(output)) {
+    if (typeof count !== "number") {
       return yield* recipeRangeFailure(
-        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${String(count)}`,
+        `Item stack count for ${describeUnknown(output)} must be an integer in [1, ${describeUnknown(maxStackCountForItem(output))}], received ${describeUnknown(typeof count)}`,
       );
     }
     const brandedCount = yield* Result.mapError(
       StackCount.result(count),
       () => recipeRangeFailureValue(
-        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${String(count)}`,
+        `Item stack count for ${describeUnknown(output)} must be an integer in [1, ${describeUnknown(maxStackCountForItem(output))}], received ${describeUnknown(count)}`,
       ),
     );
+    if (brandedCount > maxStackCountForItem(output)) {
+      return yield* recipeRangeFailure(
+        `Item stack count for ${describeUnknown(output)} must be an integer in [1, ${describeUnknown(maxStackCountForItem(output))}], received ${describeUnknown(brandedCount)}`,
+      );
+    }
     const outputStack = yield* Result.mapError(
       itemStack(output, brandedCount),
       recipeItemFailure,

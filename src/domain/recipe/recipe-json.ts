@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from "effect";
 import { dataPackResourcePath } from "../world/data-pack-registry.js";
 import type { DataPackRegistryFailure, DataPackResourcePath } from "../world/data-pack-registry.js";
@@ -131,24 +132,24 @@ const minecraftItemOf = (
 ): RecipeResult<ItemType> => {
   if (typeof value !== "string") {
     return recipeTypeFailure(
-      `Recipe item must be a namespaced id, received ${String(value)}`,
+      `Recipe item must be a namespaced id, received ${describeUnknown(value)}`,
     );
   }
   const namespacedId = NamespacedResourceLocation.result(value);
   if (Result.isFailure(namespacedId)) {
     return recipeTypeFailure(
-      `Recipe item must be a namespaced id, received ${String(value)}`,
+      `Recipe item must be a namespaced id, received ${describeUnknown(value)}`,
     );
   }
   const separator = namespacedId.success.indexOf(":");
   if (namespacedId.success.slice(0, separator) !== "minecraft") {
     return recipeTypeFailure(
-      `Kernel recipe decoder only supports vanilla items, received ${namespacedId.success}`,
+      `Kernel recipe decoder only supports vanilla items, received ${describeUnknown(namespacedId.success)}`,
     );
   }
   const item = namespacedId.success.slice(separator + 1);
   if ((!allowAir && item === "air") || !isItemType(item)) {
-    return recipeTypeFailure(`Unknown recipe item, received ${namespacedId.success}`);
+    return recipeTypeFailure(`Unknown recipe item, received ${describeUnknown(namespacedId.success)}`);
   }
   return Result.succeed(item);
 };
@@ -160,7 +161,7 @@ const itemTagOf = (
   const namespacedLocation = NamespacedResourceLocation.result(location);
   if (Result.isFailure(namespacedLocation)) {
     return recipeTypeFailure(
-      `Recipe item tag must be namespaced, received ${value}`,
+      `Recipe item tag must be namespaced, received ${describeUnknown(value)}`,
     );
   }
   const tag = TagLocation.result(`#${namespacedLocation.success}`);
@@ -312,7 +313,7 @@ const decodeCategory = (value: unknown): RecipeResult<RecipeCategory> => {
     value !== "redstone"
   ) {
     return recipeTypeFailure(
-      `Recipe category is invalid, received ${String(value)}`,
+      `Recipe category is invalid, received ${describeUnknown(value)}`,
     );
   }
   return Result.succeed(value);
@@ -402,14 +403,14 @@ const cookingStationOf = (type: string): CookingStation | undefined => {
 const decodeCookingStation = (type: string): RecipeResult<CookingStation> => {
   const station = cookingStationOf(type);
   return station === undefined
-    ? recipeTypeFailure(`Unsupported cooking recipe type: ${type}`)
+    ? recipeTypeFailure(`Unsupported cooking recipe type: ${describeUnknown(type)}`)
     : Result.succeed(station);
 };
 
 const decodeNumber = (value: unknown, field: string): RecipeResult<number> =>
   typeof value === "number"
     ? Result.succeed(value)
-    : recipeTypeFailure(`Recipe ${field} must be a number`);
+    : recipeTypeFailure(`Recipe ${describeUnknown(field)} must be a number`);
 
 const decodePositiveTickCount = (
   value: unknown,
@@ -418,7 +419,7 @@ const decodePositiveTickCount = (
     const checkedTicks = PositiveTickCount.result(ticks);
     return Result.isFailure(checkedTicks)
       ? recipeRangeFailure(
-          `Cooking time must be a positive safe integer, received ${String(ticks)}`,
+          `Cooking time must be a positive safe integer, received ${describeUnknown(ticks)}`,
         )
       : Result.succeed(checkedTicks.success);
   });
@@ -430,7 +431,7 @@ const decodeRecipeExperience = (
     const checkedExperience = RecipeExperience.result(experience);
     return Result.isFailure(checkedExperience)
       ? recipeRangeFailure(
-          `Cooking experience must be a finite non-negative number, received ${String(experience)}`,
+          `Cooking experience must be a finite non-negative number, received ${describeUnknown(experience)}`,
         )
       : Result.succeed(checkedExperience.success);
   });
@@ -486,7 +487,7 @@ const decodeIntegerRange = (
     !hasOnlyKeys(record, ["min", "max"]) ||
     !hasAllKeys(record, ["min", "max"])
   ) {
-    return recipeTypeFailure(`${field} must be an object with min and max`);
+    return recipeTypeFailure(`${describeUnknown(field)} must be an object with min and max`);
   }
   const min = record["min"];
   const max = record["max"];
@@ -497,7 +498,7 @@ const decodeIntegerRange = (
     !Number.isSafeInteger(max)
   ) {
     return recipeTypeFailure(
-      `${field} must contain safe integer min and max values`,
+      `${describeUnknown(field)} must contain safe integer min and max values`,
     );
   }
   if (
@@ -508,7 +509,7 @@ const decodeIntegerRange = (
     min > max
   ) {
     return recipeRangeFailure(
-      `${field} must be an ordered integer range from 0 to ${maximum}`,
+      `${describeUnknown(field)} must be an ordered integer range from 0 to ${describeUnknown(maximum)}`,
     );
   }
   return Result.succeed([min, max]);
@@ -554,7 +555,7 @@ const decodeShapeIngredients = (
     for (const [shape, ingredient] of entries) {
       if (!isFireworkExplosionShape(shape)) {
         return yield* recipeTypeFailure(
-          `Unsupported firework explosion shape: ${shape}`,
+          `Unsupported firework explosion shape: ${describeUnknown(shape)}`,
         );
       }
       shapes[shape] = yield* decodeIngredient(ingredient);
@@ -566,15 +567,15 @@ const decodeRecipeId = (
   value: NamespacedResourceLocation,
 ): RecipeResult<RecipeId> => {
   if (typeof value !== "string") {
-    return recipeTypeFailure(`Recipe id must be namespaced, received ${value}`);
+    return recipeTypeFailure(`Recipe id must be namespaced, received ${describeUnknown(value)}`);
   }
   const recipeId = RecipeId.result(value);
   if (Result.isFailure(recipeId)) {
-    return recipeTypeFailure(`Recipe id must be namespaced, received ${value}`);
+    return recipeTypeFailure(`Recipe id must be namespaced, received ${describeUnknown(value)}`);
   }
   const namespaced = NamespacedResourceLocation.result(value);
   if (Result.isFailure(namespaced)) {
-    return recipeTypeFailure(`Recipe id must be namespaced, received ${value}`);
+    return recipeTypeFailure(`Recipe id must be namespaced, received ${describeUnknown(value)}`);
   }
   return Result.succeed(recipeId.success);
 };
@@ -586,7 +587,7 @@ const decodeRecordWithType = (
   const record = recordFromInput(value);
   const type = record?.["type"];
   if (record === undefined || typeof type !== "string") {
-    return recipeTypeFailure(`${label} must contain a string type`);
+    return recipeTypeFailure(`${describeUnknown(label)} must contain a string type`);
   }
   return Result.succeed({ ...record, type });
 };
@@ -672,7 +673,7 @@ export const craftingRecipeFromUnknown = (
       );
     }
     return yield* recipeTypeFailure(
-      `Unsupported crafting recipe type: ${record["type"]}`,
+      `Unsupported crafting recipe type: ${describeUnknown(record["type"])}`,
     );
   });
 
@@ -727,7 +728,7 @@ export const transmuteRecipeFromUnknown = (
     const record = yield* decodeRecordWithType(value, "Transmute recipe");
     if (record["type"] !== "minecraft:crafting_transmute") {
       return yield* recipeTypeFailure(
-        `Unsupported transmute recipe type: ${record["type"]}`,
+        `Unsupported transmute recipe type: ${describeUnknown(record["type"])}`,
       );
     }
     if (
@@ -1125,7 +1126,7 @@ export const smithingRecipeFromUnknown = (
       return yield* smithingTrimRecipeFromUnknown(id, record);
     }
     return yield* recipeTypeFailure(
-      `Unsupported smithing recipe type: ${record["type"]}`,
+      `Unsupported smithing recipe type: ${describeUnknown(record["type"])}`,
     );
   });
 
@@ -1199,7 +1200,7 @@ export const portableRecipeFromUnknown = (
     if (type === "minecraft:smithing_transform" || type === "minecraft:smithing_trim") {
       return yield* smithingRecipeFromUnknown(id, record);
     }
-    return yield* recipeTypeFailure(`Unsupported portable recipe type: ${type}`);
+    return yield* recipeTypeFailure(`Unsupported portable recipe type: ${describeUnknown(type)}`);
   });
 
 export const recipeFromUnknown: typeof portableRecipeFromUnknown =

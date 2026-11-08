@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand, Result } from 'effect'
 import { snapshotInputRecord } from '../../input-snapshot.js'
 import {
@@ -43,68 +44,68 @@ const worldEpochBrand = Brand.make<WorldEpoch>(
   (value) =>
     isNonNegativeInteger(value)
       ? true
-      : `WorldEpoch must be a non-negative safe integer, received ${value}`,
+      : `WorldEpoch must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 const chunkRevisionBrand = Brand.make<ChunkRevision>(
   (value) =>
     isNonNegativeInteger(value)
       ? true
-      : `ChunkRevision must be a non-negative safe integer, received ${value}`,
+      : `ChunkRevision must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 const lightRevisionBrand = Brand.make<LightRevision>(
   (value) =>
     isNonNegativeInteger(value)
       ? true
-      : `LightRevision must be a non-negative safe integer, received ${value}`,
+      : `LightRevision must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 const chunkLocalIndexBrand = Brand.make<ChunkLocalIndex>(
   (value) =>
     isNonNegativeInteger(value)
       ? true
-      : `ChunkLocalIndex must be a non-negative safe integer, received ${value}`,
+      : `ChunkLocalIndex must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 const sectionIndexBrand = Brand.make<SectionIndex>(
   (value) =>
     isNonNegativeInteger(value)
       ? true
-      : `SectionIndex must be a non-negative safe integer, received ${value}`,
+      : `SectionIndex must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 const sectionLengthBrand = Brand.make<SectionLength>(
   (value) =>
     Number.isSafeInteger(value) && value >= MIN_INDEX
       ? true
-      : `SectionLength must be a non-negative safe integer, received ${value}`,
+      : `SectionLength must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 
 export const WorldEpoch = (value: number): Result.Result<WorldEpoch, WorldReadWriteFailure> =>
   Result.mapError(
     worldEpochBrand.result(value),
-    () => failureValue('invalid-epoch', `WorldEpoch must be a non-negative safe integer, received ${value}`),
+    () => failureValue('invalid-epoch', `WorldEpoch must be a non-negative safe integer, received ${describeUnknown(value)}`),
   )
 export const ChunkRevision = (value: number): Result.Result<ChunkRevision, WorldReadWriteFailure> =>
   Result.mapError(
     chunkRevisionBrand.result(value),
-    () => failureValue('invalid-revision', `ChunkRevision must be a non-negative safe integer, received ${value}`),
+    () => failureValue('invalid-revision', `ChunkRevision must be a non-negative safe integer, received ${describeUnknown(value)}`),
   )
 export const LightRevision = (value: number): Result.Result<LightRevision, WorldReadWriteFailure> =>
   Result.mapError(
     lightRevisionBrand.result(value),
-    () => failureValue('invalid-revision', `LightRevision must be a non-negative safe integer, received ${value}`),
+    () => failureValue('invalid-revision', `LightRevision must be a non-negative safe integer, received ${describeUnknown(value)}`),
   )
 export const ChunkLocalIndex = (value: number): Result.Result<ChunkLocalIndex, WorldReadWriteFailure> =>
   Result.mapError(
     chunkLocalIndexBrand.result(value),
-    () => failureValue('invalid-index', `ChunkLocalIndex must be a non-negative safe integer, received ${value}`),
+    () => failureValue('invalid-index', `ChunkLocalIndex must be a non-negative safe integer, received ${describeUnknown(value)}`),
   )
 export const SectionIndex = (value: number): Result.Result<SectionIndex, WorldReadWriteFailure> =>
   Result.mapError(
     sectionIndexBrand.result(value),
-    () => failureValue('invalid-index', `SectionIndex must be a non-negative safe integer, received ${value}`),
+    () => failureValue('invalid-index', `SectionIndex must be a non-negative safe integer, received ${describeUnknown(value)}`),
   )
 export const SectionLength = (value: number): Result.Result<SectionLength, WorldReadWriteFailure> =>
   Result.mapError(
     sectionLengthBrand.result(value),
-    () => failureValue('invalid-read-view', `SectionLength must be a non-negative safe integer, received ${value}`),
+    () => failureValue('invalid-read-view', `SectionLength must be a non-negative safe integer, received ${describeUnknown(value)}`),
   )
 
 export type BlockRead =
@@ -138,7 +139,7 @@ const checkedIndex = (index: SectionIndex, length: number): Result.Result<number
   Result.flatMap(SectionIndex(index), (checked) =>
     checked < length
       ? Result.succeed(checked)
-      : failure('invalid-index', `Section index must be an integer in [0, ${length - 1}], received ${index}`),
+      : failure('invalid-index', `Section index must be an integer in [0, ${describeUnknown(length - 1)}], received ${describeUnknown(index)}`),
   )
 
 const readOnlySection = <Value extends number>(
@@ -158,7 +159,7 @@ const blockIdOfValue = (value: number): Result.Result<BlockIdType, WorldReadWrit
     const blockId = sectionBlockId(value)
     const known = yield* isKnownBlockId(blockId)
     if (!known) {
-      return yield* failure('unknown-block-id', `Section contains an unknown block id ${value}`)
+      return yield* failure('unknown-block-id', `Section contains an unknown block id ${describeUnknown(value)}`)
     }
     return blockId
   })
@@ -166,7 +167,7 @@ const blockIdOfValue = (value: number): Result.Result<BlockIdType, WorldReadWrit
 const lightLevelOfValue = (value: number): Result.Result<LightLevel, WorldReadWriteFailure> =>
   Result.mapError(
     LightLevel.result(value),
-    () => failureValue('invalid-read-view', `Section contains an invalid light level ${value}`),
+    () => failureValue('invalid-read-view', `Section contains an invalid light level ${describeUnknown(value)}`),
   )
 
 export type ReadViewInput = {
@@ -257,7 +258,7 @@ export const blockEdit = (
   Result.gen(function* () {
     const known = yield* isKnownBlockId(blockId)
     if (!known) {
-      return yield* failure('unknown-block-id', `Block edit contains an unknown block id ${blockId}`)
+      return yield* failure('unknown-block-id', `Block edit contains an unknown block id ${describeUnknown(blockId)}`)
     }
     return Object.freeze({ position, blockId })
   })
@@ -301,7 +302,7 @@ export const blockWriteBatch = (
       if (seenZ.has(edit.position.z)) {
         return yield* failure(
           'duplicate-position',
-          `Block write batch contains duplicate position (${edit.position.x},${edit.position.y},${edit.position.z})`,
+          `Block write batch contains duplicate position (${describeUnknown(edit.position.x)},${describeUnknown(edit.position.y)},${describeUnknown(edit.position.z)})`,
         )
       }
       seenZ.add(edit.position.z)

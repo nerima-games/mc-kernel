@@ -330,7 +330,7 @@ describe("data-pack registry", () => {
     expect(invalidNamespacedPack).toMatchObject({
       _tag: 'DataPackRegistryFailure',
       reason: 'invalid-resource-location',
-      message: 'NamespacedResourceLocation must include a namespace, received "base"',
+      message: 'NamespacedResourceLocation must include a namespace, received base',
     });
     const invalidFormat = resultFailure(dataPackLayerFromUnknown(
       { ...validLayer, format: "107.1" },

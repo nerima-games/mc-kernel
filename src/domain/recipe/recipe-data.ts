@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand, Result } from "effect";
 import {
   isItemStack,
@@ -42,7 +43,7 @@ export const RecipeIngredientCount: Brand.Constructor<RecipeIngredientCount> =
     value >= RECIPE_INGREDIENT_COUNT_MIN &&
     value <= RECIPE_INGREDIENT_COUNT_MAX
       ? true
-      : `RecipeIngredientCount must be an integer in [${RECIPE_INGREDIENT_COUNT_MIN}, ${RECIPE_INGREDIENT_COUNT_MAX}], received ${value}`,
+      : `RecipeIngredientCount must be an integer in [${describeUnknown(RECIPE_INGREDIENT_COUNT_MIN)}, ${describeUnknown(RECIPE_INGREDIENT_COUNT_MAX)}], received ${describeUnknown(value)}`,
   );
 
 export type RecipePriority = number & Brand.Brand<"RecipePriority">;
@@ -51,7 +52,7 @@ export const RecipePriority: Brand.Constructor<RecipePriority> =
   Brand.make<RecipePriority>((value) =>
     Number.isSafeInteger(value) && value >= RECIPE_PRIORITY_MIN
       ? true
-      : `RecipePriority must be a non-negative safe integer, received ${value}`,
+      : `RecipePriority must be a non-negative safe integer, received ${describeUnknown(value)}`,
   );
 
 export type RecipeGridDimension = number &
@@ -63,7 +64,7 @@ export const RecipeGridDimension: Brand.Constructor<RecipeGridDimension> =
     value >= RECIPE_GRID_DIMENSION_MIN &&
     value <= MAX_RECIPE_SIDE
       ? true
-      : `RecipeGridDimension must be an integer in [${RECIPE_GRID_DIMENSION_MIN}, ${MAX_RECIPE_SIDE}], received ${value}`,
+      : `RecipeGridDimension must be an integer in [${describeUnknown(RECIPE_GRID_DIMENSION_MIN)}, ${describeUnknown(MAX_RECIPE_SIDE)}], received ${describeUnknown(value)}`,
   );
 
 export type RecipeGridIndex = number & Brand.Brand<"RecipeGridIndex">;
@@ -74,7 +75,7 @@ export const RecipeGridIndex: Brand.Constructor<RecipeGridIndex> =
     value >= RECIPE_GRID_INDEX_MIN &&
     value < MAX_RECIPE_SIDE
       ? true
-      : `RecipeGridIndex must be an integer in [${RECIPE_GRID_INDEX_MIN}, ${MAX_RECIPE_SIDE - 1}], received ${value}`,
+      : `RecipeGridIndex must be an integer in [${describeUnknown(RECIPE_GRID_INDEX_MIN)}, ${describeUnknown(MAX_RECIPE_SIDE - 1)}], received ${describeUnknown(value)}`,
   );
 
 export type RecipePatternRow = string & Brand.Brand<"RecipePatternRow">;
@@ -83,7 +84,7 @@ export const RecipePatternRow: Brand.Constructor<RecipePatternRow> =
   Brand.make<RecipePatternRow>((value) =>
     typeof value === "string" && value.length <= MAX_RECIPE_SIDE
       ? true
-      : `RecipePatternRow must be a string no wider than ${MAX_RECIPE_SIDE} characters`,
+      : `RecipePatternRow must be a string no wider than ${describeUnknown(MAX_RECIPE_SIDE)} characters`,
   );
 
 export type RecipePatternSymbol = string & Brand.Brand<"RecipePatternSymbol">;
@@ -110,7 +111,7 @@ export const RecipeExperience: Brand.Constructor<RecipeExperience> =
   Brand.make<RecipeExperience>((value) =>
     Number.isFinite(value) && value >= 0
       ? true
-      : `RecipeExperience must be a finite non-negative number, received ${value}`,
+      : `RecipeExperience must be a finite non-negative number, received ${describeUnknown(value)}`,
   );
 
 export type RecipeCompletionCount = number &
@@ -120,7 +121,7 @@ export const RecipeCompletionCount: Brand.Constructor<RecipeCompletionCount> =
   Brand.make<RecipeCompletionCount>((value) =>
     Number.isSafeInteger(value) && value >= 0
       ? true
-      : `RecipeCompletionCount must be a non-negative safe integer, received ${value}`,
+      : `RecipeCompletionCount must be a non-negative safe integer, received ${describeUnknown(value)}`,
   );
 
 export type RecipeId = ResourceLocationValue;
@@ -292,13 +293,13 @@ const assertPositiveCount = (
   if (typeof count !== "number") {
     return recipeRangeFailure(
       typeof count === "string"
-        ? `Ingredient count must be a safe integer in [1, 64], received ${count}`
+        ? `Ingredient count must be a safe integer in [1, 64], received ${describeUnknown(count)}`
         : "Ingredient count must be a safe integer in [1, 64]",
     );
   }
   return Result.mapError(RecipeIngredientCount.result(count), () =>
     recipeRangeFailureValue(
-      `Ingredient count must be a safe integer in [1, 64], received ${count}`,
+      `Ingredient count must be a safe integer in [1, 64], received ${describeUnknown(count)}`,
     ),
   );
 };
@@ -389,14 +390,14 @@ const assertRecipeItemTag = (
       typeof tag === "object" ||
       typeof tag === "function"
         ? "non-string"
-        : String(tag);
+        : describeUnknown(tag);
     return recipeTypeFailure(
-      `Recipe item tag must start with # and contain a name, received ${detail}`,
+      `Recipe item tag must start with # and contain a name, received ${describeUnknown(detail)}`,
     );
   }
   return Result.mapError(TagLocation.result(tag), () =>
     recipeTypeFailureValue(
-      `Recipe item tag must start with # and contain a name, received ${String(tag)}`,
+      `Recipe item tag must start with # and contain a name, received ${describeUnknown(tag)}`,
     ),
   );
 };
@@ -420,7 +421,7 @@ const exactlyFromUnknown = (
     if (!isItemType(item)) {
       return yield* recipeTypeFailure(
         typeof item === "string"
-          ? `Unknown exact ingredient item: ${item}`
+          ? `Unknown exact ingredient item: ${describeUnknown(item)}`
           : "Unknown exact ingredient item",
       );
     }
@@ -604,7 +605,7 @@ const normalizeCategory = (
   ) {
     return recipeTypeFailure(
       typeof category === "string"
-        ? `Recipe category is invalid, received ${category}`
+        ? `Recipe category is invalid, received ${describeUnknown(category)}`
         : "Recipe category is invalid",
     );
   }
@@ -658,12 +659,12 @@ const normalizeOptions = (
     if (typeof priority !== "number") {
       return yield* recipeRangeFailure(
         typeof priority === "string"
-          ? `Recipe priority must be a non-negative safe integer, received ${priority}`
+          ? `Recipe priority must be a non-negative safe integer, received ${describeUnknown(priority)}`
           : "Recipe priority must be a non-negative safe integer",
       );
     }
     const priorityMessage =
-      `Recipe priority must be a non-negative safe integer, received ${priority}`;
+      `Recipe priority must be a non-negative safe integer, received ${describeUnknown(priority)}`;
     const normalizedPriority = yield* Result.mapError(
       RecipePriority.result(priority),
       () => recipeRangeFailureValue(priorityMessage),
@@ -701,7 +702,7 @@ const normalizePatternRows = (
       rowValues.length > MAX_RECIPE_SIDE
     ) {
       return yield* recipeRangeFailure(
-        `Shaped recipe rows must contain 1 to ${MAX_RECIPE_SIDE} rows`,
+        `Shaped recipe rows must contain 1 to ${describeUnknown(MAX_RECIPE_SIDE)} rows`,
       );
     }
     const keyEntries = entriesFromInput(key, MAX_RECIPE_SIDE * MAX_RECIPE_SIDE);
@@ -712,11 +713,11 @@ const normalizePatternRows = (
       rowValues.map((row: unknown) =>
         typeof row !== "string"
           ? recipeRangeFailure(
-              `Shaped recipe rows must be strings no wider than ${MAX_RECIPE_SIDE} characters`,
+              `Shaped recipe rows must be strings no wider than ${describeUnknown(MAX_RECIPE_SIDE)} characters`,
             )
           : Result.mapError(RecipePatternRow.result(row), () =>
               recipeRangeFailureValue(
-                `Shaped recipe rows must be strings no wider than ${MAX_RECIPE_SIDE} characters`,
+                `Shaped recipe rows must be strings no wider than ${describeUnknown(MAX_RECIPE_SIDE)} characters`,
               ),
             ),
       ),
@@ -751,7 +752,7 @@ const normalizePatternRows = (
         const ingredient = ingredients.get(character);
         if (ingredient === undefined) {
           return yield* recipeTypeFailure(
-            `Shaped recipe pattern references unknown key: ${character}`,
+            `Shaped recipe pattern references unknown key: ${describeUnknown(character)}`,
           );
         }
         rawCells.push(ingredient);
@@ -909,14 +910,14 @@ export const craftGrid = (
       RecipeGridDimension.result(width),
       () =>
         recipeRangeFailureValue(
-          `Craft grid dimensions must be safe integers in [0, ${MAX_RECIPE_SIDE}]`,
+          `Craft grid dimensions must be safe integers in [0, ${describeUnknown(MAX_RECIPE_SIDE)}]`,
         ),
     );
     const validatedHeight = yield* Result.mapError(
       RecipeGridDimension.result(height),
       () =>
         recipeRangeFailureValue(
-          `Craft grid dimensions must be safe integers in [0, ${MAX_RECIPE_SIDE}]`,
+          `Craft grid dimensions must be safe integers in [0, ${describeUnknown(MAX_RECIPE_SIDE)}]`,
         ),
     );
     const itemValues = arrayFromInput(

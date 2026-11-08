@@ -1,4 +1,5 @@
 /* eslint-disable sort-imports -- Keep domain imports adjacent and external Brand last. */
+import { describeUnknown } from "../describe-unknown.js"
 /** Stable item ids, stack metadata, and their two-byte storage encoding. */
 import { itemComponentStackLimitOf, type ItemStackLimit } from './item-components-data.js'
 import { ITEM_TYPES, type ItemType } from './item-type.js'
@@ -36,7 +37,7 @@ export const ItemId: Brand.Constructor<ItemId> = Brand.make<ItemId>(
   (value) =>
     Number.isInteger(value) && value >= ITEM_ID_MIN && value <= ITEM_ID_MAX
       ? true
-      : `ItemId must be an integer in [${ITEM_ID_MIN}, ${ITEM_ID_MAX}], received ${value}`,
+      : `ItemId must be an integer in [${describeUnknown(ITEM_ID_MIN)}, ${describeUnknown(ITEM_ID_MAX)}], received ${describeUnknown(value)}`,
 )
 
 export type ItemDefinition = {
@@ -111,7 +112,7 @@ const itemIdOfBytes = (bytes: ItemIdBytesInput): Result.Result<ValidatedItemIdBy
   if (snapshot.success.length !== ITEM_ID_BYTES) {
     return Result.fail(itemValidationFailure(
       'bytes',
-      `ItemIdBytes must be exactly ${ITEM_ID_BYTES} bytes, received ${snapshot.success.length}`,
+      `ItemIdBytes must be exactly ${describeUnknown(ITEM_ID_BYTES)} bytes, received ${describeUnknown(snapshot.success.length)}`,
       'out-of-range',
       snapshot.success.length,
       'RangeError',
@@ -137,7 +138,7 @@ const itemIdOfBytes = (bytes: ItemIdBytesInput): Result.Result<ValidatedItemIdBy
   if (!isKnownItemId(id)) {
     return Result.fail(itemValidationFailure(
       'id',
-      `ItemIdBytes must encode a registered item id, received ${id}`,
+      `ItemIdBytes must encode a registered item id, received ${describeUnknown(id)}`,
       'out-of-range',
       id,
       'RangeError',

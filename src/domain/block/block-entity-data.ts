@@ -10,6 +10,7 @@
  * module is deliberately data-only, in the same split `./block-property-data`
  * uses.
  */
+import { describeUnknown } from "../describe-unknown.js"
 import type { BrewingState } from '../recipe/brewing-data.js'
 import type { BlockPosition } from '../coordinates/coordinates.js'
 import type { Slot } from '../item/item-stack.js'
@@ -23,7 +24,7 @@ export const ContainerSlotCount: Brand.Constructor<ContainerSlotCount> = Brand.m
   (value) =>
     Number.isSafeInteger(value) && value > 0
       ? true
-      : `ContainerSlotCount must be a positive safe integer, received ${value}`,
+      : `ContainerSlotCount must be a positive safe integer, received ${describeUnknown(value)}`,
 )
 
 // ---------------------------------------------------------------------------

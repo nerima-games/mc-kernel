@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand } from "effect";
 import { Result } from "effect";
 import { MAX_GENERIC_INPUT_ARRAY_LENGTH, snapshotInputValue } from "../../input-snapshot.js";
@@ -42,7 +43,7 @@ export const ItemComponentPatchKey: Brand.Constructor<ItemComponentPatchKey> =
       value.startsWith("!") ? value.slice(1) : value,
     )
       ? true
-      : `ItemComponentPatchKey must be a namespaced component with an optional ! prefix, received ${JSON.stringify(value)}`,
+      : `ItemComponentPatchKey must be a namespaced component with an optional ! prefix, received ${describeUnknown(value)}`,
   );
 
 export type ItemComponentPatch = Readonly<
@@ -85,7 +86,7 @@ export const decodeItemComponentPatch = (
     }
     if (!isJsonValue(componentValue)) {
       const reason = componentValue === undefined ? 'invalid-type' : 'invalid-value'
-      return Result.fail(failure(key, `Item component value must be JSON: ${key}`, reason, componentValue));
+      return Result.fail(failure(key, `Item component value must be JSON: ${describeUnknown(key)}`, reason, componentValue));
     }
     const canonicalKey = key.startsWith("!") ? key.slice(1) : key;
     if (canonicalKeys.has(canonicalKey)) {
@@ -241,11 +242,11 @@ export const applyItemComponentPatch = (
       const componentKey = key.startsWith("!") ? key.slice(1) : key;
       const field = COMPONENT_NAMES[componentKey.slice(componentKey.indexOf(":") + 1)];
       if (field === undefined) {
-        return yield* Result.fail(failure(key, `Unsupported item component: ${componentKey}`, "invalid-value", componentKey));
+        return yield* Result.fail(failure(key, `Unsupported item component: ${describeUnknown(componentKey)}`, "invalid-value", componentKey));
       }
       if (key.startsWith("!")) {
         if (patchValue !== null) {
-          return yield* Result.fail(failure(key, `Removal patch must use null: ${key}`, "invalid-value", patchValue));
+          return yield* Result.fail(failure(key, `Removal patch must use null: ${describeUnknown(key)}`, "invalid-value", patchValue));
         }
         next = Object.fromEntries(Object.entries(next).filter(([propertyKey]) => propertyKey !== field));
       } else {

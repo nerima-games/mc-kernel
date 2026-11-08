@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from "effect";
 import { isItemStack } from "../item/item-stack.js";
 import { itemStackForCanonicalItem } from "../item/item-stack-canonical.js";
@@ -132,7 +133,7 @@ const normalizeOptions = (
       );
     }
     const priorityMessage =
-      `Smithing recipe priority must be a non-negative safe integer, received ${priority}`;
+      `Smithing recipe priority must be a non-negative safe integer, received ${describeUnknown(priority)}`;
     const tags = arrayFromInput(record?.["tags"] ?? []);
     if (tags === undefined) {
       return yield* recipeTypeFailure("Smithing recipe station tags must be an array");
@@ -170,7 +171,7 @@ const normalizeIngredient = (
 ): Result.Result<CraftingIngredient, RecipeFailure> => {
   const normalized = craftingIngredient(value);
   return Result.isFailure(normalized)
-    ? recipeTypeFailure(`${field} has an invalid ingredient shape`)
+    ? recipeTypeFailure(`${describeUnknown(field)} has an invalid ingredient shape`)
     : normalized;
 };
 

@@ -17,6 +17,7 @@
  * mode-granted flight (Creative's double-jump toggle, Spectator's always-on
  * flight).
  */
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand } from 'effect'
 
 export const GAME_MODES = ['survival', 'creative', 'adventure', 'spectator'] as const
@@ -81,7 +82,7 @@ export const DifficultyDamageMultiplier: Brand.Constructor<DifficultyDamageMulti
   Brand.make<DifficultyDamageMultiplier>((value) =>
     Number.isFinite(value) && value >= 0 && value <= 1.5
       ? true
-      : `DifficultyDamageMultiplier must be between 0 and 1.5, received ${value}`,
+      : `DifficultyDamageMultiplier must be between 0 and 1.5, received ${describeUnknown(value)}`,
   )
 
 export type DifficultyHungerMultiplier = number & Brand.Brand<'DifficultyHungerMultiplier'>
@@ -89,7 +90,7 @@ export const DifficultyHungerMultiplier: Brand.Constructor<DifficultyHungerMulti
   Brand.make<DifficultyHungerMultiplier>((value) =>
     Number.isFinite(value) && value >= 0 && value <= 1
       ? true
-      : `DifficultyHungerMultiplier must be between 0 and 1, received ${value}`,
+      : `DifficultyHungerMultiplier must be between 0 and 1, received ${describeUnknown(value)}`,
   )
 
 export type DifficultyProperties = Readonly<{

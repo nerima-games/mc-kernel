@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Result } from "effect";
 
 import {
   RecipeCompletionCount,
@@ -15,6 +16,65 @@ import { BrewingFuelCharges } from "../src/domain/recipe/brewing-data";
 import { TransmuteMaterialSlotCount } from "../src/domain/recipe/transmute-data";
 
 describe("recipe quantity brands", () => {
+  it("returns failures for invalid runtime quantities without coercing them", () => {
+    const invalidValues: ReadonlyArray<unknown> = [
+      { toString: false },
+      { toString() { throw new Error("hostile"); } },
+      Symbol(),
+      Object.create(null),
+      null,
+      "invalid",
+      -1,
+      1n,
+    ];
+    const brands = [
+      RecipeIngredientCount,
+      RecipePriority,
+      RecipeGridDimension,
+      RecipeGridIndex,
+      RecipeExperience,
+      RecipeCompletionCount,
+      BrewingFuelCharges,
+      TransmuteMaterialSlotCount,
+    ];
+
+    for (const brand of brands) {
+      for (const value of invalidValues) {
+        const result = Reflect.apply(brand.result, brand, [value]);
+        expect(Result.isFailure(result)).toBe(true);
+      }
+    }
+  });
+
+  it("returns failures for invalid runtime quantities without coercing them", () => {
+    const invalidValues: ReadonlyArray<unknown> = [
+      { toString: false },
+      { toString() { throw new Error("hostile"); } },
+      Symbol(),
+      Object.create(null),
+      null,
+      "invalid",
+      -1,
+    ];
+    const brands = [
+      RecipeIngredientCount,
+      RecipePriority,
+      RecipeGridDimension,
+      RecipeGridIndex,
+      RecipeExperience,
+      RecipeCompletionCount,
+      BrewingFuelCharges,
+      TransmuteMaterialSlotCount,
+    ];
+
+    for (const brand of brands) {
+      for (const value of invalidValues) {
+        const result = Reflect.apply(brand.result, brand, [value]);
+        expect(Result.isFailure(result)).toBe(true);
+      }
+    }
+  });
+
   it("accepts recipe counts, priorities, dimensions, and indexes at their boundaries", () => {
     expect(RecipeIngredientCount(1)).toBe(1);
     expect(RecipeIngredientCount(32)).toBe(32);

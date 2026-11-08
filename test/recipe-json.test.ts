@@ -436,6 +436,18 @@ describe("current Java crafting recipe JSON", () => {
     recipeFailure(
       craftingRecipeFromUnknown("minecraft:bad", {
         ...shaped,
+        result: { id: { toString: false } },
+      }),
+      "RecipeTypeFailure",
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Recipe item must be a namespaced id, received object",
+      },
+    );
+    recipeFailure(
+      craftingRecipeFromUnknown("minecraft:bad", {
+        ...shaped,
         pattern: ["SSSS"],
       }),
       "RecipeRangeFailure",
@@ -542,7 +554,7 @@ describe("current Java crafting recipe JSON", () => {
           kind: "TypeError",
           reason: "invalid-value",
           field: "custom_name",
-          message: 'ItemComponentPatchKey must be a namespaced component with an optional ! prefix, received "custom_name"',
+          message: 'ItemComponentPatchKey must be a namespaced component with an optional ! prefix, received custom_name',
           value: "custom_name",
         },
       },

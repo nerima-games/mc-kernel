@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand, Result, Schema } from 'effect'
 
 import {
@@ -77,14 +78,14 @@ const parseBlockPositionKey = (value: string): ParsedBlockPositionKey | undefine
 
 /** Serialize a block position into its canonical, allocation-minimal key. */
 export const blockPositionKeyOf = (value: BlockPosition): BlockPositionKey =>
-  brandBlockPositionKey(`${String(value.x)},${String(value.y)},${String(value.z)}`)
+  brandBlockPositionKey(`${value.x},${value.y},${value.z}`)
 
 /** Validate external text before it becomes a branded block-position key. */
 export const BlockPositionKey = (value: unknown): Result.Result<BlockPositionKey, CoordinateKeyFailure> => {
   if (typeof value !== 'string' || parseBlockPositionKey(value) === undefined) {
     return Result.fail(keyFailure(
       'invalid-block-position-key',
-      `Invalid BlockPositionKey: ${typeof value === 'string' ? value : typeof value}`,
+      `Invalid BlockPositionKey: ${describeUnknown(typeof value === 'string' ? value : typeof value)}`,
       value,
     ))
   }
@@ -102,7 +103,7 @@ export const blockPositionOfKey = (
 ): Result.Result<BlockPosition, CoordinateKeyFailure> => {
   const parsed = parseBlockPositionKey(value)
   if (parsed === undefined) {
-    return Result.fail(keyFailure('invalid-block-position-key', `Invalid BlockPositionKey: ${value}`, value))
+    return Result.fail(keyFailure('invalid-block-position-key', `Invalid BlockPositionKey: ${describeUnknown(value)}`, value))
   }
 
   return Result.succeed(blockPositionFromAxes(...parsed))
@@ -139,14 +140,14 @@ const parseChunkKey = (value: string): ParsedChunkKey | undefined => {
 }
 
 /** Produces the canonical, allocation-minimal key for a chunk coordinate. */
-export const chunkKeyOf = (value: ChunkCoord): ChunkKey => brandChunkKey(`${String(value.cx)},${String(value.cz)}`)
+export const chunkKeyOf = (value: ChunkCoord): ChunkKey => brandChunkKey(`${value.cx},${value.cz}`)
 
 /** Validate external text before it becomes a branded chunk key. */
 export const ChunkKey = (value: unknown): Result.Result<ChunkKey, CoordinateKeyFailure> => {
   if (typeof value !== 'string' || parseChunkKey(value) === undefined) {
     return Result.fail(keyFailure(
       'invalid-chunk-key',
-      `Invalid ChunkKey: ${typeof value === 'string' ? value : typeof value}`,
+      `Invalid ChunkKey: ${describeUnknown(typeof value === 'string' ? value : typeof value)}`,
       value,
     ))
   }
@@ -166,7 +167,7 @@ export const ChunkKeySchema: Schema.Codec<ChunkKey, string> = Schema.String
 export const chunkCoordOfKey = (value: ChunkKey): Result.Result<ChunkCoord, CoordinateKeyFailure> => {
   const parsed = parseChunkKey(value)
   if (parsed === undefined) {
-    return Result.fail(keyFailure('invalid-chunk-key', `Invalid ChunkKey: ${value}`, value))
+    return Result.fail(keyFailure('invalid-chunk-key', `Invalid ChunkKey: ${describeUnknown(value)}`, value))
   }
 
   return Result.succeed(chunkCoordFromAxes(...parsed))

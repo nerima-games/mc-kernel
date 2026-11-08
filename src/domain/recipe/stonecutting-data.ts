@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from "effect";
 import {
   craftingIngredient,
@@ -88,7 +89,7 @@ const assertPriority = (
       "Stonecutting recipe priority must be a non-negative safe integer",
     );
   }
-  const message = `Stonecutting recipe priority must be a non-negative safe integer, received ${value}`;
+  const message = `Stonecutting recipe priority must be a non-negative safe integer, received ${describeUnknown(value)}`;
   return Result.mapError(
     RecipePriority.result(value),
     () => recipeRangeFailureValue(message),

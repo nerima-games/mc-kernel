@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Effect, Result } from 'effect'
 import { MAX_GENERIC_INPUT_ARRAY_LENGTH, snapshotInputValue } from '../../input-snapshot.js'
 import { ITEM_RARITIES, type ItemRarity } from './item-components-data.js'
@@ -370,7 +371,7 @@ export const validateItemComponentRelations = (
     return Result.fail(itemValidationFailure('damage', 'damage and max_damage must be present together', 'out-of-range', damage, 'RangeError'))
   }
   if (maxDamage !== undefined && damage !== undefined && damage > maxDamage) {
-    return Result.fail(itemValidationFailure('damage', `damage must be in [0, ${maxDamage}], received ${damage}`, 'out-of-range', damage))
+    return Result.fail(itemValidationFailure('damage', `damage must be in [0, ${describeUnknown(maxDamage)}], received ${describeUnknown(damage)}`, 'out-of-range', damage))
   }
   return Result.succeed(undefined)
 }
@@ -658,9 +659,9 @@ export const itemComponentsSnapshot = (
     // This snapshot call always supplies the components path prefix above.
     const field = frozen.failure.path
     const message = frozen.failure.reason === 'cyclic'
-      ? `Cyclic ${context} ${field} is invalid`
+      ? `Cyclic ${describeUnknown(context)} ${describeUnknown(field)} is invalid`
       : frozen.failure.reason === 'hostile-input' && context === 'item stack'
-        ? `Unable to inspect ${context} ${field}`
+        ? `Unable to inspect ${describeUnknown(context)} ${describeUnknown(field)}`
         : 'Unable to snapshot item components'
     return Result.fail(itemValidationFailure(field, message, reason, frozen.failure.value))
   }

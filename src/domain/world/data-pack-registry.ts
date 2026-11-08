@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand, Result } from "effect";
 
 import { NamespacedResourceLocation } from "../text/identifiers.js";
@@ -38,7 +39,7 @@ const dataPackFormatBrand = Brand.nominal<DataPackFormat>()
 export const DataPackFormat = (value: number): Result.Result<DataPackFormat, DataPackRegistryFailure> =>
   Number.isFinite(value) && value >= DATA_PACK_FORMAT_MIN
     ? Result.succeed(dataPackFormatBrand(value))
-    : failure('invalid-format', `DataPackFormat must be a finite non-negative number, received ${value}`)
+    : failure('invalid-format', `DataPackFormat must be a finite non-negative number, received ${describeUnknown(value)}`)
 
 /** A stable non-negative precedence for a data-pack layer. Larger values win. */
 export type DataPackPriority = number & Brand.Brand<"DataPackPriority">;
@@ -48,7 +49,7 @@ const dataPackPriorityBrand = Brand.nominal<DataPackPriority>()
 export const DataPackPriority = (value: number): Result.Result<DataPackPriority, DataPackRegistryFailure> =>
   Number.isSafeInteger(value) && value >= DATA_PACK_PRIORITY_MIN
     ? Result.succeed(dataPackPriorityBrand(value))
-    : failure('invalid-priority', `DataPackPriority must be a non-negative safe integer, received ${value}`)
+    : failure('invalid-priority', `DataPackPriority must be a non-negative safe integer, received ${describeUnknown(value)}`)
 
 /** Safe relative JSON path below a data-pack's `data/` directory. */
 export type DataPackResourcePath = string & Brand.Brand<"DataPackResourcePath">;
@@ -59,7 +60,7 @@ export const DataPackResourcePath: Brand.Constructor<DataPackResourcePath> =
     return value.startsWith("data/") && value.endsWith(".json") &&
       segments.every((segment) => /^[a-z0-9._-]+$/.test(segment) && segment !== "." && segment !== "..")
       ? true
-      : `DataPackResourcePath must be a safe relative JSON path below data/, received ${JSON.stringify(value)}`;
+      : `DataPackResourcePath must be a safe relative JSON path below data/, received ${describeUnknown(value)}`;
   });
 
 export type DataPackRegistryEntry<T> = Readonly<{
@@ -142,7 +143,7 @@ const namespacedEntryOf = <T>(
 ): Result.Result<DataPackRegistryEntry<T>, DataPackRegistryFailure> =>
   Result.flatMap(namespacedResourceLocation(entry.id), (id) => {
     if (ids.has(id)) {
-      return failure('duplicate-entry', `Data-pack registry entry is duplicated: ${id}`)
+      return failure('duplicate-entry', `Data-pack registry entry is duplicated: ${describeUnknown(id)}`)
     }
     return Result.succeed(Object.freeze({ id, value: entry.value }))
   })

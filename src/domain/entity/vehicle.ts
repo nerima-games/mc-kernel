@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand } from 'effect'
 import type { Dimension } from '../world/dimension.js'
 import type { Position } from '../coordinates/coordinate-primitives.js'
@@ -36,7 +37,7 @@ export const VehicleVelocityComponent: Brand.Constructor<VehicleVelocityComponen
     (value) =>
       Number.isFinite(value)
         ? true
-        : `VehicleVelocityComponent must be finite, received ${value}`,
+        : `VehicleVelocityComponent must be finite, received ${describeUnknown(value)}`,
   )
 
 export type VehicleVelocity = Readonly<{

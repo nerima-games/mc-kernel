@@ -10,6 +10,7 @@
  * generator, and a scripted replay for tests. It ships no adapter over a
  * real entropy source; that belongs to the consuming platform.
  */
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand, Result } from 'effect'
 import {
   MAX_GENERIC_INPUT_ARRAY_LENGTH,
@@ -69,7 +70,7 @@ const brandFailure = (
 ): RandomSourceFailure => ({
   _tag: 'RandomSourceFailure',
   reason,
-  message: `${label}: ${error.message}`,
+  message: `${describeUnknown(label)}: ${describeUnknown(error.message)}`,
 })
 
 export type RandomSource = Readonly<{
@@ -207,7 +208,7 @@ export const fixedRandomSource = (
     Result.flatMap(validateBound(bound), () => {
       const value = ints[intIndex]
       if (value === undefined) {
-        return failure('sequence-exhausted', `fixedRandomSource nextInt sequence exhausted after ${String(intIndex)} calls`)
+        return failure('sequence-exhausted', `fixedRandomSource nextInt sequence exhausted after ${describeUnknown(intIndex)} calls`)
       }
       intIndex += 1
       return Result.succeed(value)
@@ -216,7 +217,7 @@ export const fixedRandomSource = (
   const nextFloat = (): Result.Result<RandomFraction, RandomSourceFailure> => {
     const value = floats[floatIndex]
     if (value === undefined) {
-      return failure('sequence-exhausted', `fixedRandomSource nextFloat sequence exhausted after ${String(floatIndex)} calls`)
+      return failure('sequence-exhausted', `fixedRandomSource nextFloat sequence exhausted after ${describeUnknown(floatIndex)} calls`)
     }
     floatIndex += 1
     return Result.succeed(value)

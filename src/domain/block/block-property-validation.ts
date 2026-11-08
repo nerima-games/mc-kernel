@@ -4,6 +4,7 @@
  * Keeping this module separate from the property table makes the accepted
  * external shape and the resolved domain data independently readable.
  */
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from 'effect'
 import { MAX_GENERIC_INPUT_ARRAY_LENGTH, snapshotInputValue } from '../../input-snapshot.js'
 import {
@@ -55,11 +56,6 @@ export type BlockPropertyFailure = {
   readonly message: string
 }
 
-const failureValue = (
-  reason: BlockPropertyFailure['reason'],
-  message: string,
-): BlockPropertyFailure => ({ _tag: 'BlockPropertyFailure', reason, message })
-
 const failure = (
   reason: BlockPropertyFailure['reason'],
   message: string,
@@ -73,7 +69,7 @@ const assertKnownKeys = (
 ): Result.Result<void, BlockPropertyFailure> => {
   for (const key of Object.keys(value)) {
     if (!keys.includes(key)) {
-      return failure('unknown-key', `unknown ${label} ${key}`)
+      return failure('unknown-key', `unknown ${describeUnknown(label)} ${describeUnknown(key)}`)
     }
   }
   return Result.succeed(undefined)
@@ -81,7 +77,7 @@ const assertKnownKeys = (
 
 const assertFiniteNonNegative = (name: string, value: unknown): Result.Result<number, BlockPropertyFailure> => {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-    return failure('range', `${name} must be a finite number greater than or equal to zero`)
+    return failure('range', `${describeUnknown(name)} must be a finite number greater than or equal to zero`)
   }
   return Result.succeed(value)
 }
@@ -109,7 +105,7 @@ const assertBlastResistance = (value: unknown): Result.Result<number, BlockPrope
 
 const assertBoolean = (name: string, value: unknown): Result.Result<boolean, BlockPropertyFailure> => {
   if (typeof value !== 'boolean') {
-    return failure('type', `${name} must be a boolean`)
+    return failure('type', `${describeUnknown(name)} must be a boolean`)
   }
   return Result.succeed(value)
 }
@@ -117,7 +113,7 @@ const assertBoolean = (name: string, value: unknown): Result.Result<boolean, Blo
 const propertyBrandFailure = (name: string): BlockPropertyFailure => ({
   _tag: 'BlockPropertyFailure',
   reason: 'range',
-  message: `block property ${name} is outside its allowed range`,
+  message: `block property ${describeUnknown(name)} is outside its allowed range`,
 })
 
 const brandedProperty = <A>(
@@ -131,7 +127,7 @@ const validateCategoricalValue = <const T extends ReadonlyArray<string>>(
   name: string,
 ): Result.Result<T[number] | undefined, BlockPropertyFailure> => {
   if (value === undefined) return Result.succeed(undefined)
-  if (!isOneOf(values, value)) return failure('type', `unknown block property ${name} ${String(value)}`)
+  if (!isOneOf(values, value)) return failure('type', `unknown block property ${describeUnknown(name)} ${describeUnknown(value)}`)
   return Result.succeed(value)
 }
 
@@ -148,12 +144,12 @@ const validateHarvestToolRequirement = (
     if (!isOneOf(HARVEST_TOOL_CATEGORIES, category)) {
       return yield* failure(
         'type',
-        `unknown block property harvestTool category ${String(category)}`,
+        `unknown block property harvestTool category ${describeUnknown(category)}`,
       )
     }
     const minTier = value['minTier']
     if (!isOneOf(HARVEST_TIERS, minTier)) {
-      return yield* failure('type', `unknown block property harvestTool tier ${String(minTier)}`)
+      return yield* failure('type', `unknown block property harvestTool tier ${describeUnknown(minTier)}`)
     }
     return { category, minTier }
   })
@@ -181,7 +177,7 @@ const validateDropRule = (value: unknown): Result.Result<BlockDropRule, BlockPro
     if (typeof count !== 'number') {
       return yield* failure(
         'range',
-        `block property drops count must be an integer in [1, ${MAX_STACK_COUNT}]`,
+        `block property drops count must be an integer in [1, ${describeUnknown(MAX_STACK_COUNT)}]`,
       )
     }
     const requiresSilkTouch = yield* assertBoolean(
@@ -203,44 +199,40 @@ const validateDropRule = (value: unknown): Result.Result<BlockDropRule, BlockPro
   })
 
 const validateSupportRule = (value: unknown): Result.Result<SupportRule, BlockPropertyFailure> => {
-  const validated = Result.try({
-    try: (): Result.Result<SupportRule, BlockPropertyFailure> => Result.gen(function* () {
-      if (!isRecord(value)) {
-        return yield* failure('type', 'block property supportRule must be an object')
-      }
+  return Result.gen(function* () {
+    if (!isRecord(value)) {
+      return yield* failure('type', 'block property supportRule must be an object')
+    }
 
-      const kind = value['kind']
-      if (kind === 'none' || kind === 'anySupporting') {
-        yield* assertKnownKeys(value, ['kind'], 'block property supportRule field')
-        return { kind }
-      }
+    const kind = value['kind']
+    if (kind === 'none' || kind === 'anySupporting') {
+      yield* assertKnownKeys(value, ['kind'], 'block property supportRule field')
+      return { kind }
+    }
 
-      if (kind === 'oneOf') {
-        yield* assertKnownKeys(value, ['kind', 'blocks'], 'block property supportRule field')
-        const values = value['blocks']
-        if (!Array.isArray(values)) {
-          return yield* failure('range', 'block property supportRule blocks must contain at least one block')
-        }
-        const length = values.length
-        if (!Number.isSafeInteger(length) || length === 0) {
-          return yield* failure('range', 'block property supportRule blocks must contain at least one block')
-        }
-        const blocks: Array<BlockType> = []
-        for (let index = 0; index < length; index += 1) {
-          const block = values[index]
-          if (!isBlockType(block)) {
-            return yield* failure('type', 'block property supportRule contains an unknown block type')
-          }
-          blocks.push(block)
-        }
-        return { kind, blocks }
+    if (kind === 'oneOf') {
+      yield* assertKnownKeys(value, ['kind', 'blocks'], 'block property supportRule field')
+      const values = value['blocks']
+      if (!Array.isArray(values)) {
+        return yield* failure('range', 'block property supportRule blocks must contain at least one block')
       }
+      const length = values.length
+      if (!Number.isSafeInteger(length) || length === 0) {
+        return yield* failure('range', 'block property supportRule blocks must contain at least one block')
+      }
+      const blocks: Array<BlockType> = []
+      for (let index = 0; index < length; index += 1) {
+        const block = values[index]
+        if (!isBlockType(block)) {
+          return yield* failure('type', 'block property supportRule contains an unknown block type')
+        }
+        blocks.push(block)
+      }
+      return { kind, blocks }
+    }
 
-      return yield* failure('type', `unknown block property supportRule kind ${String(kind)}`)
-    }),
-    catch: () => failureValue('type', 'block property supportRule must be readable'),
+    return yield* failure('type', `unknown block property supportRule kind ${describeUnknown(kind)}`)
   })
-  return Result.isFailure(validated) ? Result.fail(validated.failure) : validated.success
 }
 
 type CategoricalBlockPropertyOverrides = Pick<
@@ -273,7 +265,7 @@ const validateCategoricalProperties = (
     if (lightEmission !== undefined && !isLightLevel(lightEmission)) {
       return yield* failure(
         'range',
-        `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${lightEmission}`,
+        `LightLevel must be an integer in [${describeUnknown(LIGHT_LEVEL_MIN)}, ${describeUnknown(LIGHT_LEVEL_MAX)}], received ${describeUnknown(lightEmission)}`,
       )
     }
     const fluid = yield* validateCategoricalValue(FLUID_KINDS, overrides['fluid'], 'fluid')
@@ -383,22 +375,14 @@ function validateBlockPropertyOverrides(
     return failure(reason, message)
   }
   const copiedOverrides = snapshot.success
-  const validated = Result.try({
-    try: () => {
-      if (!isRecord(copiedOverrides)) {
-        return failure('type', 'block property overrides must be an object')
-      }
-      return Result.gen(function* () {
-        yield* assertKnownKeys(copiedOverrides, BLOCK_PROPERTY_NAMES, 'block property')
-        const categorical = yield* validateCategoricalProperties(copiedOverrides)
-        const numeric = yield* validateNumericProperties(copiedOverrides)
-        const structured = yield* validateStructuredProperties(copiedOverrides)
-        return { ...categorical, ...numeric, ...structured }
-      })
-    },
-    catch: () => failureValue('type', 'block property overrides must be readable'),
+  if (!isRecord(copiedOverrides)) return failure('type', 'block property overrides must be an object')
+  return Result.gen(function* () {
+    yield* assertKnownKeys(copiedOverrides, BLOCK_PROPERTY_NAMES, 'block property')
+    const categorical = yield* validateCategoricalProperties(copiedOverrides)
+    const numeric = yield* validateNumericProperties(copiedOverrides)
+    const structured = yield* validateStructuredProperties(copiedOverrides)
+    return { ...categorical, ...numeric, ...structured }
   })
-  return Result.isFailure(validated) ? Result.fail(validated.failure) : validated.success
 }
 
 /** Validate external or table data and brand its numeric property values. */
@@ -478,7 +462,7 @@ export function propertyOf(
   name: BlockPropertyName,
 ): Result.Result<BlockProperties[BlockPropertyName], BlockPropertyFailure> {
   if (!isBlockPropertyName(name)) {
-    return failure('type', `unknown block property ${String(name)}`)
+    return failure('type', `unknown block property ${describeUnknown(name)}`)
   }
 
   return Result.map(normalizeBlockPropertyOverrides(overrides), (validated) => {

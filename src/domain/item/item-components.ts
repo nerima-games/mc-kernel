@@ -1,4 +1,5 @@
 /** Strict Java item-component values and their item-aware defaults. */
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from 'effect'
 import {
   MAX_GENERIC_INPUT_ARRAY_LENGTH,
@@ -597,7 +598,7 @@ const ITEM_COMPONENT_OPTION_VALIDATORS = [
   {
     key: 'rarity',
     isValid: isItemRarity,
-    message: (value: unknown) => `Unknown item rarity: ${String(value)}`,
+    message: (value: unknown) => `Unknown item rarity: ${describeUnknown(typeof value === 'string' ? value : typeof value)}`,
   },
   {
     key: 'food',
@@ -755,17 +756,17 @@ const snapshotOptions = (value: ItemComponentOptions): Result.Result<ItemCompone
   }
   const copy: Record<string, unknown> = Object.create(null)
   for (const key of new Set(optionKeys)) {
-    const entry = record.success[String(key)]
+    const entry = record.success[key]
     if (entry === undefined) continue
-    const snapshot = snapshotInputValue(entry, MAX_GENERIC_INPUT_ARRAY_LENGTH, String(key))
+    const snapshot = snapshotInputValue(entry, MAX_GENERIC_INPUT_ARRAY_LENGTH, describeUnknown(key))
     if (Result.isFailure(snapshot)) {
       // This snapshot call always supplies the option key as its path prefix.
       const field = snapshot.failure.path
       const message = snapshot.failure.reason === 'hostile-input'
-        ? `Unable to inspect item component option ${field}`
+        ? `Unable to inspect item component option ${describeUnknown(field)}`
         : snapshot.failure.reason === 'cyclic'
-          ? `Cyclic item component option ${field} is invalid`
-          : `Unable to snapshot item component option ${field}`
+          ? `Cyclic item component option ${describeUnknown(field)} is invalid`
+          : `Unable to snapshot item component option ${describeUnknown(field)}`
       // snapshotInputValue cannot return invalid-container.
       const reason = snapshot.failure.reason === 'unsupported-prototype' || snapshot.failure.reason === 'cyclic'
         ? 'invalid-value'
@@ -785,7 +786,7 @@ const validateOptions = (
     if (value === undefined) continue
     if (!isValid(value)) {
       return Result.fail(optionsFailure(
-        String(key),
+        describeUnknown(key),
         typeof message === 'function' ? message(value) : message,
         value,
       ))
@@ -990,7 +991,7 @@ function buildItemComponents(
 
 export const itemComponents = (item: ItemType, options: ItemComponentOptions = {}): Result.Result<ItemComponents, ItemComponentFailure> => {
   if (!isItemType(item)) {
-    return Result.fail(optionsFailure('item', `Unknown item type: ${String(item)}`, item, 'invalid-value'))
+    return Result.fail(optionsFailure('item', `Unknown item type: ${describeUnknown(typeof item === 'string' ? item : typeof item)}`, item, 'invalid-value'))
   }
   const snapshotted = snapshotOptions(options)
   return Result.flatMap(snapshotted, (safeOptions) => {

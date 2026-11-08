@@ -5,6 +5,7 @@
  * derived tables and query logic so the data source can be reviewed without
  * also navigating every lookup implementation.
  */
+import { describeUnknown } from "../describe-unknown.js"
 import { Option, Result } from 'effect'
 import type {
   BlockCapabilities,
@@ -315,7 +316,7 @@ export const buildIdByType = (
     const blockId = assignedIds.get(type)
 
     if (blockId === undefined) {
-      return failure('missing-block-row', `Block registry is missing a row for ${type}`)
+      return failure('missing-block-row', `Block registry is missing a row for ${describeUnknown(type)}`)
     }
 
     idsByType.set(type, blockId)
@@ -344,7 +345,7 @@ function buildSupportBlockIdsByRules(
     const supportRule = supportRules[entry.id]
 
     if (supportRule === undefined) {
-      return failure('missing-support-rule', `Block registry is missing a support rule for ${entry.id}`)
+      return failure('missing-support-rule', `Block registry is missing a support rule for ${describeUnknown(entry.id)}`)
     }
 
     if (supportRule.kind === 'oneOf') {
@@ -354,7 +355,7 @@ function buildSupportBlockIdsByRules(
         const blockId = ID_BY_TYPE.get(type)
 
         if (blockId === undefined) {
-          return failure('missing-block-row', `Block registry is missing a row for ${type}`)
+          return failure('missing-block-row', `Block registry is missing a row for ${describeUnknown(type)}`)
         }
 
         supportedBlockIds.add(blockId)
@@ -384,7 +385,7 @@ export const supportBlockIdsOf = (
 ): Result.Result<ReadonlySet<BlockId>, BlockRegistryFailure> => {
   const blockIds = blockIdsById.get(id)
   return blockIds === undefined
-    ? failure('missing-support-ids', `Block registry is missing support ids for ${id}`)
+    ? failure('missing-support-ids', `Block registry is missing support ids for ${describeUnknown(id)}`)
     : Result.succeed(blockIds)
 }
 

@@ -214,6 +214,20 @@ describe("transmute recipe data", () => {
         message: "Unknown item type: not_an_item",
       });
     }
+    const hostileOutput = Reflect.apply(transmuteRecipeForItem, undefined, [
+      "minecraft:hostile_output",
+      "stone",
+      "dirt",
+      { toString: false },
+      1,
+    ]);
+    expect(Result.isFailure(hostileOutput)).toBe(true);
+    if (Result.isFailure(hostileOutput)) {
+      expect(hostileOutput.failure).toMatchObject({
+        _tag: "RecipeTypeFailure",
+        message: "Unknown item type: object",
+      });
+    }
 
     const invalidCounts: ReadonlyArray<readonly [string, number, number]> = [
       ["sand", 0, 64],
@@ -235,6 +249,21 @@ describe("transmute recipe data", () => {
           message: `Item stack count for ${output} must be an integer in [1, ${maxCount}], received ${count}`,
         });
       }
+    }
+    const hostileCount = { toString: false };
+    const invalidCount = Reflect.apply(transmuteRecipeForItem, undefined, [
+      "minecraft:invalid_output_count",
+      "stone",
+      "dirt",
+      "sand",
+      hostileCount,
+    ]);
+    expect(Result.isFailure(invalidCount)).toBe(true);
+    if (Result.isFailure(invalidCount)) {
+      expect(invalidCount.failure).toMatchObject({
+        _tag: "RecipeRangeFailure",
+        message: "Item stack count for sand must be an integer in [1, 64], received object",
+      });
     }
   });
 

@@ -4,6 +4,7 @@
  * Keeping this module separate from the property table makes the accepted
  * external shape and the resolved domain data independently readable.
  */
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from 'effect'
 import {
   BIOME_PROPERTY_DEFAULTS,
@@ -54,7 +55,7 @@ export const propertiesOfBiomeType = (biome: BiomeType): BiomeProperties =>
 /** Resolve a biome's properties from an untrusted value such as save-file or network input. */
 export const propertiesOfBiome = (biome: unknown): Result.Result<BiomeProperties, BiomeValidationFailure> => {
   if (!isBiomeType(biome)) {
-    return Result.fail({ _tag: 'BiomeValidationFailure', reason: 'unknown-biome', message: `unknown biome ${String(biome)}` })
+    return Result.fail({ _tag: 'BiomeValidationFailure', reason: 'unknown-biome', message: `unknown biome ${describeUnknown(biome)}` })
   }
 
   return Result.succeed(propertiesOfBiomeType(biome))

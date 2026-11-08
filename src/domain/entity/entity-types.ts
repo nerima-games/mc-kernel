@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand } from 'effect'
 import { PositionAxis, position, type Position } from '../coordinates/coordinate-primitives.js'
 
@@ -7,7 +8,7 @@ export const EntitySerial: Brand.Constructor<EntitySerial> = Brand.make<EntitySe
   (value) =>
     Number.isSafeInteger(value) && value >= 0
       ? true
-      : `EntitySerial must be a non-negative safe integer, received ${value}`,
+      : `EntitySerial must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 
 export type EntityHealthPoints = number & Brand.Brand<'EntityHealthPoints'>
@@ -17,7 +18,7 @@ export const EntityHealthPoints: Brand.Constructor<EntityHealthPoints> =
     (value) =>
       Number.isFinite(value) && value >= 0
         ? true
-        : `EntityHealthPoints must be finite and non-negative, received ${value}`,
+        : `EntityHealthPoints must be finite and non-negative, received ${describeUnknown(value)}`,
   )
 
 export type EntityRosterRepairCount = number & Brand.Brand<'EntityRosterRepairCount'>
@@ -27,7 +28,7 @@ export const EntityRosterRepairCount: Brand.Constructor<EntityRosterRepairCount>
     (value) =>
       Number.isSafeInteger(value) && value >= 0
         ? true
-        : `EntityRosterRepairCount must be a non-negative safe integer, received ${value}`,
+        : `EntityRosterRepairCount must be a non-negative safe integer, received ${describeUnknown(value)}`,
   )
 
 export type EntityId = string & Brand.Brand<'EntityId'>
@@ -36,7 +37,7 @@ const entityId: Brand.Constructor<EntityId> = Brand.make<EntityId>(
   (value) =>
     typeof value === 'string' && value.trim().length > 0
       ? true
-      : `EntityId must be a non-blank string, received ${JSON.stringify(value)}`,
+      : `EntityId must be a non-blank string, received ${describeUnknown(value)}`,
 )
 
 export { entityId as EntityId }
@@ -47,7 +48,7 @@ const entityKind: Brand.Constructor<EntityKind> = Brand.make<EntityKind>(
   (value) =>
     typeof value === 'string' && value.trim().length > 0
       ? true
-      : `EntityKind must be a non-blank string, received ${JSON.stringify(value)}`,
+      : `EntityKind must be a non-blank string, received ${describeUnknown(value)}`,
 )
 
 export { entityKind as EntityKind }

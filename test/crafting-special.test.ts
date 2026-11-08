@@ -170,8 +170,10 @@ describe("crafting special recipe data", () => {
     );
     for (const [options, tag] of [
       [{ category: "invalid" }, "RecipeTypeFailure"],
+      [{ category: { toString: false } }, "RecipeTypeFailure"],
       [{ group: 1 }, "RecipeTypeFailure"],
       [{ priority: -1 }, "RecipeRangeFailure"],
+      [{ priority: { toString: false } }, "RecipeRangeFailure"],
       [{ showNotification: 1 }, "RecipeTypeFailure"],
       [{ tags: null }, "RecipeTypeFailure"],
       [{ tags: [""] }, "RecipeTypeFailure"],

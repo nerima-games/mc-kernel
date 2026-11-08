@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import type { BlockDefinition } from './block-definition.js'
 import { Brand } from 'effect'
 
@@ -22,7 +23,7 @@ export const BlockId: Brand.Constructor<BlockId> = Brand.make<BlockId>(
   (value) =>
     Number.isInteger(value) && value >= BLOCK_ID_MIN && value <= BLOCK_ID_MAX
       ? true
-      : `BlockId must be an integer in [0, ${BLOCK_ID_MAX}], received ${value}`,
+      : `BlockId must be an integer in [0, ${describeUnknown(BLOCK_ID_MAX)}], received ${describeUnknown(value)}`,
 )
 
 const blockId = BlockId

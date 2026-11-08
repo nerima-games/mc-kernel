@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from 'effect'
 import {
   FOOD_DEFINITION_BY_ITEM,
@@ -86,7 +87,7 @@ export const consumableStatusEffect = (
   const checkedAmplifier = yield* brandValue(
     EffectAmplifier.result(amplifier),
     'amplifier',
-    `amplifier must be a non-negative integer, received ${amplifier}`,
+    `amplifier must be a non-negative integer, received ${describeUnknown(amplifier)}`,
     amplifier,
   )
   return { effectId, durationSecs: checkedDuration, amplifier: checkedAmplifier }
@@ -100,7 +101,7 @@ export const consumableApplyEffects = (
     brandValue(
       FoodEffectProbability.result(probability),
       'probability',
-      `probability must be in [0, 1], received ${probability}`,
+      `probability must be in [0, 1], received ${describeUnknown(probability)}`,
       probability,
     ),
     (checkedProbability) => ({ type: 'minecraft:apply_effects', effects, probability: checkedProbability }),
@@ -203,7 +204,7 @@ export const consumableComponent = (
       const errorPath = effectsSnapshot.failure.path
       return yield* Result.fail(itemValidationFailure(
         errorPath,
-        `Unable to inspect ${errorPath}`,
+        `Unable to inspect ${describeUnknown(errorPath)}`,
         reason,
         effectsSnapshot.failure.value,
       ))

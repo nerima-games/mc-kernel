@@ -295,6 +295,11 @@ describe("cooking recipe data", () => {
       Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, "200", 0]),
       rangeFailure("Cooking time must be a positive safe integer, received 200"),
     );
+    const hostileQuantity = { toString: false };
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, hostileQuantity, 0]),
+      rangeFailure("Cooking time must be a positive safe integer, received object"),
+    );
     expectFailure(
       Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, -0.1]),
       rangeFailure("Cooking experience must be a finite non-negative number, received -0.1"),
@@ -306,6 +311,10 @@ describe("cooking recipe data", () => {
     expectFailure(
       Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, "0"]),
       rangeFailure("Cooking experience must be a finite non-negative number, received 0"),
+    );
+    expectFailure(
+      Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, hostileQuantity]),
+      rangeFailure("Cooking experience must be a finite non-negative number, received object"),
     );
     expectFailure(
       Reflect.apply(cookingRecipe, undefined, ["minecraft:bad", "furnace", "raw_iron", output, 1, 0, null]),
@@ -348,6 +357,18 @@ describe("cooking recipe data", () => {
       unknownOutput,
       typeFailure("Unknown item type: not_an_item"),
     );
+    expectFailure(
+      Reflect.apply(cookingRecipeForItem, undefined, [
+        "minecraft:unknown_output",
+        "furnace",
+        "raw_iron",
+        { toString: false },
+        1,
+        200,
+        0,
+      ]),
+      typeFailure("Unknown item type: object"),
+    );
 
     for (const [output, count] of [
       ["iron_ingot", 0],
@@ -369,6 +390,18 @@ describe("cooking recipe data", () => {
         ),
       );
     }
+    expectFailure(
+      Reflect.apply(cookingRecipeForItem, undefined, [
+        "minecraft:invalid_output_count",
+        "furnace",
+        "raw_iron",
+        "iron_ingot",
+        { toString: false },
+        200,
+        0,
+      ]),
+      rangeFailure("Item stack count for iron_ingot must be an integer in [1, 64], received object"),
+    );
   });
 
   it("guards cooking recipe identity, quantities, and metadata", () => {

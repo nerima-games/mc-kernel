@@ -1,4 +1,5 @@
 /** Constructors and guards for simple Java item-component values. */
+import { describeUnknown } from "../describe-unknown.js"
 import { Effect, Result } from 'effect'
 import {
   MAX_GENERIC_INPUT_ARRAY_LENGTH,
@@ -217,13 +218,13 @@ const reflectionResult = <A>(
   read: () => A,
 ): ItemComponentResult<A> => Effect.runSync(Effect.result(Effect.try({
   try: read,
-  catch: () => componentFailure(field, `Unable to inspect ${field}`, input, 'hostile-input'),
+  catch: () => componentFailure(field, `Unable to inspect ${describeUnknown(field)}`, input, 'hostile-input'),
 })))
 
 const snapshotComponentInput = (
   value: unknown,
   field: string,
-  invalidPrototypeMessage = `Unable to inspect ${field}`,
+  invalidPrototypeMessage = `Unable to inspect ${describeUnknown(field)}`,
 ): ItemComponentResult<unknown> => {
   const snapshot = snapshotUnknownInputValue(value, MAX_GENERIC_INPUT_ARRAY_LENGTH, field)
   if (Result.isSuccess(snapshot)) return Result.succeed(snapshot.success)
@@ -234,8 +235,8 @@ const snapshotComponentInput = (
   const reason = snapshot.failure.reason === 'cyclic' ? 'invalid-value' : 'hostile-input'
   const errorField = snapshot.failure.path
   const message = snapshot.failure.reason === 'cyclic'
-    ? `Cyclic ${errorField} input is invalid`
-    : `Unable to inspect ${errorField}`
+    ? `Cyclic ${describeUnknown(errorField)} input is invalid`
+    : `Unable to inspect ${describeUnknown(errorField)}`
   return Result.fail(componentFailure(errorField, message, snapshot.failure.value, reason))
 }
 
@@ -519,7 +520,7 @@ export const providesBannerPatternsComponent = (
 
 export const dyeComponent = (value: string): ItemComponentResult<DyeColor> => {
   if (!isDyeComponent(value)) {
-    return Result.fail(componentFailure('dye', `Unknown dye color: ${value}`, value, 'out-of-range', 'RangeError'))
+    return Result.fail(componentFailure('dye', `Unknown dye color: ${describeUnknown(value)}`, value, 'out-of-range', 'RangeError'))
   }
   return Result.succeed(value)
 }
@@ -828,7 +829,7 @@ const mapDecorationComponentOf = (
 
 export const mapColorComponent = (value = 4603950): ItemComponentResult<MapColorComponent> => {
   if (!isMapColorComponent(value)) {
-    return Result.fail(componentFailure('map_color', `Invalid map_color component value: ${String(value)}`, value, 'out-of-range', 'RangeError'))
+    return Result.fail(componentFailure('map_color', `Invalid map_color component value: ${describeUnknown(value)}`, value, 'out-of-range', 'RangeError'))
   }
   return brandResult(RgbColor.result(value), 'map_color', value, 'RangeError', 'out-of-range')
 }
@@ -1072,7 +1073,7 @@ export const customModelDataComponent = (options: CustomModelDataOptions = {}): 
 }
 
 export const mapIdComponent = (value: number): ItemComponentResult<MapIdComponent> => {
-  if (!isMapIdComponent(value)) return Result.fail(componentFailure('map_id', `Invalid map_id component value: ${String(value)}`, value, 'out-of-range', 'RangeError'))
+  if (!isMapIdComponent(value)) return Result.fail(componentFailure('map_id', `Invalid map_id component value: ${describeUnknown(value)}`, value, 'out-of-range', 'RangeError'))
   return brandResult(MapId.result(value), 'map_id', value, 'RangeError', 'out-of-range')
 }
 
@@ -1082,7 +1083,7 @@ export const blockStateComponent = (value: Readonly<Record<string, string>>): It
   return Result.gen(function* () {
     const normalized: Record<string, BlockStateComponent[string]> = {}
     for (const [property, propertyValue] of Object.entries(parsed.success)) {
-      const brandedValue = yield* brandResult(BlockStatePropertyValue.result(propertyValue), `block_state.${property}`, propertyValue)
+      const brandedValue = yield* brandResult(BlockStatePropertyValue.result(propertyValue), `block_state.${describeUnknown(property)}`, propertyValue)
       Object.defineProperty(normalized, property, {
         configurable: false,
         enumerable: true,
@@ -1095,13 +1096,13 @@ export const blockStateComponent = (value: Readonly<Record<string, string>>): It
 }
 
 export const instrumentComponent = (value: string): ItemComponentResult<InstrumentComponent> => {
-  if (!isInstrumentComponent(value)) return Result.fail(componentFailure('instrument', `Invalid instrument component value: ${String(value)}`, value))
+  if (!isInstrumentComponent(value)) return Result.fail(componentFailure('instrument', `Invalid instrument component value: ${describeUnknown(value)}`, value))
   return brandResult(ResourceLocation.result(value), 'instrument', value)
 }
 
 export const noteBlockSoundComponent = (value: string): ItemComponentResult<NoteBlockSoundComponent> => {
   if (!isNoteBlockSoundComponent(value)) {
-    return Result.fail(componentFailure('note_block_sound', `Invalid note_block_sound component value: ${String(value)}`, value))
+    return Result.fail(componentFailure('note_block_sound', `Invalid note_block_sound component value: ${describeUnknown(value)}`, value))
   }
   return brandResult(ResourceLocation.result(value), 'note_block_sound', value)
 }
@@ -1117,19 +1118,19 @@ export const recipesComponent = (value: ReadonlyArray<string>): ItemComponentRes
 }
 
 export const lockComponent = (value: string): ItemComponentResult<LockComponent> => {
-  if (!isLockComponent(value)) return Result.fail(componentFailure('lock', `Invalid lock component value: ${String(value)}`, value))
+  if (!isLockComponent(value)) return Result.fail(componentFailure('lock', `Invalid lock component value: ${describeUnknown(value)}`, value))
   return brandResult(ItemLock.result(value), 'lock', value)
 }
 
 export const tooltipStyleComponent = (value: string): ItemComponentResult<TooltipStyleComponent> => {
   if (!isTooltipStyleComponent(value)) {
-    return Result.fail(componentFailure('tooltip_style', `Invalid tooltip_style component value: ${String(value)}`, value))
+    return Result.fail(componentFailure('tooltip_style', `Invalid tooltip_style component value: ${describeUnknown(value)}`, value))
   }
   return brandResult(ResourceLocation.result(value), 'tooltip_style', value)
 }
 
 export const baseColorComponent = (value: string): ItemComponentResult<BaseColorComponent> => {
-  if (!isBaseColorComponent(value)) return Result.fail(componentFailure('base_color', `Invalid base_color component value: ${String(value)}`, value))
+  if (!isBaseColorComponent(value)) return Result.fail(componentFailure('base_color', `Invalid base_color component value: ${describeUnknown(value)}`, value))
   return Result.succeed(value)
 }
 
@@ -1233,27 +1234,27 @@ export const repairableComponent = (value: ResourceLocationProviderInput): ItemC
 }
 
 export const enchantableComponent = (value: number): ItemComponentResult<EnchantableComponent> => {
-  if (!isEnchantableValue(value)) return Result.fail(componentFailure('enchantable', `Invalid enchantable component value: ${String(value)}`, value, 'out-of-range', 'RangeError'))
+  if (!isEnchantableValue(value)) return Result.fail(componentFailure('enchantable', `Invalid enchantable component value: ${describeUnknown(value)}`, value, 'out-of-range', 'RangeError'))
   return Result.map(brandResult(Enchantability.result(value), 'enchantable', value, 'RangeError', 'out-of-range'), (enchantability) => Object.freeze({ value: enchantability }))
 }
 
 export const jukeboxPlayableComponent = (value: string): ItemComponentResult<JukeboxPlayableComponent> => {
   if (typeof value !== 'string' || !ResourceLocation.is(value)) {
-    return Result.fail(componentFailure('jukebox_playable', `Invalid jukebox_playable component value: ${String(value)}`, value))
+    return Result.fail(componentFailure('jukebox_playable', `Invalid jukebox_playable component value: ${describeUnknown(value)}`, value))
   }
   return Result.map(brandResult(ResourceLocation.result(value), 'jukebox_playable', value), (song) => Object.freeze({ song }))
 }
 
 export const ominousBottleAmplifierComponent = (value: number): ItemComponentResult<OminousBottleAmplifierComponent> => {
   if (!isOminousBottleAmplifierComponent(value)) {
-    return Result.fail(componentFailure('ominous_bottle_amplifier', `Invalid ominous_bottle_amplifier value: ${String(value)}`, value, 'out-of-range', 'RangeError'))
+    return Result.fail(componentFailure('ominous_bottle_amplifier', `Invalid ominous_bottle_amplifier value: ${describeUnknown(value)}`, value, 'out-of-range', 'RangeError'))
   }
   return brandResult(OminousBottleAmplifier.result(value), 'ominous_bottle_amplifier', value, 'RangeError', 'out-of-range')
 }
 
 export const paintingVariantComponent = (value: string): ItemComponentResult<PaintingVariantComponent> => {
   if (!isPaintingVariantComponent(value)) {
-    return Result.fail(componentFailure('painting_variant', `Invalid painting/variant component value: ${String(value)}`, value))
+    return Result.fail(componentFailure('painting_variant', `Invalid painting/variant component value: ${describeUnknown(value)}`, value))
   }
   return brandResult(ResourceLocation.result(value), 'painting_variant', value)
 }
@@ -1262,7 +1263,7 @@ export const sulfurCubeContentComponent = (
   value: SulfurCubeContentOptions,
 ): ItemComponentResult<SulfurCubeContentComponent> => {
   if (!isSulfurCubeContentOptions(value)) {
-    return Result.fail(componentFailure('sulfur_cube_content', `Invalid sulfur_cube_content component value: ${String(value)}`, value))
+    return Result.fail(componentFailure('sulfur_cube_content', `Invalid sulfur_cube_content component value: ${describeUnknown(value)}`, value))
   }
   return brandResult(ResourceLocation.result(value), 'sulfur_cube_content', value)
 }

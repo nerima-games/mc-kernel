@@ -5,6 +5,7 @@
  * live in `./block-property-validation` so the table can be read without
  * mixing it with external-input handling.
  */
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand } from 'effect'
 import {
   DEFAULT_BLOCK_DROP,
@@ -57,7 +58,7 @@ export const LightLevel: Brand.Constructor<LightLevel> = Brand.make<LightLevel>(
   (value) =>
     isLightLevel(value)
       ? true
-      : `LightLevel must be an integer in [${LIGHT_LEVEL_MIN}, ${LIGHT_LEVEL_MAX}], received ${value}`,
+      : `LightLevel must be an integer in [${describeUnknown(LIGHT_LEVEL_MIN)}, ${describeUnknown(LIGHT_LEVEL_MAX)}], received ${describeUnknown(value)}`,
 )
 
 /** Non-NaN numeric input to light-level clamping; infinities clamp to the nearest bound. */
@@ -66,7 +67,7 @@ export const LightLevelCandidate: Brand.Constructor<LightLevelCandidate> = Brand
   (value) =>
     !Number.isNaN(value)
       ? true
-      : `LightLevelCandidate must not be NaN, received ${value}`,
+      : `LightLevelCandidate must not be NaN, received ${describeUnknown(value)}`,
 )
 
 /** Mining resistance. `-1` is the explicit unbreakable sentinel. */
@@ -75,7 +76,7 @@ export const BlockHardness: Brand.Constructor<BlockHardness> = Brand.make<BlockH
   (value) =>
     Number.isFinite(value) && (value >= 0 || value === -1)
       ? true
-      : `BlockHardness must be finite and non-negative or -1, received ${value}`,
+      : `BlockHardness must be finite and non-negative or -1, received ${describeUnknown(value)}`,
 )
 
 /** Surface friction coefficient in [0, 1]. */
@@ -84,7 +85,7 @@ export const BlockFriction: Brand.Constructor<BlockFriction> = Brand.make<BlockF
   (value) =>
     Number.isFinite(value) && value >= 0 && value <= 1
       ? true
-      : `BlockFriction must be finite and in [0, 1], received ${value}`,
+      : `BlockFriction must be finite and in [0, 1], received ${describeUnknown(value)}`,
 )
 
 /** Explosion power needed to destroy a block; positive infinity is indestructible. */
@@ -93,7 +94,7 @@ export const BlockBlastResistance: Brand.Constructor<BlockBlastResistance> = Bra
   (value) =>
     !Number.isNaN(value) && value >= 0
       ? true
-      : `BlockBlastResistance must be non-negative or Infinity, received ${value}`,
+      : `BlockBlastResistance must be non-negative or Infinity, received ${describeUnknown(value)}`,
 )
 
 /** Damage dealt by one contact tick. */
@@ -102,7 +103,7 @@ export const BlockContactDamage: Brand.Constructor<BlockContactDamage> = Brand.m
   (value) =>
     Number.isFinite(value) && value >= 0
       ? true
-      : `BlockContactDamage must be finite and non-negative, received ${value}`,
+      : `BlockContactDamage must be finite and non-negative, received ${describeUnknown(value)}`,
 )
 
 /** Movement slowdown applied while inside the block. */
@@ -111,7 +112,7 @@ export const BlockMovementDrag: Brand.Constructor<BlockMovementDrag> = Brand.mak
   (value) =>
     Number.isFinite(value) && value >= 0
       ? true
-      : `BlockMovementDrag must be finite and non-negative, received ${value}`,
+      : `BlockMovementDrag must be finite and non-negative, received ${describeUnknown(value)}`,
 )
 
 /** Experience awarded when the block breaks. */
@@ -120,7 +121,7 @@ export const BlockExperiencePoints: Brand.Constructor<BlockExperiencePoints> = B
   (value) =>
     Number.isFinite(value) && value >= 0
       ? true
-      : `BlockExperiencePoints must be finite and non-negative, received ${value}`,
+      : `BlockExperiencePoints must be finite and non-negative, received ${describeUnknown(value)}`,
 )
 
 /** Clamp into the four-bit light range. */

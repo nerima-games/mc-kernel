@@ -23,6 +23,7 @@
  * fixed value, per the "differences only" convention above
  * (docs/responsibility.md §3-2).
  */
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand } from 'effect'
 import type { Dimension } from './dimension.js'
 import { VANILLA_26_3_BIOME_IDS } from './vanilla-26-3-generated.js'
@@ -151,7 +152,7 @@ export type BiomeTemperature = number & Brand.Brand<'BiomeTemperature'>
 export const BiomeTemperature: Brand.Constructor<BiomeTemperature> = Brand.make<BiomeTemperature>(
   (value) => Number.isFinite(value) && value >= -0.7 && value <= 2
     ? true
-    : `BiomeTemperature must be finite and in [-0.7, 2], received ${value}`,
+    : `BiomeTemperature must be finite and in [-0.7, 2], received ${describeUnknown(value)}`,
 )
 
 /** Biome downfall as a unitless fraction in [0, 1]. */
@@ -159,7 +160,7 @@ export type BiomeDownfall = number & Brand.Brand<'BiomeDownfall'>
 export const BiomeDownfall: Brand.Constructor<BiomeDownfall> = Brand.make<BiomeDownfall>(
   (value) => Number.isFinite(value) && value >= 0 && value <= 1
     ? true
-    : `BiomeDownfall must be a finite fraction in [0, 1], received ${value}`,
+    : `BiomeDownfall must be a finite fraction in [0, 1], received ${describeUnknown(value)}`,
 )
 
 /** Packed RGB biome tint in 0xRRGGBB form. */
@@ -167,7 +168,7 @@ export type BiomeTint = number & Brand.Brand<'BiomeTint'>
 export const BiomeTint: Brand.Constructor<BiomeTint> = Brand.make<BiomeTint>(
   (value) => Number.isInteger(value) && value >= 0 && value <= 0xffffff
     ? true
-    : `BiomeTint must be an integer in [0, 0xFFFFFF], received ${value}`,
+    : `BiomeTint must be an integer in [0, 0xFFFFFF], received ${describeUnknown(value)}`,
 )
 
 export const SNOW_TEMPERATURE_THRESHOLD: BiomeTemperature = BiomeTemperature(0.15)
