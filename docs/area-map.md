@@ -34,6 +34,7 @@ re-exports that barrel.
 `block-entity-validation.ts`, `block-entity.ts`, `block-harvest-data.ts`,
 `block-harvest.ts`, `block-item.ts`, `block-properties.ts`, `block-property-data.ts`,
 `block-property-validation.ts`, `block-registry-entries-collision-shapes.ts`,
+`block-registry-entries-copper.ts`,
 `block-registry-entries-crops-and-redstone.ts`, `block-registry-entries-end.ts`,
 `block-registry-entries-foundation.ts`, `block-registry-entries-ores-and-blocks.ts`,
 `block-registry-entries-passable.ts`, `block-registry-entries-structures-and-nether.ts`,
