@@ -1,3 +1,4 @@
+import * as fc from 'fast-check'
 import { Result, Schema } from 'effect'
 import { describe, expect, it } from 'vitest'
 import * as kernel from '../../../src/index.js'
@@ -79,6 +80,10 @@ describe('display names', () => {
       expect(actual.ja.length).toBeGreaterThan(0)
       expect(actual.en.trim()).toBe(actual.en)
       expect(actual.ja.trim()).toBe(actual.ja)
+      expect(actual.en).not.toContain('_')
+      expect(actual.ja).not.toContain('_')
+      expect(actual.en).not.toContain(':')
+      expect(actual.ja).not.toContain(':')
     }
 
     for (const id of kernel.BLOCK_TYPES) {
@@ -90,11 +95,16 @@ describe('display names', () => {
       expect(actual.ja.length).toBeGreaterThan(0)
       expect(actual.en.trim()).toBe(actual.en)
       expect(actual.ja.trim()).toBe(actual.ja)
+      expect(actual.en).not.toContain('_')
+      expect(actual.ja).not.toContain('_')
+      expect(actual.en).not.toContain(':')
+      expect(actual.ja).not.toContain(':')
     }
   })
 
   it('allows duplicate names only for the explicit same-ID item/block pairs', () => {
-    const sharedIds = kernel.ITEM_TYPES.filter((id) => kernel.BLOCK_TYPES.includes(id as kernel.BlockType)).sort()
+    const blockIds = new Set<string>(kernel.BLOCK_TYPES)
+    const sharedIds = kernel.ITEM_TYPES.filter((id) => blockIds.has(id)).sort()
     expect([...ALLOWED_SHARED_NAME_IDS].sort()).toEqual(sharedIds)
 
     for (const language of ['en', 'ja'] as const) {
@@ -144,5 +154,18 @@ describe('display names', () => {
   it('keeps DisplayNameSchema as a non-empty boundary for restored strings', () => {
     expect(Result.isFailure(Schema.decodeUnknownResult(kernel.DisplayNameSchema)(''))).toBe(true)
     expect(Result.isFailure(Schema.decodeUnknownResult(kernel.DisplayNameSchema)('label'))).toBe(false)
+  })
+
+  it('returns a typed result for arbitrary inputs without throwing', () => {
+    fc.assert(
+      fc.property(fc.anything(), (input) => {
+        const result = kernel.getDisplayName(input)
+        if (Result.isSuccess(result)) {
+          expect(Result.isSuccess(Schema.decodeUnknownResult(kernel.DisplayNameSchema)(result.success))).toBe(true)
+        } else {
+          expect(result.failure).toEqual({ _tag: 'InvalidDisplayNameRequest' })
+        }
+      }),
+    )
   })
 })
