@@ -1,5 +1,11 @@
 # @nerima-games/mc-kernel
 
+## 0.16.0
+
+### Minor Changes
+
+- Add bookshelf data, block enchanting power, and food consumption and effect data corrections.
+
 ## 0.15.0
 
 ### Minor Changes
