@@ -10,6 +10,10 @@ export type DisplayNames = Readonly<{
 }>
 
 type DisplayNameId = ItemType | BlockType
+type IdentifierWords<Id extends string> = Id extends `${infer Head}_${infer Tail}`
+  ? Head | IdentifierWords<Tail>
+  : Id
+type JapaneseToken = IdentifierWords<DisplayNameId>
 
 const brandDisplayName = Brand.nominal<DisplayName>()
 
@@ -83,7 +87,7 @@ const JAPANESE_NAME_OVERRIDES: Partial<Record<DisplayNameId, string>> = {
   wither_skeleton_skull: '枯れ骸骨の頭蓋骨',
 }
 
-const JAPANESE_TOKEN_NAMES: Readonly<Record<string, string>> = {
+const JAPANESE_TOKEN_NAMES: Readonly<Record<JapaneseToken, string>> = {
   air: '空気',
   amethyst: '紫水晶',
   and: 'と',
@@ -201,6 +205,7 @@ const JAPANESE_TOKEN_NAMES: Readonly<Record<string, string>> = {
   ladder: 'はしご',
   lamp: '灯',
   lapis: '瑠璃',
+  lazuli: '瑠璃',
   lava: '溶岩',
   leather: '革',
   leaves: '葉',
@@ -342,8 +347,7 @@ const japaneseNameFromId = (id: DisplayNameId): string => {
     .replaceAll('-', ' ')
     .split(' ')
     .map((token, index, tokens) => {
-      const translated = JAPANESE_TOKEN_NAMES[token]
-      if (translated === undefined) throw new Error(`Missing Japanese name token for ${id}: ${token}`)
+      const translated = JAPANESE_TOKEN_NAMES[token as JapaneseToken]
       return index === 0 && tokens.length === 1 ? translated.replace(/の$/, '') : translated
     })
     .join('')
