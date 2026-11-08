@@ -34,6 +34,29 @@ const ALLOWED_SHARED_NAME_IDS = [
 
 const allowedSharedNameIds = new Set<string>(ALLOWED_SHARED_NAME_IDS)
 
+const COMMON_KATAKANA_NAME_ALLOWLIST: Readonly<
+  Record<string, Readonly<{ name: string; reason: string }>>
+> = {
+  bed: { name: 'ベッド', reason: 'Everyday loanword for a bed.' },
+  beetroot: { name: 'ビート', reason: 'Common food loanword for beet.' },
+  bread: { name: 'パン', reason: 'Everyday loanword for bread.' },
+  brick: { name: 'レンガ', reason: 'Everyday loanword for fired masonry.' },
+  bucket: { name: 'バケツ', reason: 'Everyday loanword for a carrying vessel.' },
+  chest: { name: 'チェスト', reason: 'Everyday loanword for storage furniture.' },
+  cookie: { name: 'クッキー', reason: 'Everyday loanword for a baked snack.' },
+  diamond: { name: 'ダイヤモンド', reason: 'Everyday loanword for the gemstone.' },
+  door: { name: 'ドア', reason: 'Everyday loanword for an entrance.' },
+  emerald: { name: 'エメラルド', reason: 'Everyday loanword for the gemstone.' },
+  glass: { name: 'ガラス', reason: 'Everyday loanword for the material.' },
+  lever: { name: 'レバー', reason: 'Everyday loanword for a mechanical handle.' },
+  rail: { name: 'レール', reason: 'Everyday loanword for a track.' },
+} as const
+
+const KATAKANA_ONLY = /^[\p{Script=Katakana}\u30FC\u30FB ]+$/u
+const HAS_KATAKANA = /\p{Script=Katakana}/u
+const HAS_NON_KATAKANA = /[^\p{Script=Katakana}\u30FC\u30FB ]/u
+const HAS_COMMON_JAPANESE_CHARACTER = /[\p{Script=Han}\p{Script=Hiragana}]/u
+
 type NameExpectation = Readonly<{
   kind: 'item' | 'block'
   id: string
@@ -77,6 +100,43 @@ describe('display names', () => {
 
     for (const id of ids) {
       expect(methods).toContain(japaneseNameMethodForId(id))
+    }
+  })
+
+  it('matches every Japanese naming method to its name form', () => {
+    const ids: ReadonlyArray<kernel.ItemType | kernel.BlockType> = [
+      ...kernel.ITEM_TYPES,
+      ...kernel.BLOCK_TYPES,
+    ]
+    expect(kernel.ITEM_TYPES.length).toBeGreaterThan(0)
+    expect(kernel.BLOCK_TYPES.length).toBeGreaterThan(0)
+
+    for (const id of ids) {
+      const name = japaneseDisplayNameForId(id)
+      const method = japaneseNameMethodForId(id)
+
+      if (method === 'katakana') {
+        expect(KATAKANA_ONLY.test(name), id).toBe(true)
+      } else if (method === 'common') {
+        const allowlistedLoanword = COMMON_KATAKANA_NAME_ALLOWLIST[id]
+        if (allowlistedLoanword !== undefined) {
+          expect(allowlistedLoanword.name, id).toBe(name)
+          expect(allowlistedLoanword.reason.trim().length, id).toBeGreaterThan(0)
+          expect(KATAKANA_ONLY.test(name), id).toBe(true)
+        }
+        expect(
+          HAS_COMMON_JAPANESE_CHARACTER.test(name) || allowlistedLoanword?.name === name,
+          id,
+        ).toBe(true)
+      } else {
+        expect(HAS_KATAKANA.test(name), id).toBe(true)
+        expect(HAS_NON_KATAKANA.test(name), id).toBe(true)
+      }
+    }
+
+    const currentIds = new Set<string>(ids)
+    for (const id of Object.keys(COMMON_KATAKANA_NAME_ALLOWLIST)) {
+      expect(currentIds.has(id), id).toBe(true)
     }
   })
 
