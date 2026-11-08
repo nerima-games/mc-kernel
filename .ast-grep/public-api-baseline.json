@@ -3,7 +3,7 @@
     "count": 1,
     "file": "src/domain/item/item-component-values.ts",
     "ruleId": "no-effect-run-outside-entrypoints",
-    "text": "Effect.runSync(Effect.result(Effect.try({ try: read, catch: () => componentFailure(field, `Unable to inspect ${field}`, input, 'hostile-input'), })))"
+    "text": "Effect.runSync(Effect.result(Effect.try({ try: read, catch: () => componentFailure(field, `Unable to inspect ${describeUnknown(field)}`, input, 'hostile-input'), })))"
   },
   {
     "count": 1,
@@ -39,7 +39,7 @@
     "count": 1,
     "file": "src/domain/item/tool-component.ts",
     "ruleId": "no-effect-run-outside-entrypoints",
-    "text": "Effect.runSync(Effect.result(Effect.try({ try: read, catch: () => failure(field, `Unable to inspect ${field}`, value, 'hostile-input'), })))"
+    "text": "Effect.runSync(Effect.result(Effect.try({ try: read, catch: () => failure(field, `Unable to inspect ${describeUnknown(field)}`, value, 'hostile-input'), })))"
   },
   {
     "count": 1,
@@ -141,6 +141,12 @@
     "count": 9,
     "file": "src/input-snapshot.ts",
     "ruleId": "no-raw-exported-function-parameter",
+    "text": "string"
+  },
+  {
+    "count": 1,
+    "file": "src/domain/describe-unknown.ts",
+    "ruleId": "no-raw-exported-function-return",
     "text": "string"
   },
   {
