@@ -180,7 +180,7 @@ type BlockType = (typeof BLOCK_TYPES)[number]
 const isBlockType = (value: unknown): value is BlockType
 ```
 
-このリポジトリの現行 `BLOCK_TYPES` roster は 125 種である。
+このリポジトリの現行 `BLOCK_TYPES` roster は 126 種である。
 
 ブロックの追加は語彙だけの変更ではない。挙動は名前ではなく能力から読むため、消費側のコードは通常変えずに済む。一方、新しいリテラルごとに安定した ID と、能力・属性を持つレジストリ行が必要である。
 
@@ -207,7 +207,7 @@ const isEmpty: (id: BlockId) => boolean;
 
 ```typescript
 type BlockRegistryEntry = { readonly id: BlockId; readonly definition: BlockDefinition }
-const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry>   // 125 行、id 昇順
+const BLOCK_REGISTRY: ReadonlyArray<BlockRegistryEntry>   // 126 行、id 昇順
 const BLOCK_IDS: ReadonlyArray<BlockId>                    // BLOCK_REGISTRY から取り出した id 列
 const UNREGISTERED_BLOCK_TYPES: ReadonlyArray<BlockType>   // レジストリに行が無い語彙（現状は空）
 
@@ -217,9 +217,14 @@ const blockIdOf(type: BlockType): Option.Option<BlockId>
 const blockTypeOfId(id: BlockId): Result.Result<BlockType | undefined, BlockRegistryResolutionFailure>
 const isKnownBlockId(id: BlockId): Result.Result<boolean, BlockRegistryResolutionFailure>
 const resolvedBlockOfId(id: BlockId): Result.Result<ResolvedBlock | undefined, BlockRegistryResolutionFailure>
+type BlockEnchantingPower = 0 | 1
+const BlockEnchantingPowerSchema: Schema.Codec<BlockEnchantingPower, BlockEnchantingPower>
+const enchantingPowerOfBlockId(id: BlockId): Result.Result<BlockEnchantingPower, BlockRegistryIndexFailure>
 ```
 
 `blockTypeOfId` はブロック名だけを返し、`resolvedBlockOfId` は解決済み定義全体を返す。どちらも未登録の ID には成功値 `undefined` を返す。
+
+`enchantingPowerOfBlockId` は、登録済みブロックごとのエンチャント力を返す。本棚は `1`、その他の登録済みブロックは `0` である。未登録 ID と `BlockId` の範囲外の値は型付き失敗を返す。
 
 ブロックレジストリの安定した公開 import path は `@nerima-games/mc-kernel/domain/block-registry` である。Fluid の lookup は `@nerima-games/mc-kernel/domain/fluid` から利用できる（§5-sexies）。
 
@@ -284,7 +289,7 @@ const blockOfPlaceableItem(item: PlaceableItemType): BlockType       // 全域�
 （`stone` → `cobblestone`、`grass_block` → `dirt`、`glowstone` → `glowstone_dust`）は
 引き続きレジストリ行の `drops` が所有する。設置形と破壊ドロップを同じ規則として扱わない。
 
-**`ITEM_TYPES` は現行 308 個。** `ITEM_TYPES` が名前の roster、`ITEM_REGISTRY` がその append-only の数値 identity、`ITEM_IDS` が identity 列である。`itemIdOf` / `itemTypeOfId` は両者の変換を担い、途中挿入や並べ替えで既存 ID を変更してはならない。ブロック形・ドロップ形、つるはし・シャベル・斧・クワ・剣の木/石/鉄/ダイヤ/金/ネザライト tier、鍛造素材・テンプレート、装備境界が必要とする
+**`ITEM_TYPES` は現行 309 個。** `ITEM_TYPES` が名前の roster、`ITEM_REGISTRY` がその append-only の数値 identity、`ITEM_IDS` が identity 列である。`itemIdOf` / `itemTypeOfId` は両者の変換を担い、途中挿入や並べ替えで既存 ID を変更してはならない。ブロック形・ドロップ形、つるはし・シャベル・斧・クワ・剣の木/石/鉄/ダイヤ/金/ネザライト tier、鍛造素材・テンプレート、装備境界が必要とする
 鉄・ダイヤ・ネザライト防具を語彙として持つ。
 kernel は現在の `ItemType` roster に対応する純粋な装備スロット規則・装備スナップショット・耐久遷移を `equipment-data.ts` / `equipment.ts` で所有する。
 ただし、このカタログは現在 kernel に表現されているアイテムの範囲であり、全エディション・全バージョンの防具、道具、プレイヤーインベントリを網羅する完全な公式レジストリではない。
@@ -359,7 +364,7 @@ const ItemIdBytes(bytes: Uint8Array | ItemIdBytes): Result.Result<ItemIdBytes, I
 **id は `ITEM_TYPES` の配列添字であり、密かつ追加専用（append-only）。** 新しいアイテムは必ず
 `ITEM_TYPES` の末尾に足す。途中挿入や並べ替えは既存の全 id を付け替える破壊的変更になる。
 `BlockId` の許容範囲は `BLOCK_ID_MAX` が定める 0..65535 であり、chunk では各要素を 2 バイトで保存する。`ItemId` は
-`unsigned 16-bit`（0..65535）を確保してあり、308 種の現行語彙に対して十分な余裕を持つ。
+`unsigned 16-bit`（0..65535）を確保してあり、309 種の現行語彙に対して十分な余裕を持つ。
 
 `maxStackCountOfItem` は vanilla の上限に従い、通常は 64、雪玉・エンダーパール・バケツ等は 16、
 道具・防具・薬品・ボート等は 1 を返す。
@@ -841,6 +846,8 @@ type FoodDefinition = Readonly<{
 type FoodEffect = FoodStatusEffect | FoodRemoveEffect | FoodTeleportEffect;
 const VANILLA_FOOD_DEFINITIONS: ReadonlyArray<FoodDefinition>;
 ```
+
+`FoodStatusEffect.amplifier` は0始まりで、`0` が効果レベルIに当たる。
 
 このデータはroot exportから利用する。
 

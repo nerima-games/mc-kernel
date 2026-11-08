@@ -150,6 +150,7 @@ const VANILLA_PARITY_ITEM_IDS = {
   deepslate_copper_ore: 305,
   raw_copper: 306,
   copper_ingot: 307,
+  bookshelf: 308,
 } as const satisfies Readonly<Partial<Record<ItemType, number>>>
 
 const EXPECTED_ITEM_TYPES: ReadonlyArray<ItemType> = [
@@ -461,6 +462,7 @@ const EXPECTED_ITEM_TYPES: ReadonlyArray<ItemType> = [
   'deepslate_copper_ore',
   'raw_copper',
   'copper_ingot',
+  'bookshelf',
 ]
 
 /**
@@ -748,7 +750,7 @@ describe('item registry', () => {
         })
       }
       for (const [input, id] of [
-        [new Uint8Array([1, 52]), 308],
+        [new Uint8Array([1, 53]), 309],
         [new Uint8Array([0xff, 0xff]), 0xffff],
       ] as const) {
         const expected = {
@@ -867,7 +869,7 @@ describe('item registry', () => {
       expect(isKnownItemId(302)).toBe(true)
       expect(isKnownItemId(303)).toBe(true)
       expect(isKnownItemId(307)).toBe(true)
-      expect(isKnownItemId(308)).toBe(false)
+      expect(isKnownItemId(309)).toBe(false)
       expect(isKnownItemId(-1)).toBe(false)
       expect(isKnownItemId(1.5)).toBe(false)
     })),

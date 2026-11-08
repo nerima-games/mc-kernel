@@ -41,7 +41,7 @@ import {
 } from '../src/domain/block/block-registry'
 import { BLOCK_TYPES, type BlockType } from '../src/domain/block/block-type'
 import { ITEM_TYPES, type ItemType, isItemType } from '../src/domain/item/item-type'
-import { itemOfBlock } from '../src/domain/block/block-item'
+import { blockOfPlaceableItem, itemOfBlock } from '../src/domain/block/block-item'
 import { StackCount, type StackCount as StackCountValue } from '../src/domain/time/quantities'
 import { resultValue } from './block-result-helpers'
 
@@ -298,6 +298,7 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
     ['fire', 'nothing', 'nothing'],
     ['soul_soil', 'soul_soil', 'soul_soil'],
     ['wither_skeleton_skull', 'wither_skeleton_skull', 'wither_skeleton_skull'],
+    ['bookshelf', 'book', 'book'],
   ]
 
   it('covers the registry exactly, so a new block without a decision fails here', () =>
@@ -319,6 +320,21 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
           const context = dropContextFor(type)
         expect(dropOfBlockId(id, context)?.item ?? 'nothing').toBe(equipped)
       }
+    })),
+  )
+
+  it('uses the silk-touch replacement count for bookshelf drops', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const id = knownBlockIdOf('bookshelf')
+      expect(dropOfBlockId(id)).toMatchObject({ item: 'book', count: 3 })
+      expect(dropOfBlockId(id, SILK_TOUCH)).toMatchObject({ item: 'bookshelf', count: 1 })
+    })),
+  )
+
+  it('maps the bookshelf block and its placeable item by identity', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(itemOfBlock('bookshelf')).toBe('bookshelf')
+      expect(blockOfPlaceableItem('bookshelf')).toBe('bookshelf')
     })),
   )
 

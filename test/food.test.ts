@@ -7,6 +7,29 @@ import {
   type FoodDefinition,
 } from '../src/domain/item/food-data'
 
+const EXPECTED_CAN_ALWAYS_EAT_ITEMS = [
+  'chorus_fruit',
+  'enchanted_golden_apple',
+  'golden_apple',
+  'honey_bottle',
+] as const
+
+const EXPECTED_VANILLA_EFFECT_LEVELS = [
+  { item: 'pufferfish', name: 'poison', level: 2 },
+  { item: 'pufferfish', name: 'nausea', level: 1 },
+  { item: 'pufferfish', name: 'hunger', level: 3 },
+  { item: 'rotten_flesh', name: 'hunger', level: 1 },
+  { item: 'spider_eye', name: 'poison', level: 1 },
+  { item: 'chicken', name: 'hunger', level: 1 },
+  { item: 'enchanted_golden_apple', name: 'regeneration', level: 2 },
+  { item: 'enchanted_golden_apple', name: 'absorption', level: 4 },
+  { item: 'enchanted_golden_apple', name: 'fire_resistance', level: 1 },
+  { item: 'enchanted_golden_apple', name: 'resistance', level: 1 },
+  { item: 'golden_apple', name: 'regeneration', level: 2 },
+  { item: 'golden_apple', name: 'absorption', level: 1 },
+  { item: 'poisonous_potato', name: 'poison', level: 1 },
+] as const
+
 const EXPECTED_FOOD_DEFINITIONS = [
   {
     item: 'cod',
@@ -51,7 +74,7 @@ const EXPECTED_FOOD_DEFINITIONS = [
         name: 'nausea',
         chance: ItemPrimitive.FoodEffectProbability(1),
         durationSecs: ItemPrimitive.EffectDurationSecs(15),
-        amplifier: ItemPrimitive.EffectAmplifier(1),
+        amplifier: ItemPrimitive.EffectAmplifier(0),
       },
       {
         kind: 'status',
@@ -310,7 +333,7 @@ const EXPECTED_FOOD_DEFINITIONS = [
     item: 'honey_bottle',
     nutrition: ItemPrimitive.FoodNutrition(6),
     saturation: ItemPrimitive.FoodSaturation(1.2),
-    canAlwaysEat: false,
+    canAlwaysEat: true,
     useRemainder: 'glass_bottle',
     effects: [{ kind: 'remove', name: 'poison', chance: ItemPrimitive.FoodEffectProbability(1) }],
   },
@@ -390,7 +413,7 @@ const EXPECTED_FOOD_DEFINITIONS = [
 
 
 describe('food data', () => {
-  it('publishes the fixed-stat food roster and normalized effects', () => {
+  it('matches every row of the food data table', () => {
     expect(VANILLA_FOOD_DEFINITIONS).toStrictEqual(EXPECTED_FOOD_DEFINITIONS)
     expect(FOOD_DEFINITION_BY_ITEM.size).toBe(EXPECTED_FOOD_DEFINITIONS.length)
     expect(new Set(VANILLA_FOOD_DEFINITIONS.map(({ item }) => item)).size).toBe(
@@ -400,5 +423,26 @@ describe('food data', () => {
       expect(foodDefinitionOf(expected.item)).toStrictEqual(expected)
     }
     expect(foodDefinitionOf('bowl')).toBeUndefined()
+  })
+
+  it('allows every food listed as edible at full hunger and no other food row', () => {
+    const actual = VANILLA_FOOD_DEFINITIONS
+      .filter(({ canAlwaysEat }) => canAlwaysEat)
+      .map(({ item }) => item)
+      .sort()
+
+    expect(actual).toStrictEqual([...EXPECTED_CAN_ALWAYS_EAT_ITEMS].sort())
+  })
+
+  it('maps every vanilla effect level to its zero-based amplifier', () => {
+    const actual = VANILLA_FOOD_DEFINITIONS.flatMap(({ item, effects }) =>
+      effects.flatMap((effect) =>
+        effect.kind === 'status'
+          ? [{ item, name: effect.name, level: effect.amplifier + 1 }]
+          : [],
+      ),
+    )
+
+    expect(actual).toStrictEqual(EXPECTED_VANILLA_EFFECT_LEVELS)
   })
 })

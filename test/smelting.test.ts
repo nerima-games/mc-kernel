@@ -54,6 +54,7 @@ describe('smelting data', () => {
       ['bowl', 5],
       ['wool', 5],
       ['door', 10],
+      ['bookshelf', 15],
     ])
   })
 

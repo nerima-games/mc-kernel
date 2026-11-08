@@ -221,10 +221,11 @@ export const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string> = [
  * Audited capabilities whose authoritative data or consumer belongs downstream.
  *
  * The kernel vocabulary and registry are internally complete for the supported
- * data profile: both contain the same 125 rows. This is a curated shared
- * vocabulary, not a claim that it covers every block in every Minecraft
- * edition or release. The reference implementation defines 120 block kinds;
- * the kernel adds three explicit domain rows and the two vanilla copper ores.
+ * data profile: both contain the same 126 rows. This is a curated shared
+ * vocabulary, not a claim that it covers every block in the reference edition
+ * or release. The
+ * reference implementation defines 120 block kinds; the kernel adds three
+ * explicit domain rows and three vanilla blocks: bookshelf and two copper ores.
  *
  * Implemented columns:
  *

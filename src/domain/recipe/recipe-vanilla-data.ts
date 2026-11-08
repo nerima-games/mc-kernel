@@ -705,5 +705,12 @@ export const VANILLA_CRAFTING_RECIPES: RecipeTable = [
     canonicalStack('brewing_stand', 1),
     CRAFTING_TABLE_OPTIONS,
   ),
+  shapedRecipe(
+    'minecraft:bookshelf',
+    ['PPP', 'BBB', 'PPP'],
+    { P: 'oak_planks', B: 'book' },
+    canonicalStack('bookshelf', 1),
+    CRAFTING_TABLE_OPTIONS,
+  ),
   shapelessRecipe('minecraft:black_dye', ['ink_sac'], canonicalStack('black_dye', 1)),
 ]

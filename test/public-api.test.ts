@@ -161,6 +161,7 @@ describe("public API surface", () => {
           "BYTES_PER_ELEMENT",
           "BlockBlastResistance",
           "BlockContactDamage",
+          "BlockEnchantingPowerSchema",
           "BlockExperiencePoints",
           "BlockFriction",
           "BlockHardness",
@@ -265,6 +266,7 @@ describe("public API surface", () => {
           "defaultBlockState",
           "dropOfBlockId",
           "effectiveBlockStateOf",
+          "enchantingPowerOfBlockId",
           "encodeBlockState",
           "encodeLightVolume",
           "fluidKindOfBlockId",
@@ -986,6 +988,8 @@ describe("public API surface", () => {
           "capabilitiesOfBlockId",
           "blockIdsWithCapability",
           "blockIdsWithOpacity",
+          "BlockEnchantingPowerSchema",
+          "enchantingPowerOfBlockId",
           // The named light readings — mc-worldgen mirrors these three by name,
           // Because it cannot restate the generic property machinery to ask two
           // Questions. See `domain/block-registry.ts` on why they are the only
@@ -1990,6 +1994,11 @@ describe("public API surface", () => {
 
         expect(kernel.blockIdOf("stone")).toEqual(blockRegistry.blockIdOf("stone"));
         expect(kernel.isEmpty).toBe(blockRegistry.isEmpty);
+        expect(kernel.enchantingPowerOfBlockId).toBe(blockRegistry.enchantingPowerOfBlockId);
+        expect(resultValue(blockRegistry.enchantingPowerOfBlockId(stoneId))).toBe(0);
+        expect(
+          resultValue(blockRegistry.enchantingPowerOfBlockId(optionValue(blockRegistry.blockIdOf("bookshelf")))),
+        ).toBe(1);
         expect(blockRegistry.isEmpty(blockRegistry.AIR_BLOCK_ID)).toBe(true);
         expect(blockRegistry.isEmpty(stoneId)).toBe(false);
         expect(resultValue(blockRegistry.blockTypeOfId(stoneId))).toBe("stone");

@@ -1047,6 +1047,14 @@ describe("vanilla recipe data", () => {
       "brewing_stand",
       1,
     );
+    expectShapedVanillaRecipe(
+      "minecraft:bookshelf",
+      3,
+      3,
+      ["oak_planks", "oak_planks", "oak_planks", "book", "book", "book", "oak_planks", "oak_planks", "oak_planks"],
+      "bookshelf",
+      1,
+    );
     expectShapelessVanillaRecipe("minecraft:black_dye", ["ink_sac"], "black_dye", 1);
 
     const torch = vanillaRecipeById("minecraft:torch");

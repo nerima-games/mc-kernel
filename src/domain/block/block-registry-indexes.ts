@@ -6,7 +6,7 @@
  * also navigating every lookup implementation.
  */
 import { describeUnknown } from "../describe-unknown.js"
-import { Option, Result } from 'effect'
+import { Option, Result, Schema } from 'effect'
 import type {
   BlockCapabilities,
   BlockCapabilityFailure,
@@ -48,9 +48,14 @@ const BLOCK_ID_TABLE_LENGTH = BLOCK_REGISTRY.reduce((highest, entry) => Math.max
 
 export type BlockRegistryFailure = {
   readonly _tag: 'BlockRegistryFailure'
-  readonly reason: 'missing-block-row' | 'missing-support-rule' | 'missing-support-ids'
+  readonly reason: 'missing-block-row' | 'missing-support-rule' | 'missing-support-ids' | 'unknown-block-id'
   readonly message: string
 }
+
+export type BlockEnchantingPower = 0 | 1
+
+export const BlockEnchantingPowerSchema: Schema.Codec<BlockEnchantingPower, BlockEnchantingPower> =
+  Schema.Literals([0, 1])
 
 type BlockIdValidationFailure = ReturnType<typeof BlockId.result> extends Result.Result<BlockId, infer Failure>
   ? Failure
@@ -415,6 +420,18 @@ export const resolvedBlockOfId = (
       isWithinTable(blockId) ? resolvedById[blockId] : undefined,
     ),
   )
+
+/** Return the enchanting power contributed by a registered block id. */
+export const enchantingPowerOfBlockId = (
+  id: BlockId,
+): Result.Result<BlockEnchantingPower, BlockRegistryIndexFailure> =>
+  Result.gen(function* () {
+    const resolved = yield* resolvedBlockOfId(id)
+    if (resolved === undefined) {
+      return yield* failure('unknown-block-id', `Block registry has no row for ${describeUnknown(id)}`)
+    }
+    return resolved.type === 'bookshelf' ? 1 : 0
+  })
 
 /** Whether this number names a block in the current registry. */
 export const isKnownBlockId = (id: BlockId): Result.Result<boolean, BlockRegistryResolutionFailure> =>

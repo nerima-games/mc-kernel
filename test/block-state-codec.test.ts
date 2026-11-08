@@ -137,7 +137,7 @@ const expectCodecFailure = <Value>(
 
 describe('block-state codec', () => {
   it('defines state for all 59 stateful block types and defaults every id to zero', () => {
-    expect(BLOCK_IDS).toHaveLength(125)
+    expect(BLOCK_IDS).toHaveLength(126)
     expect(kernel.BLOCK_STATE_TYPES).toHaveLength(59)
     expect(new Set(kernel.BLOCK_STATE_TYPES).size).toBe(59)
     expect(kernel.BLOCK_STATE_MAX_USED_BITS).toBe(12)
@@ -163,8 +163,8 @@ describe('block-state codec', () => {
     }
   })
 
-  it('matches all 125 kernel block types against vanilla properties, values, and defaults', () => {
-    expect(BLOCK_REGISTRY).toHaveLength(125)
+  it('matches all 126 kernel block types against vanilla properties, values, and defaults', () => {
+    expect(BLOCK_REGISTRY).toHaveLength(126)
 
     for (const entry of BLOCK_REGISTRY) {
       const blockType = entry.definition.type
@@ -383,7 +383,7 @@ describe('block-state codec', () => {
   })
 
   it('rejects unknown ids, reserved field codes, unused high bits, and malformed integers', () => {
-    const unknownBlockId = resultValue(BlockId.result(125))
+    const unknownBlockId = resultValue(BlockId.result(126))
     expectCodecFailure(kernel.encodeBlockState(unknownBlockId, {}), 'unknown-block-id')
 
     for (const invalidBlockId of [null, -1, 0.5, 0xffff + 1, Number.NaN, Number.POSITIVE_INFINITY]) {

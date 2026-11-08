@@ -51,7 +51,7 @@ const satisfiesSupportRule = (...args: Parameters<typeof satisfiesSupportRuleRes
   resultValue(satisfiesSupportRuleResult(...args))
 
 const UNNAMED_BLOCK_TYPE = BLOCK_TYPES.at(BLOCK_TYPES.length)
-const NON_SENSITIVE_BLOCK_COUNT = 105
+const NON_SENSITIVE_BLOCK_COUNT = 106
 const NO_NAMED_SUPPORTS = 0
 const UNKNOWN_BLOCK_ID = BlockId(200)
 const UNKNOWN_BLOCK_IDS = [UNKNOWN_BLOCK_ID, BlockId(255)]
@@ -331,7 +331,7 @@ describe('the reference implementation’s block-support suite, ported as an ora
 
 /**
  * The nineteen rows of `SUPPORT_SENSITIVE_BLOCK_TYPES` (`block-support.ts:22-32`),
- * intersected with the current 125-row roster. The reference implementation
+ * intersected with the current 126-row roster. The reference implementation
  * contributes 120 rows; the kernel adds three explicit rows and two copper ores.
  *
  * Pinned as a LIST rather than a count. A count agrees with any nineteen blocks;
@@ -383,7 +383,7 @@ describe('the supportRule column across the whole registry', () => {
     })),
   )
 
-  it('the other 105 require nothing below, so an ordinary cube is unaffected', () =>
+  it('the other 106 require nothing below, so an ordinary cube is unaffected', () =>
     Effect.runPromise(Effect.sync(() => {
       const indifferent = BLOCK_TYPES.filter((type) => !isSupportSensitiveBlockId(blockIdOf(type)))
       expect(indifferent.length).toBe(BLOCK_TYPES.length - SUPPORT_SENSITIVE.length)

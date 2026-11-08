@@ -59,6 +59,7 @@ const JAPANESE_NAME_TRANSLATIONS: Readonly<Record<DisplayNameId, JapaneseNameTra
   bone: { name: "骨", method: 'common' },
   bone_meal: { name: "骨粉", method: 'common' },
   book: { name: "本", method: 'common' },
+  bookshelf: { name: "本棚", method: 'common' },
   bow: { name: "弓", method: 'common' },
   bowl: { name: "椀", method: 'common' },
   bread: { name: "パン", method: 'common' },

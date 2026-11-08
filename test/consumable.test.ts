@@ -355,7 +355,7 @@ describe('consumable item components', () => {
       },
       {
         type: 'minecraft:apply_effects',
-        effects: [{ effectId: 'minecraft:nausea', durationSecs: 15, amplifier: 1 }],
+        effects: [{ effectId: 'minecraft:nausea', durationSecs: 15, amplifier: 0 }],
         probability: 1,
       },
       {

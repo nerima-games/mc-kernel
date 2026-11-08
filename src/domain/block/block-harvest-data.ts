@@ -33,6 +33,8 @@ export type BlockDropRule = {
   readonly silkTouchItem?: ItemType
   /** Base count before fortune. A missing rule means that the block drops nothing. */
   readonly count: StackCountValue
+  /** Count used when Silk Touch substitutes `silkTouchItem`. */
+  readonly silkTouchCount?: StackCountValue
   /** Only drops at all when mined with a silk-touch tool. */
   readonly requiresSilkTouch: boolean
   /** Fortune multiplies `count`; the random multiplication belongs to gameplay. */

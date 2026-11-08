@@ -1,8 +1,8 @@
 # Minecraft Java Edition 26.3 conformance
 
 mc-kernel pins Minecraft Java Edition 26.3 through the mc-dev-meta conformance
-generator. Raw mcmeta data is not committed; only the generated golden files
-used by the package tests are tracked.
+generator. Raw upstream metadata (`mcmeta`) is not committed; the generated
+golden JSON files under `test/golden/` used by package tests are tracked.
 
 ## Pinned source revisions
 
@@ -29,11 +29,9 @@ write the generated module to a temporary path instead, run:
 nix develop --command node --experimental-strip-types scripts/generate-vanilla-tables.ts --output /tmp/vanilla-26-3-generated.ts
 ```
 
-Across generated and hand-maintained data, the package covers biome, block,
-damage-type, enchantment, item, mob-effect, recipe, and item-tag categories.
 `test/vanilla-26-3.test.ts` decodes each golden file with `effect/Schema` and
-compares exposed ids with the 26.3 data, allowing the listed compatibility
-extensions.
+compares exposed ids with the 26.3 data, allowing the compatibility extensions
+listed in that test.
 
 ## Intentional coverage differences
 
@@ -63,6 +61,6 @@ catalog:
 
 | id | owner | reason |
 | --- | --- | --- |
-| `mc-kernel:block-registry-26-3` | `mc-kernel` | Block table contains 125/1286 entries; remaining entries are outside the shared block and rendering contract. |
-| `mc-kernel:item-registry-26-3` | `mc-kernel` | Item table contains 308/1658 entries; remaining entries are outside the shared item and model contract. |
-| `mc-kernel:recipe-types-26-3` | `mc-kernel` | Crafting table contains 117/2042 rows from the vanilla recipe catalog: 117 of 1,202 shaped/shapeless rows are represented, while 1,085 shaped/shapeless and 840 other-type rows are outside this table. Separate smelting and brewing tables represent additional subsets. |
+| `mc-kernel:block-registry-26-3` | `mc-kernel` | Block table contains 126/1286 entries; remaining entries are outside the shared block and rendering contract. |
+| `mc-kernel:item-registry-26-3` | `mc-kernel` | Item table contains 309/1658 entries; remaining entries are outside the shared item and model contract. |
+| `mc-kernel:recipe-types-26-3` | `mc-kernel` | Crafting table contains 118/2042 rows from the vanilla recipe catalog: 118 of 1,202 shaped/shapeless rows are represented, while 1,084 shaped/shapeless and 840 other-type rows are outside this table. Separate smelting and brewing tables represent additional subsets. |
