@@ -231,6 +231,17 @@ describe('block-state codec', () => {
     }
   })
 
+  it('packs redstone wire slots from least to most significant bits', () => {
+    const wireId = blockId('redstone_wire')
+    expect(resultValue(kernel.encodeBlockState(wireId, { connections: { north: 'up' } }))).toBe(1)
+    expect(resultValue(kernel.encodeBlockState(wireId, { connections: { north: 'side' } }))).toBe(2)
+    expect(resultValue(kernel.encodeBlockState(wireId, { connections: { east: 'up' } }))).toBe(4)
+    expect(resultValue(kernel.encodeBlockState(wireId, { connections: { south: 'up' } }))).toBe(16)
+    expect(resultValue(kernel.encodeBlockState(wireId, { connections: { west: 'up' } }))).toBe(64)
+    expect(resultValue(kernel.encodeBlockState(wireId, { power: 1 }))).toBe(256)
+    expect(resultValue(kernel.encodeBlockState(wireId, { power: 15 }))).toBe(3840)
+  })
+
   it('accepts each numeric domain boundary and rejects the adjacent values', () => {
     const cases = [
       { block: 'kelp', property: 'age', minimum: 0, maximum: 25 },
