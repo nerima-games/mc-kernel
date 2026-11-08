@@ -4,7 +4,12 @@ import * as fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
 
 import { isAnyOfIngredient } from "../src/domain/recipe/recipe-data";
-import { itemStack as itemStackResult, itemStackFromUnknown } from "../src/domain/item/item-stack";
+import {
+  itemStack as itemStackResult,
+  itemStackFromUnknown,
+  maxStackCountForItem,
+} from "../src/domain/item/item-stack";
+import { ITEM_TYPES } from "../src/domain/item/item-type";
 import { StackCount } from "../src/domain/time/quantities";
 import { NamespacedResourceLocation, TagLocation } from "../src/domain/text/identifiers";
 import { BookGeneration } from "../src/domain/item/item-primitives";
@@ -334,6 +339,64 @@ describe("current Java crafting recipe JSON", () => {
 
     expect(itemStackSuccesses).toBeGreaterThan(0);
     expect(recipeSuccesses).toBeGreaterThan(0);
+  });
+
+  it("maps generated valid item-stack options and recipe documents to their expected values", () => {
+    const validItemStackInput = fc.constantFrom(...ITEM_TYPES).chain((item) =>
+      fc.record({
+        count: fc.integer({ min: 1, max: Number(maxStackCountForItem(item)) }),
+        customName: fc.string({ maxLength: 16 }),
+      }).map(({ count, customName }) => ({ item, count, customName })),
+    );
+
+    fc.assert(fc.property(validItemStackInput, ({ item, count, customName }) => {
+      const result = itemStackFromUnknown(item, count, {
+        componentPatch: { "minecraft:custom_name": { text: customName } },
+      });
+
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isFailure(result)) throw new Error(`Generated item-stack input failed: ${result.failure._tag}`);
+      expect(result.success.item).toBe(item);
+      expect(Number(result.success.count)).toBe(count);
+      expect(result.success.components.customName).toEqual({ text: customName });
+      expect(result.success).not.toHaveProperty("componentPatch");
+    }));
+
+    const validRecipeInput = fc.record({
+      ingredient: fc.constantFrom("minecraft:stick", "minecraft:stone"),
+      resultItem: fc.constantFrom("minecraft:stick", "minecraft:stone"),
+      resultCount: fc.integer({ min: 1, max: 64 }),
+      category: fc.constantFrom("building", "equipment", "misc", "redstone"),
+      group: fc.string({ maxLength: 16 }),
+      showNotification: fc.boolean(),
+    });
+
+    fc.assert(fc.property(validRecipeInput, (input) => {
+      const result = craftingRecipeFromUnknown("minecraft:generated_recipe", {
+        type: "minecraft:crafting_shapeless",
+        category: input.category,
+        group: input.group,
+        show_notification: input.showNotification,
+        ingredients: [input.ingredient],
+        result: { id: input.resultItem, count: input.resultCount },
+      });
+
+      expect(Result.isSuccess(result)).toBe(true);
+      if (Result.isFailure(result)) throw new Error(`Generated recipe input failed: ${result.failure._tag}`);
+      expect(result.success._tag).toBe("Shapeless");
+      if (result.success._tag !== "Shapeless") throw new Error("expected a generated shapeless recipe");
+      expect(result.success.id).toBe("minecraft:generated_recipe");
+      expect(result.success.category).toBe(input.category);
+      expect(result.success.group).toBe(input.group);
+      expect(result.success.showNotification).toBe(input.showNotification);
+      expect(result.success.ingredients).toEqual([{
+        _tag: "Exact",
+        item: input.ingredient.slice("minecraft:".length),
+        count: 1,
+      }]);
+      expect(result.success.output.item).toBe(input.resultItem.slice("minecraft:".length));
+      expect(Number(result.success.output.count)).toBe(input.resultCount);
+    }));
   });
 
   it("maps namespaced recipe ids to data-pack paths", () => {
