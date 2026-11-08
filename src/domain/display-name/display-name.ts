@@ -4,6 +4,7 @@ import type { BlockType } from '../block/block-type.js'
 import { ITEM_TYPES } from '../item/item-type-data.js'
 import type { ItemType } from '../item/item-type.js'
 import { BLOCK_DISPLAY_NAMES, ITEM_DISPLAY_NAMES } from './display-name-data.js'
+import type { DisplayName } from './display-name-data.js'
 
 export type DisplayLanguage = 'en' | 'ja'
 export const DisplayLanguageSchema: Schema.Codec<DisplayLanguage, DisplayLanguage> =
@@ -30,7 +31,9 @@ export const DisplayNameRequestSchema: Schema.Codec<DisplayNameRequest, DisplayN
     }),
   ])
 
-export const DisplayNameSchema: Schema.Codec<string, string> = Schema.NonEmptyString
+export const DisplayNameSchema: Schema.Codec<DisplayName, string> = Schema.NonEmptyString.pipe(
+  Schema.brand('DisplayName'),
+)
 
 export type DisplayNameFailure = Readonly<{
   readonly _tag: 'InvalidDisplayNameRequest'
@@ -38,7 +41,7 @@ export type DisplayNameFailure = Readonly<{
 
 export const getDisplayName = (
   input: unknown,
-): Result.Result<string, DisplayNameFailure> => {
+): Result.Result<DisplayName, DisplayNameFailure> => {
   const decoded = Schema.decodeUnknownResult(DisplayNameRequestSchema, {
     onExcessProperty: 'error',
   })(input)
