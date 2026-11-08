@@ -78,6 +78,16 @@ const furnaceRecipe = (
 })
 
 export const VANILLA_SMELTING_RECIPES: SmeltingRecipeTable = [
+  furnaceRecipe('minecraft:charcoal', 'oak_log', 'charcoal', 0.15),
+  furnaceRecipe('minecraft:popped_chorus_fruit', 'chorus_fruit', 'popped_chorus_fruit', 0.1),
+  furnaceRecipe('minecraft:baked_potato', 'potato', 'baked_potato', 0.35, ['furnace', 'smoker']),
+  furnaceRecipe('minecraft:cooked_beef', 'beef', 'cooked_beef', 0.35, ['furnace', 'smoker']),
+  furnaceRecipe('minecraft:cooked_porkchop', 'porkchop', 'cooked_porkchop', 0.35, ['furnace', 'smoker']),
+  furnaceRecipe('minecraft:cooked_mutton', 'mutton', 'cooked_mutton', 0.35, ['furnace', 'smoker']),
+  furnaceRecipe('minecraft:cooked_chicken', 'chicken', 'cooked_chicken', 0.35, ['furnace', 'smoker']),
+  furnaceRecipe('minecraft:cooked_rabbit', 'rabbit', 'cooked_rabbit', 0.35, ['furnace', 'smoker']),
+  furnaceRecipe('minecraft:cooked_cod', 'cod', 'cooked_cod', 0.35, ['furnace', 'smoker']),
+  furnaceRecipe('minecraft:cooked_salmon', 'salmon', 'cooked_salmon', 0.35, ['furnace', 'smoker']),
   furnaceRecipe('minecraft:iron_ingot_from_raw_iron', 'raw_iron', 'iron_ingot', 0.7, ['furnace', 'blast_furnace']),
   furnaceRecipe('minecraft:iron_ingot_from_iron_ore', 'iron_ore', 'iron_ingot', 0.7, ['furnace', 'blast_furnace']),
   furnaceRecipe('minecraft:gold_ingot_from_raw_gold', 'raw_gold', 'gold_ingot', 1, ['furnace', 'blast_furnace']),
@@ -102,7 +112,9 @@ export const VANILLA_SMELTING_RECIPES: SmeltingRecipeTable = [
 
 export const VANILLA_FUEL_RULES: FuelRuleTable = [
   { burnTimeSecs: FixedDurationSecs(80), fuel: 'coal' },
+  { burnTimeSecs: FixedDurationSecs(80), fuel: 'charcoal' },
   { burnTimeSecs: FixedDurationSecs(800), fuel: 'coal_block' },
+  { burnTimeSecs: FixedDurationSecs(120), fuel: 'blaze_rod' },
   { burnTimeSecs: FixedDurationSecs(15), fuel: 'oak_log' },
   { burnTimeSecs: FixedDurationSecs(15), fuel: 'oak_planks' },
   { burnTimeSecs: FixedDurationSecs(5), fuel: 'stick' },
