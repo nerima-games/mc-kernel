@@ -102,7 +102,7 @@ re-exports that barrel.
 
 ### display-name
 
-`display-name-data.ts`, `display-name.ts`
+`display-name-data.ts`, `display-name-naming.ts`, `display-name.ts`
 
 ### presentation
 

@@ -293,6 +293,24 @@ kernel は現在の `ItemType` roster に対応する純粋な装備スロット
 綴りは `BLOCK_TYPES` に合わせた `lower_snake_case`。旧呼び出し側の暫定値にあった `UPPER_SNAKE`
 （`'OAK_PLANKS'` / `'STICK'`）は、現行の `'oak_planks'` などの `ItemType` 値に置き換える。
 
+### 3-bis-0. アイテムとブロックの表示名（display-name）
+
+`getDisplayName` は `@nerima-games/mc-kernel` または `@nerima-games/mc-kernel/domain/display-name` から利用できる。`ItemType` または `BlockType` の ID と `en` / `ja` を受け取り、対応する表示名を `Result` で返す。不正な kind、ID、言語、余分なプロパティは `InvalidDisplayNameRequest` になる。
+
+```typescript
+type DisplayLanguage = 'en' | 'ja'
+type DisplayNameRequest =
+  | Readonly<{ kind: 'item'; id: ItemType; language: DisplayLanguage }>
+  | Readonly<{ kind: 'block'; id: BlockType; language: DisplayLanguage }>
+type DisplayNameFailure = Readonly<{ readonly _tag: 'InvalidDisplayNameRequest' }>
+
+const getDisplayName: (input: unknown) => Result.Result<DisplayName, DisplayNameFailure>
+const ITEM_DISPLAY_NAMES: Readonly<Record<ItemType, DisplayNames>>
+const BLOCK_DISPLAY_NAMES: Readonly<Record<BlockType, DisplayNames>>
+```
+
+英語名は ID をアンダースコアで単語に分け、各単語の先頭を大文字にして空白でつなぐ。語順や略語の調整が必要な ID だけソース内の上書き表で整える。日本語名は英語名と対象の性質をもとに独自に訳し、ID ごとの表に記録する。どちらの表も現在の全 `ItemType` / `BlockType` を網羅する。ブロック状態のプロパティ値から表示名は合成しない。
+
 ### 3-bis-1. アイテムの数値 wire ID（item-registry）
 
 `BlockId` と対になる、アイテム側の永続数値 ID とその 2 バイト wire 表現。
