@@ -1,10 +1,29 @@
 import { describe, expect, it } from 'vitest'
+import { Result } from 'effect'
 import * as ItemPrimitive from '../src/domain/item/item-primitives'
 
 const MIN_SIGNED_LONG = -9223372036854775808n
 const MAX_SIGNED_LONG = 9223372036854775807n
 
 describe('item branded primitives', () => {
+  it('returns failures for invalid values without coercing them', () => {
+    const invalidValues: ReadonlyArray<unknown> = [
+      { toString: false },
+      { toString() { throw new Error('hostile') } },
+      Symbol(),
+      Object.create(null),
+      null,
+      'invalid',
+      NaN,
+      1n,
+    ]
+
+    for (const value of invalidValues) {
+      const result = Reflect.apply(ItemPrimitive.EffectAmplifier.result, ItemPrimitive.EffectAmplifier, [value])
+      expect(Result.isFailure(result)).toBe(true)
+    }
+  })
+
   it('validates effect, food, hive, and inventory bounds', () => {
     expect(ItemPrimitive.EffectAmplifier.is(0)).toBe(true)
     expect(ItemPrimitive.EffectAmplifier.is(255)).toBe(true)

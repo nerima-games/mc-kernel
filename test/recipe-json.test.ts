@@ -436,6 +436,18 @@ describe("current Java crafting recipe JSON", () => {
     recipeFailure(
       craftingRecipeFromUnknown("minecraft:bad", {
         ...shaped,
+        result: { id: { toString: false } },
+      }),
+      "RecipeTypeFailure",
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Recipe item must be a namespaced id, received object",
+      },
+    );
+    recipeFailure(
+      craftingRecipeFromUnknown("minecraft:bad", {
+        ...shaped,
         pattern: ["SSSS"],
       }),
       "RecipeRangeFailure",

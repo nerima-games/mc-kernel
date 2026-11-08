@@ -278,6 +278,13 @@ describe('item attribute modifiers', () => {
     expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, slot: 'finger' }]), failure(
       'slot', 'Unknown attribute modifier slot: finger', 'finger',
     ))
+    const hostileValue = { toString: false }
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, operation: hostileValue }]), failure(
+      'operation', 'Unknown attribute modifier operation: object', hostileValue,
+    ))
+    expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, slot: hostileValue }]), failure(
+      'slot', 'Unknown attribute modifier slot: object', hostileValue,
+    ))
     const invalidDisplay = { type: 'default', extra: true }
     expectItemFailure(Reflect.apply(itemAttributeModifiersResult.attributeModifier, undefined, [{ ...baseModifier, display: invalidDisplay }]), failure(
       'display', 'display must be a valid attribute modifier display', invalidDisplay,

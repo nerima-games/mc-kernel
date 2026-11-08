@@ -212,6 +212,10 @@ describe('item defense components', () => {
     expectItemFailure(invokeBlocksAttacks({ damageReductions: [{ base: 0, factor: 0, type: 'INVALID!' }] }), validation(
       'TypeError', 'invalid-value', 'damageReductions[0].type', 'ResourceLocation has invalid syntax, received "INVALID!"', 'INVALID!',
     ))
+    const hostileSound = Object.assign(() => undefined, { toString: false })
+    expectItemFailure(invokeBlocksAttacks({ blockSound: hostileSound }), validation(
+      'TypeError', 'invalid-value', 'blockSound', 'ResourceLocation has invalid syntax, received function', hostileSound,
+    ))
     expectItemFailure(Reflect.apply(itemDefenseResult.blocksAttacksComponent, undefined, [{ damageReductions: [{ base: 0, factor: 0, type: 1 }] }]), validation(
       'TypeError', 'invalid-type', 'damageReductions[0].type',
       'damageReductions[0].type must be a string or an array of resource locations', 1,

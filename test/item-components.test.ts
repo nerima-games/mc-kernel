@@ -1157,6 +1157,7 @@ describe('item components', () => {
       [{ providesBannerPatterns: ['INVALID!'] }, 'providesBannerPatterns', 'providesBannerPatterns must be a valid provides_banner_patterns component'],
       [{ providesTrimMaterial: 'INVALID!' }, 'providesTrimMaterial', 'providesTrimMaterial must be a valid provides_trim_material component'],
       [{ dye: 'teal' }, 'dye', 'dye must be a valid dye component'],
+      [{ rarity: { toString: false } }, 'rarity', 'Unknown item rarity: object'],
       [{ additionalTradeCost: 1.5 }, 'additionalTradeCost', 'additionalTradeCost must be a valid additional_trade_cost component'],
       [{ sulfurCubeContent: 'INVALID!' }, 'sulfurCubeContent', 'sulfurCubeContent must be a valid sulfur_cube_content component'],
     ] as const

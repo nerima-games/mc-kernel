@@ -24,7 +24,6 @@ import { itemValidationFailure, type ItemValidationFailure } from './item-failur
 const describeInput = (value: unknown): string => {
   if (typeof value === 'string') return value
   if (typeof value === 'number') return `${value}`
-  if (typeof value === 'boolean') return value ? 'true' : 'false'
   if (value === null) return 'null'
   return typeof value
 }

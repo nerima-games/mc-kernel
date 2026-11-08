@@ -32,11 +32,18 @@ export const ITEM_ID_BYTES = 2
 const ITEM_ID_MIN = 0
 const ITEM_ID_BYTE_OFFSET = 0
 const ITEM_ID_BYTE_BASE = 256
+const describeInput = (value: unknown): string => {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'bigint') return `${value}`
+  if (value === null) return 'null'
+  return typeof value
+}
+
 export const ItemId: Brand.Constructor<ItemId> = Brand.make<ItemId>(
   (value) =>
     Number.isInteger(value) && value >= ITEM_ID_MIN && value <= ITEM_ID_MAX
       ? true
-      : `ItemId must be an integer in [${ITEM_ID_MIN}, ${ITEM_ID_MAX}], received ${value}`,
+      : `ItemId must be an integer in [${ITEM_ID_MIN}, ${ITEM_ID_MAX}], received ${describeInput(value)}`,
 )
 
 export type ItemDefinition = {

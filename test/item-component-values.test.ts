@@ -1586,6 +1586,9 @@ describe('item component values', () => {
     reject(itemComponentValuesResult.providesBannerPatternsComponent(['minecraft:pattern_item', 'INVALID!']), 'provides_banner_patterns', 'TypeError', 'INVALID!')
     reject(Reflect.apply(itemComponentValuesResult.providesBannerPatternsComponent, undefined, [1]), 'provides_banner_patterns', 'TypeError', 1, 'invalid-type')
     reject(itemComponentValuesResult.dyeComponent('teal'), 'dye', 'RangeError', 'teal')
+    for (const value of [null, Symbol(), { toString: false }]) {
+      reject(Reflect.apply(itemComponentValuesResult.dyeComponent, undefined, [value]), 'dye', 'RangeError', value)
+    }
     reject(itemComponentValuesResult.customDataComponent({}), 'custom_data', 'TypeError', {})
     reject(Reflect.apply(itemComponentValuesResult.customDataComponent, undefined, [null]), 'custom_data', 'TypeError', null)
     const invalidCustomData = { value: new Date() }

@@ -387,6 +387,9 @@ describe('minecraft:tool component', () => {
       }
       expectToolFailure(resolve({ blockTags: new Map([['mineable', new Set<BlockType>(['stone'])]]) }), 'RangeError', 'out-of-range',
         'blockTags', 'tool resolution blockTags contains an invalid tag mineable', 'mineable')
+      const hostileTag = { toString: false }
+      expectToolFailure(resolve({ blockTags: new Map([[hostileTag, new Set<BlockType>(['stone'])]]) }), 'RangeError', 'out-of-range',
+        'blockTags', 'tool resolution blockTags contains an invalid tag object', hostileTag)
       expectToolFailure(resolve({ blockTags: new Map([['#mineable', ['stone']]]) }), 'TypeError', 'invalid-type',
         'blockTags.#mineable', 'tool resolution blockTags #mineable must contain a Set or Set-like iterable', ['stone'])
       expectToolFailure(resolve({ blockTags: new Map([['#mineable', null]]) }), 'TypeError', 'invalid-type',

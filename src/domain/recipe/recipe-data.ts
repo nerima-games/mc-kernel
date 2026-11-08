@@ -33,6 +33,13 @@ const RECIPE_PRIORITY_MIN = 0;
 const RECIPE_GRID_DIMENSION_MIN = 0;
 const RECIPE_GRID_INDEX_MIN = 0;
 
+const describeInput = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "bigint") return `${value}`;
+  if (value === null) return "null";
+  return typeof value;
+};
+
 export type RecipeIngredientCount = number &
   Brand.Brand<"RecipeIngredientCount">;
 
@@ -42,7 +49,7 @@ export const RecipeIngredientCount: Brand.Constructor<RecipeIngredientCount> =
     value >= RECIPE_INGREDIENT_COUNT_MIN &&
     value <= RECIPE_INGREDIENT_COUNT_MAX
       ? true
-      : `RecipeIngredientCount must be an integer in [${RECIPE_INGREDIENT_COUNT_MIN}, ${RECIPE_INGREDIENT_COUNT_MAX}], received ${value}`,
+      : `RecipeIngredientCount must be an integer in [${RECIPE_INGREDIENT_COUNT_MIN}, ${RECIPE_INGREDIENT_COUNT_MAX}], received ${describeInput(value)}`,
   );
 
 export type RecipePriority = number & Brand.Brand<"RecipePriority">;
@@ -51,7 +58,7 @@ export const RecipePriority: Brand.Constructor<RecipePriority> =
   Brand.make<RecipePriority>((value) =>
     Number.isSafeInteger(value) && value >= RECIPE_PRIORITY_MIN
       ? true
-      : `RecipePriority must be a non-negative safe integer, received ${value}`,
+      : `RecipePriority must be a non-negative safe integer, received ${describeInput(value)}`,
   );
 
 export type RecipeGridDimension = number &
@@ -63,7 +70,7 @@ export const RecipeGridDimension: Brand.Constructor<RecipeGridDimension> =
     value >= RECIPE_GRID_DIMENSION_MIN &&
     value <= MAX_RECIPE_SIDE
       ? true
-      : `RecipeGridDimension must be an integer in [${RECIPE_GRID_DIMENSION_MIN}, ${MAX_RECIPE_SIDE}], received ${value}`,
+      : `RecipeGridDimension must be an integer in [${RECIPE_GRID_DIMENSION_MIN}, ${MAX_RECIPE_SIDE}], received ${describeInput(value)}`,
   );
 
 export type RecipeGridIndex = number & Brand.Brand<"RecipeGridIndex">;
@@ -74,7 +81,7 @@ export const RecipeGridIndex: Brand.Constructor<RecipeGridIndex> =
     value >= RECIPE_GRID_INDEX_MIN &&
     value < MAX_RECIPE_SIDE
       ? true
-      : `RecipeGridIndex must be an integer in [${RECIPE_GRID_INDEX_MIN}, ${MAX_RECIPE_SIDE - 1}], received ${value}`,
+      : `RecipeGridIndex must be an integer in [${RECIPE_GRID_INDEX_MIN}, ${MAX_RECIPE_SIDE - 1}], received ${describeInput(value)}`,
   );
 
 export type RecipePatternRow = string & Brand.Brand<"RecipePatternRow">;
@@ -110,7 +117,7 @@ export const RecipeExperience: Brand.Constructor<RecipeExperience> =
   Brand.make<RecipeExperience>((value) =>
     Number.isFinite(value) && value >= 0
       ? true
-      : `RecipeExperience must be a finite non-negative number, received ${value}`,
+      : `RecipeExperience must be a finite non-negative number, received ${describeInput(value)}`,
   );
 
 export type RecipeCompletionCount = number &
@@ -120,7 +127,7 @@ export const RecipeCompletionCount: Brand.Constructor<RecipeCompletionCount> =
   Brand.make<RecipeCompletionCount>((value) =>
     Number.isSafeInteger(value) && value >= 0
       ? true
-      : `RecipeCompletionCount must be a non-negative safe integer, received ${value}`,
+      : `RecipeCompletionCount must be a non-negative safe integer, received ${describeInput(value)}`,
   );
 
 export type RecipeId = ResourceLocationValue;

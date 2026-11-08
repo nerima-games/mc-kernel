@@ -122,6 +122,9 @@ const positiveFiniteNumber = (value: unknown, name: string): DefenseResult<numbe
     ? Result.fail(failure(name, `${name} must be a positive finite number`, value, 'out-of-range', 'RangeError'))
     : Result.succeed(number))
 
+const describeInput = (value: unknown): string =>
+  typeof value === 'symbol' ? String(value) : typeof value
+
 const resourceLocationProviderOf = (
   value: unknown,
   field: string,
@@ -159,7 +162,7 @@ const resourceLocationOf = (
 ): DefenseResult<ResourceLocation> => {
   if (typeof value === 'string') return brandValue(ResourceLocation.result(value), field, value)
   const rendered = Result.try({
-    try: () => JSON.stringify(value) ?? String(value),
+    try: () => JSON.stringify(value) ?? describeInput(value),
     catch: () => failure(field, `Unable to inspect ${field}`, value, 'hostile-input'),
   })
   if (Result.isFailure(rendered)) return Result.fail(rendered.failure)

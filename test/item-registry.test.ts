@@ -567,6 +567,41 @@ const EXPECTED_ENCODED_ITEM_ID_BYTES: ReadonlyArray<readonly [ItemType, number]>
 ]
 
 describe('item registry', () => {
+  it('returns failures for invalid runtime item ids without coercing them', () => {
+    const invalidValues: ReadonlyArray<unknown> = [
+      { toString: false },
+      { toString() { throw new Error('hostile') } },
+      Symbol(),
+      Object.create(null),
+      null,
+      'invalid',
+      -1,
+      1n,
+    ]
+
+    for (const value of invalidValues) {
+      const result = Reflect.apply(ItemId.result, ItemId, [value])
+      expect(Result.isFailure(result)).toBe(true)
+    }
+  })
+
+  it('returns failures for invalid runtime item ids without coercing them', () => {
+    const invalidValues: ReadonlyArray<unknown> = [
+      { toString: false },
+      { toString() { throw new Error('hostile') } },
+      Symbol(),
+      Object.create(null),
+      null,
+      'invalid',
+      -1,
+    ]
+
+    for (const value of invalidValues) {
+      const result = Reflect.apply(ItemId.result, ItemId, [value])
+      expect(Result.isFailure(result)).toBe(true)
+    }
+  })
+
   it('covers the ItemType roster exactly once with dense permanent ids', () =>
     Effect.runPromise(Effect.sync(() => {
       expect(ITEM_TYPES).toStrictEqual(EXPECTED_ITEM_TYPES)

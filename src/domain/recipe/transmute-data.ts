@@ -43,6 +43,13 @@ const recipeRangeFailureValue = (message: string): RecipeFailure => ({
 
 export const TRANSMUTE_MAX_MATERIAL_SLOTS = 8;
 
+const describeInput = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "bigint") return `${value}`;
+  if (value === null) return "null";
+  return typeof value;
+};
+
 export type TransmuteMaterialSlotCount = number &
   Brand.Brand<"TransmuteMaterialSlotCount">;
 
@@ -50,7 +57,7 @@ export const TransmuteMaterialSlotCount: Brand.Constructor<TransmuteMaterialSlot
   Brand.make<TransmuteMaterialSlotCount>((value) =>
     Number.isSafeInteger(value) && value >= 1 && value <= TRANSMUTE_MAX_MATERIAL_SLOTS
       ? true
-      : `TransmuteMaterialSlotCount must be an integer in [1, ${TRANSMUTE_MAX_MATERIAL_SLOTS}], received ${value}`,
+      : `TransmuteMaterialSlotCount must be an integer in [1, ${TRANSMUTE_MAX_MATERIAL_SLOTS}], received ${describeInput(value)}`,
   );
 
 export type TransmuteMaterialCount = Readonly<{
@@ -373,17 +380,22 @@ export const transmuteRecipeForItem = (
     if (!isItemType(output)) {
       return yield* recipeTypeFailure(`Unknown item type: ${typeof output === "string" ? output : typeof output}`);
     }
-    if (!Number.isSafeInteger(count) || count < 1 || count > maxStackCountForItem(output)) {
+    if (typeof count !== "number") {
       return yield* recipeRangeFailure(
-        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${typeof count === "number" ? count : typeof count}`,
+        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${typeof count}`,
       );
     }
     const brandedCount = yield* Result.mapError(
       StackCount.result(count),
       () => recipeRangeFailureValue(
-        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${typeof count === "number" ? count : typeof count}`,
+        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${count}`,
       ),
     );
+    if (brandedCount > maxStackCountForItem(output)) {
+      return yield* recipeRangeFailure(
+        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${brandedCount}`,
+      );
+    }
     const outputStack = yield* Result.mapError(
       itemStack(output, brandedCount),
       recipeItemFailure,
