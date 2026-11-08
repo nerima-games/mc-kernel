@@ -96,7 +96,6 @@ describe('smelting data', () => {
         reason: 'unsupported-station',
         recipeId: foodRecipe.id,
         station: 'blast_furnace',
-        message: `${foodRecipe.id} cannot be cooked in a blast_furnace`,
       })
     }
   })

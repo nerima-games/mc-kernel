@@ -35,7 +35,6 @@ export type SmeltingStationFailure = {
   readonly reason: 'unsupported-station'
   readonly recipeId: RecipeIdValue
   readonly station: CookingStation
-  readonly message: string
 }
 
 export type FuelRule = {
@@ -106,7 +105,6 @@ export const smeltingCookTimeForStation = (
     reason: 'unsupported-station',
     recipeId: recipe.id,
     station,
-    message: `${recipe.id} cannot be cooked in a ${station}`,
   })
 }
 
