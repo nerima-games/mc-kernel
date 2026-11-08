@@ -125,11 +125,11 @@ export const attributeModifier = (
   if (Result.isFailure(id)) return Result.fail(id.failure)
   const operation = input['operation']
   if (!isAttributeModifierOperation(operation)) {
-    return Result.fail(failure('operation', `Unknown attribute modifier operation: ${String(operation)}`, operation))
+    return Result.fail(failure('operation', `Unknown attribute modifier operation: ${typeof operation === 'string' ? operation : typeof operation}`, operation))
   }
   const slot = input['slot']
   if (slot !== undefined && !isAttributeModifierSlot(slot)) {
-    return Result.fail(failure('slot', `Unknown attribute modifier slot: ${String(slot)}`, slot))
+    return Result.fail(failure('slot', `Unknown attribute modifier slot: ${typeof slot === 'string' ? slot : typeof slot}`, slot))
   }
   const displayValue = input['display'] === undefined
     ? Result.succeed(undefined)

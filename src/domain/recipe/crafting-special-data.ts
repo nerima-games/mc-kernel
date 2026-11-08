@@ -315,7 +315,7 @@ const assertCategory = (
   value === undefined || isRecipeCategory(value)
     ? Result.succeed(value)
     : recipeTypeFailure(
-        `Crafting special recipe category is invalid, received ${String(value)}`,
+        `Crafting special recipe category is invalid, received ${typeof value === "string" ? value : typeof value}`,
       );
 
 const assertGroup = (
@@ -337,7 +337,7 @@ const assertPriority = (
   const priority = value === undefined ? 0 : value;
   if (!isRecipePriority(priority)) {
     return recipeRangeFailure(
-      `Crafting special recipe priority must be a non-negative safe integer, received ${String(value)}`,
+      `Crafting special recipe priority must be a non-negative safe integer, received ${typeof value === "number" ? value : typeof value}`,
     );
   }
   return Result.succeed(RecipePriority(priority));

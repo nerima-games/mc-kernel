@@ -371,17 +371,17 @@ export const transmuteRecipeForItem = (
 ): Result.Result<TransmuteRecipe, RecipeFailure> =>
   Result.gen(function* () {
     if (!isItemType(output)) {
-      return yield* recipeTypeFailure(`Unknown item type: ${String(output)}`);
+      return yield* recipeTypeFailure(`Unknown item type: ${typeof output === "string" ? output : typeof output}`);
     }
-    if (count > maxStackCountForItem(output)) {
+    if (!Number.isSafeInteger(count) || count < 1 || count > maxStackCountForItem(output)) {
       return yield* recipeRangeFailure(
-        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${String(count)}`,
+        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${typeof count === "number" ? count : typeof count}`,
       );
     }
     const brandedCount = yield* Result.mapError(
       StackCount.result(count),
       () => recipeRangeFailureValue(
-        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${String(count)}`,
+        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${typeof count === "number" ? count : typeof count}`,
       ),
     );
     const outputStack = yield* Result.mapError(

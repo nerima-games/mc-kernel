@@ -169,9 +169,12 @@ export const itemStack = (
   options: ItemStackOptions = {},
 ): Result.Result<ItemStack, ItemStackFailure> => {
   if (!isItemType(item)) {
-    return Result.fail(failure('item', `Unknown item type: ${String(item)}`, 'invalid-value', item))
+    return Result.fail(failure('item', `Unknown item type: ${typeof item === 'string' ? item : typeof item}`, 'invalid-value', item))
   }
-  return itemStackFromValues(item, Number(count), options)
+  if (typeof count !== 'number') {
+    return Result.fail(failure('count', 'Item stack count must be a number', 'invalid-type', count))
+  }
+  return itemStackFromValues(item, count, options)
 }
 
 export const itemStackFromUnknown = (
@@ -180,10 +183,10 @@ export const itemStackFromUnknown = (
   options: unknown = {},
 ): Result.Result<ItemStack, ItemStackFailure> => {
   if (!isItemType(item)) {
-    return Result.fail(failure('item', `Unknown item type: ${String(item)}`, 'invalid-value', item))
+    return Result.fail(failure('item', `Unknown item type: ${typeof item === 'string' ? item : typeof item}`, 'invalid-value', item))
   }
   if (typeof count !== 'number') {
-    return Result.fail(failure('count', `Item stack count must be a number, received ${String(count)}`, 'invalid-type', count))
+    return Result.fail(failure('count', `Item stack count must be a number, received ${typeof count === 'string' ? count : typeof count}`, 'invalid-type', count))
   }
   return itemStackFromValues(item, count, options)
 }

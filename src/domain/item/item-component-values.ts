@@ -211,6 +211,14 @@ const componentFailure = (
   kind: ItemValidationFailure['kind'] = 'TypeError',
 ): ItemValidationFailure => itemValidationFailure(field, message, reason, value, kind)
 
+const describeInput = (value: unknown): string => {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return `${value}`
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (value === null) return 'null'
+  return typeof value
+}
+
 const reflectionResult = <A>(
   field: string,
   input: unknown,
@@ -519,7 +527,7 @@ export const providesBannerPatternsComponent = (
 
 export const dyeComponent = (value: string): ItemComponentResult<DyeColor> => {
   if (!isDyeComponent(value)) {
-    return Result.fail(componentFailure('dye', `Unknown dye color: ${value}`, value, 'out-of-range', 'RangeError'))
+    return Result.fail(componentFailure('dye', `Unknown dye color: ${describeInput(value)}`, value, 'out-of-range', 'RangeError'))
   }
   return Result.succeed(value)
 }
@@ -828,7 +836,7 @@ const mapDecorationComponentOf = (
 
 export const mapColorComponent = (value = 4603950): ItemComponentResult<MapColorComponent> => {
   if (!isMapColorComponent(value)) {
-    return Result.fail(componentFailure('map_color', `Invalid map_color component value: ${String(value)}`, value, 'out-of-range', 'RangeError'))
+    return Result.fail(componentFailure('map_color', `Invalid map_color component value: ${describeInput(value)}`, value, 'out-of-range', 'RangeError'))
   }
   return brandResult(RgbColor.result(value), 'map_color', value, 'RangeError', 'out-of-range')
 }
@@ -1072,7 +1080,7 @@ export const customModelDataComponent = (options: CustomModelDataOptions = {}): 
 }
 
 export const mapIdComponent = (value: number): ItemComponentResult<MapIdComponent> => {
-  if (!isMapIdComponent(value)) return Result.fail(componentFailure('map_id', `Invalid map_id component value: ${String(value)}`, value, 'out-of-range', 'RangeError'))
+  if (!isMapIdComponent(value)) return Result.fail(componentFailure('map_id', `Invalid map_id component value: ${describeInput(value)}`, value, 'out-of-range', 'RangeError'))
   return brandResult(MapId.result(value), 'map_id', value, 'RangeError', 'out-of-range')
 }
 
@@ -1095,13 +1103,13 @@ export const blockStateComponent = (value: Readonly<Record<string, string>>): It
 }
 
 export const instrumentComponent = (value: string): ItemComponentResult<InstrumentComponent> => {
-  if (!isInstrumentComponent(value)) return Result.fail(componentFailure('instrument', `Invalid instrument component value: ${String(value)}`, value))
+  if (!isInstrumentComponent(value)) return Result.fail(componentFailure('instrument', `Invalid instrument component value: ${describeInput(value)}`, value))
   return brandResult(ResourceLocation.result(value), 'instrument', value)
 }
 
 export const noteBlockSoundComponent = (value: string): ItemComponentResult<NoteBlockSoundComponent> => {
   if (!isNoteBlockSoundComponent(value)) {
-    return Result.fail(componentFailure('note_block_sound', `Invalid note_block_sound component value: ${String(value)}`, value))
+    return Result.fail(componentFailure('note_block_sound', `Invalid note_block_sound component value: ${describeInput(value)}`, value))
   }
   return brandResult(ResourceLocation.result(value), 'note_block_sound', value)
 }
@@ -1117,19 +1125,19 @@ export const recipesComponent = (value: ReadonlyArray<string>): ItemComponentRes
 }
 
 export const lockComponent = (value: string): ItemComponentResult<LockComponent> => {
-  if (!isLockComponent(value)) return Result.fail(componentFailure('lock', `Invalid lock component value: ${String(value)}`, value))
+  if (!isLockComponent(value)) return Result.fail(componentFailure('lock', `Invalid lock component value: ${describeInput(value)}`, value))
   return brandResult(ItemLock.result(value), 'lock', value)
 }
 
 export const tooltipStyleComponent = (value: string): ItemComponentResult<TooltipStyleComponent> => {
   if (!isTooltipStyleComponent(value)) {
-    return Result.fail(componentFailure('tooltip_style', `Invalid tooltip_style component value: ${String(value)}`, value))
+    return Result.fail(componentFailure('tooltip_style', `Invalid tooltip_style component value: ${describeInput(value)}`, value))
   }
   return brandResult(ResourceLocation.result(value), 'tooltip_style', value)
 }
 
 export const baseColorComponent = (value: string): ItemComponentResult<BaseColorComponent> => {
-  if (!isBaseColorComponent(value)) return Result.fail(componentFailure('base_color', `Invalid base_color component value: ${String(value)}`, value))
+  if (!isBaseColorComponent(value)) return Result.fail(componentFailure('base_color', `Invalid base_color component value: ${describeInput(value)}`, value))
   return Result.succeed(value)
 }
 
@@ -1233,27 +1241,27 @@ export const repairableComponent = (value: ResourceLocationProviderInput): ItemC
 }
 
 export const enchantableComponent = (value: number): ItemComponentResult<EnchantableComponent> => {
-  if (!isEnchantableValue(value)) return Result.fail(componentFailure('enchantable', `Invalid enchantable component value: ${String(value)}`, value, 'out-of-range', 'RangeError'))
+  if (!isEnchantableValue(value)) return Result.fail(componentFailure('enchantable', `Invalid enchantable component value: ${describeInput(value)}`, value, 'out-of-range', 'RangeError'))
   return Result.map(brandResult(Enchantability.result(value), 'enchantable', value, 'RangeError', 'out-of-range'), (enchantability) => Object.freeze({ value: enchantability }))
 }
 
 export const jukeboxPlayableComponent = (value: string): ItemComponentResult<JukeboxPlayableComponent> => {
   if (typeof value !== 'string' || !ResourceLocation.is(value)) {
-    return Result.fail(componentFailure('jukebox_playable', `Invalid jukebox_playable component value: ${String(value)}`, value))
+    return Result.fail(componentFailure('jukebox_playable', `Invalid jukebox_playable component value: ${describeInput(value)}`, value))
   }
   return Result.map(brandResult(ResourceLocation.result(value), 'jukebox_playable', value), (song) => Object.freeze({ song }))
 }
 
 export const ominousBottleAmplifierComponent = (value: number): ItemComponentResult<OminousBottleAmplifierComponent> => {
   if (!isOminousBottleAmplifierComponent(value)) {
-    return Result.fail(componentFailure('ominous_bottle_amplifier', `Invalid ominous_bottle_amplifier value: ${String(value)}`, value, 'out-of-range', 'RangeError'))
+    return Result.fail(componentFailure('ominous_bottle_amplifier', `Invalid ominous_bottle_amplifier value: ${describeInput(value)}`, value, 'out-of-range', 'RangeError'))
   }
   return brandResult(OminousBottleAmplifier.result(value), 'ominous_bottle_amplifier', value, 'RangeError', 'out-of-range')
 }
 
 export const paintingVariantComponent = (value: string): ItemComponentResult<PaintingVariantComponent> => {
   if (!isPaintingVariantComponent(value)) {
-    return Result.fail(componentFailure('painting_variant', `Invalid painting/variant component value: ${String(value)}`, value))
+    return Result.fail(componentFailure('painting_variant', `Invalid painting/variant component value: ${describeInput(value)}`, value))
   }
   return brandResult(ResourceLocation.result(value), 'painting_variant', value)
 }
@@ -1262,7 +1270,7 @@ export const sulfurCubeContentComponent = (
   value: SulfurCubeContentOptions,
 ): ItemComponentResult<SulfurCubeContentComponent> => {
   if (!isSulfurCubeContentOptions(value)) {
-    return Result.fail(componentFailure('sulfur_cube_content', `Invalid sulfur_cube_content component value: ${String(value)}`, value))
+    return Result.fail(componentFailure('sulfur_cube_content', `Invalid sulfur_cube_content component value: ${describeInput(value)}`, value))
   }
   return brandResult(ResourceLocation.result(value), 'sulfur_cube_content', value)
 }

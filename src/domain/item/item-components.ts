@@ -597,7 +597,7 @@ const ITEM_COMPONENT_OPTION_VALIDATORS = [
   {
     key: 'rarity',
     isValid: isItemRarity,
-    message: (value: unknown) => `Unknown item rarity: ${String(value)}`,
+    message: (value: unknown) => `Unknown item rarity: ${typeof value === 'string' ? value : typeof value}`,
   },
   {
     key: 'food',
@@ -990,7 +990,7 @@ function buildItemComponents(
 
 export const itemComponents = (item: ItemType, options: ItemComponentOptions = {}): Result.Result<ItemComponents, ItemComponentFailure> => {
   if (!isItemType(item)) {
-    return Result.fail(optionsFailure('item', `Unknown item type: ${String(item)}`, item, 'invalid-value'))
+    return Result.fail(optionsFailure('item', `Unknown item type: ${typeof item === 'string' ? item : typeof item}`, item, 'invalid-value'))
   }
   const snapshotted = snapshotOptions(options)
   return Result.flatMap(snapshotted, (safeOptions) => {

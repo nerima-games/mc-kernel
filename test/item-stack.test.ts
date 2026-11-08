@@ -179,6 +179,60 @@ describe("canonical item stacks", () => {
     });
   });
 
+  it("returns typed failures for item values with hostile string coercion", () => {
+    const invalidItems: ReadonlyArray<unknown> = [
+      { toString: false },
+      { toString() { throw new Error("hostile"); } },
+      Symbol(),
+      Object.create(null),
+    ];
+
+    for (const item of invalidItems) {
+      expectItemFailure(itemStackResult.itemStackFromUnknown(item, 1), {
+        _tag: "ItemValidationFailure",
+        kind: "TypeError",
+        reason: "invalid-value",
+        field: "item",
+      });
+      expectItemFailure(Reflect.apply(itemStackResult.itemStack, undefined, [item, 1]), {
+        _tag: "ItemValidationFailure",
+        kind: "TypeError",
+        reason: "invalid-value",
+        field: "item",
+      });
+      expectItemFailure(Reflect.apply(itemComponentsResult.itemComponents, undefined, [item]), {
+        _tag: "ItemValidationFailure",
+        kind: "TypeError",
+        reason: "invalid-value",
+        field: "item",
+      });
+    }
+  });
+
+  it("returns typed failures for count values with hostile string coercion", () => {
+    const invalidCounts: ReadonlyArray<unknown> = [
+      { toString: false },
+      { toString() { throw new Error("hostile"); } },
+      Symbol(),
+      Object.create(null),
+    ];
+
+    for (const count of invalidCounts) {
+      expectItemFailure(itemStackResult.itemStackFromUnknown("stone", count), {
+        _tag: "ItemValidationFailure",
+        kind: "TypeError",
+        reason: "invalid-type",
+        field: "count",
+      });
+      expectItemFailure(Reflect.apply(itemStackResult.itemStack, undefined, ["stone", count]), {
+        _tag: "ItemValidationFailure",
+        kind: "TypeError",
+        reason: "invalid-type",
+        field: "count",
+      });
+    }
+  });
+
   it("uses one stack snapshot across count, transmute, split, and merge operations", () => {
     const makeChangingStack = () => {
       const reads = { item: 0, count: 0, components: 0 };

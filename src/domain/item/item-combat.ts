@@ -21,6 +21,14 @@ import {
 } from './item-combat-data.js'
 import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
 
+const describeInput = (value: unknown): string => {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number') return `${value}`
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (value === null) return 'null'
+  return typeof value
+}
+
 export {
   isAttackRangeComponent,
   isDamageTypeComponent,
@@ -115,7 +123,7 @@ export const minimumAttackChargeComponent = (
 
 export const damageTypeComponent = (value: string): Result.Result<DamageTypeComponent, ItemValidationFailure> =>
   typeof value !== 'string'
-    ? Result.fail(failure('damageType', `damageType must be a valid resource location: ${value}`, 'invalid-value', value))
+    ? Result.fail(failure('damageType', `damageType must be a valid resource location: ${describeInput(value)}`, 'invalid-value', value))
     : Result.mapError(
       ResourceLocation.result(value),
       () => failure('damageType', `damageType must be a valid resource location: ${value}`, 'invalid-value', value),
@@ -128,7 +136,7 @@ export const swingAnimationComponent = (
   (snapshot) => {
     const typeValue = snapshot['type']
     if (typeValue !== undefined && !isSwingAnimationType(typeValue)) {
-      return Result.fail(failure('type', `Unknown swing animation type: ${String(typeValue)}`, 'invalid-value', typeValue))
+      return Result.fail(failure('type', `Unknown swing animation type: ${describeInput(typeValue)}`, 'invalid-value', typeValue))
     }
     const durationValue = snapshot['duration'] === undefined ? 6 : snapshot['duration']
     if (typeof durationValue !== 'number') {

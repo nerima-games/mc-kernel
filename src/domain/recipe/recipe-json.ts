@@ -115,6 +115,13 @@ const entriesFromInput = (
   return Result.isSuccess(snapshot) ? snapshot.success : undefined;
 };
 
+const describeInput = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "bigint" || typeof value === "boolean") return `${value}`;
+  if (value === null) return "null";
+  return typeof value;
+};
+
 const hasOnlyKeys = (
   value: UnknownRecord,
   keys: ReadonlyArray<string>,
@@ -131,13 +138,13 @@ const minecraftItemOf = (
 ): RecipeResult<ItemType> => {
   if (typeof value !== "string") {
     return recipeTypeFailure(
-      `Recipe item must be a namespaced id, received ${String(value)}`,
+      `Recipe item must be a namespaced id, received ${describeInput(value)}`,
     );
   }
   const namespacedId = NamespacedResourceLocation.result(value);
   if (Result.isFailure(namespacedId)) {
     return recipeTypeFailure(
-      `Recipe item must be a namespaced id, received ${String(value)}`,
+      `Recipe item must be a namespaced id, received ${value}`,
     );
   }
   const separator = namespacedId.success.indexOf(":");
@@ -312,7 +319,7 @@ const decodeCategory = (value: unknown): RecipeResult<RecipeCategory> => {
     value !== "redstone"
   ) {
     return recipeTypeFailure(
-      `Recipe category is invalid, received ${String(value)}`,
+      `Recipe category is invalid, received ${describeInput(value)}`,
     );
   }
   return Result.succeed(value);
@@ -566,7 +573,7 @@ const decodeRecipeId = (
   value: NamespacedResourceLocation,
 ): RecipeResult<RecipeId> => {
   if (typeof value !== "string") {
-    return recipeTypeFailure(`Recipe id must be namespaced, received ${value}`);
+    return recipeTypeFailure(`Recipe id must be namespaced, received ${describeInput(value)}`);
   }
   const recipeId = RecipeId.result(value);
   if (Result.isFailure(recipeId)) {

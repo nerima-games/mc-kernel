@@ -146,14 +146,14 @@ const assertCookTimeTicks = (
 ): Result.Result<PositiveTickCount, RecipeFailure> => {
   if (typeof value !== "number") {
     return recipeRangeFailure(
-      `Cooking time must be a positive safe integer, received ${String(value)}`,
+      `Cooking time must be a positive safe integer, received ${typeof value === "string" ? value : typeof value}`,
     );
   }
   return Result.mapError(
     PositiveTickCount.result(value),
     () =>
       recipeRangeFailureValue(
-        `Cooking time must be a positive safe integer, received ${String(value)}`,
+        `Cooking time must be a positive safe integer, received ${value}`,
       ),
   );
 }
@@ -163,14 +163,14 @@ const assertExperience = (
 ): Result.Result<RecipeExperienceValue, RecipeFailure> => {
   if (typeof value !== "number") {
     return recipeRangeFailure(
-      `Cooking experience must be a finite non-negative number, received ${String(value)}`,
+      `Cooking experience must be a finite non-negative number, received ${typeof value === "string" ? value : typeof value}`,
     );
   }
   return Result.mapError(
     RecipeExperience.result(value),
     () =>
       recipeRangeFailureValue(
-        `Cooking experience must be a finite non-negative number, received ${String(value)}`,
+        `Cooking experience must be a finite non-negative number, received ${value}`,
       ),
   );
 }
@@ -321,7 +321,7 @@ export const cookingRecipeForItem = (
 ): Result.Result<CookingRecipe, RecipeFailure> =>
   Result.gen(function* () {
     if (!isItemType(output)) {
-      return yield* recipeTypeFailure(`Unknown item type: ${String(output)}`);
+      return yield* recipeTypeFailure(`Unknown item type: ${typeof output === "string" ? output : typeof output}`);
     }
     if (
       !Number.isSafeInteger(count) ||
@@ -329,7 +329,7 @@ export const cookingRecipeForItem = (
       count > maxStackCountForItem(output)
     ) {
       return yield* recipeRangeFailure(
-        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${String(count)}`,
+        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${typeof count === "number" ? count : typeof count}`,
       );
     }
     const outputStack = yield* Result.mapError(

@@ -322,7 +322,7 @@ const readResolutionContext = (context: unknown): ToolResult<ToolResolutionConte
     })
     if (pair === undefined) return yield* Result.fail(failure('blockTags', 'tool resolution blockTags entries must be key/value pairs', entry, 'invalid-type'))
     const [tag, blocks] = pair
-    if (!isToolBlockTag(tag)) return yield* Result.fail(failure('blockTags', `tool resolution blockTags contains an invalid tag ${String(tag)}`, tag, 'out-of-range'))
+    if (!isToolBlockTag(tag)) return yield* Result.fail(failure('blockTags', `tool resolution blockTags contains an invalid tag ${typeof tag === 'string' ? tag : typeof tag}`, tag, 'out-of-range'))
     const methods = yield* capture(`tool resolution blockTags ${tag}`, blocks, () => {
       if (!isObject(blocks)) return undefined
       return {
