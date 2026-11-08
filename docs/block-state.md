@@ -2,7 +2,7 @@
 
 ## Scope
 
-This memo defines the target contract for per-cell state alongside the existing `BlockId`. It keeps all 125 current kernel block types and the current chunk `BlockState` ID buffer unchanged. Storage consumers pair each ID cell with one `EncodedBlockState` value in a parallel buffer at the same cell index. The encoded value contains state only, not a block ID. The vanilla reference is Java Edition 26.3: the checked-in crosswalk source is `test/golden/vanilla-block.json`, generated from the Java block-state roster and pinned by `test/vanilla-26-3.test.ts`. The [Minecraft Wiki Block states table](https://minecraft.wiki/w/Block_state) is the readable cross-check. Kernel-only names are mapped to a representative vanilla block in the table below.
+`mc-kernel` implements the per-cell state codec for all 125 current block types without changing their `BlockId` values. Consumers can pair each ID cell with one `EncodedBlockState` value in a parallel buffer at the same cell index. The encoded value contains state only, not a block ID; this target storage pairing leaves the current chunk `BlockState` ID buffer unchanged. The vanilla reference is Java Edition 26.3: the checked-in crosswalk source is `test/golden/vanilla-block.json`, generated from the Java block-state roster and pinned by `test/vanilla-26-3.test.ts`. The [Minecraft Wiki Block states table](https://minecraft.wiki/w/Block_state) is the readable cross-check. Kernel-only names are mapped to a representative vanilla block in the table below.
 
 The vocabulary includes a property when it changes gameplay, rendering, redstone behavior, or world generation for one of the 125 kernel block types. It contains 40 vanilla property names after the ID-backed exclusions below. The six directional boolean/connection properties (`down`, `east`, `north`, `south`, `up`, `west`) share the API field `connections`; redstone wire uses `none`, `side`, or `up` for its four horizontal directions, while fire and chorus plant use booleans. The `power` property is a numeric signal level from 0 through 15 and remains distinct from boolean `powered`.
 
@@ -142,9 +142,11 @@ Each state is shown as `property=allowed-values (default value)`. ID-fixed prope
 
 ## Included property vocabulary
 
-The state schema accepts the following properties when supported by the selected block type:
+The state schema accepts these scalar properties when supported by the selected block type:
 
-- Scalar properties: `facing`, `half`, `hinge`, `open`, `age`, `level`, `powered`, `delay`, `shape`, `axis`, `distance`, `enabled`, `extended`, `face`, `has_bottle_0`, `has_bottle_1`, `has_bottle_2`, `layers`, `lit`, `locked`, `mode`, `moisture`, `occupied`, `part`, `persistent`, `power`, `rotation`, `short`, `snowy`, `stage`, `triggered`, `type`, `unstable`, and `waterlogged`.
+- `facing`, `half`, `hinge`, `open`, `age`, `level`, `powered`, `delay`, `shape`, `axis`, `distance`, `enabled`, `extended`, `face`, `has_bottle_0`, `has_bottle_1`, `has_bottle_2`, `layers`, `lit`, `locked`, `mode`, `moisture`, `occupied`, `part`, `persistent`, `power`, `rotation`, `short`, `snowy`, `stage`, `triggered`, `type`, `unstable`, and `waterlogged`.
+
+Directional connections use the `connections` object. Its supported directions and values are listed in the crosswalk for each block type.
 
 ## Excluded properties and reasons
 
@@ -173,7 +175,7 @@ The exported signature is `effectiveBlockStateOf(blockId: BlockId, encodedState:
 | `redstone_lamp` | 79 | `lit=false` |
 | `redstone_lamp_lit` | 80 | `lit=true` |
 
-All other effective properties come from the decoded codec state. The returned object includes decoded defaults, so `door.open` is false when its encoded value is zero or omitted before encoding. `eye` exists only in the effective-state schema; it is not accepted as a codec field.
+All other effective properties come from the decoded codec state. The returned object includes decoded defaults, so `door.open` is false when its encoded value is zero or omitted before encoding.
 
 ## Values and encoding
 
@@ -181,7 +183,7 @@ The `BlockStateValues` schema is a strict object with optional properties. A per
 
 Codec version 1 encodes each cell's state in one unsigned 32-bit integer. It packs only the selected block's declared slots from least significant bit upward, following this fixed property order: `facing`, `half`, `hinge`, `open`, `age`, `level`, `powered`, `delay`, `shape`, `connections` in `down`, `north`, `east`, `south`, `west`, `up` order, then `axis`, `distance`, `enabled`, `extended`, `face`, `has_bottle_0`, `has_bottle_1`, `has_bottle_2`, `layers`, `lit`, `locked`, `mode`, `moisture`, `occupied`, `part`, `persistent`, `power`, `rotation`, `short`, `snowy`, `stage`, `triggered`, `type`, `unstable`, and `waterlogged`. A block's unsupported properties consume no bits. Each property default has code zero; legal non-default values follow the crosswalk order. Each slot uses the minimum number of bits for its legal values.
 
-The widest block layout is `redstone_wire`: its north/east/south/west connections each use 2 bits for `none`/`side`/`up` (8 bits total), and its `power` uses 4 bits for 0–15, for 12 bits total. Codec version 1 reserves the high 20 bits. Reserved codes and nonzero unused bits are invalid. All defaults encode as zero.
+The widest block layout is `redstone_wire`: its north/east/south/west connections each use 2 bits for `none`/`side`/`up` (8 bits total), and its `power` uses 4 bits for 0–15, for 12 bits total. Codec version 1 reserves the high 20 bits. Reserved codes and nonzero unused bits are invalid.
 
 The integer codec does not define byte order. Save and network formats own serialization of `EncodedBlockState` and their versioning. `BlockId` remains the selector for each block-state layout.
 
