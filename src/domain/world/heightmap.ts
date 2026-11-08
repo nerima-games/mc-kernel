@@ -16,6 +16,7 @@
  * A pure derivation only: no caching, invalidation, or scheduling. A caller
  * recomputes this when the chunk's blocks change.
  */
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand, Result } from 'effect'
 import { CHUNK_SIZE_XZ, LocalAxis } from '../coordinates/coordinates.js'
 import { ChunkLocalY, type Chunk } from './chunk.js'
@@ -37,7 +38,7 @@ export const HeightmapColumnIndex: Brand.Constructor<HeightmapColumnIndex> = Bra
   (value) =>
     Number.isSafeInteger(value) && value >= 0 && value < CHUNK_SIZE_XZ * CHUNK_SIZE_XZ
       ? true
-      : `HeightmapColumnIndex must be an integer in [0, ${CHUNK_SIZE_XZ * CHUNK_SIZE_XZ - 1}], received ${value}`,
+      : `HeightmapColumnIndex must be an integer in [0, ${describeUnknown(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ - 1)}], received ${describeUnknown(value)}`,
 )
 
 /** Dense per-column heightmap; look up a column with `heightmapColumnIndex`. */

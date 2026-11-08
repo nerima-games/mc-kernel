@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from 'effect'
 import { BlockAxis, blockPosition, type BlockPosition } from './coordinate-primitives.js'
 
@@ -73,7 +74,7 @@ const UNIT_STEP = 1
 const blockAxisAt = (value: number): Result.Result<ReturnType<typeof BlockAxis>, BlockNeighbourFailure> =>
   Number.isSafeInteger(value)
     ? Result.succeed(BlockAxis(value))
-    : failure('coordinate-overflow', 'RangeError', `Block coordinate exceeds the safe integer range: ${value}`)
+    : failure('coordinate-overflow', 'RangeError', `Block coordinate exceeds the safe integer range: ${describeUnknown(value)}`)
 
 const offsetBlockPosition = (
   source: BlockPosition,

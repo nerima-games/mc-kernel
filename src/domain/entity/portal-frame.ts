@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand } from 'effect'
 import type { BlockAxis, BlockPosition } from '../coordinates/coordinate-primitives.js'
 import type { BlockId } from '../block/block-registry-types.js'
@@ -15,7 +16,7 @@ export const PortalWidth: Brand.Constructor<PortalWidth> = Brand.make<PortalWidt
   (value) =>
     Number.isInteger(value) && value >= MIN_PORTAL_WIDTH && value <= MAX_PORTAL_WIDTH
       ? true
-      : `PortalWidth must be an integer in [${MIN_PORTAL_WIDTH}, ${MAX_PORTAL_WIDTH}], received ${value}`,
+      : `PortalWidth must be an integer in [${describeUnknown(MIN_PORTAL_WIDTH)}, ${describeUnknown(MAX_PORTAL_WIDTH)}], received ${describeUnknown(value)}`,
 )
 
 export type PortalHeight = number & Brand.Brand<'PortalHeight'>
@@ -23,7 +24,7 @@ export const PortalHeight: Brand.Constructor<PortalHeight> = Brand.make<PortalHe
   (value) =>
     Number.isInteger(value) && value >= MIN_PORTAL_HEIGHT && value <= MAX_PORTAL_HEIGHT
       ? true
-      : `PortalHeight must be an integer in [${MIN_PORTAL_HEIGHT}, ${MAX_PORTAL_HEIGHT}], received ${value}`,
+      : `PortalHeight must be an integer in [${describeUnknown(MIN_PORTAL_HEIGHT)}, ${describeUnknown(MAX_PORTAL_HEIGHT)}], received ${describeUnknown(value)}`,
 )
 
 export type PortalFrame = Readonly<{

@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand, Result } from 'effect'
 import { BLOCK_IDS, BLOCK_ID_MAX } from './block-registry.js'
 import { BlockId } from './block-registry-types.js'
@@ -13,7 +14,7 @@ export const BlockStateLength: Brand.Constructor<BlockStateLength> = Brand.make<
   (value) =>
     Number.isSafeInteger(value) && value >= 0
       ? true
-      : `BlockStateLength must be a non-negative safe integer, received ${value}`,
+      : `BlockStateLength must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 
 /** Zero-based block element index in a state buffer. */
@@ -22,7 +23,7 @@ export const BlockStateIndex: Brand.Constructor<BlockStateIndex> = Brand.make<Bl
   (value) =>
     Number.isSafeInteger(value) && value >= 0
       ? true
-      : `BlockStateIndex must be a non-negative safe integer, received ${value}`,
+      : `BlockStateIndex must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 
 /** Zero-based byte offset into a block-state wire buffer. */
@@ -32,7 +33,7 @@ export const BlockStateByteOffset: Brand.Constructor<BlockStateByteOffset> =
     (value) =>
       Number.isSafeInteger(value) && value >= 0
         ? true
-        : `BlockStateByteOffset must be a non-negative safe integer, received ${value}`,
+        : `BlockStateByteOffset must be a non-negative safe integer, received ${describeUnknown(value)}`,
   )
 
 /**
@@ -73,7 +74,7 @@ const validateIndex = (index: number, length: number): Result.Result<number, Blo
   if (!Number.isInteger(index) || index < MIN_INDEX || index >= length) {
     return failure(
       'invalid-index',
-      `Block state index must be an integer in [${MIN_INDEX}, ${length - LAST_INDEX_OFFSET}], received ${index}`,
+      `Block state index must be an integer in [${describeUnknown(MIN_INDEX)}, ${describeUnknown(length - LAST_INDEX_OFFSET)}], received ${describeUnknown(index)}`,
     )
   }
   return Result.succeed(index)
@@ -83,11 +84,11 @@ const validateKnownBlockId = (id: number, index: number): Result.Result<BlockId,
   Result.flatMap(
     Result.mapError(
       BlockId.result(id),
-      () => failureValue('unknown-block-id', `Block state contains unknown block id ${id} at index ${index}`),
+      () => failureValue('unknown-block-id', `Block state contains unknown block id ${describeUnknown(id)} at index ${describeUnknown(index)}`),
     ),
     (blockId) => KNOWN_BLOCK_ID_TABLE[blockId] === BLOCK_ID_ENABLED
       ? Result.succeed(blockId)
-      : failure('unknown-block-id', `Block state contains unknown block id ${blockId} at index ${index}`),
+      : failure('unknown-block-id', `Block state contains unknown block id ${describeUnknown(blockId)} at index ${describeUnknown(index)}`),
   )
 
 const validateCopyRange = (
@@ -98,7 +99,7 @@ const validateCopyRange = (
   if (!Number.isInteger(offset) || offset < MIN_INDEX || offset + sourceLength > targetLength) {
     return failure(
       'invalid-copy-range',
-      `Block state copy range must fit target at offset ${offset}, target length ${targetLength}, source length ${sourceLength}`,
+      `Block state copy range must fit target at offset ${describeUnknown(offset)}, target length ${describeUnknown(targetLength)}, source length ${describeUnknown(sourceLength)}`,
     )
   }
   return Result.succeed(undefined)
@@ -122,7 +123,7 @@ export class BlockState {
     const widenedView = new DataView(widened.buffer)
     for (const [index, blockId] of bytes.entries()) {
       if (KNOWN_BLOCK_ID_TABLE[blockId] !== BLOCK_ID_ENABLED) {
-        return failure('unknown-block-id', `Block state contains unknown block id ${blockId} at index ${index}`)
+        return failure('unknown-block-id', `Block state contains unknown block id ${describeUnknown(blockId)} at index ${describeUnknown(index)}`)
       }
       widenedView.setUint16(index * BYTES_PER_ELEMENT, blockId, true)
     }
@@ -149,14 +150,14 @@ export class BlockState {
         BlockStateLength.result(elementCount),
         () => failureValue(
           'invalid-element-count',
-          `Block state element count must be a non-negative safe integer, received ${elementCount}`,
+          `Block state element count must be a non-negative safe integer, received ${describeUnknown(elementCount)}`,
         ),
       ),
       (validatedElementCount) => {
         if (payload.length < validatedElementCount * BYTES_PER_ELEMENT) {
           return failure(
             'invalid-element-count',
-            `Block state element payload must contain ${validatedElementCount * BYTES_PER_ELEMENT} bytes, received ${payload.length}`,
+            `Block state element payload must contain ${describeUnknown(validatedElementCount * BYTES_PER_ELEMENT)} bytes, received ${describeUnknown(payload.length)}`,
           )
         }
         const owned = payload.slice(MIN_INDEX, validatedElementCount * BYTES_PER_ELEMENT)
@@ -164,7 +165,7 @@ export class BlockState {
         for (let index = MIN_INDEX; index < validatedElementCount; index += INDEX_INCREMENT) {
           const value = view.getUint16(index * BYTES_PER_ELEMENT, true)
           if (KNOWN_BLOCK_ID_TABLE[value] !== BLOCK_ID_ENABLED) {
-            return failure('unknown-block-id', `Block state contains unknown block id ${value} at index ${index}`)
+            return failure('unknown-block-id', `Block state contains unknown block id ${describeUnknown(value)} at index ${describeUnknown(index)}`)
           }
         }
         return Result.succeed(new BlockState(owned))

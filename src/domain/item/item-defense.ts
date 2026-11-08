@@ -1,4 +1,5 @@
 /** Constructors and guards for Java item defense components. */
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from 'effect'
 import { ResourceLocation, TagLocation } from '../text/identifiers.js'
 import type {
@@ -83,7 +84,7 @@ const recordFromInput = (
   const field = snapshot.failure.path ?? name
   return Result.fail(failure(
     invalidType ? name : field,
-    invalidType ? `${name} must be a non-null object` : `Unable to inspect ${field}`,
+    invalidType ? `${describeUnknown(name)} must be a non-null object` : `Unable to inspect ${describeUnknown(field)}`,
     value,
     invalidType ? 'invalid-type' : 'hostile-input',
   ))
@@ -101,7 +102,7 @@ const arrayFromInput = (
   const errorField = snapshot.failure.path
   return Result.fail(failure(
     errorField,
-    invalidArray ? `${field} must be an array` : tooLarge ? `${field} exceeds the maximum length` : `Unable to inspect ${errorField}`,
+    invalidArray ? `${describeUnknown(field)} must be an array` : tooLarge ? `${describeUnknown(field)} exceeds the maximum length` : `Unable to inspect ${describeUnknown(errorField)}`,
     value,
     invalidArray ? 'invalid-type' : tooLarge ? 'out-of-range' : 'hostile-input',
   ))
@@ -110,20 +111,17 @@ const arrayFromInput = (
 const finiteNumber = (value: unknown, name: string): DefenseResult<number> =>
   typeof value === 'number' && Number.isFinite(value)
     ? Result.succeed(value)
-    : Result.fail(failure(name, `${name} must be a finite number`, value, 'invalid-type'))
+    : Result.fail(failure(name, `${describeUnknown(name)} must be a finite number`, value, 'invalid-type'))
 
 const nonNegativeFiniteNumber = (value: unknown, name: string): DefenseResult<number> =>
   Result.flatMap(finiteNumber(value, name), (number) => number < 0
-    ? Result.fail(failure(name, `${name} must be a non-negative finite number`, value, 'out-of-range', 'RangeError'))
+    ? Result.fail(failure(name, `${describeUnknown(name)} must be a non-negative finite number`, value, 'out-of-range', 'RangeError'))
     : Result.succeed(number))
 
 const positiveFiniteNumber = (value: unknown, name: string): DefenseResult<number> =>
   Result.flatMap(finiteNumber(value, name), (number) => number <= 0
-    ? Result.fail(failure(name, `${name} must be a positive finite number`, value, 'out-of-range', 'RangeError'))
+    ? Result.fail(failure(name, `${describeUnknown(name)} must be a positive finite number`, value, 'out-of-range', 'RangeError'))
     : Result.succeed(number))
-
-const describeInput = (value: unknown): string =>
-  typeof value === 'symbol' ? String(value) : typeof value
 
 const resourceLocationProviderOf = (
   value: unknown,
@@ -136,19 +134,19 @@ const resourceLocationProviderOf = (
   }
   const copiedEntries = snapshotInputArray(value, MAX_GENERIC_INPUT_ARRAY_LENGTH, field)
   if (Result.isFailure(copiedEntries) && copiedEntries.failure.reason === 'invalid-container') {
-    return Result.fail(failure(field, `${field} must be a string or an array of resource locations`, value, 'invalid-type'))
+    return Result.fail(failure(field, `${describeUnknown(field)} must be a string or an array of resource locations`, value, 'invalid-type'))
   }
   if (Result.isFailure(copiedEntries)) {
     // This snapshot call always receives the field as its path prefix.
     const errorField = copiedEntries.failure.path
-    return Result.fail(failure(errorField, `Unable to inspect ${errorField}`, value, 'hostile-input'))
+    return Result.fail(failure(errorField, `Unable to inspect ${describeUnknown(errorField)}`, value, 'hostile-input'))
   }
   const entries = copiedEntries.success
   return Result.gen(function* () {
     const locations: ResourceLocation[] = []
     for (const entry of entries) {
       if (typeof entry !== 'string' || entry.startsWith('#')) {
-        return yield* Result.fail(failure(field, `${field} lists must contain resource locations`, entry, 'invalid-type'))
+        return yield* Result.fail(failure(field, `${describeUnknown(field)} lists must contain resource locations`, entry, 'invalid-type'))
       }
       locations.push(yield* brandValue(ResourceLocation.result(entry), field, entry))
     }
@@ -161,33 +159,29 @@ const resourceLocationOf = (
   field: string,
 ): DefenseResult<ResourceLocation> => {
   if (typeof value === 'string') return brandValue(ResourceLocation.result(value), field, value)
-  const rendered = Result.try({
-    try: () => JSON.stringify(value) ?? describeInput(value),
-    catch: () => failure(field, `Unable to inspect ${field}`, value, 'hostile-input'),
-  })
-  if (Result.isFailure(rendered)) return Result.fail(rendered.failure)
-  return Result.fail(failure(field, `ResourceLocation has invalid syntax, received ${rendered.success}`, value))
+  const rendered = describeUnknown(value)
+  return Result.fail(failure(field, `ResourceLocation has invalid syntax, received ${rendered}`, value))
 }
 
 const damageReductionRuleOf = (
   options: unknown,
   index: number,
 ): DefenseResult<DamageReductionRule> => Result.flatMap(
-  recordFromInput(options, `damageReductions[${index}]`, ['base', 'factor', 'horizontalBlockingAngle', 'type']),
+  recordFromInput(options, `damageReductions[${describeUnknown(index)}]`, ['base', 'factor', 'horizontalBlockingAngle', 'type']),
   (input) => Result.gen(function* () {
-  const baseValue = yield* finiteNumber(input['base'], `damageReductions[${index}].base`)
-  const factorValue = yield* finiteNumber(input['factor'], `damageReductions[${index}].factor`)
+  const baseValue = yield* finiteNumber(input['base'], `damageReductions[${describeUnknown(index)}].base`)
+  const factorValue = yield* finiteNumber(input['factor'], `damageReductions[${describeUnknown(index)}].factor`)
   const angle = input['horizontalBlockingAngle']
   const angleValue = angle === undefined
     ? 90
-    : yield* positiveFiniteNumber(angle, `damageReductions[${index}].horizontalBlockingAngle`)
+    : yield* positiveFiniteNumber(angle, `damageReductions[${describeUnknown(index)}].horizontalBlockingAngle`)
   const rawType = input['type']
   const type = rawType === undefined
     ? undefined
-    : yield* resourceLocationProviderOf(rawType, `damageReductions[${index}].type`)
-  const base = yield* brandValue(DamageReductionBase.result(baseValue), `damageReductions[${index}].base`, baseValue)
-  const factor = yield* brandValue(DamageReductionFactor.result(factorValue), `damageReductions[${index}].factor`, factorValue)
-  const horizontalBlockingAngle = yield* brandValue(HorizontalBlockingAngle.result(angleValue), `damageReductions[${index}].horizontalBlockingAngle`, angleValue, 'out-of-range')
+    : yield* resourceLocationProviderOf(rawType, `damageReductions[${describeUnknown(index)}].type`)
+  const base = yield* brandValue(DamageReductionBase.result(baseValue), `damageReductions[${describeUnknown(index)}].base`, baseValue)
+  const factor = yield* brandValue(DamageReductionFactor.result(factorValue), `damageReductions[${describeUnknown(index)}].factor`, factorValue)
+  const horizontalBlockingAngle = yield* brandValue(HorizontalBlockingAngle.result(angleValue), `damageReductions[${describeUnknown(index)}].horizontalBlockingAngle`, angleValue, 'out-of-range')
   return Object.freeze({ type, base, factor, horizontalBlockingAngle })
   }),
 )

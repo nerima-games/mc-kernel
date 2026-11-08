@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand } from 'effect'
 
 const ZERO = 0
@@ -12,7 +13,7 @@ export const BlockAxis: Brand.Constructor<BlockAxis> = Brand.make<BlockAxis>(
   (value) =>
     Number.isSafeInteger(value)
       ? true
-      : `BlockAxis must be a safe integer, received ${value}`,
+      : `BlockAxis must be a safe integer, received ${describeUnknown(value)}`,
 )
 
 /** An integral chunk-space coordinate on the X or Z axis. One step = CHUNK_SIZE_XZ blocks. */
@@ -22,7 +23,7 @@ export const ChunkAxis: Brand.Constructor<ChunkAxis> = Brand.make<ChunkAxis>(
   (value) =>
     Number.isSafeInteger(value)
       ? true
-      : `ChunkAxis must be a safe integer, received ${value}`,
+      : `ChunkAxis must be a safe integer, received ${describeUnknown(value)}`,
 )
 
 /** A chunk-local horizontal coordinate: an integer in [0, CHUNK_SIZE_XZ - 1]. */
@@ -32,7 +33,7 @@ export const LocalAxis: Brand.Constructor<LocalAxis> = Brand.make<LocalAxis>(
   (value) =>
     Number.isInteger(value) && value >= ZERO && value < CHUNK_SIZE_XZ
       ? true
-      : `LocalAxis must be an integer in [0, ${CHUNK_SIZE_XZ - 1}], received ${value}`,
+      : `LocalAxis must be an integer in [0, ${describeUnknown(CHUNK_SIZE_XZ - 1)}], received ${describeUnknown(value)}`,
 )
 
 /** A finite continuous world-space coordinate measured in blocks. */
@@ -42,7 +43,7 @@ export const PositionAxis: Brand.Constructor<PositionAxis> = Brand.make<Position
   (value) =>
     Number.isFinite(value)
       ? true
-      : `PositionAxis must be a finite number of blocks, received ${value}`,
+      : `PositionAxis must be a finite number of blocks, received ${describeUnknown(value)}`,
 )
 
 /** A continuous world-space point. Y is up. */

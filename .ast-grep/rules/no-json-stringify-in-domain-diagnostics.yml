@@ -1,0 +1,8 @@
+id: no-json-stringify-in-domain-diagnostics
+language: TypeScript
+severity: error
+files:
+  - src/domain/**/*.ts
+message: Use describeUnknown for domain diagnostics instead of JSON.stringify.
+rule:
+  pattern: JSON.stringify($VALUE)

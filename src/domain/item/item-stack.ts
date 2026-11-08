@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Effect, Result } from 'effect'
 import { snapshotInputRecord } from '../../input-snapshot.js'
 import { itemComponentStackLimitOf, type ItemStackLimit } from './item-components-data.js'
@@ -67,7 +68,7 @@ const itemStackSnapshot = (
   if (Result.isFailure(record)) {
     if (record.failure.reason === 'hostile-input') {
       const field = record.failure.path ?? 'stack'
-      const message = field === 'stack' ? 'Unable to inspect item stack' : `Unable to inspect item stack ${field}`
+      const message = field === 'stack' ? 'Unable to inspect item stack' : `Unable to inspect item stack ${describeUnknown(field)}`
       return Result.fail(failure(field, message, 'hostile-input', value))
     }
     return Result.fail(invalidFailure)
@@ -103,7 +104,7 @@ const stackOptionsFromUnknown = (
     const field = record.failure.path ?? 'options'
     return Result.fail(failure(
       invalidType ? 'options' : field,
-      invalidType ? 'Item stack options must be a non-null object' : `Unable to inspect item stack ${field}`,
+      invalidType ? 'Item stack options must be a non-null object' : `Unable to inspect item stack ${describeUnknown(field)}`,
       invalidType ? 'invalid-type' : 'hostile-input',
       record.failure.value,
     ))
@@ -133,12 +134,12 @@ const stackValueOf = (
   return Result.gen(function* () {
     const stackCount = yield* Result.mapError(
       StackCount.result(count),
-      () => failure('count', `Item stack count for ${item} must be an integer in [1, ${maxStackSize}], received ${String(count)}`, 'out-of-range', count),
+      () => failure('count', `Item stack count for ${describeUnknown(item)} must be an integer in [1, ${describeUnknown(maxStackSize)}], received ${describeUnknown(count)}`, 'out-of-range', count),
     )
     if (stackCount > maxStackSize) {
       return yield* Result.fail(failure(
         'count',
-        `Item stack count for ${item} must be an integer in [1, ${maxStackSize}], received ${String(count)}`,
+        `Item stack count for ${describeUnknown(item)} must be an integer in [1, ${describeUnknown(maxStackSize)}], received ${describeUnknown(count)}`,
         'out-of-range',
         count,
       ))
@@ -169,7 +170,7 @@ export const itemStack = (
   options: ItemStackOptions = {},
 ): Result.Result<ItemStack, ItemStackFailure> => {
   if (!isItemType(item)) {
-    return Result.fail(failure('item', `Unknown item type: ${typeof item === 'string' ? item : typeof item}`, 'invalid-value', item))
+    return Result.fail(failure('item', `Unknown item type: ${describeUnknown(typeof item === 'string' ? item : typeof item)}`, 'invalid-value', item))
   }
   if (typeof count !== 'number') {
     return Result.fail(failure('count', 'Item stack count must be a number', 'invalid-type', count))
@@ -183,10 +184,10 @@ export const itemStackFromUnknown = (
   options: unknown = {},
 ): Result.Result<ItemStack, ItemStackFailure> => {
   if (!isItemType(item)) {
-    return Result.fail(failure('item', `Unknown item type: ${typeof item === 'string' ? item : typeof item}`, 'invalid-value', item))
+    return Result.fail(failure('item', `Unknown item type: ${describeUnknown(typeof item === 'string' ? item : typeof item)}`, 'invalid-value', item))
   }
   if (typeof count !== 'number') {
-    return Result.fail(failure('count', `Item stack count must be a number, received ${typeof count === 'string' ? count : typeof count}`, 'invalid-type', count))
+    return Result.fail(failure('count', `Item stack count must be a number, received ${describeUnknown(typeof count === 'string' ? count : typeof count)}`, 'invalid-type', count))
   }
   return itemStackFromValues(item, count, options)
 }
@@ -252,11 +253,11 @@ export const splitItemStack = (
   const input = snapshot.success
   const checkedAmount = Result.mapError(
     TransferQuantity.result(Number(amount)),
-    () => failure('amount', `Split amount must be an integer in [1, ${input.count}]`, 'out-of-range', amount),
+    () => failure('amount', `Split amount must be an integer in [1, ${describeUnknown(input.count)}]`, 'out-of-range', amount),
   )
   if (Result.isFailure(checkedAmount)) return Result.fail(checkedAmount.failure)
   if (Number(checkedAmount.success) > Number(input.count)) {
-    return Result.fail(failure('amount', `Split amount must be an integer in [1, ${input.count}]`, 'out-of-range', amount))
+    return Result.fail(failure('amount', `Split amount must be an integer in [1, ${describeUnknown(input.count)}]`, 'out-of-range', amount))
   }
   return Result.gen(function* () {
     const taken = yield* stackValueOf(input.item, Number(checkedAmount.success), input.components)

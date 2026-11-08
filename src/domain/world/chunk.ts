@@ -1,4 +1,5 @@
 /* eslint-disable max-statements, no-magic-numbers -- Constants define the fixed binary wire format. */
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand, Result } from 'effect'
 import {
   BlockState,
@@ -60,7 +61,7 @@ const bytesPerBlockElement = (version: number): Result.Result<number, ChunkFailu
   if (version === CHUNK_CODEC_VERSION) {
     return Result.succeed(CHUNK_BLOCK_ELEMENT_BYTES_V2)
   }
-  return failure('unsupported-version', `Unsupported chunk codec version ${version}`)
+  return failure('unsupported-version', `Unsupported chunk codec version ${describeUnknown(version)}`)
 }
 
 /** Vertical block count of a chunk column. Integer in [1, MAX_CHUNK_HEIGHT]. */
@@ -102,7 +103,7 @@ export const ChunkLocalY: Brand.Constructor<ChunkLocalY> = Brand.make<ChunkLocal
   (value) =>
     Number.isInteger(value) && value >= 0 && value < MAX_CHUNK_HEIGHT
       ? true
-      : `ChunkLocalY must be an integer in [0, ${MAX_CHUNK_HEIGHT - 1}], received ${value}`,
+      : `ChunkLocalY must be an integer in [0, ${describeUnknown(MAX_CHUNK_HEIGHT - 1)}], received ${describeUnknown(value)}`,
 )
 
 const chunkBlockCountBrand = Brand.make<ChunkBlockCount>(
@@ -112,14 +113,14 @@ const chunkBlockCountBrand = Brand.make<ChunkBlockCount>(
     value <= CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * MAX_CHUNK_HEIGHT &&
     value % (CHUNK_SIZE_XZ * CHUNK_SIZE_XZ) === 0
       ? true
-      : `ChunkBlockCount must be a positive multiple of ${CHUNK_SIZE_XZ * CHUNK_SIZE_XZ} in [${CHUNK_SIZE_XZ * CHUNK_SIZE_XZ}, ${CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * MAX_CHUNK_HEIGHT}], received ${value}`,
+      : `ChunkBlockCount must be a positive multiple of ${describeUnknown(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ)} in [${describeUnknown(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ)}, ${describeUnknown(CHUNK_SIZE_XZ * CHUNK_SIZE_XZ * MAX_CHUNK_HEIGHT)}], received ${describeUnknown(value)}`,
 )
 
 export const ChunkBlockCount: Brand.Constructor<ChunkBlockCount> = chunkBlockCountBrand
 
 export const ChunkHeight = (value: number): Result.Result<ChunkHeight, ChunkFailure> => {
   if (!Number.isInteger(value) || value <= 0 || value > MAX_CHUNK_HEIGHT) {
-    return failure('invalid-height', `Chunk height must be an integer in [1, ${MAX_CHUNK_HEIGHT}], received ${value}`)
+    return failure('invalid-height', `Chunk height must be an integer in [1, ${describeUnknown(MAX_CHUNK_HEIGHT)}], received ${describeUnknown(value)}`)
   }
   return Result.succeed(ChunkHeightBrand(value))
 }
@@ -144,7 +145,7 @@ const validateCoord = (value: unknown, name: 'cx' | 'cz'): Result.Result<number,
     value < MIN_INT32 ||
     value > MAX_INT32
   ) {
-    return failure('invalid-coordinate', `Chunk ${name} must fit a signed 32-bit integer, received ${value}`)
+    return failure('invalid-coordinate', `Chunk ${describeUnknown(name)} must fit a signed 32-bit integer, received ${describeUnknown(value)}`)
   }
   return Result.succeed(value)
 }
@@ -155,7 +156,7 @@ const validateBlocks = (blocks: unknown, height: ChunkHeight): Result.Result<Blo
   }
   const expected = chunkBlockCount(height)
   if (Number(blocks.length) !== Number(expected)) {
-    return failure('invalid-block-count', `Chunk block data length must be ${expected}, received ${blocks.length}`)
+    return failure('invalid-block-count', `Chunk block data length must be ${describeUnknown(expected)}, received ${describeUnknown(blocks.length)}`)
   }
   return Result.succeed(blocks)
 }
@@ -168,7 +169,7 @@ export const ChunkBlocks = (
     const validatedHeight = yield* ChunkHeight(height)
     const expected = chunkBlockCount(validatedHeight)
     if (blocks.length !== expected) {
-      return yield* failure('invalid-block-count', `Chunk block data length must be ${expected}, received ${blocks.length}`)
+      return yield* failure('invalid-block-count', `Chunk block data length must be ${describeUnknown(expected)}, received ${describeUnknown(blocks.length)}`)
     }
     return brandChunkBlocks(yield* blockState(blocks))
   })
@@ -183,7 +184,7 @@ const validateEncodedChunk = (
 ): Result.Result<ValidatedEncodedChunk, ChunkFailure> =>
   Result.gen(function* () {
     if (encoded.length < CHUNK_HEADER_BYTES) {
-      return yield* failure('truncated-header', `Chunk data is shorter than the ${CHUNK_HEADER_BYTES}-byte header`)
+      return yield* failure('truncated-header', `Chunk data is shorter than the ${describeUnknown(CHUNK_HEADER_BYTES)}-byte header`)
     }
     if (
       encoded[0] !== MAGIC[0] ||
@@ -202,7 +203,7 @@ const validateEncodedChunk = (
     if (width !== CHUNK_SIZE_XZ || depth !== CHUNK_SIZE_XZ) {
       return yield* failure(
         'invalid-dimensions',
-        `Invalid chunk dimensions ${width}x${depth}; expected ${CHUNK_SIZE_XZ}x${CHUNK_SIZE_XZ}`,
+        `Invalid chunk dimensions ${describeUnknown(width)}x${describeUnknown(depth)}; expected ${describeUnknown(CHUNK_SIZE_XZ)}x${describeUnknown(CHUNK_SIZE_XZ)}`,
       )
     }
 
@@ -210,12 +211,12 @@ const validateEncodedChunk = (
     const payloadLength = view.getUint32(20, true)
     const expected = chunkBlockCount(height) * elementBytes
     if (payloadLength !== expected) {
-      return yield* failure('invalid-payload-length', `Chunk payload length must be ${expected}, header declares ${payloadLength}`)
+      return yield* failure('invalid-payload-length', `Chunk payload length must be ${describeUnknown(expected)}, header declares ${describeUnknown(payloadLength)}`)
     }
     if (encoded.length !== CHUNK_HEADER_BYTES + payloadLength) {
       return yield* failure(
         'invalid-payload-length',
-        `Chunk encoded length must be ${CHUNK_HEADER_BYTES + payloadLength}, received ${encoded.length}`,
+        `Chunk encoded length must be ${describeUnknown(CHUNK_HEADER_BYTES + payloadLength)}, received ${describeUnknown(encoded.length)}`,
       )
     }
 
@@ -260,7 +261,7 @@ const validateChunkForEncoding = (
 
     const rawHeight = value['height']
     if (typeof rawHeight !== 'number') {
-      return yield* failure('invalid-height', `Chunk height must be a number, received ${rawHeight}`)
+      return yield* failure('invalid-height', `Chunk height must be a number, received ${describeUnknown(rawHeight)}`)
     }
 
     const height = yield* ChunkHeight(rawHeight)

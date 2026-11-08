@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand } from 'effect'
 
 export const GRAPHICS_QUALITIES = ['low', 'medium', 'high', 'ultra'] as const
@@ -18,7 +19,7 @@ export const RenderDistanceChunks: Brand.Constructor<RenderDistanceChunks> =
   Brand.make<RenderDistanceChunks>((value) =>
     Number.isInteger(value) && value >= MIN_RENDER_DISTANCE && value <= MAX_RENDER_DISTANCE
       ? true
-      : `RenderDistanceChunks must be an integer from ${MIN_RENDER_DISTANCE} to ${MAX_RENDER_DISTANCE}, received ${value}`,
+      : `RenderDistanceChunks must be an integer from ${describeUnknown(MIN_RENDER_DISTANCE)} to ${describeUnknown(MAX_RENDER_DISTANCE)}, received ${describeUnknown(value)}`,
   )
 
 export type FieldOfViewDegrees = number & Brand.Brand<'FieldOfViewDegrees'>
@@ -26,7 +27,7 @@ export const FieldOfViewDegrees: Brand.Constructor<FieldOfViewDegrees> =
   Brand.make<FieldOfViewDegrees>((value) =>
     Number.isFinite(value) && value >= MIN_FOV_DEGREES && value <= MAX_FOV_DEGREES
       ? true
-      : `FieldOfViewDegrees must be between ${MIN_FOV_DEGREES} and ${MAX_FOV_DEGREES}, received ${value}`,
+      : `FieldOfViewDegrees must be between ${describeUnknown(MIN_FOV_DEGREES)} and ${describeUnknown(MAX_FOV_DEGREES)}, received ${describeUnknown(value)}`,
   )
 
 export type VolumeLevel = number & Brand.Brand<'VolumeLevel'>
@@ -34,7 +35,7 @@ export const VolumeLevel: Brand.Constructor<VolumeLevel> =
   Brand.make<VolumeLevel>((value) =>
     Number.isFinite(value) && value >= MIN_VOLUME && value <= MAX_VOLUME
       ? true
-      : `VolumeLevel must be between ${MIN_VOLUME} and ${MAX_VOLUME}, received ${value}`,
+      : `VolumeLevel must be between ${describeUnknown(MIN_VOLUME)} and ${describeUnknown(MAX_VOLUME)}, received ${describeUnknown(value)}`,
   )
 
 export type MouseSensitivity = number & Brand.Brand<'MouseSensitivity'>
@@ -42,7 +43,7 @@ export const MouseSensitivity: Brand.Constructor<MouseSensitivity> =
   Brand.make<MouseSensitivity>((value) =>
     Number.isFinite(value) && value >= MIN_MOUSE_SENSITIVITY && value <= MAX_MOUSE_SENSITIVITY
       ? true
-      : `MouseSensitivity must be between ${MIN_MOUSE_SENSITIVITY} and ${MAX_MOUSE_SENSITIVITY}, received ${value}`,
+      : `MouseSensitivity must be between ${describeUnknown(MIN_MOUSE_SENSITIVITY)} and ${describeUnknown(MAX_MOUSE_SENSITIVITY)}, received ${describeUnknown(value)}`,
   )
 
 export type InputAction = string & Brand.Brand<'InputAction'>
@@ -50,7 +51,7 @@ export const InputAction: Brand.Constructor<InputAction> = Brand.make<InputActio
   (value) =>
     value.trim().length > 0
       ? true
-      : `InputAction must be a non-blank string, received ${JSON.stringify(value)}`,
+      : `InputAction must be a non-blank string, received ${describeUnknown(value)}`,
 )
 
 export type KeyCode = string & Brand.Brand<'KeyCode'>
@@ -58,7 +59,7 @@ export const KeyCode: Brand.Constructor<KeyCode> = Brand.make<KeyCode>(
   (value) =>
     value.trim().length > 0
       ? true
-      : `KeyCode must be a non-blank string, received ${JSON.stringify(value)}`,
+      : `KeyCode must be a non-blank string, received ${describeUnknown(value)}`,
 )
 
 export type Settings = Readonly<{

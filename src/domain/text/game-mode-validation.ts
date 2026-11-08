@@ -5,6 +5,7 @@
  * shape and the resolved domain data independently readable
  * (architecture.md §6).
  */
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from 'effect'
 import {
   DIFFICULTIES,
@@ -60,7 +61,7 @@ export const resolveGameModeProperties = (
   value: unknown,
 ): Result.Result<GameModeProperties, GameModeValidationFailure> => {
   if (!isGameMode(value)) {
-    return Result.fail(failure('unknown-game-mode', 'gameMode', `unknown game mode ${String(value)}`, value))
+    return Result.fail(failure('unknown-game-mode', 'gameMode', `unknown game mode ${describeUnknown(value)}`, value))
   }
   return Result.succeed(GAME_MODE_PROPERTIES[value])
 }
@@ -70,7 +71,7 @@ export const resolveDifficultyProperties = (
   value: unknown,
 ): Result.Result<DifficultyProperties, GameModeValidationFailure> => {
   if (!isDifficulty(value)) {
-    return Result.fail(failure('unknown-difficulty', 'difficulty', `unknown difficulty ${String(value)}`, value))
+    return Result.fail(failure('unknown-difficulty', 'difficulty', `unknown difficulty ${describeUnknown(value)}`, value))
   }
   return Result.succeed(DIFFICULTY_PROPERTIES[value])
 }

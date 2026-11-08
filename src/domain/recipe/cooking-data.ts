@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from "effect";
 import {
   isItemStack,
@@ -122,7 +123,7 @@ const assertStation = (
   isCookingStation(value)
     ? Result.succeed(value)
     : recipeTypeFailure(
-        typeof value === "string" ? `Unknown cooking station: ${value}` : "Unknown cooking station",
+        typeof value === "string" ? `Unknown cooking station: ${describeUnknown(value)}` : "Unknown cooking station",
       );
 
 const assertIngredient = (
@@ -146,14 +147,14 @@ const assertCookTimeTicks = (
 ): Result.Result<PositiveTickCount, RecipeFailure> => {
   if (typeof value !== "number") {
     return recipeRangeFailure(
-      `Cooking time must be a positive safe integer, received ${typeof value === "string" ? value : typeof value}`,
+      `Cooking time must be a positive safe integer, received ${describeUnknown(typeof value === "string" ? value : typeof value)}`,
     );
   }
   return Result.mapError(
     PositiveTickCount.result(value),
     () =>
       recipeRangeFailureValue(
-        `Cooking time must be a positive safe integer, received ${value}`,
+        `Cooking time must be a positive safe integer, received ${describeUnknown(value)}`,
       ),
   );
 }
@@ -163,14 +164,14 @@ const assertExperience = (
 ): Result.Result<RecipeExperienceValue, RecipeFailure> => {
   if (typeof value !== "number") {
     return recipeRangeFailure(
-      `Cooking experience must be a finite non-negative number, received ${typeof value === "string" ? value : typeof value}`,
+      `Cooking experience must be a finite non-negative number, received ${describeUnknown(typeof value === "string" ? value : typeof value)}`,
     );
   }
   return Result.mapError(
     RecipeExperience.result(value),
     () =>
       recipeRangeFailureValue(
-        `Cooking experience must be a finite non-negative number, received ${value}`,
+        `Cooking experience must be a finite non-negative number, received ${describeUnknown(value)}`,
       ),
   );
 }
@@ -198,7 +199,7 @@ const normalizeOptions = (
     if (category !== undefined && !isRecipeCategory(category)) {
       return yield* recipeTypeFailure(
         typeof category === "string"
-          ? `Cooking recipe category is invalid: ${category}`
+          ? `Cooking recipe category is invalid: ${describeUnknown(category)}`
           : "Cooking recipe category is invalid",
       );
     }
@@ -217,12 +218,12 @@ const normalizeOptions = (
     if (typeof priorityValue !== "number") {
       return yield* recipeRangeFailure(
         typeof priorityValue === "string"
-          ? `Cooking recipe priority must be a non-negative safe integer, received ${priorityValue}`
+          ? `Cooking recipe priority must be a non-negative safe integer, received ${describeUnknown(priorityValue)}`
           : "Cooking recipe priority must be a non-negative safe integer",
       );
     }
     const priorityMessage =
-      `Cooking recipe priority must be a non-negative safe integer, received ${priorityValue}`;
+      `Cooking recipe priority must be a non-negative safe integer, received ${describeUnknown(priorityValue)}`;
     const priority = yield* Result.mapError(
       RecipePriority.result(priorityValue),
       () => recipeRangeFailureValue(priorityMessage),
@@ -321,7 +322,7 @@ export const cookingRecipeForItem = (
 ): Result.Result<CookingRecipe, RecipeFailure> =>
   Result.gen(function* () {
     if (!isItemType(output)) {
-      return yield* recipeTypeFailure(`Unknown item type: ${typeof output === "string" ? output : typeof output}`);
+      return yield* recipeTypeFailure(`Unknown item type: ${describeUnknown(typeof output === "string" ? output : typeof output)}`);
     }
     if (
       !Number.isSafeInteger(count) ||
@@ -329,7 +330,7 @@ export const cookingRecipeForItem = (
       count > maxStackCountForItem(output)
     ) {
       return yield* recipeRangeFailure(
-        `Item stack count for ${output} must be an integer in [1, ${maxStackCountForItem(output)}], received ${typeof count === "number" ? count : typeof count}`,
+        `Item stack count for ${describeUnknown(output)} must be an integer in [1, ${describeUnknown(maxStackCountForItem(output))}], received ${describeUnknown(typeof count === "number" ? count : typeof count)}`,
       );
     }
     const outputStack = yield* Result.mapError(

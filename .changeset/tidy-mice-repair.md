@@ -2,4 +2,4 @@
 "@nerima-games/mc-kernel": patch
 ---
 
-Return typed failures for invalid item and recipe inputs without coercing arbitrary values.
+Use side-effect-free descriptions in domain diagnostics and return typed failures when public schema parsers encounter hostile input.

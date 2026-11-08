@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand } from 'effect'
 import type { Position } from '../coordinates/coordinates.js'
 import type { BlockBlastResistance } from '../block/block-property-data.js'
@@ -10,7 +11,7 @@ export const ExplosionRadius: Brand.Constructor<ExplosionRadius> = Brand.make<Ex
   (value) =>
     Number.isFinite(value) && value >= 0
       ? true
-      : `ExplosionRadius must be finite and non-negative, received ${value}`,
+      : `ExplosionRadius must be finite and non-negative, received ${describeUnknown(value)}`,
 )
 
 export type ExplosionBlockCount = number & Brand.Brand<'ExplosionBlockCount'>
@@ -19,7 +20,7 @@ export const ExplosionBlockCount: Brand.Constructor<ExplosionBlockCount> =
     (value) =>
       Number.isSafeInteger(value) && value >= 0
         ? true
-        : `ExplosionBlockCount must be a non-negative safe integer, received ${value}`,
+        : `ExplosionBlockCount must be a non-negative safe integer, received ${describeUnknown(value)}`,
   )
 
 export type ExplosionRayStepCount = number & Brand.Brand<'ExplosionRayStepCount'>
@@ -28,7 +29,7 @@ export const ExplosionRayStepCount: Brand.Constructor<ExplosionRayStepCount> =
     (value) =>
       Number.isSafeInteger(value) && value >= 0
         ? true
-        : `ExplosionRayStepCount must be a non-negative safe integer, received ${value}`,
+        : `ExplosionRayStepCount must be a non-negative safe integer, received ${describeUnknown(value)}`,
   )
 
 export type ExplosionEntityCount = number & Brand.Brand<'ExplosionEntityCount'>
@@ -37,7 +38,7 @@ export const ExplosionEntityCount: Brand.Constructor<ExplosionEntityCount> =
     (value) =>
       Number.isSafeInteger(value) && value >= 0
         ? true
-        : `ExplosionEntityCount must be a non-negative safe integer, received ${value}`,
+        : `ExplosionEntityCount must be a non-negative safe integer, received ${describeUnknown(value)}`,
   )
 
 export type ExplosionExposure = number & Brand.Brand<'ExplosionExposure'>
@@ -46,7 +47,7 @@ export const ExplosionExposure: Brand.Constructor<ExplosionExposure> =
     (value) =>
       Number.isFinite(value) && value >= 0 && value <= 1
         ? true
-        : `ExplosionExposure must be finite and in [0, 1], received ${value}`,
+        : `ExplosionExposure must be finite and in [0, 1], received ${describeUnknown(value)}`,
   )
 
 export type ExplosionBlockPosition = Position

@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand } from 'effect'
 import { ResourceLocation, TagLocation } from '../text/identifiers.js'
 import { PositiveTickCount } from '../time/quantities.js'
@@ -14,7 +15,7 @@ export const SulfurCubeExplosionPower: Brand.Constructor<SulfurCubeExplosionPowe
     (value) =>
       Number.isSafeInteger(value) && value >= 0
         ? true
-        : `SulfurCubeExplosionPower must be a non-negative safe integer, received ${value}`,
+        : `SulfurCubeExplosionPower must be a non-negative safe integer, received ${describeUnknown(value)}`,
   )
 
 export type SulfurCubeContactDamageAmount = number & Brand.Brand<'SulfurCubeContactDamageAmount'>
@@ -23,7 +24,7 @@ export const SulfurCubeContactDamageAmount: Brand.Constructor<SulfurCubeContactD
     (value) =>
       Number.isFinite(value) && value >= 0
         ? true
-        : `SulfurCubeContactDamageAmount must be finite and non-negative, received ${value}`,
+        : `SulfurCubeContactDamageAmount must be finite and non-negative, received ${describeUnknown(value)}`,
   )
 
 export type SulfurCubeKnockbackPower = number & Brand.Brand<'SulfurCubeKnockbackPower'>
@@ -32,7 +33,7 @@ export const SulfurCubeKnockbackPower: Brand.Constructor<SulfurCubeKnockbackPowe
     (value) =>
       Number.isFinite(value)
         ? true
-        : `SulfurCubeKnockbackPower must be finite, received ${value}`,
+        : `SulfurCubeKnockbackPower must be finite, received ${describeUnknown(value)}`,
   )
 
 export type SulfurCubePushSoundImpulseThreshold = number & Brand.Brand<'SulfurCubePushSoundImpulseThreshold'>
@@ -41,7 +42,7 @@ export const SulfurCubePushSoundImpulseThreshold: Brand.Constructor<SulfurCubePu
     (value) =>
       Number.isFinite(value)
         ? true
-        : `SulfurCubePushSoundImpulseThreshold must be finite, received ${value}`,
+        : `SulfurCubePushSoundImpulseThreshold must be finite, received ${describeUnknown(value)}`,
   )
 
 export type SulfurCubePushSoundCooldown = number & Brand.Brand<'SulfurCubePushSoundCooldown'>
@@ -50,7 +51,7 @@ export const SulfurCubePushSoundCooldown: Brand.Constructor<SulfurCubePushSoundC
     (value) =>
       Number.isFinite(value)
         ? true
-        : `SulfurCubePushSoundCooldown must be finite, received ${value}`,
+        : `SulfurCubePushSoundCooldown must be finite, received ${describeUnknown(value)}`,
   )
 
 export const SULFUR_CUBE_ARCHETYPE_REGISTRY: ResourceLocation = ResourceLocation(

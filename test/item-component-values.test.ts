@@ -1668,7 +1668,7 @@ describe('item component values', () => {
       kind: 'TypeError',
       reason: 'invalid-value',
       field: 'debug_stick_state.block',
-      message: 'ResourceLocation has invalid syntax, received "INVALID"',
+      message: 'ResourceLocation has invalid syntax, received INVALID',
       value: 'INVALID',
     })
     reject(Reflect.apply(itemComponentValuesResult.tooltipDisplayComponent, undefined, [null]), 'tooltipDisplay', 'TypeError', null, 'invalid-type')

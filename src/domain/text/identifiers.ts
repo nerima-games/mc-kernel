@@ -1,6 +1,7 @@
 /**
  * Nominal identifiers shared by every repository.
  */
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand } from "effect";
 
 const NON_BLANK_STRING_MIN_LENGTH = 0;
@@ -19,7 +20,7 @@ export const WorldId: Brand.Constructor<WorldId> = Brand.make<WorldId>(
   (value) =>
     value.trim().length > NON_BLANK_STRING_MIN_LENGTH
       ? true
-      : `WorldId must be a non-blank string, received ${JSON.stringify(value)}`,
+      : `WorldId must be a non-blank string, received ${describeUnknown(value)}`,
 );
 
 /**
@@ -31,7 +32,7 @@ export const StageId: Brand.Constructor<StageId> = Brand.make<StageId>(
   (value) =>
     value.trim().length > NON_BLANK_STRING_MIN_LENGTH
       ? true
-      : `StageId must be a non-blank string, received ${JSON.stringify(value)}`,
+      : `StageId must be a non-blank string, received ${describeUnknown(value)}`,
 );
 
 /** A canonical UUID string used by Minecraft profile data. */
@@ -41,7 +42,7 @@ export const UUID: Brand.Constructor<UUID> = Brand.make<UUID>(
   (value) =>
     UUID_PATTERN.test(value)
       ? true
-      : `UUID has invalid syntax, received ${JSON.stringify(value)}`,
+      : `UUID has invalid syntax, received ${describeUnknown(value)}`,
 );
 
 /**
@@ -58,7 +59,7 @@ export const ResourceLocation: Brand.Constructor<ResourceLocation> =
     (value) =>
       RESOURCE_LOCATION_PATTERN.test(value)
         ? true
-        : `ResourceLocation has invalid syntax, received ${JSON.stringify(value)}`,
+        : `ResourceLocation has invalid syntax, received ${describeUnknown(value)}`,
   );
 
 /** A resource location whose namespace is explicit, as required by data-pack paths. */
@@ -70,7 +71,7 @@ export const NamespacedResourceLocation: Brand.Constructor<NamespacedResourceLoc
     (value) =>
       ResourceLocation.is(value) && value.includes(":")
         ? true
-        : `NamespacedResourceLocation must include a namespace, received ${JSON.stringify(value)}`,
+        : `NamespacedResourceLocation must include a namespace, received ${describeUnknown(value)}`,
   );
 
 /** A Minecraft tag location, including its required `#` prefix. */
@@ -81,7 +82,7 @@ export const TagLocation: Brand.Constructor<TagLocation> =
     (value) =>
       value.startsWith("#") && ResourceLocation.is(value.slice(1))
         ? true
-        : `TagLocation has invalid syntax, received ${JSON.stringify(value)}`,
+        : `TagLocation has invalid syntax, received ${describeUnknown(value)}`,
   );
 
 export type VanillaResourcePath = string & Brand.Brand<"VanillaResourcePath">;
@@ -91,7 +92,7 @@ export const VanillaResourcePath: Brand.Constructor<VanillaResourcePath> =
     (value) =>
       VANILLA_RESOURCE_PATH_PATTERN.test(value)
         ? true
-        : `VanillaResourcePath has invalid syntax, received ${JSON.stringify(value)}`,
+        : `VanillaResourcePath has invalid syntax, received ${describeUnknown(value)}`,
   );
 
 /**

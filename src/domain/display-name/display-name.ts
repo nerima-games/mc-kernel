@@ -1,4 +1,5 @@
 import { Result, Schema } from 'effect'
+import { safeUnknownSchema } from '../safe-unknown-schema.js'
 import { BLOCK_TYPES } from '../block/block-type-data.js'
 import type { BlockType } from '../block/block-type.js'
 import { ITEM_TYPES } from '../item/item-type-data.js'
@@ -18,7 +19,7 @@ export type DisplayNameRequest =
   | Readonly<{ kind: 'block'; id: BlockType; language: DisplayLanguage }>
 
 export const DisplayNameRequestSchema: Schema.Codec<DisplayNameRequest, DisplayNameRequest> =
-  Schema.Union([
+  safeUnknownSchema(Schema.Union([
     Schema.Struct({
       kind: Schema.Literal('item'),
       id: ItemTypeSchema,
@@ -29,7 +30,7 @@ export const DisplayNameRequestSchema: Schema.Codec<DisplayNameRequest, DisplayN
       id: BlockTypeSchema,
       language: DisplayLanguageSchema,
     }),
-  ])
+  ]), { onExcessProperty: 'error' })
 
 export const DisplayNameSchema: Schema.Codec<DisplayName, string> = Schema.NonEmptyString.pipe(
   Schema.brand('DisplayName'),

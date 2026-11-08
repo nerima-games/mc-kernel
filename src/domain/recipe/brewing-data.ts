@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand, Result } from 'effect'
 import { itemStack } from '../item/item-stack.js'
 import type { ItemStack, Slot } from '../item/item-stack.js'
@@ -16,13 +17,6 @@ export const BREWING_TIME_SECS: FixedDurationSecsValue = FixedDurationSecs(20)
 const BREWING_FUEL_CHARGES_MIN = 0
 const BREWING_FUEL_CHARGES_MAX = 20
 
-const describeInput = (value: unknown): string => {
-  if (typeof value === 'string') return value
-  if (typeof value === 'number' || typeof value === 'bigint') return `${value}`
-  if (value === null) return 'null'
-  return typeof value
-}
-
 export type BrewingFuelCharges = number & Brand.Brand<'BrewingFuelCharges'>
 
 export const BrewingFuelCharges: Brand.Constructor<BrewingFuelCharges> =
@@ -31,7 +25,7 @@ export const BrewingFuelCharges: Brand.Constructor<BrewingFuelCharges> =
     value >= BREWING_FUEL_CHARGES_MIN &&
     value <= BREWING_FUEL_CHARGES_MAX
       ? true
-      : `BrewingFuelCharges must be an integer in [${BREWING_FUEL_CHARGES_MIN}, ${BREWING_FUEL_CHARGES_MAX}], received ${describeInput(value)}`,
+      : `BrewingFuelCharges must be an integer in [${describeUnknown(BREWING_FUEL_CHARGES_MIN)}, ${describeUnknown(BREWING_FUEL_CHARGES_MAX)}], received ${describeUnknown(value)}`,
   )
 
 export const BREWING_MAX_FUEL_CHARGES: BrewingFuelCharges = BrewingFuelCharges(20)

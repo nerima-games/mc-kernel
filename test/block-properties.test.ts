@@ -424,7 +424,7 @@ describe('light level branding', () => {
     )
   })
 
-  it('returns failures when formatting nested untrusted values throws', () => {
+  it('describes nested untrusted values without calling string conversion hooks', () => {
     const valueWithThrowingStringConversion = {
       toString() {
         throw new Error('untrusted string conversion')
@@ -434,12 +434,12 @@ describe('light level branding', () => {
     expectPropertyFailure(
       normalizeBlockPropertyOverrides({ opacity: valueWithThrowingStringConversion }),
       'type',
-      'block property overrides must be readable',
+      'unknown block property opacity object',
     )
     expectPropertyFailure(
       normalizeBlockPropertyOverrides({ supportRule: { kind: valueWithThrowingStringConversion } }),
       'type',
-      'block property supportRule must be readable',
+      'unknown block property supportRule kind object',
     )
   })
 

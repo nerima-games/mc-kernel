@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from 'effect'
 import { snapshotInputRecord } from '../../input-snapshot.js'
 import {
@@ -30,7 +31,7 @@ function validateOverrideKeys(
   const snapshot = snapshotInputRecord(overrides, BLOCK_CAPABILITY_FLAGS, BLOCK_CAPABILITY_FLAGS)
   if (Result.isFailure(snapshot)) {
     if (snapshot.failure.reason === 'unexpected-field') {
-      return failure('unknown-key', `unknown block capability ${snapshot.failure.field}`)
+      return failure('unknown-key', `unknown block capability ${describeUnknown(snapshot.failure.field)}`)
     }
     if (snapshot.failure.reason === 'hostile-input') {
       return failure('hostile-input', 'block capability overrides must be readable')
@@ -43,7 +44,7 @@ function validateOverrideKeys(
     if (!Object.hasOwn(snapshot.success, flag)) continue
     const value = snapshot.success[flag]
     if (typeof value !== 'boolean') {
-      return failure('not-boolean', `block capability ${flag} must be a boolean`)
+      return failure('not-boolean', `block capability ${describeUnknown(flag)} must be a boolean`)
     }
     validated[flag] = value
   }

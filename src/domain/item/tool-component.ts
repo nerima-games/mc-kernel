@@ -1,3 +1,4 @@
+import { describeUnknown } from "../describe-unknown.js"
 import { Effect, Result } from 'effect'
 import {
   MAX_GENERIC_INPUT_ARRAY_LENGTH,
@@ -81,7 +82,7 @@ const failure = (
 const capture = <A>(field: string, value: unknown, read: () => A): ToolResult<A> =>
   Effect.runSync(Effect.result(Effect.try({
     try: read,
-    catch: () => failure(field, `Unable to inspect ${field}`, value, 'hostile-input'),
+    catch: () => failure(field, `Unable to inspect ${describeUnknown(field)}`, value, 'hostile-input'),
   })))
 
 const isObject = (value: unknown): value is object =>
@@ -101,7 +102,7 @@ const readArray = (
   // This snapshot call always receives the field as its path prefix.
   const errorField = snapshot.failure.path
   const reason = tooLarge ? 'out-of-range' : 'hostile-input'
-  return Result.fail(failure(errorField, tooLarge ? `${field} exceeds the maximum length` : `Unable to inspect ${errorField}`, value, reason))
+  return Result.fail(failure(errorField, tooLarge ? `${describeUnknown(field)} exceeds the maximum length` : `Unable to inspect ${describeUnknown(errorField)}`, value, reason))
 }
 
 const brandValue = <A, E extends Readonly<{ readonly message: string }>>(
@@ -131,13 +132,13 @@ const readRecord = (
   if (Result.isFailure(record)) {
     if (record.failure.reason === 'unexpected-field') {
       const key = record.failure.field
-      return Result.fail(failure(field, `unknown ${field} ${String(key)}`, key, 'invalid-value'))
+      return Result.fail(failure(field, `unknown ${describeUnknown(field)} ${describeUnknown(key)}`, key, 'invalid-value'))
     }
     const invalidType = record.failure.reason === 'invalid-container' || record.failure.reason === 'unsupported-prototype'
     // This snapshot call always receives the field as its path prefix.
     return Result.fail(failure(
       field,
-      invalidType ? `${field} must be an object` : `Unable to inspect ${record.failure.path}`,
+      invalidType ? `${describeUnknown(field)} must be an object` : `Unable to inspect ${describeUnknown(record.failure.path)}`,
       value,
       invalidType ? 'invalid-type' : 'hostile-input',
     ))
@@ -147,41 +148,41 @@ const readRecord = (
 
 const readToolRule = (value: unknown, index: number): ToolResult<ToolRule> =>
   Result.gen(function* () {
-    const field = `tool rule ${index}`
+    const field = `tool rule ${describeUnknown(index)}`
     const rule = yield* readRecord(value, field, ['blocks', 'speed', 'correctForDrops'])
     const blocks = rule['blocks']
-    if (blocks === undefined) return yield* Result.fail(failure(field, `${field} must contain at least one block`, blocks, 'out-of-range'))
-    const blockEntries = yield* readArray(`${field} blocks`, blocks)
+    if (blocks === undefined) return yield* Result.fail(failure(field, `${describeUnknown(field)} must contain at least one block`, blocks, 'out-of-range'))
+    const blockEntries = yield* readArray(`${describeUnknown(field)} blocks`, blocks)
     let normalizedBlocks: ToolRule['blocks']
     if (blockEntries !== undefined) {
       const length = blockEntries.length
-      if (length === 0) return yield* Result.fail(failure(field, `${field} must contain at least one block`, blocks, 'out-of-range'))
+      if (length === 0) return yield* Result.fail(failure(field, `${describeUnknown(field)} must contain at least one block`, blocks, 'out-of-range'))
       const entries: ToolBlockMatcher[] = []
       for (let blockIndex = 0; blockIndex < length; blockIndex += 1) {
         const block = blockEntries[blockIndex]
-        if (!isToolBlockMatcher(block)) return yield* Result.fail(failure(field, `${field} contains an unknown block or block tag`, block, 'out-of-range'))
+        if (!isToolBlockMatcher(block)) return yield* Result.fail(failure(field, `${describeUnknown(field)} contains an unknown block or block tag`, block, 'out-of-range'))
         entries.push(block)
       }
       normalizedBlocks = Object.freeze(entries)
     } else {
-      if (!isToolBlockMatcher(blocks)) return yield* Result.fail(failure(field, `${field} must contain a block or block tag`, blocks, 'out-of-range'))
+      if (!isToolBlockMatcher(blocks)) return yield* Result.fail(failure(field, `${describeUnknown(field)} must contain a block or block tag`, blocks, 'out-of-range'))
       normalizedBlocks = blocks
     }
     const speed = rule['speed']
     if (speed !== undefined && typeof speed !== 'number') {
-      return yield* Result.fail(failure(`tool rule ${index} speed`, `tool rule ${index} speed must be a finite number greater than or equal to zero`, speed, 'out-of-range'))
+      return yield* Result.fail(failure(`tool rule ${describeUnknown(index)} speed`, `tool rule ${describeUnknown(index)} speed must be a finite number greater than or equal to zero`, speed, 'out-of-range'))
     }
     const checkedSpeed = speed === undefined
       ? undefined
       : yield* brandValue(
         ToolMiningSpeed.result(speed),
-        `tool rule ${index} speed`,
-        `tool rule ${index} speed must be a finite number greater than or equal to zero`,
+        `tool rule ${describeUnknown(index)} speed`,
+        `tool rule ${describeUnknown(index)} speed must be a finite number greater than or equal to zero`,
         speed,
       )
     const correctForDrops = rule['correctForDrops']
     if (correctForDrops !== undefined && typeof correctForDrops !== 'boolean') {
-      return yield* Result.fail(failure(field, `${field} correctForDrops must be a boolean`, correctForDrops, 'invalid-type'))
+      return yield* Result.fail(failure(field, `${describeUnknown(field)} correctForDrops must be a boolean`, correctForDrops, 'invalid-type'))
     }
     return Object.freeze({
       blocks: normalizedBlocks,
@@ -264,7 +265,7 @@ const indexCompiledToolRules = (rules: ReadonlyArray<CompiledToolRule>): ToolRes
     const order = yield* brandValue(
       ToolRuleOrder.result(index),
       'rule order',
-      `ToolRuleOrder must be a non-negative safe integer, received ${String(index)}`,
+      `ToolRuleOrder must be a non-negative safe integer, received ${describeUnknown(index)}`,
       index,
     )
     const indexedRule = Object.freeze({ rule, order })
@@ -322,26 +323,26 @@ const readResolutionContext = (context: unknown): ToolResult<ToolResolutionConte
     })
     if (pair === undefined) return yield* Result.fail(failure('blockTags', 'tool resolution blockTags entries must be key/value pairs', entry, 'invalid-type'))
     const [tag, blocks] = pair
-    if (!isToolBlockTag(tag)) return yield* Result.fail(failure('blockTags', `tool resolution blockTags contains an invalid tag ${typeof tag === 'string' ? tag : typeof tag}`, tag, 'out-of-range'))
-    const methods = yield* capture(`tool resolution blockTags ${tag}`, blocks, () => {
+    if (!isToolBlockTag(tag)) return yield* Result.fail(failure('blockTags', `tool resolution blockTags contains an invalid tag ${describeUnknown(typeof tag === 'string' ? tag : typeof tag)}`, tag, 'out-of-range'))
+    const methods = yield* capture(`tool resolution blockTags ${describeUnknown(tag)}`, blocks, () => {
       if (!isObject(blocks)) return undefined
       return {
         iterator: Reflect.get(blocks, Symbol.iterator),
         has: Reflect.get(blocks, 'has'),
       }
     })
-    if (methods === undefined) return yield* Result.fail(failure(`blockTags.${tag}`, `tool resolution blockTags ${tag} must contain a Set or Set-like iterable`, blocks, 'invalid-type'))
+    if (methods === undefined) return yield* Result.fail(failure(`blockTags.${describeUnknown(tag)}`, `tool resolution blockTags ${describeUnknown(tag)} must contain a Set or Set-like iterable`, blocks, 'invalid-type'))
     if (typeof methods.iterator !== 'function' || typeof methods.has !== 'function') {
-      return yield* Result.fail(failure(`blockTags.${tag}`, `tool resolution blockTags ${tag} must contain a Set or Set-like iterable`, blocks, 'invalid-type'))
+      return yield* Result.fail(failure(`blockTags.${describeUnknown(tag)}`, `tool resolution blockTags ${describeUnknown(tag)} must contain a Set or Set-like iterable`, blocks, 'invalid-type'))
     }
-    const blockValues = yield* capture(`tool resolution blockTags ${tag}`, blocks, () => {
+    const blockValues = yield* capture(`tool resolution blockTags ${describeUnknown(tag)}`, blocks, () => {
       if (!isIterable(blocks)) return undefined
       return Array.from(blocks)
     })
-    if (blockValues === undefined) return yield* Result.fail(failure(`blockTags.${tag}`, `tool resolution blockTags ${tag} must contain a Set or Set-like iterable`, blocks, 'invalid-type'))
+    if (blockValues === undefined) return yield* Result.fail(failure(`blockTags.${describeUnknown(tag)}`, `tool resolution blockTags ${describeUnknown(tag)} must contain a Set or Set-like iterable`, blocks, 'invalid-type'))
     const validBlocks = new Set<BlockType>()
     for (const block of blockValues) {
-      if (!isBlockType(block)) return yield* Result.fail(failure(`blockTags.${tag}`, `tool resolution blockTags ${tag} contains an unknown block type`, block, 'out-of-range'))
+      if (!isBlockType(block)) return yield* Result.fail(failure(`blockTags.${describeUnknown(tag)}`, `tool resolution blockTags ${describeUnknown(tag)} contains an unknown block type`, block, 'out-of-range'))
       validBlocks.add(block)
     }
     memberships.set(tag, validBlocks)

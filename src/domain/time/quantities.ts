@@ -5,6 +5,7 @@
  * cast. `X(v)` throws for invalid input; `X.result(v)` and `X.option(v)` return
  * validation results without throwing. Use them at trust boundaries.
  */
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand } from 'effect'
 
 /**
@@ -25,7 +26,7 @@ export const StackCount: Brand.Constructor<StackCount> = Brand.make<StackCount>(
   (value) =>
     Number.isSafeInteger(value) && value >= MIN_STACK_COUNT && value <= MAX_STACK_COUNT
       ? true
-      : `StackCount must be an integer in [${MIN_STACK_COUNT}, ${MAX_STACK_COUNT}], received ${value}`,
+      : `StackCount must be an integer in [${describeUnknown(MIN_STACK_COUNT)}, ${describeUnknown(MAX_STACK_COUNT)}], received ${describeUnknown(value)}`,
 )
 
 /** A positive quantity used when transferring items between slots. */
@@ -35,7 +36,7 @@ export const TransferQuantity: Brand.Constructor<TransferQuantity> = Brand.make<
   (value) =>
     Number.isSafeInteger(value) && value >= 1 && value <= 99
       ? true
-      : `TransferQuantity must be an integer in [1, 99], received ${String(value)}`,
+      : `TransferQuantity must be an integer in [1, 99], received ${describeUnknown(value)}`,
 )
 
 /** Official `max_stack_size`: an integer in [1, 99]. */
@@ -45,7 +46,7 @@ export const MaxStackSize: Brand.Constructor<MaxStackSize> = Brand.make<MaxStack
   (value) =>
     Number.isSafeInteger(value) && value >= 1 && value <= 99
       ? true
-      : `MaxStackSize must be a safe integer in [1, 99], received ${value}`,
+      : `MaxStackSize must be a safe integer in [1, 99], received ${describeUnknown(value)}`,
 )
 
 /** Official `max_damage`: a positive safe integer. */
@@ -55,7 +56,7 @@ export const MaxDamage: Brand.Constructor<MaxDamage> = Brand.make<MaxDamage>(
   (value) =>
     Number.isSafeInteger(value) && value > MIN_NON_NEGATIVE_VALUE
       ? true
-      : `MaxDamage must be a positive safe integer, received ${value}`,
+      : `MaxDamage must be a positive safe integer, received ${describeUnknown(value)}`,
 )
 
 /** Official `damage`: a non-negative safe integer. */
@@ -65,7 +66,7 @@ export const ItemDamage: Brand.Constructor<ItemDamage> = Brand.make<ItemDamage>(
   (value) =>
     Number.isSafeInteger(value) && value >= MIN_NON_NEGATIVE_VALUE
       ? true
-      : `ItemDamage must be a non-negative safe integer, received ${value}`,
+      : `ItemDamage must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 
 /** Official `repair_cost`: a non-negative safe integer. */
@@ -75,7 +76,7 @@ export const RepairCost: Brand.Constructor<RepairCost> = Brand.make<RepairCost>(
   (value) =>
     Number.isSafeInteger(value) && value >= MIN_NON_NEGATIVE_VALUE
       ? true
-      : `RepairCost must be a non-negative safe integer, received ${value}`,
+      : `RepairCost must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 
 /**
@@ -91,7 +92,7 @@ export const DeltaTimeSecs: Brand.Constructor<DeltaTimeSecs> = Brand.make<DeltaT
   (value) =>
     Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE
       ? true
-      : `DeltaTimeSecs must be a finite, non-negative number of seconds, received ${value}`,
+      : `DeltaTimeSecs must be a finite, non-negative number of seconds, received ${describeUnknown(value)}`,
 )
 
 /** A fixed simulation duration, in seconds. */
@@ -101,7 +102,7 @@ export const FixedDurationSecs: Brand.Constructor<FixedDurationSecs> = Brand.mak
   (value) =>
     Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE
       ? true
-      : `FixedDurationSecs must be a finite, non-negative number of seconds, received ${value}`,
+      : `FixedDurationSecs must be a finite, non-negative number of seconds, received ${describeUnknown(value)}`,
 )
 
 /** A non-negative logical simulation tick index. */
@@ -111,7 +112,7 @@ export const SimulationTick: Brand.Constructor<SimulationTick> = Brand.make<Simu
   (value) =>
     Number.isSafeInteger(value) && value >= MIN_NON_NEGATIVE_VALUE
       ? true
-      : `SimulationTick must be a non-negative safe integer, received ${value}`,
+      : `SimulationTick must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 
 /** A finite fraction used to interpolate between fixed simulation ticks. */
@@ -122,7 +123,7 @@ export const InterpolationFraction: Brand.Constructor<InterpolationFraction> =
     (value) =>
       Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE && value < 1
         ? true
-        : `InterpolationFraction must be a finite number in [0, 1), received ${value}`,
+        : `InterpolationFraction must be a finite number in [0, 1), received ${describeUnknown(value)}`,
   )
 
 /** Identifies one lifecycle generation of a running session. */
@@ -143,7 +144,7 @@ export const NonNegativeTickCount: Brand.Constructor<NonNegativeTickCount> =
     (value) =>
       Number.isSafeInteger(value) && value >= MIN_NON_NEGATIVE_VALUE
         ? true
-        : `NonNegativeTickCount must be a non-negative safe integer, received ${value}`,
+        : `NonNegativeTickCount must be a non-negative safe integer, received ${describeUnknown(value)}`,
   )
 
 /** A positive safe integer count of logical ticks. */
@@ -153,7 +154,7 @@ export const PositiveTickCount: Brand.Constructor<PositiveTickCount> = Brand.mak
   (value) =>
     Number.isSafeInteger(value) && value > MIN_NON_NEGATIVE_VALUE
       ? true
-      : `PositiveTickCount must be a positive safe integer, received ${value}`,
+      : `PositiveTickCount must be a positive safe integer, received ${describeUnknown(value)}`,
 )
 
 /**
@@ -169,7 +170,7 @@ export const MonotonicTimeSecs: Brand.Constructor<MonotonicTimeSecs> = Brand.mak
   (value) =>
     Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE
       ? true
-      : `MonotonicTimeSecs must be a finite, non-negative number of seconds, received ${value}`,
+      : `MonotonicTimeSecs must be a finite, non-negative number of seconds, received ${describeUnknown(value)}`,
 )
 
 /** Positive duration used by an item `use_cooldown` component. */
@@ -179,7 +180,7 @@ export const CooldownSeconds: Brand.Constructor<CooldownSeconds> = Brand.make<Co
   (value) =>
     Number.isFinite(value) && value > MIN_NON_NEGATIVE_VALUE
       ? true
-      : `CooldownSeconds must be a finite, positive number of seconds, received ${value}`,
+      : `CooldownSeconds must be a finite, positive number of seconds, received ${describeUnknown(value)}`,
 )
 
 /** Non-negative duration used by an item `consumable` component. */
@@ -189,7 +190,7 @@ export const ConsumeSeconds: Brand.Constructor<ConsumeSeconds> = Brand.make<Cons
   (value) =>
     Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE
       ? true
-      : `ConsumeSeconds must be a finite, non-negative number of seconds, received ${value}`,
+      : `ConsumeSeconds must be a finite, non-negative number of seconds, received ${describeUnknown(value)}`,
 )
 
 /** Non-negative scale used by an item `potion_duration_scale` component. */
@@ -200,7 +201,7 @@ export const PotionDurationScale: Brand.Constructor<PotionDurationScale> =
     (value) =>
       Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE
         ? true
-        : `PotionDurationScale must be a finite, non-negative number, received ${value}`,
+        : `PotionDurationScale must be a finite, non-negative number, received ${describeUnknown(value)}`,
   )
 
 /** Java integer used by the transient `additional_trade_cost` component. */
@@ -211,7 +212,7 @@ export const AdditionalTradeCost: Brand.Constructor<AdditionalTradeCost> =
     (value) =>
       Number.isSafeInteger(value)
         ? true
-        : `AdditionalTradeCost must be a safe integer, received ${value}`,
+        : `AdditionalTradeCost must be a safe integer, received ${describeUnknown(value)}`,
   )
 
 /** Non-negative safe integer used by the `map_id` item component. */
@@ -221,7 +222,7 @@ export const MapId: Brand.Constructor<MapId> = Brand.make<MapId>(
   (value) =>
     Number.isSafeInteger(value) && value >= MIN_NON_NEGATIVE_VALUE
       ? true
-      : `MapId must be a non-negative safe integer, received ${value}`,
+      : `MapId must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 
 /** Non-negative duration used by an item `weapon` component. */
@@ -232,7 +233,7 @@ export const WeaponDisableBlockingSeconds: Brand.Constructor<WeaponDisableBlocki
     (value) =>
       Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE
         ? true
-        : `WeaponDisableBlockingSeconds must be a finite, non-negative number of seconds, received ${value}`,
+        : `WeaponDisableBlockingSeconds must be a finite, non-negative number of seconds, received ${describeUnknown(value)}`,
   )
 
 /** Fraction in [0, 1] used by `minimum_attack_charge`. */
@@ -242,7 +243,7 @@ export const AttackCharge: Brand.Constructor<AttackCharge> = Brand.make<AttackCh
   (value) =>
     Number.isFinite(value) && value >= 0 && value <= 1
       ? true
-      : `AttackCharge must be a finite number in [0, 1], received ${value}`,
+      : `AttackCharge must be a finite number in [0, 1], received ${describeUnknown(value)}`,
 )
 
 /** Fraction in [0, 1] used by `use_effects.speed_multiplier`. */
@@ -253,7 +254,7 @@ export const UseSpeedMultiplier: Brand.Constructor<UseSpeedMultiplier> =
     (value) =>
       Number.isFinite(value) && value >= 0 && value <= 1
         ? true
-        : `UseSpeedMultiplier must be a finite number in [0, 1], received ${value}`,
+        : `UseSpeedMultiplier must be a finite number in [0, 1], received ${describeUnknown(value)}`,
   )
 
 /** Distance in blocks used by an item `attack_range` component. */
@@ -264,7 +265,7 @@ export const AttackRangeDistance: Brand.Constructor<AttackRangeDistance> =
     (value) =>
       Number.isFinite(value) && value >= 0 && value <= 64
         ? true
-        : `AttackRangeDistance must be a finite number in [0, 64], received ${value}`,
+        : `AttackRangeDistance must be a finite number in [0, 64], received ${describeUnknown(value)}`,
   )
 
 /** Hitbox margin in blocks used by an item `attack_range` component. */
@@ -275,7 +276,7 @@ export const AttackHitboxMargin: Brand.Constructor<AttackHitboxMargin> =
     (value) =>
       Number.isFinite(value) && value >= 0 && value <= 1
         ? true
-        : `AttackHitboxMargin must be a finite number in [0, 1], received ${value}`,
+        : `AttackHitboxMargin must be a finite number in [0, 1], received ${describeUnknown(value)}`,
   )
 
 /** Mob reach multiplier in [0, 2] used by an item `attack_range` component. */
@@ -286,7 +287,7 @@ export const MobAttackRangeFactor: Brand.Constructor<MobAttackRangeFactor> =
     (value) =>
       Number.isFinite(value) && value >= 0 && value <= 2
         ? true
-        : `MobAttackRangeFactor must be a finite number in [0, 2], received ${value}`,
+        : `MobAttackRangeFactor must be a finite number in [0, 2], received ${describeUnknown(value)}`,
   )
 
 /** Non-negative integer tick duration used by an item `swing_animation`. */
@@ -297,7 +298,7 @@ export const SwingAnimationDuration: Brand.Constructor<SwingAnimationDuration> =
     (value) =>
       Number.isSafeInteger(value) && value >= 0
         ? true
-        : `SwingAnimationDuration must be a non-negative safe integer, received ${value}`,
+        : `SwingAnimationDuration must be a non-negative safe integer, received ${describeUnknown(value)}`,
   )
 
 /** Non-negative delay used by an item `blocks_attacks` component. */
@@ -308,7 +309,7 @@ export const BlockingDelaySeconds: Brand.Constructor<BlockingDelaySeconds> =
     (value) =>
       Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE
         ? true
-        : `BlockingDelaySeconds must be a finite, non-negative number of seconds, received ${value}`,
+        : `BlockingDelaySeconds must be a finite, non-negative number of seconds, received ${describeUnknown(value)}`,
   )
 
 /** Non-negative cooldown scale used by an item `blocks_attacks` component. */
@@ -319,7 +320,7 @@ export const DisableCooldownScale: Brand.Constructor<DisableCooldownScale> =
     (value) =>
       Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE
         ? true
-        : `DisableCooldownScale must be a finite, non-negative number, received ${value}`,
+        : `DisableCooldownScale must be a finite, non-negative number, received ${describeUnknown(value)}`,
   )
 
 /** Finite base damage used by an item `blocks_attacks` damage reduction. */
@@ -330,7 +331,7 @@ export const DamageReductionBase: Brand.Constructor<DamageReductionBase> =
     (value) =>
       Number.isFinite(value)
         ? true
-        : `DamageReductionBase must be a finite number, received ${value}`,
+        : `DamageReductionBase must be a finite number, received ${describeUnknown(value)}`,
   )
 
 /** Finite damage factor used by an item `blocks_attacks` damage reduction. */
@@ -341,7 +342,7 @@ export const DamageReductionFactor: Brand.Constructor<DamageReductionFactor> =
     (value) =>
       Number.isFinite(value)
         ? true
-        : `DamageReductionFactor must be a finite number, received ${value}`,
+        : `DamageReductionFactor must be a finite number, received ${describeUnknown(value)}`,
   )
 
 /** Positive blocking angle in degrees used by an item `blocks_attacks` rule. */
@@ -352,7 +353,7 @@ export const HorizontalBlockingAngle: Brand.Constructor<HorizontalBlockingAngle>
     (value) =>
       Number.isFinite(value) && value > MIN_NON_NEGATIVE_VALUE
         ? true
-        : `HorizontalBlockingAngle must be a finite, positive number, received ${value}`,
+        : `HorizontalBlockingAngle must be a finite, positive number, received ${describeUnknown(value)}`,
   )
 
 /** Non-negative threshold used by an item `blocks_attacks.item_damage` rule. */
@@ -363,7 +364,7 @@ export const ItemDamageThreshold: Brand.Constructor<ItemDamageThreshold> =
     (value) =>
       Number.isFinite(value) && value >= MIN_NON_NEGATIVE_VALUE
         ? true
-        : `ItemDamageThreshold must be a finite, non-negative number, received ${value}`,
+        : `ItemDamageThreshold must be a finite, non-negative number, received ${describeUnknown(value)}`,
   )
 
 /** Finite base item damage used by an item `blocks_attacks` rule. */
@@ -373,7 +374,7 @@ export const ItemDamageBase: Brand.Constructor<ItemDamageBase> = Brand.make<Item
   (value) =>
     Number.isFinite(value)
       ? true
-      : `ItemDamageBase must be a finite number, received ${value}`,
+      : `ItemDamageBase must be a finite number, received ${describeUnknown(value)}`,
 )
 
 /** Finite item damage factor used by an item `blocks_attacks` rule. */
@@ -383,7 +384,7 @@ export const ItemDamageFactor: Brand.Constructor<ItemDamageFactor> = Brand.make<
   (value) =>
     Number.isFinite(value)
       ? true
-      : `ItemDamageFactor must be a finite number, received ${value}`,
+      : `ItemDamageFactor must be a finite number, received ${describeUnknown(value)}`,
 )
 
 /** Official enchantment level in [0, 255]. */
@@ -393,7 +394,7 @@ export const EnchantmentLevel: Brand.Constructor<EnchantmentLevel> = Brand.make<
   (value) =>
     Number.isSafeInteger(value) && value >= MIN_NON_NEGATIVE_VALUE && value <= 255
       ? true
-      : `EnchantmentLevel must be a safe integer in [0, 255], received ${value}`,
+      : `EnchantmentLevel must be a safe integer in [0, 255], received ${describeUnknown(value)}`,
 )
 
 /** Finite amount used by an item attribute modifier. */
@@ -404,7 +405,7 @@ export const AttributeModifierAmount: Brand.Constructor<AttributeModifierAmount>
     (value) =>
       Number.isFinite(value)
         ? true
-        : `AttributeModifierAmount must be a finite number, received ${value}`,
+        : `AttributeModifierAmount must be a finite number, received ${describeUnknown(value)}`,
   )
 
 /** Portion of collision velocity restituted by an entity or block in [0, 1]. */
@@ -414,7 +415,7 @@ export const Bounciness: Brand.Constructor<Bounciness> = Brand.make<Bounciness>(
   (value) =>
     Number.isFinite(value) && value >= 0 && value <= 1
       ? true
-      : `Bounciness must be a finite number in [0, 1], received ${value}`,
+      : `Bounciness must be a finite number in [0, 1], received ${describeUnknown(value)}`,
 )
 
 /** Entity physics modifier in the official [0, 2048] range. */
@@ -425,7 +426,7 @@ export const EntityPhysicsModifier: Brand.Constructor<EntityPhysicsModifier> =
     (value) =>
       Number.isFinite(value) && value >= 0 && value <= 2048
         ? true
-        : `EntityPhysicsModifier must be a finite number in [0, 2048], received ${value}`,
+        : `EntityPhysicsModifier must be a finite number in [0, 2048], received ${describeUnknown(value)}`,
   )
 
 /** Entity name/scoreboard display distance in blocks in [0, 512]. */
@@ -436,7 +437,7 @@ export const EntityVisibilityDistance: Brand.Constructor<EntityVisibilityDistanc
     (value) =>
       Number.isFinite(value) && value >= 0 && value <= 512
         ? true
-        : `EntityVisibilityDistance must be a finite number in [0, 512], received ${value}`,
+        : `EntityVisibilityDistance must be a finite number in [0, 512], received ${describeUnknown(value)}`,
   )
 
 /** Knockback resistance after the 26.2 lower-bound change to -2. */
@@ -447,7 +448,7 @@ export const KnockbackResistance: Brand.Constructor<KnockbackResistance> =
     (value) =>
       Number.isFinite(value) && value >= -2
         ? true
-        : `KnockbackResistance must be a finite number >= -2, received ${value}`,
+        : `KnockbackResistance must be a finite number >= -2, received ${describeUnknown(value)}`,
   )
 
 /**
@@ -463,5 +464,5 @@ export const EpochMillis: Brand.Constructor<EpochMillis> = Brand.make<EpochMilli
   (value) =>
     Number.isSafeInteger(value)
       ? true
-      : `EpochMillis must be a safe integer number of milliseconds, received ${value}`,
+      : `EpochMillis must be a safe integer number of milliseconds, received ${describeUnknown(value)}`,
 )

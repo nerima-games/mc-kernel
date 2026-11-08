@@ -1,4 +1,5 @@
 /** Constructors and guards for current Java item attribute modifiers. */
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from 'effect'
 import { snapshotInputRecord } from '../../input-snapshot.js'
 import { ResourceLocation, type ResourceLocation as ResourceLocationType } from '../text/identifiers.js'
@@ -50,10 +51,10 @@ const failure = (
 
 const resourceLocationOf = (value: unknown, name: string): AttributeModifierResult<ResourceLocationType> => {
   if (typeof value !== 'string') {
-    return Result.fail(failure(name, `${name} must be a valid resource location`, value, 'invalid-value', 'TypeError'))
+    return Result.fail(failure(name, `${describeUnknown(name)} must be a valid resource location`, value, 'invalid-value', 'TypeError'))
   }
   return Result.mapError(ResourceLocation.result(value), () =>
-    failure(name, `${name} must be a valid resource location`, value, 'invalid-value', 'TypeError'))
+    failure(name, `${describeUnknown(name)} must be a valid resource location`, value, 'invalid-value', 'TypeError'))
 }
 
 const snapshotOptions = (
@@ -125,11 +126,11 @@ export const attributeModifier = (
   if (Result.isFailure(id)) return Result.fail(id.failure)
   const operation = input['operation']
   if (!isAttributeModifierOperation(operation)) {
-    return Result.fail(failure('operation', `Unknown attribute modifier operation: ${typeof operation === 'string' ? operation : typeof operation}`, operation))
+    return Result.fail(failure('operation', `Unknown attribute modifier operation: ${describeUnknown(typeof operation === 'string' ? operation : typeof operation)}`, operation))
   }
   const slot = input['slot']
   if (slot !== undefined && !isAttributeModifierSlot(slot)) {
-    return Result.fail(failure('slot', `Unknown attribute modifier slot: ${typeof slot === 'string' ? slot : typeof slot}`, slot))
+    return Result.fail(failure('slot', `Unknown attribute modifier slot: ${describeUnknown(typeof slot === 'string' ? slot : typeof slot)}`, slot))
   }
   const displayValue = input['display'] === undefined
     ? Result.succeed(undefined)

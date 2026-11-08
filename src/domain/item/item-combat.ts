@@ -1,4 +1,5 @@
 /** Constructors and guards for item use and attack components. */
+import { describeUnknown } from "../describe-unknown.js"
 import { Result } from 'effect'
 import { snapshotInputRecord } from '../../input-snapshot.js'
 import { ResourceLocation } from '../text/identifiers.js'
@@ -20,13 +21,6 @@ import {
   type UseEffectsComponent,
 } from './item-combat-data.js'
 import { itemValidationFailure, type ItemValidationFailure } from './item-failure.js'
-
-const describeInput = (value: unknown): string => {
-  if (typeof value === 'string') return value
-  if (typeof value === 'number') return `${value}`
-  if (value === null) return 'null'
-  return typeof value
-}
 
 export {
   isAttackRangeComponent,
@@ -81,7 +75,7 @@ const snapshotOptions = <T extends object>(
     const invalidType = snapshot.failure.reason === 'invalid-container' || snapshot.failure.reason === 'unsupported-prototype'
     return Result.fail(failure(
       'options',
-      invalidType ? `${name} options must be a non-null object` : `Unable to inspect ${name} options`,
+      invalidType ? `${describeUnknown(name)} options must be a non-null object` : `Unable to inspect ${describeUnknown(name)} options`,
       invalidType ? 'invalid-type' : 'hostile-input',
       value,
     ))
@@ -122,10 +116,10 @@ export const minimumAttackChargeComponent = (
 
 export const damageTypeComponent = (value: string): Result.Result<DamageTypeComponent, ItemValidationFailure> =>
   typeof value !== 'string'
-    ? Result.fail(failure('damageType', `damageType must be a valid resource location: ${describeInput(value)}`, 'invalid-value', value))
+    ? Result.fail(failure('damageType', `damageType must be a valid resource location: ${describeUnknown(value)}`, 'invalid-value', value))
     : Result.mapError(
       ResourceLocation.result(value),
-      () => failure('damageType', `damageType must be a valid resource location: ${value}`, 'invalid-value', value),
+      () => failure('damageType', `damageType must be a valid resource location: ${describeUnknown(value)}`, 'invalid-value', value),
     )
 
 export const swingAnimationComponent = (
@@ -135,7 +129,7 @@ export const swingAnimationComponent = (
   (snapshot) => {
     const typeValue = snapshot['type']
     if (typeValue !== undefined && !isSwingAnimationType(typeValue)) {
-      return Result.fail(failure('type', `Unknown swing animation type: ${describeInput(typeValue)}`, 'invalid-value', typeValue))
+      return Result.fail(failure('type', `Unknown swing animation type: ${describeUnknown(typeValue)}`, 'invalid-value', typeValue))
     }
     const durationValue = snapshot['duration'] === undefined ? 6 : snapshot['duration']
     if (typeof durationValue !== 'number') {

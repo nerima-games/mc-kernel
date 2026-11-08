@@ -554,7 +554,7 @@ describe("current Java crafting recipe JSON", () => {
           kind: "TypeError",
           reason: "invalid-value",
           field: "custom_name",
-          message: 'ItemComponentPatchKey must be a namespaced component with an optional ! prefix, received "custom_name"',
+          message: 'ItemComponentPatchKey must be a namespaced component with an optional ! prefix, received custom_name',
           value: "custom_name",
         },
       },

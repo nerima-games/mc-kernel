@@ -137,7 +137,7 @@ describe("item component patches", () => {
       field: "custom_name",
       kind: "TypeError",
       reason: "invalid-value",
-      message: 'NamespacedResourceLocation must include a namespace, received "custom_name"',
+      message: 'NamespacedResourceLocation must include a namespace, received custom_name',
       value: "custom_name",
     });
   });

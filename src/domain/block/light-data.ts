@@ -1,4 +1,5 @@
 /* eslint-disable no-magic-numbers -- Constants define the fixed binary wire format, mirroring src/domain/chunk.ts. */
+import { describeUnknown } from "../describe-unknown.js"
 import { Brand, Result } from 'effect'
 import { isLightLevel, LightLevel } from './block-property-data.js'
 import { MAX_CHUNK_HEIGHT } from '../world/chunk.js'
@@ -26,7 +27,7 @@ export const LightChannelLength: Brand.Constructor<LightChannelLength> = Brand.m
   (value) =>
     Number.isSafeInteger(value) && value >= 0
       ? true
-      : `LightChannelLength must be a non-negative safe integer, received ${value}`,
+      : `LightChannelLength must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 
 /** Zero-based light-channel cell offset. */
@@ -35,7 +36,7 @@ export const LightChannelIndex: Brand.Constructor<LightChannelIndex> = Brand.mak
   (value) =>
     Number.isSafeInteger(value) && value >= 0
       ? true
-      : `LightChannelIndex must be a non-negative safe integer, received ${value}`,
+      : `LightChannelIndex must be a non-negative safe integer, received ${describeUnknown(value)}`,
 )
 
 /** Zero-based byte offset when copying a light channel into a wire buffer. */
@@ -45,11 +46,11 @@ export const LightChannelByteOffset: Brand.Constructor<LightChannelByteOffset> =
     (value) =>
       Number.isSafeInteger(value) && value >= 0
         ? true
-        : `LightChannelByteOffset must be a non-negative safe integer, received ${value}`,
+        : `LightChannelByteOffset must be a non-negative safe integer, received ${describeUnknown(value)}`,
   )
 
 const lightVolumeHeightMessage = (value: number): string =>
-  `Light volume height must be an integer in [${MIN_VOLUME_HEIGHT}, ${MAX_VOLUME_HEIGHT}], received ${value}`
+  `Light volume height must be an integer in [${describeUnknown(MIN_VOLUME_HEIGHT)}, ${describeUnknown(MAX_VOLUME_HEIGHT)}], received ${describeUnknown(value)}`
 
 const LightVolumeHeightBrand = Brand.make<LightVolumeHeight>(
   (value) =>
@@ -98,7 +99,7 @@ export const lightVolumeIndexOf = (
   local: LocalBlockCoord,
 ): Result.Result<LightChannelIndex, LightVolumeFailure> => {
   if (!Number.isInteger(local.ly) || local.ly < 0 || local.ly >= height) {
-    return failure('invalid-index', `Light volume y must be an integer in [0, ${height - 1}], received ${local.ly}`)
+    return failure('invalid-index', `Light volume y must be an integer in [0, ${describeUnknown(height - 1)}], received ${describeUnknown(local.ly)}`)
   }
   return Result.succeed(LightChannelIndex(indexOfAxes(height, local.lx, local.ly, local.lz)))
 }
@@ -112,7 +113,7 @@ export class LightChannel {
     const owned = bytes.slice()
     for (const [index, value] of owned.entries()) {
       if (!isLightLevel(value)) {
-        return failure('invalid-channel-value', `Light channel contains an out-of-range value ${value} at index ${index}`)
+        return failure('invalid-channel-value', `Light channel contains an out-of-range value ${describeUnknown(value)} at index ${describeUnknown(index)}`)
       }
     }
     return Result.succeed(new LightChannel(owned))
@@ -131,7 +132,7 @@ export class LightChannel {
   /** Read a validated light level at a checked linear index. */
   at(index: LightChannelIndex): Result.Result<LightLevel, LightVolumeFailure> {
     if (!Number.isInteger(index) || index < 0 || index >= this.length) {
-      return failure('invalid-index', `Light channel index must be an integer in [0, ${this.length - 1}], received ${index}`)
+      return failure('invalid-index', `Light channel index must be an integer in [0, ${describeUnknown(this.length - 1)}], received ${describeUnknown(index)}`)
     }
     return Result.succeed(LightLevel(this.#view.getUint8(index)))
   }
@@ -147,7 +148,7 @@ export class LightChannel {
     offset: LightChannelByteOffset = LightChannelByteOffset(0),
   ): Result.Result<void, LightVolumeFailure> {
     if (!Number.isInteger(offset) || offset < 0 || offset + this.length > target.length) {
-      return failure('invalid-copy-range', `Light channel copy range must fit target at offset ${offset}`)
+      return failure('invalid-copy-range', `Light channel copy range must fit target at offset ${describeUnknown(offset)}`)
     }
     target.set(this.#bytes, offset)
     return Result.succeed(undefined)
@@ -171,7 +172,7 @@ export type LightVolume = {
 
 const validateChannelLength = (bytes: Uint8Array, expected: number): Result.Result<void, LightVolumeFailure> => {
   if (bytes.length !== expected) {
-    return failure('invalid-channel-length', `Light channel length must be ${expected}, received ${bytes.length}`)
+    return failure('invalid-channel-length', `Light channel length must be ${describeUnknown(expected)}, received ${describeUnknown(bytes.length)}`)
   }
   return Result.succeed(undefined)
 }
@@ -232,7 +233,7 @@ export const encodeLightVolume = (
 /** Decode and validate a light volume. Truncated buffers and wrong magic are corruption. */
 export const decodeLightVolume = (encoded: Uint8Array): Result.Result<LightVolume, LightVolumeFailure> => {
   if (encoded.length < LIGHT_VOLUME_HEADER_BYTES) {
-    return failure('truncated-header', `Light volume data is shorter than the ${LIGHT_VOLUME_HEADER_BYTES}-byte header`)
+    return failure('truncated-header', `Light volume data is shorter than the ${describeUnknown(LIGHT_VOLUME_HEADER_BYTES)}-byte header`)
   }
   if (
     encoded[0] !== MAGIC[0] ||
@@ -246,14 +247,14 @@ export const decodeLightVolume = (encoded: Uint8Array): Result.Result<LightVolum
   const view = new DataView(encoded.buffer, encoded.byteOffset, encoded.byteLength)
   const version = view.getUint16(4, true)
   if (version !== LIGHT_VOLUME_CODEC_VERSION) {
-    return failure('unsupported-version', `Unsupported light volume codec version ${version}`)
+    return failure('unsupported-version', `Unsupported light volume codec version ${describeUnknown(version)}`)
   }
   const width = view.getUint16(6, true)
   const depth = view.getUint16(8, true)
   if (width !== CHUNK_SIZE_XZ || depth !== CHUNK_SIZE_XZ) {
     return failure(
       'invalid-dimensions',
-      `Invalid light volume dimensions ${width}x${depth}; expected ${CHUNK_SIZE_XZ}x${CHUNK_SIZE_XZ}`,
+      `Invalid light volume dimensions ${describeUnknown(width)}x${describeUnknown(depth)}; expected ${describeUnknown(CHUNK_SIZE_XZ)}x${describeUnknown(CHUNK_SIZE_XZ)}`,
     )
   }
 
@@ -264,12 +265,12 @@ export const decodeLightVolume = (encoded: Uint8Array): Result.Result<LightVolum
   const cellCount = lightVolumeCellCount(height)
   const expectedPayload = cellCount * CHANNEL_COUNT
   if (payloadLength !== expectedPayload) {
-    return failure('invalid-payload-length', `Light volume payload length must be ${expectedPayload}, header declares ${payloadLength}`)
+    return failure('invalid-payload-length', `Light volume payload length must be ${describeUnknown(expectedPayload)}, header declares ${describeUnknown(payloadLength)}`)
   }
   if (encoded.length !== LIGHT_VOLUME_HEADER_BYTES + payloadLength) {
     return failure(
       'invalid-payload-length',
-      `Light volume encoded length must be ${LIGHT_VOLUME_HEADER_BYTES + payloadLength}, received ${encoded.length}`,
+      `Light volume encoded length must be ${describeUnknown(LIGHT_VOLUME_HEADER_BYTES + payloadLength)}, received ${describeUnknown(encoded.length)}`,
     )
   }
 

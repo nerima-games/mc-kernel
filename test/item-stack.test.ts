@@ -497,7 +497,7 @@ describe("canonical item stacks", () => {
     const invalidPatch = { invalid: true };
     expectItemFailure(itemStackResult.itemStackFromUnknown("stone", 1, { componentPatch: invalidPatch }), {
       _tag: "ItemValidationFailure", kind: "TypeError", reason: "invalid-value", field: "invalid",
-      message: 'ItemComponentPatchKey must be a namespaced component with an optional ! prefix, received "invalid"', value: "invalid",
+      message: 'ItemComponentPatchKey must be a namespaced component with an optional ! prefix, received invalid', value: "invalid",
     });
   });
 
