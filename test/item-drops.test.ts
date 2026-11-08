@@ -237,6 +237,8 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
     ['deepslate_redstone_ore', 'nothing', 'redstone_dust'],
     ['deepslate_lapis_ore', 'nothing', 'lapis_lazuli'],
     ['deepslate_emerald_ore', 'nothing', 'emerald'],
+    ['copper_ore', 'nothing', 'raw_copper'],
+    ['deepslate_copper_ore', 'nothing', 'raw_copper'],
     ['coal_block', 'coal_block', 'coal_block'],
     ['iron_block', 'iron_block', 'iron_block'],
     ['gold_block', 'gold_block', 'gold_block'],
@@ -418,6 +420,16 @@ describe('the tool gate', () => {
         affectedByFortune: true,
         count: 4,
         item: 'deepslate_redstone_ore',
+      })
+      expect(dropOfBlockId(knownBlockIdOf('copper_ore'), SILK_TOUCH)).toStrictEqual({
+        affectedByFortune: true,
+        count: 2,
+        item: 'copper_ore',
+      })
+      expect(dropOfBlockId(knownBlockIdOf('deepslate_copper_ore'), SILK_TOUCH)).toStrictEqual({
+        affectedByFortune: true,
+        count: 2,
+        item: 'deepslate_copper_ore',
       })
       // `glowstone` was the one row missing `silkTouchItem` — see the
       // registry comment at its definition. `count`/`affectedByFortune` stay
@@ -834,6 +846,8 @@ describe('the rule that keeps a `self` drop honest', () => {
         'white_banner',
         'yellow_banner',
         'potion_of_healing',
+        'glistering_melon_slice',
+        'copper_ingot',
         'ink_sac',
         'prismarine_shard',
         'dragon_breath',

@@ -173,6 +173,8 @@ const EXPECTED_BLOCK_TYPES: ReadonlyArray<BlockType> = [
   'fire',
   'soul_soil',
   'wither_skeleton_skull',
+  'copper_ore',
+  'deepslate_copper_ore',
 ]
 
 const expectOreProperties = () => {
@@ -391,7 +393,7 @@ describe('the reference tables this roster transcribes', () => {
       // that are drawn but never physically occupied (`end_portal`,
       // `end_gateway`, `end_crystal`, `end_rod`, `nether_portal`, `fire`).
       // Every other row must carry a real classification — this is the
-      // invariant the near-total silence bug (roughly 15 of 123 rows
+      // invariant the near-total silence bug (roughly 15 of 125 rows
       // classified, everything else including `deepslate` falling through to
       // `default`) would have failed.
       const DELIBERATELY_SILENT_BLOCK_TYPES: ReadonlySet<BlockType> = new Set<BlockType>([
@@ -481,7 +483,7 @@ describe('the reference tables this roster transcribes', () => {
     Effect.runPromise(Effect.sync(() => {
       // mx-gameplay's mirror (`block-vocabulary.ts:589-590`) records
       // `resistsNormalExplosion?: true` as a per-block override defaulting to
-      // absent/false, and flags exactly two of its 123 rows: `bedrock`
+      // absent/false, and flags exactly two of its 125 rows: `bedrock`
       // (`:610`) and `obsidian` (`:649`). The predicate itself is at
       // `block-vocabulary.ts:751-752`.
       expect(BLOCK_PROPERTY_DEFAULTS.blastResistance).toBe(number('0'))
@@ -529,7 +531,7 @@ describe('the reference tables this roster transcribes', () => {
 })
 
 describe('the completed roster and additive gameplay vocabulary', () => {
-  it('keeps the reference’s 120 plus three additions distinct and registered', () =>
+  it('keeps the reference’s 120, three domain additions, and copper ores registered', () =>
     Effect.runPromise(Effect.sync(() => {
       // `docs/testing.md` §5.2 re-derived the reference's 120 from two hand-maintained
       // Arrays in the reference that agree as sets (`BlockTypeSchema` and
@@ -541,7 +543,7 @@ describe('the completed roster and additive gameplay vocabulary', () => {
       // Counting LINES of the reference schema gives 128; eight are comments.
       // That is the trap, and 120 is the answer.
       expect(BLOCK_TYPES).toStrictEqual(EXPECTED_BLOCK_TYPES)
-      expect(BLOCK_TYPES.length).toBe(number('123'))
+      expect(BLOCK_TYPES.length).toBe(number('125'))
       expect(new Set(BLOCK_TYPES).size).toBe(EXPECTED_BLOCK_TYPES.length)
       expect(BLOCK_REGISTRY.length).toBe(EXPECTED_BLOCK_TYPES.length)
 
@@ -557,14 +559,14 @@ describe('the completed roster and additive gameplay vocabulary', () => {
 
   it('fits the chunk byte, which is what makes the ids a wire format at all', () =>
     Effect.runPromise(Effect.sync(() => {
-      // 123 rows in a 256-value space. Worth an assertion rather than a comment:
+      // 125 rows in a 256-value space. Worth an assertion rather than a comment:
       // The ceiling is a property of the `Uint8Array` chunk buffer, and the day
       // The roster crosses it the fix is a chunk-format migration in mc-save,
       // Not a bigger number here.
       for (const id of BLOCK_IDS) {
         expect(id).toBeLessThanOrEqual(BLOCK_ID_MAX)
       }
-      expect(Math.max(...BLOCK_IDS)).toBe(number('122'))
+      expect(Math.max(...BLOCK_IDS)).toBe(number('124'))
     })),
   )
 
@@ -596,6 +598,10 @@ describe('the completed roster and additive gameplay vocabulary', () => {
       expect(propertyOfBlockId(blockIdOf('deepslate_iron_ore'), 'hardness')).toBe(number('4.5'))
       expect(propertyOfBlockId(iron, 'hardness')).toBe(number('3'))
       expect(propertyOfBlockId(blockIdOf('deepslate_iron_ore'), 'harvestTool').minTier).toBe('stone')
+      expect(propertyOfBlockId(blockIdOf('copper_ore'), 'hardness')).toBe(number('3'))
+      expect(propertyOfBlockId(blockIdOf('deepslate_copper_ore'), 'hardness')).toBe(number('4.5'))
+      expect(propertyOfBlockId(blockIdOf('copper_ore'), 'harvestTool').minTier).toBe('stone')
+      expect(propertyOfBlockId(blockIdOf('deepslate_copper_ore'), 'harvestTool').minTier).toBe('stone')
     })),
   )
 

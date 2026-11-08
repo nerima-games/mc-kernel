@@ -474,4 +474,9 @@ export const ITEM_TYPES = [
   "potion_of_swiftness_ii",
   "potion_of_healing_ii",
   "potion_of_swiftness_long",
+  "glistering_melon_slice",
+  "copper_ore",
+  "deepslate_copper_ore",
+  "raw_copper",
+  "copper_ingot",
 ] as const;

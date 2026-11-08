@@ -145,6 +145,11 @@ const VANILLA_PARITY_ITEM_IDS = {
   potion_of_swiftness_ii: 300,
   potion_of_healing_ii: 301,
   potion_of_swiftness_long: 302,
+  glistering_melon_slice: 303,
+  copper_ore: 304,
+  deepslate_copper_ore: 305,
+  raw_copper: 306,
+  copper_ingot: 307,
 } as const satisfies Readonly<Partial<Record<ItemType, number>>>
 
 const EXPECTED_ITEM_TYPES: ReadonlyArray<ItemType> = [
@@ -451,6 +456,11 @@ const EXPECTED_ITEM_TYPES: ReadonlyArray<ItemType> = [
   'potion_of_swiftness_ii',
   'potion_of_healing_ii',
   'potion_of_swiftness_long',
+  'glistering_melon_slice',
+  'copper_ore',
+  'deepslate_copper_ore',
+  'raw_copper',
+  'copper_ingot',
 ]
 
 /**
@@ -703,7 +713,7 @@ describe('item registry', () => {
         })
       }
       for (const [input, id] of [
-        [new Uint8Array([1, 47]), 303],
+        [new Uint8Array([1, 52]), 308],
         [new Uint8Array([0xff, 0xff]), 0xffff],
       ] as const) {
         const expected = {
@@ -820,7 +830,9 @@ describe('item registry', () => {
       expect(isKnownItemId(279)).toBe(true)
       expect(isKnownItemId(280)).toBe(true)
       expect(isKnownItemId(302)).toBe(true)
-      expect(isKnownItemId(303)).toBe(false)
+      expect(isKnownItemId(303)).toBe(true)
+      expect(isKnownItemId(307)).toBe(true)
+      expect(isKnownItemId(308)).toBe(false)
       expect(isKnownItemId(-1)).toBe(false)
       expect(isKnownItemId(1.5)).toBe(false)
     })),

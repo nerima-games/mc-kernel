@@ -81,6 +81,11 @@ const PUBLIC_ITEM_TYPES = [
   "netherite_upgrade_smithing_template",
   "diamond_helmet",
   "netherite_helmet",
+  "glistering_melon_slice",
+  "copper_ore",
+  "deepslate_copper_ore",
+  "raw_copper",
+  "copper_ingot",
 ] as const;
 
 /**
