@@ -100,6 +100,10 @@ re-exports that barrel.
 `statistics-data.ts`, `statistics.ts`, `text-component-data.ts`,
 `text-component-validation.ts`, `text-component.ts`
 
+### display-name
+
+`display-name-data.ts`, `display-name-naming.ts`, `display-name.ts`
+
 ### presentation
 
 `camera.ts`
@@ -164,6 +168,7 @@ Rows follow the order of the non-root keys in `package.json`'s `exports` map.
 | `./domain/damage-type` | `entity/_damage-type.ts` |
 | `./domain/game-mode` | `text/_game-mode.ts` |
 | `./domain/dimension` | `world/_dimension.ts` |
+| `./domain/display-name` | `display-name/_display-name.ts` |
 | `./domain/entity` | `entity/_entity.ts` |
 | `./domain/entity-type` | `entity/_entity-type.ts` |
 | `./domain/sulfur-cube` | `entity/_sulfur-cube.ts` |

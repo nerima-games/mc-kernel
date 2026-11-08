@@ -1953,6 +1953,30 @@ describe("public API surface", () => {
       }),
     ));
 
+  it("supports the display-name package subpath", () =>
+    Effect.runPromise(
+      Effect.promise(async () => {
+        const packageRootPath = "@nerima-games/mc-kernel";
+        const displayNamePath =
+          "@nerima-games/mc-kernel/domain/display-name";
+        const [packageRoot, displayName] = await Promise.all([
+          import(packageRootPath),
+          import(displayNamePath),
+        ]);
+
+        expect(displayName.getDisplayName).toBe(packageRoot.getDisplayName);
+        expect(displayName.DisplayLanguageSchema).toBe(
+          packageRoot.DisplayLanguageSchema,
+        );
+        expect(displayName.ITEM_DISPLAY_NAMES).toBe(
+          packageRoot.ITEM_DISPLAY_NAMES,
+        );
+        expect(displayName.BLOCK_DISPLAY_NAMES).toBe(
+          packageRoot.BLOCK_DISPLAY_NAMES,
+        );
+      }),
+    ));
+
   it("keeps the stable block-registry import path behaviorally identical to the barrel", () =>
     Effect.runPromise(
       Effect.sync(() => {

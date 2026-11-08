@@ -155,6 +155,11 @@
       "import": "./dist/domain/dimension.js",
       "default": "./dist/domain/dimension.js"
     },
+    "./domain/display-name": {
+      "types": "./dist/domain/display-name.d.ts",
+      "import": "./dist/domain/display-name.js",
+      "default": "./dist/domain/display-name.js"
+    },
     "./domain/entity": {
       "types": "./dist/domain/entity.d.ts",
       "import": "./dist/domain/entity.js",

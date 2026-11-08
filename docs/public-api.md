@@ -293,6 +293,31 @@ kernel は現在の `ItemType` roster に対応する純粋な装備スロット
 綴りは `BLOCK_TYPES` に合わせた `lower_snake_case`。旧呼び出し側の暫定値にあった `UPPER_SNAKE`
 （`'OAK_PLANKS'` / `'STICK'`）は、現行の `'oak_planks'` などの `ItemType` 値に置き換える。
 
+### 3-bis-0. アイテムとブロックの表示名（display-name）
+
+`getDisplayName` は root package と `domain/display-name` subpath のどちらからも利用できる。`ItemType` または `BlockType` の ID と `en` / `ja` を受け取り、対応する表示名を `Result` で返す。不正な kind、ID、言語、余分なプロパティは `InvalidDisplayNameRequest` になる。
+
+```typescript
+type DisplayLanguage = 'en' | 'ja'
+type DisplayNameRequest =
+  | Readonly<{ kind: 'item'; id: ItemType; language: DisplayLanguage }>
+  | Readonly<{ kind: 'block'; id: BlockType; language: DisplayLanguage }>
+type DisplayNameFailure = Readonly<{ readonly _tag: 'InvalidDisplayNameRequest' }>
+
+const getDisplayName: (input: unknown) => Result.Result<DisplayName, DisplayNameFailure>
+const ITEM_DISPLAY_NAMES: Readonly<Record<ItemType, DisplayNames>>
+const BLOCK_DISPLAY_NAMES: Readonly<Record<BlockType, DisplayNames>>
+```
+
+英語名はIDをアンダースコアで単語に分け、各単語の先頭を大文字にして空白でつなぐ。
+語順や略語を調整するIDだけ、ソース内の上書き表で整える。
+日本語名はIDと対象の性質から独自に訳す。
+内部の日本語名表にはIDごとの訳と命名方法を記録する。
+`katakana`は、IDに含まれる英単語全体をカタカナで表す。
+`common`は、定着した外来語を含む日常の普通名詞で名付ける。名詞の組み合わせや「〜の」でつなぐ形も含む。
+`compound`は、ID固有の語をカタカナにし、普通名詞と組み合わせる。
+ブロック状態のプロパティ値から表示名は合成しない。
+
 ### 3-bis-1. アイテムの数値 wire ID（item-registry）
 
 `BlockId` と対になる、アイテム側の永続数値 ID とその 2 バイト wire 表現。
