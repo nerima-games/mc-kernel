@@ -4,7 +4,7 @@
 
 Each area heading names a directory under `src/domain`.
 The inventory shows file placement, not conceptual ownership.
-An export such as `./domain/camera` maps to the leaf barrel
+A package export such as `./domain/camera` maps to the leaf barrel
 `src/domain/presentation/_camera.ts`. In the pattern
 `src/domain/<area>/_<subpath>.ts`, `<subpath>` is the final segment of the
 package export name; the leaf barrel re-exports that subpath's API.
@@ -40,7 +40,8 @@ re-exports that barrel.
 `block-registry-entries-passable.ts`, `block-registry-entries-structures-and-nether.ts`,
 `block-registry-entries-terrain.ts`, `block-registry-entries.ts`,
 `block-registry-entry-input.ts`, `block-registry-indexes.ts`, `block-registry-rules.ts`, `block-registry-types.ts`,
-`block-registry.ts`, `block-state.ts`, `block-support-data.ts`, `block-support.ts`,
+`block-registry.ts`, `block-state-codec.ts`, `block-state-definition-data.ts`,
+`block-state-values.ts`, `block-state.ts`, `block-support-data.ts`, `block-support.ts`,
 `block-type-data.ts`, `block-type.ts`, `crop-data.ts`, `crop.ts`, `fluid-data.ts`,
 `fluid.ts`, `light-data.ts`, `light.ts`, `redstone-data.ts`
 

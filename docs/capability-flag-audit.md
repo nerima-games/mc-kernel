@@ -210,8 +210,8 @@ kernel はこの境界を明示したうえで転記しており、**尺度変�
 実害は無かった（kernel は個々の行を名指しで転記しており、総数に依存していない）が、
 **この文書がこの組織で 7 例目の「間違った測り方で正当化された数字」になるところだった**
 という点で記録する価値がある。§2-1 の「参照実装のリテラル数 120」は再計数して正しいことが
-確認されている（`docs/testing.md` §5.2）。現行 kernel の `BlockType` は、そこに kernel 固有の
-3 行を加えた 123 行である。
+確認されている（`docs/testing.md` §5.2）。現行kernelの`BlockType`は125種である。参照実装の
+120種にkernel固有の3種と、vanilla blockの`copper_ore`と`deepslate_copper_ore`を加えた数である。
 
 ### 4.6 `supportRule` / `canSupportAttachments` / `brokenByWaterFlow`
 
@@ -370,7 +370,7 @@ kernel はこの境界を明示したうえで転記しており、**尺度変�
 
 36 行時点では全行で `opacity !== 'opaque'` と `!suffocates` が一致しており、
 `test/block-registry.test.ts` が「一致しているが依存してはならない」として空集合を固定していた。
-**現行 kernel の 123 行では 10 行が分離する**（両方向に）:
+**現行kernelの125行のうち10行では、`opacity !== 'opaque'`と`!suffocates`の真偽が一致しない。組み合わせは次の2種類である。**
 
 - **不透明なのに窒息しない**: `farmland` / `ender_chest` / `shulker_box` /
   `enchanting_table` / `end_portal_frame` / `_filled`

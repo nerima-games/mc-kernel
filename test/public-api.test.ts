@@ -153,6 +153,10 @@ describe("public API surface", () => {
           "BLOCK_PROPERTY_DEFAULTS",
           "BLOCK_PROPERTY_NAMES",
           "BLOCK_REGISTRY",
+          "BLOCK_STATE_CODEC_VERSION",
+          "BLOCK_STATE_ENCODING_BITS",
+          "BLOCK_STATE_MAX_USED_BITS",
+          "BLOCK_STATE_TYPES",
           "BLOCK_TYPES",
           "BYTES_PER_ELEMENT",
           "BlockBlastResistance",
@@ -163,9 +167,32 @@ describe("public API surface", () => {
           "BlockId",
           "BlockMovementDrag",
           "BlockState",
+          "BlockStateAgeSchema",
+          "BlockStateAxisSchema",
           "BlockStateByteOffset",
+          "BlockStateConnectionValueSchema",
+          "BlockStateConnectionsSchema",
+          "BlockStateDelaySchema",
+          "BlockStateDirectionSchema",
+          "BlockStateDistanceSchema",
+          "BlockStateFaceSchema",
+          "BlockStateFacingSchema",
+          "BlockStateHalfSchema",
+          "BlockStateHingeSchema",
           "BlockStateIndex",
+          "BlockStateIntegerSchema",
+          "BlockStateLayersSchema",
           "BlockStateLength",
+          "BlockStateLevelSchema",
+          "BlockStateModeSchema",
+          "BlockStateMoistureSchema",
+          "BlockStatePartSchema",
+          "BlockStatePowerSchema",
+          "BlockStateRotationSchema",
+          "BlockStateShapeSchema",
+          "BlockStateStageSchema",
+          "BlockStateTypeSchema",
+          "BlockStateValuesSchema",
           "CHEST_SLOT_COUNT",
           "COLLISION_SHAPES",
           "ContainerSlotCount",
@@ -174,6 +201,8 @@ describe("public API surface", () => {
           "DISPENSER_SLOT_COUNT",
           "DOWNSTREAM_CAPABILITIES",
           "DROPPER_SLOT_COUNT",
+          "EffectiveBlockStateValuesSchema",
+          "EncodedBlockStateSchema",
           "FLOWING_FLUID_LEVEL",
           "FLUID_BLOCK_IDS",
           "FLUID_KINDS",
@@ -224,14 +253,19 @@ describe("public API surface", () => {
           "blockOfPlaceableItem",
           "blockPropertiesOf",
           "blockState",
+          "blockStateDefinitionOf",
           "blockTypeOfId",
           "canBlockStaySupported",
           "capabilitiesOfBlockId",
           "capabilityOf",
           "capabilityOfBlockId",
           "clampLightLevel",
+          "decodeBlockState",
           "decodeLightVolume",
+          "defaultBlockState",
           "dropOfBlockId",
+          "effectiveBlockStateOf",
+          "encodeBlockState",
           "encodeLightVolume",
           "fluidKindOfBlockId",
           "isBlockEntity",
@@ -2273,6 +2307,22 @@ describe("public API surface", () => {
         );
         expect(blockStateModule.BlockState).toBe(packageRoot.BlockState);
         expect(blockStateModule.blockState).toBe(packageRoot.blockState);
+        expect(blockStateModule.BlockStateValuesSchema).toBe(packageRoot.BlockStateValuesSchema);
+        expect(blockStateModule.BlockStateAgeSchema).toBe(packageRoot.BlockStateAgeSchema);
+        expect(blockStateModule.BlockStateAxisSchema).toBe(packageRoot.BlockStateAxisSchema);
+        expect(blockStateModule.BlockStateDelaySchema).toBe(packageRoot.BlockStateDelaySchema);
+        expect(blockStateModule.BlockStateDistanceSchema).toBe(packageRoot.BlockStateDistanceSchema);
+        expect(blockStateModule.BlockStateIntegerSchema).toBe(packageRoot.BlockStateIntegerSchema);
+        expect(blockStateModule.BlockStateLayersSchema).toBe(packageRoot.BlockStateLayersSchema);
+        expect(blockStateModule.BlockStateLevelSchema).toBe(packageRoot.BlockStateLevelSchema);
+        expect(blockStateModule.BlockStateMoistureSchema).toBe(packageRoot.BlockStateMoistureSchema);
+        expect(blockStateModule.BlockStatePowerSchema).toBe(packageRoot.BlockStatePowerSchema);
+        expect(blockStateModule.BlockStateRotationSchema).toBe(packageRoot.BlockStateRotationSchema);
+        expect(blockStateModule.BlockStateStageSchema).toBe(packageRoot.BlockStateStageSchema);
+        expect(blockStateModule.BLOCK_STATE_TYPES).toBe(packageRoot.BLOCK_STATE_TYPES);
+        expect(blockStateModule.BLOCK_STATE_MAX_USED_BITS).toBe(packageRoot.BLOCK_STATE_MAX_USED_BITS);
+        expect(blockStateModule.encodeBlockState).toBe(packageRoot.encodeBlockState);
+        expect(blockStateModule.decodeBlockState).toBe(packageRoot.decodeBlockState);
         expect(blockTypeModule.BLOCK_TYPES).toBe(packageRoot.BLOCK_TYPES);
         expect(blockTypeModule.isBlockType).toBe(packageRoot.isBlockType);
         expect(chunkModule.encodeChunk).toBe(packageRoot.encodeChunk);
