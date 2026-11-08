@@ -153,6 +153,10 @@ describe("public API surface", () => {
           "BLOCK_PROPERTY_DEFAULTS",
           "BLOCK_PROPERTY_NAMES",
           "BLOCK_REGISTRY",
+          "BLOCK_STATE_CODEC_VERSION",
+          "BLOCK_STATE_ENCODING_BITS",
+          "BLOCK_STATE_MAX_USED_BITS",
+          "BLOCK_STATE_TYPES",
           "BLOCK_TYPES",
           "BYTES_PER_ELEMENT",
           "BlockBlastResistance",
@@ -163,9 +167,22 @@ describe("public API surface", () => {
           "BlockId",
           "BlockMovementDrag",
           "BlockState",
+          "BlockStateAxisSchema",
           "BlockStateByteOffset",
+          "BlockStateConnectionValueSchema",
+          "BlockStateConnectionsSchema",
+          "BlockStateDirectionSchema",
+          "BlockStateFaceSchema",
+          "BlockStateFacingSchema",
+          "BlockStateHalfSchema",
+          "BlockStateHingeSchema",
           "BlockStateIndex",
           "BlockStateLength",
+          "BlockStateModeSchema",
+          "BlockStatePartSchema",
+          "BlockStateShapeSchema",
+          "BlockStateTypeSchema",
+          "BlockStateValuesSchema",
           "CHEST_SLOT_COUNT",
           "COLLISION_SHAPES",
           "ContainerSlotCount",
@@ -174,6 +191,7 @@ describe("public API surface", () => {
           "DISPENSER_SLOT_COUNT",
           "DOWNSTREAM_CAPABILITIES",
           "DROPPER_SLOT_COUNT",
+          "EncodedBlockStateSchema",
           "FLOWING_FLUID_LEVEL",
           "FLUID_BLOCK_IDS",
           "FLUID_KINDS",
@@ -224,14 +242,18 @@ describe("public API surface", () => {
           "blockOfPlaceableItem",
           "blockPropertiesOf",
           "blockState",
+          "blockStateDefinitionOf",
           "blockTypeOfId",
           "canBlockStaySupported",
           "capabilitiesOfBlockId",
           "capabilityOf",
           "capabilityOfBlockId",
           "clampLightLevel",
+          "decodeBlockState",
           "decodeLightVolume",
+          "defaultBlockState",
           "dropOfBlockId",
+          "encodeBlockState",
           "encodeLightVolume",
           "fluidKindOfBlockId",
           "isBlockEntity",
@@ -2273,6 +2295,12 @@ describe("public API surface", () => {
         );
         expect(blockStateModule.BlockState).toBe(packageRoot.BlockState);
         expect(blockStateModule.blockState).toBe(packageRoot.blockState);
+        expect(blockStateModule.BlockStateValuesSchema).toBe(packageRoot.BlockStateValuesSchema);
+        expect(blockStateModule.BlockStateAxisSchema).toBe(packageRoot.BlockStateAxisSchema);
+        expect(blockStateModule.BLOCK_STATE_TYPES).toBe(packageRoot.BLOCK_STATE_TYPES);
+        expect(blockStateModule.BLOCK_STATE_MAX_USED_BITS).toBe(packageRoot.BLOCK_STATE_MAX_USED_BITS);
+        expect(blockStateModule.encodeBlockState).toBe(packageRoot.encodeBlockState);
+        expect(blockStateModule.decodeBlockState).toBe(packageRoot.decodeBlockState);
         expect(blockTypeModule.BLOCK_TYPES).toBe(packageRoot.BLOCK_TYPES);
         expect(blockTypeModule.isBlockType).toBe(packageRoot.isBlockType);
         expect(chunkModule.encodeChunk).toBe(packageRoot.encodeChunk);
