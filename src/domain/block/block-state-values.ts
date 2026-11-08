@@ -211,7 +211,9 @@ export type BlockStateValues = Readonly<{
   unstable?: boolean
   waterlogged?: boolean
 }>
-const BlockStateValuesStructSchema = Schema.Struct({
+export type EffectiveBlockStateValues = BlockStateValues & Readonly<{ eye?: boolean }>
+
+const BLOCK_STATE_VALUES_FIELDS = {
   facing: Schema.optionalKey(BlockStateFacingSchema),
   half: Schema.optionalKey(BlockStateHalfSchema),
   hinge: Schema.optionalKey(BlockStateHingeSchema),
@@ -247,6 +249,17 @@ const BlockStateValuesStructSchema = Schema.Struct({
   type: Schema.optionalKey(BlockStateTypeSchema),
   unstable: Schema.optionalKey(Schema.Boolean),
   waterlogged: Schema.optionalKey(Schema.Boolean),
-})
+} as const
+
+const BlockStateValuesStructSchema = Schema.Struct(BLOCK_STATE_VALUES_FIELDS)
 export const BlockStateValuesSchema: Schema.Codec<BlockStateValues, BlockStateValues> =
   strictSchema(BlockStateValuesStructSchema)
+
+const EffectiveBlockStateValuesStructSchema = Schema.Struct({
+  ...BLOCK_STATE_VALUES_FIELDS,
+  eye: Schema.optionalKey(Schema.Boolean),
+})
+export const EffectiveBlockStateValuesSchema: Schema.Codec<
+  EffectiveBlockStateValues,
+  EffectiveBlockStateValues
+> = strictSchema(EffectiveBlockStateValuesStructSchema)

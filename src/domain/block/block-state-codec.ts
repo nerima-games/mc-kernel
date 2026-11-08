@@ -6,7 +6,9 @@ import { BLOCK_STATE_DEFINITION_DATA } from './block-state-definition-data.js'
 import type { BlockStateSlotDefinition } from './block-state-definition-data.js'
 import {
   BlockStateValuesSchema,
+  EffectiveBlockStateValuesSchema,
   type BlockStateValues,
+  type EffectiveBlockStateValues,
 } from './block-state-values.js'
 
 export const BLOCK_STATE_CODEC_VERSION = 1
@@ -341,4 +343,43 @@ export const decodeBlockState = (
   if (Object.keys(connections).length > 0) state['connections'] = Object.freeze(connections)
   const decoded = Schema.decodeUnknownSync(BlockStateValuesSchema)(Object.freeze(state))
   return Result.succeed(freezeBlockStateValues(decoded))
+}
+
+type IdFixedEffectiveProperties = Pick<EffectiveBlockStateValues, 'eye' | 'lit' | 'open'>
+
+const idFixedEffectiveProperties = (blockType: BlockType): IdFixedEffectiveProperties => {
+  switch (blockType) {
+    case 'door_open':
+      return { open: true }
+    case 'end_portal_frame':
+      return { eye: false }
+    case 'end_portal_frame_filled':
+      return { eye: true }
+    case 'redstone_lamp':
+      return { lit: false }
+    case 'redstone_lamp_lit':
+      return { lit: true }
+    default:
+      return {}
+  }
+}
+
+/** Resolve the decoded state together with properties fixed by the selected BlockId. */
+export const effectiveBlockStateOf = (
+  blockId: BlockId,
+  encodedValue: EncodedBlockState,
+): Result.Result<EffectiveBlockStateValues, BlockStateCodecFailure> => {
+  const definition = getDefinition(blockId)
+  if (Result.isFailure(definition)) return Result.fail(definition.failure)
+
+  const decoded = decodeBlockState(blockId, encodedValue)
+  if (Result.isFailure(decoded)) return Result.fail(decoded.failure)
+
+  const state = Object.freeze({
+    ...decoded.success,
+    ...idFixedEffectiveProperties(definition.success.blockType),
+  })
+  const effectiveState = Schema.decodeUnknownSync(EffectiveBlockStateValuesSchema)(state)
+  if (effectiveState.connections !== undefined) Object.freeze(effectiveState.connections)
+  return Result.succeed(Object.freeze(effectiveState))
 }

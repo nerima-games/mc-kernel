@@ -78,6 +78,16 @@ const ID_FIXED_PROPERTIES = new Map<string, ReadonlySet<string>>([
 
 const blockId = (blockType: kernel.BlockType) => optionValue(blockIdOf(blockType))
 
+const BLOCK_STATE_CODEC_FAILURE_REASONS = new Set([
+  'invalid-block-id',
+  'unknown-block-id',
+  'invalid-state',
+  'unsupported-property',
+  'invalid-property-value',
+  'invalid-encoded-value',
+  'reserved-code',
+])
+
 const bitWidthOf = (definition: BlockStateDefinition): number =>
   definition.slots.reduce((width, slot) => width + Math.ceil(Math.log2(slot.values.length)), 0)
 
@@ -240,6 +250,83 @@ describe('block-state codec', () => {
     expect(resultValue(kernel.encodeBlockState(wireId, { connections: { west: 'up' } }))).toBe(64)
     expect(resultValue(kernel.encodeBlockState(wireId, { power: 1 }))).toBe(256)
     expect(resultValue(kernel.encodeBlockState(wireId, { power: 15 }))).toBe(3840)
+  })
+
+  it('resolves ID-fixed properties together with codec state', () => {
+    const doorId = blockId('door')
+    const closedDoor = resultValue(kernel.encodeBlockState(doorId, { open: false }))
+    const openDoor = resultValue(kernel.encodeBlockState(doorId, { open: true }))
+    expect(resultValue(kernel.effectiveBlockStateOf(doorId, closedDoor)).open).toBe(false)
+    expect(resultValue(kernel.effectiveBlockStateOf(doorId, openDoor)).open).toBe(true)
+
+    const openDoorId = blockId('door_open')
+    const openDoorState = resultValue(kernel.encodeBlockState(openDoorId, { facing: 'east' }))
+    expect(resultValue(kernel.effectiveBlockStateOf(openDoorId, openDoorState))).toMatchObject({
+      facing: 'east',
+      open: true,
+    })
+
+    const emptyFrameId = blockId('end_portal_frame')
+    const emptyFrameState = resultValue(kernel.encodeBlockState(emptyFrameId, { facing: 'west' }))
+    expect(resultValue(kernel.effectiveBlockStateOf(emptyFrameId, emptyFrameState))).toMatchObject({
+      eye: false,
+      facing: 'west',
+    })
+
+    const filledFrameId = blockId('end_portal_frame_filled')
+    const filledFrameState = resultValue(kernel.encodeBlockState(filledFrameId, { facing: 'south' }))
+    expect(resultValue(kernel.effectiveBlockStateOf(filledFrameId, filledFrameState))).toMatchObject({
+      eye: true,
+      facing: 'south',
+    })
+
+    const emptyState = Schema.decodeUnknownSync(kernel.EncodedBlockStateSchema)(0)
+    expect(resultValue(kernel.effectiveBlockStateOf(blockId('redstone_lamp'), emptyState)).lit).toBe(false)
+    expect(resultValue(kernel.effectiveBlockStateOf(blockId('redstone_lamp_lit'), emptyState)).lit).toBe(true)
+  })
+
+  it('checks encoded boundaries and returns schema-valid effective states for arbitrary inputs', () => {
+    const skullId = blockId('wither_skeleton_skull')
+    const maximumState = Schema.decodeUnknownSync(kernel.EncodedBlockStateSchema)(31)
+    const firstReservedState = Schema.decodeUnknownSync(kernel.EncodedBlockStateSchema)(32)
+    expect(resultValue(kernel.effectiveBlockStateOf(skullId, maximumState))).toMatchObject({
+      powered: true,
+      rotation: 15,
+    })
+    expectCodecFailure(kernel.effectiveBlockStateOf(skullId, firstReservedState), 'reserved-code')
+
+    const maximumEncodedValue = Schema.decodeUnknownSync(kernel.EncodedBlockStateSchema)(0xffff_ffff)
+    expectCodecFailure(kernel.effectiveBlockStateOf(skullId, maximumEncodedValue), 'reserved-code')
+    expectCodecFailure(
+      Reflect.apply(kernel.effectiveBlockStateOf, undefined, [skullId, 2 ** kernel.BLOCK_STATE_ENCODING_BITS]),
+      'invalid-encoded-value',
+    )
+
+    fc.assert(
+      fc.property(fc.anything(), fc.anything(), (blockIdValue, encodedValue) => {
+        const resolved = Reflect.apply(kernel.effectiveBlockStateOf, undefined, [blockIdValue, encodedValue])
+        expect(isRecord(resolved)).toBe(true)
+        if (!isRecord(resolved)) return false
+
+        if (resolved['_tag'] === 'Failure') {
+          const failure = resolved['failure']
+          expect(isRecord(failure)).toBe(true)
+          if (!isRecord(failure)) return false
+          expect(failure['_tag']).toBe('BlockStateCodecFailure')
+          expect(typeof failure['reason']).toBe('string')
+          if (typeof failure['reason'] === 'string') {
+            expect(BLOCK_STATE_CODEC_FAILURE_REASONS.has(failure['reason'])).toBe(true)
+          }
+        } else {
+          expect(resolved['_tag']).toBe('Success')
+          expect(Result.isSuccess(
+            Schema.decodeUnknownResult(kernel.EffectiveBlockStateValuesSchema)(resolved['success']),
+          )).toBe(true)
+        }
+        return true
+      }),
+      { numRuns: 500 },
+    )
   })
 
   it('accepts each numeric domain boundary and rejects the adjacent values', () => {

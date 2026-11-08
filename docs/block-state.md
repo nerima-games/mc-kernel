@@ -6,11 +6,11 @@ This memo defines the target contract for per-cell state alongside the existing 
 
 The vocabulary includes a property when it changes gameplay, rendering, redstone behavior, or world generation for one of the 123 kernel block types. It contains 40 vanilla property names after the ID-backed exclusions below. The six directional boolean/connection properties (`down`, `east`, `north`, `south`, `up`, `west`) share the API field `connections`; redstone wire uses `none`, `side`, or `up` for its four horizontal directions, while fire and chorus plant use booleans. The `power` property is a numeric signal level from 0 through 15 and remains distinct from boolean `powered`.
 
-All properties in the vanilla-state column are encoded except the exact ID-backed cases listed in “Excluded properties”. After those exclusions, 59 kernel types have encoded state and 64 accept only the empty state. `—` means the vanilla block has no block-state properties. The kernel `end_crystal` type is an extension for a vanilla entity and has no vanilla block-state row. Other vanilla blocks are outside this crosswalk because the kernel has no corresponding block type.
+All properties in the vanilla-state column are represented by codec state or by the exact ID-backed cases listed in “Excluded properties”. After those exclusions, 59 kernel types have encoded state and 64 accept only the empty state. `—` means the vanilla block has no block-state properties. The kernel `end_crystal` type is an extension for a vanilla entity and has no vanilla block-state row. Other vanilla blocks are outside this crosswalk because the kernel has no corresponding block type.
 
 ## Complete 123-type crosswalk
 
-Each state is shown as `property=allowed-values (default value)`. Numeric ranges are inclusive. For aliased types, the vanilla name is the representative whose shared block-state schema is used.
+Each state is shown as `property=allowed-values (default value)`. ID-fixed properties instead show `property=fixed-value (ID-fixed; vanilla default value)`. Numeric ranges are inclusive. For aliased types, the vanilla name is the representative whose shared block-state schema is used.
 
 | Kernel block type | Vanilla Java block | Vanilla properties and defaults |
 | --- | --- | --- |
@@ -93,8 +93,8 @@ Each state is shown as `property=allowed-values (default value)`. Numeric ranges
 | `lever` | `lever` | face=floor/wall/ceiling (default wall); facing=north/south/west/east (default north); powered=true/false (default false) |
 | `stone_button` | `stone_button` | face=floor/wall/ceiling (default wall); facing=north/south/west/east (default north); powered=true/false (default false) |
 | `repeater` | `repeater` | delay=1..4 (default 1); facing=north/south/west/east (default north); locked=true/false (default false); powered=true/false (default false) |
-| `redstone_lamp` | `redstone_lamp` | lit=true/false (default false) [excluded: separate BlockId] |
-| `redstone_lamp_lit` | `redstone_lamp` | lit=true/false (default false) [excluded: separate BlockId] |
+| `redstone_lamp` | `redstone_lamp` | lit=false (ID-fixed; vanilla default false) |
+| `redstone_lamp_lit` | `redstone_lamp` | lit=true (ID-fixed; vanilla default false) |
 | `observer` | `observer` | facing=north/east/south/west/up/down (default south); powered=true/false (default false) |
 | `comparator` | `comparator` | facing=north/south/west/east (default north); mode=compare/subtract (default compare); powered=true/false (default false) |
 | `dispenser` | `dispenser` | facing=north/east/south/west/up/down (default north); triggered=true/false (default false) |
@@ -102,8 +102,8 @@ Each state is shown as `property=allowed-values (default value)`. Numeric ranges
 | `hopper` | `hopper` | enabled=true/false (default true); facing=down/north/south/west/east (default down) |
 | `piston_head` | `piston_head` | facing=north/east/south/west/up/down (default north); short=true/false (default false); type=normal/sticky (default normal) |
 | `end_stone` | `end_stone` | — |
-| `end_portal_frame` | `end_portal_frame` | eye=true/false (default false) [excluded: separate BlockId]; facing=north/south/west/east (default north) |
-| `end_portal_frame_filled` | `end_portal_frame` | eye=true/false (default false) [excluded: separate BlockId]; facing=north/south/west/east (default north) |
+| `end_portal_frame` | `end_portal_frame` | eye=false (ID-fixed; vanilla default false); facing=north/south/west/east (default north) |
+| `end_portal_frame_filled` | `end_portal_frame` | eye=true (ID-fixed; vanilla default false); facing=north/south/west/east (default north) |
 | `end_portal` | `end_portal` | — |
 | `chorus_flower` | `chorus_flower` | age=0..5 (default 0) |
 | `chorus_plant` | `chorus_plant` | down=true/false (default false); east=true/false (default false); north=true/false (default false); south=true/false (default false); up=true/false (default false); west=true/false (default false) |
@@ -122,7 +122,7 @@ Each state is shown as `property=allowed-values (default value)`. Numeric ranges
 | `furnace` | `furnace` | facing=north/south/west/east (default north); lit=true/false (default false) |
 | `chest` | `chest` | facing=north/south/west/east (default north); type=single/left/right (default single); waterlogged=true/false (default false) |
 | `door` | `oak_door` | facing=north/south/west/east (default north); half=upper/lower (default lower); hinge=left/right (default left); open=true/false (default false); powered=true/false (default false) |
-| `door_open` | `oak_door` | facing=north/south/west/east (default north); half=upper/lower (default lower); hinge=left/right (default left); open=true/false (default false) [excluded: separate BlockId]; powered=true/false (default false) |
+| `door_open` | `oak_door` | facing=north/south/west/east (default north); half=upper/lower (default lower); hinge=left/right (default left); open=true (ID-fixed; vanilla default false); powered=true/false (default false) |
 | `oak_stairs` | `oak_stairs` | facing=north/south/west/east (default north); half=top/bottom (default bottom); shape=straight/inner_left/inner_right/outer_left/outer_right (default straight); waterlogged=true/false (default false) |
 | `anvil` | `anvil` | facing=north/south/west/east (default north) |
 | `cauldron` | `cauldron` | — |
@@ -156,6 +156,23 @@ The state schema accepts the following properties when supported by the selected
 
 Java fluid-state entries are separate from the Block states table. This codec covers the block `level` properties shown for water and lava.
 
+## Effective state resolution
+
+`effectiveBlockStateOf(blockId, encodedState)` decodes the codec value and overlays any property fixed by the selected `BlockId`. Downstream shape selection, gameplay, and redstone code should use this function rather than reproduce the ID rules. For the paired IDs, the effective values are:
+
+The exported signature is `effectiveBlockStateOf(blockId: BlockId, encodedState: EncodedBlockState): Result.Result<EffectiveBlockStateValues, BlockStateCodecFailure>`. A successful result contains the frozen `EffectiveBlockStateValues` object: all decoded per-block values, including defaults, with ID-fixed properties overlaid. A failure contains the same typed `BlockStateCodecFailure` returned by `decodeBlockState`; callers must handle the failed `Result` before reading properties. `EffectiveBlockStateValuesSchema` validates this output and includes `eye`; `eye` is not accepted by the codec input schema. These APIs are exported from the block barrel and package root.
+
+| Kernel block type | `BlockId` | Effective property |
+| --- | ---: | --- |
+| `door` | 106 | `open` comes from decoded codec state |
+| `door_open` | 107 | `open=true` |
+| `end_portal_frame` | 87 | `eye=false` |
+| `end_portal_frame_filled` | 88 | `eye=true` |
+| `redstone_lamp` | 79 | `lit=false` |
+| `redstone_lamp_lit` | 80 | `lit=true` |
+
+All other effective properties come from the decoded codec state. The returned object includes decoded defaults, so `door.open` is false when its encoded value is zero or omitted before encoding. `eye` exists only in the effective-state schema; it is not accepted as a codec field.
+
 ## Values and encoding
 
 The `BlockStateValues` schema is a strict object with optional properties. A per-block definition lists supported fields, their allowed values, and the default from the crosswalk. Omitted values resolve to that block default. Unknown fields, unsupported properties, invalid values, unknown block IDs, reserved encodings, and malformed integers return typed failures; invalid input is never coerced to a default, null, or success.
@@ -168,7 +185,23 @@ The integer codec does not define byte order. Save and network formats own seria
 
 ## C7 integration proposal
 
-C7 is the shared atomic, dual-revision-checked world-write contract in [mc-compose's execution contracts](https://github.com/nerima-games/mc-compose/blob/main/docs/execution/contracts.md#c7-generic-world-write-port). Its world-session coordinator validates the complete batch before checking world and dimension revisions or writing. This section is a proposal for extending that contract; the API shape and error reason below are target behavior, not current kernel exports.
+C7 is the shared atomic, dual-revision-checked world-write contract in [mc-compose's execution contracts](https://github.com/nerima-games/mc-compose/blob/main/docs/execution/contracts.md#c7-generic-world-write-port). Its world-session coordinator validates the complete batch before checking world and dimension revisions or writing. `BlockStateValuesSchema` and `encodeBlockState` are current mc-kernel exports. The `BlockEditSchema.state` field and `invalid-block-state` reason below are proposals for extending C7, not current mc-compose exports.
 
-Add `state?: BlockStateValues` to C7’s `BlockEditSchema`. Omission means the block-specific default. The coordinator validates explicit values against the edit’s block before checking revisions or writing. An invalid block-state value returns `WorldWriteInvalidBatch` with a new `invalid-block-state` reason, leaving the batch atomicity and revision rules unchanged. Replicated and saved representations may carry the encoded value under their own versioned schemas.
+Apply these changes to C7’s contract:
+
+```ts
+import { BlockStateValuesSchema, encodeBlockState } from "@nerima-games/mc-kernel/domain/block-state";
+
+export const BlockEditSchema = Schema.Struct({
+  position: BlockPositionSchema,
+  block: BlockIdSchema,
+  state: Schema.optionalKey(BlockStateValuesSchema),
+});
+
+export class WorldWriteInvalidBatch extends Schema.TaggedError<WorldWriteInvalidBatch>()("WorldWriteInvalidBatch", {
+  reason: Schema.Literals(["empty", "duplicate-position", "invalid-block-state"]),
+}) {}
+```
+
+Omitting `state` means the selected block’s default state. After decoding the batch and validating the existing empty-batch and duplicate-position rules, validate every present `state` against its edit’s `block` with `encodeBlockState(edit.block, edit.state)`. Do this for the whole batch before checking revisions or writing. If validation fails, return `WorldWriteInvalidBatch` with reason `invalid-block-state`; this means the schema-decoded state has an unsupported property or a value outside the selected block’s legal domain. A malformed value rejected while decoding `BlockStateValuesSchema` remains a schema-decode failure. Only after the complete batch passes these checks should the adapter check world revision and then dimension revision, and the coordinator recheck both in the same transaction as the writes. Batch atomicity and revision rules remain unchanged. Replicated and saved representations may carry the encoded value under their own versioned schemas.
 
