@@ -238,6 +238,26 @@ describe("current Java crafting recipe JSON", () => {
     }), "RecipeTypeFailure", undefined, /must be namespaced/);
   });
 
+  it("returns a typed failure when a dynamic recipe uses an unrepresented input", () => {
+    recipeFailure(
+      craftingRecipeFromUnknown("minecraft:spyglass", {
+        type: "minecraft:crafting_shaped",
+        pattern: ["C", "Q"],
+        key: {
+          C: "minecraft:copper_ingot",
+          Q: "minecraft:amethyst_shard",
+        },
+        result: "minecraft:spyglass",
+      }),
+      "RecipeTypeFailure",
+      {
+        _tag: "RecipeTypeFailure",
+        name: "TypeError",
+        message: "Unknown recipe item, received minecraft:copper_ingot",
+      },
+    );
+  });
+
   it("maps namespaced recipe ids to data-pack paths", () => {
     expect(recipeSuccess(craftingRecipeDataPath("minecraft:iron_block"))).toBe(
       "data/minecraft/recipe/iron_block.json",

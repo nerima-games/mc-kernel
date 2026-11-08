@@ -94,8 +94,8 @@ describe('Minecraft Java Edition 26.3 V-1 golden', () => {
 
   it('keeps block, item, and recipe ids within the intentionally divergent scope', () => {
     const blockExtensions = new Set(['sapling', 'pressure_plate', 'wheat_crop', 'potato_crop', 'nether_wart_crop', 'redstone_lamp_lit', 'end_portal_frame_filled', 'end_crystal', 'door', 'door_open', 'bed', 'nether_brick'])
-    const itemExtensions = new Set(['end_portal_frame_filled', 'door', 'bed', 'redstone_dust', 'pressure_plate', 'sapling', 'water_bottle', 'awkward_potion', 'potion_of_swiftness', 'potion_of_poison', 'potion_of_regeneration', 'eye_of_ender', 'wool', 'gold_pickaxe', 'gold_shovel', 'gold_axe', 'gold_hoe', 'gold_sword'])
-    const recipeExtensions = new Set(['bone_meal', 'oak_planks', 'coal_from_block', 'iron_from_block', 'diamond_from_block', 'redstone_from_block', 'lapis_from_block', 'emerald_from_block', 'amethyst_from_block', 'stone_button', 'purpur_slab', 'stone_slab', 'wool', 'sugar', 'eye_of_ender', 'door', 'bed', 'pressure_plate', 'gold_ingot', 'gold_shovel', 'gold_axe', 'gold_pickaxe', 'gold_hoe', 'gold_sword'])
+    const itemExtensions = new Set(['end_portal_frame_filled', 'door', 'bed', 'redstone_dust', 'pressure_plate', 'sapling', 'water_bottle', 'awkward_potion', 'potion_of_swiftness', 'potion_of_poison', 'potion_of_regeneration', 'potion_of_healing', 'potion_of_swiftness_ii', 'potion_of_healing_ii', 'potion_of_swiftness_long', 'eye_of_ender', 'wool', 'gold_pickaxe', 'gold_shovel', 'gold_axe', 'gold_hoe', 'gold_sword', 'gold_helmet', 'gold_chestplate', 'gold_leggings', 'gold_boots'])
+    const recipeExtensions = new Set(['bone_meal', 'oak_planks', 'coal_from_block', 'iron_from_block', 'diamond_from_block', 'redstone_from_block', 'lapis_from_block', 'emerald_from_block', 'amethyst_from_block', 'stone_button', 'purpur_slab', 'stone_slab', 'wool', 'sugar', 'eye_of_ender', 'door', 'bed', 'pressure_plate', 'gold_ingot', 'gold_shovel', 'gold_axe', 'gold_pickaxe', 'gold_hoe', 'gold_sword', 'gold_helmet', 'gold_chestplate', 'gold_leggings', 'gold_boots'])
     expect(BLOCK_TYPES.filter((id) => !blockExtensions.has(id)).every((id) => id === 'air' || id in golden.block)).toBe(true)
     expect(ITEM_TYPES.filter((id) => !itemExtensions.has(id)).every((id) => golden.item.includes(id))).toBe(true)
     expect(VANILLA_CRAFTING_RECIPES.every((recipe) => {
@@ -103,8 +103,8 @@ describe('Minecraft Java Edition 26.3 V-1 golden', () => {
       return recipeExtensions.has(id) || golden.recipe[id] !== undefined
     })).toBe(true)
     expect(BLOCK_TYPES).toHaveLength(123)
-    expect(ITEM_TYPES).toHaveLength(280)
-    expect(VANILLA_CRAFTING_RECIPES).toHaveLength(100)
+    expect(ITEM_TYPES).toHaveLength(303)
+    expect(VANILLA_CRAFTING_RECIPES).toHaveLength(115)
   })
 
   it('keeps conformance catalog counts aligned with the exposed tables', () => {
