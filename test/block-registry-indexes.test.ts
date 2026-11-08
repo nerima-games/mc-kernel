@@ -65,6 +65,7 @@ const transmitsLight = (id: BlockId) => resultValue(transmitsLightResult(id))
 // fails immediately, before anyone gets to ask whether its default agrees
 // with `BLOCK_PROPERTY_DEFAULTS`.
 const EXPECTED_BLOCK_REGISTRY_INDEX_EXPORTS = [
+  'BlockEnchantingPowerSchema',
   'BLOCK_IDS',
   'UNREGISTERED_BLOCK_TYPES',
   'blockIdOf',
@@ -82,6 +83,7 @@ const EXPECTED_BLOCK_REGISTRY_INDEX_EXPORTS = [
   'capabilitiesOfBlockId',
   'capabilityOfBlockId',
   'dropOfBlockId',
+  'enchantingPowerOfBlockId',
   'isKnownBlockId',
   'isSupportSensitiveBlockId',
   'lightEmissionOfBlockId',

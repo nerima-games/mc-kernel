@@ -36,6 +36,7 @@ export type FoodStatusEffect = Readonly<{
   readonly name: FoodStatusEffectName
   readonly chance: FoodEffectProbabilityValue
   readonly durationSecs: EffectDurationSecsValue
+  /** Zero-based amplifier: `0` is effect level I. */
   readonly amplifier: EffectAmplifierValue
 }>
 
@@ -114,7 +115,7 @@ const VANILLA_FOOD_DEFINITION_INPUTS: ReadonlyArray<FoodDefinitionInput> = [
     useRemainder: undefined,
     effects: [
       { kind: 'status', name: 'poison', chance: 1, durationSecs: 60, amplifier: 1 },
-      { kind: 'status', name: 'nausea', chance: 1, durationSecs: 15, amplifier: 1 },
+      { kind: 'status', name: 'nausea', chance: 1, durationSecs: 15, amplifier: 0 },
       { kind: 'status', name: 'hunger', chance: 1, durationSecs: 15, amplifier: 2 },
     ],
   },
@@ -330,7 +331,7 @@ const VANILLA_FOOD_DEFINITION_INPUTS: ReadonlyArray<FoodDefinitionInput> = [
     item: 'honey_bottle',
     nutrition: 6,
     saturation: 1.2,
-    canAlwaysEat: false,
+    canAlwaysEat: true,
     useRemainder: 'glass_bottle',
     effects: [{ kind: 'remove', name: 'poison', chance: 1 }],
   },

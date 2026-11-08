@@ -313,6 +313,7 @@ export const ITEM_DISPLAY_NAMES: Readonly<Record<ItemType, DisplayNames>> = {
   deepslate_copper_ore: displayNamesForId('deepslate_copper_ore'),
   raw_copper: displayNamesForId('raw_copper'),
   copper_ingot: displayNamesForId('copper_ingot'),
+  bookshelf: displayNamesForId('bookshelf'),
 }
 
 export const BLOCK_DISPLAY_NAMES: Readonly<Record<BlockType, DisplayNames>> = {
@@ -441,4 +442,5 @@ export const BLOCK_DISPLAY_NAMES: Readonly<Record<BlockType, DisplayNames>> = {
   wither_skeleton_skull: displayNamesForId('wither_skeleton_skull'),
   copper_ore: displayNamesForId('copper_ore'),
   deepslate_copper_ore: displayNamesForId('deepslate_copper_ore'),
+  bookshelf: displayNamesForId('bookshelf'),
 }

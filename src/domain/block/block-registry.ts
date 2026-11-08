@@ -16,6 +16,7 @@ export {
   capabilitiesOfBlockId,
   capabilityOfBlockId,
   dropOfBlockId,
+  enchantingPowerOfBlockId,
   isKnownBlockId,
   isSupportSensitiveBlockId,
   lightEmissionOfBlockId,
@@ -27,4 +28,10 @@ export {
 } from './block-registry-indexes.js'
 export { AIR_BLOCK_ID, BLOCK_ID_MAX, BlockId, isEmpty } from './block-registry-types.js'
 export type { BlockRegistryEntry } from './block-registry-types.js'
-export type { BlockRegistryFailure, BlockRegistryResolutionFailure } from './block-registry-indexes.js'
+export { BlockEnchantingPowerSchema } from './block-registry-indexes.js'
+export type {
+  BlockEnchantingPower,
+  BlockRegistryFailure,
+  BlockRegistryIndexFailure,
+  BlockRegistryResolutionFailure,
+} from './block-registry-indexes.js'

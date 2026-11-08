@@ -161,7 +161,7 @@ const validateDropRule = (value: unknown): Result.Result<BlockDropRule, BlockPro
     }
     yield* assertKnownKeys(
       value,
-      ['item', 'silkTouchItem', 'count', 'requiresSilkTouch', 'affectedByFortune'],
+      ['item', 'silkTouchItem', 'count', 'silkTouchCount', 'requiresSilkTouch', 'affectedByFortune'],
       'block property drops field',
     )
 
@@ -174,6 +174,10 @@ const validateDropRule = (value: unknown): Result.Result<BlockDropRule, BlockPro
       return yield* failure('type', 'block property drops silkTouchItem must be a registered ItemType')
     }
     const count = value['count']
+    const silkTouchCount = value['silkTouchCount']
+    if (silkTouchCount !== undefined && typeof silkTouchCount !== 'number') {
+      return yield* failure('range', 'block property drops silkTouchCount must be an integer')
+    }
     if (typeof count !== 'number') {
       return yield* failure(
         'range',
@@ -189,10 +193,14 @@ const validateDropRule = (value: unknown): Result.Result<BlockDropRule, BlockPro
       value['affectedByFortune'],
     )
     const stackCount = yield* brandedProperty(StackCount.result(count), 'drops.count')
+    const silkTouchStackCount = silkTouchCount === undefined
+      ? undefined
+      : yield* brandedProperty(StackCount.result(silkTouchCount), 'drops.silkTouchCount')
     return {
       item,
       ...(silkTouchItem === undefined ? {} : { silkTouchItem }),
       count: stackCount,
+      ...(silkTouchStackCount === undefined ? {} : { silkTouchCount: silkTouchStackCount }),
       requiresSilkTouch,
       affectedByFortune,
     }

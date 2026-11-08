@@ -479,4 +479,5 @@ export const ITEM_TYPES = [
   "deepslate_copper_ore",
   "raw_copper",
   "copper_ingot",
+  "bookshelf",
 ] as const;

@@ -2,13 +2,13 @@
 
 ## Scope
 
-`mc-kernel` implements the per-cell state codec for all 125 current block types without changing their `BlockId` values. Consumers can pair each ID cell with one `EncodedBlockState` value in a parallel buffer at the same cell index. The encoded value contains state only, not a block ID; this target storage pairing leaves the current chunk `BlockState` ID buffer unchanged. The vanilla reference is Java Edition 26.3: the checked-in crosswalk source is `test/golden/vanilla-block.json`, generated from the Java block-state roster and pinned by `test/vanilla-26-3.test.ts`. The [Minecraft Wiki Block states table](https://minecraft.wiki/w/Block_state) is the readable cross-check. Kernel-only names are mapped to a representative vanilla block in the table below.
+`mc-kernel` implements the per-cell state codec for all 126 current block types without changing existing `BlockId` values. Consumers can pair each ID cell with one `EncodedBlockState` value in a parallel buffer at the same cell index. The encoded value contains state only, not a block ID; this target storage pairing leaves the current chunk `BlockState` ID buffer unchanged. The vanilla reference is Java Edition 26.3: the checked-in crosswalk source is `test/golden/vanilla-block.json`, generated from the Java block-state roster and pinned by `test/vanilla-26-3.test.ts`. The [Minecraft Wiki Block states table](https://minecraft.wiki/w/Block_state) is the readable cross-check. Kernel-only names are mapped to a representative vanilla block in the table below.
 
-The vocabulary includes a property when it changes gameplay, rendering, redstone behavior, or world generation for one of the 125 kernel block types. It contains 40 vanilla property names after the ID-backed exclusions below. The six directional boolean/connection properties (`down`, `east`, `north`, `south`, `up`, `west`) share the API field `connections`; redstone wire uses `none`, `side`, or `up` for its four horizontal directions, while fire and chorus plant use booleans. The `power` property is a numeric signal level from 0 through 15 and remains distinct from boolean `powered`.
+The vocabulary includes a property when it changes gameplay, rendering, redstone behavior, or world generation for one of the 126 kernel block types. It contains 40 vanilla property names after the ID-backed exclusions below. The six directional boolean/connection properties (`down`, `east`, `north`, `south`, `up`, `west`) share the API field `connections`; redstone wire uses `none`, `side`, or `up` for its four horizontal directions, while fire and chorus plant use booleans. The `power` property is a numeric signal level from 0 through 15 and remains distinct from boolean `powered`.
 
-All properties in the vanilla-state column are represented by codec state or by the exact ID-backed cases listed in “Excluded properties”. After those exclusions, 59 kernel types have encoded state and 66 accept only the empty state. `—` means the vanilla block has no block-state properties. The kernel `end_crystal` type is an extension for a vanilla entity and has no vanilla block-state row. Other vanilla blocks are outside this crosswalk because the kernel has no corresponding block type.
+All properties in the vanilla-state column are represented by codec state or by the exact ID-backed cases listed in “Excluded properties”. After those exclusions, 59 kernel types have encoded state and 67 accept only the empty state. `—` means the vanilla block has no block-state properties. The kernel `end_crystal` type is an extension for a vanilla entity and has no vanilla block-state row. Other vanilla blocks are outside this crosswalk because the kernel has no corresponding block type.
 
-## Complete 125-type crosswalk
+## Complete 126-type crosswalk
 
 Each state is shown as `property=allowed-values (default value)`. ID-fixed properties instead show `property=fixed-value (ID-fixed; vanilla default value)`. Numeric ranges are inclusive. For aliased types, the vanilla name is the representative whose shared block-state schema is used.
 
@@ -139,6 +139,7 @@ Each state is shown as `property=allowed-values (default value)`. ID-fixed prope
 | `wither_skeleton_skull` | `wither_skeleton_skull` | powered=true/false (default false); rotation=0..15 (default 0) |
 | `copper_ore` | `copper_ore` | — |
 | `deepslate_copper_ore` | `deepslate_copper_ore` | — |
+| `bookshelf` | `bookshelf` | — |
 
 ## Included property vocabulary
 

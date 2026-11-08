@@ -244,4 +244,5 @@ export const BLOCK_TYPES = [
   'wither_skeleton_skull',
   'copper_ore',
   'deepslate_copper_ore',
+  'bookshelf',
 ] as const

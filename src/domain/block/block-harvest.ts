@@ -75,6 +75,7 @@ export const resolveDrop = (
   }
 
   const item = resolveDropItem(rule, brokenBlock, context.silkTouch === true)
+  const count = context.silkTouch === true ? (rule.silkTouchCount ?? rule.count) : rule.count
 
-  return item === undefined ? undefined : { item, count: rule.count, affectedByFortune: rule.affectedByFortune }
+  return item === undefined ? undefined : { item, count, affectedByFortune: rule.affectedByFortune }
 }

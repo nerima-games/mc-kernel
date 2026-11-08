@@ -380,6 +380,8 @@ describe('light level branding', () => {
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, silkTouchItem: 'future' } }]), 'type', 'block property drops silkTouchItem must be a registered ItemType')
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 'many' } }]), 'range', 'block property drops count must be an integer in [1, 99]')
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, count: 0 } }]), 'range', 'block property drops.count is outside its allowed range')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, silkTouchCount: 'one' } }]), 'range', 'block property drops silkTouchCount must be an integer')
+      expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, silkTouchCount: 0 } }]), 'range', 'block property drops.silkTouchCount is outside its allowed range')
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ drops: { ...DEFAULT_BLOCK_DROP, requiresSilkTouch: 'yes' } }]), 'type', 'block property drops requiresSilkTouch must be a boolean')
 
       expectPropertyFailure(Reflect.apply(resolveBlockPropertiesResult, undefined, [{ supportRule: null }]), 'type', 'block property supportRule must be an object')
@@ -641,6 +643,22 @@ describe('harvestTool and drops (the two struct fields, audit §7)', () => {
       expect(drops.requiresSilkTouch).toBe(true)
       // ...and it did not disturb anything else.
       expect(blockPropertiesOf(glass).hardness).toBe(BLOCK_PROPERTY_DEFAULTS.hardness)
+    })),
+  )
+
+  it('validates and preserves a distinct silk-touch drop count', () =>
+    Effect.runPromise(Effect.sync(() => {
+      const definition: BlockDefinition = {
+        properties: {
+          drops: {
+            ...DEFAULT_BLOCK_DROP,
+            count: StackCount(3),
+            silkTouchCount: StackCount(1),
+          },
+        },
+        type: 'bookshelf',
+      }
+      expect(blockPropertiesOf(definition).drops?.silkTouchCount).toBe(StackCount(1))
     })),
   )
 })

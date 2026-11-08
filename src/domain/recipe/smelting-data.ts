@@ -166,4 +166,5 @@ export const VANILLA_FUEL_RULES: FuelRuleTable = [
   { burnTimeSecs: FixedDurationSecs(5), fuel: 'bowl' },
   { burnTimeSecs: FixedDurationSecs(5), fuel: 'wool' },
   { burnTimeSecs: FixedDurationSecs(10), fuel: 'door' },
+  { burnTimeSecs: FixedDurationSecs(15), fuel: 'bookshelf' },
 ]

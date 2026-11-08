@@ -9,7 +9,7 @@ import {
 } from '../../../src/domain/display-name/display-name-naming.js'
 
 const ALLOWED_SHARED_NAME_IDS = [
-  'amethyst_block', 'andesite', 'anvil', 'bed', 'brewing_stand',
+  'amethyst_block', 'andesite', 'anvil', 'bed', 'bookshelf', 'brewing_stand',
   'brown_mushroom', 'cactus', 'calcite', 'cauldron', 'chest',
   'chorus_flower', 'chorus_plant', 'coal_block', 'coal_ore', 'cobblestone',
   'comparator', 'copper_ore', 'crafting_table', 'dandelion', 'deepslate', 'deepslate_coal_ore',
@@ -91,6 +91,12 @@ const isAllowedSharedNameGroup = (rows: ReadonlyArray<NameExpectation>): boolean
   allowedSharedNameIds.has(rows[0]?.id ?? '')
 
 describe('display names', () => {
+  it('uses the pinned English and Japanese bookshelf names', () => {
+    expect(englishDisplayNameForId('bookshelf')).toBe('Bookshelf')
+    expect(japaneseDisplayNameForId('bookshelf')).toBe('本棚')
+    expect(japaneseNameMethodForId('bookshelf')).toBe('common')
+  })
+
   it('records an allowed Japanese naming method for every current ID', () => {
     const methods = ['katakana', 'common', 'compound'] as const
     const ids: ReadonlyArray<kernel.ItemType | kernel.BlockType> = [
