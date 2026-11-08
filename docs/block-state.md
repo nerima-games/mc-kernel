@@ -2,13 +2,13 @@
 
 ## Scope
 
-This memo defines the target contract for per-cell state alongside the existing `BlockId`. It keeps all 123 current kernel block types and the current chunk `BlockState` ID buffer unchanged. Storage consumers pair each ID cell with one `EncodedBlockState` value in a parallel buffer at the same cell index. The encoded value contains state only, not a block ID. The vanilla reference is Java Edition 26.3: the checked-in crosswalk source is `test/golden/vanilla-block.json`, generated from the Java block-state roster and pinned by `test/vanilla-26-3.test.ts`. The [Minecraft Wiki Block states table](https://minecraft.wiki/w/Block_state) is the readable cross-check. Kernel-only names are mapped to a representative vanilla block in the table below.
+This memo defines the target contract for per-cell state alongside the existing `BlockId`. It keeps all 125 current kernel block types and the current chunk `BlockState` ID buffer unchanged. Storage consumers pair each ID cell with one `EncodedBlockState` value in a parallel buffer at the same cell index. The encoded value contains state only, not a block ID. The vanilla reference is Java Edition 26.3: the checked-in crosswalk source is `test/golden/vanilla-block.json`, generated from the Java block-state roster and pinned by `test/vanilla-26-3.test.ts`. The [Minecraft Wiki Block states table](https://minecraft.wiki/w/Block_state) is the readable cross-check. Kernel-only names are mapped to a representative vanilla block in the table below.
 
-The vocabulary includes a property when it changes gameplay, rendering, redstone behavior, or world generation for one of the 123 kernel block types. It contains 40 vanilla property names after the ID-backed exclusions below. The six directional boolean/connection properties (`down`, `east`, `north`, `south`, `up`, `west`) share the API field `connections`; redstone wire uses `none`, `side`, or `up` for its four horizontal directions, while fire and chorus plant use booleans. The `power` property is a numeric signal level from 0 through 15 and remains distinct from boolean `powered`.
+The vocabulary includes a property when it changes gameplay, rendering, redstone behavior, or world generation for one of the 125 kernel block types. It contains 40 vanilla property names after the ID-backed exclusions below. The six directional boolean/connection properties (`down`, `east`, `north`, `south`, `up`, `west`) share the API field `connections`; redstone wire uses `none`, `side`, or `up` for its four horizontal directions, while fire and chorus plant use booleans. The `power` property is a numeric signal level from 0 through 15 and remains distinct from boolean `powered`.
 
-All properties in the vanilla-state column are represented by codec state or by the exact ID-backed cases listed in “Excluded properties”. After those exclusions, 59 kernel types have encoded state and 64 accept only the empty state. `—` means the vanilla block has no block-state properties. The kernel `end_crystal` type is an extension for a vanilla entity and has no vanilla block-state row. Other vanilla blocks are outside this crosswalk because the kernel has no corresponding block type.
+All properties in the vanilla-state column are represented by codec state or by the exact ID-backed cases listed in “Excluded properties”. After those exclusions, 59 kernel types have encoded state and 66 accept only the empty state. `—` means the vanilla block has no block-state properties. The kernel `end_crystal` type is an extension for a vanilla entity and has no vanilla block-state row. Other vanilla blocks are outside this crosswalk because the kernel has no corresponding block type.
 
-## Complete 123-type crosswalk
+## Complete 125-type crosswalk
 
 Each state is shown as `property=allowed-values (default value)`. ID-fixed properties instead show `property=fixed-value (ID-fixed; vanilla default value)`. Numeric ranges are inclusive. For aliased types, the vanilla name is the representative whose shared block-state schema is used.
 
@@ -137,6 +137,8 @@ Each state is shown as `property=allowed-values (default value)`. ID-fixed prope
 | `fire` | `fire` | age=0..15 (default 0); east=true/false (default false); north=true/false (default false); south=true/false (default false); up=true/false (default false); west=true/false (default false) |
 | `soul_soil` | `soul_soil` | — |
 | `wither_skeleton_skull` | `wither_skeleton_skull` | powered=true/false (default false); rotation=0..15 (default 0) |
+| `copper_ore` | `copper_ore` | — |
+| `deepslate_copper_ore` | `deepslate_copper_ore` | — |
 
 ## Included property vocabulary
 
@@ -204,4 +206,3 @@ export class WorldWriteInvalidBatch extends Schema.TaggedError<WorldWriteInvalid
 ```
 
 Omitting `state` means the selected block’s default state. After decoding the batch and validating the existing empty-batch and duplicate-position rules, validate every present `state` against its edit’s `block` with `encodeBlockState(edit.block, edit.state)`. Do this for the whole batch before checking revisions or writing. If validation fails, return `WorldWriteInvalidBatch` with reason `invalid-block-state`; this means the schema-decoded state has an unsupported property or a value outside the selected block’s legal domain. A malformed value rejected while decoding `BlockStateValuesSchema` remains a schema-decode failure. Only after the complete batch passes these checks should the adapter check world revision and then dimension revision, and the coordinator recheck both in the same transaction as the writes. Batch atomicity and revision rules remain unchanged. Replicated and saved representations may carry the encoded value under their own versioned schemas.
-
