@@ -96,6 +96,24 @@ const valuesWithSlot = (
   return values
 }
 
+const valuesWithSlots = (
+  definition: BlockStateDefinition,
+  slotValues: ReadonlyArray<unknown>,
+): Record<string, unknown> => {
+  const values: Record<string, unknown> = {}
+  const connections: Record<string, unknown> = {}
+  definition.slots.forEach((slot, index) => {
+    const value = slotValues[index]
+    if (slot.property === 'connections') {
+      connections[slot.direction] = value
+    } else {
+      values[slot.property] = value
+    }
+  })
+  if (Object.keys(connections).length > 0) values['connections'] = connections
+  return values
+}
+
 const expectCodecFailure = <Value>(
   result: Result.Result<Value, kernel.BlockStateCodecFailure>,
   reason?: kernel.BlockStateCodecFailure['reason'],
@@ -191,6 +209,28 @@ describe('block-state codec', () => {
     }
   })
 
+  it('property: round-trips generated valid states for every stateful block', () => {
+    for (const entry of BLOCK_REGISTRY) {
+      const definition = resultValue(kernel.blockStateDefinitionOf(entry.id))
+      if (definition.slots.length === 0) continue
+
+      const valuesArbitrary = fc.tuple(
+        ...definition.slots.map((slot) => fc.constantFrom(...slot.values)),
+      ).map((slotValues) => valuesWithSlots(definition, slotValues))
+
+      fc.assert(
+        fc.property(valuesArbitrary, (values) => {
+          const encoded = resultValue(kernel.encodeBlockState(entry.id, values))
+          const decoded = resultValue(kernel.decodeBlockState(entry.id, encoded))
+          expect(decoded).toStrictEqual(values)
+          expect(Result.isSuccess(Schema.decodeUnknownResult(kernel.BlockStateValuesSchema)(decoded))).toBe(true)
+          return true
+        }),
+        { numRuns: 100 },
+      )
+    }
+  })
+
   it('accepts each numeric domain boundary and rejects the adjacent values', () => {
     const cases = [
       { block: 'kelp', property: 'age', minimum: 0, maximum: 25 },
@@ -232,6 +272,19 @@ describe('block-state codec', () => {
     const unknownBlockId = resultValue(BlockId.result(123))
     expectCodecFailure(kernel.encodeBlockState(unknownBlockId, {}), 'unknown-block-id')
 
+    for (const invalidBlockId of [null, -1, 0.5, 0xffff + 1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expectCodecFailure(
+        Reflect.apply(kernel.encodeBlockState, undefined, [invalidBlockId, {}]),
+        'invalid-block-id',
+      )
+      expectCodecFailure(
+        Reflect.apply(kernel.decodeBlockState, undefined, [invalidBlockId, 0]),
+        'invalid-block-id',
+      )
+    }
+    const maximumBlockId = resultValue(BlockId.result(0xffff))
+    expectCodecFailure(kernel.encodeBlockState(maximumBlockId, {}), 'unknown-block-id')
+
     const wireId = blockId('redstone_wire')
     expectCodecFailure(kernel.decodeBlockState(wireId, 3), 'reserved-code')
     expectCodecFailure(kernel.decodeBlockState(wireId, 2 ** kernel.BLOCK_STATE_MAX_USED_BITS), 'reserved-code')
@@ -259,7 +312,17 @@ describe('block-state codec', () => {
       },
     })
 
-    for (const input of [null, [], new Date(), getterState, prototypeProxy, keysProxy, { connections: { diagonal: true } }]) {
+    for (const input of [
+      null,
+      [],
+      new Date(),
+      getterState,
+      prototypeProxy,
+      keysProxy,
+      { connections: null },
+      { connections: [] },
+      { connections: { diagonal: true } },
+    ]) {
       expectCodecFailure(kernel.encodeBlockState(blockId('redstone_wire'), input))
     }
   })

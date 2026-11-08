@@ -39,10 +39,13 @@ export type BlockStateDefinition = {
 
 type InternalBlockStateDefinition = BlockStateDefinition & { readonly bitWidth: number }
 
+const failureValue = (
+  reason: BlockStateCodecFailure['reason'],
+): BlockStateCodecFailure => ({ _tag: 'BlockStateCodecFailure', reason })
+
 const failure = (
   reason: BlockStateCodecFailure['reason'],
-): Result.Result<never, BlockStateCodecFailure> =>
-  Result.fail({ _tag: 'BlockStateCodecFailure', reason })
+): Result.Result<never, BlockStateCodecFailure> => Result.fail(failureValue(reason))
 
 const bitsFor = (valueCount: number): number => Math.ceil(Math.log2(valueCount))
 
@@ -212,9 +215,7 @@ const parseBlockStateValues = (value: unknown): Result.Result<BlockStateValues, 
 }
 
 const getDefinition = (blockId: BlockId): Result.Result<InternalBlockStateDefinition, BlockStateCodecFailure> => {
-  if (typeof blockId !== 'number' || !Number.isInteger(blockId) || blockId < MIN_BLOCK_ID || blockId > 0xffff) {
-    return failure('invalid-block-id')
-  }
+  if (typeof blockId !== 'number') return failure('invalid-block-id')
 
   const validatedBlockId = BlockId.result(blockId)
   if (Result.isFailure(validatedBlockId)) {
@@ -293,10 +294,7 @@ export const encodeBlockState = (
     offset += fieldBits
   }
 
-  const validated = Schema.decodeUnknownResult(EncodedBlockStateSchema)(encoded)
-  return validated._tag === 'Success'
-    ? Result.succeed(validated.success)
-    : failure('invalid-encoded-value')
+  return Result.succeed(Schema.decodeUnknownSync(EncodedBlockStateSchema)(encoded))
 }
 
 const parseEncodedBlockState = (value: unknown): Result.Result<EncodedBlockState, BlockStateCodecFailure> => {
@@ -309,10 +307,7 @@ const parseEncodedBlockState = (value: unknown): Result.Result<EncodedBlockState
     return failure('invalid-encoded-value')
   }
 
-  const parsed = Schema.decodeUnknownResult(EncodedBlockStateSchema)(value)
-  return parsed._tag === 'Success'
-    ? Result.succeed(parsed.success)
-    : failure('invalid-encoded-value')
+  return Result.succeed(Schema.decodeUnknownSync(EncodedBlockStateSchema)(value))
 }
 
 export const decodeBlockState = (
@@ -344,8 +339,6 @@ export const decodeBlockState = (
   }
 
   if (Object.keys(connections).length > 0) state['connections'] = Object.freeze(connections)
-  const decoded = Schema.decodeUnknownResult(BlockStateValuesSchema)(Object.freeze(state))
-  return decoded._tag === 'Success'
-    ? Result.succeed(freezeBlockStateValues(decoded.success))
-    : failure('invalid-encoded-value')
+  const decoded = Schema.decodeUnknownSync(BlockStateValuesSchema)(Object.freeze(state))
+  return Result.succeed(freezeBlockStateValues(decoded))
 }
