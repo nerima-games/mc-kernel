@@ -2,6 +2,7 @@ import * as fc from 'fast-check'
 import { Result, Schema } from 'effect'
 import { describe, expect, it } from 'vitest'
 
+import { describeUnknown } from '../src/domain/describe-unknown.js'
 import {
   BLOCK_IDS,
   BLOCK_ID_MAX,
@@ -27,30 +28,31 @@ describe('block enchanting power', () => {
   })
 
   it('returns schema-valid power or a typed failure for arbitrary inputs without throwing', () => {
-    fc.assert(
-      fc.property(fc.anything(), (input) => {
-        const result = Reflect.apply(enchantingPowerOfBlockId, undefined, [input])
-        expect(Result.isResult(result), String(input)).toBe(true)
-        if (!Result.isResult(result)) return
+    const assertResultForInput = (input: unknown): void => {
+      const result = Reflect.apply(enchantingPowerOfBlockId, undefined, [input])
+      expect(Result.isResult(result), describeUnknown(input)).toBe(true)
+      if (!Result.isResult(result)) return
 
-        if (
-          typeof input === 'number' &&
-          Number.isInteger(input) &&
-          input >= 0 &&
-          input <= LAST_REGISTERED_BLOCK_ID &&
-          input <= BLOCK_ID_MAX
-        ) {
-          expect(Result.isSuccess(result), String(input)).toBe(true)
-          if (Result.isSuccess(result)) {
-            const expected = input === BOOKSHELF_BLOCK_ID ? 1 : 0
-            expect(result.success, String(input)).toBe(expected)
-            expect(Result.isSuccess(decodePower(result.success)), String(input)).toBe(true)
-          }
-        } else {
-          expect(Result.isFailure(result), String(input)).toBe(true)
+      if (
+        typeof input === 'number' &&
+        Number.isInteger(input) &&
+        input >= 0 &&
+        input <= LAST_REGISTERED_BLOCK_ID &&
+        input <= BLOCK_ID_MAX
+      ) {
+        expect(Result.isSuccess(result), describeUnknown(input)).toBe(true)
+        if (Result.isSuccess(result)) {
+          const expected = input === BOOKSHELF_BLOCK_ID ? 1 : 0
+          expect(result.success, describeUnknown(input)).toBe(expected)
+          expect(Result.isSuccess(decodePower(result.success)), describeUnknown(input)).toBe(true)
         }
-      }),
-    )
+      } else {
+        expect(Result.isFailure(result), describeUnknown(input)).toBe(true)
+      }
+    }
+
+    fc.assert(fc.property(fc.anything(), assertResultForInput))
+    assertResultForInput({ toString: false })
   })
 
   it('keeps the id boundaries explicit', () => {
