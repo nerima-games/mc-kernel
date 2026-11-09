@@ -13,6 +13,7 @@ import {
   WorldWriteChunkUnavailableSchema,
   WorldWriteConflict,
   WorldWriteInvalidBatch,
+  validateWorldWriteBatch,
 } from '../src/domain/world/world-write-port.js'
 import { optionValue } from './block-result-helpers.js'
 
@@ -30,6 +31,15 @@ const DOOR_BLOCK = {
 }
 const TEST_BLOCKS = [STATELESS_BLOCK, CROP_BLOCK, DOOR_BLOCK] as const
 const EDIT_POSITION = { x: 1, y: 2, z: 3 }
+
+const makeBatch = (edits: ReadonlyArray<unknown>) =>
+  Schema.decodeUnknownSync(WorldWriteBatchSchema)({
+    world: 'world-1',
+    expectedWorldRevision: 4,
+    dimension: 'overworld',
+    expectedDimensionRevision: 7,
+    edits,
+  })
 
 const isPlainRecord = (value: unknown): value is Record<string, unknown> => {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
@@ -149,38 +159,93 @@ describe('world write port schemas', () => {
     })
   })
 
+  it('decodes state shape without checking block-specific compatibility', () => {
+    expect(Schema.decodeUnknownSync(BlockEditSchema)({
+      position: EDIT_POSITION,
+      block: CROP_BLOCK.id,
+      state: { age: 8 },
+    })).toStrictEqual({
+      position: EDIT_POSITION,
+      block: CROP_BLOCK.id,
+      state: { age: 8 },
+    })
+  })
+
   it.each([
     { name: 'wheat crop minimum age', block: CROP_BLOCK, state: { age: 0 }, accepted: true },
     { name: 'wheat crop maximum age', block: CROP_BLOCK, state: { age: 7 }, accepted: true },
     { name: 'wheat crop age above maximum', block: CROP_BLOCK, state: { age: 8 }, accepted: false },
-    { name: 'wheat crop age below minimum', block: CROP_BLOCK, state: { age: -1 }, accepted: false },
     { name: 'unsupported crop property', block: CROP_BLOCK, state: { facing: 'north' }, accepted: false },
     { name: 'valid door state', block: DOOR_BLOCK, state: { facing: 'north', half: 'lower', hinge: 'left', open: true, powered: false }, accepted: true },
     { name: 'empty state for stateless block', block: STATELESS_BLOCK, state: {}, accepted: false },
     { name: 'nonempty state for stateless block', block: STATELESS_BLOCK, state: { age: 0 }, accepted: false },
-  ])('decodes $name according to the block state contract', ({ block, state, accepted }) => {
-    const decoded = Schema.decodeUnknownResult(BlockEditSchema)({
+  ])('validates $name after batch decoding', ({ block, state, accepted }) => {
+    const batch = makeBatch([{
       position: EDIT_POSITION,
       block: block.id,
       state,
-    })
+    }])
+    const validation = validateWorldWriteBatch(batch)
 
-    expect(Result.isSuccess(decoded)).toBe(accepted)
-    if (accepted) {
-      expect(Result.isSuccess(decoded)).toBe(true)
-      if (Result.isSuccess(decoded)) expect(decoded.success.state).toStrictEqual(state)
+    expect(Result.isSuccess(validation)).toBe(accepted)
+    if (Result.isFailure(validation)) {
+      expect(validation.failure).toMatchObject({
+        _tag: 'WorldWriteInvalidBatch',
+        reason: 'invalid-block-state',
+        position: EDIT_POSITION,
+      })
     } else {
-      expect(Result.isFailure(decoded)).toBe(true)
+      expect(validation.success.edits[0]?.state).toStrictEqual(state)
     }
   })
 
-  it('decodes arbitrary block and state inputs as compatible values or typed schema failures', () => {
+  it('rejects malformed state values during batch decoding', () => {
+    for (const state of [{ age: -1 }, { age: 26 }, { unsupported: true }]) {
+      expect(Result.isFailure(Schema.decodeUnknownResult(WorldWriteBatchSchema)({
+        world: 'world-1',
+        expectedWorldRevision: 4,
+        dimension: 'overworld',
+        expectedDimensionRevision: 7,
+        edits: [{ position: EDIT_POSITION, block: CROP_BLOCK.id, state }],
+      }))).toBe(true)
+    }
+  })
+
+  it('checks empty, duplicate, and state failures in contract order', () => {
+    const empty = validateWorldWriteBatch(makeBatch([]))
+    expect(Result.isFailure(empty)).toBe(true)
+    if (Result.isFailure(empty)) expect(empty.failure.reason).toBe('empty')
+
+    const duplicateBeforeState = validateWorldWriteBatch(makeBatch([
+      { position: EDIT_POSITION, block: STATELESS_BLOCK.id, state: {} },
+      { position: EDIT_POSITION, block: CROP_BLOCK.id, state: { age: 8 } },
+    ]))
+    expect(Result.isFailure(duplicateBeforeState)).toBe(true)
+    if (Result.isFailure(duplicateBeforeState)) {
+      expect(duplicateBeforeState.failure.reason).toBe('duplicate-position')
+    }
+
+    const invalidState = validateWorldWriteBatch(makeBatch([
+      { position: EDIT_POSITION, block: STATELESS_BLOCK.id, state: {} },
+    ]))
+    expect(Result.isFailure(invalidState)).toBe(true)
+    if (Result.isFailure(invalidState)) {
+      expect(invalidState.failure).toMatchObject({
+        reason: 'invalid-block-state',
+        position: EDIT_POSITION,
+      })
+    }
+  })
+
+  it('checks arbitrary structurally valid states against a test-owned compatibility oracle', () => {
     const stateInput = fc.oneof(
-      fc.anything(),
-      fc.integer({ min: 0, max: 7 }).map((age) => ({ age })),
-      fc.integer({ min: -1, max: 8 }).map((age) => ({ age })),
-      fc.boolean().map((open) => ({ open })),
       fc.constant({}),
+      fc.integer({ min: 0, max: 25 }).map((age) => ({ age })),
+      fc.boolean().map((open) => ({ open })),
+      fc.constant({ facing: 'north' as const }),
+      fc.constant({ half: 'lower' as const }),
+      fc.constant({ hinge: 'left' as const }),
+      fc.boolean().map((powered) => ({ powered })),
     )
 
     fc.assert(
@@ -189,16 +254,27 @@ describe('world write port schemas', () => {
         fc.boolean(),
         stateInput,
         (block, includeState, state) => {
-          const input = includeState
+          const edit = includeState
             ? { position: EDIT_POSITION, block: block.id, state }
             : { position: EDIT_POSITION, block: block.id }
-          const decoded = Schema.decodeUnknownResult(BlockEditSchema)(input)
+          const batch = Schema.decodeUnknownSync(WorldWriteBatchSchema)({
+            world: 'world-1',
+            expectedWorldRevision: 4,
+            dimension: 'overworld',
+            expectedDimensionRevision: 7,
+            edits: [edit],
+          })
+          const validation = validateWorldWriteBatch(batch)
           const expected = !includeState || (
             state !== undefined && referenceStateIsCompatible(block.name, state)
           )
 
-          expect(Result.isSuccess(decoded)).toBe(expected)
-          if (Result.isFailure(decoded)) expect(decoded.failure).toBeDefined()
+          expect(Result.isSuccess(validation)).toBe(expected)
+          if (Result.isFailure(validation)) {
+            expect(validation.failure).toBeInstanceOf(WorldWriteInvalidBatch)
+            expect(validation.failure.reason).toBe('invalid-block-state')
+            expect(validation.failure.position).toStrictEqual(batch.edits[0]?.position)
+          }
           return true
         },
       ),
@@ -224,20 +300,22 @@ describe('world write port schemas', () => {
       expect(referenceProperties, `${block.name} has a test-owned reference`).toBeDefined()
       if (referenceProperties === undefined) continue
 
-      const omittedState = Schema.decodeUnknownResult(BlockEditSchema)({
+      const omittedState = validateWorldWriteBatch(makeBatch([{
         position: EDIT_POSITION,
         block: block.id,
-      })
-      const emptyState = Schema.decodeUnknownResult(BlockEditSchema)({
+      }]))
+      const emptyState = validateWorldWriteBatch(makeBatch([{
         position: EDIT_POSITION,
         block: block.id,
         state: {},
-      })
+      }]))
 
       expect(Result.isSuccess(omittedState), `${block.name} omitted state`).toBe(true)
       expect(Result.isSuccess(emptyState), `${block.name} empty state`).toBe(referenceProperties.length > 0)
-      if (Result.isFailure(omittedState)) expect(omittedState.failure).toBeDefined()
-      if (Result.isFailure(emptyState)) expect(emptyState.failure).toBeDefined()
+      if (Result.isFailure(emptyState)) {
+        expect(emptyState.failure.reason).toBe('invalid-block-state')
+        expect(emptyState.failure.position).toStrictEqual(EDIT_POSITION)
+      }
     }
   })
 
@@ -283,16 +361,18 @@ describe('world write port schemas', () => {
     })
   })
 
-  it.each(['empty', 'duplicate-position'] as const)(
+  it.each(['empty', 'duplicate-position', 'invalid-block-state'] as const)(
     'decodes invalid batch reason %s',
     (reason) => {
       const error = Schema.decodeUnknownSync(WorldWriteInvalidBatch)({
         _tag: 'WorldWriteInvalidBatch',
         reason,
+        ...(reason === 'invalid-block-state' ? { position: EDIT_POSITION } : {}),
       })
 
       expect(error).toBeInstanceOf(WorldWriteInvalidBatch)
       expect(error).toMatchObject({ _tag: 'WorldWriteInvalidBatch', reason })
+      if (reason === 'invalid-block-state') expect(error.position).toStrictEqual(EDIT_POSITION)
     },
   )
 

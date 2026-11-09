@@ -1,4 +1,4 @@
-import { Context, Effect, Result, Schema, SchemaIssue, SchemaParser } from 'effect'
+import { Context, Effect, Result, Schema, SchemaParser } from 'effect'
 import type { Cause } from 'effect'
 import { blockStateDefinitionOf, encodeBlockState } from '../block/block-state-codec.js'
 import { BlockStateValuesSchema } from '../block/block-state-values.js'
@@ -13,7 +13,7 @@ import {
   WorldRevisionSchema,
 } from '../shared-vocabulary/shared-vocabulary.js'
 
-const BlockEditSchemaBase: Schema.Codec<{
+export const BlockEditSchema: Schema.Codec<{
   readonly position: Schema.Schema.Type<typeof BlockPositionSchema>
   readonly block: Schema.Schema.Type<typeof BlockIdSchema>
   readonly state?: Schema.Schema.Type<typeof BlockStateValuesSchema>
@@ -26,29 +26,6 @@ const BlockEditSchemaBase: Schema.Codec<{
   block: BlockIdSchema,
   state: Schema.optionalKey(BlockStateValuesSchema),
 }))
-
-export const BlockEditSchema: typeof BlockEditSchemaBase = Schema.declareConstructor<
-  Schema.Schema.Type<typeof BlockEditSchemaBase>,
-  Schema.Codec.Encoded<typeof BlockEditSchemaBase>
->()(
-  [BlockEditSchemaBase],
-  ([inner]) => (input, ast, options) =>
-    Effect.flatMap(
-      SchemaParser.decodeUnknownEffect(inner)(input, options),
-      (edit) => {
-        if (edit.state === undefined) return Effect.succeed(edit)
-
-        const definition = blockStateDefinitionOf(edit.block)
-        if (Result.isFailure(definition) || definition.success.slots.length === 0) {
-          return Effect.fail(new SchemaIssue.InvalidType(ast))
-        }
-
-        return Result.isFailure(encodeBlockState(edit.block, edit.state))
-          ? Effect.fail(new SchemaIssue.InvalidType(ast))
-          : Effect.succeed(edit)
-      },
-    ),
-)
 export type BlockEdit = Schema.Schema.Type<typeof BlockEditSchema>
 
 export const WorldWriteBatchSchema: Schema.Codec<{
@@ -105,9 +82,11 @@ const WorldWriteConflictBase: Schema.Class<
 export class WorldWriteConflict extends WorldWriteConflictBase {}
 
 const worldWriteInvalidBatchFields: {
-  readonly reason: Schema.Codec<'empty' | 'duplicate-position'>
+  readonly reason: Schema.Codec<'empty' | 'duplicate-position' | 'invalid-block-state'>
+  readonly position: Schema.optionalKey<typeof BlockPositionSchema>
 } = {
-  reason: Schema.Literals(['empty', 'duplicate-position']),
+  reason: Schema.Literals(['empty', 'duplicate-position', 'invalid-block-state']),
+  position: Schema.optionalKey(BlockPositionSchema),
 }
 
 const WorldWriteInvalidBatchBase: Schema.Class<
@@ -117,6 +96,50 @@ const WorldWriteInvalidBatchBase: Schema.Class<
 > = Schema.TaggedError<WorldWriteInvalidBatch>()('WorldWriteInvalidBatch', worldWriteInvalidBatchFields)
 
 export class WorldWriteInvalidBatch extends WorldWriteInvalidBatchBase {}
+
+export const validateWorldWriteBatch = (
+  batch: WorldWriteBatch,
+): Result.Result<WorldWriteBatch, WorldWriteInvalidBatch> => {
+  if (batch.edits.length === 0) {
+    return Result.fail(new WorldWriteInvalidBatch({ reason: 'empty' }))
+  }
+
+  const seen = new Map<number, Map<number, Set<number>>>()
+  for (const edit of batch.edits) {
+    let seenY = seen.get(edit.position.x)
+    if (seenY === undefined) {
+      seenY = new Map()
+      seen.set(edit.position.x, seenY)
+    }
+    let seenZ = seenY.get(edit.position.y)
+    if (seenZ === undefined) {
+      seenZ = new Set()
+      seenY.set(edit.position.y, seenZ)
+    }
+    if (seenZ.has(edit.position.z)) {
+      return Result.fail(new WorldWriteInvalidBatch({ reason: 'duplicate-position' }))
+    }
+    seenZ.add(edit.position.z)
+  }
+
+  for (const edit of batch.edits) {
+    if (edit.state !== undefined) {
+      const definition = blockStateDefinitionOf(edit.block)
+      if (
+        Result.isFailure(definition) ||
+        definition.success.slots.length === 0 ||
+        Result.isFailure(encodeBlockState(edit.block, edit.state))
+      ) {
+        return Result.fail(new WorldWriteInvalidBatch({
+          reason: 'invalid-block-state',
+          position: edit.position,
+        }))
+      }
+    }
+  }
+
+  return Result.succeed(batch)
+}
 
 const worldWriteChunkUnavailableFields: {
   readonly dimension: typeof DimensionIdSchema

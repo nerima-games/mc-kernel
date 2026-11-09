@@ -205,6 +205,7 @@ export const BlockEditSchema = Schema.Struct({
 
 export class WorldWriteInvalidBatch extends Schema.TaggedError<WorldWriteInvalidBatch>()("WorldWriteInvalidBatch", {
   reason: Schema.Literals(["empty", "duplicate-position", "invalid-block-state"]),
+  position: Schema.optionalKey(BlockPositionSchema),
 }) {}
 ```
 

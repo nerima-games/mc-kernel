@@ -1,4 +1,4 @@
-import type { Effect } from 'effect'
+import type { Effect, Result } from 'effect'
 import { expectTypeOf } from 'vitest'
 import type {
   BlockEdit,
@@ -8,6 +8,7 @@ import type {
   WorldWriteConflict,
   WorldWriteInvalidBatch,
   WorldWritePort,
+  validateWorldWriteBatch,
 } from '../src/domain/world/world-write-port.js'
 import type { BlockStateValues } from '../src/domain/block/block-state-values.js'
 
@@ -21,3 +22,5 @@ expectTypeOf<ReturnType<WorldWritePort['Service']['applyBatch']>>()
   .toEqualTypeOf<Effect.Effect<WorldWriteCommit, ExpectedFailures>>()
 expectTypeOf<BlockEdit['state']>().toEqualTypeOf<BlockStateValues | undefined>()
 expectTypeOf<{} extends Pick<BlockEdit, 'state'> ? true : false>().toEqualTypeOf<true>()
+expectTypeOf<ReturnType<typeof validateWorldWriteBatch>>()
+  .toEqualTypeOf<Result.Result<WorldWriteBatch, WorldWriteInvalidBatch>>()

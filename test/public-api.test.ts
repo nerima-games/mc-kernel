@@ -514,6 +514,7 @@ describe("public API surface", () => {
           "WorldWriteConflict",
           "WorldWriteInvalidBatch",
           "WorldWritePort",
+          "validateWorldWriteBatch",
           "ResourceLocation",
           "NamespacedResourceLocation",
           "TagLocation",
@@ -1954,6 +1955,9 @@ describe("public API surface", () => {
           packageRoot.BlockEditSchema,
         );
         expect(worldWritePort.WorldWritePort).toBe(packageRoot.WorldWritePort);
+        expect(worldWritePort.validateWorldWriteBatch).toBe(
+          packageRoot.validateWorldWriteBatch,
+        );
       }),
     ));
 
