@@ -59,7 +59,7 @@ describe('block enchanting power', () => {
     expect(enchantingPowerOfBlockId(BlockId(0))).toEqual(Result.succeed(0))
     expect(enchantingPowerOfBlockId(BlockId(BOOKSHELF_BLOCK_ID))).toEqual(Result.succeed(1))
 
-    for (const id of [BlockId(126), BlockId(BLOCK_ID_MAX)]) {
+    for (const id of [BlockId(128), BlockId(BLOCK_ID_MAX)]) {
       const result = enchantingPowerOfBlockId(id)
       expect(Result.isFailure(result)).toBe(true)
       if (Result.isFailure(result)) {

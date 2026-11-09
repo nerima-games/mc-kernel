@@ -299,6 +299,8 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
     ['soul_soil', 'soul_soil', 'soul_soil'],
     ['wither_skeleton_skull', 'wither_skeleton_skull', 'wither_skeleton_skull'],
     ['bookshelf', 'book', 'book'],
+    ['sticky_piston', 'sticky_piston', 'sticky_piston'],
+    ['redstone_wall_torch', 'redstone_torch', 'redstone_torch'],
   ]
 
   it('covers the registry exactly, so a new block without a decision fails here', () =>
@@ -381,6 +383,15 @@ describe('every block resolves to a drop or explicitly to nothing', () => {
           expect(result.failure).toMatchObject({ _tag: 'BrandError', name: 'BrandError' })
         }
       }
+    })),
+  )
+
+  it('maps sticky piston by identity and keeps wall torch as a redstone torch drop', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(itemOfBlock('sticky_piston')).toBe('sticky_piston')
+      expect(blockOfPlaceableItem('sticky_piston')).toBe('sticky_piston')
+      expect(itemOfBlock('redstone_wall_torch')).toBeUndefined()
+      expect(dropOfBlockId(knownBlockIdOf('redstone_wall_torch'))?.item).toBe('redstone_torch')
     })),
   )
 })

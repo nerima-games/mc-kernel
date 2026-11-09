@@ -61,6 +61,6 @@ catalog:
 
 | id | owner | reason |
 | --- | --- | --- |
-| `mc-kernel:block-registry-26-3` | `mc-kernel` | Block table contains 126/1286 entries; remaining entries are outside the shared block and rendering contract. |
-| `mc-kernel:item-registry-26-3` | `mc-kernel` | Item table contains 309/1658 entries; remaining entries are outside the shared item and model contract. |
+| `mc-kernel:block-registry-26-3` | `mc-kernel` | Block table contains 128/1286 entries; remaining entries are outside the shared block and rendering contract. |
+| `mc-kernel:item-registry-26-3` | `mc-kernel` | Item table contains 310/1658 entries; remaining entries are outside the shared item and model contract. |
 | `mc-kernel:recipe-types-26-3` | `mc-kernel` | Crafting table contains 118/2042 rows from the vanilla recipe catalog: 118 of 1,202 shaped/shapeless rows are represented, while 1,084 shaped/shapeless and 840 other-type rows are outside this table. Separate smelting and brewing tables represent additional subsets. |

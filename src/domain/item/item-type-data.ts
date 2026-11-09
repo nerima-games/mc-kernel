@@ -480,4 +480,5 @@ export const ITEM_TYPES = [
   "raw_copper",
   "copper_ingot",
   "bookshelf",
+  "sticky_piston",
 ] as const;

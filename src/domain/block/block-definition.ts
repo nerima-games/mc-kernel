@@ -221,16 +221,17 @@ export const AUDITED_CAPABILITY_NAMES: ReadonlyArray<string> = [
  * Audited capabilities whose authoritative data or consumer belongs downstream.
  *
  * The kernel vocabulary and registry are internally complete for the supported
- * data profile: both contain the same 126 rows. This is a curated shared
+ * data profile: both contain the same 128 rows. This is a curated shared
  * vocabulary, not a claim that it covers every block in the reference edition
  * or release. The
  * reference implementation defines 120 block kinds; the kernel adds three
- * explicit domain rows and three vanilla blocks: bookshelf and two copper ores.
+ * explicit domain rows and five vanilla blocks: bookshelf, two copper ores,
+ * sticky piston, and redstone wall torch.
  *
  * Implemented columns:
  *
  *   `supportRule`       `./block-support` carries the column and the registry
- *     fills in all nineteen non-default rows. The default is `none`.
+ *     fills in every support-sensitive row. The default is `none`.
  *
  *   `footstepMaterial`  is a pure surface classification. Kernel deliberately
  *     does not own cue IDs or audio playback; mc-audio remains the owner.

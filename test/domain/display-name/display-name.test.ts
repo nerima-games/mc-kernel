@@ -28,7 +28,7 @@ const ALLOWED_SHARED_NAME_IDS = [
   'red_mushroom', 'redstone_block', 'redstone_lamp', 'redstone_ore', 'redstone_torch',
   'repeater', 'sand', 'sandstone', 'sapling', 'seagrass',
   'shulker_box', 'smooth_basalt', 'soul_sand', 'soul_soil', 'stone',
-  'stone_button', 'stone_slab', 'sugar_cane', 'tall_grass', 'tnt',
+  'sticky_piston', 'stone_button', 'stone_slab', 'sugar_cane', 'tall_grass', 'tnt',
   'torch', 'wither_skeleton_skull',
 ] as const
 
@@ -95,6 +95,15 @@ describe('display names', () => {
     expect(englishDisplayNameForId('bookshelf')).toBe('Bookshelf')
     expect(japaneseDisplayNameForId('bookshelf')).toBe('本棚')
     expect(japaneseNameMethodForId('bookshelf')).toBe('common')
+  })
+
+  it('uses the pinned English and Japanese names for the redstone variants', () => {
+    expect(englishDisplayNameForId('sticky_piston')).toBe('Sticky Piston')
+    expect(japaneseDisplayNameForId('sticky_piston')).toBe('粘着ピストン')
+    expect(japaneseNameMethodForId('sticky_piston')).toBe('common')
+    expect(englishDisplayNameForId('redstone_wall_torch')).toBe('Redstone Wall Torch')
+    expect(japaneseDisplayNameForId('redstone_wall_torch')).toBe('レッドストーンの壁掛けトーチ')
+    expect(japaneseNameMethodForId('redstone_wall_torch')).toBe('compound')
   })
 
   it('records an allowed Japanese naming method for every current ID', () => {

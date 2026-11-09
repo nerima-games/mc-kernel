@@ -245,4 +245,7 @@ export const BLOCK_TYPES = [
   'copper_ore',
   'deepslate_copper_ore',
   'bookshelf',
+  // Appended redstone variants preserve every existing BlockId.
+  'sticky_piston',
+  'redstone_wall_torch',
 ] as const

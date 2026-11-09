@@ -174,6 +174,8 @@ describe('id assignment is permanent', () => {
     ['copper_ore', number('123')],
     ['deepslate_copper_ore', number('124')],
     ['bookshelf', number('125')],
+    ['sticky_piston', number('126')],
+    ['redstone_wall_torch', number('127')],
   ]
 
   it('assigns exactly the pinned ids', () =>
@@ -254,7 +256,7 @@ describe('id assignment is permanent', () => {
   it('a BlockId only proves the id fits the 16-bit chunk field, not that a row claims it', () =>
     Effect.runPromise(Effect.sync(() => {
       // `BlockId` validates against the chunk-buffer range (0-65535,
-      // `block-registry-types.ts`), not against the registry (0-125 today).
+      // `block-registry-types.ts`), not against the registry (0-127 today).
       // A registered id resolves normally:
       const registered = BlockId(2)
       expect(blockTypeOfId(registered)).toBe('stone')
@@ -263,7 +265,7 @@ describe('id assignment is permanent', () => {
       // ...but a `BlockId` in the unclaimed remainder is real and
       // constructible, and honestly returns `undefined` rather than lying via
       // a non-optional overload keyed only on the branded type.
-      for (const unregistered of [BlockId(126), BlockId(BLOCK_ID_MAX)]) {
+      for (const unregistered of [BlockId(128), BlockId(BLOCK_ID_MAX)]) {
         expect(blockTypeOfId(unregistered)).toBeUndefined()
         expect(resolvedBlockOfId(unregistered)).toBeUndefined()
         expect(isKnownBlockId(unregistered)).toBe(false)

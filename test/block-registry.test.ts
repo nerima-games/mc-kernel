@@ -298,9 +298,10 @@ describe('the named light readings', () => {
         ['ender_chest', number('15')],
         ['nether_portal', number('11')],
         ['fire', number('15')],
+        ['redstone_wall_torch', number('7')],
       ])
 
-      // SIX DISTINCT LEVELS now, which is what retires the last of the
+      // SEVEN DISTINCT LEVELS now, which is what retires the last of the
       // `emissive: boolean` argument for good. A boolean could not tell a
       // Redstone torch (7) from a redstone ore (9) from a torch (14) from lava
       // (15), and could not say anything at all about a portal frame at 1
@@ -354,7 +355,7 @@ describe('the named light readings', () => {
       expect(transmitsLight(glass)).toBe(true)
       expect(capabilityOfBlockId(glass, 'passable')).toBe(false)
 
-      // THIRTY rows transmit light while colliding, so the disagreement is a
+      // THIRTY-ONE rows transmit light while colliding, so the disagreement is a
       // Property of the table rather than of one hand-picked block. It was five
       // On the 36-row roster; the full roster makes it a quarter of the table.
       //
@@ -399,6 +400,7 @@ describe('the named light readings', () => {
         'nether_portal',
         'fire',
         'wither_skeleton_skull',
+        'redstone_wall_torch',
       ])
 
       // The three crops are in this list, and that is the fact most likely to be

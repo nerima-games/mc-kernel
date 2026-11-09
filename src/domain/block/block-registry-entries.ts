@@ -18,6 +18,7 @@ import {
 import { BLOCK_REGISTRY_COLLISION_SHAPES } from './block-registry-entries-collision-shapes.js'
 import { BLOCK_REGISTRY_COPPER } from './block-registry-entries-copper.js'
 import { BLOCK_REGISTRY_BOOKSHELF } from './block-registry-entries-bookshelf.js'
+import { BLOCK_REGISTRY_REDSTONE_VARIANTS } from './block-registry-entries-redstone-variants.js'
 import { BLOCK_REGISTRY_CROPS_AND_REDSTONE } from './block-registry-entries-crops-and-redstone.js'
 import { BLOCK_REGISTRY_END } from './block-registry-entries-end.js'
 import { BLOCK_REGISTRY_FOUNDATION } from './block-registry-entries-foundation.js'
@@ -37,6 +38,7 @@ const BLOCK_REGISTRY_INPUT: ReadonlyArray<BlockRegistryEntryInput> = [
   ...BLOCK_REGISTRY_STRUCTURES_AND_NETHER,
   ...BLOCK_REGISTRY_COPPER,
   ...BLOCK_REGISTRY_BOOKSHELF,
+  ...BLOCK_REGISTRY_REDSTONE_VARIANTS,
 ]
 
 export const normalizeBlockRegistryEntry = (
