@@ -203,9 +203,25 @@ export const BlockEditSchema = Schema.Struct({
   state: Schema.optionalKey(BlockStateValuesSchema),
 });
 
-export class WorldWriteInvalidBatch extends Schema.TaggedError<WorldWriteInvalidBatch>()("WorldWriteInvalidBatch", {
-  reason: Schema.Literals(["empty", "duplicate-position", "invalid-block-state"]),
+class WorldWriteInvalidBatchEmpty extends Schema.TaggedError<WorldWriteInvalidBatchEmpty>()("WorldWriteInvalidBatch", {
+  reason: Schema.Literal("empty"),
 }) {}
+
+class WorldWriteInvalidBatchDuplicatePosition extends Schema.TaggedError<WorldWriteInvalidBatchDuplicatePosition>()("WorldWriteInvalidBatch", {
+  reason: Schema.Literal("duplicate-position"),
+}) {}
+
+class WorldWriteInvalidBatchInvalidState extends Schema.TaggedError<WorldWriteInvalidBatchInvalidState>()("WorldWriteInvalidBatch", {
+  reason: Schema.Literal("invalid-block-state"),
+  position: BlockPositionSchema,
+}) {}
+
+export const WorldWriteInvalidBatch = Schema.Union([
+  WorldWriteInvalidBatchEmpty,
+  WorldWriteInvalidBatchDuplicatePosition,
+  WorldWriteInvalidBatchInvalidState,
+]);
+export type WorldWriteInvalidBatch = Schema.Schema.Type<typeof WorldWriteInvalidBatch>;
 ```
 
 Omitting `state` means the selected block’s default state. After decoding the batch and validating the existing empty-batch and duplicate-position rules, validate every present `state` against its edit’s `block` with `encodeBlockState(edit.block, edit.state)`. Do this for the whole batch before checking revisions or writing. If validation fails, return `WorldWriteInvalidBatch` with reason `invalid-block-state`; this means the schema-decoded state has an unsupported property or a value outside the selected block’s legal domain. A malformed value rejected while decoding `BlockStateValuesSchema` remains a schema-decode failure. Only after the complete batch passes these checks should the adapter check world revision and then dimension revision, and the coordinator recheck both in the same transaction as the writes. Batch atomicity and revision rules remain unchanged. Replicated and saved representations may carry the encoded value under their own versioned schemas.

@@ -8,6 +8,7 @@ export {
   WorldWriteConflict,
   WorldWriteInvalidBatch,
   WorldWritePort,
+  validateWorldWriteBatch,
 } from "./_world-write-port.js";
 export type {
   BlockEdit as WorldWriteBlockEdit,

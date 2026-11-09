@@ -2154,7 +2154,7 @@ ID/name schema は空でない文字列、`SaveVersionSchema` は正の整数、
 
 ## 7-ter. WorldWritePort（world-write-port）
 
-`domain/world-write-port` subpath は kernel の書込 port とデータ型を公開する。`BlockEditSchema` は `{ position, block }` を検証し、同じ shape を `BlockEdit` 型で表す。`WorldWriteBatchSchema` は world/dimension の期待 revision と edits、`WorldWriteCommitSchema` は確定後の両 revision を表す。batch schema は空の `edits` も構造上 decode する。`WorldWriteInvalidBatch.reason` は `empty` または `duplicate-position` を示す。
+`domain/world-write-port` subpath は kernel の書込 port とデータ型を公開する。`BlockEditSchema` は `{ position, block, state? }` を decode する。`state` の構造は `BlockStateValuesSchema` が検証する。`state` を省略した edit の decode 結果は従来の shape を保ち、選択した block の既定状態を使う。ブロック固有の state 適合性は batch decode 後に `validateWorldWriteBatch` が検証する。この関数は edits が空か、position が重複するか、state と block が適合するかをこの順で確認する。`WorldWriteInvalidBatch` は reason ごとに型が分かれる。`empty` と `duplicate-position` は位置を持たず、`invalid-block-state` は必須の `position` を持つ。不適合な state は `WorldWriteInvalidBatch` の `invalid-block-state` reason で返し、失敗した edit の位置を `position` に含める。`WorldWriteBatchSchema` は world/dimension の期待 revision と edits を decode し、空の `edits` も構造上受け付ける。`WorldWriteCommitSchema` は確定後の両 revision を表す。
 
 `WorldWriteChunkUnavailable` は書き込み先の chunk を利用できない場合を表し、`{ dimension, chunk }` を保持する。`dimension` は `DimensionIdSchema` で検証するブランド値であり、`chunk` には正規形の `ChunkKey`（`cx,cz`）を使う。`WorldWriteChunkUnavailableSchema` は両方の値を検証し、必須項目の欠落と余分なフィールドを拒否する。
 
