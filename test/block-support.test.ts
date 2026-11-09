@@ -51,7 +51,7 @@ const satisfiesSupportRule = (...args: Parameters<typeof satisfiesSupportRuleRes
   resultValue(satisfiesSupportRuleResult(...args))
 
 const UNNAMED_BLOCK_TYPE = BLOCK_TYPES.at(BLOCK_TYPES.length)
-const NON_SENSITIVE_BLOCK_COUNT = 106
+const NON_SENSITIVE_BLOCK_COUNT = 107
 const NO_NAMED_SUPPORTS = 0
 const UNKNOWN_BLOCK_ID = BlockId(200)
 const UNKNOWN_BLOCK_IDS = [UNKNOWN_BLOCK_ID, BlockId(255)]
@@ -330,11 +330,12 @@ describe('the reference implementation’s block-support suite, ported as an ora
 // ---------------------------------------------------------------------------
 
 /**
- * The nineteen rows of `SUPPORT_SENSITIVE_BLOCK_TYPES` (`block-support.ts:22-32`),
- * intersected with the current 126-row roster. The reference implementation
- * contributes 120 rows; the kernel adds three explicit rows and two copper ores.
+ * The twenty-one rows of `SUPPORT_SENSITIVE_BLOCK_TYPES` (`block-support.ts:22-32`),
+ * intersected with the current 128-row roster. The reference implementation
+ * contributes 120 rows; the kernel adds three explicit rows and five vanilla
+ * rows (bookshelf, two copper ores, and the redstone variants).
  *
- * Pinned as a LIST rather than a count. A count agrees with any nineteen blocks;
+ * Pinned as a LIST rather than a count. A count agrees with any twenty-one blocks;
  * this is the membership, in registry order, and a row that gains or loses a
  * rule shows up here as the name it is.
  */
@@ -360,9 +361,10 @@ const SUPPORT_SENSITIVE: ReadonlyArray<BlockType> = [
   'redstone_wire',
   'redstone_torch',
   'wither_skeleton_skull',
+  'redstone_wall_torch',
 ]
 
-/** The six with no per-block rule, named — the ones that FALL THROUGH. */
+/** The eight with no named support rule, which use the attachment fallback. */
 const FALLS_THROUGH_TO_THE_NEGATIVE_LIST: ReadonlyArray<BlockType> = [
   'torch',
   'rail',
@@ -371,10 +373,11 @@ const FALLS_THROUGH_TO_THE_NEGATIVE_LIST: ReadonlyArray<BlockType> = [
   'redstone_wire',
   'redstone_torch',
   'wither_skeleton_skull',
+  'redstone_wall_torch',
 ]
 
 describe('the supportRule column across the whole registry', () => {
-  it('exactly twenty blocks are support-sensitive, and these are they', () =>
+  it('exactly twenty-one blocks are support-sensitive, and these are they', () =>
     Effect.runPromise(Effect.sync(() => {
       const sensitive = BLOCK_REGISTRY.filter((entry) => isSupportSensitiveBlockId(entry.id)).map(
         (entry) => entry.definition.type,
@@ -383,7 +386,7 @@ describe('the supportRule column across the whole registry', () => {
     })),
   )
 
-  it('the other 106 require nothing below, so an ordinary cube is unaffected', () =>
+  it('the other 107 require nothing below, so an ordinary cube is unaffected', () =>
     Effect.runPromise(Effect.sync(() => {
       const indifferent = BLOCK_TYPES.filter((type) => !isSupportSensitiveBlockId(blockIdOf(type)))
       expect(indifferent.length).toBe(BLOCK_TYPES.length - SUPPORT_SENSITIVE.length)
@@ -398,13 +401,13 @@ describe('the supportRule column across the whole registry', () => {
   )
 
   /*
-   * THE SIX THE REFERENCE HAS NO RULE FOR. Their arm is an ABSENCE in the
+   * THE EIGHT THE REFERENCE HAS NO NAMED RULE FOR. Their arm is an ABSENCE in the
    * source — no entry between `block-support.ts:75` and :89 — so this is the
    * test that kernel did not invent a list for them. Inventing one would have
-   * been the easy mistake: five of the six are things that plausibly want
+   * been the easy mistake: seven of the eight are things that plausibly want
    * "dirt or stone", and the reference says only "anything that supports".
    */
-  it('the six with no reference rule take the fallback arm and nothing more', () =>
+  it('the eight with no named support rule use the attachment fallback', () =>
     Effect.runPromise(Effect.sync(() => {
       const fallback = SUPPORT_SENSITIVE.filter(
         (type) => supportRuleOfBlockId(blockIdOf(type)).kind === 'anySupporting',

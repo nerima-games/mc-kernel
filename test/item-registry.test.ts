@@ -151,6 +151,7 @@ const VANILLA_PARITY_ITEM_IDS = {
   raw_copper: 306,
   copper_ingot: 307,
   bookshelf: 308,
+  sticky_piston: 309,
 } as const satisfies Readonly<Partial<Record<ItemType, number>>>
 
 const EXPECTED_ITEM_TYPES: ReadonlyArray<ItemType> = [
@@ -463,6 +464,7 @@ const EXPECTED_ITEM_TYPES: ReadonlyArray<ItemType> = [
   'raw_copper',
   'copper_ingot',
   'bookshelf',
+  'sticky_piston',
 ]
 
 /**
@@ -619,6 +621,14 @@ describe('item registry', () => {
     })),
   )
 
+  it('appends sticky piston after the existing permanent item ids', () =>
+    Effect.runPromise(Effect.sync(() => {
+      expect(itemIdOf('bookshelf')).toBe(308)
+      expect(itemIdOf('sticky_piston')).toBe(309)
+      expect(itemTypeOfId(ItemId(309))).toBe('sticky_piston')
+    })),
+  )
+
   it('appends each brewing item after every pre-existing item', () =>
     Effect.runPromise(Effect.sync(() => {
       expectAppendedItemIds(BREWING_ITEM_IDS)
@@ -750,7 +760,7 @@ describe('item registry', () => {
         })
       }
       for (const [input, id] of [
-        [new Uint8Array([1, 53]), 309],
+        [new Uint8Array([1, 54]), 310],
         [new Uint8Array([0xff, 0xff]), 0xffff],
       ] as const) {
         const expected = {
@@ -869,7 +879,8 @@ describe('item registry', () => {
       expect(isKnownItemId(302)).toBe(true)
       expect(isKnownItemId(303)).toBe(true)
       expect(isKnownItemId(307)).toBe(true)
-      expect(isKnownItemId(309)).toBe(false)
+      expect(isKnownItemId(309)).toBe(true)
+      expect(isKnownItemId(310)).toBe(false)
       expect(isKnownItemId(-1)).toBe(false)
       expect(isKnownItemId(1.5)).toBe(false)
     })),

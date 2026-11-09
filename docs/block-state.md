@@ -2,13 +2,13 @@
 
 ## Scope
 
-`mc-kernel` implements the per-cell state codec for all 126 current block types without changing existing `BlockId` values. Consumers can pair each ID cell with one `EncodedBlockState` value in a parallel buffer at the same cell index. The encoded value contains state only, not a block ID; this target storage pairing leaves the current chunk `BlockState` ID buffer unchanged. The vanilla reference is Java Edition 26.3: the checked-in crosswalk source is `test/golden/vanilla-block.json`, generated from the Java block-state roster and pinned by `test/vanilla-26-3.test.ts`. The [Minecraft Wiki Block states table](https://minecraft.wiki/w/Block_state) is the readable cross-check. Kernel-only names are mapped to a representative vanilla block in the table below.
+`mc-kernel` implements the per-cell state codec for all 128 current block types without changing existing `BlockId` values. Consumers can pair each ID cell with one `EncodedBlockState` value in a parallel buffer at the same cell index. The encoded value contains state only, not a block ID; this target storage pairing leaves the current chunk `BlockState` ID buffer unchanged. The vanilla reference is Java Edition 26.3: the checked-in crosswalk source is `test/golden/vanilla-block.json`, generated from the Java block-state roster and pinned by `test/vanilla-26-3.test.ts`. The [Minecraft Wiki Block states table](https://minecraft.wiki/w/Block_state) is the readable cross-check. Kernel-only names are mapped to a representative vanilla block in the table below.
 
-The vocabulary includes a property when it changes gameplay, rendering, redstone behavior, or world generation for one of the 126 kernel block types. It contains 40 vanilla property names after the ID-backed exclusions below. The six directional boolean/connection properties (`down`, `east`, `north`, `south`, `up`, `west`) share the API field `connections`; redstone wire uses `none`, `side`, or `up` for its four horizontal directions, while fire and chorus plant use booleans. The `power` property is a numeric signal level from 0 through 15 and remains distinct from boolean `powered`.
+The vocabulary includes a property when it changes gameplay, rendering, redstone behavior, or world generation for one of the 128 kernel block types. It contains 40 vanilla property names after the ID-backed exclusions below. The six directional boolean/connection properties (`down`, `east`, `north`, `south`, `up`, `west`) share the API field `connections`; redstone wire uses `none`, `side`, or `up` for its four horizontal directions, while fire and chorus plant use booleans. The `power` property is a numeric signal level from 0 through 15 and remains distinct from boolean `powered`.
 
-All properties in the vanilla-state column are represented by codec state or by the exact ID-backed cases listed in “Excluded properties”. After those exclusions, 59 kernel types have encoded state and 67 accept only the empty state. `—` means the vanilla block has no block-state properties. The kernel `end_crystal` type is an extension for a vanilla entity and has no vanilla block-state row. Other vanilla blocks are outside this crosswalk because the kernel has no corresponding block type.
+All properties in the vanilla-state column are represented by codec state or by the exact ID-backed cases listed in “Excluded properties”. After those exclusions, 61 kernel types have encoded state and 67 accept only the empty state. `—` means the vanilla block has no block-state properties. The kernel `end_crystal` type is an extension for a vanilla entity and has no vanilla block-state row. Other vanilla blocks are outside this crosswalk because the kernel has no corresponding block type.
 
-## Complete 126-type crosswalk
+## Complete 128-type crosswalk
 
 Each state is shown as `property=allowed-values (default value)`. ID-fixed properties instead show `property=fixed-value (ID-fixed; vanilla default value)`. Numeric ranges are inclusive. For aliased types, the vanilla name is the representative whose shared block-state schema is used.
 
@@ -140,6 +140,8 @@ Each state is shown as `property=allowed-values (default value)`. ID-fixed prope
 | `copper_ore` | `copper_ore` | — |
 | `deepslate_copper_ore` | `deepslate_copper_ore` | — |
 | `bookshelf` | `bookshelf` | — |
+| `sticky_piston` | `sticky_piston` | extended=true/false (default false); facing=north/east/south/west/up/down (default north) |
+| `redstone_wall_torch` | `redstone_wall_torch` | facing=north/south/west/east (default north); lit=true/false (default true) |
 
 ## Included property vocabulary
 
@@ -157,6 +159,8 @@ Directional connections use the `connections` object. Its supported directions a
 | `end_portal_frame.eye` | `end_portal_frame`, `end_portal_frame_filled` | Empty (`eye=false`) and eye-filled (`eye=true`) variants have distinct IDs, `BlockId(87)` and `BlockId(88)`, at `src/domain/block/block-registry-entries-end.ts:49-60`. `facing` remains stateful for both. |
 | `redstone_lamp.lit` | `redstone_lamp`, `redstone_lamp_lit` | Off (`lit=false`) and lit (`lit=true`) variants have distinct IDs, `BlockId(79)` and `BlockId(80)`, at `src/domain/block/block-registry-entries-crops-and-redstone.ts:184-188`. |
 | `heavy_weighted_pressure_plate.power`, `light_weighted_pressure_plate.power` | none | Neither weighted plate has a kernel block type. For the single generic kernel `pressure_plate`, this design selects vanilla `stone_pressure_plate` (`src/domain/block/block-registry-entries-collision-shapes.ts:51-53`) as the representative; weighted-plate types must be added before their `power` state can be represented. |
+| Properties of button variants other than `stone_button` | none | The kernel registers only its `stone_button` representative; the other vanilla button blocks have no corresponding kernel block type. |
+| `target.power` | none | `target` has no kernel block type, so its 0..15 state is outside this registry. |
 | Block-state properties for `end_crystal` | `end_crystal` | Java Edition End Crystal is an entity, not a block. The kernel entry is an extension at `src/domain/block/block-registry-entries-end.ts:105-109`, so no vanilla Block states property is applicable. |
 
 Java fluid-state entries are separate from the Block states table. This codec covers the block `level` properties shown for water and lava.

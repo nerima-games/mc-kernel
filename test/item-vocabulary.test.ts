@@ -103,6 +103,7 @@ const APPENDED_VANILLA_ITEM_TYPES = [
   'deepslate_copper_ore',
   'raw_copper',
   'copper_ingot',
+  'sticky_piston',
 ] as const satisfies ReadonlyArray<ItemType>
 
 const UNITEMISED_EXAMPLE_BLOCK_TYPES = ['air', 'water', 'bedrock'] as const satisfies ReadonlyArray<BlockType>
@@ -394,7 +395,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
       ])
 
       // The block half of the same ledger: 23 entries over 36 blocks before, 35
-      // entries now. The block registry has 126 rows; the drop ledger is a
+      // entries now. The block registry has 128 rows; the drop ledger is a
       // separate, smaller set. It grew far more slowly than the roster did, and its
       // Composition changed completely — seven of the old entries turned out to
       // Be untranscribed drops rather than gaps (a block whose row says "yields
@@ -439,6 +440,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         'water_cauldron',
         'nether_portal',
         'fire',
+        'redstone_wall_torch',
       ])
     })),
   )
@@ -458,6 +460,7 @@ describe('ItemType and BlockType are distinct types that do not interconvert', (
         expect(blockOfPlaceableItem(item)).toBe('redstone_wire')
       }
       expect(itemOfBlock('redstone_wire')).toBe('redstone_dust')
+      expect(itemOfBlock('redstone_wall_torch')).toBeUndefined()
 
       // No item form. Not a failure — a real answer.
       for (const block of UNITEMISED_EXAMPLE_BLOCK_TYPES) {

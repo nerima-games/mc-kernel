@@ -345,4 +345,12 @@ export const BLOCK_STATE_DEFINITION_DATA: readonly BlockStateDefinitionData[] = 
     booleanProperty('powered', false),
     integerProperty('rotation', 0, 15, 0),
   ] },
+  { blockType: 'sticky_piston', slots: [
+    facing(["north", "east", "south", "west", "up", "down"]),
+    booleanProperty('extended', false),
+  ] },
+  { blockType: 'redstone_wall_torch', slots: [
+    facing(["north", "south", "west", "east"]),
+    booleanProperty('lit', true),
+  ] },
 ]

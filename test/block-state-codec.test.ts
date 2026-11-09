@@ -54,6 +54,31 @@ const vanillaBlockStates = readVanillaBlockStates(
   JSON.parse(readFileSync(join(process.cwd(), 'test/golden/vanilla-block.json'), 'utf8')),
 )
 
+type WikiStateExpectation = Readonly<{
+  properties: Readonly<Record<string, ReadonlyArray<string | boolean>>>
+  defaults: Readonly<Record<string, string | boolean>>
+}>
+
+// Transcribed independently from the Java Edition Minecraft Wiki Block states tables:
+// https://minecraft.wiki/w/Sticky_Piston#Block_states
+// https://minecraft.wiki/w/Redstone_Wall_Torch#Block_states
+const WIKI_REDSTONE_VARIANT_STATES: ReadonlyArray<readonly [kernel.BlockType, WikiStateExpectation]> = [
+  ['sticky_piston', {
+    properties: {
+      extended: [false, true],
+      facing: ['down', 'east', 'north', 'south', 'up', 'west'],
+    },
+    defaults: { extended: false, facing: 'north' },
+  }],
+  ['redstone_wall_torch', {
+    properties: {
+      facing: ['east', 'north', 'south', 'west'],
+      lit: [true, false],
+    },
+    defaults: { facing: 'north', lit: true },
+  }],
+]
+
 const VANILLA_ID_ALIASES = new Map<string, string>([
   ['bed', 'white_bed'],
   ['door', 'oak_door'],
@@ -136,10 +161,10 @@ const expectCodecFailure = <Value>(
 }
 
 describe('block-state codec', () => {
-  it('defines state for all 59 stateful block types and defaults every id to zero', () => {
-    expect(BLOCK_IDS).toHaveLength(126)
-    expect(kernel.BLOCK_STATE_TYPES).toHaveLength(59)
-    expect(new Set(kernel.BLOCK_STATE_TYPES).size).toBe(59)
+  it('defines state for all 61 stateful block types and defaults every id to zero', () => {
+    expect(BLOCK_IDS).toHaveLength(128)
+    expect(kernel.BLOCK_STATE_TYPES).toHaveLength(61)
+    expect(new Set(kernel.BLOCK_STATE_TYPES).size).toBe(61)
     expect(kernel.BLOCK_STATE_MAX_USED_BITS).toBe(12)
 
     for (const entry of BLOCK_REGISTRY) {
@@ -163,8 +188,8 @@ describe('block-state codec', () => {
     }
   })
 
-  it('matches all 126 kernel block types against vanilla properties, values, and defaults', () => {
-    expect(BLOCK_REGISTRY).toHaveLength(126)
+  it('matches all 128 kernel block types against vanilla properties, values, and defaults', () => {
+    expect(BLOCK_REGISTRY).toHaveLength(128)
 
     for (const entry of BLOCK_REGISTRY) {
       const blockType = entry.definition.type
@@ -201,6 +226,50 @@ describe('block-state codec', () => {
           vanillaState.defaults[property],
         )
       }
+    }
+  })
+
+  it('matches the Wiki Block states values and defaults for the added redstone variants', () => {
+    for (const [blockType, expected] of WIKI_REDSTONE_VARIANT_STATES) {
+      const definition = resultValue(kernel.blockStateDefinitionOf(blockId(blockType)))
+      const actualProperties = new Map<string, ReadonlyArray<unknown>>(definition.slots.map((slot) => [
+        slot.property === 'connections' ? slot.direction : slot.property,
+        slot.values,
+      ]))
+
+      expect([...actualProperties.keys()].sort()).toEqual(Object.keys(expected.properties).sort())
+      for (const [property, values] of Object.entries(expected.properties)) {
+        const actualValues = actualProperties.get(property)
+        expect(actualValues?.map(String).sort(), `${blockType}.${property} values`).toEqual(
+          values.map(String).sort(),
+        )
+        expect(String(actualValues?.[0]), `${blockType}.${property} default`).toBe(
+          String(expected.defaults[property]),
+        )
+      }
+    }
+  })
+
+  it('property: round-trips Wiki-allowed states for the added redstone variants', () => {
+    for (const [blockType, expected] of WIKI_REDSTONE_VARIANT_STATES) {
+      const id = blockId(blockType)
+      const properties = Object.entries(expected.properties)
+      const stateArbitrary = fc.tuple(
+        ...properties.map(([, values]) => fc.constantFrom(...values)),
+      ).map((values) => Object.fromEntries(properties.map(([property], index) => [property, values[index]])))
+
+      fc.assert(fc.property(stateArbitrary, (state) => {
+        const encoded = kernel.encodeBlockState(id, state)
+        expect(Result.isSuccess(encoded)).toBe(true)
+        if (Result.isFailure(encoded)) return false
+
+        const decoded = kernel.decodeBlockState(id, encoded.success)
+        expect(Result.isSuccess(decoded)).toBe(true)
+        if (Result.isFailure(decoded)) return false
+
+        expect(decoded.success).toStrictEqual(state)
+        return true
+      }), { numRuns: 100 })
     }
   })
 
@@ -383,7 +452,7 @@ describe('block-state codec', () => {
   })
 
   it('rejects unknown ids, reserved field codes, unused high bits, and malformed integers', () => {
-    const unknownBlockId = resultValue(BlockId.result(126))
+    const unknownBlockId = resultValue(BlockId.result(128))
     expectCodecFailure(kernel.encodeBlockState(unknownBlockId, {}), 'unknown-block-id')
 
     for (const invalidBlockId of [null, -1, 0.5, 0xffff + 1, Number.NaN, Number.POSITIVE_INFINITY]) {

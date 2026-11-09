@@ -102,8 +102,8 @@ describe('Minecraft Java Edition 26.3 V-1 golden', () => {
       const id = recipe.id.replace('minecraft:', '').replaceAll('-', '_')
       return recipeExtensions.has(id) || golden.recipe[id] !== undefined
     })).toBe(true)
-    expect(BLOCK_TYPES).toHaveLength(126)
-    expect(ITEM_TYPES).toHaveLength(309)
+    expect(BLOCK_TYPES).toHaveLength(128)
+    expect(ITEM_TYPES).toHaveLength(310)
     expect(VANILLA_CRAFTING_RECIPES).toHaveLength(118)
   })
 
