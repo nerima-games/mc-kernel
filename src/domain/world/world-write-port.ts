@@ -81,27 +81,80 @@ const WorldWriteConflictBase: Schema.Class<
 
 export class WorldWriteConflict extends WorldWriteConflictBase {}
 
-const worldWriteInvalidBatchFields: {
-  readonly reason: Schema.Codec<'empty' | 'duplicate-position' | 'invalid-block-state'>
-  readonly position: Schema.optionalKey<typeof BlockPositionSchema>
+const worldWriteInvalidBatchEmptyFields: {
+  readonly reason: Schema.Codec<'empty'>
 } = {
-  reason: Schema.Literals(['empty', 'duplicate-position', 'invalid-block-state']),
-  position: Schema.optionalKey(BlockPositionSchema),
+  reason: Schema.Literal('empty'),
 }
 
-const WorldWriteInvalidBatchBase: Schema.Class<
-  WorldWriteInvalidBatch,
-  Schema.TaggedStruct<'WorldWriteInvalidBatch', typeof worldWriteInvalidBatchFields>,
+const WorldWriteInvalidBatchEmptyBase: Schema.Class<
+  WorldWriteInvalidBatchEmpty,
+  Schema.TaggedStruct<'WorldWriteInvalidBatch', typeof worldWriteInvalidBatchEmptyFields>,
   Cause.YieldableError
-> = Schema.TaggedError<WorldWriteInvalidBatch>()('WorldWriteInvalidBatch', worldWriteInvalidBatchFields)
+> = Schema.TaggedError<WorldWriteInvalidBatchEmpty>()(
+  'WorldWriteInvalidBatch',
+  worldWriteInvalidBatchEmptyFields,
+)
 
-export class WorldWriteInvalidBatch extends WorldWriteInvalidBatchBase {}
+class WorldWriteInvalidBatchEmpty extends WorldWriteInvalidBatchEmptyBase {}
+
+const worldWriteInvalidBatchDuplicatePositionFields: {
+  readonly reason: Schema.Codec<'duplicate-position'>
+} = {
+  reason: Schema.Literal('duplicate-position'),
+}
+
+const WorldWriteInvalidBatchDuplicatePositionBase: Schema.Class<
+  WorldWriteInvalidBatchDuplicatePosition,
+  Schema.TaggedStruct<'WorldWriteInvalidBatch', typeof worldWriteInvalidBatchDuplicatePositionFields>,
+  Cause.YieldableError
+> = Schema.TaggedError<WorldWriteInvalidBatchDuplicatePosition>()(
+  'WorldWriteInvalidBatch',
+  worldWriteInvalidBatchDuplicatePositionFields,
+)
+
+class WorldWriteInvalidBatchDuplicatePosition extends WorldWriteInvalidBatchDuplicatePositionBase {}
+
+const worldWriteInvalidBatchInvalidStateFields: {
+  readonly reason: Schema.Codec<'invalid-block-state'>
+  readonly position: typeof BlockPositionSchema
+} = {
+  reason: Schema.Literal('invalid-block-state'),
+  position: BlockPositionSchema,
+}
+
+const WorldWriteInvalidBatchInvalidStateBase: Schema.Class<
+  WorldWriteInvalidBatchInvalidState,
+  Schema.TaggedStruct<'WorldWriteInvalidBatch', typeof worldWriteInvalidBatchInvalidStateFields>,
+  Cause.YieldableError
+> = Schema.TaggedError<WorldWriteInvalidBatchInvalidState>()(
+  'WorldWriteInvalidBatch',
+  worldWriteInvalidBatchInvalidStateFields,
+)
+
+class WorldWriteInvalidBatchInvalidState extends WorldWriteInvalidBatchInvalidStateBase {}
+
+export type WorldWriteInvalidBatch =
+  | WorldWriteInvalidBatchEmpty
+  | WorldWriteInvalidBatchDuplicatePosition
+  | WorldWriteInvalidBatchInvalidState
+
+export const WorldWriteInvalidBatch: Schema.Codec<
+  WorldWriteInvalidBatch,
+  | Schema.Codec.Encoded<typeof WorldWriteInvalidBatchEmpty>
+  | Schema.Codec.Encoded<typeof WorldWriteInvalidBatchDuplicatePosition>
+  | Schema.Codec.Encoded<typeof WorldWriteInvalidBatchInvalidState>
+> = safeUnknownSchema(Schema.Union([
+  WorldWriteInvalidBatchEmpty,
+  WorldWriteInvalidBatchDuplicatePosition,
+  WorldWriteInvalidBatchInvalidState,
+]))
 
 export const validateWorldWriteBatch = (
   batch: WorldWriteBatch,
 ): Result.Result<WorldWriteBatch, WorldWriteInvalidBatch> => {
   if (batch.edits.length === 0) {
-    return Result.fail(new WorldWriteInvalidBatch({ reason: 'empty' }))
+    return Result.fail(new WorldWriteInvalidBatchEmpty({ reason: 'empty' }))
   }
 
   const seen = new Map<number, Map<number, Set<number>>>()
@@ -117,7 +170,7 @@ export const validateWorldWriteBatch = (
       seenY.set(edit.position.y, seenZ)
     }
     if (seenZ.has(edit.position.z)) {
-      return Result.fail(new WorldWriteInvalidBatch({ reason: 'duplicate-position' }))
+      return Result.fail(new WorldWriteInvalidBatchDuplicatePosition({ reason: 'duplicate-position' }))
     }
     seenZ.add(edit.position.z)
   }
@@ -130,7 +183,7 @@ export const validateWorldWriteBatch = (
         definition.success.slots.length === 0 ||
         Result.isFailure(encodeBlockState(edit.block, edit.state))
       ) {
-        return Result.fail(new WorldWriteInvalidBatch({
+        return Result.fail(new WorldWriteInvalidBatchInvalidState({
           reason: 'invalid-block-state',
           position: edit.position,
         }))

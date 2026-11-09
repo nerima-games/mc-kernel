@@ -214,7 +214,10 @@ describe('world write port schemas', () => {
   it('checks empty, duplicate, and state failures in contract order', () => {
     const empty = validateWorldWriteBatch(makeBatch([]))
     expect(Result.isFailure(empty)).toBe(true)
-    if (Result.isFailure(empty)) expect(empty.failure.reason).toBe('empty')
+    if (Result.isFailure(empty)) {
+      expect(empty.failure.reason).toBe('empty')
+      expect('position' in empty.failure).toBe(false)
+    }
 
     const duplicateBeforeState = validateWorldWriteBatch(makeBatch([
       { position: EDIT_POSITION, block: STATELESS_BLOCK.id, state: {} },
@@ -223,6 +226,7 @@ describe('world write port schemas', () => {
     expect(Result.isFailure(duplicateBeforeState)).toBe(true)
     if (Result.isFailure(duplicateBeforeState)) {
       expect(duplicateBeforeState.failure.reason).toBe('duplicate-position')
+      expect('position' in duplicateBeforeState.failure).toBe(false)
     }
 
     const invalidState = validateWorldWriteBatch(makeBatch([
@@ -234,6 +238,55 @@ describe('world write port schemas', () => {
         reason: 'invalid-block-state',
         position: EDIT_POSITION,
       })
+    }
+  })
+
+  it('reports the later invalid edit position after a valid edit', () => {
+    const validEdit = {
+      position: { x: 1, y: 2, z: 3 },
+      block: CROP_BLOCK.id,
+      state: { age: 7 },
+    }
+    const invalidEdit = {
+      position: { x: 4, y: 5, z: 6 },
+      block: CROP_BLOCK.id,
+      state: { age: 8 },
+    }
+    expect(invalidEdit.position).not.toStrictEqual(validEdit.position)
+
+    const validation = validateWorldWriteBatch(makeBatch([validEdit, invalidEdit]))
+
+    expect(Result.isFailure(validation)).toBe(true)
+    if (Result.isFailure(validation)) {
+      expect(validation.failure.reason).toBe('invalid-block-state')
+      if (validation.failure.reason === 'invalid-block-state') {
+        expect(validation.failure.position).toStrictEqual(invalidEdit.position)
+      }
+    }
+  })
+
+  it('reports the first invalid edit position when several states are incompatible', () => {
+    const firstInvalidEdit = {
+      position: { x: 1, y: 2, z: 3 },
+      block: STATELESS_BLOCK.id,
+      state: {},
+    }
+    const secondInvalidEdit = {
+      position: { x: 4, y: 5, z: 6 },
+      block: CROP_BLOCK.id,
+      state: { age: 8 },
+    }
+    const invalidEdits = [firstInvalidEdit, secondInvalidEdit]
+    const expectedPosition = firstInvalidEdit.position
+
+    const validation = validateWorldWriteBatch(makeBatch(invalidEdits))
+
+    expect(Result.isFailure(validation)).toBe(true)
+    if (Result.isFailure(validation)) {
+      expect(validation.failure.reason).toBe('invalid-block-state')
+      if (validation.failure.reason === 'invalid-block-state') {
+        expect(validation.failure.position).toStrictEqual(expectedPosition)
+      }
     }
   })
 
@@ -271,9 +324,11 @@ describe('world write port schemas', () => {
 
           expect(Result.isSuccess(validation)).toBe(expected)
           if (Result.isFailure(validation)) {
-            expect(validation.failure).toBeInstanceOf(WorldWriteInvalidBatch)
+            expect(validation.failure).toBeInstanceOf(Error)
             expect(validation.failure.reason).toBe('invalid-block-state')
-            expect(validation.failure.position).toStrictEqual(batch.edits[0]?.position)
+            if (validation.failure.reason === 'invalid-block-state') {
+              expect(validation.failure.position).toStrictEqual(batch.edits[0]?.position)
+            }
           }
           return true
         },
@@ -314,7 +369,9 @@ describe('world write port schemas', () => {
       expect(Result.isSuccess(emptyState), `${block.name} empty state`).toBe(referenceProperties.length > 0)
       if (Result.isFailure(emptyState)) {
         expect(emptyState.failure.reason).toBe('invalid-block-state')
-        expect(emptyState.failure.position).toStrictEqual(EDIT_POSITION)
+        if (emptyState.failure.reason === 'invalid-block-state') {
+          expect(emptyState.failure.position).toStrictEqual(EDIT_POSITION)
+        }
       }
     }
   })
@@ -370,11 +427,18 @@ describe('world write port schemas', () => {
         ...(reason === 'invalid-block-state' ? { position: EDIT_POSITION } : {}),
       })
 
-      expect(error).toBeInstanceOf(WorldWriteInvalidBatch)
+      expect(error).toBeInstanceOf(Error)
       expect(error).toMatchObject({ _tag: 'WorldWriteInvalidBatch', reason })
-      if (reason === 'invalid-block-state') expect(error.position).toStrictEqual(EDIT_POSITION)
+      if (error.reason === 'invalid-block-state') expect(error.position).toStrictEqual(EDIT_POSITION)
     },
   )
+
+  it('rejects an invalid-block-state failure without a position', () => {
+    expect(Result.isFailure(Schema.decodeUnknownResult(WorldWriteInvalidBatch)({
+      _tag: 'WorldWriteInvalidBatch',
+      reason: 'invalid-block-state',
+    }))).toBe(true)
+  })
 
   it('decodes a chunk-unavailable failure with a branded dimension and canonical chunk key', () => {
     const error = Schema.decodeUnknownSync(WorldWriteChunkUnavailableSchema)({
