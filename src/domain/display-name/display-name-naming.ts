@@ -330,7 +330,7 @@ const JAPANESE_NAME_TRANSLATIONS: Readonly<Record<DisplayNameId, JapaneseNameTra
   spider_eye: { name: "クモの目", method: 'common' },
   spyglass: { name: "望遠鏡", method: 'common' },
   stick: { name: "棒", method: 'common' },
-  sticky_piston: { name: "粘着ピストン", method: 'compound' },
+  sticky_piston: { name: "粘着ピストン", method: 'common' },
   stone: { name: "石", method: 'common' },
   stone_axe: { name: "石の斧", method: 'common' },
   stone_button: { name: "石のボタン", method: 'common' },

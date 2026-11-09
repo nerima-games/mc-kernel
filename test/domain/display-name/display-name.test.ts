@@ -100,7 +100,7 @@ describe('display names', () => {
   it('uses the pinned English and Japanese names for the redstone variants', () => {
     expect(englishDisplayNameForId('sticky_piston')).toBe('Sticky Piston')
     expect(japaneseDisplayNameForId('sticky_piston')).toBe('粘着ピストン')
-    expect(japaneseNameMethodForId('sticky_piston')).toBe('compound')
+    expect(japaneseNameMethodForId('sticky_piston')).toBe('common')
     expect(englishDisplayNameForId('redstone_wall_torch')).toBe('Redstone Wall Torch')
     expect(japaneseDisplayNameForId('redstone_wall_torch')).toBe('レッドストーンの壁掛けトーチ')
     expect(japaneseNameMethodForId('redstone_wall_torch')).toBe('compound')
