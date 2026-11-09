@@ -1,5 +1,13 @@
 # @nerima-games/mc-kernel
 
+## 0.17.0
+
+### Minor Changes
+
+- World write edits can include state validated for the selected block.
+
+- Register sticky pistons and redstone wall torches with their block states.
+
 ## 0.16.0
 
 ### Minor Changes
