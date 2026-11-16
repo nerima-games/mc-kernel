@@ -1,8 +1,11 @@
 # Minecraft Java Edition 26.3 conformance
 
-mc-kernel pins Minecraft Java Edition 26.3 through the mc-dev-meta conformance
-generator. Raw upstream metadata (`mcmeta`) is not committed; the generated
-golden JSON files under `test/golden/` used by package tests are tracked.
+mc-kernel pins Minecraft Java Edition 26.3 to the same
+[misode/mcmeta](https://github.com/misode/mcmeta) commits as the mc-dev-meta
+conformance generator. The golden JSON files under `test/golden/` that package
+tests read are derived from Mojang data, so they are not committed and not
+published. They are fetched from those commits and checked against SHA-256
+values before tests run.
 
 ## Pinned source revisions
 
@@ -10,12 +13,43 @@ golden JSON files under `test/golden/` used by package tests are tracked.
 | --- | --- |
 | `26.3-data` | `538b2b167248c648b2198f2c0d56eced10dfc0cf` |
 | `26.3-registries` | `2240df2376509bfaf12becbb36e156e29f8ecb4d` |
-| `26.3-assets-json` | `4ea7e5424848e1bed4e8c059986950bdd0acfb22` |
 | `26.3-summary` | `d96c75fec200c4580dd75e033a76341521165461` |
 
-The pinned `mc-dev-meta` conformance workflow generates the checked-in golden files;
-its generator is maintained outside this repository. To regenerate the derived
-identifier and value constants from those goldens, run:
+## Fetching the golden files
+
+Fetch the golden files before running tests locally:
+
+```sh
+nix develop --command pnpm golden:fetch
+```
+
+`scripts/fetch-vanilla-golden.ts` downloads each source from
+`https://raw.githubusercontent.com/misode/mcmeta/<SHA>/<file>`. For biome, it
+first lists the `26.3-data` commit through the GitHub tree API and then
+downloads each biome file the same way. It writes each file in the canonical
+form (object keys sorted, arrays kept in order, two-space indentation, trailing
+newline). A file is written only when its SHA-256 matches
+the table in the script. A file that already exists with a matching hash is not
+fetched again; any other file is fetched again and verified. A failed request,
+a truncated tree listing, or a hash mismatch makes the command exit non-zero
+and names the file with the expected and actual hash. If `GITHUB_TOKEN` is set,
+it is sent only to `api.github.com`.
+
+CI runs the same command before `pnpm verify` in `.github/workflows/ci.yaml` and
+before the release checks in `.github/workflows/release.yaml`. Without the
+golden files, the tests that read them fail; they are never skipped.
+
+The pins, source paths, canonical form, and SHA-256 table in the script mirror
+mc-dev-meta's `scripts/conformance/generate.ts`, which produced the bytes these
+tests were written against. To move to new pins, update mc-dev-meta's generator
+first, then copy its pins and the SHA-256 of each regenerated file into
+`scripts/fetch-vanilla-golden.ts`, run `pnpm golden:fetch`, and update the tests
+and the counts in this document that change with the data.
+
+## Derived constants
+
+To regenerate the derived identifier and value constants from the golden files,
+run:
 
 ```sh
 nix develop --command pnpm generate:vanilla

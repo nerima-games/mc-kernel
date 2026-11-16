@@ -66,6 +66,15 @@ jobs:
         # explicit policy and matches local frozen installs.
         run: nix develop --command pnpm install --frozen-lockfile
 
+      # test/golden/ is vanilla-derived and not committed. The fetch verifies
+      # every file against the SHA-256 table in scripts/fetch-vanilla-golden.ts
+      # and fails the job on any fetch or hash failure; the token only raises
+      # the GitHub tree API rate limit.
+      - name: Fetch vanilla golden
+        run: nix develop --command pnpm golden:fetch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
       # `pnpm test` (inside Verify, below) self-imports this package by its
       # published name ("@nerima-games/mc-kernel" and its domain/* subpaths,
       # test/public-api.test.ts "public API surface" describe block) to prove

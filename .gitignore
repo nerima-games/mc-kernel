@@ -23,6 +23,9 @@ out/
 # TypeScript
 *.tsbuildinfo
 
+# Vanilla-derived conformance golden: fetched by `pnpm golden:fetch`; never commit
+test/golden/
+
 # Test coverage
 coverage/
 *.lcov

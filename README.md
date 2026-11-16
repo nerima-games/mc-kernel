@@ -109,7 +109,12 @@ oxlint が該当ルールを実装したときは、実測したバージョン�
 ```console
 $ direnv allow          # flake.nix の devShell で nodejs_24 + corepack が入る
 $ pnpm install
+$ pnpm golden:fetch     # test/golden/ を取得する。テストの前に必要
 ```
+
+`test/golden/` は Minecraft のデータから導出したファイルなので、リポジトリに含めない。
+`pnpm golden:fetch` が固定した misode/mcmeta のコミットから取得し、SHA-256 を照合する。
+取得していない状態ではテストが失敗する。詳細は [docs/conformance.md](./docs/conformance.md) にある。
 
 Nix を使わない場合は Node.js 24 以上と pnpm 12.14.0（`corepack` 推奨）を用意する。
 
@@ -125,6 +130,7 @@ Nix を使わない場合は Node.js 24 以上と pnpm 12.14.0（`corepack` 推�
 | `pnpm typecheck:dependencies` | `tsconfig.dependency-check.json`（DOM を含む lib）で依存の型宣言を検査。CI では `pnpm verify` と独立した step |
 | `pnpm lint` | oxlint と ast-grep を実行する。`oxlint --deny-warnings src test && ast-grep scan` のため、oxlint の warning も失敗になる。ast-grep は壁時計の直接参照と型アサーションを検出する（下記） |
 | `pnpm lint:fix` | oxlint の自動修正 |
+| `pnpm golden:fetch` | `test/golden/` の vanilla golden を取得し、SHA-256 を照合する。照合済みのファイルは取得し直さない |
 | `pnpm test` | Vitest 5（Effect のテストは native `it` と `Effect.runPromise` を直接利用） |
 | `pnpm test:watch` | vitest watch |
 | `pnpm test:coverage` | カバレッジ計測（全メトリクス100%。[docs/testing.md](./docs/testing.md) §4） |
