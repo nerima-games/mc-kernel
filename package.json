@@ -397,7 +397,7 @@
     "prepublishOnly": "pnpm verify && pnpm package:verify"
   },
   "dependencies": {
-    "effect": "4.0.5"
+    "effect": "4.1.4"
   },
   "devDependencies": {
     "@changesets/changelog-github": "1.0.1",
