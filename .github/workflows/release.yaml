@@ -102,6 +102,13 @@ jobs:
       - name: Install dependencies
         run: nix develop --command pnpm install --frozen-lockfile
 
+      # verify reads test/golden/, which is fetched rather than committed
+      # (see ci.yaml).
+      - name: Fetch vanilla golden
+        run: nix develop --command pnpm golden:fetch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
       # The same package checks the branch protection runs, repeated here
       # because publishing is irreversible: a version number, once taken on the
       # registry, cannot be reused.
